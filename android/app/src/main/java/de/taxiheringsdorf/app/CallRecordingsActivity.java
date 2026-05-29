@@ -462,6 +462,9 @@ public class CallRecordingsActivity extends AppCompatActivity {
             } else {
                 i.putExtra("auto_vorbestellung_phone", r.phone);
             }
+            // 🆕 v6.63.011 (Patrick 29.05. 17:23 "nicht zurück zum Abhören"): Recording-Pfad
+            //   mitgeben damit der Booking-Dialog einen 🔊 Aufnahme-Replay-Button anzeigt.
+            if (r.file != null) i.putExtra("auto_vorbestellung_recording_path", r.file.getAbsolutePath());
             startActivity(i);
         });
         root.addView(btnVorbestellung);

@@ -993,6 +993,9 @@ public class CallLogActivity extends AppCompatActivity {
             i.putExtra("auto_vorbestellung_phone", e.number != null ? e.number : "");
             if (e.name != null) i.putExtra("auto_vorbestellung_name", e.name);
         }
+        // 🆕 v6.63.011 (Patrick 29.05. 17:23): ACR-Audio mit übergeben damit der
+        //   Booking-Dialog einen Replay-Button anbietet (keine doppelte Eingabe).
+        if (e.acrFile != null) i.putExtra("auto_vorbestellung_recording_path", e.acrFile.getAbsolutePath());
         startActivity(i);
     }
 

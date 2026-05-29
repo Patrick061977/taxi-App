@@ -379,6 +379,19 @@ public class CrmSearchActivity extends AppCompatActivity {
     }
 
     @Override
+    protected void onDestroy() {
+        // 🆕 v6.63.011: MediaPlayer aufräumen damit kein Audio nach Activity-Close weiterspielt
+        try {
+            if (_audioPlayer != null) {
+                if (_audioPlayer.isPlaying()) _audioPlayer.stop();
+                _audioPlayer.release();
+                _audioPlayer = null;
+            }
+        } catch (Throwable _ignore) {}
+        super.onDestroy();
+    }
+
+    @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
@@ -566,6 +579,10 @@ public class CrmSearchActivity extends AppCompatActivity {
     // 🆕 v6.62.915: Neukunden-Anrede + Kunden-Typ Spinners (in showVorbestellungMaske gesetzt)
     private android.widget.Spinner _newCustAnredeSpinner = null;
     private android.widget.Spinner _newCustKindSpinner = null;
+    // 🆕 v6.63.011 (Patrick 29.05. 17:23 'nicht zurück zum Abhören'): ACR-Audio aus
+    //   der Anrufliste/CallRecordings für den Replay-Button im Booking-Dialog.
+    private String _pendingRecordingPath = null;
+    private android.media.MediaPlayer _audioPlayer = null;
 
     private void _maybeAutoOpenVorbestellung() {
         if (getIntent() == null) return;
@@ -575,9 +592,12 @@ public class CrmSearchActivity extends AppCompatActivity {
         _pendingVorbestellungCustomerId = _cid;
         _pendingVorbestellungPhone = _phone;
         _pendingVorbestellungName = getIntent().getStringExtra("auto_vorbestellung_name");
+        // 🆕 v6.63.011: ACR-Audio-Pfad zwischenspeichern (wird im Booking-Dialog genutzt)
+        _pendingRecordingPath = getIntent().getStringExtra("auto_vorbestellung_recording_path");
         getIntent().removeExtra("auto_vorbestellung_customer_id");
         getIntent().removeExtra("auto_vorbestellung_phone");
         getIntent().removeExtra("auto_vorbestellung_name");
+        getIntent().removeExtra("auto_vorbestellung_recording_path");
     }
 
     private void _runPendingVorbestellungIfReady() {
@@ -1389,6 +1409,61 @@ public class CrmSearchActivity extends AppCompatActivity {
         tvKundeInfo.setTextColor(0xFF64748B);
         tvKundeInfo.setPadding(0, 0, 0, padHalf);
         layout.addView(tvKundeInfo);
+
+        // 🆕 v6.63.011 (Patrick 29.05. 17:23 'nicht zurück zum Abhören'): Audio-Replay-Row.
+        //   Zeigt einen ▶️/⏸ Toggle wenn _pendingRecordingPath gesetzt (Booking aus CallLog/
+        //   CallRecordings). Patrick kann die Aufnahme während des Tippens nochmal hören
+        //   ohne die Maske zu verlassen.
+        if (_pendingRecordingPath != null && !_pendingRecordingPath.isEmpty()
+                && new java.io.File(_pendingRecordingPath).exists()) {
+            android.widget.LinearLayout audioRow = new android.widget.LinearLayout(this);
+            audioRow.setOrientation(android.widget.LinearLayout.HORIZONTAL);
+            audioRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
+            audioRow.setPadding(padHalf, padHalf, padHalf, padHalf);
+            audioRow.setBackgroundColor(0xFFFEF3C7);
+            android.widget.TextView audioLbl = new android.widget.TextView(this);
+            audioLbl.setText("🎙️ Aufnahme:");
+            audioLbl.setTextSize(13);
+            audioLbl.setTextColor(0xFF92400E);
+            android.widget.LinearLayout.LayoutParams _audLblLp = new android.widget.LinearLayout.LayoutParams(0,
+                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+            audioLbl.setLayoutParams(_audLblLp);
+            audioRow.addView(audioLbl);
+            final android.widget.Button btnPlay = new android.widget.Button(this);
+            btnPlay.setText("▶️ Abspielen");
+            btnPlay.setTextSize(13);
+            btnPlay.setAllCaps(false);
+            btnPlay.setOnClickListener(_v -> {
+                try {
+                    if (_audioPlayer != null && _audioPlayer.isPlaying()) {
+                        _audioPlayer.pause();
+                        btnPlay.setText("▶️ Weiter");
+                        return;
+                    }
+                    if (_audioPlayer == null) {
+                        _audioPlayer = new android.media.MediaPlayer();
+                        _audioPlayer.setDataSource(_pendingRecordingPath);
+                        _audioPlayer.prepare();
+                        _audioPlayer.setOnCompletionListener(_mp -> {
+                            btnPlay.setText("▶️ Nochmal");
+                            try { _audioPlayer.seekTo(0); } catch (Throwable _t) {}
+                        });
+                    }
+                    _audioPlayer.start();
+                    btnPlay.setText("⏸ Pause");
+                } catch (Throwable _err) {
+                    android.widget.Toast.makeText(this,
+                        "Audio-Fehler: " + _err.getMessage(), android.widget.Toast.LENGTH_LONG).show();
+                }
+            });
+            audioRow.addView(btnPlay);
+            android.widget.LinearLayout.LayoutParams _audRowLp = new android.widget.LinearLayout.LayoutParams(
+                android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
+            _audRowLp.setMargins(0, 0, 0, padHalf);
+            audioRow.setLayoutParams(_audRowLp);
+            layout.addView(audioRow);
+        }
 
         // 🆕 v6.62.882 (Patrick 23.05. 06:24): "Im VorbestellungsMaske einen Button
         //   anzeigen, wenn die Anrufer-Tel-Nr NICHT in den CRM-Phones des gewaehlten

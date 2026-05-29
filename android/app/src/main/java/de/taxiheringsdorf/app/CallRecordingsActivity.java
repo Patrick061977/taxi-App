@@ -473,9 +473,18 @@ public class CallRecordingsActivity extends AppCompatActivity {
             android.widget.Button btnHist = new android.widget.Button(this);
             btnHist.setText("📜 Bisherige Fahrten anschauen");
             btnHist.setOnClickListener(v -> {
+                // 🐛 v6.63.014 (Patrick 29.05. 18:55 'bei Aufnahmen geht's nicht'):
+                //   prefill_search_query existiert in CrmSearchActivity nicht — Extra
+                //   wurde ignoriert, User landete in leerer CRM-Suche. Fix: auto_history_customer_id
+                //   mit (wie CallLogActivity v6.62.626) → showCustomerRideHistory triggert direkt.
                 android.content.Intent i = new android.content.Intent(this, CrmSearchActivity.class);
-                // CrmSearchActivity sucht via Phone → wir öffnen direkt Suche mit Phone als Query
-                i.putExtra("prefill_search_query", r.phone);
+                if (r.customerId != null && !r.customerId.isEmpty()) {
+                    i.putExtra("auto_history_customer_id", r.customerId);
+                    if (r.customerName != null) i.putExtra("auto_history_customer_name", r.customerName);
+                } else {
+                    Toast.makeText(this, "❌ Kunden-ID fehlt — Aufnahme neu zuordnen", Toast.LENGTH_LONG).show();
+                    return;
+                }
                 startActivity(i);
             });
             root.addView(btnHist);

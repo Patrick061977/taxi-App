@@ -164,14 +164,18 @@ public class CallRecordingsActivity extends AppCompatActivity {
     private int dp(int v) { return (int)(v * getResources().getDisplayMetrics().density); }
 
     private void checkPermsAndLoad() {
-        String need;
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            need = Manifest.permission.READ_MEDIA_AUDIO;
-        } else {
-            need = Manifest.permission.READ_EXTERNAL_STORAGE;
-        }
-        if (checkSelfPermission(need) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, new String[]{need}, REQ_PERM);
+        // 🆕 v6.63.016 (Patrick 29.05. 19:45 "keine Permission-Frage gekommen"):
+        //   ZUSÄTZLICH RECORD_AUDIO + READ_PHONE_STATE für den In-App-Call-Recorder anfragen,
+        //   sonst kann MediaRecorder bei Anruf nicht starten.
+        java.util.List<String> needList = new java.util.ArrayList<>();
+        String storageNeed = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+            ? Manifest.permission.READ_MEDIA_AUDIO
+            : Manifest.permission.READ_EXTERNAL_STORAGE;
+        if (checkSelfPermission(storageNeed) != PackageManager.PERMISSION_GRANTED) needList.add(storageNeed);
+        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) needList.add(Manifest.permission.RECORD_AUDIO);
+        if (checkSelfPermission(Manifest.permission.READ_PHONE_STATE) != PackageManager.PERMISSION_GRANTED) needList.add(Manifest.permission.READ_PHONE_STATE);
+        if (!needList.isEmpty()) {
+            ActivityCompat.requestPermissions(this, needList.toArray(new String[0]), REQ_PERM);
             return;
         }
         loadCrmThenScan();
@@ -181,8 +185,18 @@ public class CallRecordingsActivity extends AppCompatActivity {
     public void onRequestPermissionsResult(int code, @NonNull String[] perms, @NonNull int[] res) {
         super.onRequestPermissionsResult(code, perms, res);
         if (code == REQ_PERM) {
-            if (res.length > 0 && res[0] == PackageManager.PERMISSION_GRANTED) loadCrmThenScan();
-            else {
+            // 🆕 v6.63.016: Storage-Permission ist Pflicht für die Liste; RECORD_AUDIO + READ_PHONE_STATE
+            //   sind für den Auto-Recorder, ohne sie loaded die Liste trotzdem.
+            boolean storageOk = false;
+            for (int i = 0; i < perms.length && i < res.length; i++) {
+                if ((Manifest.permission.READ_MEDIA_AUDIO.equals(perms[i]) || Manifest.permission.READ_EXTERNAL_STORAGE.equals(perms[i]))
+                        && res[i] == PackageManager.PERMISSION_GRANTED) {
+                    storageOk = true;
+                }
+            }
+            if (storageOk) {
+                loadCrmThenScan();
+            } else {
                 permHint.setVisibility(View.VISIBLE);
                 permHint.setText("Berechtigung verweigert. Bitte in Einstellungen → Apps → Funk Taxi → Berechtigungen 'Audio' erlauben.");
                 progress.setVisibility(View.GONE);

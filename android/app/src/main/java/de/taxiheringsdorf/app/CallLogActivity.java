@@ -2637,15 +2637,27 @@ public class CallLogActivity extends AppCompatActivity {
                     // Kontext: gap negativ = waehrend prev lief = "Warteschlange"
                     String when = e.queueGapMs < 0 ? "während des vorigen Anrufs" : "direkt nach vorigem";
                     queueHint = "  🔗 " + when;
-                    // Farb-Banner: gelber Hintergrund + Border links
-                    itemView.setBackgroundColor(0xFFFEF3C7);
+                    // 🐛 v6.63.012 (Patrick 29.05. 17:34 'Doppler 14:32'): itemView ist
+                    //   eine CardView (item_call_card.xml mit app:cardBackgroundColor=
+                    //   #1E293B). setBackgroundColor wird vom cardBackgroundColor-
+                    //   Attribut überlagert → Patrick sah keinen gelben Banner.
+                    //   Fix: setCardBackgroundColor verwenden.
+                    if (itemView instanceof androidx.cardview.widget.CardView) {
+                        ((androidx.cardview.widget.CardView) itemView).setCardBackgroundColor(0xFFFEF3C7);
+                    } else {
+                        itemView.setBackgroundColor(0xFFFEF3C7);
+                    }
                     // Indikator links per Padding-Border-Hack
                     int leftPad = (int)(8 * itemView.getResources().getDisplayMetrics().density);
                     itemView.setPadding(
                         leftPad, itemView.getPaddingTop(),
                         itemView.getPaddingRight(), itemView.getPaddingBottom());
                 } else {
-                    itemView.setBackgroundColor(0x00000000);
+                    if (itemView instanceof androidx.cardview.widget.CardView) {
+                        ((androidx.cardview.widget.CardView) itemView).setCardBackgroundColor(0xFF1E293B);
+                    } else {
+                        itemView.setBackgroundColor(0x00000000);
+                    }
                     itemView.setPadding(0, itemView.getPaddingTop(), itemView.getPaddingRight(), itemView.getPaddingBottom());
                 }
                 tvTime.setText("vor " + age + (e.durationSec > 0 ? " · Dauer " + e.durationSec + "s" : "") + audioHint + queueHint);

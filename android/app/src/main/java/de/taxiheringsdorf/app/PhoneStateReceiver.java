@@ -30,6 +30,32 @@ public class PhoneStateReceiver extends BroadcastReceiver {
         if (TelephonyManager.EXTRA_STATE_RINGING.equals(state)) {
             wasRinging = true;
             if (num != null) lastIncomingNumber = num;
+            // 🆕 v6.63.020 (Patrick 29.05. 20:29 "Go Split"): Call-Waiting-Erkennung.
+            //   RINGING während OFFHOOK = 2. eingehender Anruf während des ersten.
+            //   Wir rotieren den Recorder: alten stoppen + neuen mit dem 2. Anruf
+            //   starten. Suffix "-CW-" markiert die Call-Waiting-Datei.
+            if (TelephonyManager.EXTRA_STATE_OFFHOOK.equals(lastState) && num != null) {
+                Log.i(TAG, "Call-Waiting erkannt — Recorder rotieren (neuer Anruf: " + num + ")");
+                Intent stopSvc = new Intent(ctx, CallRecorderService.class);
+                stopSvc.setAction(CallRecorderService.ACTION_STOP);
+                try { ctx.startService(stopSvc); } catch (Throwable _t) {}
+                Intent startSvc = new Intent(ctx, CallRecorderService.class);
+                startSvc.setAction(CallRecorderService.ACTION_START);
+                startSvc.putExtra(CallRecorderService.EXTRA_PHONE, num);
+                startSvc.putExtra(CallRecorderService.EXTRA_DIRECTION, "0"); // IN
+                startSvc.putExtra(CallRecorderService.EXTRA_CALL_WAITING, true);
+                try {
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                        ctx.startForegroundService(startSvc);
+                    } else {
+                        ctx.startService(startSvc);
+                    }
+                } catch (Throwable t) {
+                    Log.w(TAG, "CW-Start fehlgeschlagen: " + t.getMessage());
+                }
+                lastState = TelephonyManager.EXTRA_STATE_OFFHOOK; // bleibt OFFHOOK, nicht RINGING
+                return;
+            }
         } else if (TelephonyManager.EXTRA_STATE_OFFHOOK.equals(state)) {
             // Anruf angenommen oder ausgehend gestartet
             if (TelephonyManager.EXTRA_STATE_OFFHOOK.equals(lastState)) {

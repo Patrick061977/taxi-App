@@ -1208,6 +1208,34 @@ async function autoAssignRide(rideId, rideData) {
 
         if (candidates.length === 0) {
             console.log('⚠️ Kein Fahrzeug verfügbar für ' + (isSofort ? 'Sofortfahrt' : 'Vorbestellung'));
+            // 🆕 v6.63.024 (Patrick 29.05. 21:16 "warum wird mir der Grund des Konflikts nicht
+            //   angezeigt"): vehicleScores in die Ride persistieren auch wenn kein Match. Dann
+            //   kann die Native-Dispo pro Fahrzeug die Reject-Reason anzeigen. Plus zusammen-
+            //   gefasster wartepoolReason damit der Dispo-Card-Hint sprechend wird.
+            try {
+                const _summary = (() => {
+                    const _reasons = Object.values(vehicleScores)
+                        .map(s => s && s.reason ? s.reason : '')
+                        .filter(Boolean);
+                    if (_reasons.length === 0) return 'Kein Fahrzeug im Schichtplan/verfügbar';
+                    // Häufigsten Grund kürzen + zählen
+                    const _counts = {};
+                    for (const r of _reasons) {
+                        const _short = r.split(' ').slice(0, 6).join(' ');
+                        _counts[_short] = (_counts[_short] || 0) + 1;
+                    }
+                    const _sorted = Object.entries(_counts).sort((a, b) => b[1] - a[1]);
+                    const _top = _sorted[0];
+                    return `${_top[1]}/${candidates.length || Object.keys(vehicleScores).length} Fahrzeuge: ${_top[0]}`;
+                })();
+                await db.ref('rides/' + rideId).update({
+                    vehicleScores,
+                    vehicleScoresAt: Date.now(),
+                    autoAssignLastReason: _summary
+                });
+            } catch (_persistErr) {
+                console.warn('vehicleScores-Persist Fehler:', _persistErr.message);
+            }
             return null;
         }
 
@@ -18112,7 +18140,8 @@ exports.autoResolveConflicts = onSchedule(
                                 let _wartepoolJustEntered = false;
                                 if (_attemptsNow >= 3 && ride.status !== 'wartepool') {
                                     _upd.status = 'wartepool';
-                                    _upd.wartepoolReason = 'auto-assign-3x-failed';
+                                    // 🆕 v6.63.024: konkretester Reason statt generischem Fail
+                                    _upd.wartepoolReason = ride.autoAssignLastReason || 'auto-assign-3x-failed';
                                     _upd.wartepoolAt = Date.now();
                                     _wartepoolJustEntered = true;
                                 }

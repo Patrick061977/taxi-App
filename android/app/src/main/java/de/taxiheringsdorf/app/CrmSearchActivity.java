@@ -1411,28 +1411,82 @@ public class CrmSearchActivity extends AppCompatActivity {
         layout.addView(tvKundeInfo);
 
         // 🆕 v6.63.011 (Patrick 29.05. 17:23 'nicht zurück zum Abhören'): Audio-Replay-Row.
-        //   Zeigt einen ▶️/⏸ Toggle wenn _pendingRecordingPath gesetzt (Booking aus CallLog/
-        //   CallRecordings). Patrick kann die Aufnahme während des Tippens nochmal hören
-        //   ohne die Maske zu verlassen.
+        // 🆕 v6.63.013 (Patrick 29.05. 17:56 'kann ich auch zurückspulen'): SeekBar +
+        //   ⏪ -10s + ⏩ +10s + Position-Anzeige damit Patrick im Audio springen kann.
         if (_pendingRecordingPath != null && !_pendingRecordingPath.isEmpty()
                 && new java.io.File(_pendingRecordingPath).exists()) {
-            android.widget.LinearLayout audioRow = new android.widget.LinearLayout(this);
-            audioRow.setOrientation(android.widget.LinearLayout.HORIZONTAL);
-            audioRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
-            audioRow.setPadding(padHalf, padHalf, padHalf, padHalf);
-            audioRow.setBackgroundColor(0xFFFEF3C7);
+            android.widget.LinearLayout audioBox = new android.widget.LinearLayout(this);
+            audioBox.setOrientation(android.widget.LinearLayout.VERTICAL);
+            audioBox.setPadding(padHalf, padHalf, padHalf, padHalf);
+            audioBox.setBackgroundColor(0xFFFEF3C7);
+
+            // Zeile 1: Label + Position + Dauer
+            android.widget.LinearLayout audioRow1 = new android.widget.LinearLayout(this);
+            audioRow1.setOrientation(android.widget.LinearLayout.HORIZONTAL);
+            audioRow1.setGravity(android.view.Gravity.CENTER_VERTICAL);
             android.widget.TextView audioLbl = new android.widget.TextView(this);
-            audioLbl.setText("🎙️ Aufnahme:");
+            audioLbl.setText("🎙️ Aufnahme");
             audioLbl.setTextSize(13);
             audioLbl.setTextColor(0xFF92400E);
-            android.widget.LinearLayout.LayoutParams _audLblLp = new android.widget.LinearLayout.LayoutParams(0,
+            audioLbl.setTypeface(null, android.graphics.Typeface.BOLD);
+            android.widget.LinearLayout.LayoutParams _lblLp = new android.widget.LinearLayout.LayoutParams(0,
                 android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
-            audioLbl.setLayoutParams(_audLblLp);
-            audioRow.addView(audioLbl);
+            audioLbl.setLayoutParams(_lblLp);
+            audioRow1.addView(audioLbl);
+            final android.widget.TextView audioPos = new android.widget.TextView(this);
+            audioPos.setText("00:00 / 00:00");
+            audioPos.setTextSize(12);
+            audioPos.setTextColor(0xFF78350F);
+            audioRow1.addView(audioPos);
+            audioBox.addView(audioRow1);
+
+            // Zeile 2: SeekBar
+            final android.widget.SeekBar seek = new android.widget.SeekBar(this);
+            seek.setMax(1000);
+            seek.setProgress(0);
+            audioBox.addView(seek);
+
+            // Zeile 3: ⏪ -10s | ▶️/⏸ | ⏩ +10s
+            android.widget.LinearLayout audioRow3 = new android.widget.LinearLayout(this);
+            audioRow3.setOrientation(android.widget.LinearLayout.HORIZONTAL);
+            audioRow3.setGravity(android.view.Gravity.CENTER);
+            final android.widget.Button btnRew = new android.widget.Button(this);
+            btnRew.setText("⏪ -10s");
+            btnRew.setAllCaps(false);
+            btnRew.setTextSize(13);
             final android.widget.Button btnPlay = new android.widget.Button(this);
             btnPlay.setText("▶️ Abspielen");
-            btnPlay.setTextSize(13);
             btnPlay.setAllCaps(false);
+            btnPlay.setTextSize(14);
+            final android.widget.Button btnFwd = new android.widget.Button(this);
+            btnFwd.setText("⏩ +10s");
+            btnFwd.setAllCaps(false);
+            btnFwd.setTextSize(13);
+            audioRow3.addView(btnRew);
+            audioRow3.addView(btnPlay);
+            audioRow3.addView(btnFwd);
+            audioBox.addView(audioRow3);
+
+            // Position-Update-Handler (alle 250ms, nur wenn playing)
+            final android.os.Handler _audioHandler = new android.os.Handler(android.os.Looper.getMainLooper());
+            final boolean[] _userSeeking = { false };
+            final Runnable _audioTick = new Runnable() {
+                @Override public void run() {
+                    try {
+                        if (_audioPlayer != null) {
+                            int dur = _audioPlayer.getDuration();
+                            int pos = _audioPlayer.getCurrentPosition();
+                            if (dur > 0 && !_userSeeking[0]) {
+                                seek.setProgress((int)((long)pos * 1000L / dur));
+                            }
+                            audioPos.setText(String.format(Locale.GERMANY, "%02d:%02d / %02d:%02d",
+                                pos / 60000, (pos / 1000) % 60, dur / 60000, (dur / 1000) % 60));
+                            if (_audioPlayer.isPlaying()) _audioHandler.postDelayed(this, 250);
+                        }
+                    } catch (Throwable _t) { }
+                }
+            };
+
             btnPlay.setOnClickListener(_v -> {
                 try {
                     if (_audioPlayer != null && _audioPlayer.isPlaying()) {
@@ -1446,23 +1500,61 @@ public class CrmSearchActivity extends AppCompatActivity {
                         _audioPlayer.prepare();
                         _audioPlayer.setOnCompletionListener(_mp -> {
                             btnPlay.setText("▶️ Nochmal");
+                            seek.setProgress(1000);
                             try { _audioPlayer.seekTo(0); } catch (Throwable _t) {}
                         });
+                        int dur = _audioPlayer.getDuration();
+                        audioPos.setText(String.format(Locale.GERMANY, "00:00 / %02d:%02d", dur / 60000, (dur / 1000) % 60));
                     }
                     _audioPlayer.start();
                     btnPlay.setText("⏸ Pause");
+                    _audioHandler.post(_audioTick);
                 } catch (Throwable _err) {
                     android.widget.Toast.makeText(this,
                         "Audio-Fehler: " + _err.getMessage(), android.widget.Toast.LENGTH_LONG).show();
                 }
             });
-            audioRow.addView(btnPlay);
-            android.widget.LinearLayout.LayoutParams _audRowLp = new android.widget.LinearLayout.LayoutParams(
+            btnRew.setOnClickListener(_v -> {
+                try {
+                    if (_audioPlayer != null) {
+                        int newPos = Math.max(0, _audioPlayer.getCurrentPosition() - 10000);
+                        _audioPlayer.seekTo(newPos);
+                        _audioHandler.post(_audioTick);
+                    }
+                } catch (Throwable _t) { }
+            });
+            btnFwd.setOnClickListener(_v -> {
+                try {
+                    if (_audioPlayer != null) {
+                        int newPos = Math.min(_audioPlayer.getDuration() - 100,
+                            _audioPlayer.getCurrentPosition() + 10000);
+                        _audioPlayer.seekTo(newPos);
+                        _audioHandler.post(_audioTick);
+                    }
+                } catch (Throwable _t) { }
+            });
+            seek.setOnSeekBarChangeListener(new android.widget.SeekBar.OnSeekBarChangeListener() {
+                @Override public void onStartTrackingTouch(android.widget.SeekBar sb) { _userSeeking[0] = true; }
+                @Override public void onProgressChanged(android.widget.SeekBar sb, int progress, boolean fromUser) { }
+                @Override public void onStopTrackingTouch(android.widget.SeekBar sb) {
+                    try {
+                        if (_audioPlayer != null) {
+                            int dur = _audioPlayer.getDuration();
+                            int newPos = (int)((long)sb.getProgress() * dur / 1000L);
+                            _audioPlayer.seekTo(newPos);
+                            _audioHandler.post(_audioTick);
+                        }
+                    } catch (Throwable _t) { }
+                    _userSeeking[0] = false;
+                }
+            });
+
+            android.widget.LinearLayout.LayoutParams _boxLp = new android.widget.LinearLayout.LayoutParams(
                 android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
                 android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
-            _audRowLp.setMargins(0, 0, 0, padHalf);
-            audioRow.setLayoutParams(_audRowLp);
-            layout.addView(audioRow);
+            _boxLp.setMargins(0, 0, 0, padHalf);
+            audioBox.setLayoutParams(_boxLp);
+            layout.addView(audioBox);
         }
 
         // 🆕 v6.62.882 (Patrick 23.05. 06:24): "Im VorbestellungsMaske einen Button

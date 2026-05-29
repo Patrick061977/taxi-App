@@ -17,8 +17,10 @@ import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.Service;
+import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.media.AudioManager;
 import android.media.MediaRecorder;
 import android.os.Build;
 import android.os.Environment;
@@ -49,6 +51,11 @@ public class CallRecorderService extends Service {
     private File currentFile;
     private String currentPhone;
     private String currentDirection;
+    // 🆕 v6.63.018: Audio-Routing-State sichern damit wir nach dem Anruf wiederherstellen können
+    private int prevAudioMode = AudioManager.MODE_NORMAL;
+    private boolean prevSpeakerOn = false;
+    private boolean weEnabledBtSco = false;
+    private boolean weEnabledSpeaker = false;
 
     @Nullable @Override public IBinder onBind(Intent intent) { return null; }
 
@@ -133,6 +140,14 @@ public class CallRecorderService extends Service {
                 recorder.prepare();
                 recorder.start();
                 Log.i(TAG, "Recording started src=" + src + " → " + currentFile);
+                // 🆕 v6.63.018 (Patrick 29.05. 20:19 "Beides"): Audio-Routing erweitern.
+                //   Nur wenn der MIC-Fallback greift (= VOICE_CALL/COMMUNICATION/RECOGNITION
+                //   nicht zur Verfügung), brauchen wir das Speakerphone-/BT-Sco-Trick. Bei
+                //   diesen drei Audio-Sources kommt der Anrufer-Stream direkt, kein Routing
+                //   nötig.
+                if (src == MediaRecorder.AudioSource.MIC) {
+                    enableLoudCaptureRouting();
+                }
                 return;
             } catch (Exception ex) {
                 lastErr = ex;
@@ -162,6 +177,62 @@ public class CallRecorderService extends Service {
         }
         recorder = null;
         currentFile = null;
+        // 🆕 v6.63.018: Audio-Routing wiederherstellen wie es vor dem Anruf war
+        restoreLoudCaptureRouting();
+    }
+
+    /**
+     * 🆕 v6.63.018: Aktiviert Speakerphone oder Bluetooth-SCO damit das MIC
+     * beide Stimmen aufnehmen kann. BT-SCO bevorzugt wenn BT-Headset connected.
+     * Patrick (29.05.): "Bei ACR geht aber auch Bluetooth" → gleicher Trick.
+     */
+    private void enableLoudCaptureRouting() {
+        try {
+            AudioManager am = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+            if (am == null) return;
+            prevAudioMode = am.getMode();
+            prevSpeakerOn = am.isSpeakerphoneOn();
+            // Communication-Mode notwendig damit setSpeakerphoneOn/BluetoothSco wirken
+            try { am.setMode(AudioManager.MODE_IN_COMMUNICATION); } catch (Throwable _t) {}
+            if (am.isBluetoothScoAvailableOffCall()) {
+                try {
+                    am.startBluetoothSco();
+                    am.setBluetoothScoOn(true);
+                    weEnabledBtSco = true;
+                    Log.i(TAG, "🎧 BT-SCO aktiviert für MIC-Tap");
+                    return;
+                } catch (Throwable t) {
+                    Log.w(TAG, "BT-SCO fehlgeschlagen: " + t.getMessage());
+                }
+            }
+            try {
+                am.setSpeakerphoneOn(true);
+                weEnabledSpeaker = true;
+                Log.i(TAG, "🔊 Speakerphone aktiviert für MIC-Tap");
+            } catch (Throwable t) {
+                Log.w(TAG, "Speakerphone fehlgeschlagen: " + t.getMessage());
+            }
+        } catch (Throwable t) {
+            Log.w(TAG, "enableLoudCaptureRouting Fehler: " + t.getMessage());
+        }
+    }
+
+    private void restoreLoudCaptureRouting() {
+        try {
+            AudioManager am = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+            if (am == null) return;
+            if (weEnabledBtSco) {
+                try { am.setBluetoothScoOn(false); am.stopBluetoothSco(); } catch (Throwable _t) {}
+                weEnabledBtSco = false;
+            }
+            if (weEnabledSpeaker) {
+                try { am.setSpeakerphoneOn(prevSpeakerOn); } catch (Throwable _t) {}
+                weEnabledSpeaker = false;
+            }
+            try { am.setMode(prevAudioMode); } catch (Throwable _t) {}
+        } catch (Throwable t) {
+            Log.w(TAG, "restoreLoudCaptureRouting Fehler: " + t.getMessage());
+        }
     }
 
     @Override

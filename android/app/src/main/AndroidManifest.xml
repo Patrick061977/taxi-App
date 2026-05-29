@@ -242,6 +242,12 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <!-- v6.63.018: Auto-Speakerphone (MIC nimmt beide Stimmen über Lautsprecher) +
+         Auto-BT-SCO (MIC tappt Bluetooth-Headset-Stream) damit der Anrufer in der
+         Aufnahme hörbar ist trotz VOICE_CALL-Blockade. -->
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <uses-permission android:name="android.permission.BLUETOOTH" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
 
     <!-- v6.40.31: SMS-Versand über Fahrer-SIM (Tracking-Link an Kunden) -->
     <uses-permission android:name="android.permission.SEND_SMS" />

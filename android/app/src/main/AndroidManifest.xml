@@ -166,6 +166,21 @@
             android:foregroundServiceType="mediaPlayback"
             android:exported="false" />
 
+        <!-- v6.63.015 (Patrick 29.05. 19:13 "automatische Aufnahme"): In-App-Call-Recorder
+             als ACR-Ersatz. PhoneStateReceiver triggert CallRecorderService bei OFFHOOK,
+             stoppt bei IDLE. Datei /sdcard/FunktaxiCalls/{Y}/{M}/{D}/+nr-IN-{ts}.m4a. -->
+        <service
+            android:name=".CallRecorderService"
+            android:foregroundServiceType="microphone"
+            android:exported="false" />
+        <receiver
+            android:name=".PhoneStateReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.PHONE_STATE" />
+            </intent-filter>
+        </receiver>
+
         <!-- v6.41.96: FCM-Service für Push-Notifications bei neuen Aufträgen -->
         <service
             android:name=".TaxiFCMService"
@@ -223,6 +238,10 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- v6.63.015: In-App-Call-Recorder als ACR-Ersatz -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
 
     <!-- v6.40.31: SMS-Versand über Fahrer-SIM (Tracking-Link an Kunden) -->
     <uses-permission android:name="android.permission.SEND_SMS" />

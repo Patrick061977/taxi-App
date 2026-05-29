@@ -124,6 +124,21 @@ public class CallRecordingsActivity extends AppCompatActivity {
         });
         root.addView(swAutoRec);
 
+        // 🆕 v6.63.019 (Patrick 29.05. 20:24 "kann ich das auch wieder ausschalten"):
+        //   Separater Toggle für Auto-Lautsprecher/BT-Routing. Default ON. Wenn aus,
+        //   bleibt die Aufnahme zwar an, aber Patrick verliert die Anrufer-Stimme
+        //   (Phone-Mikro hört nur das eigene Sprechen).
+        final android.widget.Switch swLoud = new android.widget.Switch(this);
+        swLoud.setText("🔊 Auto-Lautsprecher/Bluetooth bei Anruf");
+        swLoud.setTextColor(0xFFf8fafc);
+        swLoud.setChecked(_recPrefs.getBoolean("auto_loud_routing_enabled", true));
+        swLoud.setPadding(dp(16), dp(8), dp(16), dp(8));
+        swLoud.setOnCheckedChangeListener((cb, isChecked) -> {
+            _recPrefs.edit().putBoolean("auto_loud_routing_enabled", isChecked).apply();
+            Toast.makeText(this, isChecked ? "✅ Lautsprecher/BT-Auto AN" : "⛔ Lautsprecher/BT-Auto AUS — Aufnahme hört nur dich", Toast.LENGTH_LONG).show();
+        });
+        root.addView(swLoud);
+
         // Versteckte einblenden
         android.widget.Button btnShowHidden = new android.widget.Button(this);
         btnShowHidden.setText("🔓 Versteckte einblenden");

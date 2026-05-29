@@ -874,6 +874,28 @@ async function autoAssignRide(rideId, rideData) {
         const passengers = rideData.passengers || 1;
         const candidates = [];
 
+        // 🆕 v6.63.021 (Patrick 29.05. 20:42 "das System muss das erkennen"):
+        //   Großraum-Reserve. Wenn am gleichen Tag noch eine andere Vorbestellung
+        //   mit passengers >= 5 existiert (also nur die 8-Pax-Fahrzeuge können sie
+        //   bedienen) UND das aktuell zu verteilende Ride passt in ein kleines
+        //   Fahrzeug, kriegt ein 8-Pax-Fahrzeug einen Bias-Malus, damit es für die
+        //   Großgruppen frei bleibt.
+        const _LARGE_PAX_THRESHOLD = 5;
+        const _LARGE_VEHICLE_CAPACITY = 8;
+        const _activeStatusesForPaxReserve = ['new','vorbestellt','assigned','accepted','warteschlange','wartepool'];
+        const _largeUnassignedSameDay = allRides.filter(r => {
+            if (!r || !r.pickupTimestamp) return false;
+            if (r.firebaseId === rideId) return false;
+            if (!_activeStatusesForPaxReserve.includes(r.status)) return false;
+            if ((r.passengers || 1) < _LARGE_PAX_THRESHOLD) return false;
+            return berlinDateGlobal(r.pickupTimestamp) === dateStr;
+        });
+        const _largeReserveActive = _largeUnassignedSameDay.length > 0 && passengers < _LARGE_PAX_THRESHOLD;
+        if (_largeReserveActive) {
+            const _names = _largeUnassignedSameDay.slice(0, 3).map(r => `${r.customerName || '?'} (${r.passengers}P)`).join(', ');
+            console.log(`   🚐 GROSSRAUM-RESERVE aktiv: ${_largeUnassignedSameDay.length} Großgruppen am ${dateStr} — Klein-Pax-Bias für 8-Pax-Fahrzeuge (${_names})`);
+        }
+
         console.log(`🎯 Modus: ${isSofort ? 'SOFORTFAHRT (GPS schlägt alles)' : 'VORBESTELLUNG (Schichtplan + Priorität)'} | Abholzeit: ${dateStr} ${timeStr}`);
         console.log(`📋 PRÜFPROTOKOLL Auto-Zuweisung für Ride ${rideId}:`);
         console.log(`   📅 Datum: ${dateStr} | ⏰ Uhrzeit: ${timeStr} | 👥 Personen: ${passengers}`);
@@ -1213,7 +1235,11 @@ async function autoAssignRide(rideId, rideData) {
                 // niemals gewaehlt werden, auch nicht wenn er gerade neben dem Kunden steht.
                 const prioPenalty = getEffectivePrioMalus(cand.vehicleId, rideData.pickupTimestamp);
                 const estDrivingMin = cand.distance >= 999 ? 10 : Math.max(3, Math.round((cand.distance / 40) * 60));
-                const score = estDrivingMin + prioPenalty;
+                // 🆕 v6.63.021: Großraum-Reserve-Bias bei Sofortfahrten
+                const _candCap = (OFFICIAL_VEHICLES[cand.vehicleId] || {}).capacity || 4;
+                const _paxReservePenalty = (_largeReserveActive && _candCap >= _LARGE_VEHICLE_CAPACITY)
+                    ? ((_candCap - passengers) * 8) : 0;
+                const score = estDrivingMin + prioPenalty + _paxReservePenalty;
 
                 // vehicleScores aktualisieren
                 if (vehicleScores[cand.vehicleId]) {
@@ -1221,12 +1247,13 @@ async function autoAssignRide(rideId, rideData) {
                         distanceKm: Math.round(cand.distance * 10) / 10,
                         drivingTimeMin: estDrivingMin,
                         priorityPenalty: prioPenalty,
+                        paxReservePenalty: _paxReservePenalty,
                         posSource: cand.posSource,
                         totalScore: score
                     });
                 }
 
-                console.log(`   📊 ${cand.name}: ${cand.distance < 999 ? cand.distance.toFixed(1) + ' km' : 'kein GPS'} → ${estDrivingMin} Min Fahrzeit + ${prioPenalty} Min Prio-Penalty = Score ${score} [P${prio}, ${cand.posSource}]`);
+                console.log(`   📊 ${cand.name}: ${cand.distance < 999 ? cand.distance.toFixed(1) + ' km' : 'kein GPS'} → ${estDrivingMin} Min Fahrzeit + ${prioPenalty} Min Prio-Penalty${_paxReservePenalty ? ' + ' + _paxReservePenalty + ' Pax-Reserve' : ''} = Score ${score} [P${prio}, ${cand.posSource}]`);
 
                 if (score < bestScore) {
                     bestScore = score;
@@ -1299,7 +1326,11 @@ async function autoAssignRide(rideId, rideData) {
                 const anschlussBonus = (routeMethod === 'anschlussfahrt' || routeMethod === 'anschlussfahrt-gps')
                     ? -(pricingSettings.anschlussfahrtBonusMinuten || 5) : 0;
 
-                const totalScore = Math.round(leerfahrtMin + prioPenalty + loadPenalty + anschlussBonus);
+                // 🆕 v6.63.021: Großraum-Reserve-Bias bei Vorbestellungen
+                const _candCap = (OFFICIAL_VEHICLES[cand.vehicleId] || {}).capacity || 4;
+                const _paxReservePenalty = (_largeReserveActive && _candCap >= _LARGE_VEHICLE_CAPACITY)
+                    ? ((_candCap - passengers) * 8) : 0;
+                const totalScore = Math.round(leerfahrtMin + prioPenalty + loadPenalty + anschlussBonus + _paxReservePenalty);
 
                 Object.assign(vehicleScores[cand.vehicleId] || {}, {
                     status: 'available',
@@ -1310,10 +1341,11 @@ async function autoAssignRide(rideId, rideData) {
                     loadPenalty,
                     vehicleRideCount,
                     anschlussBonus,
+                    paxReservePenalty: _paxReservePenalty,
                     totalScore
                 });
 
-                console.log(`   📊 ${cand.name}: Leerfahrt ${Math.round(leerfahrtMin)} Min (${routeMethod}) + Prio ${prioPenalty} + Last ${loadPenalty} (${vehicleRideCount} Fahrten) + Kette ${anschlussBonus} = Score ${totalScore} [P${prio}]`);
+                console.log(`   📊 ${cand.name}: Leerfahrt ${Math.round(leerfahrtMin)} Min (${routeMethod}) + Prio ${prioPenalty} + Last ${loadPenalty} (${vehicleRideCount} Fahrten) + Kette ${anschlussBonus}${_paxReservePenalty ? ' + ' + _paxReservePenalty + ' Pax-Reserve' : ''} = Score ${totalScore} [P${prio}]`);
 
                 if (totalScore < bestScore) {
                     bestScore = totalScore;

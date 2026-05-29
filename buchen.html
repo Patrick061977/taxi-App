@@ -1242,13 +1242,26 @@
         //   Nur noch Schluessel-Events (book_submit, sms_verified, error) werden persistiert.
         //   Cloud-Functions schreiben weiterhin Status-Wechsel — die brauchen wir.
         const _buchenSessionId = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-        const _BUCHEN_LOG_KEY_EVENTS = ['📤','🚨','❌','🚀','💳','📲','✅']; // nur diese Emojis schreiben
+        // 🆕 v6.63.017 (Patrick 29.05. 19:57 "Go Funnel"): Step-Funnel-Emojis ergänzt
+        //   um Drop-off-Analyse zu ermöglichen. Jeder Step nur 1x pro Session damit
+        //   Firebase nicht durch Spam überflutet wird.
+        const _BUCHEN_LOG_KEY_EVENTS = ['📤','🚨','❌','🚀','💳','📲','✅','🌐','📍','🎯','👥','📞','🔐','💰','🛑'];
+        const _BUCHEN_FUNNEL_STEPS = new Set(['🌐','📍','🎯','👥','📞','📲','🔐','💰','✅','🛑']);
+        const _BUCHEN_FUNNEL_SEEN = new Set();
         function logBuchen(emoji, msg, data) {
             try {
                 // Wenn Emoji nicht zu Key-Events gehoert: nur console.log, kein DB-Write
                 if (!_BUCHEN_LOG_KEY_EVENTS.includes(emoji)) {
                     if (typeof console !== 'undefined' && console.debug) console.debug('[buchen-log]', emoji, msg, data || '');
                     return;
+                }
+                // Funnel-Steps: pro Session nur 1x persistieren
+                if (_BUCHEN_FUNNEL_STEPS.has(emoji)) {
+                    if (_BUCHEN_FUNNEL_SEEN.has(emoji)) {
+                        if (typeof console !== 'undefined' && console.debug) console.debug('[buchen-log dedup]', emoji, msg);
+                        return;
+                    }
+                    _BUCHEN_FUNNEL_SEEN.add(emoji);
                 }
                 const entry = {
                     time: Date.now(),
@@ -1260,6 +1273,17 @@
                 db.ref('settings/buchenLog').push(entry);
             } catch(e) { /* non-critical */ }
         }
+        // 🆕 v6.63.017: beforeunload → 🛑 Abbruch loggen wenn keine Buchung erfolgt ist.
+        //   Browser-Begrenzung: nicht zuverlässig wenn User Tab schließt während Network-Request
+        //   läuft. Best effort.
+        window.addEventListener('beforeunload', () => {
+            try {
+                if (_BUCHEN_FUNNEL_SEEN.has('✅')) return; // Buchung war erfolgreich
+                const lastStep = ['💰','🔐','📲','📞','👥','🎯','📍','🌐']
+                    .find(s => _BUCHEN_FUNNEL_SEEN.has(s)) || '?';
+                logBuchen('🛑', 'Tab geschlossen — letzter Step: ' + lastStep);
+            } catch(e) { /* */ }
+        });
         // 🔧 v6.39.1: Build-Timestamp für Versions-Check im System Monitor
         const _buchenBuild = '2026-05-08 15:05 v6.62.484';
         // Auto-Reload: Wenn Seite aus Cache kommt, erzwinge Neuladen
@@ -4120,6 +4144,8 @@
         // ═══════════════════════════════════════════════
         function setPax(n) {
             passengers = n;
+            // 🆕 v6.63.017: Funnel-Step Personen gesetzt (nur wenn manuell, nicht Default 1)
+            if (n !== 1) logBuchen('👥', 'Personen gesetzt: ' + n);
             document.querySelectorAll('.pax-btn').forEach((btn, i) => {
                 btn.classList.toggle('active', i + 1 === n);
             });
@@ -4405,6 +4431,8 @@
 
             if (inputId === 'b-pickup') {
                 pickupCoords = r.lat ? { lat: r.lat, lon: r.lon } : null;
+                // 🆕 v6.63.017: Funnel-Step Pickup gesetzt
+                if (pickupCoords) logBuchen('📍', 'Pickup gesetzt: ' + (r.display||'').slice(0,80));
                 // 🆕 v6.62.181: Patrick (12:23): 'Sofort bleibt 3-45 Sek stehen ohne Veraenderung,
                 // sollte sich umstellen auf Verfuegbarkeit wird geprueft'. Sofort-Button + Status-Bar
                 // jetzt direkt updaten — Smart-ETA-Berechnung laeuft danach async und ersetzt die
@@ -4419,7 +4447,11 @@
                     renderSlotTimeline(_slotCalendarDate);
                 }
             }
-            if (inputId === 'b-destination') destCoords = r.lat ? { lat: r.lat, lon: r.lon } : null;
+            if (inputId === 'b-destination') {
+                destCoords = r.lat ? { lat: r.lat, lon: r.lon } : null;
+                // 🆕 v6.63.017: Funnel-Step Destination gesetzt
+                if (destCoords) logBuchen('🎯', 'Ziel gesetzt: ' + (r.display||'').slice(0,80));
+            }
             if (inputId === 'b-stopp') stoppCoords = r.lat ? { lat: r.lat, lon: r.lon } : null;
             // 🆕 v6.41.73: UI SOFORT aktualisieren (Chips, step-personen), Route-Berechnung läuft async im Hintergrund
             try { updateBookButton(); } catch(e) {}
@@ -4617,6 +4649,8 @@
                     // Falls calculatePrice NaN liefert → in pricing.total schreiben damit alle Sub-Anzeigen geschuetzt
                     if (isNaN(_pTotal)) { pricing.total = '—'; }
                     document.getElementById('r-price').textContent = _pTotalStr + '€';
+                    // 🆕 v6.63.017: Funnel-Step Preis-Anzeige sichtbar
+                    if (!isNaN(_pTotal)) logBuchen('💰', 'Preis-Anzeige: ' + _pTotalStr + '€ · ' + km + 'km');
                     document.getElementById('r-distance').textContent = km;
                     document.getElementById('r-duration').textContent = '~' + min;
                     // Tarif-Hinweis
@@ -5211,7 +5245,8 @@
             if (phone.length < 6) return showToast('Bitte gültige Telefonnummer eingeben');
             customerPhone = phone.startsWith('+') ? phone : (phone.startsWith('0') ? phoneCountry + phone.slice(1) : phoneCountry + phone);
 
-            logBuchen('📱', 'SMS-Code angefordert: ' + customerPhone);
+            logBuchen('📞', 'Phone eingegeben: ' + customerPhone);
+            logBuchen('📲', 'SMS-Code angefordert: ' + customerPhone);
 
             // 🆕 v6.41.58: btn-book ist jetzt der kombinierte Button
             const btn = document.getElementById('btn-book');
@@ -5292,11 +5327,13 @@
             const code = (document.getElementById('b-sms-code')?.value || '').trim();
             if (!code || code.length < 6) return showToast('Bitte 6-stelligen Code eingeben');
             if (!confirmationResult) return showToast('Bitte zuerst Code anfordern');
-            logBuchen('🔑', 'SMS-Code eingegeben, verifiziere...');
+            logBuchen('🔐', 'SMS-Code eingegeben, verifiziere...');
             try {
                 const result = await confirmationResult.confirm(code);
                 customerPhone = result.user.phoneNumber || customerPhone;
-                logBuchen('✅', 'Phone-Auth erfolgreich: ' + customerPhone);
+                // 🆕 v6.63.017: Phone-Auth-Erfolg landet nur in console, sonst dedupiert ✅ Filter
+                //   das spätere FAHRT-ERSTELLT-Event weg.
+                if (typeof console !== 'undefined') console.debug('[buchen-log] ✅ Phone-Auth erfolgreich:', customerPhone);
                 // 🆕 v6.62.997: Phone-Cache fuer naechste Buchung — auch wenn PWA-Session
                 //   weggekommt, vertraut buchen.html der lokalen Verifikation bis 90 Tage.
                 try {

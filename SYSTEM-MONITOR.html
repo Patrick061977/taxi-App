@@ -227,6 +227,17 @@ body.light-mode .empty-msg { color: #6b7280; }
                 <div class="badge" id="buchenLogCount">0</div>
             </div>
         </div>
+        <!-- 🆕 v6.63.017: Step-Funnel-Block mit Drop-off-Anzeige (Tag/Woche-Toggle) -->
+        <div id="buchenFunnelBox" style="border-bottom:1px solid #2a2a3a;padding:8px 12px;background:#0e0e1c;">
+            <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;">
+                <span style="color:#cbd5e1;font-size:0.85em;font-weight:600;">📊 Funnel</span>
+                <button id="funnelRangeToday" onclick="setFunnelRange('today')" style="background:#1e293b;border:1px solid #475569;color:#cbd5e1;padding:2px 8px;border-radius:4px;cursor:pointer;font-size:0.7em;">heute</button>
+                <button id="funnelRange7d" onclick="setFunnelRange('7d')" style="background:#0f172a;border:1px solid #1e293b;color:#64748b;padding:2px 8px;border-radius:4px;cursor:pointer;font-size:0.7em;">7 Tage</button>
+                <button id="funnelRange30d" onclick="setFunnelRange('30d')" style="background:#0f172a;border:1px solid #1e293b;color:#64748b;padding:2px 8px;border-radius:4px;cursor:pointer;font-size:0.7em;">30 Tage</button>
+                <span id="funnelSessionTotal" style="color:#94a3b8;font-size:0.75em;margin-left:auto;"></span>
+            </div>
+            <div id="buchenFunnelSteps" style="font-size:0.78em;line-height:1.6;color:#cbd5e1;"></div>
+        </div>
         <div class="panel-body" id="buchenLogFeed">
             <div class="empty-msg">Keine Kunden-Aktivitaet</div>
         </div>
@@ -1254,6 +1265,86 @@ function renderLogEntries(evts) {
     }).join('');
 }
 
+// 🆕 v6.63.017 (Patrick 29.05. "Go funnel"): Drop-off-Anzeige für buchen.html-Steps.
+//   Range-Toggle today/7d/30d. Listet jeden Funnel-Step + Sessions die ihn erreicht haben +
+//   Drop-off-% vs. vorherigem Step.
+window._funnelRange = 'today';
+function setFunnelRange(r) {
+    window._funnelRange = r;
+    for (const id of ['funnelRangeToday','funnelRange7d','funnelRange30d']) {
+        const el = document.getElementById(id);
+        if (el) {
+            const isActive = id === ('funnelRange' + (r === 'today' ? 'Today' : r === '7d' ? '7d' : '30d'));
+            el.style.background = isActive ? '#1e293b' : '#0f172a';
+            el.style.borderColor = isActive ? '#475569' : '#1e293b';
+            el.style.color = isActive ? '#cbd5e1' : '#64748b';
+        }
+    }
+    renderBuchenFunnel();
+}
+function renderBuchenFunnel() {
+    const box = document.getElementById('buchenFunnelSteps');
+    if (!box) return;
+    const totalEl = document.getElementById('funnelSessionTotal');
+    const all = window._lastKundenEntries || [];
+    const ranges = { today: 24*3600*1000, '7d': 7*24*3600*1000, '30d': 30*24*3600*1000 };
+    const ms = ranges[window._funnelRange] || ranges.today;
+    const since = Date.now() - ms;
+    // Filter: nur echte Kunden-Sessions ohne reine Monitoring-Spam-Events (📡 vehicles)
+    const filtered = all.filter(e => (e.time||0) > since && e.emoji !== '📡');
+    const sessions = {};
+    for (const e of filtered) {
+        const sid = e.session || '?';
+        if (!sessions[sid]) sessions[sid] = new Set();
+        if (e.emoji) sessions[sid].add(e.emoji);
+    }
+    const sessionList = Object.entries(sessions);
+    const totalSessions = sessionList.length;
+    if (totalEl) totalEl.textContent = totalSessions + ' Session(s)';
+    if (totalSessions === 0) {
+        box.innerHTML = '<div style="color:#64748b;">Keine Sessions im Zeitraum</div>';
+        return;
+    }
+    const steps = [
+        { emoji: '🌐', label: 'geöffnet' },
+        { emoji: '📍', label: 'Pickup gesetzt' },
+        { emoji: '🎯', label: 'Ziel gesetzt' },
+        { emoji: '💰', label: 'Preis gesehen' },
+        { emoji: '👥', label: 'Personen geändert' },
+        { emoji: '📞', label: 'Phone eingegeben' },
+        { emoji: '📲', label: 'SMS angefordert' },
+        { emoji: '🔐', label: 'SMS-Code eingegeben' },
+        { emoji: '✅', label: 'gebucht' }
+    ];
+    let html = '';
+    let prev = totalSessions;
+    for (const s of steps) {
+        const count = sessionList.filter(([sid, set]) => set.has(s.emoji)).length;
+        const pct = totalSessions > 0 ? (count / totalSessions * 100).toFixed(0) : '0';
+        const drop = prev > 0 && count < prev ? (prev - count) : 0;
+        const dropPct = prev > 0 ? ((prev - count) / prev * 100).toFixed(0) : '0';
+        const barWidth = Math.max(2, Math.round(count / Math.max(1, totalSessions) * 100));
+        const color = s.emoji === '✅' ? '#10b981' : (count >= prev ? '#3b82f6' : '#f59e0b');
+        html += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;">'
+            + '<span style="width:18px;">' + s.emoji + '</span>'
+            + '<span style="width:130px;color:#94a3b8;font-size:0.85em;">' + s.label + '</span>'
+            + '<div style="flex:1;height:10px;background:#1e293b;border-radius:4px;overflow:hidden;">'
+            +   '<div style="width:' + barWidth + '%;height:100%;background:' + color + ';"></div>'
+            + '</div>'
+            + '<span style="width:80px;text-align:right;color:#cbd5e1;font-size:0.85em;">'
+            +   count + ' (' + pct + '%)' + (drop > 0 ? ' <span style="color:#f87171;">-' + drop + '</span>' : '')
+            + '</span>'
+            + '</div>';
+        prev = count;
+    }
+    // Abbrüche (🛑) separat ganz unten
+    const stopCount = sessionList.filter(([sid, set]) => set.has('🛑')).length;
+    if (stopCount > 0) {
+        html += '<div style="margin-top:4px;color:#f87171;font-size:0.78em;">🛑 ' + stopCount + ' Sessions mit Tab-Schluss-Event</div>';
+    }
+    box.innerHTML = html;
+}
+
 db.ref('settings/buchenLog').orderByChild('time').limitToLast(200).on('value', snap => {
     const data = snap.val();
     const kundenFeed = document.getElementById('buchenLogFeed');
@@ -1273,6 +1364,9 @@ db.ref('settings/buchenLog').orderByChild('time').limitToLast(200).on('value', s
 
     document.getElementById('buchenLogCount').textContent = kundenEntries.length;
     document.getElementById('driverLogCount').textContent = fahrerEntries.length;
+
+    // 🆕 v6.63.017: Funnel-Block rendern
+    try { window._lastKundenEntries = kundenEntries; renderBuchenFunnel(); } catch(_e) { console.warn('funnel', _e); }
 
     // 🆕 v6.38.95: Live-Besucher zaehlen (Sessions mit Aktivitaet < 5 Min)
     const _now = Date.now();

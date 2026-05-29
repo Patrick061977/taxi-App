@@ -44,6 +44,7 @@ public class CallRecorderService extends Service {
     public static final String ACTION_STOP = "de.taxiheringsdorf.app.CALL_RECORD_STOP";
     public static final String EXTRA_PHONE = "phone";
     public static final String EXTRA_DIRECTION = "direction"; // "0" = IN, "1" = OUT (ACR-kompatibel)
+    public static final String EXTRA_CALL_WAITING = "callWaiting"; // v6.63.020: 2. Aufnahme bei Call-Waiting
 
     public static final File RECORDINGS_ROOT = new File(Environment.getExternalStorageDirectory(), "FunktaxiCalls");
 
@@ -66,7 +67,13 @@ public class CallRecorderService extends Service {
         if (ACTION_START.equals(action)) {
             String phone = intent.getStringExtra(EXTRA_PHONE);
             String dir = intent.getStringExtra(EXTRA_DIRECTION);
-            startRecording(phone != null ? phone : "unbekannt", dir != null ? dir : "IN");
+            boolean cw = intent.getBooleanExtra(EXTRA_CALL_WAITING, false);
+            // 🆕 v6.63.020: Wenn schon ein Recorder läuft (Call-Waiting-Rotation), erst sauber stoppen
+            if (recorder != null) {
+                Log.i(TAG, "Recorder läuft schon — stop + restart für Rotation");
+                stopRecording();
+            }
+            startRecording(phone != null ? phone : "unbekannt", dir != null ? dir : "0", cw);
         } else if (ACTION_STOP.equals(action)) {
             stopRecording();
             stopSelf();
@@ -74,7 +81,7 @@ public class CallRecorderService extends Service {
         return START_NOT_STICKY;
     }
 
-    private void startRecording(String phone, String direction) {
+    private void startRecording(String phone, String direction, boolean callWaiting) {
         if (recorder != null) {
             Log.w(TAG, "startRecording called while already running — skip");
             return;
@@ -104,7 +111,10 @@ public class CallRecorderService extends Service {
             stopSelf();
             return;
         }
-        currentFile = new File(targetDir, phoneDir + "-" + direction + "-" + now + ".m4a");
+        // 🆕 v6.63.020: CW-Suffix wenn der Recorder durch Call-Waiting rotiert wurde,
+        //   damit Patrick in der Liste erkennt was die 2. Aufnahme war.
+        String _cwTag = callWaiting ? "-CW" : "";
+        currentFile = new File(targetDir, phoneDir + "-" + direction + _cwTag + "-" + now + ".m4a");
 
         // Foreground-Notification (Pflicht Android 8+ für Service)
         Notification notif = buildNotification(phone, direction);

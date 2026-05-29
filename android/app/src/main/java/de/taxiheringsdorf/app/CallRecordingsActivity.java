@@ -305,7 +305,8 @@ public class CallRecordingsActivity extends AppCompatActivity {
         }
         new Thread(() -> {
             List<Recording> all = new ArrayList<>();
-            Pattern fileRe = Pattern.compile("^(\\+?\\d+)-(\\d+)-(\\d+)\\.m4a$");
+            // v6.63.020: optionales -CW-Suffix für Call-Waiting-Aufnahmen
+            Pattern fileRe = Pattern.compile("^(\\+?\\d+)-(\\d+)(?:-CW)?-(\\d+)\\.m4a$");
             long cutoff = System.currentTimeMillis() - 90L*24*3600*1000;
             // walk: /ROOT/YYYY/MM/DD/+TelNr/*.m4a — beide Verzeichnisse
             java.util.List<File> allYears = new java.util.ArrayList<>();
@@ -753,7 +754,7 @@ public class CallRecordingsActivity extends AppCompatActivity {
                 runOnUiThread(() -> Toast.makeText(this, "ACR-Ordner nicht gefunden", Toast.LENGTH_LONG).show());
                 return;
             }
-            java.util.regex.Pattern fileRe = java.util.regex.Pattern.compile("^(\\+?\\d+)-(\\d)-(\\d+)\\.m4a$");
+            java.util.regex.Pattern fileRe = java.util.regex.Pattern.compile("^(\\+?\\d+)-(\\d)(?:-CW)?-(\\d+)\\.m4a$");
             File[] years = ACR_ROOT.listFiles();
             if (years == null) { runOnUiThread(() -> Toast.makeText(this, "Keine Dateien", Toast.LENGTH_LONG).show()); return; }
             for (File year : years) {
@@ -831,7 +832,7 @@ public class CallRecordingsActivity extends AppCompatActivity {
                 runOnUiThread(() -> Toast.makeText(this, "ACR-Ordner nicht gefunden", Toast.LENGTH_LONG).show());
                 return;
             }
-            java.util.regex.Pattern fileRe = java.util.regex.Pattern.compile("^(\\+?\\d+)-(\\d)-(\\d+)\\.m4a$");
+            java.util.regex.Pattern fileRe = java.util.regex.Pattern.compile("^(\\+?\\d+)-(\\d)(?:-CW)?-(\\d+)\\.m4a$");
             File[] years = ACR_ROOT.listFiles();
             if (years == null) { runOnUiThread(() -> Toast.makeText(this, "Keine Dateien", Toast.LENGTH_LONG).show()); return; }
             for (File year : years) {

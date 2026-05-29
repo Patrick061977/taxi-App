@@ -463,6 +463,16 @@ public class DispoActivity extends AppCompatActivity {
         }
         if (r.wartepoolReason != null) {
             body.append("\n⚠️ Wartepool-Grund: ").append(r.wartepoolReason).append("\n");
+        } else if (r.autoAssignLastReason != null) {
+            // 🆕 v6.63.024: Fallback wenn Cron noch keinen Wartepool-Eintritt geschrieben hat
+            body.append("\n⚠️ Letzter Auto-Assign-Befund: ").append(r.autoAssignLastReason).append("\n");
+        }
+        // 🆕 v6.63.024: Pro-Fahrzeug Reject-Reason aus vehicleScores anzeigen
+        if (r.vehicleScoreSummary != null && !r.vehicleScoreSummary.isEmpty()) {
+            body.append("\n🛠️ Auto-Assign-Befund pro Fahrzeug:\n");
+            for (java.util.Map.Entry<String, String> _e : r.vehicleScoreSummary.entrySet()) {
+                body.append("  • ").append(_e.getKey()).append(" — ").append(_e.getValue()).append("\n");
+            }
         }
         if (r.drivingTimeToPickup != null) {
             body.append("\n🚗 Letzte Anfahrt: ").append(r.drivingTimeToPickup).append(" Min");
@@ -569,6 +579,23 @@ public class DispoActivity extends AppCompatActivity {
         if (dtD instanceof Number) r.drivingTimeToDestination = ((Number) dtD).intValue();
         // v6.62.1001: Wartepool-Reason fuer Diagnose-Anzeige
         r.wartepoolReason = strOrNull(s.child("wartepoolReason").getValue());
+        // 🆕 v6.63.024: vehicleScores + autoAssignLastReason für Konflikt-Diagnose
+        r.autoAssignLastReason = strOrNull(s.child("autoAssignLastReason").getValue());
+        java.util.Map<String, String> _scoreReasons = new java.util.LinkedHashMap<>();
+        DataSnapshot _vs = s.child("vehicleScores");
+        if (_vs.exists()) {
+            for (DataSnapshot _vsc : _vs.getChildren()) {
+                String _vid = _vsc.getKey();
+                String _status = strOrNull(_vsc.child("status").getValue());
+                String _reason = strOrNull(_vsc.child("reason").getValue());
+                if (_vid != null) {
+                    String _line = (_status != null ? _status : "?")
+                        + (_reason != null && !_reason.isEmpty() ? ": " + _reason : "");
+                    _scoreReasons.put(_vid, _line);
+                }
+            }
+        }
+        r.vehicleScoreSummary = _scoreReasons;
         return r;
     }
 
@@ -608,6 +635,9 @@ public class DispoActivity extends AppCompatActivity {
         Integer drivingTimeToPickup;
         Double drivingDistanceToPickupKm;
         Integer drivingTimeToDestination;
+        // 🆕 v6.63.024: Konflikt-Diagnose-Felder
+        String autoAssignLastReason;
+        java.util.Map<String, String> vehicleScoreSummary;
 
         boolean isActive() {
             return "assigned".equals(status) || "accepted".equals(status)

@@ -4857,6 +4857,11 @@
                                 phoneEl.value = String(phoneNum).replace(/^\+49\s*/, '0');
                             }
                             if (!customerPhone && phoneNum) customerPhone = phoneNum;
+                            // 🆕 v6.63.006 (Patrick 29.05. 08:17): defaultPayment aus CRM lesen
+                            if (c.defaultPayment) {
+                                window._customerDefaultPayment = c.defaultPayment;
+                                logBuchen('💳', 'Standard-Zahlung aus Profil: ' + c.defaultPayment);
+                            }
                             // 🆕 v6.63.005 (Patrick 29.05. 08:05): CRM-Phone in localStorage
                             //   cachen UND in /users/{uid}/savedPhone für Cross-Device.
                             //   Damit muss Patrick beim Google-Login NIE wieder SMS verifizieren.
@@ -5352,7 +5357,8 @@
                 updatedAt: now,
                 pickupTimestamp: pickupTs,
                 pickupTime: pickupTimeStr,
-                paymentMethod: 'bar',
+                paymentMethod: (window._customerDefaultPayment || 'cash'),
+                ...(window._customerDefaultPayment === 'stripe' && { _vorkasseRequested: true }),
                 ...(routeData && {
                     price: parseFloat(routeData.price),
                     estimatedPrice: parseFloat(routeData.price),

@@ -606,7 +606,20 @@
                 </div>
             </div>
 
-            <!-- Sektion 3: Adresse -->
+            <!-- 🆕 v6.63.006 (Patrick 29.05. 08:17): Bevorzugte Zahlungsart hinterlegen -->
+            <div style="border:1px solid #e5e7eb;border-radius:10px;padding:12px;margin-bottom:12px;background:#fafbfc;">
+                <div style="font-size:11px;font-weight:700;color:#667eea;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Bevorzugte Zahlung</div>
+                <select id="profile-default-payment" style="width:100%;padding:10px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;background:white;">
+                    <option value="cash">💵 Bar beim Fahrer</option>
+                    <option value="card">💳 EC/Kreditkarte beim Fahrer (Terminal)</option>
+                    <option value="stripe">🌐 Online vorab bezahlen (Stripe-Link per SMS)</option>
+                    <option value="paypal">🅿️ PayPal (Link per SMS)</option>
+                    <option value="rechnung">🧾 Auf Rechnung (nur Stammkunden)</option>
+                </select>
+                <div style="font-size:11px;color:#6b7280;line-height:1.4;margin-top:6px;">💡 Wird bei jeder Buchung automatisch vorgeschlagen — Sie können einzelne Fahrten trotzdem anders zahlen.</div>
+            </div>
+
+            <!-- Sektion 4: Adresse -->
             <div style="border:1px solid #e5e7eb;border-radius:10px;padding:12px;margin-bottom:14px;background:#fafbfc;">
                 <div style="font-size:11px;font-weight:700;color:#667eea;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Heimadresse</div>
                 <div class="form-group" style="margin-bottom:8px;">
@@ -1006,9 +1019,14 @@
                 // 🆕 v6.62.401: bestehende Koordinaten der Heimadresse merken
                 _profileAddressLat = customerData.addressLat || null;
                 _profileAddressLon = customerData.addressLon || null;
+                // 🆕 v6.63.006: defaultPayment vorbefüllen (default 'cash')
+                const payEl = document.getElementById('profile-default-payment');
+                if (payEl) payEl.value = customerData.defaultPayment || 'cash';
             } else {
                 _profileAddressLat = null;
                 _profileAddressLon = null;
+                const payEl = document.getElementById('profile-default-payment');
+                if (payEl) payEl.value = 'cash';
             }
             // Email-Hint nur bei Google-Login zeigen
             const emailHint = document.getElementById('profile-email-hint');
@@ -1069,6 +1087,9 @@
             // Wenn Adresse leer, Koordinaten loeschen
             if (!address) { addressLat = null; addressLon = null; }
 
+            // 🆕 v6.63.006 (Patrick 29.05. 08:17): defaultPayment aus Select lesen
+            const defaultPayment = (document.getElementById('profile-default-payment') || {}).value || 'cash';
+
             try {
                 if (customerData && customerData.id) {
                     // Bestehendes CRM-Profil updaten
@@ -1078,6 +1099,7 @@
                         address: address || null,
                         addressLat: addressLat,
                         addressLon: addressLon,
+                        defaultPayment: defaultPayment,
                         updatedAt: Date.now()
                     };
                     // 🆕 v6.62.765: Telefon nur mitspeichern wenn Google-Login (sonst Login-Identitaet)
@@ -1105,6 +1127,7 @@
                         address: address || null,
                         addressLat: addressLat,
                         addressLon: addressLon,
+                        defaultPayment: defaultPayment,
                         createdAt: Date.now(),
                         source: 'kunden-portal'
                     };

@@ -1856,6 +1856,26 @@ public class AdminDashboardActivity extends AppCompatActivity {
             }
             upd.put("pickupTimestamp", dateTime[0]);
             upd.put("pickupTime", new SimpleDateFormat("HH:mm", Locale.GERMANY).format(new java.util.Date(dateTime[0])));
+            // 🆕 v6.63.022 (Patrick 29.05. 20:54 'Cloud plant nicht um'): Bei Adress-/Zeit-
+            //   Änderung müssen drivingTimeToPickup + drivingDistanceToPickupKm gelöscht
+            //   werden, sonst rechnet autoResolveConflicts mit der alten Anfahrt (z.B.
+            //   Scholl hatte 277 Min Anfahrt nach versehentlicher Dresden-Eingabe) und
+            //   blockiert das Re-Assign. Plus pickupDate aus pickupTimestamp neu setzen +
+            //   autoAssignAttempts=0 für sauberen Re-Run.
+            SimpleDateFormat _dfPickupDate = new SimpleDateFormat("yyyy-MM-dd", Locale.GERMANY);
+            _dfPickupDate.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
+            upd.put("pickupDate", _dfPickupDate.format(new java.util.Date(dateTime[0])));
+            upd.put("drivingTimeToPickup", null);
+            upd.put("drivingDistanceToPickupKm", null);
+            upd.put("etaUpdatedAt", null);
+            upd.put("liveEtaUpdatedAt", null);
+            upd.put("liveEtaMethod", null);
+            upd.put("estimatedArrivalAt", null);
+            upd.put("autoAssignAttempts", 0);
+            upd.put("wartepoolReason", null);
+            if ("wartepool".equals(r.status)) upd.put("status", "vorbestellt");
+            upd.put("resetForAssignAt", System.currentTimeMillis());
+            upd.put("resetBy", "native_admin_dispo_edit_v6.63.022");
             // v6.62.655: Lock-State aus Checkbox
             boolean _newLock = cbEditLock.isChecked();
             boolean _oldLock = Boolean.TRUE.equals(r.assignmentLocked);

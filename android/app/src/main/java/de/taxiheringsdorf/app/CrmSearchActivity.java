@@ -1026,14 +1026,12 @@ public class CrmSearchActivity extends AppCompatActivity {
             .setMessage(_msgFinal);
 
         if (_editable && _rideIdFinal != null) {
+            // 🆕 v6.63.034 (Patrick 30.05. 11:46 "ich will die Fahrt ja nicht bearbeiten,
+            //   ich will die Fahrt kopieren"): Auch bei zukünftigen Vorbestellungen die
+            //   Kopieren-als-Vorlage-Option. Clipboard-Text-Kopie war selten gebraucht;
+            //   "Als Vorlage neu anlegen" ist der häufigere Wunsch.
             _b.setPositiveButton("✏️ Bearbeiten", (d, w) -> openRideEditDialog(e, _rideIdFinal, r));
-            _b.setNeutralButton("📋 Kopieren", (d, w) -> {
-                android.content.ClipboardManager cm = (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
-                if (cm != null) {
-                    cm.setPrimaryClip(android.content.ClipData.newPlainText("Fahrt", _msgFinal));
-                    Toast.makeText(this, "📋 In Zwischenablage kopiert", Toast.LENGTH_SHORT).show();
-                }
-            });
+            _b.setNeutralButton("📅 Als Vorlage neu anlegen", (d, w) -> openRideAsTemplate(e, _rideIdFinal, r));
             _b.setNegativeButton("Zurück", null);
         } else {
             // v6.62.598: Patrick (11.05. 07:26): "Wenn ich eine Rechnung erstellen moechte

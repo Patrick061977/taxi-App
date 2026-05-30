@@ -1870,13 +1870,28 @@ public class AdminDashboardActivity extends AppCompatActivity {
             upd.put("customerPhone", etPhone.getText().toString().trim());
             upd.put("pickup", etPickup.getText().toString().trim());
             upd.put("destination", etDest.getText().toString().trim());
+            // 🐛 v6.63.029 (Patrick 30.05. 07:28 "Cloud rechnet 265 Min Anfahrt"):
+            //   Sub-Objekte pickupCoords/destCoords wurden NICHT aktualisiert.
+            //   Cloud-Function liest pickupCoords zuerst (Fallback pickupLat) → bei
+            //   Scholl-Dresden-Bug blieben Dresden-Koordinaten im Sub-Objekt während
+            //   pickupLat/Lon längst auf Heringsdorf korrigiert waren. Telegram-Block-
+            //   Alarm rechnete 265 Min Anfahrt zu Dresden statt 4 Min zu Heringsdorf.
+            //   Fix: BEIDE Pfade synchron updaten.
             if (!Double.isNaN(editPickupCoords[0]) && !Double.isNaN(editPickupCoords[1])) {
                 upd.put("pickupLat", editPickupCoords[0]);
                 upd.put("pickupLon", editPickupCoords[1]);
+                Map<String, Object> _pc = new HashMap<>();
+                _pc.put("lat", editPickupCoords[0]);
+                _pc.put("lon", editPickupCoords[1]);
+                upd.put("pickupCoords", _pc);
             }
             if (!Double.isNaN(editDestCoords[0]) && !Double.isNaN(editDestCoords[1])) {
                 upd.put("destinationLat", editDestCoords[0]);
                 upd.put("destinationLon", editDestCoords[1]);
+                Map<String, Object> _dc = new HashMap<>();
+                _dc.put("lat", editDestCoords[0]);
+                _dc.put("lon", editDestCoords[1]);
+                upd.put("destCoords", _dc);
             }
             upd.put("pickupTimestamp", dateTime[0]);
             upd.put("pickupTime", new SimpleDateFormat("HH:mm", Locale.GERMANY).format(new java.util.Date(dateTime[0])));

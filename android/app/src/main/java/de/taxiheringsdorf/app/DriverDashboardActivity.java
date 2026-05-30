@@ -2473,6 +2473,105 @@ public class DriverDashboardActivity extends AppCompatActivity {
     // Original-Fahrer gibt Fahrt frei → Cloud's scheduledAutoAssign weist sie neu zu.
     // KEINE Stornierung, KEINE Kunden-Benachrichtigung — der Kunde merkt nichts ausser
     // dass das Fahrzeug-Kennzeichen wechselt.
+    // 🆕 v6.63.039 (Patrick 30.05. 15:55 + 16:24): "Kann ich direkt an Kollegen
+    //   weitergeben, statt zurueck in den Pool?" 3-Way-Dialog: Pool / Kollege.
+    private void showHandoverChoiceDialog(String rideId) {
+        new AlertDialog.Builder(this)
+            .setTitle("🔄 Fahrt weitergeben")
+            .setMessage("Wie willst du diese Fahrt weitergeben?")
+            .setPositiveButton("👤 An Kollegen", (d, w) -> showColleaguePickerDialog(rideId))
+            .setNeutralButton("↩️ Pool (Auto)", (d, w) -> passRideToPool(rideId))
+            .setNegativeButton("Abbrechen", null)
+            .show();
+    }
+
+    // Liste der aktiven Fahrer (live Schicht + nicht das eigene Vehicle).
+    private void showColleaguePickerDialog(String rideId) {
+        if (db == null || rideId == null) return;
+        db.getReference("vehicles").addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override public void onDataChange(@NonNull DataSnapshot snap) {
+                final java.util.List<String[]> options = new java.util.ArrayList<>(); // [label, vehicleId]
+                long nowMs = System.currentTimeMillis();
+                for (DataSnapshot vSnap : snap.getChildren()) {
+                    String vid = vSnap.getKey();
+                    if (vid == null || vid.equals(currentVehicleId)) continue;
+                    String shiftStatus = null;
+                    DataSnapshot ss = vSnap.child("shift").child("status");
+                    if (ss.exists()) shiftStatus = String.valueOf(ss.getValue());
+                    if (!"active".equalsIgnoreCase(shiftStatus)) continue;
+                    String name = String.valueOf(vSnap.child("name").getValue());
+                    String plate = String.valueOf(vSnap.child("plate").getValue());
+                    Long lastSeen = null;
+                    Object lsObj = vSnap.child("lastSeen").getValue();
+                    if (lsObj instanceof Number) lastSeen = ((Number) lsObj).longValue();
+                    String activeRideStatus = String.valueOf(vSnap.child("activeRideStatus").getValue());
+                    String busyTag = activeRideStatus != null && !activeRideStatus.equals("null")
+                        ? " · " + activeRideStatus : " · frei";
+                    String onlineTag = (lastSeen != null && nowMs - lastSeen < 10 * 60_000L)
+                        ? "🟢" : "⚫";
+                    String label = onlineTag + " "
+                        + (name != null && !name.equals("null") ? name : vid)
+                        + (plate != null && !plate.equals("null") ? " (" + plate + ")" : "")
+                        + busyTag;
+                    options.add(new String[]{ label, vid });
+                }
+                if (options.isEmpty()) {
+                    Toast.makeText(DriverDashboardActivity.this,
+                        "Aktuell keine Kollegen mit aktiver Schicht online", Toast.LENGTH_LONG).show();
+                    return;
+                }
+                String[] labels = new String[options.size()];
+                for (int i = 0; i < options.size(); i++) labels[i] = options.get(i)[0];
+                new AlertDialog.Builder(DriverDashboardActivity.this)
+                    .setTitle("👤 Kollege auswählen")
+                    .setItems(labels, (d, w) -> {
+                        if (w >= 0 && w < options.size()) {
+                            handoverRideToVehicle(rideId, options.get(w)[1], options.get(w)[0]);
+                        }
+                    })
+                    .setNegativeButton("Abbrechen", null)
+                    .show();
+            }
+            @Override public void onCancelled(@NonNull DatabaseError err) {
+                Toast.makeText(DriverDashboardActivity.this,
+                    "Fehler: " + err.getMessage(), Toast.LENGTH_LONG).show();
+            }
+        });
+    }
+
+    private void handoverRideToVehicle(String rideId, String targetVehicleId, String targetLabel) {
+        if (db == null || rideId == null || targetVehicleId == null) return;
+        new AlertDialog.Builder(this)
+            .setTitle("✅ Bestaetigen")
+            .setMessage("Fahrt direkt an " + targetLabel + " uebergeben?\n\n"
+                + "Der Kollege sieht die Fahrt sofort als 'zugewiesen' und kann sie annehmen.")
+            .setPositiveButton("Ja, übergeben", (d, w) -> {
+                Map<String, Object> u = new HashMap<>();
+                u.put("status", "assigned");
+                u.put("assignedVehicle", targetVehicleId);
+                u.put("vehicleId", targetVehicleId);
+                u.put("assignedTo", targetVehicleId);
+                u.put("assignedAt", System.currentTimeMillis());
+                u.put("assignedBy", "driver-direct-handover");
+                u.put("acceptedAt", null);
+                u.put("acceptedVia", null);
+                u.put("autoAssignAttempts", 0);
+                u.put("wartepoolReason", null);
+                u.put("wartepoolAt", null);
+                u.put("poolHandbackAt", System.currentTimeMillis());
+                u.put("poolHandbackBy", currentVehicleId);
+                u.put("handoverFromVehicle", currentVehicleId);
+                u.put("handoverToVehicle", targetVehicleId);
+                u.put("updatedAt", System.currentTimeMillis());
+                u.put("openRideWarned", null);
+                db.getReference("rides/" + rideId).updateChildren(u);
+                Toast.makeText(this,
+                    "✅ Fahrt an " + targetLabel + " uebergeben", Toast.LENGTH_LONG).show();
+            })
+            .setNegativeButton("Abbrechen", null)
+            .show();
+    }
+
     private void passRideToPool(String rideId) {
         if (db == null || rideId == null) return;
         new AlertDialog.Builder(this)
@@ -3715,8 +3814,12 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 if ("accepted".equalsIgnoreCase(s) && acceptedFernerTermin && _minBisPickup > 10) {
                     actionRow.setVisibility(View.VISIBLE);
                     btnAccept.setVisibility(View.GONE);
-                    btnReject.setText("↩️ Zurück in Pool");
-                    btnReject.setOnClickListener(v -> passRideToPool(r.id));
+                    btnReject.setText("↩️ Weitergeben");
+                    // 🆕 v6.63.039 (Patrick 30.05. 15:55 + 16:24): "Kann ich direkt
+                    //   an Kollegen weitergeben, also nicht zurueck in den Pool,
+                    //   sondern direkt an einen anderen Fahrer?"
+                    //   3-Way-Dialog: Pool / Kollege auswaehlen / Abbrechen.
+                    btnReject.setOnClickListener(v -> showHandoverChoiceDialog(r.id));
                 }
                 if (isActive) {
                     btnStatusNext.setText(nextStatusLabel(r.status));

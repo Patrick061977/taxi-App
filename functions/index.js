@@ -20440,7 +20440,12 @@ exports.scheduledAutoAssign = onSchedule(
                     if (!_vid) return false;
                     if (!r.pickupTimestamp) return false;
                     const _anfahrt = (r.drivingTimeToPickup && r.drivingTimeToPickup > 0) ? r.drivingTimeToPickup : 10;
-                    const _reminderLeadMs = (15 + _anfahrt) * 60000;
+                    // 🔧 v6.63.044 (Patrick 30.05. 16:52 "10 Minuten entfernt von Labömitz,
+                    //   maximal 25 Min vor Pickup haette ich Signal bekommen muessen"):
+                    //   Lead 15+Anfahrt auf 10+Anfahrt reduziert. Plus: ETA-Faktor wird
+                    //   evtl. ueberschaetzt (veraltet, ohne Live-Vehicle-Position) → spaeter
+                    //   ggf. ETA-Refresh vor Push einbauen.
+                    const _reminderLeadMs = (10 + _anfahrt) * 60000;
                     if ((r.pickupTimestamp - now) > _reminderLeadMs) return false; // zu weit in Zukunft
                     if ((r.pickupTimestamp - now) < -10 * 60000) return false; // schon >10 min überfällig
                     // v6.62.804: acceptedAt-Check NUR fuer 'vorbestellt'. Bei 'accepted' wurde
@@ -20467,7 +20472,12 @@ exports.scheduledAutoAssign = onSchedule(
                     if (!_vid) return false;
                     if (!r.pickupTimestamp) return false;
                     const _anfahrt = (r.drivingTimeToPickup && r.drivingTimeToPickup > 0) ? r.drivingTimeToPickup : 10;
-                    const _reminderLeadMs = (15 + _anfahrt) * 60000;
+                    // 🔧 v6.63.044 (Patrick 30.05. 16:52 "10 Minuten entfernt von Labömitz,
+                    //   maximal 25 Min vor Pickup haette ich Signal bekommen muessen"):
+                    //   Lead 15+Anfahrt auf 10+Anfahrt reduziert. Plus: ETA-Faktor wird
+                    //   evtl. ueberschaetzt (veraltet, ohne Live-Vehicle-Position) → spaeter
+                    //   ggf. ETA-Refresh vor Push einbauen.
+                    const _reminderLeadMs = (10 + _anfahrt) * 60000;
                     if ((r.pickupTimestamp - now) > _reminderLeadMs) return false;
                     if ((r.pickupTimestamp - now) < -10 * 60000) return false;
                     if (!r.acceptedAt) return false; // wir wollen NUR die mit acceptedAt

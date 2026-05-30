@@ -292,8 +292,9 @@ const OFFICIAL_VEHICLES = {
     'pw-ik-222': { name: 'Toyota Prius IK', plate: 'PW-IK 222', capacity: 4, priority: 1 },
     'pw-my-222-e': { name: 'Tesla Model Y', plate: 'PW-MY 222 E', capacity: 4, priority: 2 },
     'pw-ki-222': { name: 'Toyota Prius II', plate: 'PW-KI 222', capacity: 4, priority: 3 },
-    'pw-sk-222': { name: 'Renault Traffic 8 Pax', plate: 'PW-SK 222', capacity: 8, priority: 4 },
-    'vg-lk-111': { name: 'Mercedes Vito 8 Pax', plate: 'VG-LK 111', capacity: 8, priority: 5 }
+    'pw-ym-222-e': { name: 'Tesla YM222', plate: 'PW-YM 222 E', capacity: 4, priority: 4 },
+    'pw-sk-222': { name: 'Renault Traffic 8 Pax', plate: 'PW-SK 222', capacity: 8, priority: 5 },
+    'vg-lk-111': { name: 'Mercedes Vito 8 Pax', plate: 'VG-LK 111', capacity: 8, priority: 6 }
 };
 
 // ═══════════════════════════════════════════════════════════════

@@ -24983,12 +24983,16 @@ exports.onShiftStatusChanged = onValueUpdated(
                     failed.push({ rideId: id, customerName: ride.customerName, pickupTime: ride.pickupTime, error: err.message });
                 }
             }
-            // Admin-Telegram mit Zusammenfassung
-            const msg = `🛑 <b>${_vehName} hat Schicht beendet</b> (${newStatus})\n\n` +
-                `<b>${affected.length} Vorbestellung(en)</b> wurden umverteilt:\n\n` +
-                reassigned.map(r => `✅ ${r.customerName || '?'} ${r.pickupTime || ''} → ${r.newVehicle}`).join('\n') +
-                (failed.length ? `\n\n⚠️ <b>${failed.length} konnten NICHT neu zugewiesen werden:</b>\n` + failed.map(f => `❌ ${f.customerName || '?'} ${f.pickupTime || ''}`).join('\n') : '');
-            await sendToAllAdmins(msg, 'shift_end_reassign');
+            // 🐛 v6.63.033 (Patrick 30.05. 11:24): Push für Schicht-Ende-Umverteilung
+            //   entfernt — Patrick will keine Schreck-Pushes mehr, Lifecycle-Log + Dispo
+            //   sind ausreichend. NUR wenn FAILED-Rides existieren (Probleme) bleibt der
+            //   Admin-Push damit Patrick die nicht-umverteilten Fahrten manuell aufgreift.
+            if (failed.length > 0) {
+                const msg = `🛑 <b>${_vehName} hat Schicht beendet</b> — ${failed.length} Fahrt(en) brauchen Hilfe:\n\n` +
+                    failed.map(f => `❌ ${f.customerName || '?'} ${f.pickupTime || ''}`).join('\n') +
+                    (reassigned.length ? `\n\n<i>(${reassigned.length} weitere wurden still umverteilt — siehe Dispo)</i>` : '');
+                await sendToAllAdmins(msg, 'shift_end_reassign');
+            }
         } catch (err) {
             console.error('onShiftStatusChanged Fehler:', err.message);
         }

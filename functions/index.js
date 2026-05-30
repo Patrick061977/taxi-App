@@ -19472,6 +19472,10 @@ exports.scheduledReachabilityCheck = onSchedule(
             //   (1 Min frueher kommen + einsteigen). Watchdog alarmiert nur noch wenn ANKUNFT
             //   wirklich > Pickup-Zeit ist — keine Push-Spam mehr bei knapper Lage.
             const BOARDING_BUFFER_MIN = 0;
+            // 🆕 v6.63.041: Toleranz-Minuten aus settings/dispatch nachladen
+            //   (sonst Default 5 Min). Patrick will keinen Alarm bei 1 Min Mikro-Spaeting.
+            const _dispatchSettingsSnap = await db.ref('settings/dispatch').once('value');
+            const _dispatchSettings = _dispatchSettingsSnap.val() || {};
 
             const [ridesSnap, vehiclesSnap] = await Promise.all([
                 db.ref('rides').orderByChild('pickupTimestamp').startAt(now).endAt(windowEnd).once('value'),
@@ -19569,8 +19573,15 @@ exports.scheduledReachabilityCheck = onSchedule(
                         if (ride.status === 'on_way' || ride.status === 'picked_up') return;
                         const minBisPickup = Math.round((ride.pickupTimestamp - now) / 60000);
                         const missedBy = (eta + BOARDING_BUFFER_MIN) - minBisPickup;
-                        if (missedBy <= 0) {
-                            // Fahrer schafft es noch — alten Alarm aufheben falls vorhanden
+                        // 🔧 v6.63.041 (Patrick 30.05. 16:35 "Was soll der Quatsch ich
+                        //   bin 5 Min entfernt"): SCHAFFBARKEIT-Alarm bei "1 Min zu spaet"
+                        //   ist ueberzogen — Anfahrts-ETA schwankt um ±2 Min, Pickup-Zeit
+                        //   ist oft Schaetzung. Erst ab 5 Min ueber Pickup-Zeit alarmieren
+                        //   (settings.dispatch.reachabilityToleranceMin konfigurierbar).
+                        const _reachToleranceMin = (typeof _dispatchSettings.reachabilityToleranceMin === 'number')
+                            ? _dispatchSettings.reachabilityToleranceMin : 5;
+                        if (missedBy <= _reachToleranceMin) {
+                            // Fahrer schafft es noch (oder Mikro-Verspaetung im Toleranzbereich)
                             if (ride.unreachableAlert) {
                                 await db.ref(`rides/${rideId}/unreachableAlert`).remove();
                             }

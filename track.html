@@ -846,10 +846,25 @@
                 // 5) Bewertung-abgeben (Patrick v6.62.135)
                 if (r.status === 'completed') {
                     try {
+                        // 🔧 v6.63.047 (Patrick 30.05. 17:45 "fruher wurde die Rechnung
+                        //   heruntergeladen, gibt es alles nicht mehr"): /invoices ist
+                        //   auth-only (firebase rules .read=auth!=null) → anonymer Kunde
+                        //   bekam Permission denied → pdfUrl fiel auf undefined zurueck
+                        //   → Track-Link zeigte 'Per Email anfordern' statt Download-Button.
+                        //   Cloud Function v6.62.811 schreibt pdfUrl auch in rides/.../invoicePdfUrl
+                        //   (Z24761) — von dort lesen ist auth-frei moeglich.
                         let _inv = {};
+                        if (r.invoicePdfUrl) {
+                            _inv.pdfUrl = r.invoicePdfUrl;
+                        }
                         if (r.invoiceNumber) {
-                            const _invSnap = await db.ref('invoices/' + r.invoiceNumber).once('value');
-                            _inv = _invSnap.val() || {};
+                            try {
+                                const _invSnap = await db.ref('invoices/' + r.invoiceNumber).once('value');
+                                const _val = _invSnap.val();
+                                if (_val) _inv = Object.assign({}, _val, _inv); // ride-pdfUrl gewinnt
+                            } catch (_invErr) {
+                                // Auth-Fehler bei anonymen Besuchern — ignorieren, ride.invoicePdfUrl reicht.
+                            }
                         }
                         const _bd2 = document.getElementById('booking-details');
                         if (!_bd2) return;

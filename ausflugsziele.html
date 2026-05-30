@@ -836,9 +836,9 @@ const POIS = [
     { name: 'Świnoujście Promenade', cat: 'strand', lat: 53.911, lon: 14.247, address: 'Promenada Zdrojowa, 72-600 Świnoujście, Polen',
       desc: 'Polnische Seebadepromenade — Polen zu Fuß erreichbar.',
       img: 'https://picsum.photos/seed/swinoujscie/400/240', anim: 'flag' },
-    { name: 'Schmetterling Park Trassenheide', cat: 'natur', lat: 54.063, lon: 13.890, address: 'Trassenheide',
-      desc: 'Tropische Atmosphäre mit den größten Schmetterlingen der Welt.',
-      img: 'https://picsum.photos/seed/falter/400/240', anim: 'butterfly' },
+    // v6.63.x (Patrick 30.05. 19:27 "Dublette weg"): Schmetterling Park Trassenheide
+    //   ist identisch mit Schmetterlingsfarm Trassenheide (Z822) — Tippfehler-Dublette
+    //   wird geloescht damit Image-Generierung nicht doppelt gemacht wird.
     // 🆕 v6.62.288: Insel-Safari (Patrick 19:26) — Jeep-Touren mit Wildtier-Beobachtung
     // Operiert von Wolgast aus, fährt aber über die ganze Insel (Wisente Damerow, Adler etc.)
     { name: 'Insel-Safari Usedom', cat: 'natur', lat: 54.040, lon: 13.770, address: 'Insel Safari Usedom, Robert-Koch-Straße 49a, 17438 Wolgast',

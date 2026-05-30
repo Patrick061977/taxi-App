@@ -23553,6 +23553,24 @@ exports.onRideUpdated = onValueUpdated(
             //   →picked_up→completed) = 14 Writes pro Fahrt. Jetzt: ein update() mit Diff-Check.
             try {
                 const _vidForStatus = after.assignedVehicle || after.vehicleId;
+                const _oldVidForStatus = before.assignedVehicle || before.vehicleId;
+                // 🔧 v6.63.038 (Patrick 30.05. 15:55): "Wenn ich Fahrt in Pool zurueck-
+                //   gegeben habe, dann muss ich auf der Kollegen-Karte wieder frei sein.
+                //   Die hat dann Nilo bekommen — ich bin aber noch akzeptiert dargestellt."
+                //   Bug: bei Pool-Handback (status: accepted→vorbestellt, vehicle:IK→null)
+                //   bzw. Cloud-Reassign (status:accepted, vehicle:IK→Tesla) wurde NUR
+                //   das NEUE Vehicle gesetzt — das ALTE Vehicle behielt activeRideStatus.
+                //   Fix: wenn oldVehicle und (vehicleChange ODER status=Endstatus) und
+                //   das alte Vehicle hat NOCH dieselbe activeRideId → freiraeumen.
+                if (_oldVidForStatus && _oldVidForStatus !== _vidForStatus) {
+                    const _oldSnap = await db.ref(`vehicles/${_oldVidForStatus}`).child('activeRideId').once('value');
+                    if (_oldSnap.val() === rideId) {
+                        const _updOld = {};
+                        _updOld[`vehicles/${_oldVidForStatus}/activeRideStatus`] = null;
+                        _updOld[`vehicles/${_oldVidForStatus}/activeRideId`] = null;
+                        await db.ref().update(_updOld);
+                    }
+                }
                 if (_vidForStatus) {
                     if (['accepted', 'on_way', 'arrived', 'picked_up', 'assigned'].includes(newStatus)) {
                         const _curSnap = await db.ref(`vehicles/${_vidForStatus}`).child('activeRideStatus').once('value');
@@ -23570,6 +23588,16 @@ exports.onRideUpdated = onValueUpdated(
                             _upd[`vehicles/${_vidForStatus}/activeRideId`] = null;
                             await db.ref().update(_upd);
                         }
+                    }
+                } else if (_oldVidForStatus && !_vidForStatus) {
+                    // Pool-Handback ohne neues Vehicle: zusaetzlich oldVehicle freiraeumen
+                    // (falls oben uebersprungen weil _vidForStatus===_oldVidForStatus===null).
+                    const _oldSnap2 = await db.ref(`vehicles/${_oldVidForStatus}`).child('activeRideId').once('value');
+                    if (_oldSnap2.val() === rideId) {
+                        const _updOld2 = {};
+                        _updOld2[`vehicles/${_oldVidForStatus}/activeRideStatus`] = null;
+                        _updOld2[`vehicles/${_oldVidForStatus}/activeRideId`] = null;
+                        await db.ref().update(_updOld2);
                     }
                 }
             } catch (_arsErr) { /* non-critical */ }

@@ -18537,6 +18537,14 @@ exports.autoResolveConflicts = onSchedule(
                         console.log(`   🚗 ${next.firebaseId}: Status "${next.status}" → keine Umplanung`);
                         continue;
                     }
+                    // 🆕 v6.63.032 (Patrick 30.05. 11:15 "wenn ich eine fahrt gesperrt habe
+                    //   dann ist die auch gesperrt"): Gelockte Fahrten NIE umverteilen, auch
+                    //   nicht bei Hard-Konflikt. Patrick entscheidet manuell, das System
+                    //   respektiert das Lock kompromisslos.
+                    if (next.assignmentLocked === true) {
+                        console.log(`   🔒 ${next.firebaseId}: assignmentLocked=true → keine Umplanung trotz Konflikt`);
+                        continue;
+                    }
 
                     // Alternatives Fahrzeug suchen
                     const altVehicle = findAlternativeVehicle(
@@ -18590,15 +18598,10 @@ exports.autoResolveConflicts = onSchedule(
                         });
                     } catch(e) { /* non-critical */ }
 
-                    // 🔧 v6.30.1: Telegram-Benachrichtigung für Konflikt-Umplanung
-                    try {
-                        const nextDateStr = berlinDate(next.pickupTimestamp);
-                        const nextDateParts = nextDateStr.split('-');
-                        const nextDateFmt = nextDateParts.length === 3 ? `${nextDateParts[2]}.${nextDateParts[1]}.` : nextDateStr;
-                        const msg = `⚠️ *Zeitkonflikt-Umplanung*\n📅 ${nextDateFmt} • ${nextTime}\n📋 ${next.customerName || '?'}\n🔄 ${vName} → ${altInfo.name || altVehicle}\n📌 ${overlapMin} Min zu spät${leerfahrtInfo} nach ${curr.customerName || '?'} (${currTime})`;
-                        await sendToAllAdmins(msg, 'optimization');
-                        await sendToSystemChannel(msg, 'optimization');
-                    } catch(e) { /* non-critical */ }
+                    // 🐛 v6.63.032 (Patrick 30.05. 11:14 "Alarme rausschicken… interessiert keinen"):
+                    //   Telegram-Push für Konflikt-Umplanung entfernt. Patrick sieht die Umplanung
+                    //   im Dispo + Lifecycle-Log; ein Push erschreckt unnötig die Fahrer.
+                    //   Lifecycle bleibt erhalten (Z18583 addRideLog).
                 }
             }
 

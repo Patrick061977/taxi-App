@@ -934,7 +934,7 @@ public class CrmSearchActivity extends AppCompatActivity {
                             String num = (String) matches.get(w)[0];
                             if (pdf != null && !pdf.isEmpty()) {
                                 try {
-                                    startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(pdf)));
+                                    startActivity(new Intent(Intent.ACTION_VIEW, android.net.Uri.parse(pdf)));
                                 } catch (Throwable t) {
                                     Toast.makeText(this, "❌ PDF nicht oeffnen: " + t.getMessage(), Toast.LENGTH_LONG).show();
                                 }

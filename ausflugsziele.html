@@ -801,11 +801,6 @@ const POIS = [
       website: 'https://www.weisse-duene.com/toerns.html',
       longDesc: 'Die Weisse Duene ist Deutschlands einziges Segel-Passagierschiff: ein ueber 100 Jahre alter, 45m langer Topgaffel-Schoner aus Holz, der seit 2011 von Jane und Detlef Bothe gefahren wird. Klassische 3,5h-Tour mittwochs 11:00–14:30 Uhr ab Anleger Neppermin ueber das ganze Achterwasser mit echtem Segel-Setzen unter Anleitung des Kapitaens. Auch Abendtouren, Bodden-Touren (Greifswalder Bodden) und Haff-Faehrten (Stettiner Haff/Oder-Delta) im Angebot. Dienstags "Genuss unter Segeln" mit regionalem Buffet (Raeucherfisch, Wurst, Kaese, frisches Brot direkt vom Inselbaecker). Preise: 75€ Erwachsene, 45€ Kinder bis 11 Jahre, Babys frei. Auch fuer private Gruppen-Events buchbar (Hochzeiten, Firmenausfluege, Geburtstage). Tickets + Gutscheine + Reservierung direkt unter weisse-duene.com — Plaetze sind im Sommer schnell weg, frueh buchen! BUCHUNGS-TIPP: Funk Taxi Heringsdorf bringt euch entspannt zum Anleger Neppermin (etwa 35 Min Fahrt aus den Kaiserbaedern) — kein Parkplatz-Problem am Hafen, keine Aengste vor knapper Abfahrtszeit. Vorbestellung empfohlen: 038378-22022 oder keinbockzulaufen.de.' },
     // 🎨 v6.62.x (Patrick 17.05.): Phaenomenta-Keyframe — Featured neben Karls + Weisse Duene (Studio Ghibli, Tesla + Mitmach-Exponate)
-    { name: 'Phänomenta Peenemünde', cat: 'familie', lat: 54.139, lon: 13.770, address: 'Museumsstraße 11, 17449 Peenemünde',
-      desc: 'Naturwissenschaftlicher Erlebnis-Spielplatz für Familien — bei jedem Wetter offen.',
-      img: 'images/poi/phaenomenta-peenemuende.png', anim: 'lab',
-      website: 'https://www.phaenomenta.com/peenemuende',
-      longDesc: 'Die Phaenomenta Peenemuende ist eine Mitmach-Ausstellung, in der Physik nicht erklaert sondern erlebt wird: ueber 200 interaktive Experimente an denen Kinder UND Erwachsene gleichermassen Spass haben. Highlights: das beruehmte Trabi-Heben (700 kg Auto mit Muskelkraft per Hebel hochziehen), die grosse Optik-Farbscheibe, Wellen- und Klang-Stationen, ein Roboter-Bereich und ein riesiges Armillarsphaeren-Modell des Sonnensystems im Aussenbereich. Bei jedem Wetter geoeffnet — perfekter Regen-Tag-Plan fuer Familien mit Kindern (empfohlen ab 4 Jahre, ab 6 Jahren am meisten Spass). Direkt am Peenestrom mit Blick aufs U-Boot Juliett U-461 und das Historisch-Technische Museum nebenan — ein voller Tag Familien-Programm. Eintritt aktuell ab etwa 12 Euro Erwachsene, 8 Euro Kinder (genaue Preise auf phaenomenta.com/peenemuende). BUCHUNGS-TIPP: Funk Taxi Heringsdorf bringt euch entspannt nach Peenemuende (etwa 45 Min Fahrt aus den Kaiserbaedern) — kein Parkplatz-Stress, kein Stau auf der B111. Vorbestellung empfohlen: 038378-22022 oder keinbockzulaufen.de.' },
     // 🎨 v6.62.727 (Patrick 17.05. 10:08): Villa Irmgard zu Featured nach oben — eigenes Keyframe-Bild + longDesc + Website fertig
     // 🎬 v6.62.964 (Patrick 26.05. 17:11): Veo-Video von Gemini erhalten ("eine_veranstaltung_die_endet_o.mp4")
     { name: 'Villa Irmgard Heringsdorf', cat: 'kultur', lat: 53.948, lon: 14.169, address: 'Maxim-Gorki-Straße 13, 17424 Seebad Heringsdorf',
@@ -814,6 +809,32 @@ const POIS = [
       video: 'assets/videos/villa-irmgard.mp4',
       website: 'https://www.heringsdorf.m-vp.de/museum-villa-irmgard/',
       longDesc: 'Die Villa Irmgard in Heringsdorf ist eines der schoensten Beispiele kaiserzeitlicher Baederarchitektur an der Ostsee: 1883 erbaut im typischen Schweizerhaus-Stil mit verzierten Holzbalkons und Tuermchen. Beruehmt wurde das Haus 1922 durch seinen prominenten Sommergast: der russische Schriftsteller MAXIM GORKI verbrachte hier mehrere Monate zur Tuberkulose-Kur und schrieb in dieser Zeit Teile seines Werks "Mein Leben". Heute ist die Villa ein literarisches Gedenk-Museum mit Original-Mobiliar, Briefen, Manuskripten und Fotografien aus Gorkis Heringsdorfer Zeit. Vor dem Haus steht eine Bronzestatue des Dichters, im Garten ein historisches Teleskop mit Blick aufs Meer. Das Museum ist ganzjaehrig geoeffnet, der Eintritt liegt unter 5 Euro — ideal fuer Regen-Tage oder als ruhiger Kultur-Kontrast nach dem Strandbesuch. Direkt an der Kaiserbaeder-Promenade in Heringsdorf, nur 200m zum Strand und zur Seebruecke. BUCHUNGS-TIPP: Funk Taxi Heringsdorf bringt Sie direkt zum Eingang in der Maxim-Gorki-Strasse — kein Parkplatz-Problem im Kurzentrum. Vorbestellung: 038378-22022 oder keinbockzulaufen.de.' },
+    // 🎨 v6.63.049 (Patrick 30.05. 19:32): Atelier Otto Niemeyer-Holstein
+    //   Oel-Gemaelde via Gemini Imagen 4 — Lüttenort am Achterwasser
+    // 🎬 v6.63.051 (Patrick 30.05. 20:32): Veo 3 Image-to-Video aus dem Standbild
+    //   — 8s Push-in zur Staffelei + Pan zum Sonnenuntergang. Bug: Plate halluziniert.
+    { name: 'Atelier Otto Niemeyer-Holstein (Lüttenort)', cat: 'kultur', lat: 54.005, lon: 13.937, address: 'Lüttenort 1, 17429 Koserow',
+      desc: 'Ehemaliges Künstler-Atelier am Achterwasser — Kunst, Architektur und idyllischer Garten.',
+      img: 'images/poi/niemeyer-holstein.jpg', anim: 'beer',
+      video: 'assets/videos/niemeyer-holstein.mp4',
+      website: 'https://www.atelier-otto-niemeyer-holstein.de',
+      longDesc: 'Das Atelier Otto Niemeyer-Holstein im Künstlerdorf Lüttenort liegt direkt am Achterwasser — weisses Reet-Dach-Haus, mit Muscheln eingelegte Steinmauern und ein blühender Künstler-Garten. Der Maler Otto Niemeyer-Holstein (1896–1984) hat hier ueber Jahrzehnte seine Werke im Spannungsfeld zwischen Bauhaus, Spätimpressionismus und norddeutscher Landschaft geschaffen. Heute Museumsbesuch + Stille und Wasserblick. Mit Funk Taxi entspannt von den Kaiserbädern oder Koserow hinfahren — Parkplatz vor Ort ist knapp, vor allem in der Saison.' },
+    // 🆕 v6.62.737 (Patrick 17.05. 19:55): DDR-Museum Dargen ergaenzt — Foto kommt nach
+    // 🎨 v6.63.052 (Patrick 30.05. 20:42): Ghibli-Aquarell-Bild via Imagen 4 — DDR-Klassiker
+    //   (Trabant, Wartburg, Robur, Schwalbe, Famulus) + Familie + Tesla im Folierungs-Design
+    // 🎬 v6.63.053 (Patrick 30.05. 20:52): Veo 3 Image-to-Video — 8s Push-in zum Trabant
+    //   + Pan rechts entlang der Vintage-Vehicle-Line-up. Vater gestikuliert Richtung Wartburg.
+    { name: 'DDR-Museum Dargen', cat: 'kultur', lat: 53.887, lon: 14.060, address: 'Bahnhofstraße 7, 17419 Dargen',
+      desc: 'Größte DDR-Technik-Sammlung Norddeutschlands — Trabis, Motorräder, Traktoren, NVA-Fahrzeuge, Alltagsobjekte. Auf Usedom seit den 90ern.',
+      img: 'images/poi/ddr-museum-dargen.jpg', anim: 'rocket',
+      video: 'assets/videos/ddr-museum-dargen.mp4',
+      website: 'https://www.museumdargen.de',
+      longDesc: 'Das DDR-Museum Dargen ist eine der groessten privaten DDR-Technik-Sammlungen Norddeutschlands. Im Sueden der Insel Usedom, direkt an der Bahnhofstrasse 7, zeigt das Museum auf 5.000 m² Ausstellungsflaeche: Trabis (Limousine, Universal, Kuebel), Wartburg, Barkas, Robur, IFA-Lastwagen, NVA-Spezialfahrzeuge, Motorraeder (Simson Schwalbe, MZ ETZ, Jawa), Traktoren (Famulus, Aktivist) sowie tausende Alltagsobjekte aus DDR-Zeiten — Spielzeug, Haushaltswaren, Mode, Plakate, Bilder. Perfekt fuer alle die einen lebendigen Eindruck der DDR bekommen wollen, ob als Nostalgie-Reise oder Geschichtsunterricht fuer juengere Generationen. OEFFNUNGSZEITEN: bis 30.09. Dienstag-Sonntag 10-17 Uhr, 01.10.-30.11. Dienstag-Sonntag 10-15 Uhr (Montag Ruhetag). Wintersaison Ende Dezember bis Anfang Januar verkuerzt 10-15 Uhr. Eintritt aktuell ca. 9 Euro Erwachsene, 5 Euro Kinder (Stand 2026, genauere Preise auf museumdargen.de). Telefon 038376 20290. BUCHUNGS-TIPP: Funk Taxi Heringsdorf bringt euch direkt vor die Eingangstuer (etwa 25-30 Min Fahrtzeit aus Heringsdorf/Ahlbeck/Bansin). Vorbestellung empfohlen: 038378-22022 oder keinbockzulaufen.de.' }
+    { name: 'Phänomenta Peenemünde', cat: 'familie', lat: 54.139, lon: 13.770, address: 'Museumsstraße 11, 17449 Peenemünde',
+      desc: 'Naturwissenschaftlicher Erlebnis-Spielplatz für Familien — bei jedem Wetter offen.',
+      img: 'images/poi/phaenomenta-peenemuende.png', anim: 'lab',
+      website: 'https://www.phaenomenta.com/peenemuende',
+      longDesc: 'Die Phaenomenta Peenemuende ist eine Mitmach-Ausstellung, in der Physik nicht erklaert sondern erlebt wird: ueber 200 interaktive Experimente an denen Kinder UND Erwachsene gleichermassen Spass haben. Highlights: das beruehmte Trabi-Heben (700 kg Auto mit Muskelkraft per Hebel hochziehen), die grosse Optik-Farbscheibe, Wellen- und Klang-Stationen, ein Roboter-Bereich und ein riesiges Armillarsphaeren-Modell des Sonnensystems im Aussenbereich. Bei jedem Wetter geoeffnet — perfekter Regen-Tag-Plan fuer Familien mit Kindern (empfohlen ab 4 Jahre, ab 6 Jahren am meisten Spass). Direkt am Peenestrom mit Blick aufs U-Boot Juliett U-461 und das Historisch-Technische Museum nebenan — ein voller Tag Familien-Programm. Eintritt aktuell ab etwa 12 Euro Erwachsene, 8 Euro Kinder (genaue Preise auf phaenomenta.com/peenemuende). BUCHUNGS-TIPP: Funk Taxi Heringsdorf bringt euch entspannt nach Peenemuende (etwa 45 Min Fahrt aus den Kaiserbaedern) — kein Parkplatz-Stress, kein Stau auf der B111. Vorbestellung empfohlen: 038378-22022 oder keinbockzulaufen.de.' },
     { name: 'Peenemünde HTM', cat: 'kultur', lat: 54.137, lon: 13.775, address: 'Im Kraftwerk, 17449 Peenemünde',
       desc: 'Historisch-Technisches Museum — wo die Raumfahrt begann.',
       img: 'images/poi/peenemuende.jpg', anim: 'rocket',
@@ -858,27 +879,6 @@ const POIS = [
     { name: 'Baumwipfelpfad Usedom Heringsdorf', cat: 'natur', lat: 53.948, lon: 14.180, address: 'Forststraße 100, 17424 Heringsdorf',
       desc: 'Aussichtsturm mit begehbarem Netz in der Mitte — Spazieren in den Baumkronen.',
       img: 'https://picsum.photos/seed/wipfel/400/240', anim: 'panorama' },
-    // 🎨 v6.63.049 (Patrick 30.05. 19:32): Atelier Otto Niemeyer-Holstein
-    //   Oel-Gemaelde via Gemini Imagen 4 — Lüttenort am Achterwasser
-    // 🎬 v6.63.051 (Patrick 30.05. 20:32): Veo 3 Image-to-Video aus dem Standbild
-    //   — 8s Push-in zur Staffelei + Pan zum Sonnenuntergang. Bug: Plate halluziniert.
-    { name: 'Atelier Otto Niemeyer-Holstein (Lüttenort)', cat: 'kultur', lat: 54.005, lon: 13.937, address: 'Lüttenort 1, 17429 Koserow',
-      desc: 'Ehemaliges Künstler-Atelier am Achterwasser — Kunst, Architektur und idyllischer Garten.',
-      img: 'images/poi/niemeyer-holstein.jpg', anim: 'beer',
-      video: 'assets/videos/niemeyer-holstein.mp4',
-      website: 'https://www.atelier-otto-niemeyer-holstein.de',
-      longDesc: 'Das Atelier Otto Niemeyer-Holstein im Künstlerdorf Lüttenort liegt direkt am Achterwasser — weisses Reet-Dach-Haus, mit Muscheln eingelegte Steinmauern und ein blühender Künstler-Garten. Der Maler Otto Niemeyer-Holstein (1896–1984) hat hier ueber Jahrzehnte seine Werke im Spannungsfeld zwischen Bauhaus, Spätimpressionismus und norddeutscher Landschaft geschaffen. Heute Museumsbesuch + Stille und Wasserblick. Mit Funk Taxi entspannt von den Kaiserbädern oder Koserow hinfahren — Parkplatz vor Ort ist knapp, vor allem in der Saison.' },
-    // 🆕 v6.62.737 (Patrick 17.05. 19:55): DDR-Museum Dargen ergaenzt — Foto kommt nach
-    // 🎨 v6.63.052 (Patrick 30.05. 20:42): Ghibli-Aquarell-Bild via Imagen 4 — DDR-Klassiker
-    //   (Trabant, Wartburg, Robur, Schwalbe, Famulus) + Familie + Tesla im Folierungs-Design
-    // 🎬 v6.63.053 (Patrick 30.05. 20:52): Veo 3 Image-to-Video — 8s Push-in zum Trabant
-    //   + Pan rechts entlang der Vintage-Vehicle-Line-up. Vater gestikuliert Richtung Wartburg.
-    { name: 'DDR-Museum Dargen', cat: 'kultur', lat: 53.887, lon: 14.060, address: 'Bahnhofstraße 7, 17419 Dargen',
-      desc: 'Größte DDR-Technik-Sammlung Norddeutschlands — Trabis, Motorräder, Traktoren, NVA-Fahrzeuge, Alltagsobjekte. Auf Usedom seit den 90ern.',
-      img: 'images/poi/ddr-museum-dargen.jpg', anim: 'rocket',
-      video: 'assets/videos/ddr-museum-dargen.mp4',
-      website: 'https://www.museumdargen.de',
-      longDesc: 'Das DDR-Museum Dargen ist eine der groessten privaten DDR-Technik-Sammlungen Norddeutschlands. Im Sueden der Insel Usedom, direkt an der Bahnhofstrasse 7, zeigt das Museum auf 5.000 m² Ausstellungsflaeche: Trabis (Limousine, Universal, Kuebel), Wartburg, Barkas, Robur, IFA-Lastwagen, NVA-Spezialfahrzeuge, Motorraeder (Simson Schwalbe, MZ ETZ, Jawa), Traktoren (Famulus, Aktivist) sowie tausende Alltagsobjekte aus DDR-Zeiten — Spielzeug, Haushaltswaren, Mode, Plakate, Bilder. Perfekt fuer alle die einen lebendigen Eindruck der DDR bekommen wollen, ob als Nostalgie-Reise oder Geschichtsunterricht fuer juengere Generationen. OEFFNUNGSZEITEN: bis 30.09. Dienstag-Sonntag 10-17 Uhr, 01.10.-30.11. Dienstag-Sonntag 10-15 Uhr (Montag Ruhetag). Wintersaison Ende Dezember bis Anfang Januar verkuerzt 10-15 Uhr. Eintritt aktuell ca. 9 Euro Erwachsene, 5 Euro Kinder (Stand 2026, genauere Preise auf museumdargen.de). Telefon 038376 20290. BUCHUNGS-TIPP: Funk Taxi Heringsdorf bringt euch direkt vor die Eingangstuer (etwa 25-30 Min Fahrtzeit aus Heringsdorf/Ahlbeck/Bansin). Vorbestellung empfohlen: 038378-22022 oder keinbockzulaufen.de.' }
 ];
 
 // 🆕 v6.62.287: Comic-Animations-SVGs pro POI-Typ (8 verschiedene Mini-Cartoons)

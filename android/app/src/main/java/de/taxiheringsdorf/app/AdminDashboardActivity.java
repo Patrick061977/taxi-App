@@ -1467,11 +1467,24 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 .addOnFailureListener(e -> Toast.makeText(AdminDashboardActivity.this,
                     "❌ Fehler: " + e.getMessage(), Toast.LENGTH_LONG).show());
         };
-        // Container für Checkbox
+        // Container für Checkbox + Edit-Button
         LinearLayout container = new LinearLayout(this);
         container.setOrientation(LinearLayout.VERTICAL);
         int pad = (int)(16 * getResources().getDisplayMetrics().density);
         container.setPadding(pad, pad/2, pad, 0);
+        // 🆕 v6.63.031 (Patrick 30.05. 09:30 "Wartepool nicht bearbeiten können"):
+        //   Edit-Button direkt im Time-Shift-Dialog. Patrick will mehr als nur
+        //   hoch/runter schieben — Adresse, Pax, Vehicle ändern.
+        final android.widget.Button btnFullEdit = new android.widget.Button(this);
+        btnFullEdit.setText("✏️ Komplett bearbeiten (Adresse, Pax, Fahrzeug...)");
+        btnFullEdit.setAllCaps(false);
+        btnFullEdit.setTextColor(0xFF1d4ed8);
+        btnFullEdit.setBackgroundColor(0xFFDDE9FB);
+        LinearLayout.LayoutParams _editLp = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        _editLp.setMargins(0, 0, 0, pad/2);
+        btnFullEdit.setLayoutParams(_editLp);
+        container.addView(btnFullEdit);
         final android.widget.CheckBox cbSms = new android.widget.CheckBox(this);
         cbSms.setText("📲 SMS an " + _custName + " senden (frueher kommen)");
         cbSms.setChecked(_custPhone != null && _custPhone.length() > 4);
@@ -1481,7 +1494,9 @@ public class AdminDashboardActivity extends AppCompatActivity {
         b.setPositiveButton("💡 " + suggested + " Min vorziehen (empfohlen)", (d, w) -> apply.accept(suggested, cbSms.isChecked()));
         b.setNeutralButton("− 5 Min", (d, w) -> apply.accept(5, cbSms.isChecked()));
         b.setNegativeButton("Abbrechen", null);
-        AlertDialog dlg = b.show();
+        final AlertDialog dlg = b.show();
+        // 🆕 v6.63.031: Edit-Button schließt Time-Shift-Dialog und öffnet den vollen Edit-Dialog
+        btnFullEdit.setOnClickListener(_v -> { dlg.dismiss(); showEditRideDialog(r); });
     }
 
     private static final String DB_URL_AD = "https://taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.app";

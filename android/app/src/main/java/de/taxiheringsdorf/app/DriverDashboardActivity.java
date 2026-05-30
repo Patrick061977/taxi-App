@@ -2055,10 +2055,26 @@ public class DriverDashboardActivity extends AppCompatActivity {
         lblPhone.setLayoutParams(phoneLp);
         layout.addView(lblPhone);
 
-        EditText etPhone = new EditText(this);
+        final EditText etPhone = new EditText(this);
         etPhone.setHint("z.B. 0171 1234567");
         etPhone.setInputType(InputType.TYPE_CLASS_PHONE);
         layout.addView(etPhone);
+
+        // 🆕 v6.63.037 (Patrick 30.05. 15:05): Button "aus Anrufliste" — falls der
+        //   Einsteiger vorher angerufen hat, kann die Nummer mit einem Tap aus der
+        //   System-Call-Log uebernommen werden. Permission READ_CALL_LOG wird
+        //   inline angefragt — Patrick hatte das Problem dass die CallLogActivity
+        //   "irgendwas verlangt was er nicht machen will".
+        android.widget.Button btnPickFromCallLog = new android.widget.Button(this);
+        btnPickFromCallLog.setText("📞 aus Anrufliste übernehmen");
+        btnPickFromCallLog.setAllCaps(false);
+        btnPickFromCallLog.setTextSize(13);
+        LinearLayout.LayoutParams pickLp = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        pickLp.setMargins(0, gap / 2, 0, 0);
+        btnPickFromCallLog.setLayoutParams(pickLp);
+        btnPickFromCallLog.setOnClickListener(v -> pickPhoneFromCallLog(etPhone));
+        layout.addView(btnPickFromCallLog);
 
         // v6.62.764 (Patrick 16.05. 08:15 "Da kann ich nicht scrollen"):
         //   Einsteiger-Dialog Inhalt in ScrollView packen, sonst sind Felder
@@ -2080,6 +2096,104 @@ public class DriverDashboardActivity extends AppCompatActivity {
             })
             .setNegativeButton("Abbrechen", null)
             .show();
+    }
+
+    // 🆕 v6.63.037 (Patrick 30.05. 15:05): "Beim Einsteiger würde ich auch ganz
+    //   gerne aus Anrufliste auswaehlen, falls der ja doch angerufen hat und
+    //   eingestiegen ist." Liest System-Anrufliste, zeigt letzte 20 als
+    //   AlertDialog-List, Auswahl → etPhone gesetzt.
+    private static final int REQ_PERM_CALLLOG_EINSTEIGER = 4737;
+    private android.widget.EditText _pendingEinsteigerPhoneField = null;
+    private void pickPhoneFromCallLog(android.widget.EditText etPhone) {
+        if (etPhone == null) return;
+        if (androidx.core.content.ContextCompat.checkSelfPermission(this,
+                android.Manifest.permission.READ_CALL_LOG)
+            != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            _pendingEinsteigerPhoneField = etPhone;
+            androidx.core.app.ActivityCompat.requestPermissions(this,
+                new String[]{ android.Manifest.permission.READ_CALL_LOG,
+                              android.Manifest.permission.READ_CONTACTS },
+                REQ_PERM_CALLLOG_EINSTEIGER);
+            Toast.makeText(this, "Bitte Zugriff auf Anrufliste erlauben — danach Button nochmal tippen",
+                Toast.LENGTH_LONG).show();
+            return;
+        }
+        new Thread(() -> {
+            final java.util.List<String[]> entries = new java.util.ArrayList<>(); // [label, number]
+            try {
+                String[] proj = { android.provider.CallLog.Calls.NUMBER,
+                                  android.provider.CallLog.Calls.CACHED_NAME,
+                                  android.provider.CallLog.Calls.DATE,
+                                  android.provider.CallLog.Calls.TYPE };
+                android.net.Uri uri = android.provider.CallLog.Calls.CONTENT_URI.buildUpon()
+                    .appendQueryParameter("limit", "20").build();
+                android.database.Cursor c = getContentResolver().query(uri, proj, null, null,
+                    android.provider.CallLog.Calls.DATE + " DESC");
+                java.text.SimpleDateFormat dtf = new java.text.SimpleDateFormat("dd.MM. HH:mm", Locale.GERMANY);
+                if (c != null) {
+                    java.util.Set<String> seenNumbers = new java.util.HashSet<>();
+                    while (c.moveToNext()) {
+                        String num = c.getString(0);
+                        if (num == null || num.isEmpty()) continue;
+                        if (seenNumbers.contains(num)) continue;
+                        seenNumbers.add(num);
+                        String name = c.getString(1);
+                        long date = c.getLong(2);
+                        int type = c.getInt(3);
+                        String typeIcon = (type == android.provider.CallLog.Calls.INCOMING_TYPE) ? "📥"
+                            : (type == android.provider.CallLog.Calls.OUTGOING_TYPE) ? "📤"
+                            : (type == android.provider.CallLog.Calls.MISSED_TYPE) ? "❌" : "•";
+                        String when = dtf.format(new java.util.Date(date));
+                        String label = typeIcon + " " + when + " · "
+                            + (name != null && !name.isEmpty() ? name + " " : "")
+                            + num;
+                        entries.add(new String[]{ label, num });
+                        if (entries.size() >= 20) break;
+                    }
+                    c.close();
+                }
+            } catch (Throwable t) {
+                runOnUiThread(() -> Toast.makeText(this,
+                    "❌ Anrufliste-Fehler: " + t.getMessage(), Toast.LENGTH_LONG).show());
+                return;
+            }
+            runOnUiThread(() -> {
+                if (entries.isEmpty()) {
+                    Toast.makeText(this, "Keine Anrufe in der Anrufliste gefunden",
+                        Toast.LENGTH_LONG).show();
+                    return;
+                }
+                String[] labels = new String[entries.size()];
+                for (int i = 0; i < entries.size(); i++) labels[i] = entries.get(i)[0];
+                new AlertDialog.Builder(this)
+                    .setTitle("📞 Anruf auswählen")
+                    .setItems(labels, (d, w) -> {
+                        if (w >= 0 && w < entries.size()) {
+                            etPhone.setText(entries.get(w)[1]);
+                        }
+                    })
+                    .setNegativeButton("Abbrechen", null)
+                    .show();
+            });
+        }).start();
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
+                                           @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == REQ_PERM_CALLLOG_EINSTEIGER) {
+            boolean granted = grantResults.length > 0
+                && grantResults[0] == android.content.pm.PackageManager.PERMISSION_GRANTED;
+            if (granted && _pendingEinsteigerPhoneField != null) {
+                // automatisch nochmal — Patrick muss nicht zweimal tappen
+                pickPhoneFromCallLog(_pendingEinsteigerPhoneField);
+            } else if (!granted) {
+                Toast.makeText(this, "Ohne Anrufliste-Zugriff kann die Nummer nicht übernommen werden",
+                    Toast.LENGTH_LONG).show();
+            }
+            _pendingEinsteigerPhoneField = null;
+        }
     }
 
     // 🆕 v6.62.664: GPS-Lesen + Reverse-Geocoding fuer Einsteiger-Pickup.

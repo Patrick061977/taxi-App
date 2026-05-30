@@ -2870,6 +2870,10 @@ public class DriverDashboardActivity extends AppCompatActivity {
                         if (db != null && r.id != null) {
                             db.getReference("rides/" + r.id).child("invoiceRequested").setValue(true);
                             db.getReference("rides/" + r.id).child("needsInvoice").setValue(true);
+                            // 🆕 v6.63.046 (Patrick 30.05. 17:34): Rechnung startet im Status "offen"
+                            //   — wird in der CRM-Rechnungs-Uebersicht als ⏳ offen angezeigt.
+                            //   Bei Mail-Versand → versendet, bei Eingang → bezahlt.
+                            db.getReference("rides/" + r.id).child("paymentStatus").setValue("offen");
                         }
                         markCompleted(r.id, "invoice_auftraggeber", amount, hotelName);
                         break;

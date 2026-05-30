@@ -116,7 +116,8 @@ public class CallRecordingsActivity extends AppCompatActivity {
         final android.widget.Switch swAutoRec = new android.widget.Switch(this);
         swAutoRec.setText("🎙️ Auto-Aufnahme bei Anruf (In-App)");
         swAutoRec.setTextColor(0xFFf8fafc);
-        swAutoRec.setChecked(_recPrefs.getBoolean("auto_record_enabled", true));
+        // 🐛 v6.63.028 (Patrick 30.05.): Default OFF damit Recorder bei Install stumm bleibt
+        swAutoRec.setChecked(_recPrefs.getBoolean("auto_record_enabled", false));
         swAutoRec.setPadding(dp(16), dp(8), dp(16), dp(8));
         swAutoRec.setOnCheckedChangeListener((cb, isChecked) -> {
             _recPrefs.edit().putBoolean("auto_record_enabled", isChecked).apply();

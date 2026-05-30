@@ -62,6 +62,18 @@ public class PhoneStateReceiver extends BroadcastReceiver {
                 // Schon laufend — kein Doppelstart
                 return;
             }
+            // 🐛 v6.63.028 (Patrick 30.05. 07:16 "Crash beim Anruf"): Toggle-Check VOR
+            //   dem startForegroundService. Sonst crasht Service mit "did not call
+            //   startForeground" wenn CallRecorderService.startRecording bei Toggle=OFF
+            //   stopSelf() vor startForeground() aufruft.
+            //   Plus Default = FALSE damit Recorder ab v6.63.028 stumm bleibt bis
+            //   Patrick ihn explizit einschaltet. ACR hat freie Bahn.
+            android.content.SharedPreferences sp = ctx.getSharedPreferences("call_recorder_prefs", Context.MODE_PRIVATE);
+            if (!sp.getBoolean("auto_record_enabled", false)) {
+                Log.i(TAG, "Auto-Recording per Toggle deaktiviert — kein Service-Start");
+                lastState = state;
+                return;
+            }
             // ACR-Kompatibilität: 0 = IN, 1 = OUT
             String direction = wasRinging ? "0" : "1";
             String phone = wasRinging ? lastIncomingNumber : "OUT";

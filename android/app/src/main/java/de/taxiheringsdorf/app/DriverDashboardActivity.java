@@ -1656,6 +1656,17 @@ public class DriverDashboardActivity extends AppCompatActivity {
         return st.equals("accepted") || st.equals("on_way") || st.equals("arrived") || st.equals("picked_up");
     }
 
+    // 🆕 v6.63.043 (Patrick 30.05. 16:44): Hotel-Fahrt → "Strandhotel Ostseeblick — Gast: Thiele"
+    //   statt nur "Strandhotel Ostseeblick". Wenn guestName leer → nur customerName.
+    private static String displayCustomerName(Ride r) {
+        String cn = (r.customerName != null && !r.customerName.trim().isEmpty()) ? r.customerName.trim() : "(Kunde)";
+        if (r.guestName != null && !r.guestName.trim().isEmpty()
+                && !r.guestName.trim().equalsIgnoreCase(cn)) {
+            return cn + " — Gast: " + r.guestName.trim();
+        }
+        return cn;
+    }
+
     private void toggleShift() {
         if (currentVehicleId == null) return;
         if (shiftActive) {
@@ -2794,7 +2805,7 @@ public class DriverDashboardActivity extends AppCompatActivity {
         //   Preis-Modal raus, Frage kommt JETZT NACH der Zahlart-Wahl als Receipt-
         //   Screen (genau wie Web showReceiptScreen mit 'Rechnung erstellen' Button).
         new AlertDialog.Builder(this)
-            .setTitle("💰 Fahrt abschließen — " + (r.customerName != null ? r.customerName : "?"))
+            .setTitle("💰 Fahrt abschließen — " + displayCustomerName(r))
             .setView(layout)
             .setPositiveButton("Weiter →", (d, w) -> {
                 double price = prefillPrice;
@@ -2889,7 +2900,7 @@ public class DriverDashboardActivity extends AppCompatActivity {
         String amountStr = String.format(Locale.GERMANY, "%.2f €", amount);
         new AlertDialog.Builder(this)
             .setTitle("✅ " + methodLabel + " — " + amountStr)
-            .setMessage("Soll für " + (r.customerName != null ? r.customerName : "den Kunden") +
+            .setMessage("Soll für " + displayCustomerName(r) +
                 " eine Rechnung erstellt werden?\n\n" +
                 "Wenn Ja → Kunde sieht in track.html '⬇️ Rechnung herunterladen'.\n" +
                 "Wenn Nein → keine Rechnung (Walk-In ohne Beleg).")
@@ -3280,12 +3291,18 @@ public class DriverDashboardActivity extends AppCompatActivity {
         String assignedVehicle, vehicleId;
         // v6.62.359: Fallback fuer alte Stornos die nur deletedAt hatten
         Long deletedAt;
+        // 🆕 v6.63.043 (Patrick 30.05. 16:44 "Ich sehe nur Strandhotel Ostseeblick"):
+        //   Hotel-/Firma-Auftraggeber-Fahrten haben customerName=Hotelname,
+        //   guestName=tatsaechlicher Gast. Native muss BEIDES zeigen damit der Fahrer
+        //   weiss wen er abholt.
+        String guestName;
 
         static Ride fromSnap(DataSnapshot s) {
             try {
                 Ride r = new Ride();
                 r.id = s.getKey();
                 r.customerName = s.child("customerName").getValue(String.class);
+                r.guestName = s.child("guestName").getValue(String.class);
                 r.pickup = s.child("pickup").getValue(String.class);
                 r.destination = s.child("destination").getValue(String.class);
                 r.pickupTime = s.child("pickupTime").getValue(String.class);
@@ -3426,7 +3443,7 @@ public class DriverDashboardActivity extends AppCompatActivity {
                     tvName.setTextColor(Color.parseColor("#fca5a5"));
                     tvPickup.setText("📍 " + (r.pickup != null ? r.pickup : "-"));
                     tvDest.setText("🎯 " + (r.destination != null ? r.destination : "-")
-                        + "\n👤 " + (r.customerName != null ? r.customerName : "(Kunde)"));
+                        + "\n👤 " + displayCustomerName(r));
                     if (tvTime != null) tvTime.setText("");
                     if (tvBadge != null) tvBadge.setText("❌ Storniert");
                     if (tvPriceDist != null) tvPriceDist.setText("");
@@ -3541,7 +3558,7 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 tvName.setTextColor(Color.parseColor("#F8FAFC"));
                 if (tvLiveEta != null) tvLiveEta.setVisibility(View.VISIBLE);
 
-                tvName.setText(r.customerName != null ? r.customerName : "(Kunde)");
+                tvName.setText(displayCustomerName(r));
                 tvPickup.setText("📍 " + (r.pickup != null ? r.pickup : "-"));
                 // v6.62.2: Patrick: 'Zwischenstopp wird nicht angezeigt bei Frau Balzer'.
                 // Waypoints VOR dem Ziel anzeigen — Fahrer muss da durch.

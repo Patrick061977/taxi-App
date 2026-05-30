@@ -815,6 +815,7 @@ public class CrmSearchActivity extends AppCompatActivity {
             "📅 Vorbestellung erstellen",
             "✏️ CRM-Eintrag bearbeiten",
             "📜 Bisherige Fahrten anschauen",
+            "📄 Rechnungen anzeigen",
             "📞 Anruf-Mitschnitte (ACR)",
             "Abbrechen"
         };
@@ -827,9 +828,124 @@ public class CrmSearchActivity extends AppCompatActivity {
                     case 2: showVorbestellungDialogWithGuest(e); break;
                     case 3: openEditDialog(e); break;
                     case 4: showCustomerRideHistory(e); break;
-                    case 5: showCallRecordings(e); break;
+                    case 5: showCustomerInvoices(e); break;
+                    case 6: showCallRecordings(e); break;
                 }
             }).show();
+    }
+
+    // 🆕 v6.63.042 (Patrick 30.05. 16:41): "Rechnungen-Uebersicht in der Native-App
+    //   wie in der Web-App — was verschickt, was offen." Filtert /invoices nach
+    //   customerName/customerPhone (kein customerId-Feld in Rechnungen vorhanden),
+    //   sortiert nach Datum DESC, zeigt Status-Badge + Betrag + Datum.
+    private void showCustomerInvoices(CrmEntry e) {
+        final ProgressDialog _pd = new ProgressDialog(this);
+        _pd.setMessage("Lade Rechnungen…");
+        _pd.setCancelable(false);
+        _pd.show();
+
+        // Normalisierung fuer Phone-Vergleich
+        final String _cName = e.name != null ? e.name.toLowerCase().trim() : "";
+        final String _cPhone = e.phone != null ? e.phone.replaceAll("[^0-9]", "") : "";
+        final String _cMobile = e.mobilePhone != null ? e.mobilePhone.replaceAll("[^0-9]", "") : "";
+
+        FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("invoices")
+            .get().addOnCompleteListener(task -> {
+                _pd.dismiss();
+                if (!task.isSuccessful() || task.getResult() == null) {
+                    Toast.makeText(this, "❌ Konnte Rechnungen nicht laden", Toast.LENGTH_LONG).show();
+                    return;
+                }
+                // [invoiceNumber, label, status, pdfUrl, dateMs]
+                List<Object[]> matches = new ArrayList<>();
+                for (DataSnapshot s : task.getResult().getChildren()) {
+                    String invName = String.valueOf(s.child("customerName").getValue());
+                    String invPhone = String.valueOf(s.child("customerPhone").getValue());
+                    boolean nameMatch = invName != null && _cName.length() > 1
+                        && invName.toLowerCase().contains(_cName);
+                    String invPhoneNorm = invPhone != null ? invPhone.replaceAll("[^0-9]", "") : "";
+                    boolean phoneMatch = false;
+                    if (invPhoneNorm.length() >= 6) {
+                        String lastInv = invPhoneNorm.substring(Math.max(0, invPhoneNorm.length() - 8));
+                        if (_cPhone.length() >= 6 && _cPhone.endsWith(lastInv)) phoneMatch = true;
+                        if (_cMobile.length() >= 6 && _cMobile.endsWith(lastInv)) phoneMatch = true;
+                    }
+                    if (!nameMatch && !phoneMatch) continue;
+                    String num = s.child("invoiceNumber").getValue(String.class);
+                    if (num == null) num = s.getKey();
+                    String dt = s.child("invoiceDate").getValue(String.class);
+                    Double gross = s.child("totalGross").getValue(Double.class);
+                    String status = s.child("paymentStatus").getValue(String.class);
+                    Long sentAt = s.child("sentAt").getValue(Long.class);
+                    String pdfUrl = s.child("pdfUrl").getValue(String.class);
+                    long dateMs = 0L;
+                    if (dt != null) {
+                        try {
+                            java.text.SimpleDateFormat _isoFmt = new java.text.SimpleDateFormat("yyyy-MM-dd", Locale.GERMANY);
+                            dateMs = _isoFmt.parse(dt).getTime();
+                        } catch (Throwable _ignore) {}
+                    }
+                    String statusBadge;
+                    if ("bezahlt".equalsIgnoreCase(status) || "paid".equalsIgnoreCase(status)) {
+                        statusBadge = "✅ bezahlt";
+                    } else if ("versendet".equalsIgnoreCase(status) || (sentAt != null && sentAt > 0)) {
+                        statusBadge = "📨 versendet";
+                    } else if ("offen".equalsIgnoreCase(status) || "open".equalsIgnoreCase(status) || "pending".equalsIgnoreCase(status)) {
+                        statusBadge = "⏳ offen";
+                    } else {
+                        statusBadge = "❓ " + (status != null ? status : "unbekannt");
+                    }
+                    String label = "📄 " + num + " · " + (dt != null ? dt : "?")
+                        + " · " + (gross != null ? String.format(Locale.GERMANY, "%.2f€", gross) : "?")
+                        + "\n   " + statusBadge;
+                    matches.add(new Object[]{ num, label, status, pdfUrl, dateMs });
+                }
+                if (matches.isEmpty()) {
+                    new AlertDialog.Builder(this)
+                        .setTitle("📄 Rechnungen")
+                        .setMessage("Keine Rechnungen fuer " + (e.name != null ? e.name : "diesen Kunden") + " gefunden.")
+                        .setPositiveButton("OK", null)
+                        .show();
+                    return;
+                }
+                // Neueste zuerst
+                matches.sort((a, b) -> Long.compare((Long) b[4], (Long) a[4]));
+
+                // Zusammenfassung in Header
+                int countOffen = 0, countSent = 0, countPaid = 0;
+                for (Object[] m : matches) {
+                    String st = (String) m[2];
+                    if ("bezahlt".equalsIgnoreCase(st) || "paid".equalsIgnoreCase(st)) countPaid++;
+                    else if ("versendet".equalsIgnoreCase(st)) countSent++;
+                    else countOffen++;
+                }
+                String header = (e.name != null ? e.name : "Kunde") + " — "
+                    + matches.size() + " Rechnungen\n"
+                    + "✅ " + countPaid + " bezahlt · 📨 " + countSent + " versendet · ⏳ " + countOffen + " offen";
+
+                String[] labels = new String[matches.size()];
+                for (int i = 0; i < matches.size(); i++) labels[i] = (String) matches.get(i)[1];
+
+                new AlertDialog.Builder(this)
+                    .setTitle(header)
+                    .setItems(labels, (d, w) -> {
+                        if (w >= 0 && w < matches.size()) {
+                            String pdf = (String) matches.get(w)[3];
+                            String num = (String) matches.get(w)[0];
+                            if (pdf != null && !pdf.isEmpty()) {
+                                try {
+                                    startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(pdf)));
+                                } catch (Throwable t) {
+                                    Toast.makeText(this, "❌ PDF nicht oeffnen: " + t.getMessage(), Toast.LENGTH_LONG).show();
+                                }
+                            } else {
+                                Toast.makeText(this, "Keine PDF-URL fuer " + num, Toast.LENGTH_SHORT).show();
+                            }
+                        }
+                    })
+                    .setNegativeButton("Schliessen", null)
+                    .show();
+            });
     }
 
     // 🆕 v6.62.482: Patrick (08.05. 13:53): "wenn ich den Kunden anklicke, welche Fahrten

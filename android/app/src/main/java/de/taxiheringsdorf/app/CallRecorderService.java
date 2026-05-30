@@ -86,9 +86,24 @@ public class CallRecorderService extends Service {
             Log.w(TAG, "startRecording called while already running — skip");
             return;
         }
-        // User-Toggle prüfen (Default = ON wenn Permission da)
+        // 🐛 v6.63.028: Defensive startForeground SOFORT — sonst Crash mit
+        //   "Context.startForegroundService() did not then call Service.startForeground()"
+        //   wenn der Toggle-Check unten stopSelf() ruft. Wir starten mit einer
+        //   Platzhalter-Notification und ersetzen sie später durch die richtige.
+        try {
+            Notification _dummy = buildNotification(phone != null ? phone : "?", direction != null ? direction : "?");
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                startForeground(NOTIFICATION_ID, _dummy,
+                    android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE);
+            } else {
+                startForeground(NOTIFICATION_ID, _dummy);
+            }
+        } catch (Throwable _bootErr) {
+            Log.w(TAG, "Defensive startForeground fehlgeschlagen: " + _bootErr.getMessage());
+        }
+        // User-Toggle prüfen (Default OFF seit v6.63.028)
         SharedPreferences sp = getSharedPreferences("call_recorder_prefs", MODE_PRIVATE);
-        if (!sp.getBoolean("auto_record_enabled", true)) {
+        if (!sp.getBoolean("auto_record_enabled", false)) {
             Log.i(TAG, "Auto-Recording disabled by user — skip");
             stopSelf();
             return;
@@ -116,14 +131,12 @@ public class CallRecorderService extends Service {
         String _cwTag = callWaiting ? "-CW" : "";
         currentFile = new File(targetDir, phoneDir + "-" + direction + _cwTag + "-" + now + ".m4a");
 
-        // Foreground-Notification (Pflicht Android 8+ für Service)
-        Notification notif = buildNotification(phone, direction);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            startForeground(NOTIFICATION_ID, notif,
-                android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE);
-        } else {
-            startForeground(NOTIFICATION_ID, notif);
-        }
+        // 🐛 v6.63.028: startForeground wurde schon oben defensiv gerufen. Hier nur noch
+        //   die richtige Notification mit echten Daten nachschieben.
+        try {
+            NotificationManager _nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+            if (_nm != null) _nm.notify(NOTIFICATION_ID, buildNotification(phone, direction));
+        } catch (Throwable _t) { Log.w(TAG, "Notification-Update: " + _t.getMessage()); }
 
         // MediaRecorder mit AudioSource-Fallback-Kette
         int[] sources = {

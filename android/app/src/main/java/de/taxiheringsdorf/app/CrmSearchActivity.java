@@ -834,6 +834,148 @@ public class CrmSearchActivity extends AppCompatActivity {
             }).show();
     }
 
+    // 🆕 v6.63.046 (Patrick 30.05. 17:34): Aktionen-Menue pro Rechnung — PDF oeffnen,
+    //   per Mail an Hotel (pre-filled Adresse aus CRM), als versendet/bezahlt markieren.
+    //   Workflow 3-Stufen: offen → versendet (Mail raus, wartet auf Zahlung) → bezahlt.
+    private void showInvoiceActionDialog(CrmEntry e, Object[] inv) {
+        final String num = (String) inv[0];
+        final String status = (String) inv[2];
+        final String pdfUrl = (String) inv[3];
+        final String invKey = (String) inv[5];
+        final String rideId = (String) inv[6];
+        final String dt = (String) inv[7];
+        final Double gross = (Double) inv[8];
+        final String invPath = "invoices/" + invKey;
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("Rechnung ").append(num);
+        if (dt != null) sb.append(" · ").append(dt);
+        if (gross != null) sb.append(" · ").append(String.format(Locale.GERMANY, "%.2f€", gross));
+        sb.append("\nStatus: ").append(status);
+
+        java.util.List<String> opts = new java.util.ArrayList<>();
+        java.util.List<Integer> actionIds = new java.util.ArrayList<>();
+        if (pdfUrl != null && !pdfUrl.isEmpty()) {
+            opts.add("📄 PDF öffnen");
+            actionIds.add(1);
+        }
+        opts.add("📨 An Hotel-Email senden (pre-filled)");
+        actionIds.add(2);
+        if (!"versendet".equalsIgnoreCase(status) && !"bezahlt".equalsIgnoreCase(status)) {
+            opts.add("📨 Als versendet markieren (ohne Mail)");
+            actionIds.add(3);
+        }
+        if (!"bezahlt".equalsIgnoreCase(status)) {
+            opts.add("✅ Als bezahlt markieren");
+            actionIds.add(4);
+        }
+        if ("bezahlt".equalsIgnoreCase(status)) {
+            opts.add("↩️ Zurueck auf versendet");
+            actionIds.add(5);
+        }
+
+        new AlertDialog.Builder(this)
+            .setTitle(sb.toString())
+            .setItems(opts.toArray(new String[0]), (d, w) -> {
+                if (w < 0 || w >= actionIds.size()) return;
+                int action = actionIds.get(w);
+                switch (action) {
+                    case 1:
+                        try {
+                            startActivity(new Intent(Intent.ACTION_VIEW, android.net.Uri.parse(pdfUrl)));
+                        } catch (Throwable t) {
+                            Toast.makeText(this, "❌ PDF nicht oeffnen: " + t.getMessage(), Toast.LENGTH_LONG).show();
+                        }
+                        break;
+                    case 2:
+                        sendInvoiceMail(e, num, pdfUrl, dt, gross, invPath);
+                        break;
+                    case 3:
+                        updateInvoicePaymentStatus(invPath, rideId, "versendet", num);
+                        break;
+                    case 4:
+                        updateInvoicePaymentStatus(invPath, rideId, "bezahlt", num);
+                        break;
+                    case 5:
+                        updateInvoicePaymentStatus(invPath, rideId, "versendet", num);
+                        break;
+                }
+            })
+            .setNegativeButton("Abbrechen", null)
+            .show();
+    }
+
+    private void sendInvoiceMail(CrmEntry e, String num, String pdfUrl, String dt, Double gross, String invPath) {
+        // Email-Adresse aus CRM-Eintrag (Hotel/Firma) — falls leer: Toast + manuelle Eingabe.
+        final String hotelEmail = (e.email != null && e.email.contains("@")) ? e.email : "";
+        if (hotelEmail.isEmpty()) {
+            new AlertDialog.Builder(this)
+                .setTitle("⚠️ Keine Email im CRM")
+                .setMessage("Fuer " + (e.name != null ? e.name : "diesen Kunden") + " ist keine Email-Adresse hinterlegt. " +
+                    "Bitte erst im CRM-Eintrag eintragen oder die Mail manuell verfassen.")
+                .setPositiveButton("OK", null)
+                .show();
+            return;
+        }
+        String subject = "Rechnung " + num + " — Funk-Taxi Heringsdorf";
+        StringBuilder body = new StringBuilder();
+        body.append("Sehr geehrte Damen und Herren,\n\n");
+        body.append("anbei erhalten Sie die Rechnung Nr. ").append(num);
+        if (dt != null) body.append(" vom ").append(dt);
+        body.append(".\n\n");
+        if (gross != null) body.append("Rechnungsbetrag: ").append(String.format(Locale.GERMANY, "%.2f€", gross)).append("\n\n");
+        if (pdfUrl != null && !pdfUrl.isEmpty()) {
+            body.append("Download-Link zur Rechnung:\n").append(pdfUrl).append("\n\n");
+        }
+        body.append("Wir bitten um Begleichung des Betrags innerhalb von 14 Tagen.\n\n");
+        body.append("Mit freundlichen Grüßen\n\n");
+        body.append("Patrick Wydra\nFunk-Taxi Heringsdorf\nAmselring 10\n17424 Ostseebad Heringsdorf\n");
+        body.append("Tel.: 038378 / 22022\nE-Mail: taxiwydra@googlemail.com");
+
+        Intent mail = new Intent(Intent.ACTION_SENDTO);
+        mail.setData(android.net.Uri.parse("mailto:"));
+        mail.putExtra(Intent.EXTRA_EMAIL, new String[]{ hotelEmail });
+        mail.putExtra(Intent.EXTRA_SUBJECT, subject);
+        mail.putExtra(Intent.EXTRA_TEXT, body.toString());
+        try {
+            startActivity(Intent.createChooser(mail, "Rechnung senden mit…"));
+            // Nach Send-Chooser: setze auf 'versendet'. Wir koennen leider nicht 100% sicher
+            // wissen ob Patrick "Senden" tatsaechlich getippt hat — aber pragmatisch: das
+            // Oeffnen des Mail-Composers ist ein klares Signal dass er die Mail rausschickt.
+            updateInvoicePaymentStatus(invPath, null, "versendet", num);
+        } catch (Throwable t) {
+            Toast.makeText(this, "❌ Mail-App nicht verfuegbar: " + t.getMessage(), Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void updateInvoicePaymentStatus(String invPath, String rideId, String newStatus, String num) {
+        Map<String, Object> u = new HashMap<>();
+        u.put("paymentStatus", newStatus);
+        long now = System.currentTimeMillis();
+        if ("versendet".equalsIgnoreCase(newStatus)) {
+            u.put("sentAt", now);
+            u.put("invoiceSentAt", now);
+            u.put("sentBy", "native-crm-invoice-action");
+        } else if ("bezahlt".equalsIgnoreCase(newStatus)) {
+            u.put("paidAt", now);
+            u.put("paidBy", "native-crm-invoice-action");
+            // sentAt bleibt erhalten — versendet wurde sie ja vorher.
+        }
+        FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference(invPath).updateChildren(u)
+            .addOnSuccessListener(_ok -> Toast.makeText(this,
+                "✅ " + num + " → " + newStatus, Toast.LENGTH_SHORT).show())
+            .addOnFailureListener(err -> Toast.makeText(this,
+                "❌ Fehler: " + err.getMessage(), Toast.LENGTH_LONG).show());
+
+        // Auch ride.paymentStatus mitziehen — falls die Web-Listen anders filtern.
+        if (rideId != null && !rideId.isEmpty()) {
+            Map<String, Object> r = new HashMap<>();
+            r.put("paymentStatus", newStatus);
+            r.put("updatedAt", now);
+            FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("rides/" + rideId).updateChildren(r);
+        }
+    }
+
     // 🆕 v6.63.042 (Patrick 30.05. 16:41): "Rechnungen-Uebersicht in der Native-App
     //   wie in der Web-App — was verschickt, was offen." Filtert /invoices nach
     //   customerName/customerPhone (kein customerId-Feld in Rechnungen vorhanden),
@@ -877,7 +1019,10 @@ public class CrmSearchActivity extends AppCompatActivity {
                     Double gross = s.child("totalGross").getValue(Double.class);
                     String status = s.child("paymentStatus").getValue(String.class);
                     Long sentAt = s.child("sentAt").getValue(Long.class);
+                    if (sentAt == null) sentAt = s.child("invoiceSentAt").getValue(Long.class);
                     String pdfUrl = s.child("pdfUrl").getValue(String.class);
+                    String rideId = s.child("rideId").getValue(String.class);
+                    String invKey = s.getKey();
                     long dateMs = 0L;
                     if (dt != null) {
                         try {
@@ -885,20 +1030,21 @@ public class CrmSearchActivity extends AppCompatActivity {
                             dateMs = _isoFmt.parse(dt).getTime();
                         } catch (Throwable _ignore) {}
                     }
+                    String normalizedStatus;
                     String statusBadge;
                     if ("bezahlt".equalsIgnoreCase(status) || "paid".equalsIgnoreCase(status)) {
-                        statusBadge = "✅ bezahlt";
+                        statusBadge = "✅ bezahlt"; normalizedStatus = "bezahlt";
                     } else if ("versendet".equalsIgnoreCase(status) || (sentAt != null && sentAt > 0)) {
-                        statusBadge = "📨 versendet";
-                    } else if ("offen".equalsIgnoreCase(status) || "open".equalsIgnoreCase(status) || "pending".equalsIgnoreCase(status)) {
-                        statusBadge = "⏳ offen";
+                        statusBadge = "📨 versendet"; normalizedStatus = "versendet";
+                    } else if ("offen".equalsIgnoreCase(status) || "open".equalsIgnoreCase(status) || "pending".equalsIgnoreCase(status) || status == null) {
+                        statusBadge = "⏳ offen"; normalizedStatus = "offen";
                     } else {
-                        statusBadge = "❓ " + (status != null ? status : "unbekannt");
+                        statusBadge = "❓ " + status; normalizedStatus = status;
                     }
                     String label = "📄 " + num + " · " + (dt != null ? dt : "?")
                         + " · " + (gross != null ? String.format(Locale.GERMANY, "%.2f€", gross) : "?")
                         + "\n   " + statusBadge;
-                    matches.add(new Object[]{ num, label, status, pdfUrl, dateMs });
+                    matches.add(new Object[]{ num, label, normalizedStatus, pdfUrl, dateMs, invKey, rideId, dt, gross });
                 }
                 if (matches.isEmpty()) {
                     new AlertDialog.Builder(this)
@@ -930,17 +1076,7 @@ public class CrmSearchActivity extends AppCompatActivity {
                     .setTitle(header)
                     .setItems(labels, (d, w) -> {
                         if (w >= 0 && w < matches.size()) {
-                            String pdf = (String) matches.get(w)[3];
-                            String num = (String) matches.get(w)[0];
-                            if (pdf != null && !pdf.isEmpty()) {
-                                try {
-                                    startActivity(new Intent(Intent.ACTION_VIEW, android.net.Uri.parse(pdf)));
-                                } catch (Throwable t) {
-                                    Toast.makeText(this, "❌ PDF nicht oeffnen: " + t.getMessage(), Toast.LENGTH_LONG).show();
-                                }
-                            } else {
-                                Toast.makeText(this, "Keine PDF-URL fuer " + num, Toast.LENGTH_SHORT).show();
-                            }
+                            showInvoiceActionDialog(e, matches.get(w));
                         }
                     })
                     .setNegativeButton("Schliessen", null)

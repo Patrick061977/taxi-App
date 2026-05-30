@@ -652,8 +652,10 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 // Wenn Activity gerade gestartet wurde sind die maps leer → ziehe aus Firebase
                 if (aLat == null && r.pickupLat != null) { aLat = r.pickupLat; aLon = r.pickupLon; }
                 if (aLat == null || arrivedAt == null) continue;
-                // Min 30s seit arrived
-                if (now - arrivedAt < 30_000) continue;
+                // 🆕 v6.63.026 (Patrick 30.05. 06:23 "Eingestiegen übernimmt er nicht, nur wenn
+                //   ich angehalten habe"): 30s-Wait nach arrived entfernt — der hat den Trigger
+                //   um halbe Minute verzögert wenn Gast sofort einsteigt. GPS-Jitter wird
+                //   weiterhin via 5s-moving-Filter abgefangen.
                 double distFromArrived = haversineMeters(vLat, vLon, aLat, aLon);
                 // Speed berechnen aus letztem GPS-Punkt
                 double[] last = _lastGpsForSpeed.get(r.id);
@@ -664,15 +666,19 @@ public class DriverDashboardActivity extends AppCompatActivity {
                     double dSec = (now - last[2]) / 1000.0;
                     if (dSec > 0 && dSec < 30) speedKmh = (dM / dSec) * 3.6;
                 }
-                // 🆕 v6.62.987 (Patrick 28.05. 10:19): "Einsteigen funktioniert nicht
-                // automatisch — beim Einsteigen sollte umspringen". Schwelle gelockert:
-                // 50m → 30m, 8 km/h → 5 km/h, 10s → 5s konstante Bewegung.
-                // So springt der Status früher um wenn Fahrer mit Kunde losfährt.
-                if (distFromArrived > 30.0 && speedKmh > 5.0) {
+                // 🆕 v6.63.026: Express-Path — wenn klar auf Fahrt (>80m vom Pickup +
+                //   >15 km/h), sofort picked_up ohne Moving-Sustain. Verhindert
+                //   verspätete Übergänge bei flüssigem Wegfahren.
+                if (distFromArrived > 80.0 && speedKmh > 15.0) {
+                    triggerAutoStatus(r, "picked_up", "Express GPS " + Math.round(distFromArrived) + "m + " + Math.round(speedKmh) + " km/h");
+                    _autoPickedUpFirstMoving.remove(r.id);
+                }
+                // 🆕 v6.62.987 / v6.63.026: gelockerte Schwelle 30m + 5 km/h + 3s
+                else if (distFromArrived > 30.0 && speedKmh > 5.0) {
                     Long firstMoving = _autoPickedUpFirstMoving.get(r.id);
                     if (firstMoving == null) {
                         _autoPickedUpFirstMoving.put(r.id, now);
-                    } else if (now - firstMoving >= 5_000) {
+                    } else if (now - firstMoving >= 3_000) {
                         triggerAutoStatus(r, "picked_up", "GPS " + Math.round(distFromArrived) + "m weg, " + Math.round(speedKmh) + " km/h");
                         _autoPickedUpFirstMoving.remove(r.id);
                     }

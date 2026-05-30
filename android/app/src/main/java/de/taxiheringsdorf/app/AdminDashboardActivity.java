@@ -1886,6 +1886,11 @@ public class AdminDashboardActivity extends AppCompatActivity {
             //   Scholl hatte 277 Min Anfahrt nach versehentlicher Dresden-Eingabe) und
             //   blockiert das Re-Assign. Plus pickupDate aus pickupTimestamp neu setzen +
             //   autoAssignAttempts=0 für sauberen Re-Run.
+            // 🆕 v6.63.027 (Patrick 30.05. 06:51 Scholl-Lifecycle bestätigt Dresden-Bug):
+            //   ZUSÄTZLICH estimatedDistance/Duration + distance/duration + price/estimatedPrice
+            //   nullen — beim versehentlichen Falsch-Eingeben einer Adresse blieben die
+            //   OSRM-Werte (446 km, 991€) im Ride hängen obwohl pickup-String + Coords schon
+            //   korrigiert waren. Cloud-Function muss bei nächstem Trigger neu rechnen.
             SimpleDateFormat _dfPickupDate = new SimpleDateFormat("yyyy-MM-dd", Locale.GERMANY);
             _dfPickupDate.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
             upd.put("pickupDate", _dfPickupDate.format(new java.util.Date(dateTime[0])));
@@ -1895,11 +1900,20 @@ public class AdminDashboardActivity extends AppCompatActivity {
             upd.put("liveEtaUpdatedAt", null);
             upd.put("liveEtaMethod", null);
             upd.put("estimatedArrivalAt", null);
+            // 🆕 v6.63.027: Stale OSRM-Werte aus falsch-eingegebener Adresse löschen
+            upd.put("estimatedDistance", null);
+            upd.put("estimatedDuration", null);
+            upd.put("distance", null);
+            upd.put("duration", null);
+            upd.put("price", null);
+            upd.put("estimatedPrice", null);
+            upd.put("priceCalculatedAt", null);
+            upd.put("priceCalculatedBy", null);
             upd.put("autoAssignAttempts", 0);
             upd.put("wartepoolReason", null);
             if ("wartepool".equals(r.status)) upd.put("status", "vorbestellt");
             upd.put("resetForAssignAt", System.currentTimeMillis());
-            upd.put("resetBy", "native_admin_dispo_edit_v6.63.022");
+            upd.put("resetBy", "native_admin_dispo_edit_v6.63.027");
             // v6.62.655: Lock-State aus Checkbox
             boolean _newLock = cbEditLock.isChecked();
             boolean _oldLock = Boolean.TRUE.equals(r.assignmentLocked);

@@ -3558,14 +3558,19 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 //   wenn ich angenommen habe.' Der hardcoded 15-Min-Filter war zu pauschal.
                 //   Patrick: 'Button soll kommen 5 Min + Anfahrt vor pickup'. Das ist genau
                 //   losfahrtAt (gleicher Zeitpunkt wie Departure-Vibration).
+                // 🔄 v6.63.036 (Patrick 30.05. 13:51): "Sobald ich die Fahrt angenommen
+                //   habe, soll ich auch 'bin unterwegs' klicken können — Frau Sander 14:10
+                //   und ich kann immer noch nicht losfahren klicken." Sperre RAUS — Losfahren-
+                //   Button ab Accept IMMER aktiv. acceptedFernerTermin bleibt nur fuer
+                //   den 'Zurueck in Pool'-Button (Patrick will beide Optionen sehen).
                 long _driveMin = (r.drivingTimeToPickup != null && r.drivingTimeToPickup > 0)
                     ? r.drivingTimeToPickup : 15;
                 long _bufferUntilDeparture = _driveMin + 10;
                 boolean acceptedFernerTermin = isAccepted && r.pickupTimestamp != null
                     && _minBisPickup > _bufferUntilDeparture;
-                if (acceptedFernerTermin) {
-                    isActive = false; // → keine activeToolbar, kein Status-Next-Button
-                }
+                // v6.63.036: kein isActive=false mehr — activeToolbar + btnStatusNext
+                // sind nach Accept immer da, gleichzeitig kann Patrick via actionRow
+                // (s.u.) noch Zurueck-in-Pool nutzen.
 
                 // v6.62.924: Reset btnAccept-Sichtbarkeit fuer recycelte ViewHolder
                 btnAccept.setVisibility(View.VISIBLE);

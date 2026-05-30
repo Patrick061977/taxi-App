@@ -2783,9 +2783,28 @@ public class CrmSearchActivity extends AppCompatActivity {
                     String _billRaw = (tvBillAddr != null && tvBillAddr.getText() != null)
                         ? tvBillAddr.getText().toString().replaceFirst("^📍\\s*", "").trim()
                         : "";
-                    final String _newCustBillAddr = (_billRaw.endsWith("wählen…") || _billRaw.isEmpty()) ? "" : _billRaw;
+                    // 🔧 v6.63.035 (Patrick 30.05. 11:48): "Rechnungsadresse wählen… (optional)"
+                    //   endete auf "(optional)", nicht auf "wählen…" → Default-Text wurde als
+                    //   echte Adresse gespeichert (Jeanny Friese 11:43). Jetzt contains-Check.
+                    final boolean _isBillDefault = _billRaw.isEmpty() || _billRaw.contains("wählen…");
                     final double _billLat = billAddrCoords[0];
                     final double _billLon = billAddrCoords[1];
+                    // 🆕 v6.63.035: Bei Stammkunden ohne explizite Rechnungsadresse →
+                    //   Pickup-Adresse als Wohnadresse uebernehmen (Patrick: "Wenn ich
+                    //   Stammkunden anlege, muss die Abholadresse als Wohnadresse uebernommen
+                    //   werden"). Andere Kundentypen (Hotel/Firma) kriegen das nicht — fuer
+                    //   die ist Pickup nicht zwangslaeufig die Adresse.
+                    final boolean _willUsePickupAsHome = _isBillDefault
+                        && _isNewCustFinal
+                        && _newCustKindSpinner != null
+                        && String.valueOf(_newCustKindSpinner.getSelectedItem()).toLowerCase().startsWith("stamm")
+                        && !pickup.isEmpty() && !pickup.endsWith("wählen…")
+                        && !Double.isNaN(pickupCoords[0]) && !Double.isNaN(pickupCoords[1]);
+                    final String _newCustBillAddr = _isBillDefault
+                        ? (_willUsePickupAsHome ? pickup : "")
+                        : _billRaw;
+                    final double _effBillLat = _willUsePickupAsHome ? pickupCoords[0] : _billLat;
+                    final double _effBillLon = _willUsePickupAsHome ? pickupCoords[1] : _billLon;
                     final String _newCustEmail = (etCustEmail != null) ? etCustEmail.getText().toString().trim() : "";
                     // 🆕 v6.62.960: Phone aus EditText wenn vorhanden (One-Shot-Maske),
                     //   sonst Fallback auf e.phone/e.mobilePhone (Anrufliste-Pfad).
@@ -2838,11 +2857,15 @@ public class CrmSearchActivity extends AppCompatActivity {
                             custData.put("address", _newCustBillAddr);
                             // v6.62.803: Koordinaten der Rechnungsadresse mitspeichern
                             //   (vom MapPicker geliefert) — fuer spaetere Routen/Distanz-Checks.
-                            if (!Double.isNaN(_billLat) && !Double.isNaN(_billLon)) {
-                                custData.put("lat", _billLat);
-                                custData.put("lon", _billLon);
-                                custData.put("addressLat", _billLat);
-                                custData.put("addressLon", _billLon);
+                            // v6.63.035: bei Pickup-Fallback _effBillLat/Lon (sonst _billLat/Lon).
+                            if (!Double.isNaN(_effBillLat) && !Double.isNaN(_effBillLon)) {
+                                custData.put("lat", _effBillLat);
+                                custData.put("lon", _effBillLon);
+                                custData.put("addressLat", _effBillLat);
+                                custData.put("addressLon", _effBillLon);
+                            }
+                            if (_willUsePickupAsHome) {
+                                custData.put("addressSource", "pickup-fallback-v6.63.035");
                             }
                         }
                         if (!_newCustEmail.isEmpty()) custData.put("email", _newCustEmail);

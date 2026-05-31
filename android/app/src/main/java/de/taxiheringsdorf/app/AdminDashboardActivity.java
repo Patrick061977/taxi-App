@@ -942,6 +942,29 @@ public class AdminDashboardActivity extends AppCompatActivity {
             ride.put("updatedAt", now);
             if (pickupTs != null) ride.put("pickupTimestamp", pickupTs);
             if (pickupTime != null) ride.put("pickupTime", pickupTime);
+            // v6.63.066 (Patrick 31.05.2026 — Task #14): anfrage.price respektieren
+            // wenn der Kunde einen Festpreis-Wunsch hinterlegt hat. Vorher hat die
+            // Übernahme die anfrage-eigene Preis-Eingabe ignoriert und die Cloud-
+            // Function rechnete eigenständig neu (z.B. Fürst: 59€ Kundenwunsch →
+            // 39,20€ System-Berechnung → 19,80€ Diskrepanz + manuelle Reparatur nötig).
+            // Plus prepay-Detection: wenn notes 'Zahlungslink' enthalten, markiere die
+            // Ride als prepayRequested → Cloud Function kann Stripe-Checkout triggern.
+            try {
+                if (a.price != null && !a.price.isEmpty() && !"—".equals(a.price)) {
+                    String _priceStr = a.price.replace("€","").replace(",",".").trim();
+                    double _priceVal = Double.parseDouble(_priceStr);
+                    if (_priceVal > 0) {
+                        ride.put("price", String.format(Locale.GERMANY, "%.2f", _priceVal));
+                        ride.put("estimatedPrice", String.format(Locale.GERMANY, "%.2f", _priceVal));
+                        ride.put("priceFromAnfrage", true);
+                        ride.put("priceFromAnfrageAt", now);
+                    }
+                }
+            } catch (Throwable _pErr) { Log.w(TAG, "Anfrage-Price-Parse: " + _pErr.getMessage()); }
+            if (a.notes != null && a.notes.toLowerCase().contains("zahlungslink")) {
+                ride.put("prepayRequested", true);
+                ride.put("prepayDetectedFromNotes", true);
+            }
             ride.put("paymentMethod", "bar");
             // Atomares Update: ride anlegen + anfrage als bestaetigt markieren
             Map<String, Object> updates = new HashMap<>();

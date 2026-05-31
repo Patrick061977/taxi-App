@@ -48,6 +48,20 @@
             </intent-filter>
         </activity>
 
+        <!-- v6.63.064: RideAlertActivity — Vollbild-Alert für Sofort-Aufträge.
+             Wird via FullScreenIntent aus TaxiFCMService geöffnet. Über Lockscreen
+             sichtbar (showOnLockScreen/turnScreenOn), große Annehmen/Ablehnen-Buttons
+             mittig statt kleinem Heads-Up-Banner. -->
+        <activity
+            android:name=".RideAlertActivity"
+            android:label="@string/title_activity_main"
+            android:theme="@style/AppTheme.Driver"
+            android:launchMode="singleTask"
+            android:showOnLockScreen="true"
+            android:turnScreenOn="true"
+            android:excludeFromRecents="true"
+            android:exported="false" />
+
         <!-- v6.45.0: Native LoginActivity (Email/Passwort + Telefon/SMS) -->
         <activity
             android:name=".LoginActivity"

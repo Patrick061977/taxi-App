@@ -258,9 +258,23 @@ public class TaxiFCMService extends FirebaseMessagingService {
             .setColor(isOrderPush ? android.graphics.Color.parseColor("#dc2626") : android.graphics.Color.parseColor("#059669"))
             .setColorized(isOrderPush)
             .setShowWhen(true);
-        // 🆕 v6.62.979: FullScreenIntent NUR bei Sofortfahrt (= weckt Bildschirm im Lockscreen).
-        // Webbuchung/Anfrage: nur Heads-Up Notification, keine Lockscreen-Aktivierung.
-        if (isOrderPush) {
+        // v6.63.064 (Patrick 31.05. 19:34): FullScreenIntent öffnet jetzt die
+        // RideAlertActivity (Vollbild mit großen Annehmen/Ablehnen-Buttons mittig)
+        // statt nur DriverDashboard. Patrick: "Wenn was kommt, sollte das mittig
+        // mit großen Buttons sein, nicht so ein kleiner Banner oben."
+        if (isOrderPush && rideId != null) {
+            Intent alertI = new Intent(this, RideAlertActivity.class);
+            alertI.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            alertI.putExtra("rideId", rideId);
+            alertI.putExtra("title", title);
+            alertI.putExtra("body", body);
+            PendingIntent fullScreenIntent = PendingIntent.getActivity(
+                this, ("alert"+rideId).hashCode(), alertI,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+            );
+            builder.setFullScreenIntent(fullScreenIntent, true);
+        } else if (isOrderPush) {
+            // Fallback: ohne rideId klassischer FullScreenIntent zur Dashboard
             builder.setFullScreenIntent(pendingIntent, true);
         }
 

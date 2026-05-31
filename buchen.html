@@ -4550,7 +4550,9 @@
                         console.log('[Route-Pick] fastest', (fastest.distance/1000).toFixed(1)+'km/'+(fastest.duration/60).toFixed(1)+'min', 'shortest', (shortest.distance/1000).toFixed(1)+'km/'+(shortest.duration/60).toFixed(1)+'min', '→ gewaehlt:', (route.distance/1000).toFixed(1)+'km');
                     }
                     const km = (route.distance / 1000).toFixed(1);
-                    const min = Math.ceil(route.duration / 60);
+                    // v6.63.058 (Patrick 31.05. 16:05): Minuten auf 5er-Schritt aufrunden.
+                    // "28 → 30, 34 → 35, 38 → 40 — alles auf jeden 5er aufrunden."
+                    const min = Math.max(5, Math.ceil(Math.ceil(route.duration / 60) / 5) * 5);
 
                     // Tarifberechnung mit korrektem Zeitpunkt (Sofort = jetzt, Vorbestellen = gewählte Zeit)
                     const pricingTimestamp = getPickupTimestamp();

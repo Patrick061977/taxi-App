@@ -3236,11 +3236,30 @@ public class DriverDashboardActivity extends AppCompatActivity {
         // die laufende Vibration + entfernt die Notification — Patrick hatte gemeldet
         // dass der Push sich nicht wegklicken lässt und Vibration 5,3s weiterlief.
         try { TaxiFCMService.cancelDepartureAlert(this); } catch (Throwable _t) {}
-        // Plus kurzer Toast als visuelle Bestätigung damit der Tap nicht "ins Leere" wirkt
+        // v6.63.063 (Patrick 31.05. 19:34): Quick-Win — beim Push-Tap explizit den Kunden-
+        // Namen anzeigen ("Push für Hotel Wald und See angekommen") damit du SIEHST wo der
+        // Tap gelandet ist und welche Fahrt gemeint war. Auch wenn die App schon offen
+        // wirkt der Tap dann nicht wie "nichts passiert".
         try {
             String _rideId = intent != null ? intent.getStringExtra("rideId") : null;
             if (_rideId != null && !_rideId.isEmpty()) {
-                Toast.makeText(this, "🚨 Losfahr-Erinnerung — Auftrag wird gleich gezeigt", Toast.LENGTH_SHORT).show();
+                FirebaseDatabase.getInstance(DB_INSTANCE_URL)
+                    .getReference("rides/" + _rideId)
+                    .addListenerForSingleValueEvent(new ValueEventListener() {
+                        @Override public void onDataChange(@NonNull DataSnapshot s) {
+                            String name = s.child("customerName").getValue(String.class);
+                            String guest = s.child("guestName").getValue(String.class);
+                            String pickup = s.child("pickup").getValue(String.class);
+                            String pickupTime = s.child("pickupTime").getValue(String.class);
+                            StringBuilder msg = new StringBuilder("📌 Push: ");
+                            if (name != null) msg.append(name);
+                            if (guest != null) msg.append(" (").append(guest).append(")");
+                            if (pickup != null) msg.append("\n📍 ").append(pickup);
+                            if (pickupTime != null) msg.append("\n⏰ ").append(pickupTime);
+                            Toast.makeText(DriverDashboardActivity.this, msg.toString(), Toast.LENGTH_LONG).show();
+                        }
+                        @Override public void onCancelled(@NonNull DatabaseError e) {}
+                    });
             }
         } catch (Throwable _t) {}
         try {

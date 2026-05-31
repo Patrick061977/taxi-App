@@ -2743,9 +2743,17 @@ public class DriverDashboardActivity extends AppCompatActivity {
                     s.child("auftraggeber").getValue(String.class)
                 );
                 Boolean isAuftraggeberBooking = s.child("_isAuftraggeberBooking").getValue(Boolean.class);
-                boolean hasAuftraggeber = (isAuftraggeberBooking != null && isAuftraggeberBooking) ||
-                        (auftraggeberName != null && !auftraggeberName.trim().isEmpty());
-                String hotelName = (auftraggeberName != null && !auftraggeberName.trim().isEmpty())
+                // v6.63.060 (Patrick 31.05. 16:13): paymentResponsible-Toggle.
+                // Wenn Hotel bestellt aber Gast zahlt selber → 'An Hotel abrechnen' wird
+                // im Bezahl-Menü NICHT angezeigt, Fahrer sieht nur Bar/Karte/Stripe wie
+                // bei einer Privatfahrt.
+                String paymentResponsible = s.child("paymentResponsible").getValue(String.class);
+                boolean gastZahltSelber = "gast".equalsIgnoreCase(paymentResponsible);
+                boolean hasAuftraggeber = !gastZahltSelber && (
+                        (isAuftraggeberBooking != null && isAuftraggeberBooking) ||
+                        (auftraggeberName != null && !auftraggeberName.trim().isEmpty())
+                );
+                String hotelName = (!gastZahltSelber && auftraggeberName != null && !auftraggeberName.trim().isEmpty())
                         ? auftraggeberName.trim() : null;
                 renderPaymentDialog(r, hotelName, hasAuftraggeber);
             }

@@ -61,9 +61,12 @@ function paymentLabel(method) {
 // 🆕 v6.62.973 (Patrick 27.05. 19:50): EPC-QR-Code (Girocode) für SEPA-Überweisung.
 // QR enthält Empfängername, IBAN, BIC, Betrag, Verwendungszweck — Kunde scannt mit
 // Banking-App und überweist mit einem Klick. Skip bei Bar/Karte/Stripe (= schon bezahlt).
-function buildEpcQrSection(r, s, totalGross, invoiceNumber) {
+function buildEpcQrSection(r, s, totalGross, invoiceNumber, inv) {
     if (!totalGross || totalGross <= 0) return '';
-    const pm = (r.paymentMethod || '').toLowerCase();
+    // v6.63.067: invoice.paymentMethod hat Vorrang vor ride.paymentMethod
+    // (gleiche Logik wie paymentTermsText) — sonst zeigt PDF bei Bar-Hotel
+    // weiterhin den Banking-Scan-Code obwohl Rechnung bar bezahlt ist.
+    const pm = ((inv && inv.paymentMethod) || r.paymentMethod || '').toLowerCase();
     // Nur bei Überweisungs-Methoden — bei Bar/Karte/Stripe kein QR nötig
     const showQr = ['rechnung','uberweisung','vorkasse','invoice_email','invoice_auftraggeber',''].includes(pm);
     if (!showQr) return '';
@@ -223,7 +226,13 @@ function buildInvoiceHtml({ invoiceNumber, ride, customer, settings, invoice }) 
         }
     }
 
-    const paymentTermsText = paymentLabel(r.paymentMethod);
+    // v6.63.067 (Patrick 31.05. 20:43): invoice.paymentMethod bevorzugen wenn explizit
+    // gesetzt — z.B. wenn Hotel-Auftraggeber-Buchung intern auf bar gewechselt wurde
+    // (preferredPayment=bar), soll PDF "Betrag in Bar erhalten" zeigen, nicht
+    // "Zahlbar 14 Tagen" aus ride.paymentMethod='invoice_auftraggeber'.
+    // Plus paymentTerms (Custom-Text) bevorzugen wenn vorhanden.
+    const _effectivePm = inv.paymentMethod || r.paymentMethod;
+    const paymentTermsText = inv.paymentTerms || paymentLabel(_effectivePm);
     const closingNote = inv.closingNote || s.footer || 'Vielen Dank für die gute Zusammenarbeit.';
 
     // Empfänger-Block-HTML
@@ -415,7 +424,7 @@ table.pos tr.zebra td { background: #f8f8f8; }
         ${vatHint ? `<div class="vat-hint">${esc(vatHint)}</div>` : ''}
 
         <div class="payment-terms">${esc(paymentTermsText)}</div>
-        ${buildEpcQrSection(r, s, totalGross, invoiceNumber)}
+        ${buildEpcQrSection(r, s, totalGross, invoiceNumber, inv)}
         <div class="closing">${esc(closingNote)}</div>
     </div>
 

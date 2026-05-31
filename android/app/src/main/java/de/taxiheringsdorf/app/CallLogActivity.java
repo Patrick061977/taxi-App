@@ -936,7 +936,13 @@ public class CallLogActivity extends AppCompatActivity {
                         }
                     } else {
                         switch (which) {
-                            case 0: createEinsteigerCrm(e, crm); break;
+                            // v6.63.057 (Patrick 31.05. 11:21): "Bei Einsteiger auch
+                            // die Vorbestellungs-Maske aufmachen, dann kann ich Zeit
+                            // und Ziel wählen statt blind 'abgeholt' eintragen."
+                            // → Default ist jetzt die volle Maske mit Pre-Fill aus
+                            // Anrufliste + CRM. createEinsteigerCrm bleibt im Code
+                            // für andere Aufrufstellen (Dashboard-Quick-Tap).
+                            case 0: openVorbestellungInCrmSearch(e, crm); break;
                             case 1: createSofortFahrtCrm(e, crm); break;
                             case 2: openVorbestellungInCrmSearch(e, crm); break;
                             case 3: showCrmEditDialog(crm); break;
@@ -960,7 +966,9 @@ public class CallLogActivity extends AppCompatActivity {
                     } else {
                         switch (which) {
                             case 0: openCrmCreateInSearchActivity(e); break;
-                            case 1: createEinsteigerWithPhone(e); break;
+                            // v6.63.057: Einsteiger-Tap (kein CRM-Match) → ebenfalls
+                            // Vorbestellungs-Maske mit Pre-Fill aus Anrufnummer.
+                            case 1: openVorbestellungInCrmSearch(e, null); break;
                             case 2: createSofortFahrtPhone(e); break;
                             case 3: openVorbestellungInCrmSearch(e, null); break;
                         }

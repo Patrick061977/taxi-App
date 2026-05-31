@@ -22085,6 +22085,27 @@ exports.onRideCreated = onValueCreated(
             }
         } catch (_vErr) { console.warn('v6.62.941 sofortVorlauf fehlgeschlagen:', _vErr.message); }
 
+        // 🆕 v6.63.060 (Patrick 31.05. 16:13): Hotel-vs-Gast-Zahler.
+        // Wenn ride.paymentResponsible noch nicht gesetzt + customerId zeigt auf
+        // einen Hotel-CRM-Datensatz mit defaultPaymentResponsible, kopiere den
+        // Default. So weiss der Fahr-Abschluss-Dialog ob "An Hotel abrechnen" als
+        // Option gezeigt wird oder ob nur Bar/Karte/Stripe angezeigt werden.
+        // Default-Verhalten wenn Customer-Default fehlt: 'auftraggeber' (bisheriges
+        // Verhalten beibehalten — backwards-compatible).
+        try {
+            if (!ride.paymentResponsible && ride.customerId) {
+                const _custSnap = await db.ref(`customers/${ride.customerId}`).once('value');
+                const _cust = _custSnap.val();
+                if (_cust && (_cust.type === 'supplier' || _cust.category === 'hotel' || _cust.customerKind === 'Hotel' || _cust.customerKind === 'auftraggeber')) {
+                    const _default = (_cust.defaultPaymentResponsible || 'auftraggeber').toLowerCase();
+                    if (_default === 'gast' || _default === 'auftraggeber') {
+                        await db.ref(`rides/${rideId}/paymentResponsible`).set(_default);
+                        console.log(`💰 v6.63.060 paymentResponsible gesetzt: ${rideId} → ${_default} (aus customer ${ride.customerId})`);
+                    }
+                }
+            }
+        } catch (_pwErr) { console.warn('v6.63.060 paymentResponsible-Pull fehlgeschlagen:', _pwErr.message); }
+
         // 🆕 v6.62.171: Past-Date-Auto-Schutz fuer historische Auftrag-Importe.
         // Wenn confirmAuftragImport eine Ride bereits mit status='completed' + completedBy=
         // 'auftrag-import-historic' anlegt (Patrick reicht z.B. Vetter 25.04. nachtraeglich

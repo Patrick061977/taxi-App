@@ -779,17 +779,132 @@ public class AdminDashboardActivity extends AppCompatActivity {
         if (a.stopp != null && !a.stopp.isEmpty()) details.append("Zwischenstopp: ").append(a.stopp).append("\n");
         if (a.destination != null) details.append("Zielort: ").append(a.destination).append("\n");
         if (a.notes != null && !a.notes.isEmpty()) details.append("Notiz: ").append(a.notes).append("\n");
+
+        // v6.63.065 (Patrick 31.05. 19:42): Zusätzlicher Action-Button für Bestätigungs-Mail
+        // mit Stripe-Link wenn Email vorhanden. Nutzt sendInvoiceEmail Cloud Function.
+        final boolean hasEmail = a.email != null && a.email.contains("@");
+        java.util.List<String> options = new java.util.ArrayList<>();
+        java.util.List<Integer> actions = new java.util.ArrayList<>();
+        options.add("✅ Übernehmen + Ride anlegen"); actions.add(1);
+        if (hasEmail) {
+            options.add("📧 Bestätigung + Stripe-Link senden (per Email)"); actions.add(2);
+        }
+        options.add("❌ Ablehnen"); actions.add(3);
+        options.add("Abbrechen"); actions.add(0);
+
         new AlertDialog.Builder(this)
-            .setTitle("📥 Anfrage übernehmen")
+            .setTitle("📥 Anfrage Aktionen")
             .setMessage(details.toString())
-            .setPositiveButton("✅ Übernehmen", (d, w) -> uebernehmeAnfrage(a))
-            .setNeutralButton("❌ Ablehnen", (d, w) -> {
-                // Status auf abgelehnt setzen
-                db.getReference("anfragen/" + a.id + "/status").setValue("abgelehnt");
-                Toast.makeText(this, "Anfrage abgelehnt", Toast.LENGTH_SHORT).show();
+            .setItems(options.toArray(new String[0]), (d, which) -> {
+                int act = actions.get(which);
+                switch (act) {
+                    case 1: uebernehmeAnfrage(a); break;
+                    case 2: showAnfrageBestaetigungVorschau(a); break;
+                    case 3:
+                        db.getReference("anfragen/" + a.id + "/status").setValue("abgelehnt");
+                        Toast.makeText(this, "Anfrage abgelehnt", Toast.LENGTH_SHORT).show();
+                        break;
+                    case 0: default: /* nichts */ break;
+                }
             })
+            .show();
+    }
+
+    // v6.63.065 (Patrick 31.05. 19:42): Bestätigungs-Mail-Vorschau VOR Send.
+    // Memory: feedback_mail-immer-entwurf-zeigen.md — Brieftext muss vor Versand
+    // gezeigt + freigegeben werden.
+    private void showAnfrageBestaetigungVorschau(Anfrage a) {
+        if (a.email == null || !a.email.contains("@")) {
+            Toast.makeText(this, "Keine Email-Adresse in der Anfrage", Toast.LENGTH_LONG).show();
+            return;
+        }
+        StringBuilder preview = new StringBuilder();
+        preview.append("An: ").append(a.email).append("\n");
+        preview.append("Betreff: Bestätigung Ihrer Funk-Taxi-Anfrage\n\n");
+        preview.append("Sehr geehrte/r ").append(a.name != null ? a.name : "Kundin/Kunde").append(",\n\n");
+        preview.append("vielen Dank für Ihre Anfrage. Wir bestätigen folgende Fahrt:\n");
+        if (a.date != null) preview.append("  Datum:    ").append(a.date);
+        if (a.time != null) preview.append(" um ").append(a.time).append(" Uhr");
+        preview.append("\n");
+        if (a.pickup != null) preview.append("  Von:      ").append(a.pickup).append("\n");
+        if (a.destination != null) preview.append("  Nach:     ").append(a.destination).append("\n");
+        if (a.passengers != null) preview.append("  Personen: ").append(a.passengers).append("\n");
+        preview.append("\nBei Fragen erreichen Sie uns unter 038378/22022.\n\n");
+        preview.append("Mit freundlichen Grüßen\nPatrick Wydra\nTaxiunternehmen Patrick Wydra");
+        preview.append("\n\n──────────────────────\n");
+        preview.append("VORSCHAU — bitte vor Versand prüfen.");
+
+        new AlertDialog.Builder(this)
+            .setTitle("📧 Mail-Entwurf — Freigabe?")
+            .setMessage(preview.toString())
+            .setPositiveButton("📤 Senden", (d, w) -> sendAnfrageBestaetigungMail(a))
             .setNegativeButton("Abbrechen", null)
             .show();
+    }
+
+    private void sendAnfrageBestaetigungMail(Anfrage a) {
+        Toast.makeText(this, "📨 Bestätigung wird versendet…", Toast.LENGTH_SHORT).show();
+        final String _name = a.name != null ? a.name : "Kundin/Kunde";
+        final String _email = a.email;
+        final String _date = a.date != null ? a.date : "";
+        final String _time = a.time != null ? a.time : "";
+        final String _pickup = a.pickup != null ? a.pickup : "";
+        final String _dest = a.destination != null ? a.destination : "";
+        final String _pax = a.passengers != null ? a.passengers.toString() : "1";
+        final String _anfrageId = a.id != null ? a.id : "";
+        new Thread(() -> {
+            try {
+                org.json.JSONObject body = new org.json.JSONObject();
+                body.put("invoiceNumber", "ANFR-" + _anfrageId.substring(Math.max(0, _anfrageId.length()-8)));
+                body.put("toEmail", _email);
+                body.put("toName", _name);
+                body.put("subject", "Bestätigung Ihrer Funk-Taxi-Anfrage");
+                body.put("attachPdf", false);
+                StringBuilder html = new StringBuilder();
+                html.append("<div style='font-family:Arial,sans-serif;font-size:14px;color:#222;max-width:640px;'>");
+                html.append("<p>Sehr geehrte/r ").append(_name).append(",</p>");
+                html.append("<p>vielen Dank für Ihre Anfrage. Wir bestätigen folgende Fahrt:</p>");
+                html.append("<table cellpadding='4' style='border-collapse:collapse;font-size:13px;margin:8px 0;'>");
+                if (!_date.isEmpty()) html.append("<tr><td>Datum:</td><td><b>").append(_date);
+                if (!_time.isEmpty()) html.append(" um ").append(_time).append(" Uhr");
+                if (!_date.isEmpty()) html.append("</b></td></tr>");
+                if (!_pickup.isEmpty()) html.append("<tr><td>Von:</td><td>").append(_pickup).append("</td></tr>");
+                if (!_dest.isEmpty()) html.append("<tr><td>Nach:</td><td>").append(_dest).append("</td></tr>");
+                html.append("<tr><td>Personen:</td><td>").append(_pax).append("</td></tr>");
+                html.append("</table>");
+                html.append("<p>Bei Fragen erreichen Sie uns gerne unter <a href='tel:+4938378220 22'>038378/22022</a>.</p>");
+                html.append("<p>Mit freundlichen Grüßen<br><br>Patrick Wydra<br>Taxiunternehmen Patrick Wydra<br>");
+                html.append("Amselring 10, 17424 Ostseebad Heringsdorf<br>Tel.: 038378/22022 · taxiwydra@googlemail.com</p>");
+                html.append("</div>");
+                body.put("htmlBody", html.toString());
+
+                java.net.URL url = new java.net.URL("https://europe-west1-taxi-heringsdorf.cloudfunctions.net/sendInvoiceEmail");
+                java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("POST");
+                conn.setRequestProperty("Content-Type", "application/json");
+                conn.setDoOutput(true);
+                conn.setConnectTimeout(15000);
+                conn.setReadTimeout(60000);
+                conn.getOutputStream().write(body.toString().getBytes("UTF-8"));
+                int code = conn.getResponseCode();
+                final boolean ok = (code >= 200 && code < 300);
+                runOnUiThread(() -> {
+                    if (ok) {
+                        Toast.makeText(this, "✅ Bestätigung an " + _email + " versendet", Toast.LENGTH_LONG).show();
+                        // Audit-Log in Firebase
+                        if (_anfrageId != null && !_anfrageId.isEmpty()) {
+                            db.getReference("anfragen/" + _anfrageId).child("confirmationSentAt").setValue(System.currentTimeMillis());
+                            db.getReference("anfragen/" + _anfrageId).child("confirmationSentBy").setValue("native_admin");
+                            db.getReference("anfragen/" + _anfrageId).child("confirmationSentTo").setValue(_email);
+                        }
+                    } else {
+                        Toast.makeText(this, "❌ Versand fehlgeschlagen (HTTP " + code + ")", Toast.LENGTH_LONG).show();
+                    }
+                });
+            } catch (Throwable t) {
+                runOnUiThread(() -> Toast.makeText(this, "❌ Versand-Fehler: " + t.getMessage(), Toast.LENGTH_LONG).show());
+            }
+        }).start();
     }
 
     private void uebernehmeAnfrage(Anfrage a) {

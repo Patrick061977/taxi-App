@@ -4547,57 +4547,10 @@
                     const isVorbestellungNow = (wannModus === 'vorbestellen' && pricingTimestamp > Date.now() + 30 * 60 * 1000);
                     const pricingJetzt = isVorbestellungNow ? calculatePrice(parseFloat(km), Date.now()) : null;
 
-                    // 🆕 v6.62.684: Korridor-Aufschlag — wenn Pickup UND Destination beide
-                    //   AUSSERHALB der 3 Kaiserbäder, Anfahrt vom weitesten Punkt × 1,20 €/km.
-                    //   Patrick (13.05. 17:13): "wenn beide ausserhalb, Anfahrt vom weitesten
-                    //   Punkt — von dem wir wieder zurueck muessen."
-                    const _KB_CENTER = { lat: 53.9501, lon: 14.16 };
-                    const _KB_RADIUS_KM = 8;
-                    const _ANFAHRT_EUR_KM = 1.20;
-                    const _hav = (a, b) => {
-                        const R = 6371;
-                        const dLat = (b.lat - a.lat) * Math.PI / 180;
-                        const dLon = (b.lon - a.lon) * Math.PI / 180;
-                        const aa = Math.sin(dLat/2)**2 + Math.cos(a.lat*Math.PI/180) * Math.cos(b.lat*Math.PI/180) * Math.sin(dLon/2)**2;
-                        return R * 2 * Math.atan2(Math.sqrt(aa), Math.sqrt(1-aa));
-                    };
-                    // v6.62.762: Defensive Check fuer Null-/String-Coords
-                    const _pValid = pickupCoords && typeof pickupCoords.lat === 'number' && typeof pickupCoords.lon === 'number';
-                    const _dValid = destCoords && typeof destCoords.lat === 'number' && typeof destCoords.lon === 'number';
-                    const _pInZone = _pValid ? (_hav(_KB_CENTER, pickupCoords) <= _KB_RADIUS_KM) : true; // Default: drin = kein Aufschlag
-                    const _dInZone = _dValid ? (_hav(_KB_CENTER, destCoords) <= _KB_RADIUS_KM) : true;
+                    // Korridor-Aufschlag entfernt (Patrick 31.05.2026): "es gibt keinen Korridor-Aufschlag".
                     let _korridorAufschlag = 0, _korridorKm = 0;
-                    console.log('[KorridorCheck] pickup', pickupCoords, '_pValid', _pValid, '_pInZone', _pInZone, 'dest', destCoords, '_dValid', _dValid, '_dInZone', _dInZone);
-                    // 🔧 v6.62.879 (Patrick 22.05. 19:11): "Anfahrt nur wenn Pickup UND
-                    //   Destination außerhalb der Kaiserbäder. Strecke ab Ortsausgang
-                    //   Ahlbeck oder Bansin (nicht Heringsdorf-Zentrum)."
-                    // Logik:
-                    //   - Beide außerhalb? → Aufschlag aktiv
-                    //   - Start-Punkt = Ortsausgang Ahlbeck-Ost (53.928, 14.225) wenn Pickup
-                    //     östlich ist (lon > 14.18, z.B. Swinemünde) oder Bansin-West
-                    //     (53.969, 14.097) wenn Pickup westlich (z.B. Koserow, Zinnowitz)
-                    const _AHLBECK_OST = { lat: 53.928, lon: 14.225 };
-                    const _BANSIN_WEST = { lat: 53.969, lon: 14.097 };
-                    if (!_pInZone && !_dInZone) {
-                        try {
-                            const _startPoint = (_pValid && pickupCoords.lon > 14.18) ? _AHLBECK_OST : _BANSIN_WEST;
-                            const _osrm = (a, b) => `https://router.project-osrm.org/route/v1/driving/${a.lon},${a.lat};${b.lon},${b.lat}?overview=false`;
-                            const _r1 = await fetch(_osrm(_startPoint, pickupCoords)).then(r => r.json()).catch(() => null);
-                            _korridorKm = _r1 && _r1.routes && _r1.routes[0] ? _r1.routes[0].distance / 1000 : 0;
-                            _korridorAufschlag = Math.round(_korridorKm * _ANFAHRT_EUR_KM * 100) / 100;
-                        } catch (_kbErr) { console.warn('Korridor-Aufschlag-Fehler:', _kbErr); }
-                    }
-                    // v6.62.757: pricing.total ist String (.toFixed(2)) — bei String+Number gibts Concat
-                    //   und Math.round(NaN) = NaN → 'NaN€' wurde im UI angezeigt (Flughafen-Bug 16.05.07:07)
                     const _basePriceNum = parseFloat(pricing.total);
-                    const _totalPrice = Math.round((_basePriceNum + _korridorAufschlag) * 100) / 100;
-                    // 🆕 v6.62.685: Patrick wuenscht transparenter Anfahrt-Hinweis wie bei
-                    //   Sonntagstarif. Wir injizieren die Info in pricing.hinweise damit alle
-                    //   Anzeige-Pfade (r-price + map-price-overlay) sie automatisch zeigen.
-                    if (_korridorAufschlag > 0) {
-                        pricing.hinweise.push(`Anfahrt zum Abholort ${_korridorKm.toFixed(0)} km × 1,20€ = +${_korridorAufschlag.toFixed(2)}€`);
-                        pricing.total = _totalPrice.toFixed(2);
-                    }
+                    const _totalPrice = _basePriceNum;
                     routeData = {
                         km, min,
                         price: _totalPrice,

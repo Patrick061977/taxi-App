@@ -87,7 +87,7 @@
                             <div id="anf-date-label" style="font-size:14px;color:#0f172a;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">— Tippen —</div>
                         </div>
                     </div>
-                    <input type="date" id="anf-date" onchange="updateAnfDateLabel();calcAnfPrice()" style="position:absolute;left:-9999px;opacity:0;">
+                    <input type="date" id="anf-date" onchange="updateAnfDateLabel();calcAnfPrice()" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;border:0;padding:0;">
                 </div>
                 <div style="flex:1;position:relative;" onclick="(function(){try{document.getElementById('anf-time').showPicker();}catch(_){document.getElementById('anf-time').focus();}})()">
                     <div style="display:flex;align-items:center;gap:10px;padding:14px;border:2px solid #e2e8f0;border-radius:10px;background:white;cursor:pointer;" onmouseover="this.style.borderColor='#10b981'" onmouseout="this.style.borderColor='#e2e8f0'">
@@ -97,7 +97,7 @@
                             <div id="anf-time-label" style="font-size:14px;color:#0f172a;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">— Tippen —</div>
                         </div>
                     </div>
-                    <input type="time" id="anf-time" step="600" onchange="updateAnfTimeLabel();calcAnfPrice()" style="position:absolute;left:-9999px;opacity:0;">
+                    <input type="time" id="anf-time" step="600" onchange="updateAnfTimeLabel();calcAnfPrice()" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;border:0;padding:0;">
                 </div>
             </div>
             <script>
@@ -731,30 +731,8 @@ async function calcAnfPrice() {
         if (remaining > 0) { price += remaining * (isNight ? 2.40 : 2.20); }
         if (anfPax >= 5) price += 10;
         price = Math.round(price / 0.1) * 0.1;
-        // \ud83c\udd95 v6.62.688: Patrick (13.05. 18:07): "Korridor-Aufschlag auch in anfrage.html".
-        //   Wenn Pickup ausserhalb der Kaiserbaeder \u2192 +Anfahrt zum Abholort \u00d7 1,20\u20ac/km.
-        var _KB_CENTER_ANF = { lat: 53.9501, lon: 14.16 };
-        var _KB_RADIUS_KM_ANF = 8;
-        var _hav_anf = function(a, b) {
-            var R = 6371;
-            var dLat = (b.lat - a.lat) * Math.PI / 180;
-            var dLon = (b.lon - a.lon) * Math.PI / 180;
-            var aa = Math.sin(dLat/2)*Math.sin(dLat/2) + Math.cos(a.lat*Math.PI/180) * Math.cos(b.lat*Math.PI/180) * Math.sin(dLon/2)*Math.sin(dLon/2);
-            return R * 2 * Math.atan2(Math.sqrt(aa), Math.sqrt(1-aa));
-        };
+        // Korridor-Aufschlag entfernt (Patrick 31.05.2026): "es gibt keinen Korridor-Aufschlag".
         var _anfAnfahrtKm = 0, _anfAnfahrtEur = 0;
-        if (anfPickupCoords && _hav_anf(_KB_CENTER_ANF, anfPickupCoords) > _KB_RADIUS_KM_ANF) {
-            try {
-                var _osrmKB = await fetch('https://router.project-osrm.org/route/v1/driving/' + _KB_CENTER_ANF.lon + ',' + _KB_CENTER_ANF.lat + ';' + anfPickupCoords.lon + ',' + anfPickupCoords.lat + '?overview=false').then(function(r) { return r.json(); }).catch(function() { return null; });
-                if (_osrmKB && _osrmKB.routes && _osrmKB.routes[0]) {
-                    _anfAnfahrtKm = _osrmKB.routes[0].distance / 1000;
-                    // \ud83d\udd27 v6.62.697: Anfahrt-Aufschlag auf 50-Cent runden (Patrick: "55,43 gibt es nicht").
-                    //   So bleibt das Cent-Krummsel nicht im Endpreis stehen.
-                    _anfAnfahrtEur = Math.round(_anfAnfahrtKm * 1.20 * 2) / 2;
-                    price = price + _anfAnfahrtEur;
-                }
-            } catch (e) { /* still */ }
-        }
         // \ud83c\udd95 v6.62.697: Patrick (13.05. 21:02): "55,43 \u2014 so einen Preis gibt es nicht."
         //   Finaler Preis aufgerundet auf naechste 50-Cent \u2014 saubere Taxi-Preise wie 55,50\u20ac.
         price = Math.ceil(price * 2) / 2;

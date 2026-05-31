@@ -24698,10 +24698,22 @@ exports.onRideUpdated = onValueUpdated(
                     }
                 }
 
+                // v6.63.064 (Patrick 31.05. 18:26): customer.preferredPayment respektieren.
+                // Plus customerName-Bugfix — guestName war fälschlich der 1. Fallback,
+                // hat bei Hotel-Auftraggeber-Buchungen den Gast als Rechnungs-Empfänger
+                // gesetzt (z.B. "Neumann" statt "Hotel Wald und See"). Jetzt: customerName
+                // zuerst, guestName nur wenn customerName leer ist.
+                const _preferredPayment = (_custData.preferredPayment || '').toLowerCase();
+                const _hotelZahltBar = (after.paymentMethod === 'invoice_auftraggeber' || after.paymentMethod === 'bar')
+                    && _preferredPayment === 'bar';
+                const _effectivePaymentMethod = _hotelZahltBar ? 'bar' : (after.paymentMethod || 'cash');
+                const _isPaidNow = (_effectivePaymentMethod === 'cash' || _effectivePaymentMethod === 'bar');
+
                 const _invoiceData = {
                     invoiceNumber: _belegNr,
                     rideId,
-                    customerName: after.guestName || after.customerName || _billingName || _custData.name || 'Kunde',
+                    customerName: after.customerName || after.guestName || _billingName || _custData.name || 'Kunde',
+                    guestName: (after.customerName && after.guestName && after.customerName !== after.guestName) ? after.guestName : '',
                     customerAnrede: _custData.anrede || '',
                     customerAddress: _billingAddrStr || _custData.billingAddress || _custData.address || '',
                     customerEmail: _custData.email || after.customerEmail || '',
@@ -24714,9 +24726,10 @@ exports.onRideUpdated = onValueUpdated(
                     waypoints: _waypoints.map(w => ({ address: w.address, lat: w.lat, lon: w.lon })),
                     distance: parseFloat(after.distance) || 0,
                     duration: parseInt(after.duration) || 0,
-                    paymentMethod: after.paymentMethod || 'cash',
-                    paymentStatus: after.paymentMethod === 'cash' ? 'paid' : 'pending',
-                    paidAt: after.paymentMethod === 'cash' ? Date.now() : null,
+                    paymentMethod: _effectivePaymentMethod,
+                    paymentStatus: _isPaidNow ? 'paid' : 'pending',
+                    paidAt: _isPaidNow ? (after.completedAt || Date.now()) : null,
+                    paymentTerms: _hotelZahltBar ? 'Betrag in bar erhalten — Quittung' : (after.paymentMethod === 'invoice_auftraggeber' ? 'Zahlbar innerhalb 14 Tagen ohne Abzug.' : ''),
                     // 🆕 v6.62.812: position.description = "Taxifahrt" (ohne Route).
                     // 🆕 v6.62.815 (Patrick 19.05. 07:33): Auto-Detect Krankenfahrt
                     //   wenn pickup ODER destination "Krankenhaus" oder "Klinik" enthaelt

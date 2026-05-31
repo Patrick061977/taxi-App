@@ -606,6 +606,29 @@ window.addEventListener('load', async function() {
         _anfPlace = lib.Place;
         _anfPlacesReady = true;
     } catch(e) {}
+    // v6.63.058 (Patrick 31.05. 15:23): Sackgasse-Fallback aus buchen.html.
+    // Wenn der Kunde dort "kein Slot" hatte und auf "Als Anfrage senden" tippt,
+    // bekommt anfrage.html die Felder als URL-Parameter und füllt sie vor.
+    try {
+        var _qp = new URLSearchParams(location.search);
+        var _qpPickup = _qp.get('pickup');
+        var _qpDest = _qp.get('dest');
+        var _qpDate = _qp.get('date');
+        var _qpTime = _qp.get('time');
+        var _qpPax = _qp.get('pax');
+        if (_qpPickup) { var _pe = document.getElementById('anf-pickup'); if (_pe) { _pe.value = _qpPickup; anfSearch(_qpPickup, 'anf-pickup'); } }
+        if (_qpDest) { var _de = document.getElementById('anf-dest'); if (_de) { _de.value = _qpDest; anfSearch(_qpDest, 'anf-dest'); } }
+        if (_qpDate) { var _dd = document.getElementById('anf-date'); if (_dd) { _dd.value = _qpDate; if (typeof updateAnfDateLabel === 'function') updateAnfDateLabel(); } }
+        if (_qpTime) { var _tt = document.getElementById('anf-time'); if (_tt) { _tt.value = _qpTime; if (typeof updateAnfTimeLabel === 'function') updateAnfTimeLabel(); } }
+        if (_qpPax) { var _pn = parseInt(_qpPax); if (_pn >= 1 && _pn <= 9 && typeof setAnfPax === 'function') setAnfPax(_pn); }
+        if (_qpPickup || _qpDest || _qpDate) {
+            // Hinweis-Banner oben einblenden damit Kunde sieht warum er hier gelandet ist
+            var _hint = document.createElement('div');
+            _hint.style.cssText = 'max-width:500px;margin:8px auto 0;padding:10px 12px;background:#fef3c7;border:1px solid #fde68a;color:#92400e;border-radius:8px;font-size:12px;text-align:center;';
+            _hint.innerHTML = '⚠️ Direkte Buchung war nicht möglich — Daten wurden übernommen, Anfrage absenden.';
+            document.body.insertBefore(_hint, document.body.firstChild.nextSibling);
+        }
+    } catch(_qpErr) { console.warn('URL-Parameter-Parse-Fehler:', _qpErr); }
 });
 
 var _anfDebounce = {};

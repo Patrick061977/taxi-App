@@ -3132,10 +3132,23 @@
                         }
                     } catch(e) {}
                     const reasonHtml = anyVehicleInShift
-                        ? `<span style="color:#ef4444;">❌ ${zeitText} — alle Fahrzeuge ausgebucht</span><br><span style="font-size:11px;color:#64748b;font-weight:400;">Bitte andere Zeit wählen oder anrufen</span>`
-                        : `<span style="color:#ef4444;">🌙 Kein Fahrer im Dienst um ${_hNow}:${_mNow} Uhr</span><br><span style="font-size:11px;color:#64748b;font-weight:400;">Bitte andere Zeit wählen oder direkt anrufen</span>`;
+                        ? `<span style="color:#ef4444;">❌ ${zeitText} — alle Fahrzeuge ausgebucht</span><br><span style="font-size:11px;color:#64748b;font-weight:400;">Trotzdem als Anfrage senden — wir versuchen es zu organisieren</span>`
+                        : `<span style="color:#ef4444;">🌙 Kein Fahrer im Dienst um ${_hNow}:${_mNow} Uhr</span><br><span style="font-size:11px;color:#64748b;font-weight:400;">Trotzdem als Anfrage senden — wir versuchen es zu organisieren</span>`;
                     if (infoEl) {
-                        infoEl.innerHTML = `${reasonHtml}<br><a href="tel:+493837822022" style="display:inline-block;margin-top:8px;padding:8px 16px;background:#ef4444;color:white;border-radius:8px;text-decoration:none;font-weight:700;font-size:13px;">📞 038378 22022 anrufen</a>`;
+                        // v6.63.058 (Patrick 31.05. 15:23): Sackgasse vermeiden — wenn
+                        // System "kein Slot" sagt, hat der Kunde 2 Wege weiter:
+                        // (a) Sofort Anrufen, (b) Trotzdem als Anfrage senden → wir
+                        // versuchen es manuell zu organisieren (Schicht erweitern etc.).
+                        // Anfrage-Link mit pre-filled URL-Parametern für nahtlosen Übergang.
+                        const _pickupVal = encodeURIComponent(document.getElementById('pickup')?.value || '');
+                        const _destVal = encodeURIComponent(document.getElementById('dest')?.value || '');
+                        const _paxVal = encodeURIComponent((typeof passengers !== 'undefined' ? passengers : 1));
+                        const _anfrLink = `anfrage.html?pickup=${_pickupVal}&dest=${_destVal}&date=${dateVal}&time=${_hNow}:${_mNow}&pax=${_paxVal}`;
+                        infoEl.innerHTML = `${reasonHtml}
+<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
+  <a href="tel:+493837822022" style="flex:1;min-width:140px;text-align:center;padding:10px 14px;background:#ef4444;color:white;border-radius:8px;text-decoration:none;font-weight:700;font-size:13px;">📞 Anrufen</a>
+  <a href="${_anfrLink}" style="flex:1;min-width:140px;text-align:center;padding:10px 14px;background:#3b82f6;color:white;border-radius:8px;text-decoration:none;font-weight:700;font-size:13px;">📧 Als Anfrage senden</a>
+</div>`;
                         infoEl.style.display = '';
                         infoEl.style.background = '#fef2f2';
                         infoEl.style.borderColor = '#fecaca';

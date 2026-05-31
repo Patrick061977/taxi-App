@@ -906,46 +906,79 @@ public class CrmSearchActivity extends AppCompatActivity {
     }
 
     private void sendInvoiceMail(CrmEntry e, String num, String pdfUrl, String dt, Double gross, String invPath) {
-        // Email-Adresse aus CRM-Eintrag (Hotel/Firma) — falls leer: Toast + manuelle Eingabe.
+        // v6.63.061 (Patrick 31.05. 17:00): Ende mit Intent.ACTION_SENDTO — Rechnung wurde
+        // über Patricks eigene Mail-App ohne PDF-Anhang versendet. Jetzt: Cloud Function
+        // sendInvoiceEmail (SMTP mit PDF-Attachment) wie bei Schubert-Sammelrechnung.
         final String hotelEmail = (e.email != null && e.email.contains("@")) ? e.email : "";
         if (hotelEmail.isEmpty()) {
             new AlertDialog.Builder(this)
                 .setTitle("⚠️ Keine Email im CRM")
                 .setMessage("Fuer " + (e.name != null ? e.name : "diesen Kunden") + " ist keine Email-Adresse hinterlegt. " +
-                    "Bitte erst im CRM-Eintrag eintragen oder die Mail manuell verfassen.")
+                    "Bitte erst im CRM-Eintrag eintragen.")
                 .setPositiveButton("OK", null)
                 .show();
             return;
         }
-        String subject = "Rechnung " + num + " — Funk-Taxi Heringsdorf";
-        StringBuilder body = new StringBuilder();
-        body.append("Sehr geehrte Damen und Herren,\n\n");
-        body.append("anbei erhalten Sie die Rechnung Nr. ").append(num);
-        if (dt != null) body.append(" vom ").append(dt);
-        body.append(".\n\n");
-        if (gross != null) body.append("Rechnungsbetrag: ").append(String.format(Locale.GERMANY, "%.2f€", gross)).append("\n\n");
-        if (pdfUrl != null && !pdfUrl.isEmpty()) {
-            body.append("Download-Link zur Rechnung:\n").append(pdfUrl).append("\n\n");
-        }
-        body.append("Wir bitten um Begleichung des Betrags innerhalb von 14 Tagen.\n\n");
-        body.append("Mit freundlichen Grüßen\n\n");
-        body.append("Patrick Wydra\nFunk-Taxi Heringsdorf\nAmselring 10\n17424 Ostseebad Heringsdorf\n");
-        body.append("Tel.: 038378 / 22022\nE-Mail: taxiwydra@googlemail.com");
+        Toast.makeText(this, "📨 Rechnung wird versendet…", Toast.LENGTH_SHORT).show();
+        final String subject = "Rechnung " + num + " — Funk-Taxi Heringsdorf";
+        final String _pdfUrl = pdfUrl != null ? pdfUrl : "";
+        final String _gross = gross != null ? String.format(Locale.GERMANY, "%.2f€", gross) : "";
+        final String _dt = dt != null ? dt : "";
+        final String _name = e.name != null ? e.name : "";
 
-        Intent mail = new Intent(Intent.ACTION_SENDTO);
-        mail.setData(android.net.Uri.parse("mailto:"));
-        mail.putExtra(Intent.EXTRA_EMAIL, new String[]{ hotelEmail });
-        mail.putExtra(Intent.EXTRA_SUBJECT, subject);
-        mail.putExtra(Intent.EXTRA_TEXT, body.toString());
-        try {
-            startActivity(Intent.createChooser(mail, "Rechnung senden mit…"));
-            // Nach Send-Chooser: setze auf 'versendet'. Wir koennen leider nicht 100% sicher
-            // wissen ob Patrick "Senden" tatsaechlich getippt hat — aber pragmatisch: das
-            // Oeffnen des Mail-Composers ist ein klares Signal dass er die Mail rausschickt.
-            updateInvoicePaymentStatus(invPath, null, "versendet", num);
-        } catch (Throwable t) {
-            Toast.makeText(this, "❌ Mail-App nicht verfuegbar: " + t.getMessage(), Toast.LENGTH_LONG).show();
-        }
+        new Thread(() -> {
+            try {
+                org.json.JSONObject body = new org.json.JSONObject();
+                body.put("invoiceNumber", num);
+                body.put("toEmail", hotelEmail);
+                body.put("toName", _name);
+                body.put("subject", subject);
+                body.put("pdfUrl", _pdfUrl);
+                body.put("attachPdf", true);
+                StringBuilder html = new StringBuilder();
+                html.append("<div style='font-family:Arial,sans-serif;font-size:14px;color:#222;max-width:640px;'>");
+                html.append("<p>Sehr geehrte Damen und Herren,</p>");
+                html.append("<p>anbei erhalten Sie die Rechnung Nr. <b>").append(num).append("</b>");
+                if (!_dt.isEmpty()) html.append(" vom ").append(_dt);
+                html.append(".</p>");
+                if (!_gross.isEmpty()) html.append("<p>Rechnungsbetrag: <b>").append(_gross).append("</b></p>");
+                html.append("<p>Wir bitten um Begleichung des Betrags innerhalb von 14 Tagen auf folgendes Konto:</p>");
+                html.append("<table cellpadding='4' style='border-collapse:collapse;font-size:13px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:4px;margin:8px 0;'>");
+                html.append("<tr><td>Empfaenger:</td><td><b>Taxiunternehmen Patrick Wydra</b></td></tr>");
+                html.append("<tr><td>Bank:</td><td>Volksbank Vorpommern</td></tr>");
+                html.append("<tr><td>IBAN:</td><td>DE16 1309 1054 0001 5524 90</td></tr>");
+                html.append("<tr><td>BIC:</td><td>GENODEF1HST</td></tr>");
+                html.append("<tr><td>Verwendungszweck:</td><td><b>").append(num).append("</b></td></tr>");
+                html.append("</table>");
+                html.append("<p>Bei Fragen erreichen Sie uns unter <a href='tel:+4938378220 22'>038378 / 22022</a>.</p>");
+                html.append("<p>Mit freundlichen Gruessen<br><br>Patrick Wydra<br>Taxiunternehmen Patrick Wydra<br>Amselring 10<br>17424 Ostseebad Heringsdorf<br>");
+                html.append("Tel.: 038378/22022<br>E-Mail: taxiwydra@googlemail.com<br>USt-ID: DE205006336 &nbsp;|&nbsp; St-Nr: 084/289/01178</p>");
+                html.append("</div>");
+                body.put("htmlBody", html.toString());
+
+                java.net.URL url = new java.net.URL("https://europe-west1-taxi-heringsdorf.cloudfunctions.net/sendInvoiceEmail");
+                java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("POST");
+                conn.setRequestProperty("Content-Type", "application/json");
+                conn.setDoOutput(true);
+                conn.setConnectTimeout(15000);
+                conn.setReadTimeout(60000);
+                byte[] payload = body.toString().getBytes("UTF-8");
+                conn.getOutputStream().write(payload);
+                int code = conn.getResponseCode();
+                final boolean ok = (code >= 200 && code < 300);
+                runOnUiThread(() -> {
+                    if (ok) {
+                        Toast.makeText(this, "✅ Rechnung an " + hotelEmail + " versendet", Toast.LENGTH_LONG).show();
+                        updateInvoicePaymentStatus(invPath, null, "versendet", num);
+                    } else {
+                        Toast.makeText(this, "❌ Versand fehlgeschlagen (HTTP " + code + ")", Toast.LENGTH_LONG).show();
+                    }
+                });
+            } catch (Throwable t) {
+                runOnUiThread(() -> Toast.makeText(this, "❌ Versand-Fehler: " + t.getMessage(), Toast.LENGTH_LONG).show());
+            }
+        }).start();
     }
 
     private void updateInvoicePaymentStatus(String invPath, String rideId, String newStatus, String num) {

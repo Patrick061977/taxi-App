@@ -1745,18 +1745,80 @@ function showAnfrageSuccess() {
             _bannerEl.className = 'eta-banner-available';
             _bannerEl.style.display = 'block';
 
-            // 🆕 v6.62.975 (Patrick 27.05. 20:15): Konkrete Wartezeit-Minuten.
-            // 🆕 v6.62.976 (Patrick 27.05. 20:21): OSRM-Routing wie buchen.html — Banner-Zahl
-            // soll mit der buchen.html-Sofort-Wartezeit übereinstimmen.
-            // Pre-Filter Top 3 nach Haversine, dann parallele OSRM-Calls → minETA.
+            // v6.63.068 (Patrick 31.05. 21:39 + 21:43): Wartezeit-Berechnung an
+            // buchen.html angeglichen — bei busy-Fahrzeug die Restzeit der aktuellen
+            // Ride (drivingTimeToDestination, drivingTimeToPickup) addieren, statt
+            // nur OSRM-Anfahrt vom busy-Vehicle zum Default-Pickup. Vorher zeigte
+            // landing.html 4 Min wo buchen.html 22 Min sagte.
             const _allCandsForEta = _hasSofortFrei ? _freeVehicles : _candidates;
             const _top3 = _allCandsForEta.slice().sort((a,b)=>a.distKm-b.distKm).slice(0,3);
+            // Build ridesByVehicle für die Top-3-Kandidaten — analog buchen.html
+            const _busyStatusOrder = { 'picked_up': 0, 'on_way': 1, 'in_progress': 2, 'accepted': 3, 'arrived': 4, 'sofort': 5, 'assigned': 6 };
+            const _ridesByVehicle = {};
+            for (const _r of Object.values(_rData)) {
+                if (!_r) continue;
+                if (!_busyStatuses.includes(_r.status)) continue;
+                const _vid = _r.assignedVehicle || _r.vehicleId;
+                if (!_vid) continue;
+                if (!_ridesByVehicle[_vid]) _ridesByVehicle[_vid] = [];
+                _ridesByVehicle[_vid].push(_r);
+            }
+            // Sortiere pro Vehicle nach Status-Phase
+            for (const _vid in _ridesByVehicle) {
+                _ridesByVehicle[_vid].sort((a, b) => {
+                    const pa = _busyStatusOrder[a.status] ?? 9, pb = _busyStatusOrder[b.status] ?? 9;
+                    if (pa !== pb) return pa - pb;
+                    return (a.pickupTimestamp || 0) - (b.pickupTimestamp || 0);
+                });
+            }
             let _etaMin;
             try {
+                const _PUFFER = 3;
                 const _etas = await Promise.all(_top3.map(async c => {
-                    const _drive = await _osrmDuration(c.lat, c.lon, DEFAULT_PICKUP_LAT, DEFAULT_PICKUP_LON);
-                    // 🆕 v6.62.985: bei Pause = Restpause + Anfahrt
-                    return Math.max(1, Math.round(c.pauseMinLeft || 0) + _drive);
+                    let totalMin = Math.round(c.pauseMinLeft || 0);
+                    let cLat = c.lat, cLon = c.lon;
+                    const vRides = _ridesByVehicle[c.vid] || [];
+                    if (vRides.length === 0) {
+                        // frei — direkte Anfahrt
+                        totalMin += await _osrmDuration(cLat, cLon, DEFAULT_PICKUP_LAT, DEFAULT_PICKUP_LON);
+                    } else {
+                        // busy — addiere Restzeit der aktiven + ggf. nächste Vorbestellung
+                        for (const r of vRides) {
+                            const dLat = r.destinationLat || (r.destCoords && r.destCoords.lat);
+                            const dLon = r.destinationLon || (r.destCoords && r.destCoords.lon);
+                            const rpLat = r.pickupLat || (r.pickupCoords && r.pickupCoords.lat);
+                            const rpLon = r.pickupLon || (r.pickupCoords && r.pickupCoords.lon);
+                            if (['picked_up', 'in_progress'].includes(r.status)) {
+                                if (dLat && dLon) {
+                                    totalMin += await _osrmDuration(cLat, cLon, dLat, dLon) + _PUFFER;
+                                    cLat = dLat; cLon = dLon;
+                                }
+                            } else if (r.status === 'on_way') {
+                                if (rpLat && rpLon) {
+                                    totalMin += await _osrmDuration(cLat, cLon, rpLat, rpLon) + _PUFFER;
+                                    cLat = rpLat; cLon = rpLon;
+                                }
+                                if (dLat && dLon) {
+                                    totalMin += await _osrmDuration(cLat, cLon, dLat, dLon) + _PUFFER;
+                                    cLat = dLat; cLon = dLon;
+                                }
+                            } else {
+                                // accepted/assigned/sofort/arrived
+                                if (r.pickupTimestamp && (r.pickupTimestamp - _now) > 30 * 60000) continue;
+                                if (rpLat && rpLon) {
+                                    totalMin += await _osrmDuration(cLat, cLon, rpLat, rpLon) + _PUFFER;
+                                    cLat = rpLat; cLon = rpLon;
+                                }
+                                if (dLat && dLon) {
+                                    totalMin += await _osrmDuration(cLat, cLon, dLat, dLon) + _PUFFER;
+                                    cLat = dLat; cLon = dLon;
+                                }
+                            }
+                        }
+                        // Endlich Anfahrt vom letzten Drop zum Default-Pickup
+                        totalMin += await _osrmDuration(cLat, cLon, DEFAULT_PICKUP_LAT, DEFAULT_PICKUP_LON);
+                    }
+                    return Math.max(2, Math.round(totalMin));
                 }));
                 _etaMin = Math.max(1, Math.min(..._etas));
             } catch (_e) {

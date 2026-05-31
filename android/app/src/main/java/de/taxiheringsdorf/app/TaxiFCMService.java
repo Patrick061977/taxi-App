@@ -368,6 +368,26 @@ public class TaxiFCMService extends FirebaseMessagingService {
         }
     }
 
+    // v6.63.062 (Patrick 31.05. 18:43): Losfahr-Push-Tap-Fix. Vibrator-Reference statisch
+    // damit DriverDashboardActivity sie per cancelDepartureAlert() abbrechen kann.
+    private static android.os.Vibrator _departureVibrator = null;
+    private static int _departureNotificationId = -1;
+    public static void cancelDepartureAlert(android.content.Context ctx) {
+        try {
+            if (_departureVibrator != null) {
+                _departureVibrator.cancel();
+                _departureVibrator = null;
+            }
+        } catch (Throwable _t) {}
+        try {
+            if (_departureNotificationId >= 0 && ctx != null) {
+                android.app.NotificationManager nm = (android.app.NotificationManager) ctx.getSystemService(Context.NOTIFICATION_SERVICE);
+                if (nm != null) nm.cancel(_departureNotificationId);
+                _departureNotificationId = -1;
+            }
+        } catch (Throwable _t) {}
+    }
+
     // 🆕 v6.62.885: Losfahr-Alarm fuer akzeptierte Vorbestellungen.
     // Patrick (23.05. 07:09): 'Mir fehlt eine Vibration wenn ich spaetestens losfahren muss.'
     // Server-side schickt scheduledDepartureAlert dieses FCM 1× pro Ride wenn 'losfahrtAt'
@@ -421,6 +441,7 @@ public class TaxiFCMService extends FirebaseMessagingService {
 
         NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         if (nm != null) nm.notify(notificationId, builder.build());
+        _departureNotificationId = notificationId; // v6.63.062: für cancelDepartureAlert
 
         // Foreground-Fallback: zusaetzliche Vibration explizit (Notification-Channel-Sound
         // ist null aber Channel vibriert noch auf Vibration-Pattern. Sicherheitshalber).
@@ -432,6 +453,7 @@ public class TaxiFCMService extends FirebaseMessagingService {
                 } else {
                     vib.vibrate(vibrationPat, -1);
                 }
+                _departureVibrator = vib; // v6.63.062: Reference für cancelDepartureAlert
             }
         } catch (Throwable _vErr) { Log.w(TAG, "Departure-Vibrate Fehler: " + _vErr.getMessage()); }
         Log.d(TAG, "🚨 Departure-Alert dispatched fuer rideId=" + rideId);

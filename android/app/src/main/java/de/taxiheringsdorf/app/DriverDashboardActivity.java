@@ -3232,6 +3232,17 @@ public class DriverDashboardActivity extends AppCompatActivity {
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         Log.i(TAG, "🔁 onNewIntent: Listener neu attachen (Push-Wakeup)");
+        // v6.63.062 (Patrick 31.05. 18:43): Tap auf "Jetzt losfahren"-Push abbricht
+        // die laufende Vibration + entfernt die Notification — Patrick hatte gemeldet
+        // dass der Push sich nicht wegklicken lässt und Vibration 5,3s weiterlief.
+        try { TaxiFCMService.cancelDepartureAlert(this); } catch (Throwable _t) {}
+        // Plus kurzer Toast als visuelle Bestätigung damit der Tap nicht "ins Leere" wirkt
+        try {
+            String _rideId = intent != null ? intent.getStringExtra("rideId") : null;
+            if (_rideId != null && !_rideId.isEmpty()) {
+                Toast.makeText(this, "🚨 Losfahr-Erinnerung — Auftrag wird gleich gezeigt", Toast.LENGTH_SHORT).show();
+            }
+        } catch (Throwable _t) {}
         try {
             if (vehicleRef != null && shiftListener != null) vehicleRef.removeEventListener(shiftListener);
             if (ridesQuery != null && ridesListener != null) ridesQuery.removeEventListener(ridesListener);

@@ -15,20 +15,37 @@
     <script src="https://unpkg.com/leaflet-gesture-handling"></script>
     <style>
         * { margin:0; padding:0; box-sizing:border-box; }
-        body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif; background:transparent; color:#1e293b; }
+        body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif; background:#f0f4f8; color:#1e293b; min-height:100vh; }
+        /* v6.63.057: Header-Align auf buchen.html-Stil */
+        .anf-header {
+            background:linear-gradient(135deg,#059669 0%,#047857 100%);
+            color:white; padding:10px 16px; display:flex; justify-content:space-between; align-items:center;
+            box-shadow:0 2px 8px rgba(0,0,0,0.15); position:sticky; top:0; z-index:200;
+        }
+        .anf-header-title { font-size:16px; font-weight:700; line-height:1.2; }
+        .anf-header-title small { display:block; font-size:11px; font-weight:500; opacity:0.85; margin-top:1px; }
+        .anf-header-call {
+            background:rgba(255,255,255,0.18); color:white; text-decoration:none;
+            padding:7px 12px; border-radius:8px; font-size:13px; font-weight:700;
+            display:inline-flex; align-items:center; gap:5px; border:1px solid rgba(255,255,255,0.3);
+        }
+        .anf-header-call:hover { background:rgba(255,255,255,0.28); }
+        .anf-back { display:inline-flex; align-items:center; gap:5px; color:rgba(255,255,255,0.85); text-decoration:none; font-size:13px; font-weight:600; margin-right:8px; }
+        .anf-back:hover { color:white; }
     </style>
 </head>
 <body>
-    <!-- Top-Bar mit Zurück-Link (kein Sackgassen-Layout) -->
-    <div style="max-width:500px;margin:0 auto;padding:8px 12px 0;">
-        <a href="landing.html" style="display:inline-flex;align-items:center;gap:6px;padding:8px 12px;background:white;border-radius:8px;color:#059669;text-decoration:none;font-size:13px;font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,0.1);">
-            ← Zur Hauptseite
-        </a>
-    </div>
+    <!-- v6.63.057: Header im buchen.html-Stil — kompakter Gradient mit Call-Button rechts -->
+    <header class="anf-header">
+        <div style="display:flex;align-items:center;">
+            <a href="landing.html" class="anf-back" aria-label="Zur Hauptseite">←</a>
+            <div class="anf-header-title">🚕 Taxi vorbestellen<small>Funk Taxi Heringsdorf</small></div>
+        </div>
+        <a href="tel:+4938378220 22" class="anf-header-call" aria-label="Direkt anrufen">📞 038378/22022</a>
+    </header>
     <div style="max-width:500px;margin:0 auto;padding:12px;">
-        <div style="background:white;border-radius:16px;box-shadow:0 4px 16px rgba(0,0,0,0.08);padding:24px;">
-            <div style="text-align:center;margin-bottom:16px;">
-                <div style="font-size:20px;font-weight:700;color:#059669;">🚕 Taxi vorbestellen</div>
+        <div style="background:white;border-radius:16px;box-shadow:0 4px 16px rgba(0,0,0,0.08);padding:20px;">
+            <div style="text-align:center;margin-bottom:14px;">
                 <div style="font-size:13px;color:#64748b;">Mit Preisrechner &mdash; Anfrage per WhatsApp oder E-Mail</div>
                 <div style="display:flex;justify-content:center;gap:4px;margin-top:8px;flex-wrap:wrap;font-size:10px;color:#94a3b8;">
                     <span style="background:#f1f5f9;padding:2px 6px;border-radius:4px;">💳 Kreditkarte</span>

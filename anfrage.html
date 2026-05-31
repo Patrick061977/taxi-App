@@ -723,7 +723,8 @@ async function calcAnfPrice() {
         var data = await resp.json();
         if (!data.routes || !data.routes[0]) return;
         var km = data.routes[0].distance / 1000;
-        var min = Math.ceil(data.routes[0].duration / 60);
+        // v6.63.058 (Patrick 31.05. 16:05): Minuten auf 5er aufrunden.
+        var min = Math.max(5, Math.ceil(Math.ceil(data.routes[0].duration / 60) / 5) * 5);
         var _routeGeo = data.routes[0].geometry;
         var anfTime = document.getElementById('anf-time').value || '';
         var anfDate = document.getElementById('anf-date').value || '';

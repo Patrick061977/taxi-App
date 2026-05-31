@@ -251,16 +251,23 @@ public class TaxiFCMService extends FirebaseMessagingService {
             .setVibrate(vibratePattern)
             .setOngoing(isOrderPush)        // ← NEU: kann nicht weggewischt werden (nur Order-Pushes)
             .setAutoCancel(true)            // Tap auf Notification/Action räumt sie weg
-            .setContentIntent(pendingIntent);
+            .setContentIntent(pendingIntent)
+            // v6.63.063 (Patrick 31.05. 19:34): Quick-Wins für visuelle Sichtbarkeit.
+            // setColorized + ColorRed → Sofort-Auftrag-Push ist farblich klar erkennbar.
+            // setColor für Akzent + sub-Text + Heads-Up-Hervorhebung.
+            .setColor(isOrderPush ? android.graphics.Color.parseColor("#dc2626") : android.graphics.Color.parseColor("#059669"))
+            .setColorized(isOrderPush)
+            .setShowWhen(true);
         // 🆕 v6.62.979: FullScreenIntent NUR bei Sofortfahrt (= weckt Bildschirm im Lockscreen).
         // Webbuchung/Anfrage: nur Heads-Up Notification, keine Lockscreen-Aktivierung.
         if (isOrderPush) {
             builder.setFullScreenIntent(pendingIntent, true);
         }
 
-        // v6.41.99: Action-Buttons direkt in der Notification — Annehmen/Ablehnen ohne App zu öffnen
-        if (acceptIntent != null) builder.addAction(android.R.drawable.ic_menu_add, "✅ Annehmen", acceptIntent);
-        if (rejectIntent != null) builder.addAction(android.R.drawable.ic_menu_close_clear_cancel, "❌ Ablehnen", rejectIntent);
+        // v6.41.99 + v6.63.063: Action-Buttons mit CAPS-Labels → besser sichtbar im
+        // Heads-Up-Banner und auf Lockscreen. Patrick 19:34 "ein bisschen größer".
+        if (acceptIntent != null) builder.addAction(android.R.drawable.ic_menu_add, "✅ ANNEHMEN", acceptIntent);
+        if (rejectIntent != null) builder.addAction(android.R.drawable.ic_menu_close_clear_cancel, "❌ ABLEHNEN", rejectIntent);
 
         NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         if (nm != null) nm.notify(notificationId, builder.build());

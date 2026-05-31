@@ -231,9 +231,9 @@ function buildInvoiceHtml({ invoiceNumber, ride, customer, settings, invoice }) 
     if (recipientName && !nameInAddr) {
         recipientHtml += `<div class="rcpt-name">${esc(recipientName)}</div>`;
     }
-    if (guestName) {
-        recipientHtml += `<div class="rcpt-line">z.Hd. ${esc(guestName)}</div>`;
-    }
+    // v6.63.057 (Patrick 31.05. 13:47): "z.Hd. Schleich ist Quatsch, der Gast hat
+    // mit der Rechnungsadresse nichts zu tun." → guestName NICHT mehr im Empfänger-
+    // Block rendern. Erscheint stattdessen unten im Routen-Block als "Fahrgast: X".
     if (recipientLines.length > 0) {
         recipientLines.forEach((line, idx) => {
             const cls = idx === 0 && nameInAddr ? 'rcpt-name' : 'rcpt-line';

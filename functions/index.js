@@ -24500,17 +24500,27 @@ exports.onRideUpdated = onValueUpdated(
                 // Status hat sich geaendert — die Standard-Status-SMS (sendCustomerNotifications)
                 // greift, nicht hier. Sonst doppelte SMS.
             } else {
+                // v6.63.057 (Patrick 31.05. 08:23): Aenderungs-SMS unterdruecken bei frischen
+                // Sofort-Buchungen — sonst feuern Cloud-Function-Recomputes (sofortVorlauf,
+                // Auto-Assignment-Konflikt-Shift) Aenderungs-SMS bevor der Kunde die
+                // sofort_confirmation gelesen hat. Symptom: 2-3 SMS in 4 Sekunden, alle
+                // mit minimal verschobener Abholzeit.
+                const _ageMs = Date.now() - (after.createdAt || 0);
+                const _skipChangeSms = (after.isJetzt === true) || (_ageMs < 60_000);
                 // Aktiver Status, kein Status-Wechsel → checke Aenderungen
                 const _norm = (v) => (v == null ? '' : String(v).trim());
                 const _normTs = (v) => (v == null ? 0 : Number(v));
                 const _changed = [];
-                if (_norm(before.pickup) !== _norm(after.pickup)) _changed.push('Abholort');
-                if (_norm(before.destination) !== _norm(after.destination)) _changed.push('Zielort');
-                if (_normTs(before.pickupTimestamp) !== _normTs(after.pickupTimestamp)) _changed.push('Abholzeit');
-                // Zwischenstops: vergleichen via JSON-stringify (waypoints kann Array oder Object sein)
                 const _wpBefore = JSON.stringify(before.waypoints || []);
                 const _wpAfter = JSON.stringify(after.waypoints || []);
-                if (_wpBefore !== _wpAfter) _changed.push('Zwischenstop(s)');
+                if (!_skipChangeSms) {
+                    if (_norm(before.pickup) !== _norm(after.pickup)) _changed.push('Abholort');
+                    if (_norm(before.destination) !== _norm(after.destination)) _changed.push('Zielort');
+                    if (_normTs(before.pickupTimestamp) !== _normTs(after.pickupTimestamp)) _changed.push('Abholzeit');
+                    if (_wpBefore !== _wpAfter) _changed.push('Zwischenstop(s)');
+                } else if (_ageMs < 60_000) {
+                    console.log(`📲 ChangeSMS skip (Sofort-Buchung-Cooldown, age ${Math.round(_ageMs/1000)}s, isJetzt=${after.isJetzt}) ${rideId}`);
+                }
 
                 if (_changed.length > 0) {
                     // Idempotenz: Pro Aenderung nur einmal SMS (Hash der geaenderten Werte)
@@ -25377,6 +25387,20 @@ exports.scheduledOpenRideCheck = onSchedule(
                 // Bisherige abgelehnte Fahrzeuge merken
                 const rejectedVehicles = ride.rejectedVehicles || [];
                 if (expiredVehicle) rejectedVehicles.push(expiredVehicle);
+
+                // v6.63.057 (Patrick 31.05. 11:13): Stuck-Push-Fix S20-FE.
+                // Wenn das Akzeptanz-Fenster ablief OHNE dass eine cancel_notification
+                // an das Fahrzeug ging, blieb der "new_ride"-FCM-Push auf dem Handy
+                // hängen — Sound penetrant, "Annehmen"-Klick reagiert nicht weil die
+                // Ride bereits den Status verloren hat. Jetzt sauberer Cleanup.
+                if (expiredVehicle) {
+                    sendFCMToVehicle(expiredVehicle, {
+                        type: 'cancel_notification',
+                        rideId,
+                        reason: 'akzeptanz_fenster_abgelaufen'
+                    }).catch(_e => console.warn(`cancel_notification an ${expiredVehicle} fehlgeschlagen: ${_e.message}`));
+                    addRideLog(rideId, '📲', 'cancel_notification gesendet (Akzeptanz-Fenster abgelaufen)', { vehicleId: expiredVehicle, quelle: 'v6.63.057-stuck-push-fix' }).catch(_e => {});
+                }
 
                 // Fahrzeug entfernen, Status zurück auf 'new'
                 db.ref('rides/' + rideId).update({

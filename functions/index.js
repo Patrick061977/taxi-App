@@ -27327,6 +27327,67 @@ exports.scheduledHealthReport = onSchedule(
 // Patrick (14.05. 11:01): "Wartepool prominenter machen — Daily-Briefing morgens".
 // Taeglich 07:30 Berlin-Zeit. Erste Iteration zeigt: Wartepool-Stand + Heutige Fahrten.
 // Spaeter erweiterbar um Umsatz, Schichten, Konflikte.
+// 🆕 v6.63.084 (Patrick 01.06. Bridge 21:50): "jeden Tag um 9 oder um 10
+//   Statusbericht von den E-Mails per Cron". Liest /personalMailInbox
+//   (gefüllt vom mailInboxPoller alle 15 Min) und schickt eine kompakte
+//   Übersicht der letzten 24h per Telegram. Klassifikation aus
+//   classifyPersonalEmail wird genutzt.
+exports.scheduledDailyMailBriefing = onSchedule(
+    {
+        schedule: '0 9 * * *',
+        timeZone: 'Europe/Berlin',
+        region: 'europe-west1',
+        timeoutSeconds: 120,
+        memory: '256MiB'
+    },
+    async (event) => {
+        try {
+            const inboxSnap = await db.ref('personalMailInbox').once('value');
+            if (!inboxSnap.exists()) {
+                await sendToAllAdmins('📭 <b>Mail-Briefing</b>\n\nKeine Einträge in /personalMailInbox.', 'mail_briefing');
+                return;
+            }
+            const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+            const buckets = {};
+            const importantEntries = [];
+            let total = 0;
+            inboxSnap.forEach(c => {
+                const mail = c.val();
+                if (!mail || typeof mail !== 'object') return;
+                const ts = Number(mail.receivedAt || mail.date || mail.ts || 0);
+                if (ts < cutoff) return;
+                total++;
+                const cat = mail.category || 'sonstige';
+                const prio = mail.priority || 'normal';
+                buckets[cat] = (buckets[cat] || 0) + 1;
+                if (prio === 'high' || cat === 'whitelist' || cat === 'wichtig' || cat === 'behoerde' || cat === 'gesundheit') {
+                    importantEntries.push({ ts, from: mail.from || '?', subject: mail.subject || '(ohne Betreff)', cat, prio });
+                }
+            });
+            const order = ['whitelist', 'behoerde', 'gesundheit', 'wichtig', 'finanz', 'geschaeft', 'sonstige', 'system', 'werbung'];
+            const lines = ['📬 <b>Mail-Briefing letzte 24h</b>', `Gesamt: <b>${total}</b> Mails\n`];
+            for (const cat of order) {
+                const n = buckets[cat];
+                if (!n) continue;
+                lines.push(`• ${cat}: ${n}`);
+            }
+            if (importantEntries.length) {
+                lines.push('\n<b>🔥 Wichtige Mails:</b>');
+                importantEntries.sort((a, b) => b.ts - a.ts);
+                for (const e of importantEntries.slice(0, 10)) {
+                    const t = new Date(e.ts).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' });
+                    lines.push(`${t} · ${String(e.from).substring(0, 40)}\n   <i>${String(e.subject).substring(0, 90)}</i>`);
+                }
+            }
+            await sendToAllAdmins(lines.join('\n'), 'mail_briefing');
+            console.log(`📬 v6.63.084 Mail-Briefing gesendet: ${total} Mails, ${importantEntries.length} wichtig`);
+        } catch (e) {
+            console.error('scheduledDailyMailBriefing Fehler:', e.message);
+            try { await sendToAllAdmins('⚠️ Mail-Briefing fehlgeschlagen: ' + e.message, 'mail_briefing'); } catch (_) {}
+        }
+    }
+);
+
 exports.scheduledMorningBriefing = onSchedule(
     {
         schedule: '30 7 * * *',

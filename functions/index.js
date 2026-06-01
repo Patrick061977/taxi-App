@@ -20714,6 +20714,16 @@ exports.scheduledAutoAssign = onSchedule(
                     // Pickup darf nicht > 30 Min in der Vergangenheit liegen
                     const _refTs = r.createdAt || r.pickupTimestamp;
                     if ((now - _refTs) > WARTE_MAX_AGE_MS) return false;
+                    // v6.63.076 (Patrick 01.06. Bridge "Sandy Zornow 14:00 zugewiesen
+                    //   obwohl Pickup 2:43h vorbei"): warteschlange-Fahrten die rückwirkend
+                    //   angelegt wurden (Native setzt status=warteschlange wenn pickup<15
+                    //   Min in Zukunft, was bei Vergangenheits-Pickup ebenfalls greift) dürfen
+                    //   NICHT auto-zugewiesen werden. Patrick legt solche Rides für Rechnungs-
+                    //   zwecke an, der Fahrer ist längst woanders.
+                    if (r.pickupTimestamp && (now - r.pickupTimestamp) > WARTE_MAX_AGE_MS) {
+                        console.log(`⏭️ v6.63.076 Warteschlange-skip: ${r.customerName || '?'} pickup ${Math.round((now - r.pickupTimestamp)/60000)} Min in der Vergangenheit — vermutlich rückwirkende Anlage.`);
+                        return false;
+                    }
                     return true;
                 }
                 if (r.pickupTimestamp < now + 5 * 60000) return false;

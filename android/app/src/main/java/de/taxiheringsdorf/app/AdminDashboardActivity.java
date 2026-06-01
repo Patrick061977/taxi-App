@@ -991,9 +991,10 @@ public class AdminDashboardActivity extends AppCompatActivity {
 
             java.util.Map<String, Object> newRide = new java.util.HashMap<>();
             if (r.customerName != null) newRide.put("customerName", r.customerName);
-            if (r.customerPhone != null) newRide.put("customerPhone", r.customerPhone);
-            if (r.customerMobile != null) newRide.put("customerMobile", r.customerMobile);
-            if (r.customerId != null) newRide.put("customerId", r.customerId);
+            if (r.customerPhone != null) {
+                newRide.put("customerPhone", r.customerPhone);
+                newRide.put("customerMobile", r.customerPhone);
+            }
             if (r.pickup != null) newRide.put("pickup", r.pickup);
             if (r.destination != null) newRide.put("destination", r.destination);
             if (r.pickupLat != null) newRide.put("pickupLat", r.pickupLat);
@@ -1016,7 +1017,7 @@ public class AdminDashboardActivity extends AppCompatActivity {
             updates.put("/rides/" + rideKey, newRide);
         }
 
-        String custMobile = r.customerMobile != null ? r.customerMobile : r.customerPhone;
+        String custMobile = r.customerPhone;
         if (custMobile != null && custMobile.replaceAll("[^0-9]", "").length() >= 8) {
             StringBuilder smsText = new StringBuilder();
             smsText.append("Funktaxi Heringsdorf: Hallo ");

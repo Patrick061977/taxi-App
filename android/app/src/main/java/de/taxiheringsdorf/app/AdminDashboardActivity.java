@@ -780,34 +780,34 @@ public class AdminDashboardActivity extends AppCompatActivity {
         if (a.destination != null) details.append("Zielort: ").append(a.destination).append("\n");
         if (a.notes != null && !a.notes.isEmpty()) details.append("Notiz: ").append(a.notes).append("\n");
 
-        // v6.63.065 (Patrick 31.05. 19:42): Zusätzlicher Action-Button für Bestätigungs-Mail
-        // mit Stripe-Link wenn Email vorhanden. Nutzt sendInvoiceEmail Cloud Function.
         final boolean hasEmail = a.email != null && a.email.contains("@");
-        java.util.List<String> options = new java.util.ArrayList<>();
-        java.util.List<Integer> actions = new java.util.ArrayList<>();
-        options.add("✅ Übernehmen + Ride anlegen"); actions.add(1);
-        if (hasEmail) {
-            options.add("📧 Bestätigung + Stripe-Link senden (per Email)"); actions.add(2);
-        }
-        options.add("❌ Ablehnen"); actions.add(3);
-        options.add("Abbrechen"); actions.add(0);
 
-        new AlertDialog.Builder(this)
+        // v6.63.067 (Patrick 01.06. 11:38 Bridge: "Buttons sind GAR NICHT da, nur
+        //   Zusammenfassungs-Text + Titel"). Ursache: AlertDialog.Builder.setMessage()
+        //   + setItems() zusammen — Message-View belegt die scrollView-Region
+        //   exklusiv, die ListView wird nicht ins Layout aufgenommen. Folge: Patrick
+        //   sah Daniela-Braun-Daten aber keinen Übernehmen-Button. Fix: Custom-View
+        //   (ScrollView + TextView mit Daten) + Standard-Buttons darunter.
+        int pad = (int) (getResources().getDisplayMetrics().density * 16);
+        TextView tvDetails = new TextView(this);
+        tvDetails.setText(details.toString());
+        tvDetails.setTextSize(14);
+        tvDetails.setPadding(pad, pad, pad, pad);
+        android.widget.ScrollView scroll = new android.widget.ScrollView(this);
+        scroll.addView(tvDetails);
+
+        AlertDialog.Builder b = new AlertDialog.Builder(this)
             .setTitle("📥 Anfrage Aktionen")
-            .setMessage(details.toString())
-            .setItems(options.toArray(new String[0]), (d, which) -> {
-                int act = actions.get(which);
-                switch (act) {
-                    case 1: uebernehmeAnfrage(a); break;
-                    case 2: showAnfrageBestaetigungVorschau(a); break;
-                    case 3:
-                        db.getReference("anfragen/" + a.id + "/status").setValue("abgelehnt");
-                        Toast.makeText(this, "Anfrage abgelehnt", Toast.LENGTH_SHORT).show();
-                        break;
-                    case 0: default: /* nichts */ break;
-                }
-            })
-            .show();
+            .setView(scroll)
+            .setPositiveButton("✅ Übernehmen + Ride anlegen", (d, w) -> uebernehmeAnfrage(a))
+            .setNegativeButton("❌ Ablehnen", (d, w) -> {
+                db.getReference("anfragen/" + a.id + "/status").setValue("abgelehnt");
+                Toast.makeText(this, "Anfrage abgelehnt", Toast.LENGTH_SHORT).show();
+            });
+        if (hasEmail) {
+            b.setNeutralButton("📧 Bestätigung senden", (d, w) -> showAnfrageBestaetigungVorschau(a));
+        }
+        b.show();
     }
 
     // v6.63.065 (Patrick 31.05. 19:42): Bestätigungs-Mail-Vorschau VOR Send.

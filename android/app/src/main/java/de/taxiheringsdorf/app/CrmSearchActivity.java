@@ -2729,6 +2729,24 @@ public class CrmSearchActivity extends AppCompatActivity {
         btnCancel.setLayoutParams(cancelLp2);
         btnRow.addView(btnCancel);
 
+        // v6.63.077 (Patrick 01.06. Bridge "CRM-Suche / Aufnahme / Anrufliste sind ja alles
+        //   das Gleiche"): Series-Button auch hier. Liest die aktuelle Eingabe und
+        //   öffnet den Multi-Day-Picker via MultiDayCopySheet.
+        final TextView btnSeries = new TextView(this);
+        if (!isEdit) {
+            btnSeries.setText("📋 SERIE");
+            btnSeries.setTextSize(14);
+            btnSeries.setTypeface(null, android.graphics.Typeface.BOLD);
+            btnSeries.setTextColor(0xFFFFFFFF);
+            btnSeries.setBackgroundColor(0xFF0EA5E9);
+            btnSeries.setGravity(android.view.Gravity.CENTER);
+            btnSeries.setPadding(pad, pad + padHalf / 2, pad, pad + padHalf / 2);
+            LinearLayout.LayoutParams seriesLp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+            seriesLp.setMargins(padHalf / 2, 0, padHalf / 2, 0);
+            btnSeries.setLayoutParams(seriesLp);
+            btnRow.addView(btnSeries);
+        }
+
         TextView btnSave = new TextView(this);
         btnSave.setText(isEdit ? "✅ SPEICHERN" : "✅ ANLEGEN");
         btnSave.setTextSize(14);
@@ -2762,6 +2780,40 @@ public class CrmSearchActivity extends AppCompatActivity {
         // 🆕 v6.62.819: Im Backdate-Dialog stellbare Flags fuer status/Rechnung.
         final boolean[] _backdateCompletedFlag = { false };
         final boolean[] _backdateInvoiceFlag = { false };
+
+        // v6.63.077: btnSeries-Click — Multi-Day-Modal mit aktuellen Eingaben
+        if (!isEdit) {
+            btnSeries.setOnClickListener(_btn -> {
+                String _name = (etName != null) ? etName.getText().toString().trim()
+                    : (e.name != null ? e.name.trim() : "");
+                String _pickup = tvPickup.getText().toString()
+                    .replaceFirst("^📍\\s*", "").replaceFirst("^🎯\\s*", "").trim();
+                String _dest = tvDest.getText().toString()
+                    .replaceFirst("^🎯\\s*", "").replaceFirst("^📍\\s*", "").trim();
+                if (_name.isEmpty() || _pickup.isEmpty() || _pickup.endsWith("wählen…")
+                    || _dest.isEmpty() || _dest.endsWith("wählen…")) {
+                    Toast.makeText(this, "Name + Abholort + Zielort wählen", Toast.LENGTH_LONG).show();
+                    return;
+                }
+                if (Double.isNaN(pickupCoords[0]) || Double.isNaN(destCoords[0])) {
+                    Toast.makeText(this, "❌ Adresse(n) noch nicht geocodiert — bitte Abholort/Zielort antippen + auswählen", Toast.LENGTH_LONG).show();
+                    return;
+                }
+                int _pax = spnPax.getSelectedItemPosition() + 1;
+                if (_pax < 1) _pax = 1;
+                if (_pax > 8) _pax = 8;
+                String _phone = e.phone != null && !e.phone.isEmpty()
+                    ? e.phone : (e.mobilePhone != null ? e.mobilePhone : null);
+                MultiDayCopySheet.show(
+                    this, DB_INSTANCE_URL,
+                    _name, _phone, e.id,
+                    _pickup, _dest,
+                    pickupCoords[0], pickupCoords[1], destCoords[0], destCoords[1],
+                    _pax,
+                    datetime[0]);
+                dlg.dismiss();
+            });
+        }
 
         btnSave.setOnClickListener(_btn -> {
                 // 🔧 v6.62.711: etName ist null bei Stammkunden — Name aus e.name nehmen.

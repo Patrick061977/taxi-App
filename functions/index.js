@@ -24433,6 +24433,23 @@ exports.onRideUpdated = onValueUpdated(
                         isVorbestellung: after.status === 'vorbestellt' ? 'true' : 'false',
                         reason: _pushReason
                     });
+                    // 🆕 v6.63.078 (Patrick 01.06. Bridge "Heinrich, kleiner Push der oben
+                    //   immer noch war"): Bei Re-Assignment auch cancel_notification an das
+                    //   ALTE Fahrzeug schicken — sonst klebt der bisherige Auftrags-Push
+                    //   (TaxiFCMService v6.62.18: Auftrags-Push ist sticky und verschwindet
+                    //   nur durch Annehmen/Ablehnen/Cancel). Sonst sieht der ehemalige Fahrer
+                    //   die Ride weiterhin als seinen Auftrag im Notification-Tray.
+                    if (_wasReassign) {
+                        try {
+                            await sendFCMToVehicle(oldVehicle, {
+                                type: 'cancel_notification',
+                                rideId
+                            });
+                            console.log(`📵 v6.63.078 cancel_notification → ${oldVehicle} (Re-Assign nach ${newVehicle})`);
+                        } catch (_cancelErr) {
+                            console.warn('cancel_notification Reassign FCM-Fehler:', _cancelErr.message);
+                        }
+                    }
                 } catch (_fcmErr) {
                     console.warn('FCM-Push fehlgeschlagen:', _fcmErr.message);
                 }

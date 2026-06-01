@@ -2850,6 +2850,10 @@ public class DriverDashboardActivity extends AppCompatActivity {
             methods.add("invoice_auftraggeber");
         }
         options.add("✉ Email-Rechnung");                                  methods.add("invoice_email");
+        // 🆕 v6.63.078 (Patrick 01.06. Bridge "Krankenschein-Fahrten brauchen eigene
+        //   Zahlart"): Transportschein für Krankenkasse-Abrechnung. Beleg verbleibt
+        //   beim Fahrer; Cloud-Function-Rechnung kann später nachgeholt werden.
+        options.add("🏥 Transportschein (Krankenkasse)");                  methods.add("transportschein");
         options.add("✗ Abbrechen (Fahrt offen lassen)");                  methods.add("cancel");
 
         new AlertDialog.Builder(this)
@@ -2888,6 +2892,18 @@ public class DriverDashboardActivity extends AppCompatActivity {
                     case "invoice_email":
                         showMailInvoiceDialog(r, amount);
                         break;
+                    case "transportschein":
+                        // v6.63.078: Krankenschein wird mitgegeben — Fahrt als bezahlt
+                        //   markieren (Bar-Marker mit transportschein-Flag), Rechnung an
+                        //   Krankenkasse später manuell via CRM. paymentStatus=offen,
+                        //   damit es im Backlog erscheint bis Krankenkasse zahlt.
+                        if (db != null && r.id != null) {
+                            db.getReference("rides/" + r.id).child("paymentStatus").setValue("offen");
+                            db.getReference("rides/" + r.id).child("krankenscheinReceived").setValue(true);
+                        }
+                        markCompleted(r.id, "transportschein", amount, null);
+                        showReceiptStage(r, amount, "transportschein");
+                        break;
                     case "cancel":      /* nichts tun, Status bleibt picked_up */ break;
                 }
             })
@@ -2907,6 +2923,7 @@ public class DriverDashboardActivity extends AppCompatActivity {
             case "cash":    methodLabel = "💵 Bar bezahlt"; break;
             case "izettle": methodLabel = "💳 Karte bezahlt"; break;
             case "stripe":  methodLabel = "📱 Stripe bezahlt"; break;
+            case "transportschein": methodLabel = "🏥 Transportschein erhalten"; break;
             default:        methodLabel = paymentMethod;
         }
         String amountStr = String.format(Locale.GERMANY, "%.2f €", amount);

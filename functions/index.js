@@ -19471,7 +19471,10 @@ exports.autoResolveConflicts = onSchedule(
 // ═══════════════════════════════════════════════════════════════
 exports.scheduledReachabilityCheck = onSchedule(
     {
-        schedule: 'every 1 minutes',
+        // v6.63.083 (Patrick 01.06. 21:47 Cadence-Relax): 1 → 5 Min. Lookahead
+        //   ist 30 Min, 5-Min-Cadence reicht völlig — Cloud-LateCheck mit 5-Min
+        //   Cadence übernimmt die akute Warnung sowieso.
+        schedule: 'every 5 minutes',
         region: 'europe-west1',
         timeoutSeconds: 90,
         memory: '256MiB'
@@ -26264,7 +26267,11 @@ function computeEarliestArrivalMs(targetRide, vid, allRides, vehiclesData) {
 
 exports.scheduledLateCheck = onSchedule(
     {
-        schedule: 'every 2 minutes',
+        // v6.63.083 (Patrick 01.06. Bridge 21:47 "Ja" auf Cadence-Relax):
+        //   2 → 5 Min. Late-Check rechnet Cloud-Anfahrt + Vorgänger-Dauer auf
+        //   Minutengenauigkeit aus — 5-Min-Cadence reicht völlig für die
+        //   typische 20-Min-Verspätungswarnung.
+        schedule: 'every 5 minutes',
         region: 'europe-west1',
         timeoutSeconds: 90,
         memory: '256MiB'
@@ -27469,6 +27476,10 @@ exports.scheduledLogsCleanup = onSchedule(
             { path: 'importLog',       cutoffMs: now - 30 * day, nested: false },
             { path: 'emailLog',        cutoffMs: now - 30 * day, nested: false },
             { path: 'autoCloseLog',    cutoffMs: now - 30 * day, nested: false },
+            // v6.63.083 (Patrick 01.06. 21:47): rideLogs ab 60 Tagen entfernen —
+            //   bei abgeschlossenen Rides brauchen wir die Audit-Trail-Einträge
+            //   nicht ewig. Hier liegt jetzt das Hauptvolumen durch Phase 2.
+            { path: 'rideLogs',        cutoffMs: now - 60 * day, nested: true  },
         ];
         const BATCH = 500;
 

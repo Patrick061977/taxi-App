@@ -740,6 +740,314 @@ public class AdminDashboardActivity extends AppCompatActivity {
         });
     }
 
+    // 🆕 v6.63.073 (Patrick 01.06. Bridge "Serien-Termine"): Multi-Day-Copy.
+    //   N Termine in einem Schwung anlegen mit gemeinsamer seriesId + 1
+    //   Sammel-SMS in /smsQueue. Cloud onRideCreated skippt Einzel-SMS bei
+    //   seriesId, daher gibt's nur die Sammel-Bestätigung. Pendant zur
+    //   Web-Funktion copyRideToMultipleDays (index.html v6.14.0).
+    private void showMultiDayCopyDialog(final Ride r) {
+        if (r == null || r.id == null) return;
+        final java.util.List<String> selectedDates = new java.util.ArrayList<>();
+        final int pad = (int)(getResources().getDisplayMetrics().density * 16);
+        final SimpleDateFormat dateFmt = new SimpleDateFormat("yyyy-MM-dd", Locale.GERMANY);
+        final SimpleDateFormat displayFmt = new SimpleDateFormat("EEE dd.MM.yyyy", Locale.GERMANY);
+        dateFmt.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
+        displayFmt.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
+
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setPadding(pad, pad, pad, pad);
+
+        TextView tvHeader = new TextView(this);
+        tvHeader.setText("📋 " + (r.customerName != null ? r.customerName : "?") + "\n📍 "
+            + (r.pickup != null ? r.pickup : "?") + "\n🎯 " + (r.destination != null ? r.destination : "?"));
+        tvHeader.setTextSize(13);
+        tvHeader.setPadding(0, 0, 0, pad);
+        root.addView(tvHeader);
+
+        TextView tvTimeLabel = new TextView(this);
+        tvTimeLabel.setText("Uhrzeit für alle Kopien:");
+        tvTimeLabel.setTextSize(12);
+        root.addView(tvTimeLabel);
+
+        final EditText etTime = new EditText(this);
+        etTime.setInputType(InputType.TYPE_NULL);
+        etTime.setFocusable(false);
+        etTime.setKeyListener(null);
+        String origTime = "08:00";
+        if (r.pickupTimestamp != null && r.pickupTimestamp > 0) {
+            SimpleDateFormat tf = new SimpleDateFormat("HH:mm", Locale.GERMANY);
+            tf.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
+            origTime = tf.format(new Date(r.pickupTimestamp));
+        } else if (r.pickupTime != null && r.pickupTime.matches("\\d{2}:\\d{2}")) {
+            origTime = r.pickupTime;
+        }
+        etTime.setText(origTime);
+        etTime.setOnClickListener(_v -> {
+            String[] parts = etTime.getText().toString().split(":");
+            int h = (parts.length >= 2) ? Integer.parseInt(parts[0]) : 8;
+            int m = (parts.length >= 2) ? Integer.parseInt(parts[1]) : 0;
+            new android.app.TimePickerDialog(this,
+                (tp, h2, m2) -> etTime.setText(String.format(Locale.GERMANY, "%02d:%02d", h2, m2)),
+                h, m, true).show();
+        });
+        root.addView(etTime);
+
+        TextView tvDateLabel = new TextView(this);
+        tvDateLabel.setText("\nTage hinzufügen:");
+        tvDateLabel.setTextSize(12);
+        root.addView(tvDateLabel);
+
+        LinearLayout dateRow = new LinearLayout(this);
+        dateRow.setOrientation(LinearLayout.HORIZONTAL);
+        final EditText etDate = new EditText(this);
+        etDate.setInputType(InputType.TYPE_NULL);
+        etDate.setFocusable(false);
+        etDate.setKeyListener(null);
+        Calendar tomorrow = Calendar.getInstance();
+        tomorrow.add(Calendar.DAY_OF_MONTH, 1);
+        etDate.setText(dateFmt.format(tomorrow.getTime()));
+        LinearLayout.LayoutParams dateFlex = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        etDate.setLayoutParams(dateFlex);
+        etDate.setOnClickListener(_v -> {
+            String[] parts = etDate.getText().toString().split("-");
+            Calendar c = Calendar.getInstance();
+            if (parts.length == 3) {
+                try { c.set(Integer.parseInt(parts[0]), Integer.parseInt(parts[1]) - 1, Integer.parseInt(parts[2])); }
+                catch (Throwable _t) {}
+            }
+            new android.app.DatePickerDialog(this,
+                (dp, y, mo, dy) -> etDate.setText(String.format(Locale.GERMANY, "%04d-%02d-%02d", y, mo + 1, dy)),
+                c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DAY_OF_MONTH)).show();
+        });
+        dateRow.addView(etDate);
+
+        final TextView tvDatesList = new TextView(this);
+        tvDatesList.setText("(keine Tage)");
+        tvDatesList.setTextSize(12);
+        tvDatesList.setPadding(0, pad, 0, pad);
+        final TextView tvDatesCount = new TextView(this);
+        tvDatesCount.setText("0 Tage ausgewählt");
+        tvDatesCount.setTextSize(12);
+
+        final Runnable[] renderHolder = new Runnable[1];
+        renderHolder[0] = () -> {
+            java.util.Collections.sort(selectedDates);
+            tvDatesCount.setText(selectedDates.size() + " Tag" + (selectedDates.size() == 1 ? "" : "e") + " ausgewählt");
+            if (selectedDates.isEmpty()) {
+                tvDatesList.setText("(keine Tage)");
+            } else {
+                StringBuilder sb = new StringBuilder();
+                for (String ds : selectedDates) {
+                    try {
+                        Date d = dateFmt.parse(ds);
+                        sb.append("• ").append(displayFmt.format(d)).append("\n");
+                    } catch (Throwable _t) {
+                        sb.append("• ").append(ds).append("\n");
+                    }
+                }
+                tvDatesList.setText(sb.toString().trim());
+            }
+        };
+
+        com.google.android.material.button.MaterialButton btnAdd = new com.google.android.material.button.MaterialButton(this);
+        btnAdd.setText("+ Tag");
+        btnAdd.setTextSize(12);
+        btnAdd.setOnClickListener(_v -> {
+            String ds = etDate.getText().toString();
+            if (!selectedDates.contains(ds)) {
+                selectedDates.add(ds);
+                renderHolder[0].run();
+            }
+            try {
+                Date d = dateFmt.parse(ds);
+                Calendar c = Calendar.getInstance();
+                c.setTime(d);
+                c.add(Calendar.DAY_OF_MONTH, 1);
+                etDate.setText(dateFmt.format(c.getTime()));
+            } catch (Throwable _t) {}
+        });
+        dateRow.addView(btnAdd);
+        root.addView(dateRow);
+
+        LinearLayout.LayoutParams qp = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        LinearLayout quickRow = new LinearLayout(this);
+        quickRow.setOrientation(LinearLayout.HORIZONTAL);
+
+        com.google.android.material.button.MaterialButton btn7 = new com.google.android.material.button.MaterialButton(this);
+        btn7.setText("+7 Tage");
+        btn7.setTextSize(11);
+        btn7.setLayoutParams(qp);
+        btn7.setOnClickListener(_v -> {
+            try {
+                Date d = dateFmt.parse(etDate.getText().toString());
+                Calendar c = Calendar.getInstance();
+                c.setTime(d);
+                for (int i = 0; i < 7; i++) {
+                    String ds = dateFmt.format(c.getTime());
+                    if (!selectedDates.contains(ds)) selectedDates.add(ds);
+                    c.add(Calendar.DAY_OF_MONTH, 1);
+                }
+                renderHolder[0].run();
+            } catch (Throwable _t) {}
+        });
+        quickRow.addView(btn7);
+
+        com.google.android.material.button.MaterialButton btnMoFr = new com.google.android.material.button.MaterialButton(this);
+        btnMoFr.setText("+Mo-Fr");
+        btnMoFr.setTextSize(11);
+        btnMoFr.setLayoutParams(qp);
+        btnMoFr.setOnClickListener(_v -> {
+            try {
+                Date d = dateFmt.parse(etDate.getText().toString());
+                Calendar c = Calendar.getInstance();
+                c.setTime(d);
+                for (int i = 0; i < 14; i++) {
+                    int dow = c.get(Calendar.DAY_OF_WEEK);
+                    if (dow != Calendar.SATURDAY && dow != Calendar.SUNDAY) {
+                        String ds = dateFmt.format(c.getTime());
+                        if (!selectedDates.contains(ds)) selectedDates.add(ds);
+                    }
+                    c.add(Calendar.DAY_OF_MONTH, 1);
+                }
+                renderHolder[0].run();
+            } catch (Throwable _t) {}
+        });
+        quickRow.addView(btnMoFr);
+
+        com.google.android.material.button.MaterialButton btnClear = new com.google.android.material.button.MaterialButton(this);
+        btnClear.setText("Alle ✕");
+        btnClear.setTextSize(11);
+        btnClear.setLayoutParams(qp);
+        btnClear.setOnClickListener(_v -> {
+            selectedDates.clear();
+            renderHolder[0].run();
+        });
+        quickRow.addView(btnClear);
+        root.addView(quickRow);
+        root.addView(tvDatesCount);
+        root.addView(tvDatesList);
+
+        android.widget.ScrollView scroll = new android.widget.ScrollView(this);
+        scroll.addView(root);
+
+        AlertDialog dlg = new AlertDialog.Builder(this)
+            .setTitle("📋 Auf mehrere Tage kopieren")
+            .setView(scroll)
+            .setPositiveButton("✅ Jetzt kopieren", null)
+            .setNegativeButton("Abbrechen", null)
+            .create();
+        dlg.show();
+        dlg.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(_v -> {
+            if (selectedDates.isEmpty()) {
+                Toast.makeText(this, "Bitte mindestens einen Tag wählen", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            String timeStr = etTime.getText().toString();
+            if (!timeStr.matches("\\d{2}:\\d{2}")) {
+                Toast.makeText(this, "Bitte Uhrzeit eingeben (HH:MM)", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            dlg.dismiss();
+            executeMultiDayCopy(r, new java.util.ArrayList<>(selectedDates), timeStr);
+        });
+        renderHolder[0].run();
+    }
+
+    // v6.63.073: Multi-Day-Copy ausführen — N Rides mit gemeinsamer seriesId
+    //   anlegen + 1 Sammel-SMS in /smsQueue legen. Cloud onRideCreated skippt
+    //   Customer-Bestätigungen bei seriesId, daher gibt's nur diese eine SMS.
+    private void executeMultiDayCopy(final Ride r, java.util.List<String> dates, String timeStr) {
+        if (dates == null || dates.isEmpty()) return;
+        java.util.Collections.sort(dates);
+
+        SimpleDateFormat dateTimeFmt = new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.GERMANY);
+        dateTimeFmt.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
+        SimpleDateFormat prettyFmt = new SimpleDateFormat("dd.MM.yyyy", Locale.GERMANY);
+        prettyFmt.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
+
+        final long now = System.currentTimeMillis();
+        final int total = dates.size();
+        final String seriesId = db.getReference("rides").push().getKey();
+
+        java.util.List<String> allDatesPretty = new java.util.ArrayList<>();
+        java.util.List<String> allDatesIso = new java.util.ArrayList<>();
+        for (String ds : dates) {
+            try {
+                Date d = dateTimeFmt.parse(ds + " " + timeStr);
+                allDatesPretty.add(prettyFmt.format(d) + " " + timeStr);
+                allDatesIso.add(ds + " " + timeStr);
+            } catch (Throwable _t) {}
+        }
+
+        java.util.Map<String, Object> updates = new java.util.HashMap<>();
+        int idx = 0;
+        for (String ds : dates) {
+            idx++;
+            Long pickupTs;
+            try {
+                pickupTs = dateTimeFmt.parse(ds + " " + timeStr).getTime();
+            } catch (Throwable _t) { continue; }
+
+            java.util.Map<String, Object> newRide = new java.util.HashMap<>();
+            if (r.customerName != null) newRide.put("customerName", r.customerName);
+            if (r.customerPhone != null) newRide.put("customerPhone", r.customerPhone);
+            if (r.customerMobile != null) newRide.put("customerMobile", r.customerMobile);
+            if (r.customerId != null) newRide.put("customerId", r.customerId);
+            if (r.pickup != null) newRide.put("pickup", r.pickup);
+            if (r.destination != null) newRide.put("destination", r.destination);
+            if (r.pickupLat != null) newRide.put("pickupLat", r.pickupLat);
+            if (r.pickupLon != null) newRide.put("pickupLon", r.pickupLon);
+            if (r.destinationLat != null) newRide.put("destinationLat", r.destinationLat);
+            if (r.destinationLon != null) newRide.put("destinationLon", r.destinationLon);
+            newRide.put("passengers", r.passengers != null ? r.passengers : 1);
+            newRide.put("status", "vorbestellt");
+            newRide.put("pickupTimestamp", pickupTs);
+            newRide.put("pickupTime", timeStr);
+            newRide.put("createdAt", now);
+            newRide.put("updatedAt", now);
+            newRide.put("source", "native_dashboard_multi_copy");
+            newRide.put("seriesId", seriesId);
+            newRide.put("seriesIndex", idx);
+            newRide.put("seriesTotal", total);
+            newRide.put("seriesAllDates", allDatesIso);
+
+            String rideKey = (idx == 1) ? seriesId : db.getReference("rides").push().getKey();
+            updates.put("/rides/" + rideKey, newRide);
+        }
+
+        String custMobile = r.customerMobile != null ? r.customerMobile : r.customerPhone;
+        if (custMobile != null && custMobile.replaceAll("[^0-9]", "").length() >= 8) {
+            StringBuilder smsText = new StringBuilder();
+            smsText.append("Funktaxi Heringsdorf: Hallo ");
+            smsText.append(r.customerName != null ? r.customerName : "Kunde");
+            smsText.append(", wir bestätigen Ihre ").append(total).append(" Termine:\n");
+            for (String pretty : allDatesPretty) smsText.append("• ").append(pretty).append("\n");
+            smsText.append("Alle Fahrten ").append(r.pickup != null ? r.pickup : "");
+            smsText.append(" → ").append(r.destination != null ? r.destination : "");
+            smsText.append("\nBei Fragen 038378/22022.");
+
+            java.util.Map<String, Object> sms = new java.util.HashMap<>();
+            sms.put("phone", custMobile);
+            sms.put("text", smsText.toString());
+            sms.put("seriesId", seriesId);
+            sms.put("type", "series_confirmation");
+            sms.put("status", "pending");
+            sms.put("createdAt", now);
+            sms.put("createdBy", "native_dashboard_multi_copy-v6.63.073");
+            String smsKey = db.getReference("smsQueue").push().getKey();
+            updates.put("/smsQueue/" + smsKey, sms);
+        }
+
+        db.getReference().updateChildren(updates).addOnCompleteListener(task -> {
+            if (task.isSuccessful()) {
+                Toast.makeText(this, "✅ " + total + " Termine angelegt + Sammel-SMS", Toast.LENGTH_LONG).show();
+            } else {
+                Toast.makeText(this, "❌ Fehler: " + (task.getException() != null ? task.getException().getMessage() : "?"), Toast.LENGTH_LONG).show();
+            }
+        });
+    }
+
     private void showRepeatPastRideDialog(Ride r) {
         String msg = "Diese Fahrt als neue Vorbestellung anlegen?\n\n"
             + (r.customerName != null ? r.customerName : "?") + "\n"
@@ -1742,10 +2050,30 @@ public class AdminDashboardActivity extends AppCompatActivity {
         btnReturn.setBackgroundColor(android.graphics.Color.parseColor("#8b5cf6"));
         btnReturn.setTextColor(android.graphics.Color.WHITE);
         LinearLayout.LayoutParams _cp2 = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
-        _cp2.setMargins(pad / 2, 0, 0, 0);
+        _cp2.setMargins(pad / 2, 0, pad / 2, 0);
         btnReturn.setLayoutParams(_cp2);
         copyRow.addView(btnReturn);
+
+        // v6.63.073 (Patrick 01.06. Bridge "Serien-Termine"): dritter Button für
+        //   Multi-Day-Copy — N Termine in einem Schwung anlegen, gemeinsame
+        //   seriesId, eine Sammel-SMS statt N Einzel-Bestätigungen.
+        com.google.android.material.button.MaterialButton btnSeries =
+            new com.google.android.material.button.MaterialButton(this);
+        btnSeries.setText("📋 Serie");
+        btnSeries.setTextSize(14);
+        btnSeries.setBackgroundColor(android.graphics.Color.parseColor("#0ea5e9"));
+        btnSeries.setTextColor(android.graphics.Color.WHITE);
+        LinearLayout.LayoutParams _cp3 = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        _cp3.setMargins(pad / 2, 0, 0, 0);
+        btnSeries.setLayoutParams(_cp3);
+        copyRow.addView(btnSeries);
         layout.addView(copyRow);
+
+        btnSeries.setOnClickListener(_v -> {
+            AlertDialog _d = _dlgRef.get();
+            if (_d != null) _d.dismiss();
+            showMultiDayCopyDialog(r);
+        });
 
         btnCopy.setOnClickListener(_v -> {
             AlertDialog _d = _dlgRef.get();

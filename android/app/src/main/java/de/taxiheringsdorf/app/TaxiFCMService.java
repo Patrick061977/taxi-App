@@ -112,7 +112,7 @@ public class TaxiFCMService extends FirebaseMessagingService {
                 details.put("isReminder", data.getOrDefault("isReminder", "false"));
                 entry.put("details", details.toString());
                 com.google.firebase.database.FirebaseDatabase.getInstance("https://taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.app")
-                    .getReference("rides/" + rideId + "/lifecycleLog").push().setValue(entry);
+                    .getReference("rideLogs/" + rideId).push().setValue(entry); // v6.63.080 Phase 2
             } catch (Throwable _logErr) { Log.w(TAG, "Lifecycle-Log fuer Push-Empfang fehlgeschlagen: " + _logErr.getMessage()); }
         }
 
@@ -431,7 +431,7 @@ public class TaxiFCMService extends FirebaseMessagingService {
                 entry.put("source", "🤖 Native v" + de.taxiheringsdorf.app.BuildConfig.VERSION_NAME);
                 entry.put("device", android.os.Build.MODEL);
                 com.google.firebase.database.FirebaseDatabase.getInstance("https://taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.app")
-                    .getReference("rides/" + rideId + "/lifecycleLog").push().setValue(entry);
+                    .getReference("rideLogs/" + rideId).push().setValue(entry); // v6.63.080 Phase 2
             } catch (Throwable _logErr) { Log.w(TAG, "Departure-Lifecycle-Log Fehler: " + _logErr.getMessage()); }
         }
 

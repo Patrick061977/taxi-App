@@ -405,13 +405,23 @@ public class AdminDashboardActivity extends AppCompatActivity {
                     _anfBanner.setVisibility(android.view.View.VISIBLE);
                     _anfBanner.setOnClickListener(_v -> {
                         try {
-                            // Scroll zum ersten OFFENE-ANFRAGEN- oder NEUE-WEB-ANFRAGEN-Header
+                            // v6.63.068 (Patrick 01.06. 11:51 Bridge: "der rödelt erstmal
+                            //   durch den ganzen Kalender, das dauert 5 Sekunden"). Direkter
+                            //   Sprung statt smoothScroll — bei langer Liste war der animierte
+                            //   Scroll spürbar zäh.
                             for (int i = 0; i < sectioned.size(); i++) {
                                 Object o = sectioned.get(i);
                                 if (o instanceof String) {
                                     String s = (String) o;
                                     if (s.startsWith("📥 OFFENE ANFRAGEN") || s.startsWith("🆕 NEUE WEB-ANFRAGEN")) {
-                                        if (rv != null) rv.smoothScrollToPosition(i);
+                                        if (rv != null) {
+                                            androidx.recyclerview.widget.RecyclerView.LayoutManager lm = rv.getLayoutManager();
+                                            if (lm instanceof androidx.recyclerview.widget.LinearLayoutManager) {
+                                                ((androidx.recyclerview.widget.LinearLayoutManager) lm).scrollToPositionWithOffset(i, 0);
+                                            } else {
+                                                rv.scrollToPosition(i);
+                                            }
+                                        }
                                         break;
                                     }
                                 }
@@ -782,12 +792,13 @@ public class AdminDashboardActivity extends AppCompatActivity {
 
         final boolean hasEmail = a.email != null && a.email.contains("@");
 
-        // v6.63.067 (Patrick 01.06. 11:38 Bridge: "Buttons sind GAR NICHT da, nur
-        //   Zusammenfassungs-Text + Titel"). Ursache: AlertDialog.Builder.setMessage()
-        //   + setItems() zusammen — Message-View belegt die scrollView-Region
-        //   exklusiv, die ListView wird nicht ins Layout aufgenommen. Folge: Patrick
-        //   sah Daniela-Braun-Daten aber keinen Übernehmen-Button. Fix: Custom-View
-        //   (ScrollView + TextView mit Daten) + Standard-Buttons darunter.
+        // v6.63.067: setMessage()+setItems() im AlertDialog.Builder blendet die
+        //   ListView aus — Custom-View nötig damit Buttons sichtbar werden.
+        // v6.63.068 (Patrick 01.06. 11:50 Bridge: "kann man Übernehmen und Bestätigung
+        //   nicht zusammen machen?"). Wenn Email vorhanden: Hauptbutton macht beides
+        //   in einem Klick (Ride anlegen → Mail-Entwurf-Preview öffnet, Patrick gibt
+        //   frei oder bricht ab — Ride bleibt angelegt). Wer nur Übernehmen will
+        //   ohne Mail nutzt den Neutral-Button.
         int pad = (int) (getResources().getDisplayMetrics().density * 16);
         TextView tvDetails = new TextView(this);
         tvDetails.setText(details.toString());
@@ -799,13 +810,18 @@ public class AdminDashboardActivity extends AppCompatActivity {
         AlertDialog.Builder b = new AlertDialog.Builder(this)
             .setTitle("📥 Anfrage Aktionen")
             .setView(scroll)
-            .setPositiveButton("✅ Übernehmen + Ride anlegen", (d, w) -> uebernehmeAnfrage(a))
             .setNegativeButton("❌ Ablehnen", (d, w) -> {
                 db.getReference("anfragen/" + a.id + "/status").setValue("abgelehnt");
                 Toast.makeText(this, "Anfrage abgelehnt", Toast.LENGTH_SHORT).show();
             });
         if (hasEmail) {
-            b.setNeutralButton("📧 Bestätigung senden", (d, w) -> showAnfrageBestaetigungVorschau(a));
+            b.setPositiveButton("✅ Übernehmen + Bestätigung", (d, w) -> {
+                uebernehmeAnfrage(a);
+                showAnfrageBestaetigungVorschau(a);
+            });
+            b.setNeutralButton("⚪ Nur Übernehmen", (d, w) -> uebernehmeAnfrage(a));
+        } else {
+            b.setPositiveButton("✅ Übernehmen + Ride anlegen", (d, w) -> uebernehmeAnfrage(a));
         }
         b.show();
     }

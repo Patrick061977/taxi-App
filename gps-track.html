@@ -277,7 +277,8 @@ async function loadShiftRides(vehicleId, shiftStart, shiftEnd, gpsEntries) {
   let html = `<div style="padding:10px;background:#1e293b;border-radius:8px;margin-bottom:8px;border:1px solid #334155;">
     <div style="font-weight:700;font-size:14px;color:#f1f5f9;margin-bottom:8px;">🚖 Fahrten in dieser Schicht (${rides.length})</div>`;
   for (const r of rides) {
-    const lcSnap = await db.ref('rides/' + r.id + '/lifecycleLog').once('value');
+    // v6.63.080 Phase 2: liest /rideLogs/{id} statt /rides/{id}/lifecycleLog
+    const lcSnap = await db.ref('rideLogs/' + r.id).once('value');
     const events = [];
     lcSnap.forEach(c => { const v = c.val(); if (v && v.t) events.push(v); });
     events.sort((a, b) => a.t - b.t);

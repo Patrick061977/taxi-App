@@ -1930,7 +1930,7 @@ public class DriverDashboardActivity extends AppCompatActivity {
             if (details != null) e.put("details", details);
             e.put("quelle", "native_dashboard_dest_edit");
             FirebaseDatabase.getInstance(DB_INSTANCE_URL)
-                .getReference("rides/" + rideId + "/lifecycleLog").push().setValue(e);
+                .getReference("rideLogs/" + rideId).push().setValue(e); // v6.63.080 Phase 2
         } catch (Throwable _e) { /* swallow */ }
     }
 
@@ -2722,7 +2722,7 @@ public class DriverDashboardActivity extends AppCompatActivity {
             details.put("vehicleId", currentVehicleId != null ? currentVehicleId : "?");
             if (newStatus != null) details.put("newStatus", newStatus);
             entry.put("details", details.toString());
-            db.getReference("rides/" + rideId + "/lifecycleLog").push().setValue(entry);
+            db.getReference("rideLogs/" + rideId).push().setValue(entry); // v6.63.080 Phase 2
         } catch (Throwable _e) { Log.w(TAG, "logLifecycleTap fehlgeschlagen: " + _e.getMessage()); }
     }
 

@@ -2571,11 +2571,21 @@ async function updateDecisionOutcome(key, outcome, correction = null) {
 
 // 🆕 v6.38.31: Lifecycle-Log pro Fahrt — dokumentiert jeden Schritt
 // 🛑 v6.62.625: Hard-Cap bei 200 Einträgen — verhindert TRIGGER_PAYLOAD_TOO_LARGE.
-// Wenn lifecycleLog > 200: alte 100 löschen bevor neuer Eintrag.
+// Wenn rideLogs > 200: alte 100 löschen bevor neuer Eintrag.
+//
+// 🆕 v6.63.080 (Patrick 01.06.2026 21:00 Bridge — Cost-Detox Phase 2):
+//   lifecycleLog umgezogen von /rides/{id}/lifecycleLog → /rideLogs/{id}/{logId}.
+//   Vorher: bei JEDEM rides-Listener-Update wurde das wachsende lifecycleLog
+//   (häufig 50+ Heartbeat-Grace-Einträge pro Ride) mitübertragen — größter
+//   einzelner Bandwidth-Treiber. Nach Migration laden Native-Dashboard +
+//   Web-CRM die Einträge nur noch on-demand wenn die Ride im Detail
+//   angeschaut wird. Reader fallen auf altes rides/{id}/lifecycleLog
+//   zurück damit historische Einträge sichtbar bleiben bis Migrations-
+//   Skript läuft.
 async function addRideLog(rideId, icon, action, details = null) {
     if (!rideId) return;
     try {
-        const _logRef = db.ref(`rides/${rideId}/lifecycleLog`);
+        const _logRef = db.ref(`rideLogs/${rideId}`);
         const _snap = await _logRef.once('value');
         const _existing = _snap.val() || {};
         const _count = Object.keys(_existing).length;
@@ -2588,7 +2598,7 @@ async function addRideLog(rideId, icon, action, details = null) {
             const _updates = {};
             _toDelete.forEach(k => { _updates[k] = null; });
             await _logRef.update(_updates);
-            console.warn(`🛑 lifecycleLog Hard-Cap: ${rideId} hatte ${_count} Einträge → ${_toDelete.length} gelöscht`);
+            console.warn(`🛑 rideLogs Hard-Cap: ${rideId} hatte ${_count} Einträge → ${_toDelete.length} gelöscht`);
         }
         const entry = {
             t: Date.now(),

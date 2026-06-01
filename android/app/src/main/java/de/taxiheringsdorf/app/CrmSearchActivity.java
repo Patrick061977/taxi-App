@@ -1256,10 +1256,12 @@ public class CrmSearchActivity extends AppCompatActivity {
         }
         final String _msgFinal = msg.toString();
         // v6.62.601: Audit-Log (lifecycleLog) der Ride asynchron laden + an Message anhaengen
-        // via _logSuffix-Variable. Dialog wird nach dem Fetch gezeigt.
+        // v6.63.080: liest aus /rideLogs/{id} statt /rides/{id}/lifecycleLog
+        //   (Phase-2-Migration, siehe Cloud-Function-Kommentar addRideLog).
+        //   Historische Einträge wandert das Migrations-Skript nach /rideLogs.
         final String _rideIdForLog = (String) r.get("id");
         if (_rideIdForLog != null) {
-            FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("rides/" + _rideIdForLog + "/lifecycleLog")
+            FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("rideLogs/" + _rideIdForLog)
                 .get().addOnCompleteListener(task -> {
                     StringBuilder _full = new StringBuilder(_msgFinal);
                     if (task.isSuccessful() && task.getResult() != null && task.getResult().exists()) {

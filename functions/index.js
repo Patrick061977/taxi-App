@@ -21310,6 +21310,36 @@ exports.onAnfrageCreated = onValueCreated(
         } catch (e) {
             console.error('onAnfrageCreated Auto-CRM-Fehler:', e.message);
         }
+
+        // 🆕 v6.63.070 (Patrick 01.06. Bridge): Telegram-Bot-Nachricht für die neue
+        //   Anfrage. Vorher war das ein zweiter exports.onAnfrageCreated-Block
+        //   weiter unten (Line ~30105), der den ersten in der exports-Map
+        //   überschrieb — Folge: FCM-Push, Geocode + Auto-CRM liefen NICHT mehr.
+        //   Jetzt alles in einem Trigger, kein Duplikat mehr.
+        try {
+            const isBerlin = anfrage.type === 'berlin-shuttle';
+            const channelIcon = anfrage.channel === 'whatsapp' ? '💬' : '✉️';
+            const typeIcon = isBerlin ? '🚐' : '🚕';
+            const typeLabel = isBerlin ? 'BERLIN-SHUTTLE' : 'TAXI';
+            let message = `${typeIcon} <b>NEUE ${typeLabel}-ANFRAGE!</b> ${channelIcon}\n\n`;
+            message += `👤 <b>${anfrage.name || '?'}</b>\n`;
+            message += `📱 ${anfrage.phone || '?'}\n`;
+            message += `📍 ${anfrage.pickup || '?'}\n`;
+            message += `🎯 ${anfrage.destination || '?'}\n`;
+            if (isBerlin) {
+                message += `📅 Hin: ${anfrage.dateHin || '?'}\n`;
+                message += `📅 Rück: ${anfrage.dateReturn || '?'}\n`;
+            } else {
+                message += `📅 ${anfrage.date || '?'} um ${anfrage.time || '?'}\n`;
+            }
+            message += `👥 ${anfrage.passengers || '1'} Pers.\n`;
+            message += `💰 ${anfrage.price || '?'}\n`;
+            message += `\n⚡ <i>Über: ${anfrage.channel === 'whatsapp' ? 'WhatsApp' : 'E-Mail'}</i>`;
+            await sendToAllAdmins(message, 'new_ride');
+            console.log(`✅ Anfrage-Telegram gesendet: ${anfrageId}`);
+        } catch (err) {
+            console.error('❌ onAnfrageCreated Telegram-Fehler:', err.message);
+        }
     }
 );
 
@@ -30102,49 +30132,13 @@ exports.onSmsQueued = onValueCreated(
 // ═══════════════════════════════════════════════════════════════
 // 🆕 v6.38.96: ANFRAGEN-TRIGGER — Telegram bei neuer Web-Anfrage
 // ═══════════════════════════════════════════════════════════════
-exports.onAnfrageCreated = onValueCreated(
-    {
-        ref: '/anfragen/{anfrageId}',
-        region: 'europe-west1',
-        instance: 'taxi-heringsdorf-default-rtdb'
-    },
-    async (event) => {
-        const anfrageId = event.params.anfrageId;
-        const anfrage = event.data.val();
-        if (!anfrage) return;
-
-        console.log(`📬 Neue Anfrage: ${anfrageId} — ${anfrage.name || '?'} — ${anfrage.type || 'taxi'}`);
-
-        try {
-            const isBerlin = anfrage.type === 'berlin-shuttle';
-            const channelIcon = anfrage.channel === 'whatsapp' ? '💬' : '✉️';
-            const typeIcon = isBerlin ? '🚐' : '🚕';
-            const typeLabel = isBerlin ? 'BERLIN-SHUTTLE' : 'TAXI';
-
-            let message = `${typeIcon} <b>NEUE ${typeLabel}-ANFRAGE!</b> ${channelIcon}\n\n`;
-            message += `👤 <b>${anfrage.name || '?'}</b>\n`;
-            message += `📱 ${anfrage.phone || '?'}\n`;
-            message += `📍 ${anfrage.pickup || '?'}\n`;
-            message += `🎯 ${anfrage.destination || '?'}\n`;
-
-            if (isBerlin) {
-                message += `📅 Hin: ${anfrage.dateHin || '?'}\n`;
-                message += `📅 Rück: ${anfrage.dateReturn || '?'}\n`;
-            } else {
-                message += `📅 ${anfrage.date || '?'} um ${anfrage.time || '?'}\n`;
-            }
-
-            message += `👥 ${anfrage.passengers || '1'} Pers.\n`;
-            message += `💰 ${anfrage.price || '?'}\n`;
-            message += `\n⚡ <i>Über: ${anfrage.channel === 'whatsapp' ? 'WhatsApp' : 'E-Mail'}</i>`;
-
-            await sendToAllAdmins(message, 'new_ride');
-            console.log(`✅ Anfrage-Telegram gesendet: ${anfrageId}`);
-        } catch (err) {
-            console.error('❌ onAnfrageCreated Fehler:', err.message);
-        }
-    }
-);
+// v6.63.070: zweite exports.onAnfrageCreated-Definition entfernt — der Telegram-
+// Send-Block ist jetzt im einzigen Trigger oben (~Line 21163) integriert. Vorher
+// überschrieb die zweite Definition die erste in der exports-Map → FCM-Push,
+// Geocode-Augmentation, Auto-CRM-Anlage liefen NICHT mehr. Patrick (01.06. Bridge):
+// "DR und DK sind die Fahrer — die sollten keine Anfrage-Pushes mehr bekommen.
+// Doppel-Trigger weg." silentAdminTokens wurde parallel auf die zwei Fahrer-
+// Tokens gesetzt damit die Fahrer-Geräte sofort still sind.
 
 // ═══════════════════════════════════════════════════════════════
 // 🆕 v6.62.830: PERSONAL MAIL BRIDGE (Sekretärs-Modus)

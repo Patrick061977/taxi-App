@@ -1617,18 +1617,32 @@ async function autoAssignRide(rideId, rideData) {
             // aber noch X Min entfernt → Kunden-Track-Page zeigte sofort 'gelb/verspätet'.
             // Jetzt: pickupTimestamp = jetzt + max(Anfahrt, 5 Min) Puffer.
             // Original-Zeit als _originalPickupTimestamp gesichert für Statistik.
-            try {
-                const _pufferMin = Math.max(_effectiveDrivingMin || 0, 5);
-                const _newPickupTs = Date.now() + (_pufferMin * 60000);
-                if (rideData?.pickupTimestamp && !rideData._originalPickupTimestamp) {
-                    rideUpdate._originalPickupTimestamp = rideData.pickupTimestamp;
+            //
+            // 🐛 v6.63.071 (Patrick 01.06. Bridge "Heinrich 10:40 → 10:23 Bug"):
+            //   Diese Anpassung darf NUR bei echten Sofortbuchungen feuern. Heinrich-
+            //   Vorbestellung 10:40 wurde um 10:18 (22 Min vor Pickup) zugewiesen — die
+            //   isSofort-Schwelle (15 + Default-Anfahrt 10) = 25 Min ist großzügig und
+            //   triggerte true, wodurch pickupTimestamp auf 10:23 verschoben wurde.
+            //   Google-Kalender liest pickupTimestamp und zeigte dann 10:23. Fix:
+            //   Vorbestellungen vom Puffer-Update ausnehmen.
+            const _isVorbestellung = ((rideData.source || '').toString().startsWith('native_vorbestellung'))
+                || rideData.status === 'vorbestellt';
+            if (!_isVorbestellung) {
+                try {
+                    const _pufferMin = Math.max(_effectiveDrivingMin || 0, 5);
+                    const _newPickupTs = Date.now() + (_pufferMin * 60000);
+                    if (rideData?.pickupTimestamp && !rideData._originalPickupTimestamp) {
+                        rideUpdate._originalPickupTimestamp = rideData.pickupTimestamp;
+                    }
+                    rideUpdate.pickupTimestamp = _newPickupTs;
+                    rideUpdate.pickupTimeAdjustedAt = Date.now();
+                    rideUpdate.pickupTimeAdjustedBy = 'cloud-auto-assign-v6.63.071';
+                    rideUpdate.pickupTimePufferMin = _pufferMin;
+                } catch (_pufferErr) {
+                    console.warn('v6.63.071 Pickup-Puffer Fehler:', _pufferErr.message);
                 }
-                rideUpdate.pickupTimestamp = _newPickupTs;
-                rideUpdate.pickupTimeAdjustedAt = Date.now();
-                rideUpdate.pickupTimeAdjustedBy = 'cloud-auto-assign-v6.62.974';
-                rideUpdate.pickupTimePufferMin = _pufferMin;
-            } catch (_pufferErr) {
-                console.warn('v6.62.974 Pickup-Puffer Fehler:', _pufferErr.message);
+            } else {
+                console.log(`🛡️ v6.63.071 Vorbestellung (${rideData.source || rideData.status}) — pickupTimestamp NICHT auf Sofort-Puffer geändert (war ${rideData.pickupTimestamp})`);
             }
         }
         await db.ref('rides/' + rideId).update(rideUpdate);

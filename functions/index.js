@@ -27435,6 +27435,109 @@ exports.scheduledHistorySnapshot = onSchedule(
     }
 );
 
+// 🆕 v6.63.081 (Patrick 01.06. Bridge 21:14 — Cost-Detox Phase 3):
+//   Logs-Cleanup-Cron. Bei /debugLogs (94k+), /activityLog (76k+),
+//   /optimierungsLog (24k+) sammeln sich tausende alte Einträge die nichts
+//   mehr beitragen aber bei jedem Pfad-Listener bzw. Initial-Read mitgezogen
+//   werden. Cleanup einmal täglich 02:00 Berlin Zeit:
+//     debugLogs/<category>/<id>   ts < jetzt-7 Tage   → löschen
+//     activityLog/<id>            t/ts < jetzt-14 Tage → löschen
+//     optimierungsLog/<id>        t/ts < jetzt-7 Tage  → löschen
+//     assignmentLog/<id>          ts < jetzt-30 Tage   → löschen
+//     errorLogs/<id>              t/ts < jetzt-30 Tage → löschen
+//     importLog/<id>              ts < jetzt-30 Tage   → löschen
+//     emailLog/<id>               ts < jetzt-30 Tage   → löschen
+//     autoCloseLog/<id>           ts < jetzt-30 Tage   → löschen
+//   Pro Pfad in 500er-Batches gelöscht damit kein einzelner Update zu groß wird.
+exports.scheduledLogsCleanup = onSchedule(
+    {
+        schedule: '0 2 * * *',
+        timeZone: 'Europe/Berlin',
+        region: 'europe-west1',
+        timeoutSeconds: 540,
+        memory: '512MiB'
+    },
+    async (event) => {
+        const now = Date.now();
+        const day = 24 * 60 * 60 * 1000;
+        const plans = [
+            { path: 'debugLogs',       cutoffMs: now - 7 * day,  nested: true  },
+            { path: 'activityLog',     cutoffMs: now - 14 * day, nested: false },
+            { path: 'optimierungsLog', cutoffMs: now - 7 * day,  nested: false },
+            { path: 'assignmentLog',   cutoffMs: now - 30 * day, nested: false },
+            { path: 'errorLogs',       cutoffMs: now - 30 * day, nested: false },
+            { path: 'importLog',       cutoffMs: now - 30 * day, nested: false },
+            { path: 'emailLog',        cutoffMs: now - 30 * day, nested: false },
+            { path: 'autoCloseLog',    cutoffMs: now - 30 * day, nested: false },
+        ];
+        const BATCH = 500;
+
+        function extractTs(v) {
+            if (!v || typeof v !== 'object') return 0;
+            return Number(v.ts || v.t || v.time || v.timestamp || v.createdAt || 0) || 0;
+        }
+
+        for (const plan of plans) {
+            try {
+                if (plan.nested) {
+                    // debugLogs/<category>/<id>
+                    const catSnap = await db.ref(plan.path).once('value');
+                    if (!catSnap.exists()) continue;
+                    let total = 0;
+                    for (const cat of Object.keys(catSnap.val() || {})) {
+                        const subSnap = await db.ref(plan.path + '/' + cat).once('value');
+                        if (!subSnap.exists()) continue;
+                        const data = subSnap.val() || {};
+                        const removals = {};
+                        let count = 0;
+                        for (const [k, v] of Object.entries(data)) {
+                            if (extractTs(v) < plan.cutoffMs) {
+                                removals[k] = null;
+                                count++;
+                                if (count >= BATCH) {
+                                    await db.ref(plan.path + '/' + cat).update(removals);
+                                    Object.keys(removals).forEach(kk => delete removals[kk]);
+                                    count = 0;
+                                }
+                            }
+                        }
+                        if (Object.keys(removals).length) {
+                            await db.ref(plan.path + '/' + cat).update(removals);
+                        }
+                        const removed = Object.keys(data).filter(k => extractTs(data[k]) < plan.cutoffMs).length;
+                        total += removed;
+                    }
+                    console.log(`🧹 v6.63.081 Cleanup /${plan.path}: ${total} alte Einträge entfernt`);
+                } else {
+                    const snap = await db.ref(plan.path).once('value');
+                    if (!snap.exists()) continue;
+                    const data = snap.val() || {};
+                    const removals = {};
+                    let count = 0;
+                    let totalRemoved = 0;
+                    for (const [k, v] of Object.entries(data)) {
+                        if (extractTs(v) < plan.cutoffMs) {
+                            removals[k] = null;
+                            count++;
+                            totalRemoved++;
+                            if (count >= BATCH) {
+                                await db.ref(plan.path).update(removals);
+                                Object.keys(removals).forEach(kk => delete removals[kk]);
+                                count = 0;
+                            }
+                        }
+                    }
+                    if (Object.keys(removals).length) await db.ref(plan.path).update(removals);
+                    console.log(`🧹 v6.63.081 Cleanup /${plan.path}: ${totalRemoved} Einträge entfernt (vor ${new Date(plan.cutoffMs).toLocaleDateString('de-DE')})`);
+                }
+            } catch (e) {
+                console.warn(`⚠️ Cleanup ${plan.path} Fehler:`, e.message);
+            }
+        }
+        console.log('✅ v6.63.081 scheduledLogsCleanup abgeschlossen');
+    }
+);
+
 exports.scheduledHistoryCleanup = onSchedule(
     {
         schedule: '0 3 * * *',

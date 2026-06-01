@@ -21336,6 +21336,13 @@ exports.onAnfrageStatusChanged = onValueUpdated(
         const isConfirmed = after.status === 'bestaetigt' && after.rideId;
         if (!(wasOpen && isConfirmed)) return;
         if (after.smsSent === true) return; // Idempotent
+        // v6.63.069 (Patrick 01.06.): Native-Übernahme kann mit confirmSkipped=true
+        // markiert werden — Patrick will nur die Ride anlegen ohne Bestätigung an
+        // den Kunden zu senden (z.B. wenn er telefonisch schon bestätigt hat).
+        if (after.confirmSkipped === true) {
+            console.log(`📭 onAnfrageStatusChanged: ${anfrageId} confirmSkipped — skip Bestätigung`);
+            return;
+        }
 
         try {
             const phone = after.phone || after.mobilePhone || '';
@@ -21430,8 +21437,47 @@ exports.onAnfrageStatusChanged = onValueUpdated(
                     confirmSentAt: Date.now(), confirmSentBy: 'cloud-onAnfrageStatusChanged-v6.62.900'
                 });
                 console.log(`📧 v6.62.900 Anfrage-Bestaetigungs-EMAIL an ${_email} fuer Anfrage ${anfrageId}`);
+            } else if (_channel === 'whatsapp') {
+                // v6.63.069 (Patrick 01.06. 11:52 Bridge): "Bestätigung senden auch
+                //   wenn die über WhatsApp gekommen ist, dass gleich die Bestätigung
+                //   dann auch über WhatsApp rausgeht." Vorher Fallback auf SMS mit
+                //   asWhatsapp-Marker, den der Native-Gateway nicht überbrückt hat.
+                //   Jetzt: direkter sendWhatsAppMessage-Call über die WhatsApp
+                //   Business API. Bei Versand-Fehler (Config fehlt, API down) fällt
+                //   die Logik auf SMS zurück, damit der Kunde trotzdem Bescheid kriegt.
+                const _waText = `Funk Taxi Heringsdorf: ${_anrede}, Ihre Vorbestellung${_zeit} (${_pickup} → ${_dest}${_pax}${_preis}) ist bestätigt.${_veh} Bei Fragen 038378/22022.`;
+                const _waMsgId = await sendWhatsAppMessage(phone, _waText);
+                if (_waMsgId) {
+                    await db.ref(`anfragen/${anfrageId}`).update({
+                        smsSent: true, smsSentAt: Date.now(),
+                        smsSentBy: 'cloud-onAnfrageStatusChanged-v6.63.069-whatsapp',
+                        confirmSent: true, confirmChannel: 'whatsapp',
+                        confirmSentAt: Date.now(),
+                        confirmSentBy: 'cloud-onAnfrageStatusChanged-v6.63.069',
+                        whatsappMessageId: _waMsgId
+                    });
+                    console.log(`💬 v6.63.069 Anfrage-Bestaetigungs-WhatsApp an ${phone} fuer Anfrage ${anfrageId}: ${_waMsgId}`);
+                } else {
+                    console.warn(`⚠️ v6.63.069 WhatsApp-Versand fehlgeschlagen fuer ${anfrageId} (Config/API) — Fallback auf SMS`);
+                    await db.ref('smsQueue').push({
+                        phone: phone,
+                        text: _smsText,
+                        rideId: after.rideId || null,
+                        anfrageId: anfrageId,
+                        category: 'anfrage-uebernahme-bestaetigung-fallback',
+                        createdAt: Date.now(),
+                        createdBy: 'cloud-onAnfrageStatusChanged-v6.63.069-fallback',
+                        channel: _channel,
+                        asWhatsapp: false
+                    });
+                    await db.ref(`anfragen/${anfrageId}`).update({
+                        smsSent: true, smsSentAt: Date.now(),
+                        smsSentBy: 'cloud-onAnfrageStatusChanged-v6.63.069-fallback',
+                        confirmChannel: 'sms-fallback-from-whatsapp'
+                    });
+                }
             } else {
-                // SMS (Default + WhatsApp-Channel — letzter faellt auf SMS zurueck bis WhatsApp-Bot live ist)
+                // SMS (Default für web/sms-Anfragen)
                 await db.ref('smsQueue').push({
                     phone: phone,
                     text: _smsText,
@@ -21439,16 +21485,16 @@ exports.onAnfrageStatusChanged = onValueUpdated(
                     anfrageId: anfrageId,
                     category: 'anfrage-uebernahme-bestaetigung',
                     createdAt: Date.now(),
-                    createdBy: 'cloud-onAnfrageStatusChanged-v6.62.900',
+                    createdBy: 'cloud-onAnfrageStatusChanged-v6.63.069',
                     channel: _channel || 'web',
-                    asWhatsapp: _channel === 'whatsapp'
+                    asWhatsapp: false
                 });
                 await db.ref(`anfragen/${anfrageId}`).update({
                     smsSent: true, smsSentAt: Date.now(),
-                    smsSentBy: 'cloud-onAnfrageStatusChanged-v6.62.900',
-                    confirmChannel: _channel === 'whatsapp' ? 'whatsapp-via-sms' : 'sms'
+                    smsSentBy: 'cloud-onAnfrageStatusChanged-v6.63.069',
+                    confirmChannel: 'sms'
                 });
-                console.log(`📲 v6.62.900 Anfrage-Bestaetigungs-SMS an ${phone} (channel=${_channel}) fuer Anfrage ${anfrageId}`);
+                console.log(`📲 v6.63.069 Anfrage-Bestaetigungs-SMS an ${phone} (channel=${_channel}) fuer Anfrage ${anfrageId}`);
             }
         } catch (e) {
             console.error('onAnfrageStatusChanged Bestaetigungs-Fehler:', e.message);

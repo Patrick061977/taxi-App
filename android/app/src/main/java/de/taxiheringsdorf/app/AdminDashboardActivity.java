@@ -790,15 +790,22 @@ public class AdminDashboardActivity extends AppCompatActivity {
         if (a.destination != null) details.append("Zielort: ").append(a.destination).append("\n");
         if (a.notes != null && !a.notes.isEmpty()) details.append("Notiz: ").append(a.notes).append("\n");
 
-        final boolean hasEmail = a.email != null && a.email.contains("@");
+        // v6.63.069 (Patrick 01.06. 11:52 Bridge): WhatsApp-Anfragen sollen die
+        //   Bestätigung auch per WhatsApp zurückkriegen. Cloud Function
+        //   onAnfrageStatusChanged sendet jetzt je nach a.channel automatisch:
+        //   whatsapp → sendWhatsAppMessage, email → personalMailQueue, sonst SMS.
+        //   Native ruft also nur noch uebernehmeAnfrage auf — Cloud regelt den
+        //   Versand-Kanal. Mit "Nur Übernehmen" wird confirmSkipped=true gesetzt,
+        //   damit Cloud die Bestätigung skippt (für Fälle in denen Patrick
+        //   telefonisch schon zugesagt hat).
+        final String _channel = a.channel != null ? a.channel.toLowerCase() : "";
+        final String _kanalLabel;
+        if ("whatsapp".equals(_channel)) _kanalLabel = "WhatsApp";
+        else if ("email".equals(_channel)) _kanalLabel = "Email";
+        else _kanalLabel = "SMS";
 
         // v6.63.067: setMessage()+setItems() im AlertDialog.Builder blendet die
         //   ListView aus — Custom-View nötig damit Buttons sichtbar werden.
-        // v6.63.068 (Patrick 01.06. 11:50 Bridge: "kann man Übernehmen und Bestätigung
-        //   nicht zusammen machen?"). Wenn Email vorhanden: Hauptbutton macht beides
-        //   in einem Klick (Ride anlegen → Mail-Entwurf-Preview öffnet, Patrick gibt
-        //   frei oder bricht ab — Ride bleibt angelegt). Wer nur Übernehmen will
-        //   ohne Mail nutzt den Neutral-Button.
         int pad = (int) (getResources().getDisplayMetrics().density * 16);
         TextView tvDetails = new TextView(this);
         tvDetails.setText(details.toString());
@@ -807,23 +814,25 @@ public class AdminDashboardActivity extends AppCompatActivity {
         android.widget.ScrollView scroll = new android.widget.ScrollView(this);
         scroll.addView(tvDetails);
 
-        AlertDialog.Builder b = new AlertDialog.Builder(this)
+        new AlertDialog.Builder(this)
             .setTitle("📥 Anfrage Aktionen")
             .setView(scroll)
+            .setPositiveButton("✅ Übernehmen + " + _kanalLabel + "-Bestätigung", (d, w) -> uebernehmeAnfrage(a))
+            .setNeutralButton("⚪ Nur Übernehmen", (d, w) -> uebernehmeAnfrageOhneBestaetigung(a))
             .setNegativeButton("❌ Ablehnen", (d, w) -> {
                 db.getReference("anfragen/" + a.id + "/status").setValue("abgelehnt");
                 Toast.makeText(this, "Anfrage abgelehnt", Toast.LENGTH_SHORT).show();
-            });
-        if (hasEmail) {
-            b.setPositiveButton("✅ Übernehmen + Bestätigung", (d, w) -> {
-                uebernehmeAnfrage(a);
-                showAnfrageBestaetigungVorschau(a);
-            });
-            b.setNeutralButton("⚪ Nur Übernehmen", (d, w) -> uebernehmeAnfrage(a));
-        } else {
-            b.setPositiveButton("✅ Übernehmen + Ride anlegen", (d, w) -> uebernehmeAnfrage(a));
-        }
-        b.show();
+            })
+            .show();
+    }
+
+    // v6.63.069: Variante von uebernehmeAnfrage die confirmSkipped=true setzt,
+    // damit die Cloud-Function-Bestätigung nicht ausgelöst wird.
+    private void uebernehmeAnfrageOhneBestaetigung(Anfrage a) {
+        try {
+            db.getReference("anfragen/" + a.id + "/confirmSkipped").setValue(true);
+        } catch (Throwable _t) { Log.w(TAG, "confirmSkipped set fail: " + _t.getMessage()); }
+        uebernehmeAnfrage(a);
     }
 
     // v6.63.065 (Patrick 31.05. 19:42): Bestätigungs-Mail-Vorschau VOR Send.

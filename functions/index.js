@@ -22147,6 +22147,19 @@ exports.onRideCreated = onValueCreated(
 
         console.log(`📱 onRideCreated: ${rideId} — ${ride.customerName || 'Unbekannt'} — source: ${ride.source || 'browser'}`);
 
+        // 🆕 v6.63.072 (Patrick 01.06. Bridge "Serien-Termine, nicht 20 SMS"):
+        //   Wenn die Ride Teil einer Termin-Serie ist (seriesId gesetzt), wird die
+        //   Customer-Bestätigung von der Native-/Web-App als EINE Sammel-SMS für
+        //   die GESAMTE Serie angelegt — nicht von Cloud für jeden Einzeltermin.
+        //   onRideCreated skippt deshalb alle Customer-Bestätigungs-Pfade
+        //   (SMS, WhatsApp, Telegram, Hotel-Email) wenn seriesId vorhanden ist.
+        //   Sammel-Anlage erkennbar an seriesId + seriesIndex + seriesTotal +
+        //   seriesAllDates (Array von "DD.MM.YYYY HH:MM" für die SMS-Liste).
+        const _isSeriesMember = !!ride.seriesId;
+        if (_isSeriesMember) {
+            console.log(`🔁 v6.63.072 Serien-Termin ${rideId} (seriesId=${ride.seriesId}, ${ride.seriesIndex}/${ride.seriesTotal}) — Customer-Bestätigung übersprungen (Sammel-SMS von Native/Web).`);
+        }
+
         // 🆕 v6.62.941 (Patrick 25.05. 15:35 "Sofortfahrt + 5/10 Min Vorlauf"):
         //   Wenn Sofortfahrt (pickupTimestamp <= now + 60s ODER isJetzt=true),
         //   addiere konfigurierbaren Vorlauf (default 0). So hat das System Puffer
@@ -22723,7 +22736,7 @@ exports.onRideCreated = onValueCreated(
         }
 
         // 🆕 v6.38.96: WhatsApp-Bestätigung an Web-Kunden
-        if (ride.source === 'web-booking' && ride.customerPhone) {
+        if (ride.source === 'web-booking' && ride.customerPhone && !_isSeriesMember) {
             try {
                 await sendCustomerWhatsAppNotification(ride, rideId, 'booking_new');
                 console.log(`📱 WhatsApp-Bestätigung an Web-Kunden gesendet: ${ride.customerPhone}`);
@@ -22768,8 +22781,10 @@ exports.onRideCreated = onValueCreated(
         // 🆕 v6.38.96: SMS-Queue — Buchungsbestätigung an Kunden senden (via Macrodroid auf Admin-Handy)
         // v6.62.225: Patrick (03.05. 18:50): Hasbargen bekam keine Vorbestellungs-SMS — phone="" + mobilePhone gefuellt.
         // Fallback auf customerMobile/mobilePhone wie schon in den Telegram-Pushes (v6.62.222).
+        // v6.63.072: Bei Serien-Terminen wird die Bestätigung als EINE Sammel-SMS
+        //   von der Native-/Web-App direkt in die smsQueue gelegt — Cloud skipt.
         const _smsCustPhone = ride.customerPhone || ride.customerMobile || ride.mobilePhone;
-        if (_smsCustPhone) {
+        if (_smsCustPhone && !_isSeriesMember) {
             try {
                 // Nutzt den bestehenden SMS-Toggle aus Admin → Einstellungen → SMS
                 const _smsSettingsSnap = await db.ref('settings/sms').once('value');
@@ -22865,7 +22880,9 @@ exports.onRideCreated = onValueCreated(
         // Patrick (14:51): "Bei Hotels die E-Mail-Adresse nehmen wenn hinterlegt.
         // Wenn nicht: Information bekommen 'Email nicht hinterlegt, Bestätigung
         // konnte nicht versendet werden' damit ich nachpflegen kann."
-        if (ride.customerId) {
+        // v6.63.072: Serien-Termine → kein Hotel-Mail pro Einzeltermin, Native/Web
+        //   schickt EINE Hotel-Mail mit allen Daten an die customerId-Email.
+        if (ride.customerId && !_isSeriesMember) {
             try {
                 const _custSnap = await db.ref(`customers/${ride.customerId}`).once('value');
                 const _customer = _custSnap.val() || {};
@@ -23119,10 +23136,13 @@ ${ride.passengers ? `<tr><td style="padding:6px 0;color:#6b7280;">👥 Personen:
         }
 
         // 🆕 v6.28.0: WhatsApp-Kunden-Benachrichtigung bei neuer Fahrt
-        await sendCustomerWhatsAppNotification(ride, rideId, 'booking_new');
+        // v6.63.072: Serien-Termine — Native/Web sendet EINE Sammel-Bestätigung
+        if (!_isSeriesMember) {
+            await sendCustomerWhatsAppNotification(ride, rideId, 'booking_new');
+        }
 
         // 🆕 v6.25.5: Kunden-Bestätigung SOFORT bei Erstellung senden (nicht erst bei Update!)
-        const customerChatId = await getCustomerChatId(ride);
+        const customerChatId = !_isSeriesMember ? await getCustomerChatId(ride) : null;
         if (customerChatId) {
             // 🔧 v6.36.0: Gastname hat Priorität über Hotel/CRM-Name
             const _passengerName = ride.guestName || ride.customerName;

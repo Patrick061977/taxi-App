@@ -1547,6 +1547,23 @@ public class DriverDashboardActivity extends AppCompatActivity {
     // auf ihn zukommt". Phase-1-3-Zonen-Modell (v6.62.362) macht Tesla bis kurz vor Pickup frei
     // fuer Sofort-Anfragen — Banner zeigt dem Fahrer wann er sich bewegen muss.
     private void updateFreeBusyBanner(List<Ride> rides) {
+        // 🆕 v6.63.082 (Cost-Detox Smart-GPS): höchsten Ride-Status des Fahrers
+        //   an ShiftForegroundService übergeben damit der Heartbeat-Intervall
+        //   dynamisch wird. on_way > picked_up > arrived > accepted > assigned
+        //   > sonst standby.
+        try {
+            String _highestStatus = "standby";
+            for (Ride r : rides) {
+                if (r == null || r.status == null) continue;
+                String s = r.status.toLowerCase();
+                if ("on_way".equals(s) || "picked_up".equals(s)) { _highestStatus = "on_way"; break; }
+                if ("arrived".equals(s)) _highestStatus = "arrived";
+                else if ("accepted".equals(s) && !_highestStatus.equals("arrived")) _highestStatus = "accepted";
+                else if ("assigned".equals(s) && _highestStatus.equals("standby")) _highestStatus = "assigned";
+            }
+            ShiftForegroundService.setCurrentRideStatus(_highestStatus);
+        } catch (Throwable _statusErr) { /* defensive */ }
+
         android.widget.LinearLayout banner = findViewById(R.id.freebusy_banner);
         TextView statusText = findViewById(R.id.freebusy_status);
         TextView nextText = findViewById(R.id.freebusy_next);

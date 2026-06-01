@@ -61,6 +61,26 @@ public class ShiftForegroundService extends Service {
     private static final long GPS_INTERVAL_MS = 15000; // GPS alle 15s (schneller als Heartbeat)
     private static final long GPS_MIN_INTERVAL_MS = 10000;
 
+    // 🆕 v6.63.082 (Patrick 01.06. Bridge 21:29 — Smart-GPS / Cost-Detox A):
+    //   Heartbeat-Intervall dynamisch je nach Ride-Status. Im Standby (kein
+    //   aktiver Auftrag) reichen 60s — beim Fahrt-Live-Status (on_way,
+    //   picked_up) 15s damit Track-Page und Cloud-LateCheck flüssig sind.
+    //   DriverDashboardActivity setzt currentRideStatus bei Ride-Listener-
+    //   Updates. Erwartung: -50-70% Heartbeat-Aufrufe (Standby ist 80% der
+    //   Schichtzeit).
+    public static volatile String currentRideStatus = "standby";
+
+    public static void setCurrentRideStatus(String status) {
+        currentRideStatus = (status == null) ? "standby" : status;
+    }
+
+    private long getDynamicHeartbeatSec() {
+        final String s = currentRideStatus == null ? "standby" : currentRideStatus;
+        if ("on_way".equals(s) || "picked_up".equals(s) || "arrived".equals(s)) return 15;
+        if ("accepted".equals(s) || "assigned".equals(s)) return 30;
+        return 60; // standby / vorbestellt / sonstige
+    }
+
     private static boolean running = false;
     private static String currentVehicleId = null;
 
@@ -257,13 +277,18 @@ public class ShiftForegroundService extends Service {
             return;
         }
         heartbeatExecutor = Executors.newSingleThreadScheduledExecutor();
-        heartbeatTask = heartbeatExecutor.scheduleAtFixedRate(
-            this::sendHeartbeat,
-            5,
-            HEARTBEAT_INTERVAL_SEC,
-            TimeUnit.SECONDS
-        );
-        Log.i(TAG, "💓 Nativer Heartbeat gestartet für vehicle=" + currentVehicleId);
+        // v6.63.082: scheduleWithFixedDelay durch Re-Schedule ersetzt damit
+        // jeder Tick mit dynamischem Intervall neu plant.
+        scheduleNextHeartbeat(5);
+        Log.i(TAG, "💓 Nativer Heartbeat gestartet für vehicle=" + currentVehicleId + " (initial 5s)");
+    }
+
+    private void scheduleNextHeartbeat(long delaySec) {
+        if (heartbeatExecutor == null || heartbeatExecutor.isShutdown()) return;
+        heartbeatTask = heartbeatExecutor.schedule(() -> {
+            try { sendHeartbeat(); } catch (Throwable _t) { Log.w(TAG, "Heartbeat-Fehler: " + _t.getMessage()); }
+            scheduleNextHeartbeat(getDynamicHeartbeatSec());
+        }, delaySec, TimeUnit.SECONDS);
     }
 
     private void stopHeartbeat() {
@@ -296,8 +321,9 @@ public class ShiftForegroundService extends Service {
             url.append("&wakeLock=").append(isWakeLockHeld() ? "1" : "0");
             url.append("&batteryOpt=").append(isBatteryOptimizationIgnored() ? "1" : "0");
             url.append("&gpsInt=").append(GPS_INTERVAL_MS);
-            url.append("&hbInt=").append(HEARTBEAT_INTERVAL_SEC);
-            url.append("&svcVer=").append("6.41.76");
+            url.append("&hbInt=").append(getDynamicHeartbeatSec());
+            url.append("&rideStatus=").append(currentRideStatus != null ? currentRideStatus : "standby");
+            url.append("&svcVer=").append("6.63.082");
 
             URL u = new URL(url.toString());
             conn = (HttpURLConnection) u.openConnection();

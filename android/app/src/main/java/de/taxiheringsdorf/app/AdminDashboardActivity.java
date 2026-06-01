@@ -746,7 +746,7 @@ public class AdminDashboardActivity extends AppCompatActivity {
     //   seriesId, daher gibt's nur die Sammel-Bestätigung. Pendant zur
     //   Web-Funktion copyRideToMultipleDays (index.html v6.14.0).
     private void showMultiDayCopyDialog(final Ride r) {
-        if (r == null || r.id == null) return;
+        if (r == null) return;
         final java.util.List<String> selectedDates = new java.util.ArrayList<>();
         final int pad = (int)(getResources().getDisplayMetrics().density * 16);
         final SimpleDateFormat dateFmt = new SimpleDateFormat("yyyy-MM-dd", Locale.GERMANY);
@@ -958,7 +958,7 @@ public class AdminDashboardActivity extends AppCompatActivity {
     //   anlegen + 1 Sammel-SMS in /smsQueue legen. Cloud onRideCreated skippt
     //   Customer-Bestätigungen bei seriesId, daher gibt's nur diese eine SMS.
     private void executeMultiDayCopy(final Ride r, java.util.List<String> dates, String timeStr) {
-        if (dates == null || dates.isEmpty()) return;
+        if (r == null || dates == null || dates.isEmpty()) return;
         java.util.Collections.sort(dates);
 
         SimpleDateFormat dateTimeFmt = new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.GERMANY);
@@ -1428,9 +1428,40 @@ public class AdminDashboardActivity extends AppCompatActivity {
         cbLock.setLayoutParams(_lockLp);
         layout.addView(cbLock);
 
+        // v6.63.075 (Patrick 01.06. Bridge "Ich will erst die Vorbestellung
+        //   anlegen, daraus die Serie machen"): zweiter Pfad direkt aus dem
+        //   Anlege-Dialog. Patrick füllt Kundenname/Pickup/Ziel/Uhrzeit ein
+        //   und tippt "📋 Serie" — der Multi-Day-Picker übernimmt die Eingabe
+        //   und legt die N Termine inkl. Sammel-SMS an, statt erst eine
+        //   einzelne Vorbestellung anzulegen die er dann nochmal antippen muss.
         new AlertDialog.Builder(this)
             .setTitle("🚖 Neue Buchung (Admin)")
             .setView(layout)
+            .setNeutralButton("📋 Serie", (d, w) -> {
+                String name = etName.getText().toString().trim();
+                String phone = etPhone.getText().toString().trim();
+                String pickup = etPickup.getText().toString().trim();
+                String dest = etDest.getText().toString().trim();
+                if (name.isEmpty() || pickup.isEmpty() || dest.isEmpty()) {
+                    Toast.makeText(this, "Name + Abholort + Zielort Pflicht", Toast.LENGTH_LONG).show();
+                    return;
+                }
+                int pax = 1;
+                try { pax = Integer.parseInt(etPax.getText().toString().trim()); } catch (Throwable _t) {}
+                Ride syn = new Ride();
+                syn.id = "new-booking-series";
+                syn.customerName = name;
+                syn.customerPhone = phone.isEmpty() ? null : phone;
+                syn.pickup = pickup;
+                syn.destination = dest;
+                if (newBookingPickupCoords[0] != 0) syn.pickupLat = newBookingPickupCoords[0];
+                if (newBookingPickupCoords[1] != 0) syn.pickupLon = newBookingPickupCoords[1];
+                if (newBookingDestCoords[0] != 0) syn.destinationLat = newBookingDestCoords[0];
+                if (newBookingDestCoords[1] != 0) syn.destinationLon = newBookingDestCoords[1];
+                syn.passengers = pax;
+                syn.pickupTimestamp = datetime[0];
+                showMultiDayCopyDialog(syn);
+            })
             .setPositiveButton("Anlegen", (d, w) -> {
                 String name = etName.getText().toString().trim();
                 String phone = etPhone.getText().toString().trim();

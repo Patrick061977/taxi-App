@@ -26160,7 +26160,18 @@ function computeEarliestArrivalMs(targetRide, vid, allRides, vehiclesData) {
 
     if (vehicleRides.length > 0) {
         const prev = vehicleRides[0];
-        const prevDurMs = (prev.duration || prev.estimatedDuration || 20) * 60000;
+        // 🐛 v6.63.075 (Patrick 01.06. Bridge "LateCheck Mercedes A-Rosa 20min"):
+        //   Einsteiger-Fahrten (native_einsteiger) haben oft kein duration und
+        //   kein destinationLat (Kunde sagt das Ziel erst unterwegs). Mit dem
+        //   pauschalen 20-Min-Default plus 15-Min-Leerfahrt-Fallback berechnete
+        //   computeEarliestArrivalMs +35 Min ab Einsteiger-Pickup obwohl die
+        //   Fahrt real 4 Min dauerte und der Wagen 500m vom nächsten Pickup
+        //   stand. Folge: 20-Min-Verspätungs-Warnung für eine pünktlich
+        //   ankommende Fahrt. Fix: kürzerer Default + pickupLat als Fallback-
+        //   Position wenn destinationLat fehlt.
+        const _isEinsteiger = prev.source && String(prev.source).startsWith('native_einsteiger');
+        const _defaultDur = _isEinsteiger ? 5 : 20;
+        const prevDurMs = (prev.duration || prev.estimatedDuration || _defaultDur) * 60000;
         const boardingMs = 5 * 60000; // pauschal 5 Min Boarding+Alighting
         // Wenn prev currently active (on_way / arrived / picked_up) → schon halb durch
         const isActive = ['on_way','arrived','picked_up','accepted'].includes(prev.status);
@@ -26190,6 +26201,13 @@ function computeEarliestArrivalMs(targetRide, vid, allRides, vehiclesData) {
             availableMs = (prev.pickupTimestamp || now) + prevDurMs + boardingMs;
             fromLat = parseFloat(prev.destinationLat || prev.destCoords?.lat);
             fromLon = parseFloat(prev.destinationLon || prev.destCoords?.lon);
+            // v6.63.075: Einsteiger ohne Ziel → nutze Einsteiger-Pickup als
+            //   geschätzte Endposition. Einsteiger sind typischerweise sehr
+            //   kurze Fahrten in der Heringsdorf-Region.
+            if (_isEinsteiger && (!Number.isFinite(fromLat) || !Number.isFinite(fromLon))) {
+                fromLat = parseFloat(prev.pickupCoords?.lat || prev.pickupLat);
+                fromLon = parseFloat(prev.pickupCoords?.lon || prev.pickupLon);
+            }
         }
     } else {
         // Keine Vorfahrt → Wagen ist frei, Position aus GPS

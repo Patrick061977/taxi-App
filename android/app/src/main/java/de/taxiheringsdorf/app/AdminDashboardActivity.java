@@ -1996,7 +1996,7 @@ public class AdminDashboardActivity extends AppCompatActivity {
             boolean hasConflict = false;
             for (Ride other : _currentRides) {
                 if (other == null || other.id == null || other.id.equals(r.id)) continue;
-                if (!vid.equals(other.assignedVehicle) && !vid.equals(other.vehicleId)) continue;
+                if (!vid.equals(other.assignedVehicle)) continue;
                 if (other.pickupTimestamp == null) continue;
                 if (other.status != null && (other.status.equals("completed") || other.status.equals("cancelled") || other.status.equals("storniert"))) continue;
                 int oDur = (other.estimatedDuration != null && other.estimatedDuration > 0) ? other.estimatedDuration : 15;

@@ -1625,8 +1625,20 @@ async function autoAssignRide(rideId, rideData) {
             //   triggerte true, wodurch pickupTimestamp auf 10:23 verschoben wurde.
             //   Google-Kalender liest pickupTimestamp und zeigte dann 10:23. Fix:
             //   Vorbestellungen vom Puffer-Update ausnehmen.
-            const _isVorbestellung = ((rideData.source || '').toString().startsWith('native_vorbestellung'))
-                || rideData.status === 'vorbestellt';
+            // v6.63.085 (Patrick 02.06. Bridge 05:49 "Sandy Zornow 5:56"):
+            //   Erweitert um Serie-/CRM-Pfade. v6.63.071 hatte nur
+            //   "native_vorbestellung*" geschlossen — Sandy heute lief über
+            //   das Multi-Day-Copy-Modal mit source="native_series_multi_copy".
+            //   Defensive Regel: ALLES was kein klassischer Sofort-Webfall ist
+            //   wird wie Vorbestellung behandelt. Whitelist statt Blacklist.
+            const _sourceStr = String(rideData.source || '').toLowerCase();
+            const _isSofortSource =
+                _sourceStr === 'web-booking' ||
+                _sourceStr === 'qr-aufsteller' ||
+                _sourceStr === 'native_einsteiger' ||
+                _sourceStr === 'native_sofort' ||
+                rideData.isJetzt === true;
+            const _isVorbestellung = !_isSofortSource || rideData.status === 'vorbestellt';
             if (!_isVorbestellung) {
                 try {
                     const _pufferMin = Math.max(_effectiveDrivingMin || 0, 5);

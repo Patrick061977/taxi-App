@@ -1569,6 +1569,10 @@ public class AdminDashboardActivity extends AppCompatActivity {
 
     static class Ride {
         String id, customerName, customerPhone, customerEmail, pickup, destination, pickupTime, status;
+        // 🆕 v6.63.092: Bezahlt-Badge
+        String paymentStatus, paymentMethod;
+        Double stripePaidAmount;
+        Boolean vorkasseRequested;
         String assignedVehicle; // v6.62.193: Patrick: "autos kann ich auch nicht zuweisen"
         String assignedVehicleName; // v6.62.636: Patrick (12.05. 09:05): "welches Fahrzeug ist vorgesehen"
         // v6.62.640: Patrick (12.05. 13:59): Lattorf-Rueckfahrt hatte keine Koords →
@@ -1625,6 +1629,13 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 r.customerName = s.child("customerName").getValue(String.class);
                 r.customerPhone = s.child("customerPhone").getValue(String.class);
                 r.customerEmail = s.child("customerEmail").getValue(String.class);
+                // 🆕 v6.63.092: Bezahlt-Badge
+                r.paymentStatus = s.child("paymentStatus").getValue(String.class);
+                r.paymentMethod = s.child("paymentMethod").getValue(String.class);
+                Object _spa = s.child("stripePaidAmount").getValue();
+                if (_spa instanceof Number) r.stripePaidAmount = ((Number) _spa).doubleValue();
+                Object _vor = s.child("_vorkasseRequested").getValue();
+                if (_vor instanceof Boolean) r.vorkasseRequested = (Boolean) _vor;
                 r.pickup = s.child("pickup").getValue(String.class);
                 r.destination = s.child("destination").getValue(String.class);
                 r.pickupTime = s.child("pickupTime").getValue(String.class);
@@ -1895,6 +1906,17 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 // 🆕 v6.62.950 Smart-Scheduler: Konflikt-Hint unter Route
                 if (r.conflictHint != null) {
                     route.append("\n").append(r.conflictHint).append("\n💡 Karte tippen → Pickup verschieben um Konflikt zu lösen");
+                }
+                // 🆕 v6.63.092 (Patrick 02.06. 20:39): Bezahlt-Badge prominent.
+                //   Wenn paymentStatus=paid + paymentMethod=stripe → grüner "✅ BEZAHLT (Stripe)" Hinweis
+                //   in der Fahrt-Beschreibung. Olaf hatte heute bezahlt aber im Native nicht sichtbar.
+                if ("paid".equalsIgnoreCase(r.paymentStatus)) {
+                    route.append("\n💚 ✅ BEZAHLT");
+                    if ("stripe".equalsIgnoreCase(r.paymentMethod)) route.append(" (Stripe)");
+                    else if (r.paymentMethod != null) route.append(" (").append(r.paymentMethod).append(")");
+                    if (r.stripePaidAmount != null) route.append(" — ").append(String.format(Locale.GERMANY, "%.2f €", r.stripePaidAmount));
+                } else if ("stripe".equalsIgnoreCase(r.paymentMethod) && r.vorkasseRequested != null && r.vorkasseRequested) {
+                    route.append("\n💳 ⏳ Vorkasse offen (Stripe-Link verschickt)");
                 }
                 t2.setText(route.toString());
                 // v6.62.153: Tap → Edit-Dialog (Patrick: 'will Fahrten bearbeiten aus der App')

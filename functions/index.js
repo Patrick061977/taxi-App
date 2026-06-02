@@ -28220,6 +28220,37 @@ exports.stripeWebhook = onRequest(
 
                     console.log(`✅ Stripe Zahlung erhalten: ${invoiceNumber} → ${(session.amount_total / 100).toFixed(2)} €`);
 
+                    // 🆕 v6.63.092 (Patrick 02.06. 20:39): Wenn metadata.rideId vorhanden
+                    //   (Vorkasse via Email-Vorschau-Dialog) → Ride direkt updaten damit
+                    //   Native-Dashboard "✅ BEZAHLT"-Badge zeigt. Vorher: nur invoice
+                    //   geupdated, ride blieb auf paymentStatus=offen → Bug bei Olaf-Zahlung.
+                    const _rideIdFromMeta = session.metadata?.rideId;
+                    if (_rideIdFromMeta) {
+                        try {
+                            const _rideUpd = {
+                                paymentStatus: 'paid',
+                                paymentMethod: 'stripe',
+                                stripePaidAt: Date.now(),
+                                stripePaidAmount: session.amount_total / 100,
+                                stripePaymentIntentId: session.payment_intent,
+                                stripePayerName: session.customer_details?.name || null,
+                                stripePayerEmail: session.customer_details?.email || null,
+                                updatedAt: Date.now()
+                            };
+                            await db.ref(`rides/${_rideIdFromMeta}`).update(_rideUpd);
+                            try {
+                                await addRideLog(_rideIdFromMeta, '✅', `Stripe-Zahlung eingegangen: ${(session.amount_total / 100).toFixed(2)} €`, {
+                                    quelle: 'stripeWebhook v6.63.092',
+                                    invoiceNumber,
+                                    payer: session.customer_details?.name || '?'
+                                });
+                            } catch (_logErr) {}
+                            console.log(`✅ v6.63.092 Ride ${_rideIdFromMeta} → paymentStatus=paid via Webhook`);
+                        } catch (_rideUpdErr) {
+                            console.error(`⚠️ Ride-Update fehlgeschlagen für ${_rideIdFromMeta}:`, _rideUpdErr.message);
+                        }
+                    }
+
                     // 🔧 v6.62.127: invoice + amountEur OUTSIDE inner try-blocks deklarieren
                     // damit beide nachfolgenden try-Blocks (Admin-Telegram + Kunden-Confirmation)
                     // sie nutzen koennen. Vorher: 'invoice is not defined' im Confirmation-Block.

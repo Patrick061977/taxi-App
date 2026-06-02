@@ -1975,11 +1975,75 @@ public class AdminDashboardActivity extends AppCompatActivity {
         container.setOrientation(LinearLayout.VERTICAL);
         int pad = (int)(16 * getResources().getDisplayMetrics().density);
         container.setPadding(pad, pad/2, pad, 0);
-        // 🆕 v6.63.031 (Patrick 30.05. 09:30 "Wartepool nicht bearbeiten können"):
-        //   Edit-Button direkt im Time-Shift-Dialog. Patrick will mehr als nur
-        //   hoch/runter schieben — Adresse, Pax, Vehicle ändern.
+        // 🆕 v6.63.088 (Patrick 02.06. 12:30 "Aber ich kann die Fahrt ja nirgendwo bearbeiten"):
+        //   Vehicle-Spinner DIREKT im Time-Shift-Dialog mit 🟢/🟡/🔴 Konflikt-Indikator.
+        //   Patrick muss NICHT mehr durch "Komplett bearbeiten" navigieren um Fahrzeug zu wechseln.
+        TextView tvVehicleLabel = new TextView(this);
+        tvVehicleLabel.setText("🚗 Fahrzeug wechseln:");
+        tvVehicleLabel.setTextSize(13);
+        tvVehicleLabel.setPadding(0, pad/2, 0, pad/4);
+        container.addView(tvVehicleLabel);
+        final String[] _wpVehIds = {"", "pw-ik-222", "pw-my-222-e", "pw-ki-222", "pw-sk-222", "vg-lk-111", "pw-ym-222-e"};
+        final String[] _wpVehNames = {"— Nicht zugewiesen —", "Toyota IK", "Tesla MY222", "Toyota KI", "Renault SK", "Mercedes LK", "Tesla YM222"};
+        // Konflikt-Indikator pro Vehicle berechnen (1 = OK, 2 = Konflikt mit Folgefahrt, 0 = Schicht aus)
+        int[] _wpVehStatus = new int[_wpVehIds.length];
+        _wpVehStatus[0] = 1;
+        long _rideStart = _origTs - 5L * 60_000L;
+        int _rideDur = (r.estimatedDuration != null && r.estimatedDuration > 0) ? r.estimatedDuration : 15;
+        long _rideEnd = _origTs + (long) _rideDur * 60_000L + 5L * 60_000L;
+        for (int i = 1; i < _wpVehIds.length; i++) {
+            String vid = _wpVehIds[i];
+            boolean hasConflict = false;
+            for (Ride other : _currentRides) {
+                if (other == null || other.id == null || other.id.equals(r.id)) continue;
+                if (!vid.equals(other.assignedVehicle) && !vid.equals(other.vehicleId)) continue;
+                if (other.pickupTimestamp == null) continue;
+                if (other.status != null && (other.status.equals("completed") || other.status.equals("cancelled") || other.status.equals("storniert"))) continue;
+                int oDur = (other.estimatedDuration != null && other.estimatedDuration > 0) ? other.estimatedDuration : 15;
+                long oStart = other.pickupTimestamp - 5L * 60_000L;
+                long oEnd = other.pickupTimestamp + (long) oDur * 60_000L + 5L * 60_000L;
+                if (_rideStart < oEnd && _rideEnd > oStart) { hasConflict = true; break; }
+            }
+            _wpVehStatus[i] = hasConflict ? 2 : 1;
+        }
+        String[] _wpVehDisplayLabels = new String[_wpVehIds.length];
+        for (int i = 0; i < _wpVehIds.length; i++) {
+            String icon = i == 0 ? "" : (_wpVehStatus[i] == 2 ? "🔴 " : "🟢 ");
+            _wpVehDisplayLabels[i] = icon + _wpVehNames[i];
+        }
+        final android.widget.Spinner _wpSpnVehicle = new android.widget.Spinner(this);
+        android.widget.ArrayAdapter<String> _wpVehAdapter = new android.widget.ArrayAdapter<>(
+            this, android.R.layout.simple_spinner_item, _wpVehDisplayLabels);
+        _wpVehAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        _wpSpnVehicle.setAdapter(_wpVehAdapter);
+        int _wpVehSel = 0;
+        for (int i = 0; i < _wpVehIds.length; i++) if (_wpVehIds[i].equals(r.assignedVehicle != null ? r.assignedVehicle : "")) { _wpVehSel = i; break; }
+        _wpSpnVehicle.setSelection(_wpVehSel);
+        LinearLayout.LayoutParams _wpVehLp = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        _wpVehLp.setMargins(0, 0, 0, pad/2);
+        _wpSpnVehicle.setLayoutParams(_wpVehLp);
+        container.addView(_wpSpnVehicle);
+        TextView tvVehicleHint = new TextView(this);
+        tvVehicleHint.setText("🟢 = passt | 🔴 = Konflikt mit anderer Fahrt");
+        tvVehicleHint.setTextSize(11);
+        tvVehicleHint.setTextColor(0xFF64748b);
+        tvVehicleHint.setPadding(0, 0, 0, pad/2);
+        container.addView(tvVehicleHint);
+        // Speichern-Button für Vehicle-Wechsel
+        final android.widget.Button _wpBtnVehSave = new android.widget.Button(this);
+        _wpBtnVehSave.setText("💾 Fahrzeug speichern");
+        _wpBtnVehSave.setAllCaps(false);
+        _wpBtnVehSave.setTextColor(0xFFffffff);
+        _wpBtnVehSave.setBackgroundColor(0xFF059669);
+        LinearLayout.LayoutParams _wpVehSaveLp = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        _wpVehSaveLp.setMargins(0, 0, 0, pad/2);
+        _wpBtnVehSave.setLayoutParams(_wpVehSaveLp);
+        container.addView(_wpBtnVehSave);
+
         final android.widget.Button btnFullEdit = new android.widget.Button(this);
-        btnFullEdit.setText("✏️ Komplett bearbeiten (Adresse, Pax, Fahrzeug...)");
+        btnFullEdit.setText("✏️ Komplett bearbeiten (Adresse, Pax, Notiz...)");
         btnFullEdit.setAllCaps(false);
         btnFullEdit.setTextColor(0xFF1d4ed8);
         btnFullEdit.setBackgroundColor(0xFFDDE9FB);
@@ -2000,6 +2064,47 @@ public class AdminDashboardActivity extends AppCompatActivity {
         final AlertDialog dlg = b.show();
         // 🆕 v6.63.031: Edit-Button schließt Time-Shift-Dialog und öffnet den vollen Edit-Dialog
         btnFullEdit.setOnClickListener(_v -> { dlg.dismiss(); showEditRideDialog(r); });
+        // 🆕 v6.63.088: Vehicle-Save-Button: setzt assignedVehicle + vehicleId silent (ohne FCM-Push-Spam)
+        _wpBtnVehSave.setOnClickListener(_v -> {
+            int sel = _wpSpnVehicle.getSelectedItemPosition();
+            String selVid = (sel >= 0 && sel < _wpVehIds.length) ? _wpVehIds[sel] : "";
+            String selName = (sel >= 0 && sel < _wpVehNames.length) ? _wpVehNames[sel] : "";
+            java.util.Map<String, Object> vu = new java.util.HashMap<>();
+            if (selVid.isEmpty()) {
+                vu.put("assignedVehicle", null);
+                vu.put("vehicleId", null);
+                vu.put("vehicle", null);
+                vu.put("vehicleLabel", null);
+                vu.put("vehiclePlate", null);
+                vu.put("assignedTo", null);
+                vu.put("assignedVehicleName", null);
+                vu.put("assignedVehiclePlate", null);
+            } else {
+                vu.put("assignedVehicle", selVid);
+                vu.put("vehicleId", selVid);
+                vu.put("vehicle", selName);
+                vu.put("vehicleLabel", selName);
+                vu.put("assignedTo", selVid);
+                vu.put("assignedVehicleName", selName);
+                vu.put("assignedBy", "native-wartepool-spinner");
+                vu.put("acceptedByVehicle", selVid);
+                vu.put("assignmentLocked", true);
+                vu.put("silentReassign", true);
+                // status wieder auf vorbestellt heben falls wartepool
+                if (r.status != null && (r.status.equals("wartepool") || r.status.equals("warteschlange"))) {
+                    vu.put("status", "vorbestellt");
+                }
+            }
+            vu.put("updatedAt", System.currentTimeMillis());
+            com.google.firebase.database.FirebaseDatabase.getInstance(DB_URL_AD).getReference("rides/" + r.id).updateChildren(vu)
+                .addOnSuccessListener(_ok -> {
+                    Toast.makeText(AdminDashboardActivity.this,
+                        "✅ Fahrzeug → " + (selVid.isEmpty() ? "Nicht zugewiesen" : selName), Toast.LENGTH_LONG).show();
+                    dlg.dismiss();
+                })
+                .addOnFailureListener(e -> Toast.makeText(AdminDashboardActivity.this,
+                    "❌ Fehler: " + e.getMessage(), Toast.LENGTH_LONG).show());
+        });
     }
 
     private static final String DB_URL_AD = "https://taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.app";

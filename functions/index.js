@@ -31470,6 +31470,34 @@ exports.rideAction = onRequest(
                 // erneut, Ride blieb manuell-zuweisungsbeduerftig.
                 const _curSnap = await db.ref(`rides/${rideId}`).once('value');
                 const _curRide = _curSnap.val() || {};
+                // v6.63.087 (Patrick 02.06. 07:33 'Ich drücke auf Ablehnen und nichts passiert'):
+                //   Status-Guard analog zu accept — wenn Fahrt bereits auf accepted/on_way/
+                //   arrived/picked_up/completed/cancelled steht, NICHT downgraden auf 'new'.
+                //   Sonst zerstört ein verspäteter Reject-Klick (auf altem Push) eine laufende
+                //   Fahrt. Plus: HTTP-Body sagt UI was zu tun ist.
+                const _curStatus = _curRide.status;
+                if (['accepted','on_way','arrived','picked_up','completed','cancelled','storniert'].includes(_curStatus)) {
+                    console.log(`⏭️ rideAction-Reject: ${rideId} ist schon '${_curStatus}' — kein Downgrade, ignoriere Klick`);
+                    try { await addRideLog(rideId, '⏭️', `Reject-Klick ignoriert — Fahrt ist schon '${_curStatus}'`, { quelle: 'rideAction-reject v6.63.087', byVehicle: vehicleId, statusWasAlready: _curStatus }); } catch(_) {}
+                    res.status(200).json({ ok: true, action: 'reject_skipped', alreadyProgressed: _curStatus, message: `Fahrt bereits ${_curStatus} — Ablehnen nicht mehr möglich` });
+                    return;
+                }
+                // v6.63.087: Re-Assign-Guard — wenn Ride mittlerweile assignmentLocked oder auf
+                //   anderem Vehicle, NICHT zurücksetzen.
+                if (_curRide.assignmentLocked === true) {
+                    console.log(`⏭️ rideAction-Reject: ${rideId} ist assignmentLocked — Ignore`);
+                    try { await addRideLog(rideId, '🔒', `Reject-Klick ignoriert — assignmentLocked`, { quelle: 'rideAction-reject v6.63.087', byVehicle: vehicleId }); } catch(_) {}
+                    res.status(200).json({ ok: true, action: 'reject_skipped', reason: 'assignmentLocked', message: 'Fahrt fest zugewiesen, nicht ablehnbar' });
+                    return;
+                }
+                // Wenn der ablehnende Fahrer gar nicht (mehr) zugewiesen ist, ignorieren
+                const _curAssigned = _curRide.assignedVehicle || _curRide.vehicleId;
+                if (vehicleId && _curAssigned && _curAssigned !== vehicleId) {
+                    console.log(`⏭️ rideAction-Reject: ${vehicleId} ist nicht zugewiesen (aktuell: ${_curAssigned})`);
+                    try { await addRideLog(rideId, '⏭️', `Reject-Klick ignoriert — ${vehicleId} ist nicht zugewiesen (aktuell: ${_curAssigned})`, { quelle: 'rideAction-reject v6.63.087' }); } catch(_) {}
+                    res.status(200).json({ ok: true, action: 'reject_skipped', reason: 'not_assigned', currentVehicle: _curAssigned, message: 'Fahrt ist auf anderem Fahrzeug — kein Ablehnen nötig' });
+                    return;
+                }
                 const existingRejected = Array.isArray(_curRide.rejectedVehicles) ? _curRide.rejectedVehicles : [];
                 const newRejected = vehicleId && !existingRejected.includes(vehicleId)
                     ? [...existingRejected, vehicleId]

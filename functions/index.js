@@ -28293,6 +28293,152 @@ exports.sendAuftragsBestaetigung = onRequest(
     }
 );
 
+// 🆕 v6.63.090 (Patrick 02.06. 18:32): Email-Vorschau-Dialog vor Versand.
+//   Native EmailPreviewActivity ruft diesen Endpoint mit dem Body den
+//   Patrick im Dialog freigegeben hat. Optional Stripe-Vorkasse-Link
+//   generieren + einfügen. Plus Audit-Log + Ride-Update.
+//
+// POST body: {
+//   rideId, toEmail, subject, htmlBody, textBody?,
+//   includeStripeLink (bool), includeTrackingLink (bool)
+// }
+exports.sendRideConfirmationEmail = onRequest(
+    { region: 'europe-west1', timeoutSeconds: 60, invoker: 'public' },
+    async (req, res) => {
+        res.set('Access-Control-Allow-Origin', '*');
+        res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+        res.set('Access-Control-Allow-Headers', 'Content-Type');
+        if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
+        if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
+        try {
+            const { rideId, toEmail, subject, htmlBody, textBody, includeStripeLink, includeTrackingLink } = req.body || {};
+            if (!rideId || !toEmail || !subject || !htmlBody) {
+                res.status(400).json({ error: 'rideId, toEmail, subject, htmlBody erforderlich' });
+                return;
+            }
+            const smtp = (await db.ref('settings/smtp').once('value')).val();
+            if (!smtp || !smtp.host || !smtp.user || !smtp.pass) {
+                res.status(500).json({ error: 'SMTP nicht konfiguriert' });
+                return;
+            }
+            const rideSnap = await db.ref(`rides/${rideId}`).once('value');
+            const ride = rideSnap.val();
+            if (!ride) { res.status(404).json({ error: 'Ride nicht gefunden' }); return; }
+
+            let _stripeUrl = null;
+            let _belegNr = null;
+
+            // Stripe-Link erzeugen wenn Toggle aktiv
+            if (includeStripeLink) {
+                try {
+                    _belegNr = `VK-${rideId.slice(-10)}-${Date.now().toString().slice(-6)}`;
+                    const _gross = parseFloat(String(ride.price || '0').replace(',', '.')) || 0;
+                    if (_gross < 0.5) {
+                        res.status(400).json({ error: 'Preis fehlt oder zu klein für Stripe' });
+                        return;
+                    }
+                    const stripe = await getStripe();
+                    const session = await stripe.checkout.sessions.create({
+                        mode: 'payment',
+                        line_items: [{
+                            price_data: {
+                                currency: 'eur',
+                                product_data: { name: `Rechnung ${_belegNr}`, description: `Fahrt ${ride.pickup || ''} → ${ride.destination || ''}` },
+                                unit_amount: Math.round(_gross * 100)
+                            }, quantity: 1
+                        }],
+                        metadata: { invoiceNumber: _belegNr, source: 'taxi-heringsdorf', rideId },
+                        success_url: 'https://umwelt-taxi-insel-usedom.de/pay-ok.html',
+                        cancel_url: 'https://umwelt-taxi-insel-usedom.de/pay-cancel.html'
+                    });
+                    _stripeUrl = session.url;
+                } catch (_stripeErr) {
+                    console.error('Stripe-Generation Fehler:', _stripeErr.message);
+                    res.status(500).json({ error: 'Stripe-Link konnte nicht erstellt werden: ' + _stripeErr.message });
+                    return;
+                }
+            }
+
+            // Body anreichern mit Stripe/Tracking-Link wenn nicht schon enthalten
+            let finalHtml = htmlBody;
+            let finalText = textBody || htmlBody.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+
+            if (_stripeUrl && !finalHtml.includes('checkout.stripe.com')) {
+                const stripeBlock = `<div style="margin:20px 0;text-align:center;background:#dbeafe;border-radius:8px;padding:18px;">
+                    <p style="margin:0 0 12px 0;font-weight:bold;color:#1e3a8a;">💳 Bezahlung per Vorkasse (Stripe)</p>
+                    <a href="${_stripeUrl}" style="display:inline-block;background:#1d4ed8;color:#fff;text-decoration:none;padding:14px 28px;border-radius:6px;font-weight:bold;font-size:16px;">Jetzt sicher bezahlen</a>
+                    <p style="font-size:11px;color:#475569;margin-top:10px;word-break:break-all;">${_stripeUrl}</p>
+                </div>`;
+                finalHtml = finalHtml.replace(/<\/body>/i, stripeBlock + '</body>');
+                if (!finalHtml.includes('</body>')) finalHtml += stripeBlock;
+                finalText += `\n\nZahlungslink (Stripe): ${_stripeUrl}`;
+            }
+
+            if (includeTrackingLink) {
+                const _trackUrl = `https://umwelt-taxi-insel-usedom.de/track.html?ride=${rideId}`;
+                if (!finalHtml.includes('/track.html')) {
+                    const trackBlock = `<p style="font-size:13px;color:#475569;">📍 Live-Status & Storno: <a href="${_trackUrl}">${_trackUrl}</a></p>`;
+                    finalHtml = finalHtml.replace(/<\/body>/i, trackBlock + '</body>');
+                    if (!finalHtml.includes('</body>')) finalHtml += trackBlock;
+                    finalText += `\n\nLive-Status: ${_trackUrl}`;
+                }
+            }
+
+            // SMTP senden
+            const transporter = require('nodemailer').createTransport({
+                host: smtp.host, port: parseInt(smtp.port) || 587,
+                secure: (parseInt(smtp.port) || 587) === 465,
+                auth: { user: smtp.user, pass: smtp.pass }
+            });
+            const fromName = smtp.fromName || 'Funk Taxi Heringsdorf';
+            const fromEmail = smtp.fromEmail || smtp.user;
+            const info = await transporter.sendMail({
+                from: `"${fromName}" <${fromEmail}>`,
+                to: toEmail,
+                subject,
+                text: finalText,
+                html: finalHtml
+            });
+
+            // Ride-Update + Log
+            const updates = {
+                emailConfirmationSentAt: Date.now(),
+                emailConfirmationTo: toEmail,
+                updatedAt: Date.now()
+            };
+            if (includeStripeLink && _stripeUrl) {
+                updates.paymentMethod = 'stripe';
+                updates.paymentStatus = 'offen';
+                updates._vorkasseRequested = true;
+                updates.vorkasseRequestedAt = Date.now();
+                updates.vorkasseRequestedBy = 'native-email-preview-dialog';
+                updates.stripeCheckoutUrl = _stripeUrl;
+                updates.stripeBelegNr = _belegNr;
+            }
+            await db.ref(`rides/${rideId}`).update(updates);
+            try {
+                await addRideLog(rideId, '📧', `Email-Bestätigung an ${toEmail}${includeStripeLink ? ' (mit Stripe-Link)' : ''}`, {
+                    quelle: 'native-email-preview-dialog',
+                    messageId: info.messageId,
+                    stripeBelegNr: _belegNr,
+                    subject
+                });
+            } catch (_logErr) {}
+
+            res.json({
+                ok: true,
+                sentAt: Date.now(),
+                messageId: info.messageId,
+                stripeUrl: _stripeUrl,
+                stripeBelegNr: _belegNr
+            });
+        } catch (e) {
+            console.error('sendRideConfirmationEmail Fehler:', e.message);
+            res.status(500).json({ error: e.message });
+        }
+    }
+);
+
 exports.sendInvoiceEmail = onRequest(
     { region: 'europe-west1', timeoutSeconds: 60, invoker: 'public' },
     async (req, res) => {

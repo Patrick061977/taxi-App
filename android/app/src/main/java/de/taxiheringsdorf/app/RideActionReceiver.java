@@ -75,6 +75,10 @@ public class RideActionReceiver extends BroadcastReceiver {
             if ("ok".equals(result)) {
                 finalTitle = isAccept ? "✅ Auftrag akzeptiert" : "❌ Auftrag abgelehnt";
                 finalText = "Auftrag #" + rideId + " · Status aktualisiert";
+            } else if (result != null && result.startsWith("skipped:")) {
+                // v6.63.087: Server hat Klick bewusst ignoriert (z.B. Fahrt schon picked_up)
+                finalTitle = "ℹ️ Klick ignoriert";
+                finalText = result.substring(8);  // text after "skipped:"
             } else {
                 finalTitle = "⚠️ Aktion fehlgeschlagen";
                 finalText = "Bitte App öffnen + manuell bestätigen. (" + result + ")";
@@ -129,8 +133,39 @@ public class RideActionReceiver extends BroadcastReceiver {
                 os.write(body.getBytes("UTF-8"));
             }
             int code = conn.getResponseCode();
+            // v6.63.087 (Patrick 02.06. 09:53 'Ablehnen-Push geht nicht'):
+            //   Response-Body lesen — Cloud gibt jetzt JSON mit { action: 'reject_skipped',
+            //   message: '...' } zurück wenn z.B. Fahrt bereits picked_up ist. Ohne diesen
+            //   Parse hat der Fahrer keine Ahnung warum sein Klick "nichts gemacht hat".
+            String responseBody = "";
+            try {
+                java.io.BufferedReader br = new java.io.BufferedReader(new java.io.InputStreamReader(
+                    code >= 200 && code < 300 ? conn.getInputStream() : conn.getErrorStream(), "UTF-8"));
+                StringBuilder sb = new StringBuilder();
+                String line;
+                while ((line = br.readLine()) != null) sb.append(line);
+                responseBody = sb.toString();
+                br.close();
+            } catch (Throwable _ignore) {}
             conn.disconnect();
-            return code >= 200 && code < 300 ? "ok" : ("HTTP " + code);
+            // Parse optional message-field
+            String msg = null;
+            try {
+                if (responseBody.contains("\"message\"")) {
+                    int idx = responseBody.indexOf("\"message\"");
+                    int colon = responseBody.indexOf(':', idx);
+                    int start = responseBody.indexOf('"', colon + 1);
+                    int end = responseBody.indexOf('"', start + 1);
+                    if (start > 0 && end > start) msg = responseBody.substring(start + 1, end);
+                }
+            } catch (Throwable _ignore) {}
+            if (code >= 200 && code < 300) {
+                if (responseBody.contains("reject_skipped") || responseBody.contains("alreadyProgressed")) {
+                    return "skipped:" + (msg != null ? msg : "Fahrt bereits in Bearbeitung");
+                }
+                return "ok";
+            }
+            return "HTTP " + code + (msg != null ? " — " + msg : "");
         } catch (Throwable t) {
             Log.e(TAG, "doRideAction Fehler: " + t.getMessage());
             return "Fehler: " + t.getMessage();

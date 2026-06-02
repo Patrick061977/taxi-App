@@ -134,6 +134,15 @@
             android:launchMode="singleTask"
             android:exported="false" />
 
+        <!-- v6.63.090: EmailPreviewActivity — Vorschau-Dialog vor Email-Versand
+             (Patrick 02.06. 18:32 "Mails immer Entwurf zeigen") -->
+        <activity
+            android:name=".EmailPreviewActivity"
+            android:label="@string/title_activity_main"
+            android:theme="@style/AppTheme.Driver"
+            android:launchMode="singleTask"
+            android:exported="false" />
+
         <!-- v6.62.643: DriverMapActivity — Karte mit allen Fahrer-Standorten,
              WebView statt externer Browser damit 'Zurueck' wieder in die App fuehrt. -->
         <activity

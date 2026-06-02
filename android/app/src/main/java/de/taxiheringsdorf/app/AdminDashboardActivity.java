@@ -1568,7 +1568,7 @@ public class AdminDashboardActivity extends AppCompatActivity {
     }
 
     static class Ride {
-        String id, customerName, customerPhone, pickup, destination, pickupTime, status;
+        String id, customerName, customerPhone, customerEmail, pickup, destination, pickupTime, status;
         String assignedVehicle; // v6.62.193: Patrick: "autos kann ich auch nicht zuweisen"
         String assignedVehicleName; // v6.62.636: Patrick (12.05. 09:05): "welches Fahrzeug ist vorgesehen"
         // v6.62.640: Patrick (12.05. 13:59): Lattorf-Rueckfahrt hatte keine Koords →
@@ -1624,6 +1624,7 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 r.id = s.getKey();
                 r.customerName = s.child("customerName").getValue(String.class);
                 r.customerPhone = s.child("customerPhone").getValue(String.class);
+                r.customerEmail = s.child("customerEmail").getValue(String.class);
                 r.pickup = s.child("pickup").getValue(String.class);
                 r.destination = s.child("destination").getValue(String.class);
                 r.pickupTime = s.child("pickupTime").getValue(String.class);
@@ -2158,6 +2159,29 @@ public class AdminDashboardActivity extends AppCompatActivity {
         _saveTopParams.setMargins(0, 0, 0, pad);
         btnSaveTop.setLayoutParams(_saveTopParams);
         layout.addView(btnSaveTop);
+
+        // 🆕 v6.63.090 (Patrick 02.06. 18:32): Email-Vorschau-Button als prominente Aktion direkt
+        // unter Speichern. Tap → EmailPreviewActivity öffnet sich, Patrick liest durch,
+        // toggelt Stripe/Tracking, sendet ab. Nur sichtbar wenn customerEmail vorhanden.
+        if (r.customerEmail != null && !r.customerEmail.isEmpty() && r.customerEmail.contains("@")) {
+            com.google.android.material.button.MaterialButton btnEmailPreview =
+                new com.google.android.material.button.MaterialButton(this);
+            btnEmailPreview.setText("📧 Email-Bestätigung (mit Vorschau)");
+            btnEmailPreview.setTextSize(15);
+            btnEmailPreview.setBackgroundColor(android.graphics.Color.parseColor("#1d4ed8"));
+            btnEmailPreview.setTextColor(android.graphics.Color.WHITE);
+            LinearLayout.LayoutParams _emailParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+            _emailParams.setMargins(0, 0, 0, pad);
+            btnEmailPreview.setLayoutParams(_emailParams);
+            btnEmailPreview.setOnClickListener(_v -> {
+                if (_dlgRef.get() != null) _dlgRef.get().dismiss();
+                Intent _emailIntent = new Intent(this, EmailPreviewActivity.class);
+                _emailIntent.putExtra(EmailPreviewActivity.EXTRA_RIDE_ID, r.id);
+                startActivity(_emailIntent);
+            });
+            layout.addView(btnEmailPreview);
+        }
 
         // v6.62.638: Patrick (12.05. 13:05): "ich will Fahrt auch kopieren, Datum aendern,
         // Rueckfahrt erstellen — wie in der Web-App". Zwei Buttons als Inline-Aktionen direkt

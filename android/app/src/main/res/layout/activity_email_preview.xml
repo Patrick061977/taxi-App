@@ -1,0 +1,174 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#fff">
+
+    <!-- Header -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:padding="14dp"
+        android:background="#1d4ed8"
+        android:elevation="4dp">
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="📧 Email-Vorschau"
+            android:textSize="18sp"
+            android:textColor="#fff"
+            android:textStyle="bold"
+            android:gravity="center_vertical"/>
+        <Button
+            android:id="@+id/btnEmailCancel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Abbrechen"
+            android:textColor="#fff"
+            android:backgroundTint="#3b82f6"/>
+    </LinearLayout>
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:padding="12dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <!-- An -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="📧 An:"
+                android:textSize="13sp"
+                android:textColor="#475569"
+                android:layout_marginTop="6dp"/>
+            <EditText
+                android:id="@+id/etEmailTo"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="textEmailAddress"
+                android:textSize="15sp"
+                android:hint="kunde@beispiel.de"
+                android:background="@android:drawable/edit_text"
+                android:padding="10dp"/>
+
+            <!-- Betreff -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="📝 Betreff:"
+                android:textSize="13sp"
+                android:textColor="#475569"
+                android:layout_marginTop="12dp"/>
+            <EditText
+                android:id="@+id/etEmailSubject"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="text"
+                android:textSize="15sp"
+                android:background="@android:drawable/edit_text"
+                android:padding="10dp"/>
+
+            <!-- Body -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="📄 Nachrichtentext (editierbar):"
+                android:textSize="13sp"
+                android:textColor="#475569"
+                android:layout_marginTop="12dp"/>
+            <EditText
+                android:id="@+id/etEmailBody"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minLines="14"
+                android:maxLines="30"
+                android:gravity="top|start"
+                android:inputType="textMultiLine|textAutoCorrect"
+                android:textSize="13sp"
+                android:background="#f8fafc"
+                android:padding="12dp"/>
+
+            <!-- Optionen -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="⚙️ OPTIONEN:"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:textColor="#0f172a"
+                android:layout_marginTop="20dp"/>
+
+            <CheckBox
+                android:id="@+id/cbIncludeStripe"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="💳 Mit Stripe-Vorkasse-Link"
+                android:textSize="15sp"
+                android:textColor="#1e3a8a"
+                android:padding="8dp"/>
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="• Stripe Checkout-Session wird erstellt + Bezahl-Button in Email einfügt + paymentMethod=stripe gesetzt"
+                android:textSize="11sp"
+                android:textColor="#64748b"
+                android:layout_marginStart="32dp"
+                android:layout_marginBottom="8dp"/>
+
+            <CheckBox
+                android:id="@+id/cbIncludeTracking"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="📍 Tracking-Link beifügen"
+                android:textSize="15sp"
+                android:textColor="#0f766e"
+                android:padding="8dp"/>
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="• Kunde sieht Fahrt-Live-Status + kann stornieren"
+                android:textSize="11sp"
+                android:textColor="#64748b"
+                android:layout_marginStart="32dp"
+                android:layout_marginBottom="14dp"/>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="#e2e8f0"
+                android:layout_marginVertical="14dp"/>
+
+            <TextView
+                android:id="@+id/tvEmailStatus"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textSize="13sp"
+                android:textColor="#64748b"
+                android:padding="6dp"/>
+
+        </LinearLayout>
+    </ScrollView>
+
+    <!-- Send Button -->
+    <Button
+        android:id="@+id/btnEmailSend"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="📧 EMAIL JETZT SENDEN"
+        android:textColor="#fff"
+        android:textStyle="bold"
+        android:textSize="16sp"
+        android:backgroundTint="#059669"
+        android:layout_margin="12dp"
+        android:padding="14dp"/>
+
+</LinearLayout>

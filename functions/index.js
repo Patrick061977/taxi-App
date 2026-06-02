@@ -22172,6 +22172,166 @@ function haversineMeters(lat1, lon1, lat2, lon2) {
     return 2 * R * Math.asin(Math.sqrt(a));
 }
 
+// 🆕 v6.63.091 (Patrick 02.06. 18:50): Tourplaner-Cloud-Function v1.
+//   Alle 5 Min: Wartepool-Rides analysieren + 3 Lösungsoptionen via Bridge-Push.
+//   Patrick liest Vorschläge in Telegram-Bridge, klickt Lösung im Native.
+//
+// Analyse pro Wartepool-Ride:
+//   [A] Pickup 5/10 Min früher → schauen ob Vehicle dann konflikt-frei
+//   [B] Vehicle-Tausch mit blockierender Folgefahrt
+//   [C] Folgefahrt 5 Min verschieben → Vehicle frei
+//
+// Push-Limit: 1 Vorschlag pro Ride pro 60 Min (verhindert Spam).
+exports.scheduledTourPlanner = onSchedule(
+    {
+        schedule: 'every 5 minutes',
+        region: 'europe-west1',
+        timeZone: 'Europe/Berlin',
+        timeoutSeconds: 90,
+        memory: '256MiB'
+    },
+    async (event) => {
+        try {
+            const settings = (await db.ref('settings/tourplaner').once('value')).val() || {};
+            if (settings.disabled === true) {
+                console.log('⏸️ scheduledTourPlanner: deaktiviert via settings.tourplaner.disabled');
+                return;
+            }
+            const now = Date.now();
+            const TOURPLANNER_SILENCE_MS = (settings.silenceMin || 60) * 60000;
+            const ridesSnap = await db.ref('rides').once('value');
+            if (!ridesSnap.exists()) return;
+
+            const allRides = [];
+            const wartepoolRides = [];
+            ridesSnap.forEach(child => {
+                const r = { firebaseId: child.key, ...child.val() };
+                if (!r.pickupTimestamp) return;
+                // Nur heute + nächste 24h
+                if (r.pickupTimestamp < now - 60*60000 || r.pickupTimestamp > now + 24*60*60000) return;
+                if (['completed','cancelled','storniert','deleted','rejected'].includes(r.status)) return;
+                if (r.silentCleanup) return;
+                allRides.push(r);
+                if (r.status === 'wartepool' && !r.assignedVehicle && !r.vehicleId) {
+                    wartepoolRides.push(r);
+                }
+            });
+
+            if (wartepoolRides.length === 0) {
+                console.log('✅ scheduledTourPlanner: 0 Wartepool-Rides — nichts zu tun');
+                return;
+            }
+
+            console.log(`🧠 scheduledTourPlanner: ${wartepoolRides.length} Wartepool-Rides — analysiere`);
+
+            for (const ride of wartepoolRides) {
+                // Push-Spam-Schutz
+                const _lastTipAt = ride.tourplanerLastPushAt || 0;
+                if (now - _lastTipAt < TOURPLANNER_SILENCE_MS) continue;
+
+                const suggestions = [];
+
+                // Konflikt-Vehicles aus vehicleScores extrahieren
+                const vs = ride.vehicleScores || {};
+                const blockerVehicles = []; // vehicles mit Zeitkonflikt
+                for (const [vid, sc] of Object.entries(vs)) {
+                    if (sc.status === 'rejected') continue;
+                    if (sc.blockingRideTime && sc.blockingRideCustomer) {
+                        blockerVehicles.push({
+                            vid,
+                            blockingTime: sc.blockingRideTime,
+                            blockingCustomer: sc.blockingRideCustomer
+                        });
+                    }
+                }
+
+                // Option A: Pickup 5/10 Min früher → check ob blockierter Vehicle dann frei
+                for (const delta of [5, 10]) {
+                    const newPt = ride.pickupTimestamp - delta * 60000;
+                    const gDur = ride.estimatedDuration || 15;
+                    const newArrival = newPt + gDur * 60000;
+                    for (const bv of blockerVehicles) {
+                        // Schaut nach den realen Folgefahrten dieses Vehicles
+                        const conflicts = allRides.filter(o =>
+                            o.firebaseId !== ride.firebaseId
+                            && (o.assignedVehicle === bv.vid || o.vehicleId === bv.vid)
+                            && o.pickupTimestamp
+                        ).filter(o => {
+                            const oStart = o.pickupTimestamp - 5*60000;
+                            const oDur = o.estimatedDuration || 15;
+                            const oEnd = o.pickupTimestamp + oDur*60000 + 5*60000;
+                            return (newPt - 5*60000) < oEnd && (newArrival + 5*60000) > oStart;
+                        });
+                        if (conflicts.length === 0) {
+                            const _newTimeStr = new Date(newPt).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Europe/Berlin' });
+                            const _vName = (OFFICIAL_VEHICLES[bv.vid] || {}).name || bv.vid;
+                            suggestions.push({
+                                option: `A${delta}`,
+                                text: `Pickup ${delta} Min früher (${_newTimeStr}) → ${_vName} kann (Kunde-SMS "${delta} Min früher OK?")`
+                            });
+                            break;
+                        }
+                    }
+                    if (suggestions.length > 0) break;
+                }
+
+                // Option B: Tausch — Vehicle der Folgefahrt nehmen
+                if (blockerVehicles.length > 0) {
+                    const bv = blockerVehicles[0];
+                    suggestions.push({
+                        option: 'B',
+                        text: `Tausch: ${(OFFICIAL_VEHICLES[bv.vid] || {}).name || bv.vid} blockiert wegen ${bv.blockingCustomer} ${bv.blockingTime} → Folgefahrt auf anderes Vehicle verlegen`
+                    });
+                }
+
+                // Option C: nachfolgende Fahrt verschieben
+                if (blockerVehicles.length > 0) {
+                    const bv = blockerVehicles[0];
+                    suggestions.push({
+                        option: 'C',
+                        text: `Folgefahrt ${bv.blockingCustomer} ${bv.blockingTime} per SMS "5 Min später OK?" verschieben → Vehicle macht beides`
+                    });
+                }
+
+                if (suggestions.length === 0) continue;
+
+                // Bridge-Push
+                const _ptStr = new Date(ride.pickupTimestamp).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Europe/Berlin' });
+                const _dateStr = new Date(ride.pickupTimestamp).toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit', timeZone: 'Europe/Berlin' });
+                let _msg = `💡 TOURPLANER-VORSCHLAG: ${ride.customerName || '?'} ${_dateStr} ${_ptStr}\n`;
+                _msg += `📍 ${ride.pickup || '?'} → ${ride.destination || '?'}\n\n`;
+                _msg += `Lösungen:\n`;
+                for (const s of suggestions) {
+                    _msg += `[${s.option}] ${s.text}\n`;
+                }
+                _msg += `\nAntwort: "TP ${ride.firebaseId.slice(-6)} A5" oder "TP ${ride.firebaseId.slice(-6)} B" usw.`;
+
+                try {
+                    await db.ref('claudeBridge/outbox').push({
+                        message: _msg,
+                        targetChatId: 6229490043,
+                        via: 'claude',
+                        ts: Date.now(),
+                        purpose: 'tourplanner-suggestion',
+                        rideId: ride.firebaseId
+                    });
+                    await db.ref(`rides/${ride.firebaseId}/tourplanerLastPushAt`).set(now);
+                    await addRideLog(ride.firebaseId, '🧠', `Tourplaner-Vorschläge gepusht (${suggestions.length} Optionen)`, {
+                        quelle: 'scheduledTourPlanner v6.63.091',
+                        options: suggestions.map(s => s.option).join(',')
+                    });
+                    console.log(`✅ Tourplaner: ${ride.firebaseId} — ${suggestions.length} Optionen gepusht`);
+                } catch (_pushErr) {
+                    console.error(`❌ Tourplaner-Push Fehler ${ride.firebaseId}:`, _pushErr.message);
+                }
+            }
+        } catch (e) {
+            console.error('scheduledTourPlanner Fehler:', e.message);
+            try { await logError('scheduledTourPlanner', e, { severity: 'warning' }); } catch (_) {}
+        }
+    }
+);
+
 exports.onRideCreated = onValueCreated(
     {
         ref: '/rides/{rideId}',

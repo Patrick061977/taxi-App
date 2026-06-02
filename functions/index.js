@@ -19483,10 +19483,13 @@ exports.autoResolveConflicts = onSchedule(
 // ═══════════════════════════════════════════════════════════════
 exports.scheduledReachabilityCheck = onSchedule(
     {
-        // v6.63.083 (Patrick 01.06. 21:47 Cadence-Relax): 1 → 5 Min. Lookahead
-        //   ist 30 Min, 5-Min-Cadence reicht völlig — Cloud-LateCheck mit 5-Min
-        //   Cadence übernimmt die akute Warnung sowieso.
-        schedule: 'every 5 minutes',
+        // v6.63.086 (Patrick 02.06. 06:31 Bridge "Eta refresh warum nicht
+        //   live, das hat doch vorher funktioniert"): zurück auf 1 Minute.
+        //   Die 5-Min-Entspannung von gestern (v6.63.083) hat genau den
+        //   Live-ETA-Refresh gebremst — Banner stand 5 Min lang auf einem
+        //   Wert obwohl der Fahrer schon näher dran war. Cost-Hebel war
+        //   begrenzt weil Function nur die <30min-Lookahead-Rides anfasst.
+        schedule: 'every 1 minutes',
         region: 'europe-west1',
         timeoutSeconds: 90,
         memory: '256MiB'

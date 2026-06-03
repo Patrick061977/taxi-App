@@ -24958,7 +24958,15 @@ exports.onRideUpdated = onValueUpdated(
             //   FIX: Nur Rides bearbeiten deren completedAt < 24h alt ist — sonst ist es
             //   ein nachträgliches Update einer alten Fahrt, kein frischer Abschluss.
             const _completedRecently = after.completedAt && after.completedAt > Date.now() - 24 * 60 * 60 * 1000;
-            if ((_justCompleted || _retroInvoiceFlip) && _invoiceWanted && _hasNoInvoiceYet && _hasPriceData && _completedRecently) {
+            // 🆕 v6.63.096 (Patrick 03.06. 07:27 "Bei Transportschein braucht man gar keine
+            //   Rechnung schreiben"): Auto-Rechnung skippen bei Krankenfahrt mit Transportschein.
+            //   Abrechnung läuft über DMRZ, nicht über Patrick-Rechnung.
+            const _isTransportschein = after.paymentMethod === 'transportschein' || after.isKrankenfahrt === true;
+            if (_isTransportschein) {
+                console.log(`🏥 Auto-Rechnung skip: ${rideId} ist Transportschein/Krankenfahrt — Abrechnung über DMRZ`);
+                try { await addRideLog(rideId, '🏥', 'Auto-Rechnung übersprungen — Transportschein/Krankenfahrt', { quelle: 'v6.63.096', paymentMethod: after.paymentMethod }); } catch(_){}
+            }
+            if ((_justCompleted || _retroInvoiceFlip) && _invoiceWanted && _hasNoInvoiceYet && _hasPriceData && _completedRecently && !_isTransportschein) {
                 console.log(`🧾 ${_retroInvoiceFlip ? 'v6.62.598 RETRO' : 'v6.62.312'} Auto-Rechnung trigger ${rideId}: completed + invoiceRequested + price`);
                 // 🆕 v6.62.731 (Patrick 15.05. 10:57 'a'): Auto-Rechnung nutzt nun den
                 //   gleichen invoiceCounter/{Jahr} wie das manuelle UI — Format '20-YY-NNN'

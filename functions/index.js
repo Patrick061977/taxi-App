@@ -28683,16 +28683,45 @@ exports.stripeWebhook = onRequest(
                 }
             } else if (event.type === 'setup_intent.succeeded') {
                 // 🆕 v6.63.117: Kunde hat Karte erfolgreich hinterlegt → in CRM speichern
+                // 🆕 v6.63.121 (Patrick 13:07 "wird nirgendwo angezeigt welche Methode"):
+                //   Details der Payment Method (Brand, Last4, Type) auch speichern
                 const setupIntent = event.data.object;
                 const crmCustomerId = setupIntent.metadata?.crmCustomerId;
                 const paymentMethodId = setupIntent.payment_method;
                 if (crmCustomerId && paymentMethodId) {
+                    let _meta = {};
+                    try {
+                        const stripe = await getStripe();
+                        const pm = await stripe.paymentMethods.retrieve(paymentMethodId);
+                        _meta.autoPayMethodType = pm.type;
+                        if (pm.card) {
+                            _meta.autoPayMethodBrand = pm.card.brand;
+                            _meta.autoPayMethodLast4 = pm.card.last4;
+                            _meta.autoPayMethodExp = (pm.card.exp_month || '?') + '/' + (pm.card.exp_year || '?');
+                        } else if (pm.sepa_debit) {
+                            _meta.autoPayMethodLast4 = pm.sepa_debit.last4;
+                            _meta.autoPayMethodBrand = 'sepa_debit';
+                        } else if (pm.paypal) {
+                            _meta.autoPayMethodBrand = 'paypal';
+                            _meta.autoPayMethodLast4 = pm.paypal.payer_email || '';
+                        } else if (pm.link) {
+                            _meta.autoPayMethodBrand = 'link';
+                            _meta.autoPayMethodLast4 = pm.link.email || '';
+                        }
+                        // Stripe Customer mit neuer Default-Methode aktualisieren
+                        await stripe.customers.update(pm.customer, {
+                            invoice_settings: { default_payment_method: paymentMethodId }
+                        });
+                    } catch (_pmErr) {
+                        console.warn('Payment Method Details lesen fehlgeschlagen:', _pmErr.message);
+                    }
                     await db.ref(`customers/${crmCustomerId}`).update({
                         defaultPaymentMethodId: paymentMethodId,
                         autoChargeEnabled: true,
-                        stripeSetupCompletedAt: Date.now()
+                        stripeSetupCompletedAt: Date.now(),
+                        ..._meta
                     });
-                    console.log(`✅ Auto-Pay aktiviert für CRM-Customer ${crmCustomerId} (PaymentMethod ${paymentMethodId})`);
+                    console.log(`✅ Auto-Pay aktiviert für CRM-Customer ${crmCustomerId} (PaymentMethod ${paymentMethodId}, ${_meta.autoPayMethodBrand}/${_meta.autoPayMethodLast4})`);
                 }
             }
 

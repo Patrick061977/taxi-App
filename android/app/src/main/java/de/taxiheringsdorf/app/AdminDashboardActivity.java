@@ -1907,6 +1907,12 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 if (r.conflictHint != null) {
                     route.append("\n").append(r.conflictHint).append("\n💡 Karte tippen → Pickup verschieben um Konflikt zu lösen");
                 }
+                // 🆕 v6.63.096 (Patrick 03.06. 07:30): Krankenfahrt-Banner prominent.
+                //   Wenn paymentMethod=transportschein → grüner "🏥 KRANKENFAHRT" Banner damit
+                //   Fahrer SOFORT sieht: kein Bezahl-Dialog, Foto vom Transportschein nötig.
+                if ("transportschein".equalsIgnoreCase(r.paymentMethod)) {
+                    route.append("\n🏥 KRANKENFAHRT (Transportschein) — Foto am Ende, keine Rechnung");
+                }
                 // 🆕 v6.63.092 (Patrick 02.06. 20:39): Bezahlt-Badge prominent.
                 //   Wenn paymentStatus=paid + paymentMethod=stripe → grüner "✅ BEZAHLT (Stripe)" Hinweis
                 //   in der Fahrt-Beschreibung. Olaf hatte heute bezahlt aber im Native nicht sichtbar.

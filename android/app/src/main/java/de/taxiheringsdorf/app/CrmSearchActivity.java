@@ -2473,6 +2473,23 @@ public class CrmSearchActivity extends AppCompatActivity {
         cbSelfDriven.setTextColor(0xFF475569);
         layout.addView(cbSelfDriven);
 
+        // 🆕 v6.63.096 (Patrick 03.06. 07:30 "Bei der Webbuchung haben wir die Checkbox-
+        //   Transportscheine und die will ich auch haben bei der Vorbestellung in der
+        //   Native-App"): Transportschein-Checkbox direkt bei Vorbestellung. Wenn an:
+        //   paymentMethod=transportschein wird gesetzt, keine Auto-Rechnung, Banner
+        //   "🏥 KRANKENFAHRT" auf der Fahrt-Karte.
+        final android.widget.CheckBox cbTransportschein = new android.widget.CheckBox(this);
+        boolean _initialTrans = isEdit && "transportschein".equals(String.valueOf(editRide.get("paymentMethod")));
+        cbTransportschein.setText("🏥 Krankenfahrt (Transportschein) — keine Rechnung, Foto am Ende");
+        cbTransportschein.setChecked(_initialTrans);
+        cbTransportschein.setTextSize(13);
+        cbTransportschein.setPadding(padHalf, padHalf, padHalf, padHalf);
+        cbTransportschein.setTextColor(0xFF065F46);
+        cbTransportschein.setBackgroundColor(_initialTrans ? 0xFFD1FAE5 : 0x00000000);
+        cbTransportschein.setOnCheckedChangeListener((bv, isChecked) ->
+            cbTransportschein.setBackgroundColor(isChecked ? 0xFFD1FAE5 : 0x00000000));
+        layout.addView(cbTransportschein);
+
         // 🆕 v6.62.608: Live-Konflikt-Check unter dem Datum-Picker
         // Patrick (11.05. 12:44): "baue das mal ein, dass ich zumindest weiss, ob der
         // Termin ueberlappt oder nicht ueberlappt".
@@ -2976,6 +2993,16 @@ public class CrmSearchActivity extends AppCompatActivity {
                 if (_backdateConfirmedRef[0] && _backdateInvoiceFlag[0]) {
                     r.put("invoiceRequested", true);
                     r.put("needsInvoice", true);
+                }
+                // 🆕 v6.63.096: Transportschein-Checkbox: paymentMethod setzen + Auto-Rechnung
+                //   skippen. Banner "🏥 KRANKENFAHRT" auf der Fahrt-Karte (AdminDashboard rendert
+                //   anhand paymentMethod=transportschein). Foto wird beim Abschluss erfasst.
+                if (cbTransportschein.isChecked()) {
+                    r.put("paymentMethod", "transportschein");
+                    r.put("isKrankenfahrt", true);
+                    r.put("paymentStatus", "transportschein-pending");
+                    // KEINE Auto-Rechnung
+                    r.put("autoInvoiceSkipReason", "transportschein-pre-set");
                 }
                 r.put("pickup", pickup);
                 r.put("pickupLat", pickupCoords[0]);

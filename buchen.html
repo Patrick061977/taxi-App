@@ -2132,10 +2132,16 @@
                 if (effectiveCount > 0 && !(passengers >= 5 && fitCount === 0)) {
                     // Fahrzeug verfügbar → grüner Buchen-Button
                     isAvailable = true;
-                    bar.className = 'status-bar online';
-                    bar.style.background = '';
+                    // v6.63.100 (Patrick 03.06. 07:53 "Buchung HTML steht immer noch sofort
+                    //   frei, erst Upload eingeben, aber keiner sofort frei"): KEIN voreiliger
+                    //   Grün-Banner. Initial neutral, dann erst nach Verfügbarkeits-Check
+                    //   grün/gelb färben. Verhindert Flash "Taxi verfügbar" für 1-2 Sek
+                    //   bevor die echte Berechnung "Alle besetzt" zeigt.
+                    bar.className = 'status-bar';
+                    bar.style.background = '#f1f5f9';
+                    bar.style.color = '#475569';
                     if (wannModus === 'sofort') {
-                        bar.textContent = `🟢 Taxi verfügbar! ${sofortCount} Fahrer online`;
+                        bar.textContent = `🔍 ${sofortCount} Fahrer im Dienst — Verfügbarkeit wird geprüft …`;
                         if (pickupCoords) {
                             calcStatusBarEta(bar, sofortCount);
                         } else {

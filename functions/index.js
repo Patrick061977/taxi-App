@@ -26281,6 +26281,15 @@ exports.scheduledRideAutoClose = onSchedule(
     },
     async (event) => {
         try {
+            // v6.63.095 (Patrick 03.06. 07:17): "Ich beende die Fahrt, nicht das System."
+            //   Settings-Flag respektieren — Patrick hat Sandy 65km-Tour zu früh geschlossen
+            //   bekommen (auto-close griff bei picked_up + 64 Min). Default deaktiviert.
+            const _settingsSnap = await db.ref('settings/autoClose1h').once('value');
+            const _settings = _settingsSnap.val() || {};
+            if (_settings.disabled === true) {
+                console.log('⏸️ scheduledRideAutoClose: deaktiviert via settings/autoClose1h/disabled');
+                return;
+            }
             const now = Date.now();
             const sixtyMinAgo = now - 60 * 60 * 1000;
             const horizonBack = now - 24 * 60 * 60 * 1000;

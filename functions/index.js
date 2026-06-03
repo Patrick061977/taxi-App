@@ -25029,9 +25029,19 @@ exports.onRideUpdated = onValueUpdated(
                 // gesetzt (z.B. "Neumann" statt "Hotel Wald und See"). Jetzt: customerName
                 // zuerst, guestName nur wenn customerName leer ist.
                 const _preferredPayment = (_custData.preferredPayment || '').toLowerCase();
-                const _hotelZahltBar = (after.paymentMethod === 'invoice_auftraggeber' || after.paymentMethod === 'bar')
-                    && _preferredPayment === 'bar';
-                const _effectivePaymentMethod = _hotelZahltBar ? 'bar' : (after.paymentMethod || 'cash');
+                // v6.63.093 (Patrick 03.06. 05:26 + 05:34): "Was im CRM als Zahlungsmittel
+                //   hinterlegt ist, so wird die Rechnung gestellt — entweder bar oder
+                //   rechnung. Überweisung brauchen wir nicht."
+                //   Bisher griff das nur für Hotel+bar. Jetzt: preferredPayment respektieren
+                //   für alle CRM-Werte. ueberweisung-Schreibvarianten als rechnung mappen.
+                const _ueberweisungVariants = ['ueberweisung', 'uberweisung', 'überweisung'];
+                let _effectivePaymentMethod = after.paymentMethod || 'cash';
+                if (after.paymentMethod === 'invoice_auftraggeber' || after.paymentMethod === 'bar') {
+                    if (_preferredPayment === 'bar') _effectivePaymentMethod = 'bar';
+                    else if (_preferredPayment === 'rechnung' || _ueberweisungVariants.includes(_preferredPayment)) _effectivePaymentMethod = 'rechnung';
+                    // sonst: ride.paymentMethod beibehalten
+                }
+                const _hotelZahltBar = _effectivePaymentMethod === 'bar';
                 const _isPaidNow = (_effectivePaymentMethod === 'cash' || _effectivePaymentMethod === 'bar');
 
                 const _invoiceData = {
@@ -25054,7 +25064,14 @@ exports.onRideUpdated = onValueUpdated(
                     paymentMethod: _effectivePaymentMethod,
                     paymentStatus: _isPaidNow ? 'paid' : 'pending',
                     paidAt: _isPaidNow ? (after.completedAt || Date.now()) : null,
-                    paymentTerms: _hotelZahltBar ? 'Betrag in bar erhalten — Quittung' : (after.paymentMethod === 'invoice_auftraggeber' ? 'Zahlbar innerhalb 14 Tagen ohne Abzug.' : ''),
+                    // v6.63.093: paymentTerms aus _effectivePaymentMethod ableiten — vorher
+                    //   wurde "rechnung" als _effectivePM gar nicht abgedeckt, fiel in leeren
+                    //   String, dann renderte invoice-html den Default "Vielen Dank...".
+                    paymentTerms: _hotelZahltBar
+                        ? 'Betrag in bar erhalten — Quittung'
+                        : (_effectivePaymentMethod === 'rechnung' || after.paymentMethod === 'invoice_auftraggeber'
+                            ? 'Zahlbar innerhalb 14 Tagen ohne Abzug.'
+                            : ''),
                     // 🆕 v6.62.812: position.description = "Taxifahrt" (ohne Route).
                     // 🆕 v6.62.815 (Patrick 19.05. 07:33): Auto-Detect Krankenfahrt
                     //   wenn pickup ODER destination "Krankenhaus" oder "Klinik" enthaelt

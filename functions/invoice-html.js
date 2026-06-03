@@ -38,6 +38,9 @@ function fmtTimeDE(ts) {
 
 function paymentLabel(method) {
     const m = (method || '').toLowerCase();
+    // v6.63.093 (Patrick 03.06. 05:26 "Mütter Gesundheit braucht überweisung wie Vetter"):
+    //   3 Schreibweisen für Überweisung mappen damit CRM-preferredPayment="ueberweisung"
+    //   (Standard-Eintrag) NICHT durch Default-Fallback "Vielen Dank für Ihre Fahrt" rutscht.
     const map = {
         bar: 'Betrag in Bar erhalten — Vielen Dank!',
         cash: 'Betrag in Bar erhalten — Vielen Dank!',
@@ -53,7 +56,12 @@ function paymentLabel(method) {
         invoice_email: 'Zahlbar innerhalb von 14 Tagen ohne Abzug.',
         invoice_auftraggeber: 'Zahlbar innerhalb von 14 Tagen ohne Abzug.',
         transportschein: 'Transportschein',
-        uberweisung: 'Zahlbar per Überweisung innerhalb von 14 Tagen'
+        // v6.63.093 (Patrick 03.06. 05:34 "Überweisung brauchen wir nicht, entweder Rechnung"):
+        //   Alte ueberweisung-Schreibvarianten weiterhin als Safety-Net mappen damit alte
+        //   DB-Einträge nicht ins Default-Fallback fallen — aber Text wie "rechnung".
+        uberweisung: 'Zahlbar innerhalb von 14 Tagen ohne Abzug.',
+        ueberweisung: 'Zahlbar innerhalb von 14 Tagen ohne Abzug.',
+        'überweisung': 'Zahlbar innerhalb von 14 Tagen ohne Abzug.'
     };
     return map[m] || 'Vielen Dank für Ihre Fahrt.';
 }

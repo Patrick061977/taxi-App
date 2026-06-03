@@ -487,6 +487,24 @@ function isVehicleInShift(vehicleId, shiftsData, dateStr, timeStr) {
     return inRange;
 }
 
+// 🆕 v6.63.124 (Patrick 03.06. 15:34): isVehicleInShift + Live-Override.
+//   Bug: pw-ik-222 ohne Wochenplan, ABER live aktiv eingeloggt + online.
+//   isVehicleInShift returnt false → Phase 5 verwirft als Tausch-Kandidat.
+//   Fix: wenn vData.online===true UND vData.shift.status==='active' → akzeptiere
+//   fuer HEUTE (sonst nicht — Live-Status morgen weg, nicht voraussagbar).
+function isVehicleAvailableForRide(vehicleId, vehiclesData, shiftsData, dateStr, timeStr) {
+    if (isVehicleInShift(vehicleId, shiftsData, dateStr, timeStr)) return true;
+    const vData = (vehiclesData || {})[vehicleId];
+    if (!vData) return false;
+    if (vData.online !== true) return false;
+    if (!vData.shift || vData.shift.status !== 'active') return false;
+    // Nur fuer heute akzeptieren (Berlin-TZ)
+    const todayBerlin = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Berlin' });
+    if (dateStr !== todayBerlin) return false;
+    console.log(`   🟢 Live-Override ${vehicleId}: kein Wochenplan, aber online+active → fuer ${dateStr} ${timeStr} verfuegbar`);
+    return true;
+}
+
 // 🆕 v6.26.0: Schichtende ermitteln für den Zeitblock der die gegebene Uhrzeit enthält
 function getShiftEndTime(vehicleId, shiftsData, dateStr, timeStr) {
     const shifts = shiftsData[vehicleId];
@@ -19212,7 +19230,8 @@ exports.autoResolveConflicts = onSchedule(
                             const vInfo = OFFICIAL_VEHICLES[vid];
                             if (!vInfo) continue;
                             if ((vInfo.capacity || 4) < (ride.passengers || 1)) continue;
-                            if (!isVehicleInShift(vid, shiftsData, dateStr, timeStr)) continue;
+                            // 🆕 v6.63.124: Live-Override fuer Fahrer ohne Wochenplan
+                            if (!isVehicleAvailableForRide(vid, vehiclesData, shiftsData, dateStr, timeStr)) continue;
                             // 🆕 v6.62.323: Konflikt-Check + Leerfahrt-Check zusammen.
                             // Fuer jeden Slot des Fahrzeugs: schafft der Fahrer es vom Slot-Ziel
                             // zum neuen Pickup rechtzeitig? bzw. schafft er nach dem neuen Pickup-
@@ -19409,7 +19428,8 @@ exports.autoResolveConflicts = onSchedule(
                         const vInfo = OFFICIAL_VEHICLES[vid];
                         if (!vInfo) continue;
                         if ((vInfo.capacity || 4) < (earlier.passengers || 1)) continue;
-                        if (!isVehicleInShift(vid, shiftsData, earlierDate, earlierTimeStr)) continue;
+                        // 🆕 v6.63.124: Live-Override fuer Fahrer ohne Wochenplan
+                        if (!isVehicleAvailableForRide(vid, vehiclesData, shiftsData, earlierDate, earlierTimeStr)) continue;
 
                         // SPAETERE vorbestellt/assigned-Fahrten auf vid (assignmentLocked=false)
                         const lateOnVid = allRides.filter(r =>
@@ -19444,7 +19464,8 @@ exports.autoResolveConflicts = onSchedule(
                             const altInfo = OFFICIAL_VEHICLES[altVid];
                             if (!altInfo) continue;
                             if ((altInfo.capacity || 4) < (conflictLate.passengers || 1)) continue;
-                            if (!isVehicleInShift(altVid, shiftsData, laterDate, laterTimeStr)) continue;
+                            // 🆕 v6.63.124: Live-Override fuer Fahrer ohne Wochenplan
+                            if (!isVehicleAvailableForRide(altVid, vehiclesData, shiftsData, laterDate, laterTimeStr)) continue;
 
                             const altConflict = allRides.some(r => {
                                 if (r.firebaseId === conflictLate.firebaseId) return false;
@@ -21028,9 +21049,11 @@ exports.scheduledAutoAssign = onSchedule(
                         continue;
                     }
                     // 🔧 v6.38.27: Vier-Augen-Prinzip bei Zuweisung
+                    // 🆕 v6.63.124: Live-Override fuer Fahrer ohne Wochenplan (heute aktiv eingeloggt)
                     const _sc1 = isVehicleInShift(vehicleId, shiftsData, dateStr, timeStr);
                     const _sc2 = verifyVehicleShiftIndependent(vehicleId, shiftsData, dateStr, timeStr);
-                    if (!_sc1 || !_sc2.ok) {
+                    const _scLive = isVehicleAvailableForRide(vehicleId, vehiclesData, shiftsData, dateStr, timeStr);
+                    if ((!_sc1 || !_sc2.ok) && !_scLive) {
                         if (_sc1 !== _sc2.ok) console.warn(`   ⚠️ DISKREPANZ ${info.name}: isVehicleInShift=${_sc1}, verify=${_sc2.ok} (${_sc2.reason})`);
                         console.log(`   ❌ ${info.name}: Kein Dienst (${_sc2.reason})`);
                         continue;

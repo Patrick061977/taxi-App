@@ -2059,7 +2059,21 @@
                 }
                 const best = etaResults[0];
                 const freeCount = etaResults.filter(r => r.status === 'frei').length;
-                const base = `🟢 Taxi verfügbar! ${count} Fahrzeug${count > 1 ? 'e' : ''} im Dienst`;
+                // v6.63.098 (Patrick 03.06. 07:45 "Müsste farblich anders markiert sein.
+                //   Wartezeit muss trotzdem angezeigt werden, darf nicht "sofort verfügbar"
+                //   stehen wenn ich noch 60 Min zur Homebase brauche"):
+                //   GELB statt grün wenn KEIN Fahrer wirklich frei.
+                let base;
+                if (freeCount > 0) {
+                    base = `🟢 Taxi sofort verfügbar! ${freeCount} Fahrer frei`;
+                    bar.className = 'status-bar online';
+                    bar.style.background = '';
+                } else {
+                    base = `🟡 ${count} Fahrer im Dienst — aktuell alle besetzt`;
+                    bar.className = 'status-bar';
+                    bar.style.background = '#fef3c7';
+                    bar.style.color = '#92400e';
+                }
                 let etaMsg;
                 if (best.status === 'frei') {
                     etaMsg = `🚕 ca. ${best.etaMin} Min bis zu dir`;
@@ -2068,9 +2082,9 @@
                     // kein 'Taxi in Pause'-Hinweis.
                     etaMsg = `🚕 ca. ${best.etaMin} Min Wartezeit`;
                 } else if (best.status === 'beschäftigt') {
-                    etaMsg = `🚕 nächstes Taxi in ca. ${best.etaMin} Min frei (gerade unterwegs)`;
+                    etaMsg = `🚕 Wartezeit ca. ${best.etaMin} Min (Fahrer unterwegs + Rückfahrt)`;
                 } else {
-                    etaMsg = `🚕 nächstes Taxi in ca. ${best.etaMin} Min (${best.queued} Vorbestellung${best.queued>1?'en':''})`;
+                    etaMsg = `🚕 Wartezeit ca. ${best.etaMin} Min (${best.queued} Vorbestellung${best.queued>1?'en':''})`;
                 }
                 bar.textContent = `${base} — ${etaMsg}`;
                 // 🆕 v6.62.172: Versprochene ETA persistieren — wird beim Booking-Confirm in

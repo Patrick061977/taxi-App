@@ -3,8 +3,10 @@ package de.taxiheringsdorf.app;
 import android.app.Notification;
 import android.app.NotificationManager;
 import android.app.Service;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.media.AudioAttributes;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
@@ -19,37 +21,42 @@ import android.util.Log;
 import androidx.core.app.NotificationCompat;
 
 /**
- * v6.62.935 (Patrick 25.05.2026 14:12 "Handy auf Lautlos — das darf nicht passieren"):
+ * v6.62.935 (Patrick 25.05.2026 14:12): erste Version mit STREAM_ALARM + USAGE_ALARM.
  *
- * Foreground-Service der bei neuen Fahrt-Pushs einen ALARM-Sound auf MAX-Volume spielt,
- * UNABHÄNGIG vom Lautlos-/DND-Modus. Setzt vorübergehend STREAM_ALARM auf Max und
- * startet einen looping MediaPlayer mit USAGE_ALARM-AudioAttributes — das ist die
- * gleiche Technik die Wecker-Apps nutzen um durch Lautlos durchzubrechen.
+ * v6.63.126 (Patrick 03.06.2026 21:17 "Uber-Style"): umgebaut auf dezenten
+ * Notification-Sound. Patrick beschwerte sich, dass der Wecker-Sound waehrend einer
+ * Fahrt mit Gaesten im Auto extrem peinlich war und der Push sich nicht stoppen liess
+ * — siehe Bridge 19:34/20:21. Aenderungen:
+ *  - USAGE_NOTIFICATION + STREAM_NOTIFICATION statt USAGE_ALARM/STREAM_ALARM
+ *    → respektiert die Handy-Lautstaerke des Fahrers, bricht NICHT mehr durch Lautlos.
+ *  - Auto-Stop nach 5s statt 30s (Heads-Up-Banner bleibt visuell).
+ *  - BroadcastReceiver fuer ACTION_SCREEN_OFF → Power-Knopf stoppt den Sound sofort.
+ *  - Foreground-Notification ist NICHT mehr ongoing → kann weg-geswiped werden.
+ *  - Lautstaerke wird NICHT mehr manipuliert (kein STREAM_ALARM-Override).
  *
- * Auto-Stop nach 30s, oder via {@link #stop(Context)} sobald der Fahrer Annehmen/
- * Ablehnen tippt (RideActionReceiver ruft das auf).
+ * Die alte STREAM_ALARM-Variante wurde nur fuer 'new_ride' verwendet — der dezente
+ * Push reicht laut Patrick aus.
  */
 public class AlertSoundService extends Service {
     private static final String TAG = "AlertSoundService";
     public static final String ACTION_START = "de.taxiheringsdorf.app.ACTION_ALERT_START";
     public static final String ACTION_STOP = "de.taxiheringsdorf.app.ACTION_ALERT_STOP";
     private static final int NOTIF_ID = 9112; // unique
-    private static final long AUTO_STOP_MS = 30_000L;
+    private static final long AUTO_STOP_MS = 5_000L; // v6.63.126: 30s → 5s
 
     private MediaPlayer player;
-    private Integer savedAlarmVolume = null;
     private final Handler autoStopHandler = new Handler(Looper.getMainLooper());
     private final Runnable autoStopRunnable = () -> {
-        Log.i(TAG, "Auto-Stop nach 30s — kein Tap");
+        Log.i(TAG, "Auto-Stop nach 5s");
         stopSelf();
     };
 
-    // 🆕 v6.62.945 (Patrick 25.05. 17:16 "Gebimmel geht 10-15s weiter nach Annehmen"):
-    //   Statische Referenz auf den aktiven Player + Volume, damit Stop SOFORT moeglich
-    //   ist ohne Intent-Round-Trip (Intent → Service-onStartCommand → stopSelf → onDestroy
-    //   dauert ~1-3s). Annehmen-Button kann jetzt direkt MediaPlayer.stop() aufrufen.
+    // 🆕 v6.63.126: Power-Knopf stoppt den Sound. Der Receiver wird in onStartCommand
+    //   registriert und in onDestroy abgemeldet.
+    private BroadcastReceiver screenOffReceiver = null;
+
+    // Statische Refs damit stop() ohne Intent-Latenz funktioniert (war schon v6.62.945).
     private static MediaPlayer _activePlayer = null;
-    private static Integer _activeSavedAlarmVolume = null;
     private static Context _activeServiceCtx = null;
 
     public static void start(Context ctx) {
@@ -64,28 +71,19 @@ public class AlertSoundService extends Service {
     }
 
     public static void stop(Context ctx) {
-        // 🆕 v6.62.945: Direkt-Stop ueber statischen Player — keine Intent-Latenz.
         try {
             if (_activePlayer != null) {
                 try { if (_activePlayer.isPlaying()) _activePlayer.stop(); } catch (Throwable _i) {}
                 try { _activePlayer.release(); } catch (Throwable _i) {}
                 _activePlayer = null;
-                Log.i(TAG, "Sofort-Stop via statische Ref (kein Intent-Wait)");
-            }
-            if (_activeSavedAlarmVolume != null) {
-                try {
-                    android.media.AudioManager am = (android.media.AudioManager) ctx.getSystemService(Context.AUDIO_SERVICE);
-                    if (am != null) am.setStreamVolume(android.media.AudioManager.STREAM_ALARM, _activeSavedAlarmVolume, 0);
-                } catch (Throwable _i) {}
-                _activeSavedAlarmVolume = null;
+                Log.i(TAG, "Sofort-Stop via statische Ref");
             }
         } catch (Throwable _e) {}
-        // Plus Intent damit Service ordentlich aufraeumt (Foreground-Notification entfernen)
         try {
             Intent i = new Intent(ctx, AlertSoundService.class);
             i.setAction(ACTION_STOP);
             ctx.startService(i);
-        } catch (Throwable _ignore) { /* if Service nicht laeuft, ignorieren */ }
+        } catch (Throwable _ignore) {}
     }
 
     @Override
@@ -97,14 +95,14 @@ public class AlertSoundService extends Service {
             return START_NOT_STICKY;
         }
 
-        // Foreground-Notification (Pflicht ab Android 8 fuer startForegroundService)
+        // 🆕 v6.63.126: Foreground-Notification NICHT mehr ongoing — weg-swipebar.
         try {
             NotificationCompat.Builder builder = new NotificationCompat.Builder(this, TaxiFCMService.CHANNEL_ID)
-                .setContentTitle("🚨 NEUE FAHRT — Alarm aktiv")
-                .setContentText("App oeffnen + Annehmen/Ablehnen tippen")
-                .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
-                .setPriority(NotificationCompat.PRIORITY_MAX)
-                .setOngoing(true);
+                .setContentTitle("🚖 Neue Fahrt verfügbar")
+                .setContentText("App öffnen + Annehmen/Ablehnen")
+                .setSmallIcon(android.R.drawable.ic_menu_send)
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setOngoing(false);
             startForeground(NOTIF_ID, builder.build());
         } catch (Throwable t) {
             Log.e(TAG, "startForeground fail: " + t.getMessage(), t);
@@ -112,19 +110,25 @@ public class AlertSoundService extends Service {
             return START_NOT_STICKY;
         }
 
-        // Alarm-Volume auf Max setzen + MediaPlayer starten
+        // 🆕 v6.63.126: Power-Knopf (Display-Aus) stoppt den Sound sofort.
         try {
-            AudioManager am = (AudioManager) getSystemService(AUDIO_SERVICE);
-            if (am != null) {
-                savedAlarmVolume = am.getStreamVolume(AudioManager.STREAM_ALARM);
-                int maxVol = am.getStreamMaxVolume(AudioManager.STREAM_ALARM);
-                am.setStreamVolume(AudioManager.STREAM_ALARM, maxVol, 0);
-                Log.i(TAG, "STREAM_ALARM " + savedAlarmVolume + " → " + maxVol);
-            }
+            screenOffReceiver = new BroadcastReceiver() {
+                @Override public void onReceive(Context ctx, Intent it) {
+                    Log.i(TAG, "ACTION_SCREEN_OFF — Power-Knopf gedrueckt, Sound stoppen");
+                    stopSelf();
+                }
+            };
+            registerReceiver(screenOffReceiver, new IntentFilter(Intent.ACTION_SCREEN_OFF));
+        } catch (Throwable t) {
+            Log.w(TAG, "screenOff receiver register fail: " + t.getMessage());
+        }
 
-            Uri sound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM);
+        // 🆕 v6.63.126: USAGE_NOTIFICATION statt USAGE_ALARM → respektiert Handy-Lautstaerke.
+        //   KEIN STREAM_ALARM-Override mehr. Wenn Patrick stumm hat, bleibt es stumm —
+        //   der Heads-Up-Banner ist zusaetzlich visuell sichtbar.
+        try {
+            Uri sound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
             if (sound == null) sound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE);
-            if (sound == null) sound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
             if (sound == null) {
                 Log.w(TAG, "Keine System-Sound-URI gefunden");
                 stopSelf();
@@ -133,7 +137,7 @@ public class AlertSoundService extends Service {
 
             player = new MediaPlayer();
             AudioAttributes attrs = new AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_ALARM)
+                .setUsage(AudioAttributes.USAGE_NOTIFICATION)
                 .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                 .build();
             player.setAudioAttributes(attrs);
@@ -141,11 +145,9 @@ public class AlertSoundService extends Service {
             player.setLooping(true);
             player.prepare();
             player.start();
-            // 🆕 v6.62.945: Static-Ref fuer Sofort-Stop ohne Intent-Latenz
             _activePlayer = player;
-            _activeSavedAlarmVolume = savedAlarmVolume;
             _activeServiceCtx = getApplicationContext();
-            Log.i(TAG, "MediaPlayer started — looping ALARM-Sound");
+            Log.i(TAG, "MediaPlayer started — Notification-Sound (Uber-Style)");
         } catch (Throwable t) {
             Log.e(TAG, "MediaPlayer start fail: " + t.getMessage(), t);
             // Service trotzdem weiterlaufen lassen — Foreground-Notif ist da
@@ -157,7 +159,7 @@ public class AlertSoundService extends Service {
 
     @Override
     public void onDestroy() {
-        Log.i(TAG, "onDestroy — stop player + restore volume");
+        Log.i(TAG, "onDestroy — stop player + cleanup");
         autoStopHandler.removeCallbacks(autoStopRunnable);
 
         if (player != null) {
@@ -165,24 +167,14 @@ public class AlertSoundService extends Service {
             try { player.release(); } catch (Throwable _i) {}
             player = null;
         }
-        // v6.62.945: Static-Ref clearen (vermutlich schon von stop() entleert)
         _activePlayer = null;
-        _activeSavedAlarmVolume = null;
         _activeServiceCtx = null;
 
-        // Alarm-Volume zurueck setzen
-        if (savedAlarmVolume != null) {
-            try {
-                AudioManager am = (AudioManager) getSystemService(AUDIO_SERVICE);
-                if (am != null) {
-                    am.setStreamVolume(AudioManager.STREAM_ALARM, savedAlarmVolume, 0);
-                    Log.i(TAG, "STREAM_ALARM zurueck auf " + savedAlarmVolume);
-                }
-            } catch (Throwable _ignore) {}
-            savedAlarmVolume = null;
+        if (screenOffReceiver != null) {
+            try { unregisterReceiver(screenOffReceiver); } catch (Throwable _ignore) {}
+            screenOffReceiver = null;
         }
 
-        // Foreground-Notification entfernen
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
                 stopForeground(STOP_FOREGROUND_REMOVE);

@@ -1182,6 +1182,33 @@
             }).catch(() => {});
         }
 
+        // 🆕 v6.63.106 (Patrick 03.06. 08:27 "Besteht immer noch das gleiche da sofort"):
+        //   Tesla-Browser hatte gecachte alte Version, obwohl Strato die neue ausspielte.
+        //   Periodischer Build-Check: alle 60s das Server-buchen.html abklopfen, wenn
+        //   neuere Build-Zeit als die gerade geladene → window.location.reload(true).
+        const _CLIENT_BUILD = 'v6.63.106-2026-06-03T08:30Z';
+        (function setupAutoReloadOnNewBuild() {
+            let _serverBuildMarker = null;
+            async function _check() {
+                try {
+                    const r = await fetch(location.pathname + '?cb=' + Date.now(), { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } });
+                    if (!r.ok) return;
+                    const txt = await r.text();
+                    // Suche nach _CLIENT_BUILD Marker im neuen HTML
+                    const m = txt.match(/_CLIENT_BUILD\s*=\s*'([^']+)'/);
+                    if (!m) return;
+                    const fresh = m[1];
+                    if (_serverBuildMarker === null) _serverBuildMarker = fresh;
+                    if (fresh && fresh !== _CLIENT_BUILD) {
+                        console.warn('🔄 Neuer Build erkannt: ' + fresh + ' (geladen: ' + _CLIENT_BUILD + ') — reload in 2s');
+                        setTimeout(() => { try { location.reload(); } catch(_){} }, 2000);
+                    }
+                } catch(_) { /* offline ok */ }
+            }
+            setTimeout(_check, 15000);
+            setInterval(_check, 60000);
+        })();
+
         // 🆕 v6.41.90: Crash-Logger nach /debugErrors (gleicher Mechanismus wie index.html)
         (function setupCrashLogger() {
             function _write(kind, payload) {
@@ -2226,8 +2253,11 @@
                                         const _km = 6371 * 2 * Math.atan2(Math.sqrt(_aH), Math.sqrt(1-_aH));
                                         if (_km < _bestKm) _bestKm = _km;
                                     }
-                                    // 5 km Toleranz (Heringsdorf Umkreis als "Homebase-Bereich")
-                                    if (_bestKm > 5 && _bestKm < 100) {
+                                    // v6.63.106 (Patrick 03.06. 08:28 "einen Kilometer um
+                                    //   die Homebase und da die Wartezeit berechnen"): 1 km
+                                    //   Toleranz statt 5 km. Strenger — auch bei 2km weg wird
+                                    //   schon Wartezeit angezeigt.
+                                    if (_bestKm > 1 && _bestKm < 100) {
                                         // v6.63.104 (Patrick 03.06. 08:18 "krumme Uhrzeiten,
                                         //   immer in 5-Min-Schritten"): auf nächste 5-Min runden
                                         const _raw = _bestKm * 1.4 / 35 * 60;

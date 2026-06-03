@@ -2199,10 +2199,40 @@
                                 }
                                 _busyVehiclesCount = _busyVehiclesSet.size;
                                 _freeNowCount = sofortCount - _busyVehiclesCount;
+                                // v6.63.101 (Patrick 03.06. 07:58 "Ich bin ja frei aber nicht
+                                //   verfügbar. Ich bin erst wieder sofort frei in Heringsdorf"):
+                                //   Auch "freie" Fahrer (keine aktive Ride) können physisch
+                                //   weit vom Homebase weg sein (Patrick fährt gerade Greifswald
+                                //   → Heringsdorf zurück). Schätze Mindest-Wartezeit aus der
+                                //   nähesten Vehicle-Position zum Homebase.
+                                let _minFreeWaitMin = 0;
                                 if (_freeNowCount > 0) {
+                                    let _bestKm = 999;
+                                    for (const [_vid, _vInfo] of Object.entries(_gpsOnlineVehicles || {})) {
+                                        if (!OFFICIAL_VEHICLES[_vid]) continue;
+                                        if (_busyVehiclesSet.has(_vid)) continue;
+                                        if (!_vInfo.lat || !_vInfo.lon) continue;
+                                        const _dLatRad = (_HOMEBASE_LAT - _vInfo.lat) * Math.PI / 180;
+                                        const _dLonRad = (_HOMEBASE_LON - _vInfo.lon) * Math.PI / 180;
+                                        const _aH = Math.sin(_dLatRad/2)**2 + Math.cos(_vInfo.lat*Math.PI/180)*Math.cos(_HOMEBASE_LAT*Math.PI/180)*Math.sin(_dLonRad/2)**2;
+                                        const _km = 6371 * 2 * Math.atan2(Math.sqrt(_aH), Math.sqrt(1-_aH));
+                                        if (_km < _bestKm) _bestKm = _km;
+                                    }
+                                    // 5 km Toleranz (Heringsdorf Umkreis als "Homebase-Bereich")
+                                    if (_bestKm > 5 && _bestKm < 100) {
+                                        _minFreeWaitMin = Math.round(_bestKm * 1.4 / 35 * 60);
+                                    }
+                                }
+                                if (_freeNowCount > 0 && _minFreeWaitMin === 0) {
                                     bar.textContent = `🟢 Taxi sofort verfügbar! ${_freeNowCount} Fahrer frei · Adresse eingeben für ETA`;
                                     bar.className = 'status-bar online';
                                     bar.style.background = '';
+                                } else if (_freeNowCount > 0 && _minFreeWaitMin > 0) {
+                                    // Freie Fahrer aber noch unterwegs zur Homebase
+                                    bar.textContent = `🟡 ${_freeNowCount} Fahrer auf Rückweg zur Homebase · Wartezeit ca. ${_minFreeWaitMin} Min · Adresse eingeben für genaue ETA`;
+                                    bar.className = 'status-bar';
+                                    bar.style.background = '#fef3c7';
+                                    bar.style.color = '#92400e';
                                 } else if (_earliestFreeMs) {
                                     // v6.63.099 (Patrick 03.06. 07:46 "auch bevor ich Pickup
                                     //   eingeklickt habe"): GELB statt grün wenn keine Fahrer

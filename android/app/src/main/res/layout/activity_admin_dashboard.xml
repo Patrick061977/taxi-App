@@ -13,6 +13,43 @@
         android:background="#1E293B"
         app:elevation="0dp">
 
+        <!-- 🆕 v6.63.108 (Patrick 03.06. 08:40 "Banner für Web-Anfrage muss oben stehen
+             nicht in der Dispo rumkrabbeln"): Anfragen-Banner an POSITION 1 (vor
+             Update-Banner). ROT statt orange, größerer Text, prominenter. -->
+        <LinearLayout
+            android:id="@+id/admin_anfragen_banner"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="#DC2626"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="16dp"
+            android:paddingTop="16dp"
+            android:paddingEnd="12dp"
+            android:paddingBottom="16dp"
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/admin_anfragen_banner_text"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="📥 0 offene Web-/WhatsApp-Anfragen"
+                android:textColor="#FFFFFF"
+                android:textSize="17sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="› ÜBERNEHMEN"
+                android:textColor="#FFFFFF"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
         <!-- v6.62.197: Update-Banner — Patrick sah keine Updates mehr seit er auf
              Admin-Disposition (v6.62.153) umgestiegen ist, weil diese Activity
              keinen Banner hatte. Jetzt analog zu DriverDashboardActivity. -->
@@ -77,42 +114,6 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:text="⚠️ WARTEPOOL: 0 Fahrten warten"
-                android:textColor="#FFFFFF"
-                android:textSize="14sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="› ANSEHEN"
-                android:textColor="#FFFFFF"
-                android:textSize="12sp"
-                android:textStyle="bold" />
-        </LinearLayout>
-
-        <!-- 🆕 v6.62.932 (Patrick 25.05. 12:30): Web-Anfragen-Alarm-Banner.
-             /anfragen mit status='offen' → 'die gehen in der Dispo unter'. -->
-        <LinearLayout
-            android:id="@+id/admin_anfragen_banner"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:background="#F59E0B"
-            android:clickable="true"
-            android:focusable="true"
-            android:gravity="center_vertical"
-            android:orientation="horizontal"
-            android:paddingStart="16dp"
-            android:paddingTop="12dp"
-            android:paddingEnd="12dp"
-            android:paddingBottom="12dp"
-            android:visibility="gone">
-
-            <TextView
-                android:id="@+id/admin_anfragen_banner_text"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="📥 0 offene Web-/WhatsApp-Anfragen"
                 android:textColor="#FFFFFF"
                 android:textSize="14sp"
                 android:textStyle="bold" />

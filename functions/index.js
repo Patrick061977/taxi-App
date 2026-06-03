@@ -28257,10 +28257,13 @@ exports.createStripeSetup = onRequest(
                 usage: 'off_session',
                 metadata: { crmCustomerId: customerId }
             });
+            // v6.63.117 hot-fix: Feld heißt 'publicKey' in Firebase, nicht 'publishableKey'
+            const _pubKey = (await db.ref('settings/stripe/publicKey').once('value')).val()
+                         || (await db.ref('settings/stripe/publishableKey').once('value')).val();
             res.json({
                 clientSecret: setupIntent.client_secret,
                 stripeCustomerId,
-                publishableKey: (await db.ref('settings/stripe/publishableKey').once('value')).val()
+                publishableKey: _pubKey
             });
         } catch (e) {
             console.error('createStripeSetup Fehler:', e.message);

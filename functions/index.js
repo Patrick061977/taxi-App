@@ -30845,7 +30845,13 @@ exports.onSmsQueued = onValueCreated(
         const smsId = event.params.smsId;
         const smsData = event.data.val();
         if (!smsData || !smsData.phone || !smsData.text) return;
-        if (smsData.status !== 'pending') return;
+        // v6.63.107 (Patrick 03.06. 08:34 Bartels-Bestaetigung fehlte): Vorher musste
+        //   status==='pending' gesetzt sein, aber 7 von 13 Cloud-Functions vergessen
+        //   das Feld komplett — Eintrag landet ohne status in der Queue + wird hier
+        //   uebersprungen + Native-Gateway sieht ihn nie. Konkret v6.63.069
+        //   anfrage-uebernahme-bestaetigung-fallback (Z.21544). Fix: leerer status
+        //   wird als 'pending' behandelt; nur explizite Final-States skippen.
+        if (smsData.status && ['sent','failed','cancelled','skipped'].includes(smsData.status)) return;
 
         console.log(`📲 onSmsQueued: ${smsId} — ${smsData.phone} — ${smsData.type}`);
 

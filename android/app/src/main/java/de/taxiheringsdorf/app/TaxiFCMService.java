@@ -229,8 +229,15 @@ public class TaxiFCMService extends FirebaseMessagingService {
             if (sound == null) sound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE);
             if (sound == null) sound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
             vibratePattern = new long[]{0, 800, 300, 800, 300, 800, 300, 800};
+        } else if ("new_anfrage".equals(type) || "new_web_booking".equals(type)) {
+            // 🆕 v6.63.108 (Patrick 03.06. 08:40 "Push war nur einmal kurz piepsen, das
+            //   ist zu wenig"): Web-Anfrage prominenter, fast wie Sofortfahrt aber kein
+            //   Vollbild-Alarm. RingTone statt NOTIFICATION + 4 lange Vibrations-Stöße.
+            sound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE);
+            if (sound == null) sound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+            vibratePattern = new long[]{0, 500, 200, 500, 200, 500, 200, 500};
         } else {
-            // Webbuchung/Anfrage: normales Notification-Sound + kurze Vibration
+            // Sonstige Pushs: normales Notification-Sound + kurze Vibration
             sound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
             if (sound == null) sound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE);
             vibratePattern = new long[]{0, 250, 150, 250};

@@ -1056,8 +1056,16 @@ public class CrmSearchActivity extends AppCompatActivity {
                     String pdfUrl = s.child("pdfUrl").getValue(String.class);
                     String rideId = s.child("rideId").getValue(String.class);
                     String invKey = s.getKey();
+                    // 🆕 v6.63.116 (Patrick 03.06. 12:30 "kannst du das aendern dass aktuelle
+                    //   Rechnungen oben stehen und alte unten?"): Vorher Sortierung nach
+                    //   invoiceDate (Tag-genau) — bei mehreren Rechnungen am selben Tag
+                    //   unbestimmt. Jetzt: createdAt (millisekunden-genau) bevorzugt,
+                    //   Fallback invoiceDate.
                     long dateMs = 0L;
-                    if (dt != null) {
+                    Long createdAt = s.child("createdAt").getValue(Long.class);
+                    if (createdAt != null && createdAt > 0) {
+                        dateMs = createdAt;
+                    } else if (dt != null) {
                         try {
                             java.text.SimpleDateFormat _isoFmt = new java.text.SimpleDateFormat("yyyy-MM-dd", Locale.GERMANY);
                             dateMs = _isoFmt.parse(dt).getTime();

@@ -1573,18 +1573,25 @@
                 else if (d.getDay() === 0 || d.getDay() === 6) weekends++;
                 else weekdays++;
             }
-            // Schicht-Stunden aggregieren über calcZuschlagsStunden
+            // 🆕 v6.63.114 (Patrick 03.06. 09:54 "da steht keine Schichtplan-Daten,
+            //   aber eigentlich sind die ja da"): falscher Pfad — Schichtplan liegt
+            //   in /shiftPlan/{YYYY-WW}/{staffId}/{dayIdx}, nicht /shiftPlans/.
+            //   aggregateMonthForEcovis() macht das schon korrekt — wiederverwenden.
             let tVoll = 0, tStandby = 0, tNacht25 = 0, tNacht40 = 0, tSonntag = 0, tFeiertag150 = 0, tFeiertag125 = 0;
             let plannedDays = 0;
+            let dayRows = [];
             try {
-                const planSnap = await db.ref('shiftPlans/' + staffId).once('value');
-                const plans = planSnap.val() || {};
+                if (typeof allStaff === 'undefined' || allStaff.length === 0) {
+                    const sSnap = await db.ref('staff').once('value');
+                    const sAll = sSnap.val() || {};
+                    window.allStaff = Object.entries(sAll).map(([k,v]) => ({ id: k, ...v }));
+                }
+                const monthData = await aggregateMonthForEcovis(year, month);
+                const dailyData = monthData[staffId] || {};
                 for (let day = 1; day <= daysInMonth; day++) {
                     const dateKey = year + '-' + String(month).padStart(2,'0') + '-' + String(day).padStart(2,'0');
-                    const dayPlan = plans[dateKey];
-                    if (!dayPlan) continue;
+                    const dataD = dailyData[dateKey] || { plan: null, shifts: [] };
                     const date = new Date(year, month - 1, day);
-                    const dataD = { plan: dayPlan, shifts: [] };
                     const cls = classifyDay(dataD, date);
                     if (cls.vollBezahlt > 0 || cls.standbyGes > 0) plannedDays++;
                     tVoll += cls.vollBezahlt;
@@ -1594,6 +1601,12 @@
                     tSonntag += cls.sonntag;
                     tFeiertag150 += cls.feiertag150 || 0;
                     tFeiertag125 += cls.feiertag125 || 0;
+                    const isFt = (typeof FEIERTAGE_2026 !== 'undefined') && FEIERTAGE_2026[dateKey];
+                    const dow = date.getDay();
+                    const dowName = ['So','Mo','Di','Mi','Do','Fr','Sa'][dow];
+                    const rowColor = isFt ? '#fef3c7' : (dow === 0 ? '#fee2e2' : (cls.vollBezahlt > 0 ? '#dcfce7' : '#f9fafb'));
+                    const shiftLabel = cls.ranges.shift || (cls.standbyGes > 0 ? 'Standby ' + cls.standbyGes + 'h' : 'frei');
+                    dayRows.push(`<tr style="background:${rowColor};"><td style="padding:4px 6px;font-size:11px;">${String(day).padStart(2,'0')}.${String(month).padStart(2,'0')}.</td><td style="padding:4px 6px;font-size:11px;">${dowName}${isFt ? ' 🎉' : ''}</td><td style="padding:4px 6px;font-size:11px;">${shiftLabel}</td><td style="padding:4px 6px;font-size:11px;text-align:right;">${cls.vollBezahlt > 0 ? cls.vollBezahlt.toFixed(1) + 'h' : '–'}</td></tr>`);
                 }
             } catch (e) { console.warn('Optimizer Monatsdaten:', e.message); }
             // Stunden-Felder vorbefüllen wenn Schichtdaten vorhanden
@@ -1607,10 +1620,22 @@
                 document.getElementById('opt-feiertag150').value = tFeiertag150.toFixed(0);
             }
             summary.style.display = 'block';
+            const staffName = document.getElementById('opt-staff').options[document.getElementById('opt-staff').selectedIndex].text;
             summary.innerHTML = `
-                <strong>${new Date(year, month-1, 1).toLocaleDateString('de-DE',{month:'long',year:'numeric'})}:</strong>
-                ${daysInMonth} Tage · ${weekdays} Werktage · ${weekends} Wochenende · ${feiertage} Feiertage
-                ${plannedDays > 0 ? `<br>📅 <strong>${plannedDays} geplante Arbeitstage</strong> für ${document.getElementById('opt-staff').options[document.getElementById('opt-staff').selectedIndex].text}` : '<br>⚠️ Keine Schichtplan-Daten — Stunden manuell eingeben'}
+                <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+                    <div>
+                        <strong>${new Date(year, month-1, 1).toLocaleDateString('de-DE',{month:'long',year:'numeric'})}:</strong>
+                        ${daysInMonth} Tage · ${weekdays} Werktage · ${weekends} Wochenende · ${feiertage} Feiertage
+                        ${plannedDays > 0 ? `<br>📅 <strong>${plannedDays} geplante Arbeitstage</strong> für ${staffName}` : '<br>⚠️ Keine Schichtplan-Daten — Stunden manuell eingeben'}
+                    </div>
+                    ${plannedDays > 0 ? `<button onclick="document.getElementById('opt-month-detail').style.display = document.getElementById('opt-month-detail').style.display === 'none' ? 'block' : 'none'" style="padding:6px 10px;background:#3b82f6;color:white;border:none;border-radius:6px;font-size:12px;cursor:pointer;">📅 Tage-Details</button>` : ''}
+                </div>
+                ${dayRows.length > 0 ? `<div id="opt-month-detail" style="display:none;margin-top:10px;max-height:400px;overflow-y:auto;background:white;border-radius:6px;border:1px solid #e5e7eb;">
+                    <table style="width:100%;border-collapse:collapse;">
+                        <thead><tr style="background:#f3f4f6;position:sticky;top:0;"><th style="padding:6px;text-align:left;font-size:11px;">Datum</th><th style="padding:6px;text-align:left;font-size:11px;">Tag</th><th style="padding:6px;text-align:left;font-size:11px;">Schicht</th><th style="padding:6px;text-align:right;font-size:11px;">Std.</th></tr></thead>
+                        <tbody>${dayRows.join('')}</tbody>
+                    </table>
+                </div>` : ''}
             `;
             recalcOptimizer();
         }

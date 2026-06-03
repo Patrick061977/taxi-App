@@ -1940,7 +1940,11 @@
             //              standen mit Stunden im Sheet, nur die Euro-Werte waren 0.
             //              Jetzt: Spalten komplett raus wenn AUS.
             const surchargesEnabled = staff.taxFreeSurchargesEnabled !== false;
-            const allHeaders = ['Datum','Tag','Rufber.(h)','Schichtzeit (h)','(h) Pause','Pause Zeit','geleist.Std.','Rufber.(h)','Rufber.ges.','Sonntag 00-24 (50%)','Nacht 20-00 (25%)','Nacht 00-06 (40%)','Feiertag 00-24 (150%)'];
+            // 🆕 v6.63.110 (Patrick 03.06. 09:28 "wenn 150% und das andere 125% sollte
+            //   schon irgendwo vielleicht eine separate Spalte sein, oder?"): Feiertag
+            //   in 2 Spalten splitten — M=150% (Mai1+24./25./26.12.), N=125% (alle anderen).
+            //   Vorher: gemischt in einer Spalte mit irreführendem '150%'-Header.
+            const allHeaders = ['Datum','Tag','Rufber.(h)','Schichtzeit (h)','(h) Pause','Pause Zeit','geleist.Std.','Rufber.(h)','Rufber.ges.','Sonntag 00-24 (50%)','Nacht 20-00 (25%)','Nacht 00-06 (40%)','Feiertag 150%','Feiertag 125%'];
             const headers = surchargesEnabled ? allHeaders : allHeaders.slice(0, 9);
             rows.push(rowXmlStyled(2, headers.map((h, i) => [colLetter(i), 'inlineStr', h, 1])));
 
@@ -1983,11 +1987,13 @@
                 if (cls.ranges.post) cells.push(['H', 'inlineStr', cls.ranges.post]);
                 if (cls.standbyGes > 0) cells.push(['I', 'n', +cls.standbyGes.toFixed(2)]);
                 // v6.62.294: Zuschlags-Stunden nur wenn Steuerfreie Zuschlaege AN
+                // 🆕 v6.63.110: M=Feiertag 150% (Mai1), N=Feiertag 125% (alle anderen).
                 if (surchargesEnabled) {
                     if (cls.sonntag > 0) cells.push(['J', 'n', +cls.sonntag.toFixed(2)]);
                     if (cls.nacht25 > 0) cells.push(['K', 'n', +cls.nacht25.toFixed(2)]);
                     if (cls.nacht40 > 0) cells.push(['L', 'n', +cls.nacht40.toFixed(2)]);
-                    if (cls.feiertag > 0) cells.push(['M', 'n', +cls.feiertag.toFixed(2)]);
+                    if ((cls.feiertag150 || 0) > 0) cells.push(['M', 'n', +(cls.feiertag150).toFixed(2)]);
+                    if ((cls.feiertag125 || 0) > 0) cells.push(['N', 'n', +(cls.feiertag125).toFixed(2)]);
                 }
                 rows.push(rowXml(3 + day, cells));
             }
@@ -2005,7 +2011,9 @@
                 sumCells.push(['J', 'n', +tSonntag.toFixed(2), 3]);
                 sumCells.push(['K', 'n', +tNacht25.toFixed(2), 3]);
                 sumCells.push(['L', 'n', +tNacht40.toFixed(2), 3]);
-                sumCells.push(['M', 'n', +tFeiertag.toFixed(2), 3]);
+                // 🆕 v6.63.110: M=Feiertag 150%-Summe, N=Feiertag 125%-Summe
+                sumCells.push(['M', 'n', +tFeiertag150.toFixed(2), 3]);
+                sumCells.push(['N', 'n', +tFeiertag125.toFixed(2), 3]);
             }
             rows.push(rowXmlStyled(sumRowIdx, sumCells));
 
@@ -2038,7 +2046,11 @@
                 bruttoCells.push(['J', 'n', zuschlSonntag, 8]);
                 bruttoCells.push(['K', 'n', zuschlNacht25, 8]);
                 bruttoCells.push(['L', 'n', zuschlNacht40, 8]);
-                bruttoCells.push(['M', 'n', zuschlFeiertag, 8]);
+                // 🆕 v6.63.110: Brutto-Lohn pro Spalte — M=150%, N=125%
+                const zuschlFt150 = +(tFeiertag150 * rateShift * ZUSCHLAG_FEIERTAG_MAI1).toFixed(2);
+                const zuschlFt125 = +(tFeiertag125 * rateShift * ZUSCHLAG_FEIERTAG_NORMAL).toFixed(2);
+                bruttoCells.push(['M', 'n', zuschlFt150, 8]);
+                bruttoCells.push(['N', 'n', zuschlFt125, 8]);
             }
             rows.push(rowXmlStyled(currentRow, bruttoCells));
             currentRow += 2; // 1 Leerzeile
@@ -2053,7 +2065,16 @@
             // v6.62.294: Steuerfreie-Zuschlaege-Zeilen nur wenn AN
             if (surchargesEnabled) {
                 rows.push(rowXmlStyled(currentRow++, [['A', 'inlineStr', 'Steuerfreie Zuschlaege (§3b EStG):', 2], ['D', 'n', zuschlSumme, 8]]));
-                if (tFeiertag > 0) rows.push(rowXmlStyled(currentRow++, [['A', 'inlineStr', 'davon Feiertag 00-24 (150%) ' + tFeiertag.toFixed(2) + 'h:', 2], ['D', 'n', zuschlFeiertag, 8]]));
+                // 🆕 v6.63.110 (Patrick 03.06. 09:28): Feiertag aufsplitten in 150% (01.05.+24./25./26.12.)
+                //   vs 125% (alle anderen). Vorher gemischt in einer Zeile mit irreführendem '150%'-Label.
+                if (tFeiertag150 > 0) {
+                    const zFt150 = +(tFeiertag150 * rateShift * ZUSCHLAG_FEIERTAG_MAI1).toFixed(2);
+                    rows.push(rowXmlStyled(currentRow++, [['A', 'inlineStr', 'davon Feiertag (150%, 01.05./24.+25.+26.12.) ' + tFeiertag150.toFixed(2) + 'h:', 2], ['D', 'n', zFt150, 8]]));
+                }
+                if (tFeiertag125 > 0) {
+                    const zFt125 = +(tFeiertag125 * rateShift * ZUSCHLAG_FEIERTAG_NORMAL).toFixed(2);
+                    rows.push(rowXmlStyled(currentRow++, [['A', 'inlineStr', 'davon Feiertag (125%, andere) ' + tFeiertag125.toFixed(2) + 'h:', 2], ['D', 'n', zFt125, 8]]));
+                }
             }
             rows.push(rowXmlStyled(currentRow++, [['A', 'inlineStr', 'Sozialversicherung (' + (SV_RATE * 100) + '%):', 2], ['D', 'n', -sv, 8]]));
             rows.push(rowXmlStyled(currentRow++, [['A', 'inlineStr', 'Lohnsteuer (' + (LST_RATE * 100) + '%):', 2], ['D', 'n', -lst, 8]]));

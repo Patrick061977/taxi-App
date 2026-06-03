@@ -2208,10 +2208,18 @@
                                 let _minFreeWaitMin = 0;
                                 if (_freeNowCount > 0) {
                                     let _bestKm = 999;
+                                    // v6.63.104 (Patrick 03.06. 08:13 Playwright-Befund): Loop nahm
+                                    //   auch OFFLINE-Fahrzeuge mit stale GPS-Position. ovp-ii-600
+                                    //   war offline seit Tagen aber GPS bei Homebase → _bestKm=0
+                                    //   → "Taxi sofort verfügbar". Fix: nur online + frisches GPS.
+                                    const _NOW = Date.now();
                                     for (const [_vid, _vInfo] of Object.entries(_gpsOnlineVehicles || {})) {
                                         if (!OFFICIAL_VEHICLES[_vid]) continue;
                                         if (_busyVehiclesSet.has(_vid)) continue;
+                                        if (!_vInfo || _vInfo.online === false) continue;
                                         if (!_vInfo.lat || !_vInfo.lon) continue;
+                                        const _gpsAgeMin = _vInfo.timestamp ? (_NOW - _vInfo.timestamp) / 60000 : 9999;
+                                        if (_gpsAgeMin > 10) continue;
                                         const _dLatRad = (_HOMEBASE_LAT - _vInfo.lat) * Math.PI / 180;
                                         const _dLonRad = (_HOMEBASE_LON - _vInfo.lon) * Math.PI / 180;
                                         const _aH = Math.sin(_dLatRad/2)**2 + Math.cos(_vInfo.lat*Math.PI/180)*Math.cos(_HOMEBASE_LAT*Math.PI/180)*Math.sin(_dLonRad/2)**2;
@@ -2220,7 +2228,10 @@
                                     }
                                     // 5 km Toleranz (Heringsdorf Umkreis als "Homebase-Bereich")
                                     if (_bestKm > 5 && _bestKm < 100) {
-                                        _minFreeWaitMin = Math.round(_bestKm * 1.4 / 35 * 60);
+                                        // v6.63.104 (Patrick 03.06. 08:18 "krumme Uhrzeiten,
+                                        //   immer in 5-Min-Schritten"): auf nächste 5-Min runden
+                                        const _raw = _bestKm * 1.4 / 35 * 60;
+                                        _minFreeWaitMin = Math.max(5, Math.round(_raw / 5) * 5);
                                     }
                                 }
                                 if (_freeNowCount > 0 && _minFreeWaitMin === 0) {
@@ -2239,7 +2250,9 @@
                                     // v6.63.099 (Patrick 03.06. 07:46 "auch bevor ich Pickup
                                     //   eingeklickt habe"): GELB statt grün wenn keine Fahrer
                                     //   wirklich frei sind, schon vor Pickup-Eingabe.
-                                    const _waitMin = Math.max(1, Math.round((_earliestFreeMs - _nowMs) / 60000));
+                                    // v6.63.104: 5-Min-Schritte (Patrick "keine krummen Uhrzeiten")
+                                    const _raw = Math.max(1, Math.round((_earliestFreeMs - _nowMs) / 60000));
+                                    const _waitMin = Math.max(5, Math.round(_raw / 5) * 5);
                                     bar.textContent = `🟡 Wartezeit ca. ${_waitMin} Min · Adresse eingeben für genaue ETA`;
                                     bar.className = 'status-bar';
                                     bar.style.background = '#fef3c7';

@@ -22419,8 +22419,20 @@ exports.onRideCreated = onValueCreated(
         // pastDateBooking=true wenn Patrick rückwirkend für Rechnungs-Zwecke einträgt).
         // Patrick (18:06): "Sonst würden die Leute eine Bestätigungs-Email bekommen davon —
         // das wäre Quatsch."
-        if (ride.status === 'completed' && (ride.completedBy === 'auftrag-import-historic' || ride.pastDateBooking === true)) {
-            const reason = ride.completedBy === 'auftrag-import-historic' ? 'Historic Past-Date Import' : 'Rückwirkend-Buchung (Rechnungs-Zweck)';
+        // 🆕 v6.63.103: Mütter-Gesundheit Geist-Bug (Patrick 03.06. 08:08).
+        // Vorher griff dieser Schutz nur bei completedBy='auftrag-import-historic'
+        // ODER pastDateBooking=true. Wenn Patrick in CrmSearchActivity eine Vorbestellung
+        // direkt als "Komplett" anlegt (z.B. Past-Date für Stammkunde), war keins der
+        // Flags gesetzt → onRideCreated v6.62.22 hat status=completed → warteschlange
+        // gedowngraded → 12h später ging Fahrzeug online → Geist-Push.
+        // Fix: status='completed' wird IMMER respektiert. Eine completed-Fahrt darf NIE
+        // von onRideCreated zur warteschlange degradiert werden.
+        if (ride.status === 'completed') {
+            const reason = ride.completedBy === 'auftrag-import-historic'
+                ? 'Historic Past-Date Import'
+                : (ride.pastDateBooking === true
+                    ? 'Rückwirkend-Buchung (Rechnungs-Zweck)'
+                    : 'Bereits-completed Anlage (Past-Date Vorbestellung / nachgetragene Fahrt)');
             // 🆕 v6.62.285: Patrick — optional Abschluss-SMS bei Past-Date-Buchung
             // (Toggle ride.sendCompletionSms aus submitQuickBooking Confirm)
             const optInSms = ride.sendCompletionSms === true;

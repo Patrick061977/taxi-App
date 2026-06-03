@@ -2235,17 +2235,17 @@
                                     }
                                 }
                                 if (_freeNowCount > 0 && _minFreeWaitMin === 0) {
-                                    bar.textContent = `🟢 Taxi sofort verfügbar! ${_freeNowCount} Fahrer frei · Adresse eingeben für ETA`;
+                                    bar.textContent = `⚡ Taxi sofort verfügbar`;
                                     bar.className = 'status-bar online';
                                     bar.style.background = '';
                                 } else if (_freeNowCount > 0 && _minFreeWaitMin > 0) {
-                                    // v6.63.102 (Patrick 03.06. 08:04 "befindet sich auf
-                                    //   Rückfahrt ist alles Quatsch, du sollst einfach bloß
-                                    //   schreiben Wartezeit ca."): nur Zeit, kein Status-Roman.
-                                    bar.textContent = `🟡 Wartezeit ca. ${_minFreeWaitMin} Min · Adresse eingeben für genaue ETA`;
-                                    bar.className = 'status-bar';
-                                    bar.style.background = '#fef3c7';
-                                    bar.style.color = '#92400e';
+                                    // v6.63.105 (Patrick 03.06. 08:24 "Ich bin ja nicht frei,
+                                    //   fahre auf dem Rückweg zur Homebase — kein 'sofort'!"):
+                                    //   NUR Wartezeit, KEIN 'sofort verfügbar'. Ehrlich + kurz.
+                                    bar.textContent = `🚕 Wartezeit ca. ${_minFreeWaitMin} Min`;
+                                    bar.className = 'status-bar online';
+                                    bar.style.background = '';
+                                    bar.style.color = '';
                                 } else if (_earliestFreeMs) {
                                     // v6.63.099 (Patrick 03.06. 07:46 "auch bevor ich Pickup
                                     //   eingeklickt habe"): GELB statt grün wenn keine Fahrer
@@ -2253,10 +2253,10 @@
                                     // v6.63.104: 5-Min-Schritte (Patrick "keine krummen Uhrzeiten")
                                     const _raw = Math.max(1, Math.round((_earliestFreeMs - _nowMs) / 60000));
                                     const _waitMin = Math.max(5, Math.round(_raw / 5) * 5);
-                                    bar.textContent = `🟡 Wartezeit ca. ${_waitMin} Min · Adresse eingeben für genaue ETA`;
-                                    bar.className = 'status-bar';
-                                    bar.style.background = '#fef3c7';
-                                    bar.style.color = '#92400e';
+                                    bar.textContent = `🚕 Wartezeit ca. ${_waitMin} Min`;
+                                    bar.className = 'status-bar online';
+                                    bar.style.background = '';
+                                    bar.style.color = '';
                                 }
                             } catch (_eFree) { /* fallback bleibt 'Taxi verfügbar' */ }
                         }

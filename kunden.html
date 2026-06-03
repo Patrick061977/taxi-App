@@ -549,9 +549,27 @@
             <div class="tabs">
                 <div class="tab active" id="tab-upcoming" onclick="switchTab('upcoming')">Kommende</div>
                 <div class="tab" id="tab-past" onclick="switchTab('past')">Vergangene</div>
+                <div class="tab" id="tab-autopay" onclick="switchTab('autopay')">⚡ Auto-Pay</div>
             </div>
 
             <div id="rides-list"></div>
+
+            <!-- 🆕 v6.63.118 (Patrick 03.06. 12:44 "im Kunden-HTML anlegen"): Auto-Pay-Tab
+                 mit Stripe-Elements eingebettet, kein separater autopay.html-Link mehr. -->
+            <div id="autopay-content" style="display:none;padding:20px;background:white;border-radius:12px;margin-top:14px;">
+                <h3 style="margin:0 0 6px;font-size:18px;color:#0f172a;">⚡ Auto-Pay einrichten</h3>
+                <p style="font-size:13px;color:#64748b;margin-bottom:14px;">Hinterlegen Sie einmalig Ihre Karte — danach wird der Fahrtpreis automatisch nach jeder Fahrt abgebucht. Wie bei Uber oder Bolt.</p>
+                <div id="autopay-status-banner" style="display:none;margin-bottom:14px;padding:12px;border-radius:8px;font-size:13px;"></div>
+                <div id="autopay-setup-form">
+                    <div id="autopay-payment-element" style="margin:14px 0 18px;"></div>
+                    <button id="autopay-submit-btn" onclick="submitAutopaySetup()" style="width:100%;padding:14px;background:#059669;color:white;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;" disabled>Karte sicher hinterlegen</button>
+                    <div style="text-align:center;font-size:11px;color:#94a3b8;margin-top:14px;">🔒 Karten-Daten werden direkt von Stripe sicher gespeichert.</div>
+                </div>
+                <div id="autopay-existing" style="display:none;background:#dcfce7;color:#15803d;padding:14px;border-radius:8px;font-size:14px;font-weight:600;">
+                    ✅ Auto-Pay ist aktiv. Ihre Fahrten werden automatisch abgebucht.
+                    <button onclick="disableAutopay()" style="display:block;margin-top:10px;padding:8px 14px;background:#fef2f2;color:#b91c1c;border:1px solid #fecaca;border-radius:8px;cursor:pointer;font-size:12px;">Auto-Pay deaktivieren</button>
+                </div>
+            </div>
 
             <!-- Neue Fahrt buchen -->
             <div style="margin-top:16px;text-align:center;">
@@ -2065,7 +2083,123 @@
             currentTab = tab;
             document.getElementById('tab-upcoming').classList.toggle('active', tab === 'upcoming');
             document.getElementById('tab-past').classList.toggle('active', tab === 'past');
-            renderRides();
+            const _ap = document.getElementById('tab-autopay');
+            if (_ap) _ap.classList.toggle('active', tab === 'autopay');
+            const _autoEl = document.getElementById('autopay-content');
+            const _ridesEl = document.getElementById('rides-list');
+            if (tab === 'autopay') {
+                if (_autoEl) _autoEl.style.display = 'block';
+                if (_ridesEl) _ridesEl.style.display = 'none';
+                initAutopay();
+            } else {
+                if (_autoEl) _autoEl.style.display = 'none';
+                if (_ridesEl) _ridesEl.style.display = '';
+                renderRides();
+            }
+        }
+
+        // 🆕 v6.63.118 (Patrick 03.06. 12:44): Auto-Pay Setup-Flow eingebettet
+        //   in kunden.html. Lazy-loaded Stripe.js, lazy-init SetupIntent.
+        let _autopayStripe = null, _autopayElements = null, _autopayClientSecret = null;
+        async function initAutopay() {
+            const statusEl = document.getElementById('autopay-status-banner');
+            const formEl = document.getElementById('autopay-setup-form');
+            const existingEl = document.getElementById('autopay-existing');
+            const btn = document.getElementById('autopay-submit-btn');
+            const user = firebase.auth().currentUser;
+            if (!user) return;
+            // CRM-Customer lookup via phone
+            const phone = user.phoneNumber;
+            let crmId = null, crmCustomer = null;
+            try {
+                const snap = await db.ref('customers').orderByChild('phone').equalTo(phone).once('value');
+                snap.forEach(c => { if (!crmId) { crmId = c.key; crmCustomer = c.val(); } });
+                if (!crmId) {
+                    const snap2 = await db.ref('customers').orderByChild('mobilePhone').equalTo(phone).once('value');
+                    snap2.forEach(c => { if (!crmId) { crmId = c.key; crmCustomer = c.val(); } });
+                }
+            } catch(e) {}
+            if (!crmId) {
+                statusEl.textContent = 'CRM-Eintrag nicht gefunden. Bitte buchen Sie zuerst eine Fahrt, dann ist Auto-Pay verfügbar.';
+                statusEl.style.background = '#fee2e2'; statusEl.style.color = '#b91c1c';
+                statusEl.style.display = 'block';
+                formEl.style.display = 'none';
+                return;
+            }
+            if (crmCustomer && crmCustomer.autoChargeEnabled === true && crmCustomer.defaultPaymentMethodId) {
+                formEl.style.display = 'none';
+                existingEl.style.display = 'block';
+                existingEl.dataset.crmId = crmId;
+                return;
+            }
+            statusEl.style.background = '#dbeafe'; statusEl.style.color = '#1e40af';
+            statusEl.textContent = 'Bereite sichere Verbindung vor…';
+            statusEl.style.display = 'block';
+            btn.disabled = true;
+            // Lazy-load Stripe.js
+            if (typeof Stripe === 'undefined') {
+                await new Promise((resolve, reject) => {
+                    const s = document.createElement('script');
+                    s.src = 'https://js.stripe.com/v3/';
+                    s.onload = resolve; s.onerror = reject;
+                    document.head.appendChild(s);
+                });
+            }
+            try {
+                const r = await fetch('https://europe-west1-taxi-heringsdorf.cloudfunctions.net/createStripeSetup', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ customerId: crmId, name: crmCustomer && crmCustomer.name, email: crmCustomer && crmCustomer.email, phone })
+                });
+                const data = await r.json();
+                if (!r.ok) throw new Error(data.error || 'Setup fehlgeschlagen');
+                _autopayClientSecret = data.clientSecret;
+                _autopayStripe = Stripe(data.publishableKey);
+                _autopayElements = _autopayStripe.elements({ clientSecret: _autopayClientSecret });
+                const pe = _autopayElements.create('payment');
+                pe.mount('#autopay-payment-element');
+                statusEl.style.display = 'none';
+                btn.disabled = false;
+                btn.dataset.crmId = crmId;
+            } catch (e) {
+                statusEl.textContent = 'Fehler: ' + e.message;
+                statusEl.style.background = '#fee2e2'; statusEl.style.color = '#b91c1c';
+            }
+        }
+
+        async function submitAutopaySetup() {
+            const btn = document.getElementById('autopay-submit-btn');
+            const statusEl = document.getElementById('autopay-status-banner');
+            btn.disabled = true;
+            statusEl.style.display = 'block';
+            statusEl.style.background = '#dbeafe'; statusEl.style.color = '#1e40af';
+            statusEl.textContent = 'Karte wird sicher gespeichert…';
+            const { error } = await _autopayStripe.confirmSetup({
+                elements: _autopayElements,
+                confirmParams: {
+                    return_url: location.href.split('?')[0] + '?autopay=done',
+                    payment_method_data: { billing_details: {} }
+                }
+            });
+            if (error) {
+                statusEl.textContent = 'Karte konnte nicht gespeichert werden: ' + error.message;
+                statusEl.style.background = '#fee2e2'; statusEl.style.color = '#b91c1c';
+                btn.disabled = false;
+            }
+        }
+
+        async function disableAutopay() {
+            if (!confirm('Auto-Pay wirklich deaktivieren? Sie müssen dann wieder per Rechnung oder vor Ort zahlen.')) return;
+            const existingEl = document.getElementById('autopay-existing');
+            const crmId = existingEl.dataset.crmId;
+            if (!crmId) return;
+            await db.ref('customers/' + crmId).update({ autoChargeEnabled: false, autoChargeDisabledAt: Date.now() });
+            location.reload();
+        }
+
+        // Bei Rückkehr nach Stripe-Confirm
+        if (new URLSearchParams(location.search).get('autopay') === 'done') {
+            setTimeout(() => { switchTab('autopay'); }, 500);
         }
 
         function closeModal() {

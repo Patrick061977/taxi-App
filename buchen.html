@@ -2140,18 +2140,43 @@
                                 let _busyVehiclesCount = 0;
                                 let _freeNowCount = 0;
                                 const _busyVehiclesSet = new Set();
+                                // v6.63.097 (Patrick 03.06. 07:32 "Bei Buchen-HTML steht immer
+                                //   noch sofort verfügbar — jetzt fahre ich zurück zur Homebase
+                                //   und da brauche ich noch 60 Minuten"):
+                                //   ETA bisher = pickupTimestamp + duration + 5min Puffer,
+                                //   ignoriert Rückfahrt zur Homebase. Jetzt: + OSRM-Pfad vom
+                                //   Drop zur Homebase (53.949313, 14.169976 = Bahnhof Heringsdorf)
+                                //   als realistische "Vehicle ist wieder verfügbar"-Schätzung.
+                                const _HOMEBASE_LAT = 53.949313;
+                                const _HOMEBASE_LON = 14.169976;
+                                const _busyRides = [];
                                 _ridesSnap.forEach(c => {
                                     const r = c.val();
                                     if (!r || !_activeStatuses.includes(r.status)) return;
                                     const vid = r.assignedVehicle || r.vehicleId;
                                     if (!vid || !OFFICIAL_VEHICLES[vid]) return;
+                                    _busyVehiclesSet.add(vid);
+                                    _busyRides.push({ ...r, _vid: vid });
+                                });
+                                // Pro busy Vehicle: Endpunkt = Drop + Rückfahrt zur Homebase via Haversine*1.4
+                                for (const r of _busyRides) {
                                     const dur = (r.duration || r.estimatedDuration || 25) * 60000;
-                                    const endMs = (r.pickupTimestamp || _nowMs) + dur + 5*60000; // +5 Min Puffer
+                                    let endMs = (r.pickupTimestamp || _nowMs) + dur + 5*60000;
+                                    const dLat = r.destinationLat || (r.destCoords && r.destCoords.lat);
+                                    const dLon = r.destinationLon || (r.destCoords && r.destCoords.lon);
+                                    if (dLat && dLon) {
+                                        const _dLatRad = (_HOMEBASE_LAT - dLat) * Math.PI / 180;
+                                        const _dLonRad = (_HOMEBASE_LON - dLon) * Math.PI / 180;
+                                        const _aH = Math.sin(_dLatRad/2)**2 + Math.cos(dLat*Math.PI/180)*Math.cos(_HOMEBASE_LAT*Math.PI/180)*Math.sin(_dLonRad/2)**2;
+                                        const _kmToHome = 6371 * 2 * Math.atan2(Math.sqrt(_aH), Math.sqrt(1-_aH));
+                                        // Haversine * 1.4 als Korrektur für reale Strecke, /35 km/h Durchschnitt
+                                        const _minToHome = Math.round(_kmToHome * 1.4 / 35 * 60);
+                                        endMs += _minToHome * 60000;
+                                    }
                                     if (endMs > _nowMs) {
-                                        _busyVehiclesSet.add(vid);
                                         if (_earliestFreeMs === null || endMs < _earliestFreeMs) _earliestFreeMs = endMs;
                                     }
-                                });
+                                }
                                 _busyVehiclesCount = _busyVehiclesSet.size;
                                 _freeNowCount = sofortCount - _busyVehiclesCount;
                                 if (_freeNowCount > 0) {

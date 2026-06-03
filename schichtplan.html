@@ -510,6 +510,10 @@
                             <select id="opt-staff" class="form-input"></select>
                         </div>
                         <div class="form-group">
+                            <label class="form-label">Monat</label>
+                            <select id="opt-month" class="form-input"></select>
+                        </div>
+                        <div class="form-group">
                             <label class="form-label">Ziel-Netto (€)</label>
                             <input type="number" id="opt-target" class="form-input" value="2000" step="50" min="0" oninput="recalcOptimizer()">
                         </div>
@@ -524,9 +528,10 @@
                         <div class="form-group">
                             <label class="form-label">Anwesenheits-Faktor</label>
                             <input type="number" id="opt-presence" class="form-input" value="1.00" step="0.05" min="0" max="1" oninput="recalcOptimizer()">
-                            <small style="font-size:11px;color:#9ca3af;">1.00 = volle 5-Tage-Woche, 0.80 = 4/5 Tage anwesend</small>
+                            <small id="opt-presence-hint" style="font-size:11px;color:#9ca3af;">1.00 = volle 5-Tage-Woche, 0.80 = 4/5 Tage anwesend</small>
                         </div>
                     </div>
+                    <div id="opt-month-summary" style="margin-top:14px;font-size:13px;color:#374151;background:#f9fafb;padding:10px;border-radius:8px;display:none;"></div>
                     <div style="margin-top:14px;border-top:1px solid #e5e7eb;padding-top:14px;">
                         <h3 style="font-size:14px;margin-bottom:8px;color:#374151;">Stunden-Verteilung pro Monat</h3>
                         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;">
@@ -1502,7 +1507,22 @@
         //   variabel. Anwesenheits-Faktor für reduzierte 5-Tage-Wochen (Darek).
         function initOptimizerTab() {
             const sel = document.getElementById('opt-staff');
+            const monthSel = document.getElementById('opt-month');
             if (!sel) return;
+            // 🆕 v6.63.113: Monat-Dropdown füllen (aktueller + 11 Vormonate)
+            if (monthSel && monthSel.options.length === 0) {
+                const monthNames = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+                const today = new Date();
+                const opts = [];
+                for (let i = 0; i < 12; i++) {
+                    const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+                    const value = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+                    const label = monthNames[d.getMonth()] + ' ' + d.getFullYear();
+                    opts.push(`<option value="${value}">${label}</option>`);
+                }
+                monthSel.innerHTML = opts.join('');
+                monthSel.addEventListener('change', () => loadOptimizerMonthData());
+            }
             // Mitarbeiter-Liste füllen
             if (sel.options.length === 0) {
                 db.ref('staff').once('value').then(snap => {
@@ -1522,11 +1542,76 @@
                         if (opt && opt.dataset.rate) {
                             document.getElementById('opt-rate-shift').value = opt.dataset.rate;
                             document.getElementById('opt-rate-standby').value = opt.dataset.standby;
-                            recalcOptimizer();
                         }
+                        loadOptimizerMonthData();
                     });
                 });
             }
+            recalcOptimizer();
+        }
+
+        // 🆕 v6.63.113 (Patrick 03.06. 09:51 "können wir das nicht kombinieren dass
+        //   da auch noch die Monatsübersicht zu sehen ist"): bei Mitarbeiter+Monat
+        //   gewählt, Schicht-Daten laden + Stunden-Buckets als Vorbelegung setzen.
+        //   Plus Tage-Anzeige (Anzahl Werktage, Wochenenden, Feiertage).
+        async function loadOptimizerMonthData() {
+            const staffId = document.getElementById('opt-staff').value;
+            const monthVal = document.getElementById('opt-month').value;
+            const summary = document.getElementById('opt-month-summary');
+            if (!staffId || !monthVal || !summary) {
+                if (summary) summary.style.display = 'none';
+                return;
+            }
+            const [year, month] = monthVal.split('-').map(Number);
+            const daysInMonth = new Date(year, month, 0).getDate();
+            // Tage zählen: Werktage/Wochenenden/Feiertage
+            let weekdays = 0, weekends = 0, feiertage = 0;
+            for (let day = 1; day <= daysInMonth; day++) {
+                const d = new Date(year, month - 1, day);
+                const isFt = (typeof FEIERTAGE_2026 !== 'undefined') && FEIERTAGE_2026[d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')];
+                if (isFt) feiertage++;
+                else if (d.getDay() === 0 || d.getDay() === 6) weekends++;
+                else weekdays++;
+            }
+            // Schicht-Stunden aggregieren über calcZuschlagsStunden
+            let tVoll = 0, tStandby = 0, tNacht25 = 0, tNacht40 = 0, tSonntag = 0, tFeiertag150 = 0, tFeiertag125 = 0;
+            let plannedDays = 0;
+            try {
+                const planSnap = await db.ref('shiftPlans/' + staffId).once('value');
+                const plans = planSnap.val() || {};
+                for (let day = 1; day <= daysInMonth; day++) {
+                    const dateKey = year + '-' + String(month).padStart(2,'0') + '-' + String(day).padStart(2,'0');
+                    const dayPlan = plans[dateKey];
+                    if (!dayPlan) continue;
+                    const date = new Date(year, month - 1, day);
+                    const dataD = { plan: dayPlan, shifts: [] };
+                    const cls = classifyDay(dataD, date);
+                    if (cls.vollBezahlt > 0 || cls.standbyGes > 0) plannedDays++;
+                    tVoll += cls.vollBezahlt;
+                    tStandby += cls.standbyGes;
+                    tNacht25 += cls.nacht25;
+                    tNacht40 += cls.nacht40;
+                    tSonntag += cls.sonntag;
+                    tFeiertag150 += cls.feiertag150 || 0;
+                    tFeiertag125 += cls.feiertag125 || 0;
+                }
+            } catch (e) { console.warn('Optimizer Monatsdaten:', e.message); }
+            // Stunden-Felder vorbefüllen wenn Schichtdaten vorhanden
+            if (tVoll + tStandby > 0) {
+                document.getElementById('opt-voll').value = tVoll.toFixed(0);
+                document.getElementById('opt-standby').value = tStandby.toFixed(0);
+                document.getElementById('opt-nacht25').value = tNacht25.toFixed(0);
+                document.getElementById('opt-nacht40').value = tNacht40.toFixed(0);
+                document.getElementById('opt-sonntag').value = tSonntag.toFixed(0);
+                document.getElementById('opt-feiertag125').value = tFeiertag125.toFixed(0);
+                document.getElementById('opt-feiertag150').value = tFeiertag150.toFixed(0);
+            }
+            summary.style.display = 'block';
+            summary.innerHTML = `
+                <strong>${new Date(year, month-1, 1).toLocaleDateString('de-DE',{month:'long',year:'numeric'})}:</strong>
+                ${daysInMonth} Tage · ${weekdays} Werktage · ${weekends} Wochenende · ${feiertage} Feiertage
+                ${plannedDays > 0 ? `<br>📅 <strong>${plannedDays} geplante Arbeitstage</strong> für ${document.getElementById('opt-staff').options[document.getElementById('opt-staff').selectedIndex].text}` : '<br>⚠️ Keine Schichtplan-Daten — Stunden manuell eingeben'}
+            `;
             recalcOptimizer();
         }
 

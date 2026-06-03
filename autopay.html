@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Auto-Pay einrichten — Funk Taxi Heringsdorf</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, system-ui, sans-serif; margin: 0; padding: 20px; background: #f1f5f9; }
+  .card { max-width: 480px; margin: 40px auto; background: white; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,.08); padding: 28px; }
+  h1 { font-size: 22px; margin: 0 0 4px; color: #0f172a; }
+  .sub { font-size: 14px; color: #64748b; margin-bottom: 18px; }
+  .badge { display: inline-block; padding: 4px 10px; border-radius: 6px; background: #dbeafe; color: #1e40af; font-size: 11px; font-weight: 600; margin-bottom: 14px; }
+  label { display: block; font-size: 13px; color: #374151; margin-bottom: 6px; font-weight: 600; }
+  input { width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; margin-bottom: 12px; }
+  #payment-element { margin: 14px 0 20px; }
+  button { width: 100%; padding: 14px; background: #059669; color: white; border: none; border-radius: 10px; font-size: 15px; font-weight: 700; cursor: pointer; }
+  button:disabled { background: #94a3b8; cursor: wait; }
+  #status { margin-top: 14px; padding: 12px; border-radius: 8px; font-size: 13px; display: none; }
+  #status.success { background: #dcfce7; color: #15803d; }
+  #status.error { background: #fee2e2; color: #b91c1c; }
+  #status.info { background: #dbeafe; color: #1e40af; }
+  .footer { text-align: center; font-size: 11px; color: #94a3b8; margin-top: 18px; }
+</style>
+<script src="https://js.stripe.com/v3/"></script>
+</head>
+<body>
+<div class="card">
+  <span class="badge">⚡ Auto-Pay</span>
+  <h1>Zahlung hinterlegen</h1>
+  <p class="sub">Hinterlegen Sie einmalig Ihre Karte — danach wird der Fahrtpreis automatisch nach jeder Fahrt abgebucht. Wie bei Uber oder Bolt.</p>
+
+  <div id="setup-form">
+    <label>Ihr Name (wie auf der Karte)</label>
+    <input id="name" placeholder="Max Mustermann">
+    <label>E-Mail für Bestätigungen</label>
+    <input id="email" type="email" placeholder="max@example.com">
+    <div id="payment-element"></div>
+    <button id="submit-btn" onclick="submitSetup()">Karte sicher hinterlegen</button>
+  </div>
+
+  <div id="status"></div>
+
+  <div class="footer">
+    🔒 Karten-Daten werden direkt von Stripe sicher gespeichert.<br>
+    Funk Taxi Heringsdorf · 038378/22022
+  </div>
+</div>
+
+<script>
+  const params = new URLSearchParams(location.search);
+  const customerId = params.get('c');
+  const statusEl = document.getElementById('status');
+  const btn = document.getElementById('submit-btn');
+
+  let stripe, elements, clientSecret;
+
+  function showStatus(msg, kind) {
+    statusEl.textContent = msg;
+    statusEl.className = kind;
+    statusEl.style.display = 'block';
+  }
+
+  async function init() {
+    if (!customerId) {
+      showStatus('Fehlender Kunden-Identifier. Bitte den Link aus der SMS verwenden.', 'error');
+      btn.disabled = true;
+      return;
+    }
+    showStatus('Bereite sichere Verbindung vor…', 'info');
+    btn.disabled = true;
+    try {
+      const r = await fetch('https://europe-west1-taxi-heringsdorf.cloudfunctions.net/createStripeSetup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ customerId })
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || 'Setup fehlgeschlagen');
+      clientSecret = data.clientSecret;
+      stripe = Stripe(data.publishableKey);
+      elements = stripe.elements({ clientSecret });
+      const pe = elements.create('payment');
+      pe.mount('#payment-element');
+      statusEl.style.display = 'none';
+      btn.disabled = false;
+    } catch (e) {
+      showStatus('Fehler: ' + e.message, 'error');
+    }
+  }
+
+  async function submitSetup() {
+    btn.disabled = true;
+    showStatus('Karte wird sicher gespeichert…', 'info');
+    const { error } = await stripe.confirmSetup({
+      elements,
+      confirmParams: {
+        return_url: location.href.split('?')[0] + '?c=' + customerId + '&done=1',
+        payment_method_data: {
+          billing_details: {
+            name: document.getElementById('name').value || undefined,
+            email: document.getElementById('email').value || undefined
+          }
+        }
+      }
+    });
+    if (error) {
+      showStatus('Karte konnte nicht gespeichert werden: ' + error.message, 'error');
+      btn.disabled = false;
+    }
+  }
+
+  if (params.get('done') === '1') {
+    document.getElementById('setup-form').style.display = 'none';
+    showStatus('✅ Karte erfolgreich hinterlegt! Ab jetzt wird Ihre Fahrt nach Beendigung automatisch abgebucht. Sie können dieses Fenster schließen.', 'success');
+  } else {
+    init();
+  }
+</script>
+</body>
+</html>

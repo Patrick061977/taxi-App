@@ -24215,6 +24215,22 @@ exports.onRideUpdated = onValueUpdated(
                     `\n🎯 Fahrt zum Ziel läuft...`;
 
             } else if (newStatus === 'completed') {
+                // 🆕 v6.63.117 (Patrick 03.06. 12:30 "Wie macht Uber das"): Auto-Pay
+                //   trigger wenn customer.autoChargeEnabled=true. Best-effort, blockt
+                //   completed-Trigger nicht bei Fehler.
+                try {
+                    if (after.customerId && !after.autoChargedAt && after.paymentMethod !== 'transportschein') {
+                        const _autoChargeResult = await autoChargeRide(rideId, after);
+                        if (_autoChargeResult.ok) {
+                            console.log(`💳 v6.63.117 Auto-Pay erfolgreich für ${rideId}`);
+                        } else {
+                            console.log(`💳 v6.63.117 Auto-Pay übersprungen für ${rideId}: ${_autoChargeResult.reason}`);
+                        }
+                    }
+                } catch (_apErr) {
+                    console.warn('autoChargeRide aufruf fehlgeschlagen:', _apErr.message);
+                }
+
                 // 🆕 v6.62.392: Patrick (06.05. 20:53): "Ich will das gleiche Layout
                 //   wie wir das jetzt haben. Kein neues, nicht irgendwelche Tests".
                 //   Cloud-Function-Auto-PDF (pdfkit) deaktiviert — ergibt anderes Layout
@@ -28193,6 +28209,128 @@ exports.shiftHeartbeatPing = onRequest(
 );
 
 // ═══════════════════════════════════════════════════════════════
+// 💳 STRIPE AUTO-PAY SETUP — v6.63.117 (Patrick 03.06. 12:30 "Uber-Style")
+// Kunde hinterlegt einmal Karte/SEPA im Kunden-Portal → automatische
+// Abbuchung nach Fahrtende ohne Bezahl-Link.
+//
+// Pipeline:
+// 1. POST /createStripeSetup → Stripe Customer + SetupIntent
+// 2. Kunde gibt Karte ein in Stripe Elements → SetupIntent confirmed
+// 3. Webhook 'setup_intent.succeeded' speichert paymentMethodId in /customers
+// 4. Trigger 'onRideUpdated' bei status=completed + autoChargeEnabled=true:
+//    autoChargeRide() erstellt PaymentIntent off_session → Stripe bucht ab
+// 5. Bei Fehler: SMS an Kunden 'Bitte Karte aktualisieren'
+// ═══════════════════════════════════════════════════════════════
+
+exports.createStripeSetup = onRequest(
+    { region: 'europe-west1', invoker: 'public' },
+    async (req, res) => {
+        res.set('Access-Control-Allow-Origin', '*');
+        res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+        res.set('Access-Control-Allow-Headers', 'Content-Type');
+        if (req.method === 'OPTIONS') return res.status(204).send('');
+        if (req.method !== 'POST') return res.status(405).send('POST only');
+        try {
+            const { customerId, name, email, phone, returnUrl } = req.body || {};
+            if (!customerId) return res.status(400).json({ error: 'customerId required' });
+            const stripe = await getStripe();
+            // Customer in CRM laden
+            const custSnap = await db.ref(`customers/${customerId}`).once('value');
+            const cust = custSnap.val() || {};
+            let stripeCustomerId = cust.stripeCustomerId;
+            if (!stripeCustomerId) {
+                const sc = await stripe.customers.create({
+                    name: name || cust.name || 'Funk Taxi Kunde',
+                    email: email || cust.email || undefined,
+                    phone: phone || cust.phone || cust.mobilePhone || undefined,
+                    metadata: { crmCustomerId: customerId }
+                });
+                stripeCustomerId = sc.id;
+                await db.ref(`customers/${customerId}`).update({
+                    stripeCustomerId,
+                    stripeCustomerCreatedAt: Date.now()
+                });
+            }
+            const setupIntent = await stripe.setupIntents.create({
+                customer: stripeCustomerId,
+                payment_method_types: ['card', 'sepa_debit'],
+                usage: 'off_session',
+                metadata: { crmCustomerId: customerId }
+            });
+            res.json({
+                clientSecret: setupIntent.client_secret,
+                stripeCustomerId,
+                publishableKey: (await db.ref('settings/stripe/publishableKey').once('value')).val()
+            });
+        } catch (e) {
+            console.error('createStripeSetup Fehler:', e.message);
+            res.status(500).json({ error: e.message });
+        }
+    }
+);
+
+// 🆕 v6.63.117: Cloud Function die bei status=completed automatisch abbucht
+//   wenn customer.autoChargeEnabled=true. Wird von onRideUpdated getriggert.
+async function autoChargeRide(rideId, ride) {
+    if (!ride.customerId) return { ok: false, reason: 'no customerId' };
+    const custSnap = await db.ref(`customers/${ride.customerId}`).once('value');
+    const cust = custSnap.val() || {};
+    if (cust.autoChargeEnabled !== true) return { ok: false, reason: 'autoCharge not enabled' };
+    if (!cust.stripeCustomerId || !cust.defaultPaymentMethodId) return { ok: false, reason: 'no payment method' };
+    if (ride.autoChargedAt) return { ok: false, reason: 'already charged' };
+    const stripe = await getStripe();
+    const amountEur = parseFloat(String(ride.price || '0').replace(',', '.').replace('€','').trim());
+    if (!amountEur || amountEur <= 0) return { ok: false, reason: 'invalid amount' };
+    const amountCents = Math.round(amountEur * 100);
+    try {
+        const pi = await stripe.paymentIntents.create({
+            amount: amountCents,
+            currency: 'eur',
+            customer: cust.stripeCustomerId,
+            payment_method: cust.defaultPaymentMethodId,
+            off_session: true,
+            confirm: true,
+            description: `Funk Taxi Fahrt ${rideId}: ${ride.pickup || ''} → ${ride.destination || ''}`,
+            metadata: { rideId, crmCustomerId: ride.customerId }
+        });
+        if (pi.status === 'succeeded') {
+            await db.ref(`rides/${rideId}`).update({
+                autoChargedAt: Date.now(),
+                paymentStatus: 'bezahlt',
+                stripePaymentIntentId: pi.id,
+                stripePaymentStatus: 'paid'
+            });
+            await addRideLog(rideId, '💳', `Auto-Pay erfolgreich: ${amountEur.toFixed(2)}€`, {
+                paymentIntentId: pi.id,
+                quelle: 'autoChargeRide v6.63.117'
+            });
+            return { ok: true, paymentIntentId: pi.id };
+        }
+        return { ok: false, reason: 'pi not succeeded: ' + pi.status };
+    } catch (e) {
+        console.error(`autoChargeRide ${rideId} Fehler:`, e.message);
+        await addRideLog(rideId, '⚠️', `Auto-Pay fehlgeschlagen: ${e.message.substring(0,80)}`, {
+            quelle: 'autoChargeRide v6.63.117'
+        });
+        // SMS an Kunden
+        const phone = ride.customerPhone || ride.customerMobile || cust.mobilePhone || cust.phone;
+        if (phone && isMobileNumber(phone)) {
+            try {
+                await db.ref('smsQueue').push({
+                    phone,
+                    text: 'Funk Taxi Heringsdorf: Ihre hinterlegte Zahlung konnte nicht ausgefuehrt werden. Bitte aktualisieren Sie Ihre Karte im Kundenportal: https://umwelt-taxi-insel-usedom.de/Taxi-App/kunden.html',
+                    status: 'pending',
+                    type: 'autopay_failed',
+                    rideId,
+                    createdAt: Date.now(),
+                    createdBy: 'autoChargeRide v6.63.117'
+                });
+            } catch(_smsErr) { /* still */ }
+        }
+        return { ok: false, reason: e.message };
+    }
+}
+
 // 💳 STRIPE CHECKOUT — v6.21.0
 // Erstellt eine Stripe Checkout Session für eine Rechnung
 // ═══════════════════════════════════════════════════════════════
@@ -28533,6 +28671,19 @@ exports.stripeWebhook = onRequest(
                         stripeExpiredAt: Date.now()
                     });
                     console.log(`⏰ Stripe Session abgelaufen: ${invoiceNumber}`);
+                }
+            } else if (event.type === 'setup_intent.succeeded') {
+                // 🆕 v6.63.117: Kunde hat Karte erfolgreich hinterlegt → in CRM speichern
+                const setupIntent = event.data.object;
+                const crmCustomerId = setupIntent.metadata?.crmCustomerId;
+                const paymentMethodId = setupIntent.payment_method;
+                if (crmCustomerId && paymentMethodId) {
+                    await db.ref(`customers/${crmCustomerId}`).update({
+                        defaultPaymentMethodId: paymentMethodId,
+                        autoChargeEnabled: true,
+                        stripeSetupCompletedAt: Date.now()
+                    });
+                    console.log(`✅ Auto-Pay aktiviert für CRM-Customer ${crmCustomerId} (PaymentMethod ${paymentMethodId})`);
                 }
             }
 

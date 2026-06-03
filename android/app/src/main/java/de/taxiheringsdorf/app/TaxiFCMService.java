@@ -304,11 +304,12 @@ public class TaxiFCMService extends FirebaseMessagingService {
         //   STREAM_ALARM auf Max — bricht durch Lautlos-Modus durch (wie eine Wecker-App).
         //   Nur fuer new_ride (Order-Push). Stoppt automatisch nach 30s oder via
         //   RideActionReceiver bei Accept/Reject.
-        // 🆕 v6.62.987 (Patrick 28.05. 10:19): "Losfahr-Alarm kam nicht / war still".
-        // Lifecycle zeigte: FCM sauber empfangen, aber kein AlertSoundService → leiser
-        // Heads-Up wurde im Doze/DND-Modus untergebuttert. Jetzt auch bei departure_alert
-        // den 30-Sek-Wecker-Sound starten (USAGE_ALARM bricht durch Lautlos).
-        if (rideId != null && ("new_ride".equals(type) || "departure_alert".equals(type))) {
+        // 🆕 v6.63.126 (Patrick 03.06. 21:17 Bridge "Uber-Style"): AlertSoundService
+        //   NUR noch bei new_ride. departure_alert nutzt die normale Notification
+        //   (Heads-Up-Banner + Standard-Notification-Ton). Patrick war der ALARM-Sound
+        //   waehrend Gaeste-Fahrt zu laut+peinlich und nicht stoppbar (siehe Bridge 19:34).
+        // Vorher v6.62.987: auch departure_alert spielte den Wecker — zu nervig.
+        if (rideId != null && "new_ride".equals(type)) {
             try {
                 AlertSoundService.start(this);
                 Log.d(TAG, "AlertSoundService gestartet fuer " + type + " " + rideId);

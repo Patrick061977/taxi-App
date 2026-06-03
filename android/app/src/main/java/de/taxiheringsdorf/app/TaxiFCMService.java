@@ -256,7 +256,13 @@ public class TaxiFCMService extends FirebaseMessagingService {
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setSound(sound)
             .setVibrate(vibratePattern)
-            .setOngoing(isOrderPush)        // ← NEU: kann nicht weggewischt werden (nur Order-Pushes)
+            // 🆕 v6.63.109 (Patrick 03.06. 09:04 "Oben bei dem Push kann ich nicht
+            //   ablehnen. Dass das klingelt und klingelt, das haut doch nicht hin"):
+            //   setOngoing(false) → Heads-Up kann weggeswipt werden. Action-Buttons
+            //   bleiben über die zwei Builder.addAction Aufrufe unten erreichbar.
+            //   Sticky-Verhalten in der Vollbild-RideAlertActivity bleibt erhalten —
+            //   dort ist die Entscheidung Annehmen/Ablehnen explizit nötig.
+            .setOngoing(false)
             .setAutoCancel(true)            // Tap auf Notification/Action räumt sie weg
             .setContentIntent(pendingIntent)
             // v6.63.063 (Patrick 31.05. 19:34): Quick-Wins für visuelle Sichtbarkeit.

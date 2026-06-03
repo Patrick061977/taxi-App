@@ -1628,7 +1628,10 @@
                         ${daysInMonth} Tage · ${weekdays} Werktage · ${weekends} Wochenende · ${feiertage} Feiertage
                         ${plannedDays > 0 ? `<br>📅 <strong>${plannedDays} geplante Arbeitstage</strong> für ${staffName}` : '<br>⚠️ Keine Schichtplan-Daten — Stunden manuell eingeben'}
                     </div>
-                    ${plannedDays > 0 ? `<button onclick="document.getElementById('opt-month-detail').style.display = document.getElementById('opt-month-detail').style.display === 'none' ? 'block' : 'none'" style="padding:6px 10px;background:#3b82f6;color:white;border:none;border-radius:6px;font-size:12px;cursor:pointer;">📅 Tage-Details</button>` : ''}
+                    <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                        ${plannedDays > 0 ? `<button onclick="document.getElementById('opt-month-detail').style.display = document.getElementById('opt-month-detail').style.display === 'none' ? 'block' : 'none'" style="padding:6px 10px;background:#3b82f6;color:white;border:none;border-radius:6px;font-size:12px;cursor:pointer;">📅 Tage-Details</button>` : ''}
+                        <button onclick="jumpToMonthEditor()" style="padding:6px 10px;background:#059669;color:white;border:none;border-radius:6px;font-size:12px;cursor:pointer;">✏️ Schichtplan bearbeiten</button>
+                    </div>
                 </div>
                 ${dayRows.length > 0 ? `<div id="opt-month-detail" style="display:none;margin-top:10px;max-height:400px;overflow-y:auto;background:white;border-radius:6px;border:1px solid #e5e7eb;">
                     <table style="width:100%;border-collapse:collapse;">
@@ -1638,6 +1641,39 @@
                 </div>` : ''}
             `;
             recalcOptimizer();
+        }
+
+        // 🆕 v6.63.115 (Patrick 03.06. 10:00 "ich würde gerne im Optimierer
+        //   die Sachen verändern können"): Direkter Sprung in den Monatsansicht-
+        //   Tab mit dem im Optimierer gewählten Monat. Patrick bearbeitet dort
+        //   wie gewohnt, kommt zurück, Optimizer-Stunden werden neu geladen.
+        async function jumpToMonthEditor() {
+            const monthVal = document.getElementById('opt-month').value;
+            if (monthVal) {
+                const [y, m] = monthVal.split('-').map(Number);
+                if (y && m) {
+                    // currentMonth wird von setMonth() in monat-Tab gesetzt
+                    if (typeof setMonth === 'function') {
+                        await setMonth(new Date(y, m - 1, 1));
+                    }
+                }
+            }
+            switchTab('monat');
+            // nach Rückkehr (Patrick wechselt zurück auf 'optimizer'): Schicht-
+            // Daten neu laden. Tab-Switch-Listener nutzen.
+            const reloadOnReturn = () => {
+                if (document.querySelector('.tab-btn.active')?.dataset.tab === 'optimizer') {
+                    loadOptimizerMonthData();
+                    document.removeEventListener('click', reloadHandler);
+                }
+            };
+            const reloadHandler = (e) => {
+                if (e.target && e.target.dataset && e.target.dataset.tab === 'optimizer') {
+                    setTimeout(() => loadOptimizerMonthData(), 200);
+                    document.removeEventListener('click', reloadHandler);
+                }
+            };
+            document.addEventListener('click', reloadHandler);
         }
 
         function recalcOptimizer() {

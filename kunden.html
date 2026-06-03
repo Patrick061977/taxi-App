@@ -16,295 +16,356 @@
     <!-- 🆕 v6.62.401: Leaflet für Adress-Karten-Picker im Profil-Modal -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        /* ========================================
+           v6.63.122 Bolt/Uber-Style Refactor
+           Design-Tokens: minimal, klar, mobile-first.
+           Patrick 03.06. 13:20: "Schoen sauber aufraeumen"
+        ======================================== */
+        :root {
+            --bg: #f7f7f8;
+            --surface: #ffffff;
+            --surface-2: #f3f4f6;
+            --ink: #111827;
+            --ink-2: #4b5563;
+            --ink-3: #9ca3af;
+            --line: #e5e7eb;
+            --line-soft: #f3f4f6;
+            --brand: #111827;
+            --brand-soft: #1f2937;
+            --accent: #34d186;
+            --accent-strong: #10b981;
+            --danger: #ef4444;
+            --warn: #f59e0b;
+            --shadow-sm: 0 1px 2px rgba(15,23,42,0.04);
+            --shadow-md: 0 4px 16px rgba(15,23,42,0.06);
+            --shadow-lg: 0 12px 32px rgba(15,23,42,0.10);
+            --r-sm: 10px;
+            --r-md: 14px;
+            --r-lg: 18px;
+            --r-pill: 999px;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            background: #f3f4f6;
-            color: #1f2937;
+            background: var(--bg);
+            color: var(--ink);
             min-height: 100vh;
+            padding-bottom: 80px; /* Platz fuer Bottom-Nav */
         }
 
+        /* HEADER — Bolt-Style: weiss, kompakt, sticky */
         .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 20px 16px;
-            text-align: center;
+            background: var(--surface);
+            color: var(--ink);
+            padding: 14px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             position: sticky;
             top: 0;
             z-index: 100;
-            box-shadow: 0 2px 12px rgba(102, 126, 234, 0.4);
+            border-bottom: 1px solid var(--line);
         }
-        .header h1 { font-size: 20px; margin-bottom: 4px; }
-        .header .subtitle { font-size: 13px; opacity: 0.9; }
+        .header h1 { font-size: 18px; font-weight: 700; letter-spacing: -0.2px; }
+        .header .subtitle { font-size: 12px; color: var(--ink-3); margin-top: 2px; font-weight: 500; }
+        .header-avatar {
+            width: 38px; height: 38px;
+            border-radius: 50%;
+            background: var(--brand);
+            color: white;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 700; font-size: 14px;
+            cursor: pointer;
+            transition: transform 0.15s;
+        }
+        .header-avatar:active { transform: scale(0.94); }
 
-        .container { max-width: 480px; margin: 0 auto; padding: 16px; }
+        .container { max-width: 520px; margin: 0 auto; padding: 16px 16px 24px; }
+
+        /* SECTION TITLE */
+        .section-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--ink-3);
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            margin: 8px 4px 10px;
+        }
 
         /* LOGIN SCREEN */
-        #login-screen { display: flex; flex-direction: column; align-items: center; padding-top: 40px; }
+        #login-screen { display: flex; flex-direction: column; align-items: center; padding-top: 24px; }
         .login-card {
-            background: white;
-            border-radius: 16px;
-            padding: 32px 24px;
+            background: var(--surface);
+            border-radius: var(--r-lg);
+            padding: 28px 22px;
             width: 100%;
-            box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+            box-shadow: var(--shadow-md);
             text-align: center;
         }
-        .login-card .icon { font-size: 48px; margin-bottom: 16px; }
-        .login-card h2 { font-size: 20px; margin-bottom: 8px; color: #1f2937; }
-        .login-card p { font-size: 14px; color: #6b7280; margin-bottom: 24px; line-height: 1.5; }
+        .login-card .icon { font-size: 44px; margin-bottom: 14px; }
+        .login-card h2 { font-size: 22px; margin-bottom: 6px; color: var(--ink); font-weight: 800; letter-spacing: -0.3px; }
+        .login-card p { font-size: 14px; color: var(--ink-2); margin-bottom: 22px; line-height: 1.5; }
 
         .phone-input-group {
             display: flex;
             gap: 8px;
-            margin-bottom: 16px;
+            margin-bottom: 14px;
         }
         .phone-prefix {
-            background: #f3f4f6;
-            border: 2px solid #e5e7eb;
-            border-radius: 10px;
-            padding: 12px;
+            background: var(--surface-2);
+            border: 1px solid var(--line);
+            border-radius: var(--r-sm);
+            padding: 13px;
             font-size: 16px;
             font-weight: 600;
-            color: #374151;
+            color: var(--ink-2);
             width: 70px;
             text-align: center;
         }
         .phone-input {
             flex: 1;
-            border: 2px solid #e5e7eb;
-            border-radius: 10px;
-            padding: 12px 16px;
+            border: 1px solid var(--line);
+            border-radius: var(--r-sm);
+            padding: 13px 14px;
             font-size: 16px;
             outline: none;
-            transition: border-color 0.2s;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            background: var(--surface);
         }
-        .phone-input:focus { border-color: #667eea; }
+        .phone-input:focus { border-color: var(--ink); box-shadow: 0 0 0 3px rgba(17,24,39,0.06); }
 
         .code-input {
             width: 100%;
-            border: 2px solid #e5e7eb;
-            border-radius: 10px;
+            border: 1px solid var(--line);
+            border-radius: var(--r-sm);
             padding: 14px 16px;
             font-size: 24px;
             text-align: center;
             letter-spacing: 8px;
             font-weight: 700;
             outline: none;
-            margin-bottom: 16px;
-            transition: border-color 0.2s;
+            margin-bottom: 14px;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            background: var(--surface);
         }
-        .code-input:focus { border-color: #667eea; }
+        .code-input:focus { border-color: var(--ink); box-shadow: 0 0 0 3px rgba(17,24,39,0.06); }
 
         .btn {
             width: 100%;
             padding: 14px;
             border: none;
-            border-radius: 10px;
-            font-size: 16px;
+            border-radius: var(--r-sm);
+            font-size: 15px;
             font-weight: 700;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: all 0.15s;
+            letter-spacing: 0.1px;
         }
         .btn-primary {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: var(--brand);
             color: white;
         }
-        .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(102,126,234,0.4); }
+        .btn-primary:hover { background: var(--brand-soft); }
+        .btn-primary:active { transform: scale(0.985); }
         .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
         .btn-secondary {
-            background: #f3f4f6;
-            color: #374151;
+            background: var(--surface-2);
+            color: var(--ink-2);
             margin-top: 8px;
         }
+        .btn-secondary:active { background: var(--line); }
         .btn-danger {
-            background: #ef4444;
+            background: var(--danger);
             color: white;
         }
         .btn-success {
-            background: #10b981;
+            background: var(--accent-strong);
             color: white;
         }
         .btn-small {
             width: auto;
-            padding: 8px 16px;
+            padding: 9px 14px;
             font-size: 13px;
-            border-radius: 8px;
+            border-radius: var(--r-sm);
         }
 
-        .info-text { font-size: 12px; color: #9ca3af; margin-top: 12px; }
-        .error-text { font-size: 13px; color: #ef4444; margin-top: 8px; display: none; }
+        .info-text { font-size: 12px; color: var(--ink-3); margin-top: 12px; }
+        .error-text { font-size: 13px; color: var(--danger); margin-top: 8px; display: none; font-weight: 500; }
 
         /* RIDES LIST */
         #rides-screen { display: none; }
 
-        .welcome-bar {
-            background: white;
-            border-radius: 12px;
-            padding: 14px 16px;
-            margin-bottom: 16px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-        }
-        .welcome-bar .name { font-weight: 700; font-size: 15px; }
-        .welcome-bar .phone { font-size: 13px; color: #6b7280; }
-        .logout-btn {
-            background: none;
-            border: 1px solid #e5e7eb;
-            border-radius: 8px;
-            padding: 6px 12px;
-            font-size: 12px;
-            color: #6b7280;
-            cursor: pointer;
-        }
-
+        /* TABS — Bolt-Style Segment-Control, weisser BG, dunkler aktiver Tab */
         .tabs {
             display: flex;
             gap: 4px;
-            background: white;
-            border-radius: 12px;
+            background: var(--surface);
+            border: 1px solid var(--line);
+            border-radius: var(--r-md);
             padding: 4px;
             margin-bottom: 16px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
         }
         .tab {
             flex: 1;
-            padding: 10px;
+            padding: 10px 8px;
             text-align: center;
-            border-radius: 8px;
+            border-radius: 10px;
             font-size: 13px;
             font-weight: 600;
             cursor: pointer;
-            color: #6b7280;
-            transition: all 0.2s;
+            color: var(--ink-2);
+            transition: all 0.15s;
         }
+        .tab:active { background: var(--surface-2); }
         .tab.active {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: var(--brand);
             color: white;
         }
 
+        /* RIDE CARD — Uber/Bolt-Style: weisse Karte, klare Hierarchie */
         .ride-card {
-            background: white;
-            border-radius: 12px;
+            background: var(--surface);
+            border: 1px solid var(--line);
+            border-radius: var(--r-md);
             padding: 16px;
-            margin-bottom: 12px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-            transition: all 0.2s;
+            margin-bottom: 10px;
+            transition: all 0.15s;
         }
-        .ride-card:active { transform: scale(0.98); }
+        .ride-card:active { transform: scale(0.99); }
+
+        .ride-card-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        .ride-card-date {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--ink);
+        }
+        .ride-card-date .small { color: var(--ink-3); font-weight: 500; margin-left: 4px; }
 
         .ride-status {
-            display: inline-block;
-            padding: 3px 10px;
-            border-radius: 20px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 10px;
+            border-radius: var(--r-pill);
             font-size: 11px;
             font-weight: 700;
-            margin-bottom: 10px;
+            letter-spacing: 0.2px;
         }
-        .status-pending { background: #fef3c7; color: #92400e; }
-        .status-assigned { background: #dbeafe; color: #1e40af; }
-        .status-accepted { background: #d1fae5; color: #065f46; }
-        .status-on_way { background: #c7d2fe; color: #3730a3; }
-        .status-picked_up { background: #a7f3d0; color: #047857; }
-        .status-vorbestellt { background: #e0e7ff; color: #4338ca; }
-        .status-completed { background: #d1d5db; color: #374151; }
-        .status-cancelled { background: #fecaca; color: #991b1b; }
+        .status-pending { background: #fff7ed; color: #c2410c; }
+        .status-assigned { background: #eff6ff; color: #1d4ed8; }
+        .status-accepted { background: #ecfdf5; color: #047857; }
+        .status-on_way { background: #eef2ff; color: #4338ca; }
+        .status-picked_up { background: #ecfdf5; color: #047857; }
+        .status-vorbestellt { background: #f5f3ff; color: #6d28d9; }
+        .status-completed { background: var(--surface-2); color: var(--ink-2); }
+        .status-cancelled { background: #fef2f2; color: #b91c1b; }
 
         .ride-route {
             display: flex;
             align-items: flex-start;
-            gap: 10px;
+            gap: 12px;
             margin-bottom: 12px;
         }
         .route-dots {
             display: flex;
             flex-direction: column;
             align-items: center;
-            padding-top: 3px;
-            gap: 2px;
+            padding-top: 6px;
+            gap: 3px;
         }
-        .dot-green { width: 10px; height: 10px; border-radius: 50%; background: #10b981; }
-        .dot-red { width: 10px; height: 10px; border-radius: 50%; background: #ef4444; }
-        .dot-line { width: 2px; height: 16px; background: #d1d5db; }
-        .route-texts { flex: 1; }
-        .route-from, .route-to { font-size: 14px; line-height: 1.4; }
-        .route-from { font-weight: 600; margin-bottom: 8px; }
-        .route-to { color: #4b5563; }
+        .dot-green { width: 10px; height: 10px; border-radius: 50%; background: var(--accent-strong); box-shadow: 0 0 0 3px rgba(16,185,129,0.12); }
+        .dot-red { width: 10px; height: 10px; border-radius: 2px; background: var(--ink); }
+        .dot-line { width: 2px; height: 18px; background: var(--line); border-radius: 1px; }
+        .route-texts { flex: 1; min-width: 0; }
+        .route-from, .route-to { font-size: 14px; line-height: 1.4; word-break: break-word; }
+        .route-from { font-weight: 600; margin-bottom: 10px; color: var(--ink); }
+        .route-to { color: var(--ink-2); }
 
         .ride-meta {
             display: flex;
             flex-wrap: wrap;
             gap: 12px;
-            font-size: 13px;
-            color: #6b7280;
-            padding-top: 10px;
-            border-top: 1px solid #f3f4f6;
+            font-size: 12px;
+            color: var(--ink-3);
+            padding-top: 12px;
+            border-top: 1px solid var(--line-soft);
         }
-        .ride-meta span { display: flex; align-items: center; gap: 4px; }
+        .ride-meta span { display: flex; align-items: center; gap: 4px; font-weight: 500; }
+        .ride-meta .price {
+            margin-left: auto;
+            font-size: 15px;
+            font-weight: 800;
+            color: var(--ink);
+            letter-spacing: -0.2px;
+        }
 
         .ride-actions {
             display: flex;
             gap: 8px;
             margin-top: 12px;
             padding-top: 12px;
-            border-top: 1px solid #f3f4f6;
+            border-top: 1px solid var(--line-soft);
         }
         .invoice-section {
             margin-top: 10px;
-            padding-top: 10px;
-            border-top: 1px solid #f3f4f6;
+            padding-top: 12px;
+            border-top: 1px solid var(--line-soft);
         }
         .invoice-badge {
             display: flex;
             align-items: center;
             gap: 8px;
-            padding: 8px 12px;
-            background: #eff6ff;
-            border-radius: 8px;
+            padding: 10px 12px;
+            background: var(--surface-2);
+            border-radius: var(--r-sm);
             font-size: 13px;
-            color: #1e40af;
+            color: var(--ink-2);
             margin-bottom: 8px;
         }
-        .invoice-badge .inv-number { font-weight: 700; }
-        .invoice-badge .inv-status { margin-left: auto; font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: 600; }
-        .inv-status-paid { background: #d1fae5; color: #065f46; }
-        .inv-status-open { background: #fef3c7; color: #92400e; }
+        .invoice-badge .inv-number { font-weight: 700; color: var(--ink); }
+        .invoice-badge .inv-status { margin-left: auto; font-size: 11px; padding: 3px 9px; border-radius: var(--r-pill); font-weight: 700; }
+        .inv-status-paid { background: #ecfdf5; color: #047857; }
+        .inv-status-open { background: #fff7ed; color: #c2410c; }
         .btn-invoice-download {
             display: inline-flex;
             align-items: center;
             gap: 6px;
-            padding: 8px 14px;
-            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            padding: 9px 14px;
+            background: var(--ink);
             color: white;
             border: none;
-            border-radius: 8px;
+            border-radius: var(--r-sm);
             font-size: 13px;
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: all 0.15s;
         }
-        .btn-invoice-download:active { transform: scale(0.95); }
+        .btn-invoice-download:active { transform: scale(0.96); }
         .btn-receipt-download {
             display: inline-flex;
             align-items: center;
             gap: 6px;
-            padding: 8px 14px;
-            background: linear-gradient(135deg, #f59e0b, #d97706);
+            padding: 9px 14px;
+            background: var(--warn);
             color: white;
             border: none;
-            border-radius: 8px;
+            border-radius: var(--r-sm);
             font-size: 13px;
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: all 0.15s;
         }
-        .btn-receipt-download:active { transform: scale(0.95); }
+        .btn-receipt-download:active { transform: scale(0.96); }
         .ride-actions button {
             flex: 1;
             padding: 10px;
             border: none;
-            border-radius: 8px;
+            border-radius: var(--r-sm);
             font-size: 13px;
             font-weight: 600;
             cursor: pointer;
@@ -313,17 +374,61 @@
         .empty-state {
             text-align: center;
             padding: 48px 24px;
-            color: #9ca3af;
+            color: var(--ink-3);
         }
-        .empty-state .icon { font-size: 48px; margin-bottom: 12px; }
+        .empty-state .icon { font-size: 44px; margin-bottom: 12px; opacity: 0.6; }
         .empty-state p { font-size: 14px; }
 
-        /* EDIT MODAL */
+        /* CTA-Button (Neue Fahrt buchen) — Bolt-Style schwarz */
+        .cta-book {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            width: 100%;
+            padding: 16px;
+            background: var(--brand);
+            color: white;
+            border-radius: var(--r-md);
+            text-decoration: none;
+            font-weight: 700;
+            font-size: 15px;
+            margin-top: 16px;
+            transition: all 0.15s;
+            letter-spacing: 0.2px;
+        }
+        .cta-book:active { transform: scale(0.985); background: var(--brand-soft); }
+
+        /* Payment-Method-Card im Auto-Pay-Tab */
+        .pay-method-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            background: var(--surface);
+            border: 1px solid var(--line);
+            border-radius: var(--r-md);
+            margin-top: 10px;
+        }
+        .pay-method-icon {
+            width: 44px; height: 32px;
+            border-radius: 6px;
+            background: var(--surface-2);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 18px;
+        }
+        .pay-method-info { flex: 1; min-width: 0; }
+        .pay-method-info .brand { font-weight: 700; font-size: 14px; color: var(--ink); }
+        .pay-method-info .small { font-size: 12px; color: var(--ink-3); margin-top: 2px; }
+
+        /* MODAL — Bolt-Style: bottom-sheet auf mobile, klare Hierarchie */
         .modal-overlay {
             display: none;
             position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0,0,0,0.5);
+            background: rgba(15,23,42,0.55);
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
             z-index: 200;
             align-items: center;
             justify-content: center;
@@ -331,50 +436,57 @@
         }
         .modal-overlay.active { display: flex; }
         .modal {
-            background: white;
-            border-radius: 16px;
-            padding: 24px;
+            background: var(--surface);
+            border-radius: var(--r-lg);
+            padding: 22px;
             width: 100%;
-            max-width: 420px;
-            max-height: 85vh;
+            max-width: 440px;
+            max-height: 88vh;
             overflow-y: auto;
+            box-shadow: var(--shadow-lg);
         }
-        .modal h3 { font-size: 18px; margin-bottom: 16px; }
+        .modal h3 { font-size: 18px; margin-bottom: 14px; font-weight: 800; letter-spacing: -0.2px; }
         .form-group { margin-bottom: 14px; }
         .form-group label {
             display: block;
             font-size: 13px;
             font-weight: 600;
-            color: #374151;
+            color: var(--ink-2);
             margin-bottom: 6px;
         }
         .form-group input, .form-group textarea, .form-group select {
             width: 100%;
-            padding: 10px 12px;
-            border: 2px solid #e5e7eb;
-            border-radius: 8px;
+            padding: 11px 12px;
+            border: 1px solid var(--line);
+            border-radius: var(--r-sm);
             font-size: 14px;
             outline: none;
-            transition: border-color 0.2s;
+            transition: border-color 0.2s, box-shadow 0.2s;
             font-family: inherit;
+            background: var(--surface);
+            color: var(--ink);
         }
-        .form-group input:focus, .form-group textarea:focus { border-color: #667eea; }
+        .form-group input:focus, .form-group textarea:focus, .form-group select:focus {
+            border-color: var(--ink);
+            box-shadow: 0 0 0 3px rgba(17,24,39,0.06);
+        }
         .form-group textarea { resize: vertical; min-height: 80px; }
 
         .toast {
             position: fixed;
-            bottom: 24px;
+            bottom: 96px; /* ueber Bottom-Nav */
             left: 50%;
-            transform: translateX(-50%) translateY(100px);
-            background: #1f2937;
+            transform: translateX(-50%) translateY(120px);
+            background: var(--ink);
             color: white;
-            padding: 12px 24px;
-            border-radius: 10px;
+            padding: 12px 22px;
+            border-radius: var(--r-pill);
             font-size: 14px;
             font-weight: 600;
             z-index: 500;
             transition: transform 0.3s ease;
             white-space: nowrap;
+            box-shadow: var(--shadow-lg);
         }
         .toast.show { transform: translateX(-50%) translateY(0); }
 
@@ -391,13 +503,13 @@
         @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
 
         .note-badge {
-            background: #fef3c7;
-            border: 1px solid #fde68a;
-            border-radius: 8px;
-            padding: 8px 12px;
+            background: #fff7ed;
+            border: 1px solid #fed7aa;
+            border-radius: var(--r-sm);
+            padding: 9px 12px;
             margin-top: 10px;
             font-size: 13px;
-            color: #92400e;
+            color: #c2410c;
         }
 
         .secure-badge {
@@ -406,56 +518,110 @@
             justify-content: center;
             gap: 6px;
             font-size: 11px;
-            color: #10b981;
+            color: var(--ink-3);
             margin-top: 16px;
             padding-top: 12px;
-            border-top: 1px solid #f3f4f6;
+            border-top: 1px solid var(--line-soft);
+            font-weight: 500;
         }
 
-        /* 🆕 v6.62.401: Adress-Autocomplete + Karten-Picker im Profil-Modal */
+        /* PROFILE SEKTION-CARDS — saubere Layout-Container */
+        .profile-section {
+            background: var(--surface);
+            border: 1px solid var(--line);
+            border-radius: var(--r-md);
+            padding: 16px;
+            margin-bottom: 10px;
+        }
+        .profile-section-label {
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--ink-3);
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            margin-bottom: 10px;
+        }
+
+        /* Adress-Autocomplete + Karten-Picker */
         .address-row { display: flex; gap: 6px; align-items: stretch; }
         .address-row > .address-input-wrap { flex: 1; position: relative; }
         .address-row > .address-input-wrap input { width: 100%; }
         .address-row > .map-btn {
-            padding: 0 14px; background: #ecfdf5; color: #047857;
-            border: 1px solid #10b981; border-radius: 10px; font-weight: 700;
+            padding: 0 14px; background: var(--surface-2); color: var(--ink);
+            border: 1px solid var(--line); border-radius: var(--r-sm); font-weight: 700;
             cursor: pointer; font-size: 18px; min-width: 48px;
         }
-        .address-row > .map-btn:active { background: #d1fae5; }
+        .address-row > .map-btn:active { background: var(--line); }
         .autocomplete-dropdown {
-            position: absolute; top: calc(100% + 2px); left: 0; right: 0;
-            background: white; border: 1px solid #d1d5db; border-radius: 10px;
-            max-height: 240px; overflow-y: auto; z-index: 50;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.12); display: none;
+            position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+            background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-sm);
+            max-height: 260px; overflow-y: auto; z-index: 50;
+            box-shadow: var(--shadow-md); display: none;
         }
         .autocomplete-item {
-            padding: 10px 12px; border-bottom: 1px solid #f3f4f6;
-            cursor: pointer; font-size: 13px; color: #1f2937;
+            padding: 11px 12px; border-bottom: 1px solid var(--line-soft);
+            cursor: pointer; font-size: 13px; color: var(--ink);
         }
         .autocomplete-item:last-child { border-bottom: none; }
-        .autocomplete-item:hover, .autocomplete-item.active { background: #ecfdf5; }
+        .autocomplete-item:hover, .autocomplete-item.active { background: var(--surface-2); }
         .autocomplete-item .ai-name { font-weight: 600; }
-        .autocomplete-item .ai-detail { font-size: 11px; color: #6b7280; margin-top: 2px; }
+        .autocomplete-item .ai-detail { font-size: 11px; color: var(--ink-3); margin-top: 2px; }
 
-        #map-picker-modal .modal { max-width: 600px; padding: 12px; }
-        #map-picker-leaflet { width: 100%; height: 360px; border-radius: 10px; margin-bottom: 12px; }
-        #map-picker-address { background: #f9fafb; padding: 10px 12px; border-radius: 8px; font-size: 13px; color: #1f2937; margin-bottom: 12px; min-height: 36px; }
+        #map-picker-modal .modal { max-width: 600px; padding: 14px; }
+        #map-picker-leaflet { width: 100%; height: 360px; border-radius: var(--r-sm); margin-bottom: 12px; }
+        #map-picker-address { background: var(--surface-2); padding: 11px 12px; border-radius: var(--r-sm); font-size: 13px; color: var(--ink); margin-bottom: 12px; min-height: 36px; }
+
+        /* Auto-Pay Tab — Bolt-Style Card */
+        .autopay-card {
+            background: var(--surface);
+            border: 1px solid var(--line);
+            border-radius: var(--r-md);
+            padding: 20px;
+            margin-top: 4px;
+        }
+        .autopay-card h3 { font-size: 17px; font-weight: 800; letter-spacing: -0.2px; margin-bottom: 6px; }
+        .autopay-card p.lead { font-size: 13px; color: var(--ink-2); line-height: 1.5; margin-bottom: 14px; }
+        .autopay-status-active {
+            background: #ecfdf5;
+            border: 1px solid #a7f3d0;
+            border-radius: var(--r-sm);
+            padding: 14px;
+            color: #047857;
+        }
+        .autopay-status-active .badge {
+            display: inline-flex; align-items: center; gap: 6px;
+            font-weight: 700; font-size: 14px; margin-bottom: 6px;
+        }
+        .autopay-action-row { display: flex; gap: 8px; margin-top: 12px; }
+        .autopay-action-row button {
+            flex: 1; padding: 10px; border-radius: var(--r-sm);
+            font-size: 13px; font-weight: 600; cursor: pointer;
+            border: 1px solid var(--line); background: var(--surface);
+            color: var(--ink-2); transition: all 0.15s;
+        }
+        .autopay-action-row button:active { background: var(--surface-2); }
+        .autopay-action-row .danger { color: var(--danger); border-color: #fecaca; }
+        .autopay-action-row .danger:active { background: #fef2f2; }
+
+        /* Nav-Pills (Login → andere Optionen) */
+        .divider-or {
+            display: flex; align-items: center; gap: 10px;
+            margin: 18px 0 12px; color: var(--ink-3); font-size: 12px;
+        }
+        .divider-or div { flex: 1; height: 1px; background: var(--line); }
     </style>
 </head>
 <body>
 
-    <div class="header" style="display:flex;justify-content:space-between;align-items:center;">
+    <!-- v6.63.122: Bolt/Uber-Style Header — weiss, kompakt, Avatar rechts -->
+    <div class="header">
         <div>
             <h1>Funk Taxi Usedom</h1>
             <div class="subtitle" id="header-subtitle">Meine Fahrten</div>
-            <!-- 🆕 v6.62.400: Prominente Begrüssung wenn eingeloggt -->
-            <div id="header-greeting" style="display:none;font-size:16px;font-weight:700;margin-top:6px;letter-spacing:0.2px;"></div>
+            <div id="header-greeting" style="display:none;font-size:14px;font-weight:600;color:var(--ink-2);margin-top:2px;"></div>
         </div>
-        <div id="header-user-info" style="display:none;text-align:right;">
-            <div id="header-phone" style="font-size:13px;font-weight:600;opacity:0.9;"></div>
-            <button onclick="openProfileModal()" style="background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.4);color:white;padding:4px 12px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;margin-top:4px;">
-                👤 Mein Konto
-            </button>
+        <div id="header-user-info" style="display:none;">
+            <div class="header-avatar" id="header-avatar" onclick="openProfileModal()" title="Mein Konto">👤</div>
         </div>
     </div>
 
@@ -522,63 +688,50 @@
             </div>
         </div>
 
-        <!-- RIDES SCREEN -->
+        <!-- RIDES SCREEN — v6.63.122 Bolt/Uber-Style -->
         <div id="rides-screen">
-            <!-- 🆕 v6.38.97: Navigation Header -->
-            <div style="display:flex;gap:8px;margin-bottom:12px;">
-                <!-- 🛡️ v6.41.89: ?new=1 verhindert dass restoreActiveBooking auf buchen.html
-                     den alten Erfolgs-Bildschirm zeigt — der Kunde will JA eine neue Buchung. -->
-                <a href="buchen.html?new=1" style="flex:1;padding:10px;background:linear-gradient(135deg,#059669,#047857);color:white;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;text-align:center;">
-                    🚕 Neue Fahrt buchen
-                </a>
-                <a href="buchen.html" style="padding:10px 16px;background:#f3f4f6;color:#374151;border-radius:10px;text-decoration:none;font-weight:600;font-size:14px;text-align:center;">
-                    ← Zurück
-                </a>
-            </div>
-            <div class="welcome-bar" style="display:flex;align-items:center;gap:12px;">
-                <div style="flex:1;">
-                    <div class="name" id="customer-name" style="font-size:18px;font-weight:700;">Willkommen!</div>
-                    <div class="phone" id="customer-phone-display" style="font-size:13px;color:#6b7280;"></div>
-                </div>
-                <button onclick="openProfileModal()" style="padding:8px 14px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border:none;border-radius:8px;font-weight:600;font-size:13px;cursor:pointer;">
-                    👤 Profil
-                </button>
-                <button class="logout-btn" onclick="logout()">Abmelden</button>
+            <!-- Greeting-Karte: Name + Telefon (ersetzt alte welcome-bar) -->
+            <div style="margin-bottom:14px;">
+                <div id="customer-name" style="font-size:22px;font-weight:800;letter-spacing:-0.4px;color:var(--ink);">Willkommen!</div>
+                <div id="customer-phone-display" style="font-size:13px;color:var(--ink-3);margin-top:2px;"></div>
             </div>
 
+            <!-- Tab-Bar -->
             <div class="tabs">
                 <div class="tab active" id="tab-upcoming" onclick="switchTab('upcoming')">Kommende</div>
                 <div class="tab" id="tab-past" onclick="switchTab('past')">Vergangene</div>
-                <div class="tab" id="tab-autopay" onclick="switchTab('autopay')">⚡ Auto-Pay</div>
+                <div class="tab" id="tab-autopay" onclick="switchTab('autopay')">Auto-Pay</div>
             </div>
 
             <div id="rides-list"></div>
 
-            <!-- 🆕 v6.63.118 (Patrick 03.06. 12:44 "im Kunden-HTML anlegen"): Auto-Pay-Tab
-                 mit Stripe-Elements eingebettet, kein separater autopay.html-Link mehr. -->
-            <div id="autopay-content" style="display:none;padding:20px;background:white;border-radius:12px;margin-top:14px;">
-                <h3 style="margin:0 0 6px;font-size:18px;color:#0f172a;">⚡ Auto-Pay einrichten</h3>
-                <p style="font-size:13px;color:#64748b;margin-bottom:14px;">Hinterlegen Sie einmalig Ihre Karte — danach wird der Fahrtpreis automatisch nach jeder Fahrt abgebucht. Wie bei Uber oder Bolt.</p>
-                <div id="autopay-status-banner" style="display:none;margin-bottom:14px;padding:12px;border-radius:8px;font-size:13px;"></div>
-                <div id="autopay-setup-form">
-                    <div id="autopay-payment-element" style="margin:14px 0 18px;"></div>
-                    <button id="autopay-submit-btn" onclick="submitAutopaySetup()" style="width:100%;padding:14px;background:#059669;color:white;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;" disabled>Karte sicher hinterlegen</button>
-                    <div style="text-align:center;font-size:11px;color:#94a3b8;margin-top:14px;">🔒 Karten-Daten werden direkt von Stripe sicher gespeichert.</div>
-                </div>
-                <div id="autopay-existing" style="display:none;background:#dcfce7;color:#15803d;padding:14px;border-radius:8px;font-size:14px;font-weight:600;">
-                    ✅ Auto-Pay ist aktiv. Ihre Fahrten werden automatisch abgebucht.
-                    <div id="autopay-method-display" style="margin-top:8px;font-size:13px;font-weight:400;color:#0f5132;"></div>
-                    <button onclick="disableAutopay()" style="display:block;margin-top:10px;padding:8px 14px;background:#fef2f2;color:#b91c1c;border:1px solid #fecaca;border-radius:8px;cursor:pointer;font-size:12px;">Auto-Pay deaktivieren</button>
-                    <button onclick="switchAutopayMethod()" style="display:block;margin-top:6px;padding:8px 14px;background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;border-radius:8px;cursor:pointer;font-size:12px;">Zahlungsmethode ändern</button>
+            <!-- Auto-Pay-Tab (v6.63.118 eingebettet, v6.63.122 visuell neu) -->
+            <div id="autopay-content" style="display:none;">
+                <div class="autopay-card">
+                    <h3>Auto-Pay einrichten</h3>
+                    <p class="lead">Hinterlegen Sie einmalig Ihre Zahlungsmethode — danach wird der Fahrtpreis nach jeder Fahrt automatisch abgebucht. Wie bei Uber oder Bolt.</p>
+                    <div id="autopay-status-banner" style="display:none;margin-bottom:14px;padding:12px;border-radius:var(--r-sm);font-size:13px;"></div>
+                    <div id="autopay-setup-form">
+                        <div id="autopay-payment-element" style="margin:14px 0 18px;"></div>
+                        <button id="autopay-submit-btn" onclick="submitAutopaySetup()" class="btn btn-primary" disabled>Zahlungsmethode hinterlegen</button>
+                        <div class="secure-badge"><span>🔒</span> Daten werden direkt von Stripe sicher gespeichert.</div>
+                    </div>
+                    <div id="autopay-existing" style="display:none;">
+                        <div class="autopay-status-active">
+                            <div class="badge">✅ Auto-Pay ist aktiv</div>
+                            <div style="font-size:13px;font-weight:500;color:#065f46;">Ihre Fahrten werden automatisch abgebucht.</div>
+                            <div id="autopay-method-display" style="margin-top:10px;font-size:13px;font-weight:500;color:#065f46;"></div>
+                        </div>
+                        <div class="autopay-action-row">
+                            <button onclick="switchAutopayMethod()">Zahlungsmethode ändern</button>
+                            <button class="danger" onclick="disableAutopay()">Deaktivieren</button>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <!-- Neue Fahrt buchen -->
-            <div style="margin-top:16px;text-align:center;">
-                <a href="buchen.html?new=1" style="display:inline-block;padding:12px 24px;background:linear-gradient(135deg,#059669,#047857);color:white;border-radius:10px;text-decoration:none;font-weight:600;font-size:14px;">
-                    🚕 Neue Fahrt buchen
-                </a>
-            </div>
+            <!-- CTA: Neue Fahrt buchen -->
+            <a href="buchen.html?new=1" class="cta-book">🚕 Neue Fahrt buchen</a>
         </div>
     </div>
 
@@ -593,55 +746,54 @@
         </div>
     </div>
 
-    <!-- PROFIL MODAL — v6.62.776 (Patrick 16.05. 08:29 + 11:15): uebersichtlicher,
-         in Sektionen gegliedert. Telefon nur bei Phone-Auth readonly. -->
+    <!-- PROFIL MODAL — v6.63.122 Bolt-Style: saubere Sektion-Cards, dunkler CTA -->
     <div class="modal-overlay" id="profile-modal">
         <div class="modal">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-                <h3 style="margin:0;">👤 Mein Konto</h3>
-                <button onclick="closeProfileModal()" style="background:none;border:none;font-size:24px;cursor:pointer;color:#6b7280;">✕</button>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                <h3 style="margin:0;">Mein Konto</h3>
+                <button onclick="closeProfileModal()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--ink-3);padding:4px 8px;">✕</button>
             </div>
-            <div style="font-size:12px;color:#6b7280;margin-bottom:14px;">Hier verwalten Sie Ihre Stammdaten — Name, Kontakt und Heimadresse.<br><span style="font-size:10px;color:#a3a3a3;">Profil v6.62.776</span></div>
+            <div style="font-size:13px;color:var(--ink-2);margin-bottom:16px;">Stammdaten verwalten — Name, Kontakt, Heimadresse und bevorzugte Zahlung.</div>
 
             <!-- Sektion 1: Persoenliche Daten -->
-            <div style="border:1px solid #e5e7eb;border-radius:10px;padding:12px;margin-bottom:12px;background:#fafbfc;">
-                <div style="font-size:11px;font-weight:700;color:#667eea;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Persoenliche Daten</div>
+            <div class="profile-section">
+                <div class="profile-section-label">Persönliche Daten</div>
                 <div class="form-group" style="margin-bottom:10px;">
-                    <label style="font-size:13px;">👤 Name</label>
+                    <label>Name</label>
                     <input type="text" id="profile-name" placeholder="Vor- und Nachname">
                 </div>
                 <div class="form-group" style="margin-bottom:0;">
-                    <label style="font-size:13px;">📧 Email</label>
+                    <label>E-Mail</label>
                     <input type="email" id="profile-email" placeholder="email@beispiel.de">
-                    <div id="profile-email-hint" style="font-size:11px;color:#6b7280;margin-top:4px;display:none;">Email aus Google-Login uebernommen.</div>
+                    <div id="profile-email-hint" style="font-size:11px;color:var(--ink-3);margin-top:4px;display:none;">Aus Google-Login übernommen.</div>
                 </div>
             </div>
 
             <!-- Sektion 2: Telefon -->
-            <div style="border:1px solid #e5e7eb;border-radius:10px;padding:12px;margin-bottom:12px;background:#fafbfc;">
-                <div style="font-size:11px;font-weight:700;color:#667eea;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Telefonnummer</div>
+            <div class="profile-section">
+                <div class="profile-section-label">Telefonnummer</div>
                 <div class="form-group" style="margin-bottom:0;">
                     <input type="tel" id="profile-phone" placeholder="z.B. 0151 12345678">
-                    <div id="profile-phone-hint" style="font-size:11px;color:#6b7280;margin-top:6px;line-height:1.4;"></div>
+                    <div id="profile-phone-hint" style="font-size:11px;color:var(--ink-3);margin-top:6px;line-height:1.4;"></div>
                 </div>
             </div>
 
-            <!-- 🆕 v6.63.006 (Patrick 29.05. 08:17): Bevorzugte Zahlungsart hinterlegen -->
-            <div style="border:1px solid #e5e7eb;border-radius:10px;padding:12px;margin-bottom:12px;background:#fafbfc;">
-                <div style="font-size:11px;font-weight:700;color:#667eea;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Bevorzugte Zahlung</div>
-                <select id="profile-default-payment" style="width:100%;padding:10px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;background:white;">
+            <!-- Sektion 3: Bevorzugte Zahlung -->
+            <div class="profile-section">
+                <div class="profile-section-label">Bevorzugte Zahlung</div>
+                <select id="profile-default-payment">
                     <option value="cash">💵 Bar beim Fahrer</option>
                     <option value="card">💳 EC/Kreditkarte beim Fahrer (Terminal)</option>
                     <option value="stripe">🌐 Online vorab bezahlen (Stripe-Link per SMS)</option>
                     <option value="paypal">🅿️ PayPal (Link per SMS)</option>
                     <option value="rechnung">🧾 Auf Rechnung (nur Stammkunden)</option>
                 </select>
-                <div style="font-size:11px;color:#6b7280;line-height:1.4;margin-top:6px;">💡 Wird bei jeder Buchung automatisch vorgeschlagen — Sie können einzelne Fahrten trotzdem anders zahlen.</div>
+                <div style="font-size:11px;color:var(--ink-3);line-height:1.4;margin-top:8px;">Wird bei jeder Buchung vorgeschlagen — einzelne Fahrten können Sie trotzdem anders zahlen.</div>
             </div>
 
             <!-- Sektion 4: Adresse -->
-            <div style="border:1px solid #e5e7eb;border-radius:10px;padding:12px;margin-bottom:14px;background:#fafbfc;">
-                <div style="font-size:11px;font-weight:700;color:#667eea;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Heimadresse</div>
+            <div class="profile-section">
+                <div class="profile-section-label">Heimadresse</div>
                 <div class="form-group" style="margin-bottom:8px;">
                     <div class="address-row">
                         <div class="address-input-wrap">
@@ -651,16 +803,18 @@
                         <button type="button" class="map-btn" onclick="openMapPicker()" title="Auf Karte auswählen">🗺️</button>
                     </div>
                 </div>
-                <div style="font-size:11px;color:#6b7280;line-height:1.4;">💡 Wird automatisch als Abhol- oder Zielort vorgeschlagen — spart Tippen bei jeder Buchung.</div>
+                <div style="font-size:11px;color:var(--ink-3);line-height:1.4;">Wird als Abhol-/Zielort vorgeschlagen — spart Tippen bei jeder Buchung.</div>
+            </div>
+
+            <!-- Sektion 5: Sitzung -->
+            <div class="profile-section" style="margin-bottom:16px;">
+                <div class="profile-section-label">Sitzung</div>
+                <button onclick="logout()" style="width:100%;padding:11px;background:var(--surface-2);color:var(--ink-2);border:1px solid var(--line);border-radius:var(--r-sm);font-weight:600;font-size:14px;cursor:pointer;">Abmelden</button>
             </div>
 
             <div style="display:flex;gap:8px;">
-                <button onclick="closeProfileModal()" style="flex:1;padding:12px;background:#f3f4f6;color:#374151;border:none;border-radius:10px;font-weight:600;font-size:14px;cursor:pointer;">
-                    Abbrechen
-                </button>
-                <button onclick="saveProfile()" style="flex:2;padding:12px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border:none;border-radius:10px;font-weight:700;font-size:14px;cursor:pointer;">
-                    💾 Speichern
-                </button>
+                <button onclick="closeProfileModal()" class="btn btn-secondary" style="flex:1;margin:0;">Abbrechen</button>
+                <button onclick="saveProfile()" class="btn btn-primary" style="flex:2;">Speichern</button>
             </div>
         </div>
     </div>
@@ -1052,11 +1206,12 @@
             const emailHint = document.getElementById('profile-email-hint');
             if (emailHint) emailHint.style.display = (user && user.email && !user.phoneNumber) ? 'block' : 'none';
 
-            // Header-Info aktualisieren
+            // Header-Info aktualisieren (Avatar bleibt sichtbar)
             const headerInfo = document.getElementById('header-user-info');
             if (headerInfo) {
                 headerInfo.style.display = 'block';
-                document.getElementById('header-phone').textContent = verifiedPhone ? '+' + verifiedPhone : (user && user.email ? user.email : '');
+                const phoneEl = document.getElementById('header-phone');
+                if (phoneEl) phoneEl.textContent = verifiedPhone ? '+' + verifiedPhone : (user && user.email ? user.email : '');
             }
             // 🆕 v6.62.401: Autocomplete am Adress-Feld einmalig aktivieren
             setupProfileAddressAutocomplete();
@@ -1455,18 +1610,27 @@
             document.getElementById('customer-phone-display').textContent = displayPhone;
             document.getElementById('customer-name').textContent = displayName;
 
-            // 🆕 v6.39.1: Header-Info anzeigen
+            // v6.63.122: Header-Info — Avatar mit Initial des Vornamens
             const headerInfo = document.getElementById('header-user-info');
             if (headerInfo) {
                 headerInfo.style.display = 'block';
-                document.getElementById('header-phone').textContent = displayPhone;
+                const phoneEl = document.getElementById('header-phone');
+                if (phoneEl) phoneEl.textContent = displayPhone;
+                // Avatar-Initial setzen
+                const avatarEl = document.getElementById('header-avatar');
+                if (avatarEl) {
+                    const firstName = (customerData?.firstName || displayName.split(' ')[0] || '').trim();
+                    const lastName = (customerData?.lastName || displayName.split(' ').slice(1).join(' ') || '').trim();
+                    const initial = (firstName[0] || '') + (lastName[0] || '');
+                    avatarEl.textContent = initial.toUpperCase() || '👤';
+                }
             }
-            // 🆕 v6.62.400: Prominente Begrüssung mit Vornamen, Subtitle bleibt 'Meine Fahrten'
+            // Begruessung im Header-Subtitle
             const greetEl = document.getElementById('header-greeting');
             if (greetEl) {
                 if (displayName && displayName !== 'Willkommen') {
                     const firstName = (customerData?.firstName || displayName.split(' ')[0] || '').trim();
-                    greetEl.textContent = '👋 Hallo, ' + firstName + '!';
+                    greetEl.textContent = 'Hallo, ' + firstName;
                     greetEl.style.display = 'block';
                 } else {
                     greetEl.style.display = 'none';
@@ -1593,25 +1757,29 @@
 
             const actionsHtml = isUpcoming ? `
                 <div class="ride-actions">
-                    <button onclick="openEditModal('${ride.firebaseId}')" style="background:#eff6ff;color:#1e40af;">
-                        ✏️ Bearbeiten
+                    <button onclick="openEditModal('${ride.firebaseId}')" style="background:var(--surface-2);color:var(--ink);">
+                        Bearbeiten
                     </button>
-                    <button onclick="openNotesModal('${ride.firebaseId}')" style="background:#fef3c7;color:#92400e;">
-                        📝 Notiz
+                    <button onclick="openNotesModal('${ride.firebaseId}')" style="background:var(--surface-2);color:var(--ink);">
+                        Notiz
                     </button>
-                    <button onclick="cancelRide('${ride.firebaseId}')" style="background:#fef2f2;color:#991b1b;">
-                        ✕ Stornieren
+                    <button onclick="cancelRide('${ride.firebaseId}')" style="background:#fef2f2;color:#b91c1c;">
+                        Stornieren
                     </button>
                 </div>` : `
                 <div class="ride-actions">
-                    <button onclick="rebookRide('${ride.firebaseId}')" style="background:#d1fae5;color:#065f46;">
-                        🔄 Nochmal buchen
+                    <button onclick="rebookRide('${ride.firebaseId}')" style="background:var(--brand);color:white;">
+                        Nochmal buchen
                     </button>
                 </div>`;
 
+            // v6.63.122 Bolt-Style: Datum oben links, Status oben rechts, Preis in meta-Zeile rechts
             const html = `
                 <div class="ride-card" id="ride-card-${ride.firebaseId}">
-                    <span class="ride-status ${statusClass}">${statusLabel}</span>
+                    <div class="ride-card-head">
+                        <div class="ride-card-date">${dateStr}<span class="small">· ${timeStr}</span></div>
+                        <span class="ride-status ${statusClass}">${statusLabel}</span>
+                    </div>
                     <div class="ride-route">
                         <div class="route-dots">
                             <div class="dot-green"></div>
@@ -1624,10 +1792,8 @@
                         </div>
                     </div>
                     <div class="ride-meta">
-                        <span>📅 ${dateStr}</span>
-                        <span>🕐 ${timeStr}</span>
-                        ${priceStr ? `<span>💰 ${priceStr}</span>` : ''}
                         ${passStr ? `<span>👥 ${passStr}</span>` : ''}
+                        ${priceStr ? `<span class="price">${priceStr}</span>` : ''}
                     </div>
                     ${noteHtml}
                     ${invoiceHtml}
@@ -2132,21 +2298,33 @@
                 formEl.style.display = 'none';
                 existingEl.style.display = 'block';
                 existingEl.dataset.crmId = crmId;
-                // 🆕 v6.63.121: Methode-Details anzeigen
+                // v6.63.122: Methode als Card mit Brand-Icon + Last4 + Exp
                 const _disp = document.getElementById('autopay-method-display');
                 if (_disp) {
-                    const t = crmCustomer.autoPayMethodType || 'Methode';
-                    const b = crmCustomer.autoPayMethodBrand || '';
+                    const t = crmCustomer.autoPayMethodType || '';
+                    const b = (crmCustomer.autoPayMethodBrand || '').toLowerCase();
                     const l4 = crmCustomer.autoPayMethodLast4 || '';
                     const exp = crmCustomer.autoPayMethodExp || '';
-                    let _icon = '💳';
-                    if (b === 'paypal') _icon = '🅿️';
-                    else if (b === 'link') _icon = '🔗';
-                    else if (b === 'sepa_debit') _icon = '🏦';
-                    else if (t === 'card' && b === 'visa') _icon = '💳 Visa';
-                    else if (t === 'card' && b === 'mastercard') _icon = '💳 Mastercard';
-                    else if (t === 'card' && b === 'amex') _icon = '💳 Amex';
-                    _disp.textContent = '📌 ' + _icon + (l4 ? ' • ' + (t === 'card' ? '**** ' : '') + l4 : '') + (exp ? ' • gültig bis ' + exp : '');
+                    let brandLabel = 'Karte';
+                    let icon = '💳';
+                    if (t === 'paypal' || b === 'paypal') { brandLabel = 'PayPal'; icon = '🅿️'; }
+                    else if (t === 'link' || b === 'link') { brandLabel = 'Stripe Link'; icon = '🔗'; }
+                    else if (t === 'sepa_debit' || b === 'sepa_debit') { brandLabel = 'SEPA-Lastschrift'; icon = '🏦'; }
+                    else if (b === 'visa') brandLabel = 'Visa';
+                    else if (b === 'mastercard') brandLabel = 'Mastercard';
+                    else if (b === 'amex') brandLabel = 'American Express';
+                    else if (b === 'discover') brandLabel = 'Discover';
+                    const subParts = [];
+                    if (l4) subParts.push((t === 'card' ? '•••• ' : '') + l4);
+                    if (exp) subParts.push('gültig bis ' + exp);
+                    _disp.innerHTML = `
+                        <div class="pay-method-row" style="margin-top:0;">
+                            <div class="pay-method-icon">${icon}</div>
+                            <div class="pay-method-info">
+                                <div class="brand">${brandLabel}</div>
+                                <div class="small">${subParts.join(' · ') || 'Hinterlegt'}</div>
+                            </div>
+                        </div>`;
                 }
                 return;
             }

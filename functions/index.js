@@ -28251,12 +28251,15 @@ exports.createStripeSetup = onRequest(
                     stripeCustomerCreatedAt: Date.now()
                 });
             }
-            // v6.63.119 (Patrick 13:08 Screenshot Bug): sepa_debit muss im Stripe-
-            //   Dashboard erst aktiviert werden. Erstmal nur Karte — SEPA können
-            //   wir später nachziehen wenn Patrick es im Dashboard freigeschaltet hat.
+            // 🆕 v6.63.120 (Patrick 12:56 "kann man nicht aussuchen — PayPal, Apple Pay…"):
+            //   Statt fester payment_method_types nutze automatic_payment_methods.
+            //   Stripe zeigt dann automatisch alle Methoden die im Dashboard
+            //   freigeschaltet sind (Karte, Apple Pay, Google Pay, Link, SEPA wenn
+            //   aktiviert). 'allow_redirects: never' damit nur on-page-Methoden
+            //   ohne externe Redirects (wichtig für eingebettetes Setup).
             const setupIntent = await stripe.setupIntents.create({
                 customer: stripeCustomerId,
-                payment_method_types: ['card'],
+                automatic_payment_methods: { enabled: true, allow_redirects: 'never' },
                 usage: 'off_session',
                 metadata: { crmCustomerId: customerId }
             });

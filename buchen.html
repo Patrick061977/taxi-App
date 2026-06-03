@@ -2194,10 +2194,18 @@
                                 _busyVehiclesCount = _busyVehiclesSet.size;
                                 _freeNowCount = sofortCount - _busyVehiclesCount;
                                 if (_freeNowCount > 0) {
-                                    bar.textContent = `🟢 Taxi sofort verfügbar! ${_freeNowCount} Fahrer ${_freeNowCount === 1 ? 'frei' : 'frei'} · Adresse eingeben für ETA`;
+                                    bar.textContent = `🟢 Taxi sofort verfügbar! ${_freeNowCount} Fahrer frei · Adresse eingeben für ETA`;
+                                    bar.className = 'status-bar online';
+                                    bar.style.background = '';
                                 } else if (_earliestFreeMs) {
+                                    // v6.63.099 (Patrick 03.06. 07:46 "auch bevor ich Pickup
+                                    //   eingeklickt habe"): GELB statt grün wenn keine Fahrer
+                                    //   wirklich frei sind, schon vor Pickup-Eingabe.
                                     const _waitMin = Math.max(1, Math.round((_earliestFreeMs - _nowMs) / 60000));
-                                    bar.textContent = `🟡 Alle ${sofortCount} Fahrer aktuell besetzt · nächstes Taxi voraussichtlich in ca. ${_waitMin} Min frei`;
+                                    bar.textContent = `🟡 Alle ${sofortCount} Fahrer besetzt · Wartezeit ca. ${_waitMin} Min · Adresse eingeben für genaue ETA`;
+                                    bar.className = 'status-bar';
+                                    bar.style.background = '#fef3c7';
+                                    bar.style.color = '#92400e';
                                 }
                             } catch (_eFree) { /* fallback bleibt 'Taxi verfügbar' */ }
                         }

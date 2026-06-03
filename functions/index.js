@@ -28251,9 +28251,12 @@ exports.createStripeSetup = onRequest(
                     stripeCustomerCreatedAt: Date.now()
                 });
             }
+            // v6.63.119 (Patrick 13:08 Screenshot Bug): sepa_debit muss im Stripe-
+            //   Dashboard erst aktiviert werden. Erstmal nur Karte — SEPA können
+            //   wir später nachziehen wenn Patrick es im Dashboard freigeschaltet hat.
             const setupIntent = await stripe.setupIntents.create({
                 customer: stripeCustomerId,
-                payment_method_types: ['card', 'sepa_debit'],
+                payment_method_types: ['card'],
                 usage: 'off_session',
                 metadata: { crmCustomerId: customerId }
             });

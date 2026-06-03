@@ -25214,7 +25214,13 @@ exports.onRideUpdated = onValueUpdated(
                     } catch(_e) {}
                 }
 
-                const _gross = parseFloat(after.price) || parseFloat(after.actualPrice) || 0;
+                // 🆕 v6.63.125 (Patrick 03.06. 18:55 Bridge "Hotel Balmer See 25,40 statt 30 EUR"):
+                //   Reihenfolge umgedreht — actualPrice (Fahrer-Eingabe im Bezahl-Dialog)
+                //   gewinnt vor price (estimatedPrice-String aus Auto-Berechner). Bug-Symptom:
+                //   Rechnung 20-26-881 wurde mit 25,40 EUR angelegt obwohl Patrick im Native
+                //   30 EUR eingegeben hatte — actualPrice=30 wurde nie geprueft weil
+                //   parseFloat("25.40")=25.4 truthy ist.
+                const _gross = parseFloat(after.actualPrice) || parseFloat(after.paymentAmount) || parseFloat(after.price) || 0;
                 // 7% USt fuer Personenbefoerderung (NahverkehrUstSatz)
                 const _ustSatz = 7;
                 const _netto = +(_gross / 1.07).toFixed(2);
@@ -25480,7 +25486,26 @@ exports.onRideUpdated = onValueUpdated(
             //   die wirklich JUST completed wurden (< 24h alt). Historische Updates
             //   (z.B. pickupDate-Bulk-Fix) dürfen keine SMS an alte Kunden auslösen.
             const _completedRecently2 = after.completedAt && after.completedAt > Date.now() - 24 * 60 * 60 * 1000;
-            if (_invNumNew && _statusNow === 'completed' && !_alreadySent && _completedRecently2) {
+            // 🆕 v6.63.125 (Patrick 03.06. 19:06 Bridge "Kunde kriegt die SMS mit der
+            //   Rechnung"): Bei Hotel-/Auftraggeber-Buchungen darf die Rechnungs-SMS
+            //   NICHT an den Gast gehen — die Rechnung adressiert das Hotel, der Gast
+            //   hat damit nichts zu tun. Beispiel Hotel Balmer See / Gast Ebrecht
+            //   (Rechnung 20-26-881): Ebrecht bekam Track+Rechnungs-SMS, obwohl Hotel
+            //   die Rechnung zahlt. Skip bei _isAuftraggeberBooking=true.
+            const _isAuftraggeberFlow = after._isAuftraggeberBooking === true;
+            if (_invNumNew && _statusNow === 'completed' && !_alreadySent && _completedRecently2 && _isAuftraggeberFlow) {
+                // Auftraggeber-Buchung: SMS-Skip dokumentieren — Rechnung adressiert Hotel,
+                //   nicht den Gast. Skip-Flag setzen damit der Trigger nicht erneut feuert.
+                try {
+                    await db.ref(`rides/${rideId}/completionSmsWithInvoiceSent`).set('skipped-auftraggeber');
+                    await addRideLog(rideId, '🔕', 'Abschluss-SMS skipped — Auftraggeber-Buchung (Rechnung an Hotel)', {
+                        invoiceNumber: after.invoiceNumber,
+                        auftraggeberKind: after._auftraggeberKind || null,
+                        guestName: after.guestName || null,
+                        customerName: after.customerName || null
+                    });
+                } catch (_) {}
+            } else if (_invNumNew && _statusNow === 'completed' && !_alreadySent && _completedRecently2 && !_isAuftraggeberFlow) {
                 const _smsPhone = after.customerPhone || after.customerMobile;
                 if (_smsPhone && isMobileNumber(_smsPhone)) {
                     // Kunde-Daten für Anrede

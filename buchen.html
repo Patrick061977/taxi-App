@@ -2228,8 +2228,10 @@
                                     bar.className = 'status-bar online';
                                     bar.style.background = '';
                                 } else if (_freeNowCount > 0 && _minFreeWaitMin > 0) {
-                                    // Freie Fahrer aber noch unterwegs zur Homebase
-                                    bar.textContent = `🟡 ${_freeNowCount} Fahrer auf Rückweg zur Homebase · Wartezeit ca. ${_minFreeWaitMin} Min · Adresse eingeben für genaue ETA`;
+                                    // v6.63.102 (Patrick 03.06. 08:04 "befindet sich auf
+                                    //   Rückfahrt ist alles Quatsch, du sollst einfach bloß
+                                    //   schreiben Wartezeit ca."): nur Zeit, kein Status-Roman.
+                                    bar.textContent = `🟡 Wartezeit ca. ${_minFreeWaitMin} Min · Adresse eingeben für genaue ETA`;
                                     bar.className = 'status-bar';
                                     bar.style.background = '#fef3c7';
                                     bar.style.color = '#92400e';
@@ -2238,7 +2240,7 @@
                                     //   eingeklickt habe"): GELB statt grün wenn keine Fahrer
                                     //   wirklich frei sind, schon vor Pickup-Eingabe.
                                     const _waitMin = Math.max(1, Math.round((_earliestFreeMs - _nowMs) / 60000));
-                                    bar.textContent = `🟡 Alle ${sofortCount} Fahrer besetzt · Wartezeit ca. ${_waitMin} Min · Adresse eingeben für genaue ETA`;
+                                    bar.textContent = `🟡 Wartezeit ca. ${_waitMin} Min · Adresse eingeben für genaue ETA`;
                                     bar.className = 'status-bar';
                                     bar.style.background = '#fef3c7';
                                     bar.style.color = '#92400e';

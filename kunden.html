@@ -567,7 +567,9 @@
                 </div>
                 <div id="autopay-existing" style="display:none;background:#dcfce7;color:#15803d;padding:14px;border-radius:8px;font-size:14px;font-weight:600;">
                     ✅ Auto-Pay ist aktiv. Ihre Fahrten werden automatisch abgebucht.
+                    <div id="autopay-method-display" style="margin-top:8px;font-size:13px;font-weight:400;color:#0f5132;"></div>
                     <button onclick="disableAutopay()" style="display:block;margin-top:10px;padding:8px 14px;background:#fef2f2;color:#b91c1c;border:1px solid #fecaca;border-radius:8px;cursor:pointer;font-size:12px;">Auto-Pay deaktivieren</button>
+                    <button onclick="switchAutopayMethod()" style="display:block;margin-top:6px;padding:8px 14px;background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;border-radius:8px;cursor:pointer;font-size:12px;">Zahlungsmethode ändern</button>
                 </div>
             </div>
 
@@ -2130,6 +2132,22 @@
                 formEl.style.display = 'none';
                 existingEl.style.display = 'block';
                 existingEl.dataset.crmId = crmId;
+                // 🆕 v6.63.121: Methode-Details anzeigen
+                const _disp = document.getElementById('autopay-method-display');
+                if (_disp) {
+                    const t = crmCustomer.autoPayMethodType || 'Methode';
+                    const b = crmCustomer.autoPayMethodBrand || '';
+                    const l4 = crmCustomer.autoPayMethodLast4 || '';
+                    const exp = crmCustomer.autoPayMethodExp || '';
+                    let _icon = '💳';
+                    if (b === 'paypal') _icon = '🅿️';
+                    else if (b === 'link') _icon = '🔗';
+                    else if (b === 'sepa_debit') _icon = '🏦';
+                    else if (t === 'card' && b === 'visa') _icon = '💳 Visa';
+                    else if (t === 'card' && b === 'mastercard') _icon = '💳 Mastercard';
+                    else if (t === 'card' && b === 'amex') _icon = '💳 Amex';
+                    _disp.textContent = '📌 ' + _icon + (l4 ? ' • ' + (t === 'card' ? '**** ' : '') + l4 : '') + (exp ? ' • gültig bis ' + exp : '');
+                }
                 return;
             }
             statusEl.style.background = '#dbeafe'; statusEl.style.color = '#1e40af';
@@ -2194,6 +2212,24 @@
             const crmId = existingEl.dataset.crmId;
             if (!crmId) return;
             await db.ref('customers/' + crmId).update({ autoChargeEnabled: false, autoChargeDisabledAt: Date.now() });
+            location.reload();
+        }
+
+        // 🆕 v6.63.121: Methode wechseln (löscht aktuelle, neue SetupIntent)
+        async function switchAutopayMethod() {
+            if (!confirm('Eine neue Zahlungsmethode hinterlegen? Die aktuelle wird ersetzt.')) return;
+            const existingEl = document.getElementById('autopay-existing');
+            const crmId = existingEl.dataset.crmId;
+            if (!crmId) return;
+            await db.ref('customers/' + crmId).update({
+                autoChargeEnabled: false,
+                defaultPaymentMethodId: null,
+                autoPayMethodType: null,
+                autoPayMethodBrand: null,
+                autoPayMethodLast4: null,
+                autoPayMethodExp: null,
+                autoChargeDisabledAt: Date.now()
+            });
             location.reload();
         }
 

@@ -26379,6 +26379,113 @@ exports.scheduledRideAutoClose = onSchedule(
 );
 
 // ═══════════════════════════════════════════════════════════════
+// 👻 GHOST-RIDE-SWEEP — v6.63.104
+// Patrick (03.06. 08:08): "wieso kommen Geisterfahrten irgendwo her?
+// Was soll ich mir nach zwölf Stunden mit einer Fahrt? Und außerdem,
+// wie gesagt, hatte ich die bei Vorbestellung auf Komplett gesetzt."
+//
+// Mütter-Gesundheit 02.06. 19:25 wurde gestern Abend angelegt + auf
+// 'Komplett' getippt, aber onRideCreated v6.62.22 hat status=completed
+// → warteschlange degradiert (Past-Date-Schutz griff nur bei
+// completedBy='auftrag-import-historic'). Heute Morgen ging Tesla MY
+// online → scheduledAutoAssign hat die 12h alte Ride aufgegriffen →
+// Geist-Push 08:03.
+//
+// Dieser Sweep läuft täglich 02:30 (Off-Hours) und schließt Rides,
+// die >24h alten pickupTimestamp haben aber noch in non-final Status
+// hängen (new, vorbestellt, warteschlange, sofort, accepted, on_way,
+// arrived, picked_up). Sicherheits-Cap auf 50 Rides pro Lauf, damit
+// keine Massenkorrektur bei Bug-Welle.
+// ═══════════════════════════════════════════════════════════════
+
+exports.scheduledGhostRideSweep = onSchedule(
+    {
+        schedule: 'every day 02:30',
+        timeZone: 'Europe/Berlin',
+        region: 'europe-west1',
+        timeoutSeconds: 120,
+        memory: '256MiB'
+    },
+    async (event) => {
+        try {
+            const now = Date.now();
+            const twelveHoursAgo = now - 12 * 60 * 60 * 1000;
+            const horizonBack = now - 14 * 24 * 60 * 60 * 1000;
+            // Nur Rides aus den letzten 14 Tagen (server-side Filter)
+            const ridesSnap = await db.ref('rides')
+                .orderByChild('pickupTimestamp')
+                .startAt(horizonBack)
+                .endAt(twelveHoursAgo)
+                .once('value');
+            if (!ridesSnap.val()) {
+                console.log('👻 GhostSweep: keine Kandidaten in [now-14d, now-12h]');
+                return;
+            }
+
+            const NON_FINAL = ['new','vorbestellt','warteschlange','sofort','accepted','on_way','arrived','picked_up','akzeptiert','unterwegs'];
+            const ghosts = [];
+
+            ridesSnap.forEach(child => {
+                const ride = child.val();
+                if (!ride || !ride.pickupTimestamp) return;
+                if (!NON_FINAL.includes(ride.status)) return;
+                // Vorbestellung in Zukunft? darf nicht (pickupTs > twelveHoursAgo wäre Filter,
+                // aber doppelt geprüft falls Index inkonsistent)
+                if (ride.pickupTimestamp > twelveHoursAgo) return;
+                // Geschützte Flags
+                if (ride.protectedFromGhostSweep === true) return;
+                ghosts.push({ id: child.key, ride });
+            });
+
+            if (ghosts.length === 0) {
+                console.log('👻 GhostSweep: 0 Geisterfahrten');
+                return;
+            }
+
+            const CAP = 50;
+            const toClose = ghosts.slice(0, CAP);
+            console.log(`👻 GhostSweep: ${ghosts.length} Geisterfahrten gefunden (cap ${CAP}) — schliesse...`);
+
+            for (const { id, ride } of toClose) {
+                try {
+                    const ageH = Math.round((now - ride.pickupTimestamp) / 3600000);
+                    await db.ref('rides/' + id).update({
+                        status: 'cancelled',
+                        cancelledAt: now,
+                        cancelledBy: 'cloud-ghost-sweep-v6.63.104',
+                        ghostSweepReason: `non-final status='${ride.status}' nach ${ageH}h`,
+                        updatedAt: now
+                    });
+                    await addRideLog(id, '👻', `Ghost-Sweep: ${ride.status} (${ageH}h alt) → cancelled`, {
+                        oldStatus: ride.status,
+                        ageHours: ageH,
+                        customer: ride.customerName || '?',
+                        pickup: ride.pickup,
+                        quelle: 'scheduledGhostRideSweep v6.63.104'
+                    });
+                } catch (e) {
+                    console.error(`❌ GhostSweep ${id}:`, e.message);
+                }
+            }
+
+            // Admin-Telegram-Notice (1× pro Lauf, kompakter Report)
+            if (toClose.length > 0) {
+                const lines = toClose.slice(0, 10).map(g => {
+                    const ageH = Math.round((now - g.ride.pickupTimestamp) / 3600000);
+                    return `• ${g.ride.customerName || '?'} ${ageH}h alt (${g.ride.status})`;
+                }).join('\n');
+                const overflow = toClose.length > 10 ? `\n…und ${toClose.length - 10} weitere` : '';
+                await sendToAllAdmins(`👻 Geister-Sweep: ${toClose.length} stale Fahrt(en) auto-cancelled\n${lines}${overflow}`);
+            }
+
+            console.log(`👻 GhostSweep: ${toClose.length}/${ghosts.length} geschlossen`);
+        } catch (e) {
+            console.error('❌ scheduledGhostRideSweep Fehler:', e.message);
+        }
+    }
+);
+
+// ═══════════════════════════════════════════════════════════════
 // 💓 SHIFT-HEARTBEAT WATCHDOG — v6.40.29
 // Läuft jede Minute, prüft ob aktive Schichten noch einen frischen
 // Heartbeat senden. Fehlt der Heartbeat >2 Min → Schicht auto-beenden

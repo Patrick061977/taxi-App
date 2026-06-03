@@ -25975,14 +25975,21 @@ exports.scheduledDepartureAlert = onSchedule(
                 //   nochmal alarmiert. Hasbargen heute 19:23 angenommen, 19:27 wieder Push.
                 //   Fix: nur 'vorbestellt' und 'assigned' eligible. Bei 'accepted' ist
                 //   der Akzeptanz-Schritt logisch schon getan.
+                // v6.63.094 (Patrick 03.06. 05:39 "Anfahrt plus 10 min Alarm nicht vorher"):
+                //   Akzeptanz-Alarm Lead von (15+Anfahrt) auf (10+Anfahrt) reduziert,
+                //   passt zu scheduledAutoAssign-Reminder-Block + departure_alert. Plus:
+                //   wenn ride.acceptedAt schon gesetzt — Fahrer hat akzeptiert — Akzeptanz-
+                //   Alarm überspringen (departure_alert reicht). Verhindert die 2 Pushes
+                //   die Patrick heute morgen für Sandy bekam (05:30+05:35).
                 if (!ride.openRideWarned
+                    && !ride.acceptedAt
                     && ['vorbestellt', 'assigned'].includes(ride.status)
                     && ride.pickupTimestamp
                     && (ride.assignedVehicle || ride.vehicleId)) {
                     const _vid = ride.assignedVehicle || ride.vehicleId;
                     const _driveMin = (typeof ride.drivingTimeToPickup === 'number' && ride.drivingTimeToPickup > 0)
                         ? ride.drivingTimeToPickup : 10;
-                    const _arrivalAlertAt = ride.pickupTimestamp - (15 + _driveMin) * 60_000;
+                    const _arrivalAlertAt = ride.pickupTimestamp - (10 + _driveMin) * 60_000;
                     // Fenster: [arrivalAlertAt, arrivalAlertAt + 2 Min] — 2 Min Puffer
                     if (now >= _arrivalAlertAt && now <= _arrivalAlertAt + 120_000) {
                         const _wasVorbestellt = ride.status === 'vorbestellt';
@@ -26051,7 +26058,9 @@ exports.scheduledDepartureAlert = onSchedule(
                 // Vorher 10 Min Puffer (v6.62.886) → jetzt 15 Min Puffer.
                 // Bei 20 Min Anfahrt = 35 Min vor Pickup; 8 Min Anfahrt = 23 Min vor Pickup.
                 // Live-GPS-Recompute folgt in v6.62.989 (braucht async-Refactor des forEach).
-                const losfahrtAt = pickupTs - driveMin * 60_000 - 15 * 60_000;
+                // v6.63.094 (Patrick 03.06. 05:39): "Termin muss Anfahrt + 10 min Alarm geben
+                //   nicht vorher". Vorher 15 Min Puffer (v6.62.988) → jetzt 10 Min.
+                const losfahrtAt = pickupTs - driveMin * 60_000 - 10 * 60_000;
                 // Trigger-Fenster: zwischen losfahrtAt und losfahrtAt + 2min
                 // (2min damit wir 1-2 Ticks verpassen koennen ohne den Alert zu verlieren)
                 if (now < losfahrtAt) return;

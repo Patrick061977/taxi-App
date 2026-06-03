@@ -19133,7 +19133,12 @@ exports.autoResolveConflicts = onSchedule(
             try {
                 const reassignableRides = allRides.filter(r =>
                     r.pickupTimestamp > now + 60 * 60 * 1000 &&
-                    ['vorbestellt', 'assigned'].includes(r.status) &&
+                    // 🆕 v6.63.123 (Patrick 03.06. 14:50): wartepool + new in Phase 3.
+                    //   Bisher wurden unzugewiesene Vorbestellungen ignoriert →
+                    //   Golfhotel-19:10 blieb wartepool obwohl Antje-19:45 das
+                    //   Fahrzeug hatte. Phase 3 soll die zeitlich frühere Fahrt
+                    //   priorisieren, egal ob sie schon zugewiesen ist.
+                    ['vorbestellt', 'assigned', 'wartepool', 'new'].includes(r.status) &&
                     r.pickupLat && r.destinationLat &&
                     (r.duration || r.estimatedDuration) &&
                     !r.assignmentLocked  // 🆕 v6.62.959: gelockte nicht reassignen (Phase 4 pusht stattdessen)
@@ -19358,6 +19363,172 @@ exports.autoResolveConflicts = onSchedule(
                 }
             } catch (p3err) {
                 console.error('❌ Phase 3 Fehler:', p3err.message, p3err.stack);
+            }
+
+            // ═══════════════════════════════════════════════════════════
+            // 🆕 v6.63.123 (Patrick 03.06. 14:50): PHASE 5 — ERSTE-FAHRT-VORRANG
+            // "Die Fahrt, die zuerst ist, selbst wenn die spaeter eingetragen wurde,
+            //  hat Prioritaet. Wir koennen jetzt nicht eine Fahrt, die spaeter ist,
+            //  mehr Gewicht zuteilen als eine Fahrt, die davor geht."
+            //
+            // Konkret: Golfhotel-19:10 (wartepool) wurde nicht zugewiesen, obwohl
+            // pw-my-222-e Antje-19:45 hatte (5 Min spaeter, gleiche Region).
+            // Phase 3 kann das nicht heben weil es nur Prio-Tausch macht.
+            //
+            // Algorithmus: Fuer jede unzugewiesene Fahrt im 12h-Horizont (ASC):
+            //   1. Finde Fahrzeug das Konflikt nur durch eine SPAETERE Fahrt hat
+            //   2. Pruefe ob die SPAETERE Fahrt auf ein ANDERES Fahrzeug passt
+            //   3. Wenn ja: Tausch (later → altVid, earlier → vid)
+            // Beruehrt nur assignmentLocked=false Fahrten.
+            // ═══════════════════════════════════════════════════════════
+            try {
+                const earlierWaiting = allRides.filter(r =>
+                    !r.assignedVehicle && !r.vehicleId &&
+                    r.pickupTimestamp > now + 60 * 60 * 1000 &&
+                    r.pickupTimestamp < now + 12 * 3600 * 1000 &&
+                    ['vorbestellt', 'new', 'warteschlange', 'wartepool'].includes(r.status) &&
+                    !r.assignmentLocked &&
+                    (r.pickupLat || r.pickupCoords?.lat) &&
+                    (r.destinationLat || r.destCoords?.lat)
+                ).sort((a, b) => a.pickupTimestamp - b.pickupTimestamp);
+
+                let phase5SwapCount = 0;
+                const phase5Lines = [];
+
+                for (const earlier of earlierWaiting) {
+                    if (earlier.assignedVehicle) continue;
+                    const earlierDate = berlinDate(earlier.pickupTimestamp);
+                    const earlierTimeStr = berlinTime(earlier.pickupTimestamp);
+                    const earlierEnd = earlier.pickupTimestamp
+                        + ((earlier.duration || earlier.estimatedDuration || 30) * 60000)
+                        + bufferMs;
+
+                    let bestSwap = null;
+
+                    for (const vid of Object.keys(OFFICIAL_VEHICLES)) {
+                        const vInfo = OFFICIAL_VEHICLES[vid];
+                        if (!vInfo) continue;
+                        if ((vInfo.capacity || 4) < (earlier.passengers || 1)) continue;
+                        if (!isVehicleInShift(vid, shiftsData, earlierDate, earlierTimeStr)) continue;
+
+                        // SPAETERE vorbestellt/assigned-Fahrten auf vid (assignmentLocked=false)
+                        const lateOnVid = allRides.filter(r =>
+                            (r.assignedVehicle === vid || r.vehicleId === vid) &&
+                            r.pickupTimestamp > earlier.pickupTimestamp &&
+                            ['vorbestellt', 'assigned'].includes(r.status) &&
+                            !r.assignmentLocked
+                        );
+                        if (lateOnVid.length === 0) continue;
+
+                        // Konflikt-Check: hat earlier+Leerfahrt → laterPickup Ueberlapp?
+                        const earlierDestLat = earlier.destinationLat || earlier.destCoords?.lat;
+                        const earlierDestLon = earlier.destinationLon || earlier.destCoords?.lon;
+                        const conflictLate = lateOnVid.find(later => {
+                            const laterPickupLat = later.pickupLat || later.pickupCoords?.lat;
+                            const laterPickupLon = later.pickupLon || later.pickupCoords?.lon;
+                            const _lf = _quickLeerfahrtMin(earlierDestLat, earlierDestLon, laterPickupLat, laterPickupLon);
+                            return (earlierEnd + _lf * 60000) > later.pickupTimestamp;
+                        });
+                        if (!conflictLate) continue;
+
+                        // Kann conflictLate auf ein anderes Fahrzeug? (gleicher Konflikt-Check)
+                        const laterDate = berlinDate(conflictLate.pickupTimestamp);
+                        const laterTimeStr = berlinTime(conflictLate.pickupTimestamp);
+                        const laterEnd = conflictLate.pickupTimestamp
+                            + ((conflictLate.duration || conflictLate.estimatedDuration || 30) * 60000)
+                            + bufferMs;
+
+                        let altForLater = null;
+                        for (const altVid of Object.keys(OFFICIAL_VEHICLES)) {
+                            if (altVid === vid) continue;
+                            const altInfo = OFFICIAL_VEHICLES[altVid];
+                            if (!altInfo) continue;
+                            if ((altInfo.capacity || 4) < (conflictLate.passengers || 1)) continue;
+                            if (!isVehicleInShift(altVid, shiftsData, laterDate, laterTimeStr)) continue;
+
+                            const altConflict = allRides.some(r => {
+                                if (r.firebaseId === conflictLate.firebaseId) return false;
+                                if (r.assignedVehicle !== altVid && r.vehicleId !== altVid) return false;
+                                if (!r.pickupTimestamp) return false;
+                                if (['deleted','cancelled','storniert','completed'].includes(r.status)) return false;
+                                const rEnd = r.pickupTimestamp + ((r.duration || r.estimatedDuration || 30) * 60000) + bufferMs;
+                                return (conflictLate.pickupTimestamp < rEnd) && (r.pickupTimestamp < laterEnd);
+                            });
+                            if (altConflict) continue;
+                            altForLater = altVid;
+                            break;
+                        }
+
+                        if (altForLater) {
+                            bestSwap = { vid, later: conflictLate, altVid: altForLater };
+                            break;
+                        }
+                    }
+
+                    if (bestSwap) {
+                        const { vid, later, altVid } = bestSwap;
+                        const vInfo = OFFICIAL_VEHICLES[vid];
+                        const altInfo = OFFICIAL_VEHICLES[altVid];
+
+                        await db.ref(`rides/${later.firebaseId}`).update({
+                            assignedVehicle: altVid,
+                            vehicleId: altVid,
+                            assignedTo: altVid,
+                            vehicle: altInfo.name || altVid,
+                            vehicleLabel: altInfo.name || altVid,
+                            vehiclePlate: altInfo.plate || '',
+                            assignedVehicleName: altInfo.name || altVid,
+                            assignedVehiclePlate: altInfo.plate || '',
+                            assignedBy: 'cloud-phase5-swap',
+                            assignedAt: Date.now(),
+                            updatedAt: Date.now(),
+                            replanReason: `Phase 5 v6.63.123: spaeter als ${earlier.customerName || '?'} (${earlierTimeStr}) → auf ${altInfo.name} verschoben`
+                        });
+                        await db.ref(`rides/${earlier.firebaseId}`).update({
+                            assignedVehicle: vid,
+                            vehicleId: vid,
+                            assignedTo: vid,
+                            vehicle: vInfo.name || vid,
+                            vehicleLabel: vInfo.name || vid,
+                            vehiclePlate: vInfo.plate || '',
+                            assignedVehicleName: vInfo.name || vid,
+                            assignedVehiclePlate: vInfo.plate || '',
+                            status: 'vorbestellt',
+                            assignedBy: 'cloud-phase5-priority',
+                            assignedAt: Date.now(),
+                            updatedAt: Date.now()
+                        });
+
+                        later.assignedVehicle = altVid;
+                        earlier.assignedVehicle = vid;
+                        earlier.status = 'vorbestellt';
+
+                        phase5SwapCount++;
+                        phase5Lines.push(`🔄 ${earlierTimeStr} ${earlier.customerName || '?'} → ${vInfo.name} (von ${later.customerName || '?'} → ${altInfo.name})`);
+                        console.log(`🔄 Phase 5: ${earlier.customerName || '?'} (${earlierTimeStr}) bekommt ${vInfo.name}, ${later.customerName || '?'} verschoben auf ${altInfo.name}`);
+                    }
+                }
+
+                if (phase5SwapCount > 0) {
+                    const msg = `🎯 *Phase 5: Erste-Fahrt-Vorrang*\n${phase5SwapCount} Swap(s):\n\n${phase5Lines.slice(0, 10).join('\n')}`;
+                    try {
+                        await sendToAllAdmins(msg, 'optimization');
+                        await sendToSystemChannel(msg, 'optimization');
+                    } catch(_) {}
+                }
+                if (phase5Lines.length > 0) {
+                    try {
+                        await db.ref('optimierungsLog').push({
+                            timestamp: Date.now(),
+                            type: 'phase5-erste-fahrt-vorrang',
+                            swapCount: phase5SwapCount,
+                            details: phase5Lines.join('\n').substring(0, 4000)
+                        });
+                    } catch(_) {}
+                }
+                console.log(`🔄 Phase 5 abgeschlossen: ${phase5SwapCount} Swap(s)`);
+            } catch (p5err) {
+                console.error('❌ Phase 5 Fehler:', p5err.message, p5err.stack);
             }
 
             // ═══════════════════════════════════════════════════════════

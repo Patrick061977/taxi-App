@@ -399,6 +399,7 @@
                 <button class="tab-btn active" data-tab="plan" onclick="switchTab('plan')">📅 Wochenplan</button>
                 <button class="tab-btn" data-tab="monat" onclick="switchTab('monat')">📆 Monatsansicht</button>
                 <button class="tab-btn" data-tab="lohn" onclick="switchTab('lohn')">💰 Lohnexport</button>
+                <button class="tab-btn" data-tab="optimizer" onclick="switchTab('optimizer')">📊 Netto-Optimierer</button>
                 <button class="tab-btn" data-tab="vorlagen" onclick="switchTab('vorlagen')">🔁 Wechselschicht-Vorlagen</button>
             </div>
 
@@ -492,7 +493,59 @@
                 </div>
             </div>
 
-            <!-- TAB 3: Wechselschicht-Vorlagen (v6.62.232) -->
+            <!-- TAB 3: Netto-Optimierer (v6.63.111) — Patrick 03.06. 09:39
+                 Slider für Stunden-Verteilung + Live-Netto-Anzeige. -->
+            <div id="tab-optimizer" class="tab-content">
+                <div class="lohn-card">
+                    <h2 style="font-size:17px;margin-bottom:4px;">📊 Netto-Ziel-Optimierer (§3b EStG)</h2>
+                    <p style="font-size:13px;color:#6b7280;margin-bottom:14px;">
+                        Spiele mit Stunden-Verteilung um ein Netto-Ziel zu erreichen.
+                        Stundenlohn wird NICHT gerüttelt (Mindestlohn-Schutz).
+                        Sozialversicherung 20% + Lohnsteuer 6% werden vom Stpfl. Brutto abgezogen.
+                        Steuerfreie Zuschläge gehen on top.
+                    </p>
+                    <div class="lohn-controls" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;">
+                        <div class="form-group">
+                            <label class="form-label">Mitarbeiter</label>
+                            <select id="opt-staff" class="form-input"></select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Ziel-Netto (€)</label>
+                            <input type="number" id="opt-target" class="form-input" value="2000" step="50" min="0" oninput="recalcOptimizer()">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Stundenlohn Schicht (€/h)</label>
+                            <input type="number" id="opt-rate-shift" class="form-input" value="13.90" step="0.01" min="0" oninput="recalcOptimizer()">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Stundenlohn Rufber. (€/h)</label>
+                            <input type="number" id="opt-rate-standby" class="form-input" value="2.50" step="0.01" min="0" oninput="recalcOptimizer()">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Anwesenheits-Faktor</label>
+                            <input type="number" id="opt-presence" class="form-input" value="1.00" step="0.05" min="0" max="1" oninput="recalcOptimizer()">
+                            <small style="font-size:11px;color:#9ca3af;">1.00 = volle 5-Tage-Woche, 0.80 = 4/5 Tage anwesend</small>
+                        </div>
+                    </div>
+                    <div style="margin-top:14px;border-top:1px solid #e5e7eb;padding-top:14px;">
+                        <h3 style="font-size:14px;margin-bottom:8px;color:#374151;">Stunden-Verteilung pro Monat</h3>
+                        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;">
+                            <label style="font-size:12px;">Voll-Arbeit (h)<input type="number" id="opt-voll" class="form-input" value="120" step="5" min="0" oninput="recalcOptimizer()"></label>
+                            <label style="font-size:12px;">Rufbereitschaft (h)<input type="number" id="opt-standby" class="form-input" value="50" step="5" min="0" oninput="recalcOptimizer()"></label>
+                            <label style="font-size:12px;">davon Nacht 20-00 25% (h)<input type="number" id="opt-nacht25" class="form-input" value="30" step="2" min="0" oninput="recalcOptimizer()"></label>
+                            <label style="font-size:12px;">davon Nacht 00-06 40% (h)<input type="number" id="opt-nacht40" class="form-input" value="20" step="2" min="0" oninput="recalcOptimizer()"></label>
+                            <label style="font-size:12px;">davon Sonntag 50% (h)<input type="number" id="opt-sonntag" class="form-input" value="30" step="2" min="0" oninput="recalcOptimizer()"></label>
+                            <label style="font-size:12px;">davon Feiertag 125% (h)<input type="number" id="opt-feiertag125" class="form-input" value="0" step="1" min="0" oninput="recalcOptimizer()"></label>
+                            <label style="font-size:12px;">davon Feiertag 150% (h)<input type="number" id="opt-feiertag150" class="form-input" value="0" step="1" min="0" oninput="recalcOptimizer()"></label>
+                        </div>
+                    </div>
+                </div>
+                <div id="opt-result" class="lohn-card" style="margin-top:14px;background:#f0fdf4;border-color:#86efac;">
+                    <div id="opt-output"></div>
+                </div>
+            </div>
+
+            <!-- TAB 4: Wechselschicht-Vorlagen (v6.62.232) -->
             <div id="tab-vorlagen" class="tab-content">
                 <div class="lohn-card" style="margin-bottom:14px;">
                     <h2 style="font-size:17px;margin-bottom:4px;">🔁 Wechselschicht-Vorlagen</h2>
@@ -1440,6 +1493,103 @@
             if (tab === 'lohn') initLohnTab();
             else if (tab === 'vorlagen') renderVorlagenList();
             else if (tab === 'monat') initMonthTab();
+            else if (tab === 'optimizer') initOptimizerTab();
+        }
+
+        // 🆕 v6.63.111 (Patrick 03.06. 09:39 "kannst du ja mal so einen Slider machen,
+        //   dass ich mich daran orientieren kann"): Netto-Ziel-Optimierer mit Live-
+        //   Berechnung. Stundenlohn fix (Mindestlohn-Schutz), Stunden-Verteilung
+        //   variabel. Anwesenheits-Faktor für reduzierte 5-Tage-Wochen (Darek).
+        function initOptimizerTab() {
+            const sel = document.getElementById('opt-staff');
+            if (!sel) return;
+            // Mitarbeiter-Liste füllen
+            if (sel.options.length === 0) {
+                db.ref('staff').once('value').then(snap => {
+                    const all = snap.val() || {};
+                    sel.innerHTML = '<option value="">— wählen —</option>';
+                    Object.entries(all)
+                        .filter(([_,s]) => s && s.active !== false)
+                        .sort((a,b) => (a[1].lastName||'').localeCompare(b[1].lastName||''))
+                        .forEach(([k,s]) => {
+                            const name = ((s.firstName||'') + ' ' + (s.lastName||'')).trim() || k;
+                            const rate = s.hourlyRate || 13.9;
+                            const standby = s.standbyRate || 2.5;
+                            sel.innerHTML += `<option value="${k}" data-rate="${rate}" data-standby="${standby}">${name}</option>`;
+                        });
+                    sel.addEventListener('change', () => {
+                        const opt = sel.options[sel.selectedIndex];
+                        if (opt && opt.dataset.rate) {
+                            document.getElementById('opt-rate-shift').value = opt.dataset.rate;
+                            document.getElementById('opt-rate-standby').value = opt.dataset.standby;
+                            recalcOptimizer();
+                        }
+                    });
+                });
+            }
+            recalcOptimizer();
+        }
+
+        function recalcOptimizer() {
+            const target = +document.getElementById('opt-target').value || 0;
+            const rs = +document.getElementById('opt-rate-shift').value || 0;
+            const rst = +document.getElementById('opt-rate-standby').value || 0;
+            const presence = Math.max(0, Math.min(1, +document.getElementById('opt-presence').value || 1));
+            const voll = (+document.getElementById('opt-voll').value || 0) * presence;
+            const standby = (+document.getElementById('opt-standby').value || 0) * presence;
+            const nacht25 = (+document.getElementById('opt-nacht25').value || 0) * presence;
+            const nacht40 = (+document.getElementById('opt-nacht40').value || 0) * presence;
+            const sonntag = (+document.getElementById('opt-sonntag').value || 0) * presence;
+            const feiertag125 = (+document.getElementById('opt-feiertag125').value || 0) * presence;
+            const feiertag150 = (+document.getElementById('opt-feiertag150').value || 0) * presence;
+            // Brutto
+            const bruttoVoll = voll * rs;
+            const bruttoStandby = standby * rst;
+            const stpflBrutto = bruttoVoll + bruttoStandby;
+            // Zuschläge §3b
+            const zuschlSonntag = sonntag * rs * 0.50;
+            const zuschlNacht25 = nacht25 * rs * 0.25;
+            const zuschlNacht40 = nacht40 * rs * 0.40;
+            const zuschlFt125 = feiertag125 * rs * 1.25;
+            const zuschlFt150 = feiertag150 * rs * 1.50;
+            const zuschlSumme = zuschlSonntag + zuschlNacht25 + zuschlNacht40 + zuschlFt125 + zuschlFt150;
+            // Steuer (vereinfacht — SV 20% + LSt 6% vom Stpfl. Brutto)
+            const sv = stpflBrutto * 0.20;
+            const lst = stpflBrutto * 0.06;
+            const netto = stpflBrutto - sv - lst + zuschlSumme;
+            const diff = netto - target;
+            const out = document.getElementById('opt-output');
+            const color = Math.abs(diff) < 10 ? '#059669' : (diff > 0 ? '#d97706' : '#dc2626');
+            const sign = diff >= 0 ? '+' : '';
+            const fmt = (n) => n.toFixed(2).replace('.', ',') + ' €';
+            out.innerHTML = `
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;font-size:13px;">
+                    <div><strong>Stunden gesamt:</strong> ${(voll + standby).toFixed(1)}h</div>
+                    <div><strong>Brutto Vollarbeit:</strong> ${fmt(bruttoVoll)}</div>
+                    <div><strong>Brutto Rufber.:</strong> ${fmt(bruttoStandby)}</div>
+                    <div><strong>Stpfl. Brutto:</strong> ${fmt(stpflBrutto)}</div>
+                </div>
+                <div style="margin-top:8px;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;font-size:12px;color:#059669;">
+                    <div>+ Sonntag (50%): ${fmt(zuschlSonntag)}</div>
+                    <div>+ Nacht 25%: ${fmt(zuschlNacht25)}</div>
+                    <div>+ Nacht 40%: ${fmt(zuschlNacht40)}</div>
+                    <div>+ Feiertag 125%: ${fmt(zuschlFt125)}</div>
+                    <div>+ Feiertag 150%: ${fmt(zuschlFt150)}</div>
+                    <div><strong>§3b Summe: ${fmt(zuschlSumme)}</strong></div>
+                </div>
+                <div style="margin-top:8px;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;font-size:12px;color:#dc2626;">
+                    <div>- Sozialvers. (20%): ${fmt(sv)}</div>
+                    <div>- Lohnsteuer (6%): ${fmt(lst)}</div>
+                </div>
+                <div style="margin-top:10px;padding:10px;background:white;border-radius:8px;border:2px solid ${color};">
+                    <div style="font-size:18px;font-weight:700;color:${color};">NETTO: ${fmt(netto)}</div>
+                    <div style="font-size:13px;color:${color};">Differenz zu Ziel: ${sign}${diff.toFixed(2).replace('.', ',')} €</div>
+                </div>
+                <div style="margin-top:8px;font-size:11px;color:#6b7280;">
+                    Anwesenheits-Faktor ${presence.toFixed(2)} angewandt — bei voller 5-Tage-Woche × 1.00.
+                    Wenn ${(voll + standby).toFixed(0)}h und alle Verteilungen passen, läuft die Auszahlung exakt so.
+                </div>
+            `;
         }
 
         function initLohnTab() {

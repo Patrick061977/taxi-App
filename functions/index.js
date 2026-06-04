@@ -692,6 +692,33 @@ async function sendFCMToVehicle(vehicleId, payload) {
                 });
             } catch (_logErr) { /* Log-Fehler nicht eskalieren */ }
         }
+        // 🆕 v6.63.159 (Patrick 04.06. 12:04 "die push verfolgung wer welche pusher
+        //   bekommt und welche alarme und was das für ein geräusch macht"):
+        //   Pro-Fahrzeug Push-Audit in /pushAudit/{vehicleId}/{ts}. Admin kann
+        //   im Web-Tab "Push-Verlauf" sehen welcher Fahrer wann was bekommen hat.
+        //   Kategorie ('alarm' = Vollton/Full-Screen, 'reminder' = Standard,
+        //   'silent' = Hintergrund-Update). Native TaxiFCMService entscheidet
+        //   anhand des type was abgespielt wird.
+        try {
+            const _ts = Date.now();
+            const _t = payload?.type || 'unknown';
+            // Severity-Mapping fuer Web-Filter
+            let _severity = 'silent';
+            if (_t === 'new_ride' || _t === 'new_ride_immediate') _severity = 'alarm';
+            else if (_t === 'losfahren_reminder' || _t === 'replan_notification' || _t === 'new_ride_reminder') _severity = 'reminder';
+            else if (_t === 'cancel_notification') _severity = 'reminder';
+            await db.ref(`pushAudit/${vehicleId}/${_ts}`).set({
+                ts: _ts,
+                type: _t,
+                severity: _severity,
+                rideId: payload?.rideId || null,
+                customerName: payload?.customerName || null,
+                pickupTime: payload?.pickupTime || null,
+                isReminder: payload?.isReminder === 'true' || payload?.isReminder === true,
+                success: true,
+                quelle: 'sendFCMToVehicle v6.63.159'
+            });
+        } catch (_auditErr) { /* non-critical */ }
         return true;
     } catch (e) {
         console.error(`❌ sendFCMToVehicle ${vehicleId} fehlgeschlagen:`, e.message);
@@ -699,6 +726,19 @@ async function sendFCMToVehicle(vehicleId, payload) {
         if (payload && payload.rideId) {
             try { await addRideLog(payload.rideId, '⚠️', `FCM-Push FEHLGESCHLAGEN an ${vehicleId}`, { vehicleId, fehler: e.message }); } catch(_) {}
         }
+        // 🆕 v6.63.159: Audit-Trail auch bei Fail (zeigt Connection-Probleme)
+        try {
+            const _ts = Date.now();
+            await db.ref(`pushAudit/${vehicleId}/${_ts}`).set({
+                ts: _ts,
+                type: payload?.type || 'unknown',
+                rideId: payload?.rideId || null,
+                success: false,
+                error: e.message || 'unknown',
+                errorCode: e.code || null,
+                quelle: 'sendFCMToVehicle v6.63.159'
+            });
+        } catch (_auditErr) { /* non-critical */ }
         // Wenn Token ungültig (UNREGISTERED/INVALID_ARGUMENT) → entfernen
         if (e.code === 'messaging/registration-token-not-registered' || e.code === 'messaging/invalid-registration-token') {
             try { await db.ref(`vehicles/${vehicleId}/fcmToken`).remove(); } catch (_) {}

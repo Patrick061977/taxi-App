@@ -2275,17 +2275,17 @@
                                         _minFreeWaitMin = Math.max(5, Math.round(_raw / 5) * 5);
                                     }
                                 }
-                                // v6.63.129 (Patrick 04.06. 07:30 "Ehrliche Wartezeit"): vor
-                                //   Adress-Eingabe NIE 'sofort verfügbar' versprechen — nur
-                                //   wenn nähester freier Fahrer tatsächlich an der Homebase
-                                //   steht (<= 5 Min Wartezeit). Sonst: 'X Fahrer im Dienst —
-                                //   Adresse eingeben für genaue Wartezeit' (Uber-Stil).
+                                // v6.63.130 (Patrick 04.06. 07:36 "Bei Buchen HTML wird
+                                //   überhaupt nichts angezeigt. Da wird angezeigt sofort,
+                                //   bitte Abholort eingeben"): zurück zur Wartezeit-Anzeige
+                                //   wie landing.html. Wenn nähester freier Fahrer am Homebase
+                                //   steht: 'sofort verfügbar', sonst 'Taxi unterwegs ca. X Min'.
                                 if (_freeNowCount > 0 && _minFreeWaitMin === 0) {
-                                    bar.textContent = `🚕 ${_freeNowCount} Fahrer im Dienst — Adresse eingeben für genaue Wartezeit`;
+                                    bar.textContent = `⚡ Taxi sofort verfügbar`;
                                     bar.className = 'status-bar online';
                                     bar.style.background = '';
                                 } else if (_freeNowCount > 0 && _minFreeWaitMin > 0) {
-                                    bar.textContent = `🚕 Wartezeit ca. ${_minFreeWaitMin} Min`;
+                                    bar.textContent = `🚕 Taxi unterwegs — ca. ${_minFreeWaitMin} Min Wartezeit`;
                                     bar.className = 'status-bar online';
                                     bar.style.background = '';
                                     bar.style.color = '';

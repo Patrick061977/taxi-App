@@ -2091,34 +2091,20 @@
                 }
                 const best = etaResults[0];
                 const freeCount = etaResults.filter(r => r.status === 'frei').length;
-                // v6.63.098 (Patrick 03.06. 07:45 "Müsste farblich anders markiert sein.
-                //   Wartezeit muss trotzdem angezeigt werden, darf nicht "sofort verfügbar"
-                //   stehen wenn ich noch 60 Min zur Homebase brauche"):
-                //   GELB statt grün wenn KEIN Fahrer wirklich frei.
-                let base;
-                if (freeCount > 0) {
-                    base = `🟢 Taxi sofort verfügbar! ${freeCount} Fahrer frei`;
+                // v6.63.129 (Patrick 04.06. 07:30 "Ich will die ehrliche Wartezeit
+                //   angezeigt haben"): EINE Zahl, kein Widerspruch zwischen 'sofort
+                //   verfügbar' und 'X Min Wartezeit'. 'Sofort verfügbar' nur wenn
+                //   etaMin <= 5. Sonst: ehrliche Wartezeit als alleinige Aussage.
+                if (best.etaMin <= 5 && freeCount > 0) {
+                    bar.textContent = `⚡ Taxi sofort verfügbar — ca. ${best.etaMin} Min bis zu dir`;
                     bar.className = 'status-bar online';
                     bar.style.background = '';
                 } else {
-                    base = `🟡 ${count} Fahrer im Dienst — aktuell alle besetzt`;
+                    bar.textContent = `🚕 Wartezeit ca. ${best.etaMin} Min bis zu dir`;
                     bar.className = 'status-bar';
                     bar.style.background = '#fef3c7';
                     bar.style.color = '#92400e';
                 }
-                let etaMsg;
-                if (best.status === 'frei') {
-                    etaMsg = `🚕 ca. ${best.etaMin} Min bis zu dir`;
-                } else if (best.status === 'pause') {
-                    // 🆕 v6.62.985 → v6.62.986 (Patrick 28.05. 09:29): nur '15 Min Wartezeit',
-                    // kein 'Taxi in Pause'-Hinweis.
-                    etaMsg = `🚕 ca. ${best.etaMin} Min Wartezeit`;
-                } else if (best.status === 'beschäftigt') {
-                    etaMsg = `🚕 Wartezeit ca. ${best.etaMin} Min (Fahrer unterwegs + Rückfahrt)`;
-                } else {
-                    etaMsg = `🚕 Wartezeit ca. ${best.etaMin} Min (${best.queued} Vorbestellung${best.queued>1?'en':''})`;
-                }
-                bar.textContent = `${base} — ${etaMsg}`;
                 // 🆕 v6.62.172: Versprochene ETA persistieren — wird beim Booking-Confirm in
                 // ride.bookingPromisedEtaMin geschrieben, damit Fahrer-App die GLEICHE Zeit sieht
                 // wie der Kunde im Buchungsmoment. Sonst sieht der Fahrer evtl. nur 13 Min direkte
@@ -2289,14 +2275,16 @@
                                         _minFreeWaitMin = Math.max(5, Math.round(_raw / 5) * 5);
                                     }
                                 }
+                                // v6.63.129 (Patrick 04.06. 07:30 "Ehrliche Wartezeit"): vor
+                                //   Adress-Eingabe NIE 'sofort verfügbar' versprechen — nur
+                                //   wenn nähester freier Fahrer tatsächlich an der Homebase
+                                //   steht (<= 5 Min Wartezeit). Sonst: 'X Fahrer im Dienst —
+                                //   Adresse eingeben für genaue Wartezeit' (Uber-Stil).
                                 if (_freeNowCount > 0 && _minFreeWaitMin === 0) {
-                                    bar.textContent = `⚡ Taxi sofort verfügbar`;
+                                    bar.textContent = `🚕 ${_freeNowCount} Fahrer im Dienst — Adresse eingeben für genaue Wartezeit`;
                                     bar.className = 'status-bar online';
                                     bar.style.background = '';
                                 } else if (_freeNowCount > 0 && _minFreeWaitMin > 0) {
-                                    // v6.63.105 (Patrick 03.06. 08:24 "Ich bin ja nicht frei,
-                                    //   fahre auf dem Rückweg zur Homebase — kein 'sofort'!"):
-                                    //   NUR Wartezeit, KEIN 'sofort verfügbar'. Ehrlich + kurz.
                                     bar.textContent = `🚕 Wartezeit ca. ${_minFreeWaitMin} Min`;
                                     bar.className = 'status-bar online';
                                     bar.style.background = '';

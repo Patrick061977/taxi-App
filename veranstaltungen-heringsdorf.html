@@ -486,7 +486,10 @@
             filtered.forEach(ev => {
                 const card = document.createElement('article');
                 card.className = 'event-card';
-                const bookingUrl = `/buchen.html?event=${encodeURIComponent(ev.title)}&ziel=${encodeURIComponent(ev.venue + ', ' + ev.city)}`;
+                // v6.63.140: buchen.html liest URL-Param 'to' fuer Zielort-Vorfuell —
+                //   damit der Kunde direkt mit Pickup vorbefuellt buchen kann. 'event'
+                //   bleibt nur als Tracking-Tag (kein Handler in buchen.html noetig).
+                const bookingUrl = `/buchen.html?event=${encodeURIComponent(ev.title)}&to=${encodeURIComponent(ev.venue + ', ' + ev.city)}`;
                 const ticketsUrl = ev.tickets || _TICKETS_FALLBACK;
                 const ticketsLabel = ev.tickets && ev.tickets !== _TICKETS_FALLBACK
                     ? '🎟️ Tickets bestellen'

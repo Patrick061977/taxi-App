@@ -2457,13 +2457,23 @@
                     clientSecret: _autopayClientSecret,
                     locale: 'de'
                 });
+                // 🆕 v6.63.152 (Patrick 04.06. 11:16): Adresse aus EINEM CRM-Feld splitten
+                //   in line1/postal_code/city — Stripe verlangt sie getrennt.
+                //   Format: 'Strasse Nr, 12345 Ort' → match.
+                const _rawAddr = (crmCustomer && crmCustomer.address) || '';
+                const _addrMatch = _rawAddr.match(/^(.+?),\s*(\d{5})\s+(.+)$/);
+                const _addrLine1 = _addrMatch ? _addrMatch[1].trim() : _rawAddr;
+                const _addrPlz = _addrMatch ? _addrMatch[2].trim() : '';
+                const _addrCity = _addrMatch ? _addrMatch[3].trim() : '';
                 const _defaults = {
                     billingDetails: {
                         name: (crmCustomer && crmCustomer.name) || '',
                         email: (crmCustomer && crmCustomer.email) || '',
                         phone: phone || '',
                         address: {
-                            line1: (crmCustomer && crmCustomer.address) || '',
+                            line1: _addrLine1,
+                            postal_code: _addrPlz,
+                            city: _addrCity,
                             country: 'DE'
                         }
                     }

@@ -2521,10 +2521,19 @@
         // 🆕 v6.63.155 (Patrick 04.06. 11:33 'kommt zurück, dann ist alles leer'):
         // Bei Rückkehr nach Stripe-Confirm Profil-Modal aufmachen + customerData
         // reloaden + warten bis Webhook gefeuert hat (max 30s, alle 2s pollen).
+        // 🔧 v6.63.156 (Patrick 04.06. Screenshot 11:35): Erst WARTEN bis customerData
+        //   geladen ist — sonst öffnet Profil-Modal mit leeren Feldern weil
+        //   Stripe-Return-Code feuert vor loadCustomerData fertig ist.
         if (new URLSearchParams(location.search).get('autopay') === 'done') {
             // URL clean — sonst bleibt ?autopay=done dauerhaft drin
             try { history.replaceState({}, '', location.pathname); } catch (_) {}
             (async () => {
+                // Warten bis customerData geladen ist (max 8s — sollte deutlich schneller sein)
+                let _wait = 0;
+                while ((!customerData || !customerData.id) && _wait < 40) {
+                    await new Promise(r => setTimeout(r, 200));
+                    _wait++;
+                }
                 openProfileModal();
                 // Sektion-Wrap sichtbar machen + Loading-Banner
                 const _radio = document.querySelector("input[name='zahlmethode'][value='stored']");

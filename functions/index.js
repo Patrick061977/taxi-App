@@ -28916,6 +28916,64 @@ exports.stripeWebhook = onRequest(
                 const session = event.data.object;
                 const invoiceNumber = session.metadata?.invoiceNumber;
 
+                // 🆕 v6.63.162 (Patrick 04.06. 13:07 sepa-debit pm_1TeXoq...):
+                //   Setup-Mode-Checkout (Auto-Pay-Hinterlegung). Bei SEPA-Lastschrift
+                //   feuert setup_intent.succeeded oft erst Tage später (Bank-Verify).
+                //   checkout.session.completed kommt aber sofort — wir holen jetzt
+                //   PaymentMethod hier ab und setzen autoChargeEnabled=true.
+                if (session.mode === 'setup' && session.metadata?.crmCustomerId) {
+                    try {
+                        const crmCustomerId = session.metadata.crmCustomerId;
+                        const setupIntentId = typeof session.setup_intent === 'string'
+                            ? session.setup_intent
+                            : (session.setup_intent && session.setup_intent.id);
+                        let _meta = {};
+                        let pmId = null;
+                        if (setupIntentId) {
+                            const si = await stripe.setupIntents.retrieve(setupIntentId);
+                            pmId = si.payment_method;
+                        }
+                        if (pmId) {
+                            const pm = await stripe.paymentMethods.retrieve(pmId);
+                            _meta.autoPayMethodType = pm.type;
+                            if (pm.card) {
+                                _meta.autoPayMethodBrand = pm.card.brand;
+                                _meta.autoPayMethodLast4 = pm.card.last4;
+                                _meta.autoPayMethodExp = (pm.card.exp_month || '?') + '/' + (pm.card.exp_year || '?');
+                            } else if (pm.sepa_debit) {
+                                _meta.autoPayMethodLast4 = pm.sepa_debit.last4;
+                                _meta.autoPayMethodBrand = 'sepa_debit';
+                            } else if (pm.paypal) {
+                                _meta.autoPayMethodBrand = 'paypal';
+                                _meta.autoPayMethodLast4 = pm.paypal.payer_email || '';
+                            } else if (pm.link) {
+                                _meta.autoPayMethodBrand = 'link';
+                                _meta.autoPayMethodLast4 = pm.link.email || '';
+                            }
+                            if (pm.customer) {
+                                try {
+                                    await stripe.customers.update(pm.customer, {
+                                        invoice_settings: { default_payment_method: pmId }
+                                    });
+                                } catch (_) {}
+                            }
+                            await db.ref(`customers/${crmCustomerId}`).update({
+                                defaultPaymentMethodId: pmId,
+                                stripeCustomerId: pm.customer || session.customer || null,
+                                autoChargeEnabled: true,
+                                stripeSetupCompletedAt: Date.now(),
+                                ..._meta
+                            });
+                            console.log(`✅ Auto-Pay aktiviert via checkout.session.completed (Setup-Mode) für ${crmCustomerId} (PM ${pmId}, ${_meta.autoPayMethodBrand}/${_meta.autoPayMethodLast4})`);
+                            // Nach Setup-Pfad: keine Rechnungs-/Ride-Updates nötig — Return
+                            res.status(200).json({ received: true, setup: true });
+                            return;
+                        }
+                    } catch (_setupErr) {
+                        console.error('⚠️ Setup-Mode-Handler fehlgeschlagen:', _setupErr.message);
+                    }
+                }
+
                 if (invoiceNumber) {
                     // Rechnung als bezahlt markieren
                     await db.ref(`invoices/${invoiceNumber}`).update({

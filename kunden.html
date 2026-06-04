@@ -776,40 +776,53 @@
                 </div>
             </div>
 
-            <!-- Sektion 3: Bevorzugte Zahlung -->
+            <!-- 🆕 v6.63.149 (Patrick 04.06. 11:02): Bevorzugte Zahlung + Auto-Pay
+                 vereint zu EINER Radio-Liste. Wahl bestimmt was passiert.
+                 Rechnung/Überweisung fehlt im Kunden-UI — wird nur vom Admin
+                 im CRM aktiviert (Bonität). -->
             <div class="profile-section">
-                <div class="profile-section-label">Bevorzugte Zahlung</div>
-                <select id="profile-default-payment">
-                    <option value="cash">💵 Bar beim Fahrer</option>
-                    <option value="card">💳 EC/Kreditkarte beim Fahrer (Terminal)</option>
-                    <option value="stripe">🌐 Online vorab bezahlen (Stripe-Link per SMS)</option>
-                    <option value="paypal">🅿️ PayPal (Link per SMS)</option>
-                    <option value="rechnung">🧾 Auf Rechnung (nur Stammkunden)</option>
-                </select>
-                <div style="font-size:11px;color:var(--ink-3);line-height:1.4;margin-top:8px;">Wird bei jeder Buchung vorgeschlagen — einzelne Fahrten können Sie trotzdem anders zahlen.</div>
-            </div>
+                <div class="profile-section-label">Zahlungsmethode</div>
+                <div style="display:flex;flex-direction:column;gap:8px;margin-top:6px;">
+                    <label class="zahl-row" style="display:flex;align-items:flex-start;gap:10px;padding:12px;border:1px solid var(--line);border-radius:var(--r-sm);cursor:pointer;">
+                        <input type="radio" name="zahlmethode" value="cash" style="margin-top:2px;">
+                        <div style="flex:1;">
+                            <div style="font-size:14px;font-weight:600;color:var(--ink);">💵 Bar beim Fahrer</div>
+                            <div style="font-size:12px;color:var(--ink-3);margin-top:2px;">Sie zahlen direkt im Auto</div>
+                        </div>
+                    </label>
+                    <label class="zahl-row" style="display:flex;align-items:flex-start;gap:10px;padding:12px;border:1px solid var(--line);border-radius:var(--r-sm);cursor:pointer;">
+                        <input type="radio" name="zahlmethode" value="card" style="margin-top:2px;">
+                        <div style="flex:1;">
+                            <div style="font-size:14px;font-weight:600;color:var(--ink);">💳 EC/Karte beim Fahrer</div>
+                            <div style="font-size:12px;color:var(--ink-3);margin-top:2px;">Kartenzahlung am Terminal im Auto</div>
+                        </div>
+                    </label>
+                    <label class="zahl-row" style="display:flex;align-items:flex-start;gap:10px;padding:12px;border:1px solid var(--line);border-radius:var(--r-sm);cursor:pointer;">
+                        <input type="radio" name="zahlmethode" value="stored" style="margin-top:2px;">
+                        <div style="flex:1;">
+                            <div style="font-size:14px;font-weight:600;color:var(--ink);">💳 Karte / SEPA / PayPal hinterlegen</div>
+                            <div style="font-size:12px;color:var(--ink-3);margin-top:2px;">Sie wählen die Methode beim Hinterlegen — automatische Abbuchung nach jeder Fahrt</div>
+                        </div>
+                    </label>
+                </div>
 
-            <!-- 🆕 v6.63.147 (Patrick 04.06. 10:50): Auto-Pay aus Haupt-Tab hierher verschoben.
-                 Passt thematisch zu 'Bevorzugte Zahlung' — beides Zahlungs-Setup. -->
-            <div class="profile-section">
-                <div class="profile-section-label">Auto-Pay & hinterlegte Methoden</div>
-                <div class="autopay-card" style="margin:8px 0 0 0;padding:14px;background:var(--surface-2);border-radius:var(--r-sm);">
-                    <p class="lead" style="font-size:12px;margin:0 0 12px 0;color:var(--ink-2);">Hinterlegen Sie einmalig Ihre Zahlungsmethode (Karte/SEPA) — danach wird der Fahrtpreis nach jeder Fahrt automatisch abgebucht. Wie bei Uber oder Bolt.</p>
-                    <div id="autopay-status-banner" style="display:none;margin-bottom:14px;padding:12px;border-radius:var(--r-sm);font-size:13px;"></div>
+                <!-- Setup-Bereich erscheint nur wenn 'Zahlungsmittel hinterlegen' aktiv -->
+                <div id="zahl-setup-wrap" style="display:none;margin-top:12px;padding:14px;background:var(--surface-2);border-radius:var(--r-sm);">
+                    <div id="autopay-status-banner" style="display:none;margin-bottom:12px;padding:10px;border-radius:var(--r-sm);font-size:13px;"></div>
                     <div id="autopay-setup-form">
-                        <div id="autopay-payment-element" style="margin:14px 0 18px;"></div>
-                        <button id="autopay-submit-btn" onclick="submitAutopaySetup()" class="btn btn-primary" disabled>Zahlungsmethode hinterlegen</button>
+                        <div id="autopay-payment-element" style="margin:8px 0 14px;"></div>
+                        <button id="autopay-submit-btn" onclick="submitAutopaySetup()" class="btn btn-primary" disabled>Zahlungsmittel hinterlegen</button>
                         <div class="secure-badge" style="margin-top:8px;"><span>🔒</span> Daten werden direkt von Stripe sicher gespeichert.</div>
                     </div>
                     <div id="autopay-existing" style="display:none;">
                         <div class="autopay-status-active">
-                            <div class="badge">✅ Auto-Pay ist aktiv</div>
+                            <div class="badge">✅ Zahlungsmittel hinterlegt</div>
                             <div style="font-size:13px;font-weight:500;color:#065f46;">Ihre Fahrten werden automatisch abgebucht.</div>
                             <div id="autopay-method-display" style="margin-top:10px;font-size:13px;font-weight:500;color:#065f46;"></div>
                         </div>
                         <div class="autopay-action-row">
-                            <button onclick="switchAutopayMethod()">Zahlungsmethode ändern</button>
-                            <button class="danger" onclick="disableAutopay()">Deaktivieren</button>
+                            <button onclick="switchAutopayMethod()">Zahlungsmittel ändern</button>
+                            <button class="danger" onclick="disableAutopay()">Entfernen</button>
                         </div>
                     </div>
                 </div>
@@ -1183,6 +1196,40 @@
             document.getElementById('code-error').style.display = 'none';
         }
 
+        // 🆕 v6.63.149 (Patrick 04.06.): Setup-Bereich nur sichtbar wenn 'stored' aktiv.
+        // Initialisiert Stripe-Setup lazy beim ersten Mal.
+        function _updateZahlSetupVisibility() {
+            const wrap = document.getElementById('zahl-setup-wrap');
+            if (!wrap) return;
+            const checked = document.querySelector("input[name='zahlmethode']:checked");
+            const val = checked ? checked.value : 'cash';
+            // Visual feedback: aktive Karte hebt sich ab
+            document.querySelectorAll('.zahl-row').forEach(row => {
+                const input = row.querySelector("input[name='zahlmethode']");
+                if (input && input.checked) {
+                    row.style.borderColor = '#0f172a';
+                    row.style.background = '#f9fafb';
+                } else {
+                    row.style.borderColor = 'var(--line)';
+                    row.style.background = '';
+                }
+            });
+            if (val === 'stored') {
+                wrap.style.display = 'block';
+                if (typeof initAutopay === 'function') {
+                    initAutopay().catch(e => console.warn('initAutopay nach Radio-stored:', e));
+                }
+            } else {
+                wrap.style.display = 'none';
+            }
+        }
+        // Radio-Change-Listener anhängen sobald DOM ready
+        document.addEventListener('DOMContentLoaded', () => {
+            document.querySelectorAll("input[name='zahlmethode']").forEach(r => {
+                r.addEventListener('change', _updateZahlSetupVisibility);
+            });
+        });
+
         // 🆕 v6.39.1: Profil-Modal Funktionen
         function openProfileModal() {
             const modal = document.getElementById('profile-modal');
@@ -1217,14 +1264,20 @@
                 // 🆕 v6.62.401: bestehende Koordinaten der Heimadresse merken
                 _profileAddressLat = customerData.addressLat || null;
                 _profileAddressLon = customerData.addressLon || null;
-                // 🆕 v6.63.006: defaultPayment vorbefüllen (default 'cash')
-                const payEl = document.getElementById('profile-default-payment');
-                if (payEl) payEl.value = customerData.defaultPayment || 'cash';
+                // 🆕 v6.63.149 (Patrick 04.06.): defaultPayment als Radio vorbefüllen.
+                // Wenn der Kunde Auto-Pay aktiviert hat → 'stored' Radio vorwählen.
+                let _radioVal = customerData.defaultPayment || 'cash';
+                if (customerData.autoChargeEnabled === true) _radioVal = 'stored';
+                if (!['cash','card','stored'].includes(_radioVal)) _radioVal = 'cash';
+                const _r = document.querySelector(`input[name='zahlmethode'][value='${_radioVal}']`);
+                if (_r) _r.checked = true;
+                _updateZahlSetupVisibility();
             } else {
                 _profileAddressLat = null;
                 _profileAddressLon = null;
-                const payEl = document.getElementById('profile-default-payment');
-                if (payEl) payEl.value = 'cash';
+                const _r = document.querySelector("input[name='zahlmethode'][value='cash']");
+                if (_r) _r.checked = true;
+                _updateZahlSetupVisibility();
             }
             // Email-Hint nur bei Google-Login zeigen
             const emailHint = document.getElementById('profile-email-hint');
@@ -1239,14 +1292,8 @@
             }
             // 🆕 v6.62.401: Autocomplete am Adress-Feld einmalig aktivieren
             setupProfileAddressAutocomplete();
-
-            // 🆕 v6.63.147 (Patrick 04.06. 10:50): Auto-Pay-Sektion ist jetzt im Profil-Modal
-            //   → beim Öffnen initialisieren (zeigt 'aktiv'-Banner oder Setup-Form je nach Status)
-            setTimeout(() => {
-                if (typeof initAutopay === 'function') {
-                    initAutopay().catch(e => console.warn('initAutopay beim Modal-Open:', e));
-                }
-            }, 200);
+            // v6.63.149: initAutopay läuft jetzt nur wenn Radio 'stored' aktiv ist
+            //   (siehe _updateZahlSetupVisibility) — kein automatischer Start mehr beim Modal-Open.
         }
 
         function closeProfileModal() {
@@ -1294,8 +1341,10 @@
             // Wenn Adresse leer, Koordinaten loeschen
             if (!address) { addressLat = null; addressLon = null; }
 
-            // 🆕 v6.63.006 (Patrick 29.05. 08:17): defaultPayment aus Select lesen
-            const defaultPayment = (document.getElementById('profile-default-payment') || {}).value || 'cash';
+            // 🆕 v6.63.149 (Patrick 04.06.): defaultPayment aus Radio-Liste lesen.
+            // 'stored' = Zahlungsmittel hinterlegt (Auto-Pay), 'cash' = Bar, 'card' = Terminal.
+            const _radio = document.querySelector("input[name='zahlmethode']:checked");
+            const defaultPayment = _radio ? _radio.value : 'cash';
 
             try {
                 if (customerData && customerData.id) {

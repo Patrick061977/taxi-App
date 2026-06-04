@@ -28497,6 +28497,58 @@ exports.createStripeSetup = onRequest(
     }
 );
 
+// 🆕 v6.63.153 (Patrick 04.06. 11:19 'a'): Stripe Hosted Checkout statt Embedded.
+//   Setup-Form-IFrame war auf langsameren Geräten extrem zäh. Stripes eigene
+//   gehostete Page ist auf allen Geräten optimal.
+//   Web-UI öffnet checkout.url, Kunde gibt Daten auf Stripe-Domain ein,
+//   Return zu kunden.html?autopay=done. Setup-Mode bedeutet keine Buchung,
+//   nur Payment Method speichern.
+exports.createStripeCheckoutSession = onRequest(
+    { region: 'europe-west1', invoker: 'public' },
+    async (req, res) => {
+        res.set('Access-Control-Allow-Origin', '*');
+        res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+        res.set('Access-Control-Allow-Headers', 'Content-Type');
+        if (req.method === 'OPTIONS') return res.status(204).send('');
+        if (req.method !== 'POST') return res.status(405).send('POST only');
+        try {
+            const { customerId, name, email, phone, returnBase } = req.body || {};
+            if (!customerId) return res.status(400).json({ error: 'customerId required' });
+            const stripe = await getStripe();
+            const custSnap = await db.ref(`customers/${customerId}`).once('value');
+            const cust = custSnap.val() || {};
+            let stripeCustomerId = cust.stripeCustomerId;
+            if (!stripeCustomerId) {
+                const sc = await stripe.customers.create({
+                    name: name || cust.name || 'Funk Taxi Kunde',
+                    email: email || cust.email || undefined,
+                    phone: phone || cust.phone || cust.mobilePhone || undefined,
+                    metadata: { crmCustomerId: customerId }
+                });
+                stripeCustomerId = sc.id;
+                await db.ref(`customers/${customerId}`).update({
+                    stripeCustomerId,
+                    stripeCustomerCreatedAt: Date.now()
+                });
+            }
+            const _base = returnBase || 'https://umwelt-taxi-insel-usedom.de/Taxi-App/kunden.html';
+            const session = await stripe.checkout.sessions.create({
+                mode: 'setup',
+                customer: stripeCustomerId,
+                payment_method_types: ['card', 'sepa_debit', 'paypal'],
+                locale: 'de',
+                success_url: `${_base}?autopay=done`,
+                cancel_url: `${_base}?autopay=cancel`,
+                metadata: { crmCustomerId: customerId }
+            });
+            res.json({ url: session.url, stripeCustomerId });
+        } catch (e) {
+            console.error('createStripeCheckoutSession Fehler:', e.message);
+            res.status(500).json({ error: e.message });
+        }
+    }
+);
+
 // 🆕 v6.63.117: Cloud Function die bei status=completed automatisch abbucht
 //   wenn customer.autoChargeEnabled=true. Wird von onRideUpdated getriggert.
 async function autoChargeRide(rideId, ride) {

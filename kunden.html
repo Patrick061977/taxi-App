@@ -697,38 +697,15 @@
             </div>
 
             <!-- Tab-Bar -->
+            <!-- 🆕 v6.63.147 (Patrick 04.06. 10:50): Auto-Pay-Tab raus aus der Fahrten-
+                 Navigation — passt thematisch nicht zu Kommend/Vergangen. Verschoben ins
+                 Profil-Modal als Sektion '💳 Zahlung & Auto-Pay'. -->
             <div class="tabs">
                 <div class="tab active" id="tab-upcoming" onclick="switchTab('upcoming')">Kommende</div>
                 <div class="tab" id="tab-past" onclick="switchTab('past')">Vergangene</div>
-                <div class="tab" id="tab-autopay" onclick="switchTab('autopay')">Auto-Pay</div>
             </div>
 
             <div id="rides-list"></div>
-
-            <!-- Auto-Pay-Tab (v6.63.118 eingebettet, v6.63.122 visuell neu) -->
-            <div id="autopay-content" style="display:none;">
-                <div class="autopay-card">
-                    <h3>Auto-Pay einrichten</h3>
-                    <p class="lead">Hinterlegen Sie einmalig Ihre Zahlungsmethode — danach wird der Fahrtpreis nach jeder Fahrt automatisch abgebucht. Wie bei Uber oder Bolt.</p>
-                    <div id="autopay-status-banner" style="display:none;margin-bottom:14px;padding:12px;border-radius:var(--r-sm);font-size:13px;"></div>
-                    <div id="autopay-setup-form">
-                        <div id="autopay-payment-element" style="margin:14px 0 18px;"></div>
-                        <button id="autopay-submit-btn" onclick="submitAutopaySetup()" class="btn btn-primary" disabled>Zahlungsmethode hinterlegen</button>
-                        <div class="secure-badge"><span>🔒</span> Daten werden direkt von Stripe sicher gespeichert.</div>
-                    </div>
-                    <div id="autopay-existing" style="display:none;">
-                        <div class="autopay-status-active">
-                            <div class="badge">✅ Auto-Pay ist aktiv</div>
-                            <div style="font-size:13px;font-weight:500;color:#065f46;">Ihre Fahrten werden automatisch abgebucht.</div>
-                            <div id="autopay-method-display" style="margin-top:10px;font-size:13px;font-weight:500;color:#065f46;"></div>
-                        </div>
-                        <div class="autopay-action-row">
-                            <button onclick="switchAutopayMethod()">Zahlungsmethode ändern</button>
-                            <button class="danger" onclick="disableAutopay()">Deaktivieren</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
 
             <!-- CTA: Neue Fahrt buchen -->
             <a href="buchen.html?new=1" class="cta-book">🚕 Neue Fahrt buchen</a>
@@ -789,6 +766,32 @@
                     <option value="rechnung">🧾 Auf Rechnung (nur Stammkunden)</option>
                 </select>
                 <div style="font-size:11px;color:var(--ink-3);line-height:1.4;margin-top:8px;">Wird bei jeder Buchung vorgeschlagen — einzelne Fahrten können Sie trotzdem anders zahlen.</div>
+            </div>
+
+            <!-- 🆕 v6.63.147 (Patrick 04.06. 10:50): Auto-Pay aus Haupt-Tab hierher verschoben.
+                 Passt thematisch zu 'Bevorzugte Zahlung' — beides Zahlungs-Setup. -->
+            <div class="profile-section">
+                <div class="profile-section-label">Auto-Pay & hinterlegte Methoden</div>
+                <div class="autopay-card" style="margin:8px 0 0 0;padding:14px;background:var(--surface-2);border-radius:var(--r-sm);">
+                    <p class="lead" style="font-size:12px;margin:0 0 12px 0;color:var(--ink-2);">Hinterlegen Sie einmalig Ihre Zahlungsmethode (Karte/SEPA) — danach wird der Fahrtpreis nach jeder Fahrt automatisch abgebucht. Wie bei Uber oder Bolt.</p>
+                    <div id="autopay-status-banner" style="display:none;margin-bottom:14px;padding:12px;border-radius:var(--r-sm);font-size:13px;"></div>
+                    <div id="autopay-setup-form">
+                        <div id="autopay-payment-element" style="margin:14px 0 18px;"></div>
+                        <button id="autopay-submit-btn" onclick="submitAutopaySetup()" class="btn btn-primary" disabled>Zahlungsmethode hinterlegen</button>
+                        <div class="secure-badge" style="margin-top:8px;"><span>🔒</span> Daten werden direkt von Stripe sicher gespeichert.</div>
+                    </div>
+                    <div id="autopay-existing" style="display:none;">
+                        <div class="autopay-status-active">
+                            <div class="badge">✅ Auto-Pay ist aktiv</div>
+                            <div style="font-size:13px;font-weight:500;color:#065f46;">Ihre Fahrten werden automatisch abgebucht.</div>
+                            <div id="autopay-method-display" style="margin-top:10px;font-size:13px;font-weight:500;color:#065f46;"></div>
+                        </div>
+                        <div class="autopay-action-row">
+                            <button onclick="switchAutopayMethod()">Zahlungsmethode ändern</button>
+                            <button class="danger" onclick="disableAutopay()">Deaktivieren</button>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- Sektion 4: Adresse -->
@@ -1215,6 +1218,14 @@
             }
             // 🆕 v6.62.401: Autocomplete am Adress-Feld einmalig aktivieren
             setupProfileAddressAutocomplete();
+
+            // 🆕 v6.63.147 (Patrick 04.06. 10:50): Auto-Pay-Sektion ist jetzt im Profil-Modal
+            //   → beim Öffnen initialisieren (zeigt 'aktiv'-Banner oder Setup-Form je nach Status)
+            setTimeout(() => {
+                if (typeof initAutopay === 'function') {
+                    initAutopay().catch(e => console.warn('initAutopay beim Modal-Open:', e));
+                }
+            }, 200);
         }
 
         function closeProfileModal() {
@@ -2248,22 +2259,23 @@
         }
 
         function switchTab(tab) {
+            // 🆕 v6.63.147 (Patrick 04.06. 10:50): 'autopay' ist kein Tab mehr — der Bereich
+            // sitzt jetzt im Profil-Modal. Wenn jemand programmatisch 'autopay' anfragt
+            // (z.B. Stripe-Confirm-Redirect ?autopay=done), öffnen wir das Modal und
+            // initialisieren Auto-Pay dort.
+            if (tab === 'autopay') {
+                openProfileModal();
+                setTimeout(() => {
+                    try { initAutopay(); } catch (e) { console.warn('initAutopay nach Modal-Open:', e); }
+                    const sec = document.getElementById('autopay-payment-element');
+                    if (sec && sec.scrollIntoView) sec.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }, 250);
+                return;
+            }
             currentTab = tab;
             document.getElementById('tab-upcoming').classList.toggle('active', tab === 'upcoming');
             document.getElementById('tab-past').classList.toggle('active', tab === 'past');
-            const _ap = document.getElementById('tab-autopay');
-            if (_ap) _ap.classList.toggle('active', tab === 'autopay');
-            const _autoEl = document.getElementById('autopay-content');
-            const _ridesEl = document.getElementById('rides-list');
-            if (tab === 'autopay') {
-                if (_autoEl) _autoEl.style.display = 'block';
-                if (_ridesEl) _ridesEl.style.display = 'none';
-                initAutopay();
-            } else {
-                if (_autoEl) _autoEl.style.display = 'none';
-                if (_ridesEl) _ridesEl.style.display = '';
-                renderRides();
-            }
+            renderRides();
         }
 
         // 🆕 v6.63.118 (Patrick 03.06. 12:44): Auto-Pay Setup-Flow eingebettet

@@ -1,0 +1,38 @@
+name: Mail-Briefing täglich 08:00
+
+# Patrick 04.06. 12:35 (BRIEFING-OK): GMX + Gmail letzte 24h klassifizieren
+# und als Telegram-Briefing an Patrick (via Claude-Bot) schicken. Damit
+# wichtige Mails (Behörden/Anwalt/Gesundheit/Business/Geschäft) nicht
+# untergehen.
+
+on:
+  schedule:
+    # 06:00 UTC = 08:00 Berlin (CEST/Sommer). Im Winter ist Berlin UTC+1,
+    # dann wäre der Fire-Zeitpunkt 07:00 Berlin — akzeptable Drift.
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+jobs:
+  briefing:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install IMAP-Dependencies (functions/)
+        run: |
+          cd functions
+          npm install --no-audit --no-fund imapflow mailparser
+
+      - name: Run Mail-Briefing
+        env:
+          GMX_PASS:    ${{ secrets.GMX_PASS }}
+          GMAIL_PASS:  ${{ secrets.GMAIL_PASS }}
+          TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+          TG_CHAT_ID:   ${{ secrets.TG_CHAT_ID }}
+        run: node scripts/mail-briefing-daily.js

@@ -1,0 +1,206 @@
+#!/usr/bin/env node
+// mail-briefing-daily.js — täglicher Mail-Briefing-Cron 08:00 Berlin via
+// GitHub Actions. Patrick (04.06. 12:35 BRIEFING-OK): "wieso gab es keine
+// E-Mails... müsste theoretisch immer jeden Morgen um 9 Uhr oder um 8 Uhr
+// von den E-Mails der vergangenen Tage des vergangenen Tags abgehandelt
+// werden." Output → Telegram via Claude-Bot direkt an Patrick.
+//
+// ENV vars (GitHub Actions Secrets):
+//   GMX_PASS, GMAIL_PASS, TG_BOT_TOKEN, TG_CHAT_ID
+// Fallbacks für lokales Testen aus mail-briefing-7days.js.
+
+const path = require('path');
+const NODE_MODULES = path.join(__dirname, '..', 'functions', 'node_modules');
+const { ImapFlow } = require(path.join(NODE_MODULES, 'imapflow'));
+const { simpleParser } = require(path.join(NODE_MODULES, 'mailparser'));
+const https = require('https');
+
+const SINCE = new Date(Date.now() - 24 * 60 * 60 * 1000);
+const LOG = (...a) => console.log('[' + new Date().toISOString().slice(11,19) + ']', ...a);
+
+const accounts = [
+    { name: 'GMX', host: 'imap.gmx.net', port: 993, user: 'taxiwydra@gmx.de', pass: process.env.GMX_PASS || '4bY2C3h77ZqV' },
+    { name: 'Gmail', host: 'imap.gmail.com', port: 993, user: 'taxiwydra@googlemail.com', pass: process.env.GMAIL_PASS || 'tiajmwotmnltltkh' },
+];
+
+const TG_BOT_TOKEN = process.env.TG_BOT_TOKEN || '8460798396:AAFy-Kv6mrf61NdiF-CJrn_nezeLNEs9FBY';
+const TG_CHAT_ID  = process.env.TG_CHAT_ID  || '6229490043';
+
+function classify(envelope, snippetLower) {
+    const from = (envelope.from?.[0]?.address || '').toLowerCase();
+    const subject = (envelope.subject || '').toLowerCase();
+    const hay = from + ' ' + subject + ' ' + snippetLower;
+    if (/newsletter|unsubscribe|werbung|sale|-\s?\d{1,2}\s?%|rabatt|gutschein|gewinnspiel|aktion|flash[- ]?sale|black\s?friday|cyber\s?monday/.test(hay))
+        return { cat: 'werbung', prio: 'mute', emoji: '🗑️' };
+    if (/no-?reply|do[-_]?not[-_]?reply|@github\.com|notifications?@/.test(from))
+        return { cat: 'system', prio: 'low', emoji: '⚙️' };
+    if (/finanzamt|steuer|ecovis|ihk|gewerbe|krankenkasse|aok|behörde|gesetzlich|datev|justiz|gericht|polizei|zoll/.test(hay))
+        return { cat: 'behoerde', prio: 'HIGH', emoji: '🏛️' };
+    if (/anwalt|rechtsanwalt|kanzlei|weigel/.test(hay))
+        return { cat: 'anwalt', prio: 'HIGH', emoji: '⚖️' };
+    if (/sparkasse|commerzbank|volksbank|paypal|stripe|zettle|kontoauszug|sepa|interactive ?brokers|adobe|amazon\sbusiness|google[-_ ]?play|microsoft 365|apple/.test(hay))
+        return { cat: 'finanz', prio: 'normal', emoji: '💳' };
+    if (/buchung|reservierung|fahrt|taxi|rechnung|invoice|auftrag|kunde|hotel|gast|abholung|transfer|flugha|krankenfah/.test(hay))
+        return { cat: 'geschaeft', prio: 'normal', emoji: '🚕' };
+    if (/praxis|arzt|doktor|rezept|blutwerte|gramsch|weihs|moskwa|patientenportal|krankschreib/.test(hay))
+        return { cat: 'gesundheit', prio: 'HIGH', emoji: '💊' };
+    if (/vetter|reise|tour|veranstaltung|ausflug|festival/.test(hay))
+        return { cat: 'business', prio: 'normal', emoji: '🏨' };
+    return { cat: 'sonstige', prio: 'normal', emoji: '📩' };
+}
+
+async function pullAccount(cfg) {
+    const out = { account: cfg.name, user: cfg.user, total: 0, items: [] };
+    const client = new ImapFlow({ host: cfg.host, port: cfg.port, secure: true, auth: { user: cfg.user, pass: cfg.pass }, logger: false });
+    await client.connect();
+    await client.mailboxOpen('INBOX');
+    const uids = await client.search({ since: SINCE });
+    LOG(cfg.name, 'UIDs:', uids.length);
+    out.total = uids.length;
+    for (const uid of uids) {
+        try {
+            const msg = await client.fetchOne(uid, { envelope: true, source: true });
+            if (!msg) continue;
+            const parsed = msg.source ? await simpleParser(msg.source) : null;
+            const env = msg.envelope || {};
+            const snippet = ((parsed && (parsed.text || parsed.html || '')) || '').toString().replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').slice(0, 300).toLowerCase();
+            const cls = classify(env, snippet);
+            out.items.push({
+                uid,
+                date: env.date ? new Date(env.date).toISOString().slice(0, 16).replace('T', ' ') : '',
+                from: env.from?.[0] ? `${env.from[0].name || ''} <${env.from[0].address || ''}>`.trim() : '',
+                subject: env.subject || '',
+                cat: cls.cat,
+                prio: cls.prio,
+                emoji: cls.emoji,
+                hasAttachments: !!(parsed && parsed.attachments && parsed.attachments.length),
+            });
+        } catch (e) { LOG('parse-err', cfg.name, uid, e.message); }
+    }
+    await client.logout();
+    return out;
+}
+
+function buildTelegramText(allAccounts) {
+    const lines = [];
+    lines.push('📭 <b>Mail-Briefing — letzte 24 Stunden</b>');
+    lines.push('');
+    const order = ['behoerde', 'anwalt', 'gesundheit', 'business', 'geschaeft', 'finanz', 'sonstige', 'system', 'werbung'];
+    const catLabels = {
+        behoerde: '🏛️ Behörden',
+        anwalt:   '⚖️ Anwalt',
+        gesundheit:'💊 Gesundheit',
+        business: '🏨 Business (Hotels/Touristik)',
+        geschaeft:'🚕 Geschäft (Buchungen/Rechnungen)',
+        finanz:   '💳 Finanzen',
+        sonstige: '📩 Sonstige',
+        system:   '⚙️ System (auto)',
+        werbung:  '🗑️ Werbung'
+    };
+    let totalAll = 0;
+    for (const acc of allAccounts) {
+        if (acc.error) {
+            lines.push(`❌ <b>${acc.account}</b>: ${acc.error}`);
+            continue;
+        }
+        totalAll += acc.items.length;
+        lines.push(`📬 <b>${acc.account}</b> (${acc.user}) — ${acc.items.length} Mail${acc.items.length === 1 ? '' : 's'}`);
+        const buckets = {};
+        for (const it of acc.items) {
+            buckets[it.cat] = buckets[it.cat] || [];
+            buckets[it.cat].push(it);
+        }
+        for (const cat of order) {
+            const list = (buckets[cat] || []).sort((a, b) => (a.date < b.date ? 1 : -1));
+            if (!list.length) continue;
+            // Werbung + System nur als Count
+            if (cat === 'werbung' || cat === 'system') {
+                lines.push(`  ${catLabels[cat]}: ${list.length}`);
+                continue;
+            }
+            lines.push(`  <b>${catLabels[cat]} (${list.length})</b>`);
+            for (const it of list.slice(0, 8)) {
+                const fromShort = (it.from || '').replace(/<[^>]+>/g, '').trim().substring(0, 36) || it.from.substring(0, 36);
+                const subj = (it.subject || '').substring(0, 50);
+                const att = it.hasAttachments ? ' 📎' : '';
+                lines.push(`    • ${fromShort}: ${subj}${att}`);
+            }
+            if (list.length > 8) lines.push(`    … (+${list.length - 8} weitere)`);
+        }
+        lines.push('');
+    }
+    lines.push(`📊 Total: ${totalAll} Mail${totalAll === 1 ? '' : 's'} der letzten 24h`);
+    lines.push(`<i>Generiert ${new Date().toLocaleString('de-DE', { timeZone: 'Europe/Berlin' })}</i>`);
+    return lines.join('\n');
+}
+
+function sendTelegram(text) {
+    return new Promise((resolve, reject) => {
+        const body = JSON.stringify({
+            chat_id: TG_CHAT_ID,
+            text: text,
+            parse_mode: 'HTML',
+            disable_web_page_preview: true
+        });
+        const req = https.request({
+            hostname: 'api.telegram.org',
+            path: `/bot${TG_BOT_TOKEN}/sendMessage`,
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) }
+        }, (res) => {
+            let data = '';
+            res.on('data', (c) => data += c);
+            res.on('end', () => {
+                if (res.statusCode === 200) resolve(JSON.parse(data));
+                else reject(new Error(`Telegram ${res.statusCode}: ${data}`));
+            });
+        });
+        req.on('error', reject);
+        req.write(body);
+        req.end();
+    });
+}
+
+(async () => {
+    const all = [];
+    for (const acc of accounts) {
+        try {
+            const r = await pullAccount(acc);
+            all.push(r);
+        } catch (e) {
+            LOG('account-err', acc.name, e.message);
+            all.push({ account: acc.name, error: e.message, items: [] });
+        }
+    }
+    const text = buildTelegramText(all);
+    console.log('\n=== Telegram-Briefing ===\n');
+    console.log(text);
+    console.log('\n=========================\n');
+    try {
+        // Telegram-Limit: 4096 Zeichen, ggf. splitten
+        if (text.length <= 4000) {
+            await sendTelegram(text);
+            LOG('✅ Telegram gesendet');
+        } else {
+            const chunks = [];
+            let cur = '';
+            for (const line of text.split('\n')) {
+                if ((cur + '\n' + line).length > 3800) {
+                    chunks.push(cur);
+                    cur = line;
+                } else {
+                    cur = cur ? cur + '\n' + line : line;
+                }
+            }
+            if (cur) chunks.push(cur);
+            for (const ch of chunks) {
+                await sendTelegram(ch);
+                await new Promise(r => setTimeout(r, 500));
+            }
+            LOG(`✅ Telegram in ${chunks.length} Teilen gesendet`);
+        }
+    } catch (e) {
+        console.error('❌ Telegram-Send Fehler:', e.message);
+        process.exit(2);
+    }
+})().catch(e => { console.error('FATAL:', e); process.exit(1); });

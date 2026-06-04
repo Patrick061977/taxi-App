@@ -123,12 +123,15 @@ public class AlertSoundService extends Service {
             Log.w(TAG, "screenOff receiver register fail: " + t.getMessage());
         }
 
-        // 🆕 v6.63.126: USAGE_NOTIFICATION statt USAGE_ALARM → respektiert Handy-Lautstaerke.
-        //   KEIN STREAM_ALARM-Override mehr. Wenn Patrick stumm hat, bleibt es stumm —
-        //   der Heads-Up-Banner ist zusaetzlich visuell sichtbar.
+        // 🆕 v6.63.127 (Patrick 04.06. 05:58 "kam jetzt gar kein Alarm. Oh, und hat Licht"):
+        //   USAGE_NOTIFICATION_RINGTONE statt USAGE_NOTIFICATION. Ringtone-Variante ist die
+        //   "eingehender Anruf"-Lautstaerke — verlaesslicher hoerbar bei normalem
+        //   Handy-Volume, ohne die Wecker-Peinlichkeit von USAGE_ALARM. Heads-Up-Banner
+        //   ("Licht") bleibt gleich. Wenn Patrick komplett stumm hat, bleibt es weiterhin
+        //   stumm — kein force-loud, kein STREAM-Override.
         try {
-            Uri sound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
-            if (sound == null) sound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE);
+            Uri sound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE);
+            if (sound == null) sound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
             if (sound == null) {
                 Log.w(TAG, "Keine System-Sound-URI gefunden");
                 stopSelf();
@@ -137,7 +140,7 @@ public class AlertSoundService extends Service {
 
             player = new MediaPlayer();
             AudioAttributes attrs = new AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+                .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
                 .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                 .build();
             player.setAudioAttributes(attrs);

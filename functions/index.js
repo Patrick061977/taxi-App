@@ -28517,12 +28517,24 @@ exports.createStripeCheckoutSession = onRequest(
             const stripe = await getStripe();
             const custSnap = await db.ref(`customers/${customerId}`).once('value');
             const cust = custSnap.val() || {};
+            // 🆕 v6.63.154 (Patrick 04.06. 11:31 'Adresse nicht vorausgefüllt'):
+            //   Adresse aus CRM splitten und an Stripe-Customer übergeben, damit
+            //   Checkout sie vorausfüllt.
+            const _rawAddr = cust.address || '';
+            const _addrMatch = _rawAddr.match(/^(.+?),\s*(\d{5})\s+(.+)$/);
+            const _addressObj = _addrMatch ? {
+                line1: _addrMatch[1].trim(),
+                postal_code: _addrMatch[2].trim(),
+                city: _addrMatch[3].trim(),
+                country: 'DE'
+            } : (_rawAddr ? { line1: _rawAddr, country: 'DE' } : undefined);
             let stripeCustomerId = cust.stripeCustomerId;
             if (!stripeCustomerId) {
                 const sc = await stripe.customers.create({
                     name: name || cust.name || 'Funk Taxi Kunde',
                     email: email || cust.email || undefined,
                     phone: phone || cust.phone || cust.mobilePhone || undefined,
+                    address: _addressObj,
                     metadata: { crmCustomerId: customerId }
                 });
                 stripeCustomerId = sc.id;
@@ -28530,6 +28542,16 @@ exports.createStripeCheckoutSession = onRequest(
                     stripeCustomerId,
                     stripeCustomerCreatedAt: Date.now()
                 });
+            } else if (_addressObj) {
+                // Existierender Stripe-Customer: Adresse refresh (falls geändert)
+                try {
+                    await stripe.customers.update(stripeCustomerId, {
+                        address: _addressObj,
+                        name: name || cust.name || undefined,
+                        email: email || cust.email || undefined,
+                        phone: phone || cust.phone || cust.mobilePhone || undefined
+                    });
+                } catch (_e) { console.warn('Stripe customer update fehlgeschlagen:', _e.message); }
             }
             const _base = returnBase || 'https://umwelt-taxi-insel-usedom.de/Taxi-App/kunden.html';
             const session = await stripe.checkout.sessions.create({
@@ -28537,6 +28559,10 @@ exports.createStripeCheckoutSession = onRequest(
                 customer: stripeCustomerId,
                 payment_method_types: ['card', 'sepa_debit', 'paypal'],
                 locale: 'de',
+                // v6.63.154: customer_update damit Stripe die Adresse aus dem Checkout
+                // (falls der Kunde sie dort ändert) zurück in den Customer schreibt.
+                customer_update: { name: 'auto', address: 'auto' },
+                billing_address_collection: 'required',
                 success_url: `${_base}?autopay=done`,
                 cancel_url: `${_base}?autopay=cancel`,
                 metadata: { crmCustomerId: customerId }

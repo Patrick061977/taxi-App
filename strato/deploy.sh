@@ -98,7 +98,7 @@ SEO_PAGES=(
     "grossraumtaxi.html"
     "pauschalpreise-swinoujscie.html"
     "restaurants-usedom.html"
-    "veranstaltungen.html"
+    "veranstaltungen-heringsdorf.html"
 )
 APP_FILES=("${APP_FILES[@]}" "${SEO_PAGES[@]}")
 

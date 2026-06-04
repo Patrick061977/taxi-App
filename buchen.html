@@ -1186,7 +1186,7 @@
         //   Tesla-Browser hatte gecachte alte Version, obwohl Strato die neue ausspielte.
         //   Periodischer Build-Check: alle 60s das Server-buchen.html abklopfen, wenn
         //   neuere Build-Zeit als die gerade geladene → window.location.reload(true).
-        const _CLIENT_BUILD = 'v6.63.132-2026-06-04T05:54Z';
+        const _CLIENT_BUILD = 'v6.63.133-2026-06-04T06:00Z';
         (function setupAutoReloadOnNewBuild() {
             let _serverBuildMarker = null;
             async function _check() {
@@ -2510,6 +2510,22 @@
                 if (_busyVids.has(vid)) continue;
                 _freeCount++;
             }
+            // 🆕 v6.63.133: gemeinsame Farb-Stufung fuer Sofort-Button — gruen <10,
+            //   orange <20, dunkles Orange sonst. Schwellen analog busy-Branch unten,
+            //   damit Frei-mit-langer-Anfahrt visuell genauso warnt wie Wartezeit.
+            const _applySofortBtnColor = (btn, etaMin) => {
+                if (!btn) return;
+                if (etaMin === null || etaMin === undefined || etaMin < 10) {
+                    btn.style.background = '';
+                    btn.style.color = '';
+                } else if (etaMin < 20) {
+                    btn.style.background = '#fb923c';
+                    btn.style.color = '#ffffff';
+                } else {
+                    btn.style.background = '#ea580c';
+                    btn.style.color = '#ffffff';
+                }
+            };
             if (_freeCount > 0) {
                 // Mindestens 1 freies Fahrzeug → normaler Sofort-Button mit ETA
                 sofortBtn.style.background = '';
@@ -2554,10 +2570,22 @@
                         if (closestEta === null || eta < closestEta) closestEta = eta;
                         if (dist < _closestFreeDist) { _closestFreeDist = dist; _closestFreeVeh = vInfo; }
                     }
-                    if (closestEta) etaText = 'Taxi in ca. ' + closestEta + ' Min';
+                    if (closestEta) {
+                        // 🆕 v6.63.133 (Patrick 04.06. 07:59 "das Gruene irritiert wenn ich
+                        //   nicht in der Naehe bin"): landing.html-Wording uebernehmen +
+                        //   Farb-Stufung nach ETA. Bei >5 Min ist 'Sofort verfuegbar' eine
+                        //   Luege — ehrlicher: 'Taxi unterwegs - ca. X Min Wartezeit'.
+                        etaText = closestEta <= 5
+                            ? '⚡ Sofort verfügbar — nur ' + closestEta + ' Min'
+                            : '🚕 Taxi unterwegs — ca. ' + closestEta + ' Min Wartezeit';
+                    }
                 }
                 sofortBtn.innerHTML = '⚡ Sofort<br><span style="font-size:11px;font-weight:400;">' + etaText + '</span>';
                 sofortBtn.onclick = function() { setWann('sofort'); };
+                // 🆕 v6.63.133: Farb-Stufung wie bei busy-Branch — wenn der freie Fahrer
+                //   in Wahrheit weit weg ist (z.B. Patrick gerade in Greifswald), waere
+                //   Gruen-Default eine Luege. Schwellen analog _busyWaitMin-Branch unten.
+                _applySofortBtnColor(sofortBtn, closestEta);
                 // 🆕 v6.63.132: OSRM-Async-Refine. Nach dem Sync-Render holen wir die echte
                 //   Strassen-Fahrzeit fuer das naechste freie Fahrzeug und ueberschreiben den
                 //   Button-Text wenn sie deutlich von Haversine abweicht. fetchOSRMDuration
@@ -2573,7 +2601,12 @@
                         const _osrmEta = Math.max(5, Math.round(osrmMin + 3));
                         const _btn = document.querySelector('.wann-btn[onclick*="sofort"]');
                         if (_btn) {
-                            _btn.innerHTML = '⚡ Sofort<br><span style="font-size:11px;font-weight:400;">Taxi in ca. ' + _osrmEta + ' Min</span>';
+                            // 🆕 v6.63.133: gleiche Wording- + Farb-Stufung wie sync-Render
+                            const _osrmTxt = _osrmEta <= 5
+                                ? '⚡ Sofort verfügbar — nur ' + _osrmEta + ' Min'
+                                : '🚕 Taxi unterwegs — ca. ' + _osrmEta + ' Min Wartezeit';
+                            _btn.innerHTML = '⚡ Sofort<br><span style="font-size:11px;font-weight:400;">' + _osrmTxt + '</span>';
+                            _applySofortBtnColor(_btn, _osrmEta);
                         }
                     }).catch(() => {});
                 }

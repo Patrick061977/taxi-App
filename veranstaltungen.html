@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Veranstaltungen in Heringsdorf, Ahlbeck & Bansin — Funk Taxi bringt Sie hin</title>
+    <meta name="description" content="Aktuelle Veranstaltungen in Heringsdorf, Ahlbeck und Bansin. Konzerte, Theater, Comedy, Lesungen — und das Funk Taxi Heringsdorf bringt Sie pünktlich hin. 24/7 unter 038378 22022.">
+    <meta name="keywords" content="Veranstaltungen Heringsdorf, Veranstaltungskalender Heringsdorf, Veranstaltungen Ahlbeck, Veranstaltungen Bansin, Konzerte Heringsdorf, Theater Villa Irmgard, Kaiserbädersaal Heringsdorf, was ist los Heringsdorf, Events Usedom, Comedy Heringsdorf, Lesungen Heringsdorf">
+    <meta name="author" content="Funk Taxi Heringsdorf · Patrick Wydra">
+    <meta name="geo.region" content="DE-MV">
+    <meta name="geo.placename" content="Heringsdorf, Ahlbeck, Bansin">
+    <meta name="geo.position" content="53.9514;14.1700">
+    <link rel="canonical" href="https://umwelt-taxi-insel-usedom.de/veranstaltungen.html">
+    <meta name="theme-color" content="#10b981">
+    <meta property="og:title" content="Veranstaltungen in Heringsdorf, Ahlbeck & Bansin — Funk Taxi bringt Sie hin">
+    <meta property="og:description" content="Aktuelle Veranstaltungen in Heringsdorf, Ahlbeck und Bansin. Konzerte, Theater, Comedy — und das Funk Taxi bringt Sie hin.">
+    <meta property="og:url" content="https://umwelt-taxi-insel-usedom.de/veranstaltungen.html">
+    <meta property="og:type" content="website">
+    <meta property="og:locale" content="de_DE">
+    <meta property="og:image" content="https://umwelt-taxi-insel-usedom.de/icon-192.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            color: #1f2937;
+            background: linear-gradient(180deg, #f0fdf4 0%, #ffffff 60%);
+            line-height: 1.55;
+            -webkit-font-smoothing: antialiased;
+        }
+        .header {
+            background: #ffffff;
+            border-bottom: 1px solid #e5e7eb;
+            padding: 14px 20px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 1px 8px rgba(15,23,42,0.04);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .header-brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
+            color: inherit;
+        }
+        .header-brand img {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+        }
+        .header-brand-text {
+            font-weight: 800;
+            font-size: 15px;
+            color: #065f46;
+        }
+        .header-brand-sub {
+            font-size: 11px;
+            color: #6b7280;
+            font-weight: 600;
+        }
+        .header-phone {
+            background: #10b981;
+            color: white;
+            padding: 8px 14px;
+            border-radius: 999px;
+            text-decoration: none;
+            font-weight: 700;
+            font-size: 14px;
+            white-space: nowrap;
+        }
+        .hero {
+            padding: 32px 20px 24px;
+            max-width: 960px;
+            margin: 0 auto;
+            text-align: center;
+        }
+        .hero h1 {
+            font-size: 28px;
+            font-weight: 800;
+            color: #064e3b;
+            line-height: 1.2;
+            margin-bottom: 10px;
+        }
+        .hero p {
+            color: #4b5563;
+            font-size: 16px;
+            max-width: 640px;
+            margin: 0 auto;
+        }
+        .filter-bar {
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 16px 20px;
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .filter-btn {
+            background: #f1f5f9;
+            color: #475569;
+            border: 2px solid #cbd5e1;
+            border-radius: 999px;
+            padding: 8px 18px;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            font-family: inherit;
+        }
+        .filter-btn:hover {
+            border-color: #10b981;
+            color: #065f46;
+        }
+        .filter-btn.active {
+            background: #10b981;
+            color: white;
+            border-color: #10b981;
+        }
+        .events-grid {
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 12px 20px 40px;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 16px;
+        }
+        .event-card {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 16px;
+            padding: 18px;
+            box-shadow: 0 2px 8px rgba(15,23,42,0.04);
+            transition: transform 0.15s, box-shadow 0.15s;
+            display: flex;
+            flex-direction: column;
+        }
+        .event-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(15,23,42,0.08);
+        }
+        .event-date {
+            font-size: 12px;
+            font-weight: 800;
+            color: #10b981;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 6px;
+        }
+        .event-title {
+            font-size: 17px;
+            font-weight: 700;
+            color: #111827;
+            margin-bottom: 6px;
+            line-height: 1.3;
+        }
+        .event-venue {
+            font-size: 14px;
+            color: #4b5563;
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .event-city-badge {
+            display: inline-block;
+            background: #ecfdf5;
+            color: #065f46;
+            padding: 3px 10px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 700;
+            margin-top: 6px;
+        }
+        .event-price {
+            font-size: 13px;
+            color: #6b7280;
+            margin-top: 6px;
+        }
+        .event-cta {
+            display: block;
+            margin-top: 14px;
+            background: #10b981;
+            color: white;
+            text-align: center;
+            padding: 10px;
+            border-radius: 10px;
+            text-decoration: none;
+            font-weight: 700;
+            font-size: 14px;
+            transition: background 0.15s;
+        }
+        .event-cta:hover {
+            background: #059669;
+        }
+        .empty-state {
+            grid-column: 1 / -1;
+            text-align: center;
+            padding: 40px 20px;
+            color: #6b7280;
+        }
+        .seo-section {
+            max-width: 720px;
+            margin: 0 auto;
+            padding: 32px 20px 40px;
+            color: #374151;
+            font-size: 15px;
+        }
+        .seo-section h2 {
+            font-size: 20px;
+            color: #064e3b;
+            margin-bottom: 12px;
+            font-weight: 700;
+        }
+        .seo-section h3 {
+            font-size: 16px;
+            color: #065f46;
+            margin: 18px 0 8px;
+            font-weight: 700;
+        }
+        .seo-section p {
+            margin-bottom: 12px;
+        }
+        .source-attribution {
+            max-width: 720px;
+            margin: 0 auto;
+            padding: 16px 20px 24px;
+            text-align: center;
+            color: #9ca3af;
+            font-size: 12px;
+        }
+        .source-attribution a {
+            color: #10b981;
+            text-decoration: none;
+        }
+        .footer {
+            background: #064e3b;
+            color: white;
+            padding: 24px 20px;
+            text-align: center;
+            font-size: 13px;
+        }
+        .footer a {
+            color: #6ee7b7;
+            text-decoration: none;
+            margin: 0 8px;
+        }
+        @media (max-width: 480px) {
+            .hero h1 { font-size: 24px; }
+            .hero p { font-size: 14px; }
+            .header-brand-text { font-size: 13px; }
+        }
+    </style>
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "WebPage",
+        "name": "Veranstaltungen in Heringsdorf, Ahlbeck & Bansin",
+        "description": "Aktueller Veranstaltungskalender für Heringsdorf, Ahlbeck und Bansin. Konzerte, Theater, Comedy, Lesungen — Funk Taxi bringt Sie hin.",
+        "url": "https://umwelt-taxi-insel-usedom.de/veranstaltungen.html",
+        "inLanguage": "de-DE",
+        "isPartOf": {
+            "@type": "WebSite",
+            "name": "Umwelt Taxi Insel Usedom",
+            "url": "https://umwelt-taxi-insel-usedom.de/"
+        },
+        "about": [
+            {"@type": "City", "name": "Heringsdorf"},
+            {"@type": "City", "name": "Ahlbeck"},
+            {"@type": "City", "name": "Bansin"}
+        ]
+    }
+    </script>
+</head>
+<body>
+    <header class="header">
+        <a href="/landing.html" class="header-brand">
+            <img src="./icon-funktaxi-original.jpg" alt="Funk Taxi Heringsdorf">
+            <div>
+                <div class="header-brand-text">Funk Taxi Heringsdorf</div>
+                <div class="header-brand-sub">Veranstaltungs-Kalender</div>
+            </div>
+        </a>
+        <a href="tel:+4938378822022" class="header-phone">📞 038378 22022</a>
+    </header>
+
+    <section class="hero">
+        <h1>Veranstaltungen in Heringsdorf, Ahlbeck &amp; Bansin</h1>
+        <p>Konzerte, Theater, Comedy und Lesungen — und das Funk Taxi bringt Sie sicher und pünktlich hin und zurück. Buchen Sie Ihre Hinfahrt direkt aus jeder Veranstaltung heraus.</p>
+    </section>
+
+    <div class="filter-bar" id="filter-bar">
+        <button class="filter-btn active" data-filter="alle">Alle Orte</button>
+        <button class="filter-btn" data-filter="Heringsdorf">Heringsdorf</button>
+        <button class="filter-btn" data-filter="Ahlbeck">Ahlbeck</button>
+        <button class="filter-btn" data-filter="Bansin">Bansin</button>
+    </div>
+
+    <main class="events-grid" id="events-grid">
+        <!-- Wird von JS gefüllt -->
+    </main>
+
+    <section class="seo-section">
+        <h2>Veranstaltungen auf den Kaiserbädern — der Funk Taxi Service</h2>
+        <p>
+            Die Kaiserbäder <strong>Heringsdorf, Ahlbeck und Bansin</strong> bieten das ganze Jahr über ein abwechslungsreiches
+            Veranstaltungsprogramm. Konzerte im Kaiserbädersaal Heringsdorf, Lesungen in der Villa Irmgard,
+            Comedy-Abende, klassische Musik im Hans-Werner-Richter-Haus und sommerliche Open-Air-Veranstaltungen
+            auf den Strandpromenaden — die Insel Usedom hat für jeden Geschmack etwas zu bieten.
+        </p>
+        <h3>Mit dem Funk Taxi bequem zur Veranstaltung</h3>
+        <p>
+            Damit Sie entspannt ankommen und sich beim Konzert oder Comedy-Abend ein Glas Sekt gönnen können,
+            bringt das <strong>Funk Taxi Heringsdorf</strong> Sie pünktlich zur Veranstaltung und sicher wieder
+            zurück nach Hause oder ins Hotel. Wir kennen jede Veranstaltungs-Adresse in Heringsdorf, Ahlbeck und Bansin
+            und planen die Anfahrt so, dass Sie nie zu spät kommen.
+        </p>
+        <h3>Voraus-Buchung empfohlen bei großen Veranstaltungen</h3>
+        <p>
+            Bei beliebten Veranstaltungen wie Kaiserbäder Open Air, Quatsch Comedy Club oder Strandpromenaden-Konzerten
+            empfehlen wir die Voraus-Buchung mindestens <strong>2 Stunden vor Beginn</strong>. So sichern Sie sich
+            Ihr Taxi auch wenn viele andere Gäste gleichzeitig anreisen. Klicken Sie einfach auf <strong>"🚕 Taxi buchen"</strong>
+            bei der gewünschten Veranstaltung — Ihre Anfahrtsadresse ist dann schon vorausgewählt.
+        </p>
+        <h3>24/7 erreichbar</h3>
+        <p>
+            Auch nach Mitternacht und an Wochenenden ist das Funk Taxi Heringsdorf rund um die Uhr für Sie erreichbar.
+            Telefonisch unter <a href="tel:+4938378822022" style="color:#10b981;font-weight:700;">038378 22022</a> oder
+            bequem online über unsere <a href="/buchen.html" style="color:#10b981;font-weight:700;">Buchungs-App</a>.
+        </p>
+    </section>
+
+    <div class="source-attribution">
+        Veranstaltungsdaten: <a href="https://www.kaiserbaeder.de/veranstaltungen/" target="_blank" rel="noopener">Tourismus-Verband Kaiserbäder</a>
+        ·
+        Alle Angaben ohne Gewähr — bitte beim Veranstalter rückversichern.
+    </div>
+
+    <footer class="footer">
+        <p>
+            <a href="/landing.html">Startseite</a> ·
+            <a href="/buchen.html">Taxi buchen</a> ·
+            <a href="/ausflugsziele.html">Ausflugsziele</a> ·
+            <a href="/veranstaltungen.html">Veranstaltungen</a>
+        </p>
+        <p style="margin-top:8px;opacity:0.8;">© Funk Taxi Heringsdorf · Patrick Wydra · 038378 22022</p>
+    </footer>
+
+    <script>
+        // v6.63.135 (Patrick 04.06. 08:22): Erste Version der Veranstaltungs-Seite.
+        //   Daten aktuell hardcoded (Stand kaiserbaeder.de Juni 2026). Folge-PR: Cloud
+        //   Function syncEventsDaily soll täglich pullen und nach /events/ schreiben.
+        const _events = [
+            {
+                date: '2026-06-04T19:00',
+                title: 'Lerne Lachen, ohne zu weinen',
+                venue: 'Villa Irmgard',
+                city: 'Heringsdorf',
+                price: 'ab 16 €',
+                category: 'Lesung',
+                desc: 'Musikalisch-literarischer Abend'
+            },
+            {
+                date: '2026-06-06T19:30',
+                title: 'Bach trifft Bachmann',
+                venue: 'Hans-Werner-Richter-Haus',
+                city: 'Bansin',
+                price: 'ab 10 €',
+                category: 'Konzert',
+                desc: 'Klassisches Konzert'
+            },
+            {
+                date: '2026-06-06T07:00',
+                title: 'Usedom Beach Marathon',
+                venue: 'Strandpromenade Heringsdorf',
+                city: 'Heringsdorf',
+                price: 'Anmeldung erforderlich',
+                category: 'Sport',
+                desc: 'Cross-Marathon entlang der Ostseeküste'
+            },
+            {
+                date: '2026-06-09T20:00',
+                title: 'Gold von den Sternen',
+                venue: 'Villa Irmgard',
+                city: 'Heringsdorf',
+                price: 'ab 16 €',
+                category: 'Konzert',
+                desc: 'Duo ›con emozione‹'
+            },
+            {
+                date: '2026-06-12T20:00',
+                title: 'Swing to Salsa',
+                venue: 'Strandpromenade',
+                city: 'Heringsdorf',
+                price: 'frei',
+                category: 'Tanz',
+                desc: 'Drei Tage Tanz-Festival (12.-14.06.)'
+            },
+            {
+                date: '2026-06-13T20:00',
+                title: 'Quatsch Comedy Club Live',
+                venue: 'Kaiserbädersaal',
+                city: 'Heringsdorf',
+                price: 'ab 28 €',
+                category: 'Comedy',
+                desc: 'Stand-Up-Show mit wechselnden Comedians'
+            },
+            {
+                date: '2026-06-16T19:00',
+                title: 'Irgendwas ist immer',
+                venue: 'Villa Irmgard',
+                city: 'Heringsdorf',
+                price: 'ab 16 €',
+                category: 'Lesung',
+                desc: 'mit Anette Richter & Ulrich Maria Kellner'
+            },
+            {
+                date: '2026-06-23T19:00',
+                title: 'Chanson a la carte',
+                venue: 'Villa Irmgard',
+                city: 'Heringsdorf',
+                price: 'ab 16 €',
+                category: 'Konzert',
+                desc: 'mit Arnold Krohne und Maxim Shagaev'
+            },
+            {
+                date: '2026-06-30T19:00',
+                title: 'Erich Kästner — Johannes Kirchberg',
+                venue: 'Villa Irmgard',
+                city: 'Heringsdorf',
+                price: 'ab 16 €',
+                category: 'Lesung',
+                desc: 'Lesung und Musik'
+            }
+        ];
+
+        const _months = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+        const _dayNames = ['So','Mo','Di','Mi','Do','Fr','Sa'];
+
+        function _fmtDate(iso) {
+            const d = new Date(iso);
+            const dayName = _dayNames[d.getDay()];
+            const day = String(d.getDate()).padStart(2,'0');
+            const mon = _months[d.getMonth()];
+            const hour = String(d.getHours()).padStart(2,'0');
+            const min = String(d.getMinutes()).padStart(2,'0');
+            return `${dayName} ${day}. ${mon} · ${hour}:${min}`;
+        }
+
+        function _renderEvents(filter) {
+            const grid = document.getElementById('events-grid');
+            grid.innerHTML = '';
+            const filtered = filter === 'alle' ? _events : _events.filter(e => e.city === filter);
+            if (filtered.length === 0) {
+                grid.innerHTML = '<div class="empty-state">Keine Veranstaltungen für diesen Filter — schauen Sie morgen wieder vorbei.</div>';
+                return;
+            }
+            filtered.forEach(ev => {
+                const card = document.createElement('article');
+                card.className = 'event-card';
+                const bookingUrl = `/buchen.html?event=${encodeURIComponent(ev.title)}&ziel=${encodeURIComponent(ev.venue + ', ' + ev.city)}`;
+                card.innerHTML = `
+                    <div class="event-date">${_fmtDate(ev.date)}</div>
+                    <div class="event-title">${ev.title}</div>
+                    <div class="event-venue">📍 ${ev.venue}</div>
+                    <div class="event-city-badge">${ev.city}</div>
+                    <div class="event-price">${ev.price}${ev.category ? ' · ' + ev.category : ''}</div>
+                    <a href="${bookingUrl}" class="event-cta">🚕 Taxi buchen</a>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        document.getElementById('filter-bar').addEventListener('click', (e) => {
+            const btn = e.target.closest('.filter-btn');
+            if (!btn) return;
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            _renderEvents(btn.dataset.filter);
+        });
+
+        _renderEvents('alle');
+    </script>
+</body>
+</html>

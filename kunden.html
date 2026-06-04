@@ -2451,8 +2451,24 @@
                 if (!r.ok) throw new Error(data.error || 'Setup fehlgeschlagen');
                 _autopayClientSecret = data.clientSecret;
                 _autopayStripe = Stripe(data.publishableKey);
-                _autopayElements = _autopayStripe.elements({ clientSecret: _autopayClientSecret });
-                const pe = _autopayElements.create('payment');
+                // 🆕 v6.63.151 (Patrick 04.06.): Stripe-Locale 'de' damit alles deutsch + Adresse
+                // aus customerData vorausgefüllt — Kunde muss nicht nochmal eintippen.
+                _autopayElements = _autopayStripe.elements({
+                    clientSecret: _autopayClientSecret,
+                    locale: 'de'
+                });
+                const _defaults = {
+                    billingDetails: {
+                        name: (crmCustomer && crmCustomer.name) || '',
+                        email: (crmCustomer && crmCustomer.email) || '',
+                        phone: phone || '',
+                        address: {
+                            line1: (crmCustomer && crmCustomer.address) || '',
+                            country: 'DE'
+                        }
+                    }
+                };
+                const pe = _autopayElements.create('payment', { defaultValues: _defaults });
                 pe.mount('#autopay-payment-element');
                 statusEl.style.display = 'none';
                 btn.disabled = false;

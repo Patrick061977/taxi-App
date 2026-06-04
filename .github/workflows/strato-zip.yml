@@ -57,6 +57,8 @@ on:
       - 'restaurants-usedom.html'
       # 🆕 v6.62.746: Kein-Bock-zu-Laufen Marketing-Sprungbrett-Page (Patrick 15.05.)
       - 'kein-bock-zu-laufen.html'
+      # 🆕 v6.63.135 (Patrick 04.06. 08:22): Veranstaltungs-Kalender Heringsdorf/Ahlbeck/Bansin
+      - 'veranstaltungen.html'
       - 'images/**'
       - 'vendor/**'
       - 'strato/**'

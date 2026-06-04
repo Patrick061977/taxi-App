@@ -119,11 +119,12 @@ function buildTelegramText(allAccounts) {
                 continue;
             }
             lines.push(`  <b>${catLabels[cat]} (${list.length})</b>`);
+            const esc = (s) => String(s||'').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
             for (const it of list.slice(0, 8)) {
                 const fromShort = (it.from || '').replace(/<[^>]+>/g, '').trim().substring(0, 36) || it.from.substring(0, 36);
                 const subj = (it.subject || '').substring(0, 50);
                 const att = it.hasAttachments ? ' 📎' : '';
-                lines.push(`    • ${fromShort}: ${subj}${att}`);
+                lines.push(`    • ${esc(fromShort)}: ${esc(subj)}${att}`);
             }
             if (list.length > 8) lines.push(`    … (+${list.length - 8} weitere)`);
         }

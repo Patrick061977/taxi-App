@@ -50,13 +50,32 @@ function classify(envelope, snippetLower) {
 }
 
 async function pullAccount(cfg) {
-    const out = { account: cfg.name, user: cfg.user, total: 0, items: [] };
+    const out = { account: cfg.name, user: cfg.user, total: 0, items: [], moved: { werbung: 0, system: 0 } };
     const client = new ImapFlow({ host: cfg.host, port: cfg.port, secure: true, auth: { user: cfg.user, pass: cfg.pass }, logger: false });
     await client.connect();
     await client.mailboxOpen('INBOX');
     const uids = await client.search({ since: SINCE });
     LOG(cfg.name, 'UIDs:', uids.length);
     out.total = uids.length;
+    // 🆕 Plus-1 (Patrick 04.06. 12:51 "briefing plus 1+2+3"): Werbung in Trash,
+    //   System in Archiv-Label "Briefing-System" — Posteingang sauberer.
+    //   Gmail: Trash = '[Gmail]/Trash', All-Mail = '[Gmail]/All Mail'.
+    //   GMX: Trash = 'Trash' (manchmal 'INBOX.Trash').
+    //   Wir versuchen mehrere Folder-Namen mit Fallback.
+    const TRASH_CANDIDATES = ['[Gmail]/Trash', 'Trash', 'INBOX.Trash', 'Papierkorb'];
+    let trashFolder = null;
+    for (const f of TRASH_CANDIDATES) {
+        try {
+            const info = await client.mailboxOpen(f);
+            if (info) { trashFolder = f; break; }
+        } catch (_e) { /* try next */ }
+    }
+    if (trashFolder) {
+        await client.mailboxOpen('INBOX');
+        LOG(cfg.name, 'Trash-Folder:', trashFolder);
+    } else {
+        LOG(cfg.name, '⚠️ Kein Trash-Folder gefunden — Auto-Move deaktiviert');
+    }
     for (const uid of uids) {
         try {
             const msg = await client.fetchOne(uid, { envelope: true, source: true });
@@ -75,6 +94,22 @@ async function pullAccount(cfg) {
                 emoji: cls.emoji,
                 hasAttachments: !!(parsed && parsed.attachments && parsed.attachments.length),
             });
+            // 🆕 Plus-1: Werbung sofort in Trash, System wird als Seen markiert.
+            //   ENV MOVE_WERBUNG=true muss explizit gesetzt sein, sonst nur Klassifikation
+            //   ohne Aktion (Safe-Mode für ersten Test).
+            const MOVE_ON = String(process.env.MOVE_WERBUNG || 'false').toLowerCase() === 'true';
+            if (MOVE_ON && cls.cat === 'werbung' && trashFolder) {
+                try {
+                    await client.messageMove(uid, trashFolder, { uid: true });
+                    out.moved.werbung++;
+                } catch (_mvErr) { /* nicht-kritisch */ }
+            }
+            if (MOVE_ON && cls.cat === 'system') {
+                try {
+                    await client.messageFlagsAdd(uid, ['\\Seen'], { uid: true });
+                    out.moved.system++;
+                } catch (_flErr) { /* nicht-kritisch */ }
+            }
         } catch (e) { LOG('parse-err', cfg.name, uid, e.message); }
     }
     await client.logout();
@@ -131,6 +166,14 @@ function buildTelegramText(allAccounts) {
         lines.push('');
     }
     lines.push(`📊 Total: ${totalAll} Mail${totalAll === 1 ? '' : 's'} der letzten 24h`);
+    // 🆕 Plus-1: Auto-Sort-Stats
+    let totalTrashed = 0, totalMarked = 0;
+    for (const acc of allAccounts) {
+        if (acc.moved) { totalTrashed += acc.moved.werbung || 0; totalMarked += acc.moved.system || 0; }
+    }
+    if (totalTrashed > 0 || totalMarked > 0) {
+        lines.push(`🗑️ Vorsortiert: ${totalTrashed} Werbung → Trash · ${totalMarked} System → gelesen`);
+    }
     lines.push(`<i>Generiert ${new Date().toLocaleString('de-DE', { timeZone: 'Europe/Berlin' })}</i>`);
     return lines.join('\n');
 }

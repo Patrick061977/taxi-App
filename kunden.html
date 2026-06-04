@@ -781,52 +781,59 @@
             <!-- 🆕 v6.63.149 (Patrick 04.06. 11:02): Bevorzugte Zahlung + Auto-Pay
                  vereint zu EINER Radio-Liste. Wahl bestimmt was passiert.
                  Rechnung/Überweisung fehlt im Kunden-UI — wird nur vom Admin
-                 im CRM aktiviert (Bonität). -->
+                 im CRM aktiviert (Bonität).
+                 🆕 v6.63.158 (Patrick 04.06. 12:01 "Kunde sieht nicht welche
+                 Zahlungsmethode hinterlegt ist, da müsste doch SEPA Lastschrift
+                 stehen"): Wenn Auto-Pay aktiv → STATIC-Card mit Brand-Label
+                 + Ändern/Entfernen-Buttons. KEINE 3-Radio-Auswahl mehr — die
+                 hinterlegte Methode IST die Zahlart. Radios nur sichtbar wenn
+                 NICHTS hinterlegt. -->
             <div class="profile-section">
                 <div class="profile-section-label">Zahlungsmethode</div>
-                <div style="display:flex;flex-direction:column;gap:8px;margin-top:6px;">
-                    <label class="zahl-row" style="display:flex;align-items:flex-start;gap:12px;padding:14px;border:1px solid var(--line);border-radius:var(--r-sm);cursor:pointer;">
-                        <input type="radio" name="zahlmethode" value="cash" style="margin-top:3px;">
-                        <div style="flex:1;">
-                            <div style="font-size:14px;font-weight:600;color:var(--ink);">💵 Bar beim Fahrer</div>
-                            <div style="font-size:12px;color:var(--ink-3);margin-top:3px;line-height:1.4;">Sie zahlen direkt im Auto</div>
-                        </div>
-                    </label>
-                    <label class="zahl-row" style="display:flex;align-items:flex-start;gap:12px;padding:14px;border:1px solid var(--line);border-radius:var(--r-sm);cursor:pointer;">
-                        <input type="radio" name="zahlmethode" value="card" style="margin-top:3px;">
-                        <div style="flex:1;">
-                            <div style="font-size:14px;font-weight:600;color:var(--ink);">💳 EC/Kreditkarte beim Fahrer</div>
-                            <div style="font-size:12px;color:var(--ink-3);margin-top:3px;line-height:1.4;">Kartenzahlung am Terminal im Auto</div>
-                        </div>
-                    </label>
-                    <label class="zahl-row" style="display:flex;align-items:flex-start;gap:12px;padding:14px;border:1px solid var(--line);border-radius:var(--r-sm);cursor:pointer;">
-                        <input type="radio" name="zahlmethode" value="stored" style="margin-top:3px;">
-                        <div style="flex:1;">
-                            <div style="font-size:14px;font-weight:600;color:var(--ink);">💳 Kreditkarte / SEPA / PayPal hinterlegen</div>
-                            <div style="font-size:12px;color:var(--ink-3);margin-top:3px;line-height:1.4;">Sie wählen die Methode beim Hinterlegen — automatische Abbuchung nach jeder Fahrt</div>
-                        </div>
-                    </label>
+
+                <!-- v6.63.158: Static-Card bei aktivem Auto-Pay (keine Auswahl, klare Anzeige) -->
+                <div id="zahl-active" style="display:none;margin-top:6px;">
+                    <div id="zahl-active-card"></div>
+                    <div id="zahl-active-banner" style="display:none;margin-top:10px;padding:10px;border-radius:var(--r-sm);font-size:13px;"></div>
+                    <div style="display:flex;gap:8px;margin-top:10px;">
+                        <button onclick="startStripeCheckout()" style="flex:1;padding:11px;background:var(--surface-2);color:var(--ink-2);border:1px solid var(--line);border-radius:var(--r-sm);font-weight:600;font-size:13px;cursor:pointer;">Ändern</button>
+                        <button onclick="disableAutopay()" style="flex:1;padding:11px;background:white;color:#b91c1c;border:1px solid #fecaca;border-radius:var(--r-sm);font-weight:600;font-size:13px;cursor:pointer;">Entfernen</button>
+                    </div>
                 </div>
 
-                <!-- 🆕 v6.63.153 (Patrick 04.06. 'a'): Stripe HOSTED Checkout statt
-                     Embedded IFrame — Embedded war auf schwächeren Geräten zäh.
-                     Stripes eigene Page ist auf allen Geräten flott. -->
-                <div id="zahl-setup-wrap" style="display:none;margin-top:12px;padding:14px;background:var(--surface-2);border-radius:var(--r-sm);">
-                    <div id="autopay-status-banner" style="display:none;margin-bottom:12px;padding:10px;border-radius:var(--r-sm);font-size:13px;"></div>
-                    <div id="autopay-setup-form">
-                        <p style="font-size:13px;color:var(--ink-2);line-height:1.5;margin:0 0 12px 0;">Klicken Sie auf den Button, dann öffnet sich die sichere Stripe-Seite. Dort wählen Sie Ihre Zahlungsmethode aus (Kreditkarte, SEPA-Lastschrift oder PayPal) und kommen automatisch zurück.</p>
-                        <button id="autopay-checkout-btn" onclick="startStripeCheckout()" class="btn btn-primary" style="width:100%;padding:14px;font-size:15px;font-weight:700;">💳 Zahlungsmittel hinterlegen</button>
-                        <div class="secure-badge" style="margin-top:10px;"><span>🔒</span> Daten werden direkt von Stripe sicher gespeichert. Wir sehen Ihre Karten-/Konto-Daten nie.</div>
+                <!-- v6.63.158: Radio-Liste nur sichtbar wenn nichts hinterlegt ist -->
+                <div id="zahl-radio-list" style="display:none;">
+                    <div style="display:flex;flex-direction:column;gap:8px;margin-top:6px;">
+                        <label class="zahl-row" style="display:flex;align-items:flex-start;gap:12px;padding:14px;border:1px solid var(--line);border-radius:var(--r-sm);cursor:pointer;">
+                            <input type="radio" name="zahlmethode" value="cash" style="margin-top:3px;">
+                            <div style="flex:1;">
+                                <div style="font-size:14px;font-weight:600;color:var(--ink);">💵 Bar beim Fahrer</div>
+                                <div style="font-size:12px;color:var(--ink-3);margin-top:3px;line-height:1.4;">Sie zahlen direkt im Auto</div>
+                            </div>
+                        </label>
+                        <label class="zahl-row" style="display:flex;align-items:flex-start;gap:12px;padding:14px;border:1px solid var(--line);border-radius:var(--r-sm);cursor:pointer;">
+                            <input type="radio" name="zahlmethode" value="card" style="margin-top:3px;">
+                            <div style="flex:1;">
+                                <div style="font-size:14px;font-weight:600;color:var(--ink);">💳 EC/Kreditkarte beim Fahrer</div>
+                                <div style="font-size:12px;color:var(--ink-3);margin-top:3px;line-height:1.4;">Kartenzahlung am Terminal im Auto</div>
+                            </div>
+                        </label>
+                        <label class="zahl-row" style="display:flex;align-items:flex-start;gap:12px;padding:14px;border:1px solid var(--line);border-radius:var(--r-sm);cursor:pointer;">
+                            <input type="radio" name="zahlmethode" value="stored" style="margin-top:3px;">
+                            <div style="flex:1;">
+                                <div style="font-size:14px;font-weight:600;color:var(--ink);">💳 Kreditkarte / SEPA / PayPal hinterlegen</div>
+                                <div style="font-size:12px;color:var(--ink-3);margin-top:3px;line-height:1.4;">Sie wählen die Methode beim Hinterlegen — automatische Abbuchung nach jeder Fahrt</div>
+                            </div>
+                        </label>
                     </div>
-                    <div id="autopay-existing" style="display:none;">
-                        <div class="autopay-status-active">
-                            <div class="badge">✅ Zahlungsmittel hinterlegt</div>
-                            <div style="font-size:13px;font-weight:500;color:#065f46;">Ihre Fahrten werden automatisch abgebucht.</div>
-                            <div id="autopay-method-display" style="margin-top:10px;font-size:13px;font-weight:500;color:#065f46;"></div>
-                        </div>
-                        <div class="autopay-action-row">
-                            <button onclick="startStripeCheckout()">Zahlungsmittel ändern</button>
-                            <button class="danger" onclick="disableAutopay()">Entfernen</button>
+
+                    <!-- 🆕 v6.63.153: Stripe HOSTED Checkout (Embedded war zäh). -->
+                    <div id="zahl-setup-wrap" style="display:none;margin-top:12px;padding:14px;background:var(--surface-2);border-radius:var(--r-sm);">
+                        <div id="autopay-status-banner" style="display:none;margin-bottom:12px;padding:10px;border-radius:var(--r-sm);font-size:13px;"></div>
+                        <div id="autopay-setup-form">
+                            <p style="font-size:13px;color:var(--ink-2);line-height:1.5;margin:0 0 12px 0;">Klicken Sie auf den Button, dann öffnet sich die sichere Stripe-Seite. Dort wählen Sie Ihre Zahlungsmethode aus (Kreditkarte, SEPA-Lastschrift oder PayPal) und kommen automatisch zurück.</p>
+                            <button id="autopay-checkout-btn" onclick="startStripeCheckout()" class="btn btn-primary" style="width:100%;padding:14px;font-size:15px;font-weight:700;">💳 Zahlungsmittel hinterlegen</button>
+                            <div class="secure-badge" style="margin-top:10px;"><span>🔒</span> Daten werden direkt von Stripe sicher gespeichert. Wir sehen Ihre Karten-/Konto-Daten nie.</div>
                         </div>
                     </div>
                 </div>
@@ -1258,14 +1265,65 @@
             });
             if (val === 'stored') {
                 wrap.style.display = 'block';
-                // 🆕 v6.63.153: Nur noch Status-Anzeige laden (aktiv? oder Button zeigen?)
-                // — Stripe-Embed entfällt, der ist im Hosted Checkout.
-                if (typeof initAutopay === 'function') {
-                    initAutopay().catch(e => console.warn('initAutopay nach Radio-stored:', e));
-                }
             } else {
                 wrap.style.display = 'none';
             }
+        }
+
+        // 🆕 v6.63.158 (Patrick 04.06. 12:01): Zahlungs-Sektion togglet zwischen
+        //   STATIC-Card (wenn Auto-Pay aktiv → "SEPA-Lastschrift hinterlegt" + Brand)
+        //   und Radio-Liste (wenn nichts hinterlegt → Kunde wählt Bar/EC/Hinterlegen).
+        //   Patrick: "Da müsste doch stehen, SEPA Lastschrift als Zahlungsmethode
+        //   hinterlegt. Da braucht man doch nichts mehr auswählen."
+        function _renderZahlSection() {
+            const activeEl = document.getElementById('zahl-active');
+            const radioListEl = document.getElementById('zahl-radio-list');
+            if (!activeEl || !radioListEl) return;
+            const isActive = customerData && customerData.autoChargeEnabled === true && customerData.defaultPaymentMethodId;
+            if (isActive) {
+                activeEl.style.display = 'block';
+                radioListEl.style.display = 'none';
+                _renderZahlActiveCard();
+            } else {
+                activeEl.style.display = 'none';
+                radioListEl.style.display = 'block';
+            }
+        }
+
+        function _renderZahlActiveCard() {
+            const cardEl = document.getElementById('zahl-active-card');
+            if (!cardEl || !customerData) return;
+            const t = customerData.autoPayMethodType || '';
+            const b = (customerData.autoPayMethodBrand || '').toLowerCase();
+            const l4 = customerData.autoPayMethodLast4 || '';
+            const exp = customerData.autoPayMethodExp || '';
+            let brandLabel = 'Zahlungsmittel';
+            let icon = '💳';
+            if (t === 'paypal' || b === 'paypal') { brandLabel = 'PayPal'; icon = '🅿️'; }
+            else if (t === 'link' || b === 'link') { brandLabel = 'Stripe Link'; icon = '🔗'; }
+            else if (t === 'sepa_debit' || b === 'sepa_debit') { brandLabel = 'SEPA-Lastschrift'; icon = '🏦'; }
+            else if (b === 'visa') brandLabel = 'Visa-Kreditkarte';
+            else if (b === 'mastercard') brandLabel = 'Mastercard';
+            else if (b === 'amex') brandLabel = 'American Express';
+            else if (b === 'discover') brandLabel = 'Discover';
+            else if (t === 'card') brandLabel = 'Kreditkarte';
+            const subParts = [];
+            if (l4) subParts.push((t === 'card' ? '•••• ' : '') + l4);
+            if (exp) subParts.push('gültig bis ' + exp);
+            cardEl.innerHTML = `
+                <div style="padding:14px;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:var(--r-sm);">
+                    <div style="display:flex;align-items:center;gap:12px;">
+                        <div style="font-size:28px;">${icon}</div>
+                        <div style="flex:1;">
+                            <div style="font-size:15px;font-weight:700;color:#065f46;">${brandLabel} hinterlegt</div>
+                            <div style="font-size:12px;color:#047857;margin-top:3px;">${subParts.join(' · ') || 'Aktiv'}</div>
+                        </div>
+                        <div style="font-size:20px;color:#10b981;">✓</div>
+                    </div>
+                    <div style="font-size:12px;color:#065f46;margin-top:10px;line-height:1.4;border-top:1px solid #a7f3d0;padding-top:8px;">
+                        Wird nach jeder Fahrt automatisch abgebucht — keine weitere Aktion nötig.
+                    </div>
+                </div>`;
         }
         // Radio-Change-Listener anhängen sobald DOM ready
         document.addEventListener('DOMContentLoaded', () => {
@@ -1316,12 +1374,15 @@
                 const _r = document.querySelector(`input[name='zahlmethode'][value='${_radioVal}']`);
                 if (_r) _r.checked = true;
                 _updateZahlSetupVisibility();
+                // 🆕 v6.63.158: Static-Card vs Radio-Liste entscheiden
+                _renderZahlSection();
             } else {
                 _profileAddressLat = null;
                 _profileAddressLon = null;
                 const _r = document.querySelector("input[name='zahlmethode'][value='cash']");
                 if (_r) _r.checked = true;
                 _updateZahlSetupVisibility();
+                _renderZahlSection();
             }
             // Email-Hint nur bei Google-Login zeigen
             const emailHint = document.getElementById('profile-email-hint');
@@ -2492,19 +2553,26 @@
         }
 
         async function disableAutopay() {
-            if (!confirm('Auto-Pay wirklich deaktivieren? Sie müssen dann wieder per Rechnung oder vor Ort zahlen.')) return;
-            const existingEl = document.getElementById('autopay-existing');
-            const crmId = existingEl.dataset.crmId;
+            if (!confirm('Hinterlegtes Zahlungsmittel wirklich entfernen? Sie zahlen dann beim Fahrer (Bar oder EC).')) return;
+            // 🆕 v6.63.158: crmId aus customerData (existingEl gibt's nicht mehr in neuer UI)
+            const crmId = (customerData && customerData.id) || (document.getElementById('autopay-existing') && document.getElementById('autopay-existing').dataset.crmId);
             if (!crmId) return;
-            await db.ref('customers/' + crmId).update({ autoChargeEnabled: false, autoChargeDisabledAt: Date.now() });
+            await db.ref('customers/' + crmId).update({
+                autoChargeEnabled: false,
+                defaultPaymentMethodId: null,
+                autoPayMethodType: null,
+                autoPayMethodBrand: null,
+                autoPayMethodLast4: null,
+                autoPayMethodExp: null,
+                autoChargeDisabledAt: Date.now()
+            });
             location.reload();
         }
 
         // 🆕 v6.63.121: Methode wechseln (löscht aktuelle, neue SetupIntent)
         async function switchAutopayMethod() {
             if (!confirm('Eine neue Zahlungsmethode hinterlegen? Die aktuelle wird ersetzt.')) return;
-            const existingEl = document.getElementById('autopay-existing');
-            const crmId = existingEl.dataset.crmId;
+            const crmId = (customerData && customerData.id) || (document.getElementById('autopay-existing') && document.getElementById('autopay-existing').dataset.crmId);
             if (!crmId) return;
             await db.ref('customers/' + crmId).update({
                 autoChargeEnabled: false,
@@ -2563,9 +2631,8 @@
                             customerData = { ..._cust, id: customerData.id };
                             _custRef.off('value', _listener);
                             if (statusEl) statusEl.style.display = 'none';
-                            if (typeof initAutopay === 'function') {
-                                initAutopay().catch(() => {});
-                            }
+                            // 🆕 v6.63.158: Static-Card sofort rendern statt initAutopay-Embed
+                            _renderZahlSection();
                         }
                     });
                 }

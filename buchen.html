@@ -1186,7 +1186,7 @@
         //   Tesla-Browser hatte gecachte alte Version, obwohl Strato die neue ausspielte.
         //   Periodischer Build-Check: alle 60s das Server-buchen.html abklopfen, wenn
         //   neuere Build-Zeit als die gerade geladene → window.location.reload(true).
-        const _CLIENT_BUILD = 'v6.63.106-2026-06-03T08:30Z';
+        const _CLIENT_BUILD = 'v6.63.131-2026-06-04T05:44Z';
         (function setupAutoReloadOnNewBuild() {
             let _serverBuildMarker = null;
             async function _check() {
@@ -1919,19 +1919,14 @@
                 onlineVehicles.push({ vid, lat: vInfo.lat, lon: vInfo.lon, isFresh: gpsAgeMin < 5, inPause: _isPause, pauseMinLeft: _pauseMinLeft });
             }
             if (onlineVehicles.length === 0) return [];
-            // Pre-Filter Haversine — nur die 5 nächsten Fahrzeuge weiterrechnen.
-            // v6.63.127 (Patrick 04.06. 05:58): KEIN 25km-Cutoff mehr. Wenn das
-            // einzige Fahrzeug gerade > 25km weg ist (z.B. Tesla in Greifswald) wurde
-            // es vorher rausgeworfen — buchen.html zeigte dann 82 Min ETA eines
-            // näher dran stehenden BESCHÄFTIGTEN Fahrzeugs, landing.html dagegen
-            // ehrlich 150 Min inkl. Hin+Rückfahrt. Jetzt synchron zu landing.html.
+            // Pre-Filter Haversine — nur Kandidaten <= 25km weiterrechnen, sonst dauert OSRM zu lang
             for (const v of onlineVehicles) {
                 const dLat = (pLat - v.lat) * Math.PI / 180;
                 const dLon = (pLon - v.lon) * Math.PI / 180;
                 const a = Math.sin(dLat/2)**2 + Math.cos(v.lat*Math.PI/180)*Math.cos(pLat*Math.PI/180)*Math.sin(dLon/2)**2;
                 v.distKm = 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
             }
-            const candidates = onlineVehicles
+            const candidates = onlineVehicles.filter(v => v.distKm <= 25)
                 .sort((a, b) => a.distKm - b.distKm).slice(0, 5);
             if (candidates.length === 0) return [];
             // Aktive + zugewiesene Fahrten holen — buchen.html hat keinen Live-rides-Listener
@@ -2091,20 +2086,34 @@
                 }
                 const best = etaResults[0];
                 const freeCount = etaResults.filter(r => r.status === 'frei').length;
-                // v6.63.129 (Patrick 04.06. 07:30 "Ich will die ehrliche Wartezeit
-                //   angezeigt haben"): EINE Zahl, kein Widerspruch zwischen 'sofort
-                //   verfügbar' und 'X Min Wartezeit'. 'Sofort verfügbar' nur wenn
-                //   etaMin <= 5. Sonst: ehrliche Wartezeit als alleinige Aussage.
-                if (best.etaMin <= 5 && freeCount > 0) {
-                    bar.textContent = `⚡ Taxi sofort verfügbar — ca. ${best.etaMin} Min bis zu dir`;
+                // v6.63.098 (Patrick 03.06. 07:45 "Müsste farblich anders markiert sein.
+                //   Wartezeit muss trotzdem angezeigt werden, darf nicht "sofort verfügbar"
+                //   stehen wenn ich noch 60 Min zur Homebase brauche"):
+                //   GELB statt grün wenn KEIN Fahrer wirklich frei.
+                let base;
+                if (freeCount > 0) {
+                    base = `🟢 Taxi sofort verfügbar! ${freeCount} Fahrer frei`;
                     bar.className = 'status-bar online';
                     bar.style.background = '';
                 } else {
-                    bar.textContent = `🚕 Wartezeit ca. ${best.etaMin} Min bis zu dir`;
+                    base = `🟡 ${count} Fahrer im Dienst — aktuell alle besetzt`;
                     bar.className = 'status-bar';
                     bar.style.background = '#fef3c7';
                     bar.style.color = '#92400e';
                 }
+                let etaMsg;
+                if (best.status === 'frei') {
+                    etaMsg = `🚕 ca. ${best.etaMin} Min bis zu dir`;
+                } else if (best.status === 'pause') {
+                    // 🆕 v6.62.985 → v6.62.986 (Patrick 28.05. 09:29): nur '15 Min Wartezeit',
+                    // kein 'Taxi in Pause'-Hinweis.
+                    etaMsg = `🚕 ca. ${best.etaMin} Min Wartezeit`;
+                } else if (best.status === 'beschäftigt') {
+                    etaMsg = `🚕 Wartezeit ca. ${best.etaMin} Min (Fahrer unterwegs + Rückfahrt)`;
+                } else {
+                    etaMsg = `🚕 Wartezeit ca. ${best.etaMin} Min (${best.queued} Vorbestellung${best.queued>1?'en':''})`;
+                }
+                bar.textContent = `${base} — ${etaMsg}`;
                 // 🆕 v6.62.172: Versprochene ETA persistieren — wird beim Booking-Confirm in
                 // ride.bookingPromisedEtaMin geschrieben, damit Fahrer-App die GLEICHE Zeit sieht
                 // wie der Kunde im Buchungsmoment. Sonst sieht der Fahrer evtl. nur 13 Min direkte
@@ -2196,28 +2205,19 @@
                                     _busyVehiclesSet.add(vid);
                                     _busyRides.push({ ...r, _vid: vid });
                                 });
-                                // Pro busy Vehicle: Endpunkt = Drop + Rückfahrt zur Homebase.
-                                // v6.63.128 (Patrick 04.06. 06:33 "Buchen berechnet nicht die
-                                //   Rückfahrt"): vorher Haversine*1.4/35 (Luftlinie+Korrektur),
-                                //   das wich von landing.html (OSRM-echte-Strecke) bis zu 50%
-                                //   ab — Beispiel Greifswald→Heringsdorf landing=116 vs buchen=60.
-                                //   Jetzt echtes OSRM, fällt im Fehlerfall auf Haversine zurück.
+                                // Pro busy Vehicle: Endpunkt = Drop + Rückfahrt zur Homebase via Haversine*1.4
                                 for (const r of _busyRides) {
                                     const dur = (r.duration || r.estimatedDuration || 25) * 60000;
                                     let endMs = (r.pickupTimestamp || _nowMs) + dur + 5*60000;
                                     const dLat = r.destinationLat || (r.destCoords && r.destCoords.lat);
                                     const dLon = r.destinationLon || (r.destCoords && r.destCoords.lon);
                                     if (dLat && dLon) {
-                                        let _minToHome;
-                                        try {
-                                            _minToHome = await _buchenGetOSRMDurationMin(dLat, dLon, _HOMEBASE_LAT, _HOMEBASE_LON);
-                                        } catch (_eOsrm) {
-                                            const _dLatRad = (_HOMEBASE_LAT - dLat) * Math.PI / 180;
-                                            const _dLonRad = (_HOMEBASE_LON - dLon) * Math.PI / 180;
-                                            const _aH = Math.sin(_dLatRad/2)**2 + Math.cos(dLat*Math.PI/180)*Math.cos(_HOMEBASE_LAT*Math.PI/180)*Math.sin(_dLonRad/2)**2;
-                                            const _kmToHome = 6371 * 2 * Math.atan2(Math.sqrt(_aH), Math.sqrt(1-_aH));
-                                            _minToHome = Math.round(_kmToHome * 1.4 / 35 * 60);
-                                        }
+                                        const _dLatRad = (_HOMEBASE_LAT - dLat) * Math.PI / 180;
+                                        const _dLonRad = (_HOMEBASE_LON - dLon) * Math.PI / 180;
+                                        const _aH = Math.sin(_dLatRad/2)**2 + Math.cos(dLat*Math.PI/180)*Math.cos(_HOMEBASE_LAT*Math.PI/180)*Math.sin(_dLonRad/2)**2;
+                                        const _kmToHome = 6371 * 2 * Math.atan2(Math.sqrt(_aH), Math.sqrt(1-_aH));
+                                        // Haversine * 1.4 als Korrektur für reale Strecke, /35 km/h Durchschnitt
+                                        const _minToHome = Math.round(_kmToHome * 1.4 / 35 * 60);
                                         endMs += _minToHome * 60000;
                                     }
                                     if (endMs > _nowMs) {
@@ -2235,7 +2235,6 @@
                                 let _minFreeWaitMin = 0;
                                 if (_freeNowCount > 0) {
                                     let _bestKm = 999;
-                                    let _bestVehLat = null, _bestVehLon = null; // v6.63.128: für OSRM-Heimfahrt
                                     // v6.63.104 (Patrick 03.06. 08:13 Playwright-Befund): Loop nahm
                                     //   auch OFFLINE-Fahrzeuge mit stale GPS-Position. ovp-ii-600
                                     //   war offline seit Tagen aber GPS bei Homebase → _bestKm=0
@@ -2252,40 +2251,28 @@
                                         const _dLonRad = (_HOMEBASE_LON - _vInfo.lon) * Math.PI / 180;
                                         const _aH = Math.sin(_dLatRad/2)**2 + Math.cos(_vInfo.lat*Math.PI/180)*Math.cos(_HOMEBASE_LAT*Math.PI/180)*Math.sin(_dLonRad/2)**2;
                                         const _km = 6371 * 2 * Math.atan2(Math.sqrt(_aH), Math.sqrt(1-_aH));
-                                        if (_km < _bestKm) {
-                                            _bestKm = _km;
-                                            _bestVehLat = _vInfo.lat;
-                                            _bestVehLon = _vInfo.lon;
-                                        }
+                                        if (_km < _bestKm) _bestKm = _km;
                                     }
                                     // v6.63.106 (Patrick 03.06. 08:28 "einen Kilometer um
                                     //   die Homebase und da die Wartezeit berechnen"): 1 km
                                     //   Toleranz statt 5 km. Strenger — auch bei 2km weg wird
                                     //   schon Wartezeit angezeigt.
                                     if (_bestKm > 1 && _bestKm < 100) {
-                                        // v6.63.104: auf nächste 5-Min runden
-                                        // v6.63.128: Erst OSRM versuchen (genau wie landing.html), Haversine
-                                        //   als Fallback. _bestVid wurde im Loop oben gespeichert.
-                                        let _raw;
-                                        try {
-                                            _raw = await _buchenGetOSRMDurationMin(_bestVehLat, _bestVehLon, _HOMEBASE_LAT, _HOMEBASE_LON);
-                                        } catch (_eOsrm) {
-                                            _raw = _bestKm * 1.4 / 35 * 60;
-                                        }
+                                        // v6.63.104 (Patrick 03.06. 08:18 "krumme Uhrzeiten,
+                                        //   immer in 5-Min-Schritten"): auf nächste 5-Min runden
+                                        const _raw = _bestKm * 1.4 / 35 * 60;
                                         _minFreeWaitMin = Math.max(5, Math.round(_raw / 5) * 5);
                                     }
                                 }
-                                // v6.63.130 (Patrick 04.06. 07:36 "Bei Buchen HTML wird
-                                //   überhaupt nichts angezeigt. Da wird angezeigt sofort,
-                                //   bitte Abholort eingeben"): zurück zur Wartezeit-Anzeige
-                                //   wie landing.html. Wenn nähester freier Fahrer am Homebase
-                                //   steht: 'sofort verfügbar', sonst 'Taxi unterwegs ca. X Min'.
                                 if (_freeNowCount > 0 && _minFreeWaitMin === 0) {
                                     bar.textContent = `⚡ Taxi sofort verfügbar`;
                                     bar.className = 'status-bar online';
                                     bar.style.background = '';
                                 } else if (_freeNowCount > 0 && _minFreeWaitMin > 0) {
-                                    bar.textContent = `🚕 Taxi unterwegs — ca. ${_minFreeWaitMin} Min Wartezeit`;
+                                    // v6.63.105 (Patrick 03.06. 08:24 "Ich bin ja nicht frei,
+                                    //   fahre auf dem Rückweg zur Homebase — kein 'sofort'!"):
+                                    //   NUR Wartezeit, KEIN 'sofort verfügbar'. Ehrlich + kurz.
+                                    bar.textContent = `🚕 Wartezeit ca. ${_minFreeWaitMin} Min`;
                                     bar.className = 'status-bar online';
                                     bar.style.background = '';
                                     bar.style.color = '';

@@ -808,13 +808,15 @@
                     </label>
                 </div>
 
-                <!-- Setup-Bereich erscheint nur wenn 'Zahlungsmittel hinterlegen' aktiv -->
+                <!-- 🆕 v6.63.153 (Patrick 04.06. 'a'): Stripe HOSTED Checkout statt
+                     Embedded IFrame — Embedded war auf schwächeren Geräten zäh.
+                     Stripes eigene Page ist auf allen Geräten flott. -->
                 <div id="zahl-setup-wrap" style="display:none;margin-top:12px;padding:14px;background:var(--surface-2);border-radius:var(--r-sm);">
                     <div id="autopay-status-banner" style="display:none;margin-bottom:12px;padding:10px;border-radius:var(--r-sm);font-size:13px;"></div>
                     <div id="autopay-setup-form">
-                        <div id="autopay-payment-element" style="margin:8px 0 14px;"></div>
-                        <button id="autopay-submit-btn" onclick="submitAutopaySetup()" class="btn btn-primary" disabled>Zahlungsmittel hinterlegen</button>
-                        <div class="secure-badge" style="margin-top:8px;"><span>🔒</span> Daten werden direkt von Stripe sicher gespeichert.</div>
+                        <p style="font-size:13px;color:var(--ink-2);line-height:1.5;margin:0 0 12px 0;">Klicken Sie auf den Button, dann öffnet sich die sichere Stripe-Seite. Dort wählen Sie Ihre Zahlungsmethode aus (Kreditkarte, SEPA-Lastschrift oder PayPal) und kommen automatisch zurück.</p>
+                        <button id="autopay-checkout-btn" onclick="startStripeCheckout()" class="btn btn-primary" style="width:100%;padding:14px;font-size:15px;font-weight:700;">💳 Zahlungsmittel hinterlegen</button>
+                        <div class="secure-badge" style="margin-top:10px;"><span>🔒</span> Daten werden direkt von Stripe sicher gespeichert. Wir sehen Ihre Karten-/Konto-Daten nie.</div>
                     </div>
                     <div id="autopay-existing" style="display:none;">
                         <div class="autopay-status-active">
@@ -823,7 +825,7 @@
                             <div id="autopay-method-display" style="margin-top:10px;font-size:13px;font-weight:500;color:#065f46;"></div>
                         </div>
                         <div class="autopay-action-row">
-                            <button onclick="switchAutopayMethod()">Zahlungsmittel ändern</button>
+                            <button onclick="startStripeCheckout()">Zahlungsmittel ändern</button>
                             <button class="danger" onclick="disableAutopay()">Entfernen</button>
                         </div>
                     </div>
@@ -1198,6 +1200,44 @@
             document.getElementById('code-error').style.display = 'none';
         }
 
+        // 🆕 v6.63.153 (Patrick 04.06. 'a'): Stripe Hosted Checkout starten.
+        // Holt eine Checkout-URL von Cloud Function und redirected zum Stripe-Host.
+        // Stripes optimierte Page lädt schnell, akzeptiert SEPA/Card/PayPal, kommt
+        // mit ?autopay=done zurück.
+        async function startStripeCheckout() {
+            const btn = document.getElementById('autopay-checkout-btn');
+            if (btn) { btn.disabled = true; btn.textContent = 'Öffne sichere Stripe-Seite…'; }
+            const user = firebase.auth().currentUser;
+            if (!user) { alert('Bitte zuerst einloggen.'); return; }
+            const phone = user.phoneNumber || '';
+            const crmId = (customerData && customerData.id) || null;
+            if (!crmId) {
+                alert('Kein CRM-Eintrag gefunden. Bitte buchen Sie zuerst eine Fahrt.');
+                if (btn) { btn.disabled = false; btn.textContent = '💳 Zahlungsmittel hinterlegen'; }
+                return;
+            }
+            try {
+                const returnBase = window.location.origin + window.location.pathname;
+                const r = await fetch('https://europe-west1-taxi-heringsdorf.cloudfunctions.net/createStripeCheckoutSession', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        customerId: crmId,
+                        name: (customerData && customerData.name) || '',
+                        email: (customerData && customerData.email) || '',
+                        phone: phone,
+                        returnBase
+                    })
+                });
+                const data = await r.json();
+                if (!r.ok || !data.url) throw new Error(data.error || 'Checkout-Session konnte nicht erstellt werden');
+                window.location.href = data.url;
+            } catch (e) {
+                alert('Fehler: ' + e.message);
+                if (btn) { btn.disabled = false; btn.textContent = '💳 Zahlungsmittel hinterlegen'; }
+            }
+        }
+
         // 🆕 v6.63.149 (Patrick 04.06.): Setup-Bereich nur sichtbar wenn 'stored' aktiv.
         // Initialisiert Stripe-Setup lazy beim ersten Mal.
         function _updateZahlSetupVisibility() {
@@ -1218,6 +1258,8 @@
             });
             if (val === 'stored') {
                 wrap.style.display = 'block';
+                // 🆕 v6.63.153: Nur noch Status-Anzeige laden (aktiv? oder Button zeigen?)
+                // — Stripe-Embed entfällt, der ist im Hosted Checkout.
                 if (typeof initAutopay === 'function') {
                     initAutopay().catch(e => console.warn('initAutopay nach Radio-stored:', e));
                 }
@@ -1297,16 +1339,8 @@
             // v6.63.149: initAutopay läuft nur wenn Radio 'stored' aktiv ist (siehe
             // _updateZahlSetupVisibility) — kein automatischer Start mehr beim Modal-Open.
 
-            // 🆕 v6.63.150 (Patrick 04.06. Speed): Stripe.js eager-preloaden im Hintergrund
-            // sobald das Modal aufgeht — damit der User beim Klick auf 'hinterlegen' nicht
-            // erst die 200-600ms Script-Lade-Zeit hat.
-            if (typeof Stripe === 'undefined' && !window._stripeJsLoading) {
-                window._stripeJsLoading = true;
-                const s = document.createElement('script');
-                s.src = 'https://js.stripe.com/v3/';
-                s.async = true;
-                document.head.appendChild(s);
-            }
+            // v6.63.153: Stripe.js wird NICHT mehr im Profil-Modal gebraucht — Hosted
+            // Checkout läuft auf Stripe-Domain. Stripe.js-Eager-Load entfällt.
         }
 
         function closeProfileModal() {
@@ -2428,65 +2462,12 @@
                 }
                 return;
             }
-            statusEl.style.background = '#dbeafe'; statusEl.style.color = '#1e40af';
-            statusEl.textContent = 'Bereite sichere Verbindung vor…';
-            statusEl.style.display = 'block';
-            btn.disabled = true;
-            // Lazy-load Stripe.js
-            if (typeof Stripe === 'undefined') {
-                await new Promise((resolve, reject) => {
-                    const s = document.createElement('script');
-                    s.src = 'https://js.stripe.com/v3/';
-                    s.onload = resolve; s.onerror = reject;
-                    document.head.appendChild(s);
-                });
-            }
-            try {
-                const r = await fetch('https://europe-west1-taxi-heringsdorf.cloudfunctions.net/createStripeSetup', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ customerId: crmId, name: crmCustomer && crmCustomer.name, email: crmCustomer && crmCustomer.email, phone })
-                });
-                const data = await r.json();
-                if (!r.ok) throw new Error(data.error || 'Setup fehlgeschlagen');
-                _autopayClientSecret = data.clientSecret;
-                _autopayStripe = Stripe(data.publishableKey);
-                // 🆕 v6.63.151 (Patrick 04.06.): Stripe-Locale 'de' damit alles deutsch + Adresse
-                // aus customerData vorausgefüllt — Kunde muss nicht nochmal eintippen.
-                _autopayElements = _autopayStripe.elements({
-                    clientSecret: _autopayClientSecret,
-                    locale: 'de'
-                });
-                // 🆕 v6.63.152 (Patrick 04.06. 11:16): Adresse aus EINEM CRM-Feld splitten
-                //   in line1/postal_code/city — Stripe verlangt sie getrennt.
-                //   Format: 'Strasse Nr, 12345 Ort' → match.
-                const _rawAddr = (crmCustomer && crmCustomer.address) || '';
-                const _addrMatch = _rawAddr.match(/^(.+?),\s*(\d{5})\s+(.+)$/);
-                const _addrLine1 = _addrMatch ? _addrMatch[1].trim() : _rawAddr;
-                const _addrPlz = _addrMatch ? _addrMatch[2].trim() : '';
-                const _addrCity = _addrMatch ? _addrMatch[3].trim() : '';
-                const _defaults = {
-                    billingDetails: {
-                        name: (crmCustomer && crmCustomer.name) || '',
-                        email: (crmCustomer && crmCustomer.email) || '',
-                        phone: phone || '',
-                        address: {
-                            line1: _addrLine1,
-                            postal_code: _addrPlz,
-                            city: _addrCity,
-                            country: 'DE'
-                        }
-                    }
-                };
-                const pe = _autopayElements.create('payment', { defaultValues: _defaults });
-                pe.mount('#autopay-payment-element');
-                statusEl.style.display = 'none';
-                btn.disabled = false;
-                btn.dataset.crmId = crmId;
-            } catch (e) {
-                statusEl.textContent = 'Fehler: ' + e.message;
-                statusEl.style.background = '#fee2e2'; statusEl.style.color = '#b91c1c';
-            }
+            // 🆕 v6.63.153 (Patrick 04.06. 'a'): Hosted-Checkout — kein Stripe.js,
+            //   kein SetupIntent, kein Embed. Setup-Form zeigt nur Hinterlegen-Button,
+            //   der ruft startStripeCheckout() auf und redirected zur Stripe-Page.
+            formEl.style.display = 'block';
+            existingEl.style.display = 'none';
+            statusEl.style.display = 'none';
         }
 
         async function submitAutopaySetup() {

@@ -28881,6 +28881,63 @@ exports.payRedirect = onRequest(
 // Empfängt Zahlungsbestätigungen von Stripe
 // ═══════════════════════════════════════════════════════════════
 
+// 🆕 v6.63.163 (Patrick 04.06. 15:28 "es darf nirgendwo hängen, es muss
+//   einfach durchlaufen"): Robust-Helper. Synchronisiert Stripe-Customer ↔
+//   Firebase autoChargeEnabled für SEPA / Karte / PayPal / Link.
+//   Wird aus 3 Webhook-Events gerufen (checkout.session.completed Setup-Mode,
+//   setup_intent.succeeded, payment_method.attached) + täglichem Reconcile-Cron.
+//   Idempotent: kann beliebig oft pro Customer aufgerufen werden, schreibt nur
+//   wenn Daten neu/verändert.
+async function syncStripeAutoPay({ crmCustomerId, stripeCustomerId, paymentMethodId, paymentMethodObj }) {
+    if (!crmCustomerId) return { ok: false, reason: 'no crmCustomerId' };
+    const stripe = await getStripe();
+    let pm = paymentMethodObj;
+    if (!pm && paymentMethodId) {
+        try { pm = await stripe.paymentMethods.retrieve(paymentMethodId); }
+        catch (e) { console.warn(`syncStripeAutoPay PM retrieve fail: ${e.message}`); }
+    }
+    // Fallback: ohne pm aber mit stripeCustomerId → default_payment_method des Customers
+    if (!pm && stripeCustomerId) {
+        try {
+            const cust = await stripe.customers.retrieve(stripeCustomerId);
+            const defaultPmId = cust.invoice_settings && cust.invoice_settings.default_payment_method;
+            if (defaultPmId) pm = await stripe.paymentMethods.retrieve(typeof defaultPmId === 'string' ? defaultPmId : defaultPmId.id);
+        } catch (e) { console.warn(`syncStripeAutoPay customer retrieve fail: ${e.message}`); }
+    }
+    if (!pm) return { ok: false, reason: 'no payment_method' };
+    const _meta = { autoPayMethodType: pm.type };
+    if (pm.card) {
+        _meta.autoPayMethodBrand = pm.card.brand;
+        _meta.autoPayMethodLast4 = pm.card.last4;
+        _meta.autoPayMethodExp = (pm.card.exp_month || '?') + '/' + (pm.card.exp_year || '?');
+    } else if (pm.sepa_debit) {
+        _meta.autoPayMethodLast4 = pm.sepa_debit.last4;
+        _meta.autoPayMethodBrand = 'sepa_debit';
+    } else if (pm.paypal) {
+        _meta.autoPayMethodBrand = 'paypal';
+        _meta.autoPayMethodLast4 = pm.paypal.payer_email || '';
+    } else if (pm.link) {
+        _meta.autoPayMethodBrand = 'link';
+        _meta.autoPayMethodLast4 = pm.link.email || '';
+    }
+    // Stripe-Customer default_payment_method setzen
+    const _stripeCustId = pm.customer || stripeCustomerId;
+    if (_stripeCustId) {
+        try {
+            await stripe.customers.update(_stripeCustId, { invoice_settings: { default_payment_method: pm.id } });
+        } catch (e) { console.warn(`syncStripeAutoPay customer.update fail: ${e.message}`); }
+    }
+    await db.ref(`customers/${crmCustomerId}`).update({
+        defaultPaymentMethodId: pm.id,
+        stripeCustomerId: _stripeCustId || null,
+        autoChargeEnabled: true,
+        stripeSetupCompletedAt: Date.now(),
+        ..._meta
+    });
+    console.log(`✅ syncStripeAutoPay: ${crmCustomerId} → ${_meta.autoPayMethodBrand}/${_meta.autoPayMethodLast4} (${pm.id})`);
+    return { ok: true, meta: _meta, pmId: pm.id };
+}
+
 exports.stripeWebhook = onRequest(
     { region: 'europe-west1', invoker: 'public' },
     async (req, res) => {
@@ -28916,62 +28973,34 @@ exports.stripeWebhook = onRequest(
                 const session = event.data.object;
                 const invoiceNumber = session.metadata?.invoiceNumber;
 
-                // 🆕 v6.63.162 (Patrick 04.06. 13:07 sepa-debit pm_1TeXoq...):
-                //   Setup-Mode-Checkout (Auto-Pay-Hinterlegung). Bei SEPA-Lastschrift
-                //   feuert setup_intent.succeeded oft erst Tage später (Bank-Verify).
-                //   checkout.session.completed kommt aber sofort — wir holen jetzt
-                //   PaymentMethod hier ab und setzen autoChargeEnabled=true.
+                // 🆕 v6.63.162 + v6.63.163: Setup-Mode-Checkout (Auto-Pay-Hinterlegung).
+                //   Patrick (04.06. 15:28): "es darf nirgendwo hängen". Helper-Wrap.
                 if (session.mode === 'setup' && session.metadata?.crmCustomerId) {
+                    const crmCustomerId = session.metadata.crmCustomerId;
+                    const setupIntentId = typeof session.setup_intent === 'string'
+                        ? session.setup_intent
+                        : (session.setup_intent && session.setup_intent.id);
+                    let pmId = null;
                     try {
-                        const crmCustomerId = session.metadata.crmCustomerId;
-                        const setupIntentId = typeof session.setup_intent === 'string'
-                            ? session.setup_intent
-                            : (session.setup_intent && session.setup_intent.id);
-                        let _meta = {};
-                        let pmId = null;
                         if (setupIntentId) {
                             const si = await stripe.setupIntents.retrieve(setupIntentId);
                             pmId = si.payment_method;
                         }
-                        if (pmId) {
-                            const pm = await stripe.paymentMethods.retrieve(pmId);
-                            _meta.autoPayMethodType = pm.type;
-                            if (pm.card) {
-                                _meta.autoPayMethodBrand = pm.card.brand;
-                                _meta.autoPayMethodLast4 = pm.card.last4;
-                                _meta.autoPayMethodExp = (pm.card.exp_month || '?') + '/' + (pm.card.exp_year || '?');
-                            } else if (pm.sepa_debit) {
-                                _meta.autoPayMethodLast4 = pm.sepa_debit.last4;
-                                _meta.autoPayMethodBrand = 'sepa_debit';
-                            } else if (pm.paypal) {
-                                _meta.autoPayMethodBrand = 'paypal';
-                                _meta.autoPayMethodLast4 = pm.paypal.payer_email || '';
-                            } else if (pm.link) {
-                                _meta.autoPayMethodBrand = 'link';
-                                _meta.autoPayMethodLast4 = pm.link.email || '';
-                            }
-                            if (pm.customer) {
-                                try {
-                                    await stripe.customers.update(pm.customer, {
-                                        invoice_settings: { default_payment_method: pmId }
-                                    });
-                                } catch (_) {}
-                            }
-                            await db.ref(`customers/${crmCustomerId}`).update({
-                                defaultPaymentMethodId: pmId,
-                                stripeCustomerId: pm.customer || session.customer || null,
-                                autoChargeEnabled: true,
-                                stripeSetupCompletedAt: Date.now(),
-                                ..._meta
-                            });
-                            console.log(`✅ Auto-Pay aktiviert via checkout.session.completed (Setup-Mode) für ${crmCustomerId} (PM ${pmId}, ${_meta.autoPayMethodBrand}/${_meta.autoPayMethodLast4})`);
-                            // Nach Setup-Pfad: keine Rechnungs-/Ride-Updates nötig — Return
-                            res.status(200).json({ received: true, setup: true });
-                            return;
-                        }
-                    } catch (_setupErr) {
-                        console.error('⚠️ Setup-Mode-Handler fehlgeschlagen:', _setupErr.message);
+                    } catch (_siErr) { console.warn('SetupIntent retrieve fail:', _siErr.message); }
+                    const syncResult = await syncStripeAutoPay({
+                        crmCustomerId,
+                        stripeCustomerId: session.customer || null,
+                        paymentMethodId: pmId
+                    });
+                    if (syncResult.ok) {
+                        res.status(200).json({ received: true, setup: true, brand: syncResult.meta.autoPayMethodBrand });
+                        return;
                     }
+                    // Sync nicht durch (z.B. SEPA-pending) → Telegram-Alert + scheduledStripeReconcile
+                    //   wird's morgen früh fixen, ODER setup_intent.succeeded wenn Bank verifiziert.
+                    try {
+                        await sendToAllAdmins(`⚠️ <b>Stripe Auto-Pay: Setup hängt</b>\n\nCRM-Customer: <code>${crmCustomerId}</code>\nStripe-Customer: <code>${session.customer}</code>\nGrund: ${syncResult.reason || 'unknown'}\n\nReconcile-Cron versucht es heute Nacht. Manueller Check: /customers/${crmCustomerId} in Firebase.`, 'stripe_alert');
+                    } catch (_) {}
                 }
 
                 if (invoiceNumber) {
@@ -29141,46 +29170,35 @@ exports.stripeWebhook = onRequest(
                     console.log(`⏰ Stripe Session abgelaufen: ${invoiceNumber}`);
                 }
             } else if (event.type === 'setup_intent.succeeded') {
-                // 🆕 v6.63.117: Kunde hat Karte erfolgreich hinterlegt → in CRM speichern
-                // 🆕 v6.63.121 (Patrick 13:07 "wird nirgendwo angezeigt welche Methode"):
-                //   Details der Payment Method (Brand, Last4, Type) auch speichern
+                // 🆕 v6.63.163: Helper-Wrap. SetupIntent kommt bei SEPA oft erst nach
+                //   Bank-Verify (1-2 Werktage). Helper macht alles atomar.
                 const setupIntent = event.data.object;
-                const crmCustomerId = setupIntent.metadata?.crmCustomerId;
-                const paymentMethodId = setupIntent.payment_method;
-                if (crmCustomerId && paymentMethodId) {
-                    let _meta = {};
+                await syncStripeAutoPay({
+                    crmCustomerId: setupIntent.metadata?.crmCustomerId,
+                    stripeCustomerId: setupIntent.customer || null,
+                    paymentMethodId: setupIntent.payment_method
+                });
+            } else if (event.type === 'payment_method.attached') {
+                // 🆕 v6.63.163 (Patrick 04.06. 15:28 "es darf nirgendwo hängen"):
+                //   Backup-Event. payment_method.attached feuert sofort wenn PM
+                //   auf Customer attached wird. Wir brauchen crmCustomerId aus
+                //   Stripe-Customer.metadata.
+                const pm = event.data.object;
+                if (pm.customer) {
                     try {
                         const stripe = await getStripe();
-                        const pm = await stripe.paymentMethods.retrieve(paymentMethodId);
-                        _meta.autoPayMethodType = pm.type;
-                        if (pm.card) {
-                            _meta.autoPayMethodBrand = pm.card.brand;
-                            _meta.autoPayMethodLast4 = pm.card.last4;
-                            _meta.autoPayMethodExp = (pm.card.exp_month || '?') + '/' + (pm.card.exp_year || '?');
-                        } else if (pm.sepa_debit) {
-                            _meta.autoPayMethodLast4 = pm.sepa_debit.last4;
-                            _meta.autoPayMethodBrand = 'sepa_debit';
-                        } else if (pm.paypal) {
-                            _meta.autoPayMethodBrand = 'paypal';
-                            _meta.autoPayMethodLast4 = pm.paypal.payer_email || '';
-                        } else if (pm.link) {
-                            _meta.autoPayMethodBrand = 'link';
-                            _meta.autoPayMethodLast4 = pm.link.email || '';
+                        const cust = await stripe.customers.retrieve(pm.customer);
+                        const crmCustomerId = cust.metadata?.crmCustomerId;
+                        if (crmCustomerId) {
+                            await syncStripeAutoPay({
+                                crmCustomerId,
+                                stripeCustomerId: pm.customer,
+                                paymentMethodObj: pm
+                            });
+                        } else {
+                            console.log(`payment_method.attached ohne crmCustomerId metadata für Customer ${pm.customer} — skip`);
                         }
-                        // Stripe Customer mit neuer Default-Methode aktualisieren
-                        await stripe.customers.update(pm.customer, {
-                            invoice_settings: { default_payment_method: paymentMethodId }
-                        });
-                    } catch (_pmErr) {
-                        console.warn('Payment Method Details lesen fehlgeschlagen:', _pmErr.message);
-                    }
-                    await db.ref(`customers/${crmCustomerId}`).update({
-                        defaultPaymentMethodId: paymentMethodId,
-                        autoChargeEnabled: true,
-                        stripeSetupCompletedAt: Date.now(),
-                        ..._meta
-                    });
-                    console.log(`✅ Auto-Pay aktiviert für CRM-Customer ${crmCustomerId} (PaymentMethod ${paymentMethodId}, ${_meta.autoPayMethodBrand}/${_meta.autoPayMethodLast4})`);
+                    } catch (e) { console.warn('payment_method.attached handler:', e.message); }
                 }
             }
 

@@ -18,19 +18,33 @@ const https = require('https');
 const SINCE = new Date(Date.now() - 24 * 60 * 60 * 1000);
 const LOG = (...a) => console.log('[' + new Date().toISOString().slice(11,19) + ']', ...a);
 
+// 🔐 Secrets müssen als ENV gesetzt sein (GitHub Actions secrets oder lokal export).
+//   Patrick 04.06. 13:00: GitGuardian-Warning wegen hardcoded Bot-Token im Commit
+//   davor — Token rotiert via @BotFather, neuer Token nur als GitHub-Secret.
 const accounts = [
-    { name: 'GMX', host: 'imap.gmx.net', port: 993, user: 'taxiwydra@gmx.de', pass: process.env.GMX_PASS || '4bY2C3h77ZqV' },
-    { name: 'Gmail', host: 'imap.gmail.com', port: 993, user: 'taxiwydra@googlemail.com', pass: process.env.GMAIL_PASS || 'tiajmwotmnltltkh' },
+    { name: 'GMX', host: 'imap.gmx.net', port: 993, user: 'taxiwydra@gmx.de', pass: process.env.GMX_PASS },
+    { name: 'Gmail', host: 'imap.gmail.com', port: 993, user: 'taxiwydra@googlemail.com', pass: process.env.GMAIL_PASS },
 ];
 
-const TG_BOT_TOKEN = process.env.TG_BOT_TOKEN || '8460798396:AAFy-Kv6mrf61NdiF-CJrn_nezeLNEs9FBY';
-const TG_CHAT_ID  = process.env.TG_CHAT_ID  || '6229490043';
+const TG_BOT_TOKEN = process.env.TG_BOT_TOKEN;
+const TG_CHAT_ID   = process.env.TG_CHAT_ID || '6229490043';
+
+if (!TG_BOT_TOKEN) {
+    console.error('❌ TG_BOT_TOKEN nicht gesetzt — Secret in GitHub eintragen oder lokal export TG_BOT_TOKEN=...');
+    process.exit(2);
+}
+if (!accounts[0].pass || !accounts[1].pass) {
+    console.error('❌ GMX_PASS / GMAIL_PASS nicht gesetzt');
+    process.exit(2);
+}
 
 function classify(envelope, snippetLower) {
     const from = (envelope.from?.[0]?.address || '').toLowerCase();
     const subject = (envelope.subject || '').toLowerCase();
     const hay = from + ' ' + subject + ' ' + snippetLower;
-    if (/newsletter|unsubscribe|werbung|sale|-\s?\d{1,2}\s?%|rabatt|gutschein|gewinnspiel|aktion|flash[- ]?sale|black\s?friday|cyber\s?monday/.test(hay))
+    if (/newsletter|unsubscribe|werbung|sale|-\s?\d{1,2}\s?%|rabatt|gutschein|gewinnspiel|aktion|flash[- ]?sale|black\s?friday|cyber\s?monday|gurufocus|earnings ?whispers|screener email|ipo moves|live today|guest speaker|first look|temu|taschenpost|live-webinar|kostenlos|gratis|verpasst|spar|wechseln zu|jetzt sichern|herzlich willkommen|herzlichen glückwunsch|⚡|🔥|🎁|💰/.test(hay))
+        return { cat: 'werbung', prio: 'mute', emoji: '🗑️' };
+    if (/ikano|barclays|hanseatic|consorsbank|trade ?republic|comdirect|finanzen100|edeka|kohlverlag|netflix.*beleg|amazon\.de.*starte|amazon\.de.*entdecke|amazon\.de.*neu|booking\.com.*entdecken|expedia.*angebot|börsenrobos|chartcheck|broker.?test/.test(from + ' ' + subject))
         return { cat: 'werbung', prio: 'mute', emoji: '🗑️' };
     if (/no-?reply|do[-_]?not[-_]?reply|@github\.com|notifications?@/.test(from))
         return { cat: 'system', prio: 'low', emoji: '⚙️' };

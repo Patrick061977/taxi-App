@@ -185,7 +185,7 @@
         }
         .event-cta {
             display: block;
-            margin-top: 14px;
+            margin-top: 10px;
             background: #10b981;
             color: white;
             text-align: center;
@@ -198,6 +198,16 @@
         }
         .event-cta:hover {
             background: #059669;
+        }
+        .event-cta-secondary {
+            background: #f8fafc;
+            color: #064e3b;
+            border: 2px solid #10b981;
+            margin-top: 14px;
+        }
+        .event-cta-secondary:hover {
+            background: #ecfdf5;
+            color: #064e3b;
         }
         .empty-state {
             grid-column: 1 / -1;
@@ -356,6 +366,9 @@
         // v6.63.135 (Patrick 04.06. 08:22): Erste Version der Veranstaltungs-Seite.
         //   Daten aktuell hardcoded (Stand kaiserbaeder.de Juni 2026). Folge-PR: Cloud
         //   Function syncEventsDaily soll täglich pullen und nach /events/ schreiben.
+        // v6.63.138 (Patrick 04.06. 08:28): Ticket-URLs pro Event hinzugefuegt.
+        //   Fallback: kaiserbaeder.de/veranstaltungen (Quelle des Eintrags).
+        const _TICKETS_FALLBACK = 'https://www.kaiserbaeder.de/veranstaltungen/';
         const _events = [
             {
                 date: '2026-06-04T19:00',
@@ -364,7 +377,8 @@
                 city: 'Heringsdorf',
                 price: 'ab 16 €',
                 category: 'Lesung',
-                desc: 'Musikalisch-literarischer Abend'
+                desc: 'Musikalisch-literarischer Abend',
+                tickets: _TICKETS_FALLBACK
             },
             {
                 date: '2026-06-06T19:30',
@@ -373,7 +387,8 @@
                 city: 'Bansin',
                 price: 'ab 10 €',
                 category: 'Konzert',
-                desc: 'Klassisches Konzert'
+                desc: 'Klassisches Konzert',
+                tickets: 'https://www.hans-werner-richter-haus.de/'
             },
             {
                 date: '2026-06-06T07:00',
@@ -382,7 +397,8 @@
                 city: 'Heringsdorf',
                 price: 'Anmeldung erforderlich',
                 category: 'Sport',
-                desc: 'Cross-Marathon entlang der Ostseeküste'
+                desc: 'Cross-Marathon entlang der Ostseeküste',
+                tickets: 'https://www.usedom-marathon.de/'
             },
             {
                 date: '2026-06-09T20:00',
@@ -391,7 +407,8 @@
                 city: 'Heringsdorf',
                 price: 'ab 16 €',
                 category: 'Konzert',
-                desc: 'Duo ›con emozione‹'
+                desc: 'Duo ›con emozione‹',
+                tickets: _TICKETS_FALLBACK
             },
             {
                 date: '2026-06-12T20:00',
@@ -400,7 +417,8 @@
                 city: 'Heringsdorf',
                 price: 'frei',
                 category: 'Tanz',
-                desc: 'Drei Tage Tanz-Festival (12.-14.06.)'
+                desc: 'Drei Tage Tanz-Festival (12.-14.06.)',
+                tickets: _TICKETS_FALLBACK
             },
             {
                 date: '2026-06-13T20:00',
@@ -409,7 +427,8 @@
                 city: 'Heringsdorf',
                 price: 'ab 28 €',
                 category: 'Comedy',
-                desc: 'Stand-Up-Show mit wechselnden Comedians'
+                desc: 'Stand-Up-Show mit wechselnden Comedians',
+                tickets: 'https://www.adticket.de/Heringsdorf/PLZ-17424/Veranstaltungen/Tickets.html'
             },
             {
                 date: '2026-06-16T19:00',
@@ -418,7 +437,8 @@
                 city: 'Heringsdorf',
                 price: 'ab 16 €',
                 category: 'Lesung',
-                desc: 'mit Anette Richter & Ulrich Maria Kellner'
+                desc: 'mit Anette Richter & Ulrich Maria Kellner',
+                tickets: _TICKETS_FALLBACK
             },
             {
                 date: '2026-06-23T19:00',
@@ -427,7 +447,8 @@
                 city: 'Heringsdorf',
                 price: 'ab 16 €',
                 category: 'Konzert',
-                desc: 'mit Arnold Krohne und Maxim Shagaev'
+                desc: 'mit Arnold Krohne und Maxim Shagaev',
+                tickets: _TICKETS_FALLBACK
             },
             {
                 date: '2026-06-30T19:00',
@@ -436,7 +457,8 @@
                 city: 'Heringsdorf',
                 price: 'ab 16 €',
                 category: 'Lesung',
-                desc: 'Lesung und Musik'
+                desc: 'Lesung und Musik',
+                tickets: _TICKETS_FALLBACK
             }
         ];
 
@@ -465,12 +487,17 @@
                 const card = document.createElement('article');
                 card.className = 'event-card';
                 const bookingUrl = `/buchen.html?event=${encodeURIComponent(ev.title)}&ziel=${encodeURIComponent(ev.venue + ', ' + ev.city)}`;
+                const ticketsUrl = ev.tickets || _TICKETS_FALLBACK;
+                const ticketsLabel = ev.tickets && ev.tickets !== _TICKETS_FALLBACK
+                    ? '🎟️ Tickets bestellen'
+                    : 'ℹ️ Info beim Veranstalter';
                 card.innerHTML = `
                     <div class="event-date">${_fmtDate(ev.date)}</div>
                     <div class="event-title">${ev.title}</div>
                     <div class="event-venue">📍 ${ev.venue}</div>
                     <div class="event-city-badge">${ev.city}</div>
                     <div class="event-price">${ev.price}${ev.category ? ' · ' + ev.category : ''}</div>
+                    <a href="${ticketsUrl}" class="event-cta event-cta-secondary" target="_blank" rel="noopener">${ticketsLabel}</a>
                     <a href="${bookingUrl}" class="event-cta">🚕 Taxi buchen</a>
                 `;
                 grid.appendChild(card);

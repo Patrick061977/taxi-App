@@ -1919,14 +1919,19 @@
                 onlineVehicles.push({ vid, lat: vInfo.lat, lon: vInfo.lon, isFresh: gpsAgeMin < 5, inPause: _isPause, pauseMinLeft: _pauseMinLeft });
             }
             if (onlineVehicles.length === 0) return [];
-            // Pre-Filter Haversine — nur Kandidaten <= 25km weiterrechnen, sonst dauert OSRM zu lang
+            // Pre-Filter Haversine — nur die 5 nächsten Fahrzeuge weiterrechnen.
+            // v6.63.127 (Patrick 04.06. 05:58): KEIN 25km-Cutoff mehr. Wenn das
+            // einzige Fahrzeug gerade > 25km weg ist (z.B. Tesla in Greifswald) wurde
+            // es vorher rausgeworfen — buchen.html zeigte dann 82 Min ETA eines
+            // näher dran stehenden BESCHÄFTIGTEN Fahrzeugs, landing.html dagegen
+            // ehrlich 150 Min inkl. Hin+Rückfahrt. Jetzt synchron zu landing.html.
             for (const v of onlineVehicles) {
                 const dLat = (pLat - v.lat) * Math.PI / 180;
                 const dLon = (pLon - v.lon) * Math.PI / 180;
                 const a = Math.sin(dLat/2)**2 + Math.cos(v.lat*Math.PI/180)*Math.cos(pLat*Math.PI/180)*Math.sin(dLon/2)**2;
                 v.distKm = 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
             }
-            const candidates = onlineVehicles.filter(v => v.distKm <= 25)
+            const candidates = onlineVehicles
                 .sort((a, b) => a.distKm - b.distKm).slice(0, 5);
             if (candidates.length === 0) return [];
             // Aktive + zugewiesene Fahrten holen — buchen.html hat keinen Live-rides-Listener

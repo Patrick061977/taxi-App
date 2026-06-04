@@ -2210,19 +2210,28 @@
                                     _busyVehiclesSet.add(vid);
                                     _busyRides.push({ ...r, _vid: vid });
                                 });
-                                // Pro busy Vehicle: Endpunkt = Drop + Rückfahrt zur Homebase via Haversine*1.4
+                                // Pro busy Vehicle: Endpunkt = Drop + Rückfahrt zur Homebase.
+                                // v6.63.128 (Patrick 04.06. 06:33 "Buchen berechnet nicht die
+                                //   Rückfahrt"): vorher Haversine*1.4/35 (Luftlinie+Korrektur),
+                                //   das wich von landing.html (OSRM-echte-Strecke) bis zu 50%
+                                //   ab — Beispiel Greifswald→Heringsdorf landing=116 vs buchen=60.
+                                //   Jetzt echtes OSRM, fällt im Fehlerfall auf Haversine zurück.
                                 for (const r of _busyRides) {
                                     const dur = (r.duration || r.estimatedDuration || 25) * 60000;
                                     let endMs = (r.pickupTimestamp || _nowMs) + dur + 5*60000;
                                     const dLat = r.destinationLat || (r.destCoords && r.destCoords.lat);
                                     const dLon = r.destinationLon || (r.destCoords && r.destCoords.lon);
                                     if (dLat && dLon) {
-                                        const _dLatRad = (_HOMEBASE_LAT - dLat) * Math.PI / 180;
-                                        const _dLonRad = (_HOMEBASE_LON - dLon) * Math.PI / 180;
-                                        const _aH = Math.sin(_dLatRad/2)**2 + Math.cos(dLat*Math.PI/180)*Math.cos(_HOMEBASE_LAT*Math.PI/180)*Math.sin(_dLonRad/2)**2;
-                                        const _kmToHome = 6371 * 2 * Math.atan2(Math.sqrt(_aH), Math.sqrt(1-_aH));
-                                        // Haversine * 1.4 als Korrektur für reale Strecke, /35 km/h Durchschnitt
-                                        const _minToHome = Math.round(_kmToHome * 1.4 / 35 * 60);
+                                        let _minToHome;
+                                        try {
+                                            _minToHome = await _buchenGetOSRMDurationMin(dLat, dLon, _HOMEBASE_LAT, _HOMEBASE_LON);
+                                        } catch (_eOsrm) {
+                                            const _dLatRad = (_HOMEBASE_LAT - dLat) * Math.PI / 180;
+                                            const _dLonRad = (_HOMEBASE_LON - dLon) * Math.PI / 180;
+                                            const _aH = Math.sin(_dLatRad/2)**2 + Math.cos(dLat*Math.PI/180)*Math.cos(_HOMEBASE_LAT*Math.PI/180)*Math.sin(_dLonRad/2)**2;
+                                            const _kmToHome = 6371 * 2 * Math.atan2(Math.sqrt(_aH), Math.sqrt(1-_aH));
+                                            _minToHome = Math.round(_kmToHome * 1.4 / 35 * 60);
+                                        }
                                         endMs += _minToHome * 60000;
                                     }
                                     if (endMs > _nowMs) {
@@ -2240,6 +2249,7 @@
                                 let _minFreeWaitMin = 0;
                                 if (_freeNowCount > 0) {
                                     let _bestKm = 999;
+                                    let _bestVehLat = null, _bestVehLon = null; // v6.63.128: für OSRM-Heimfahrt
                                     // v6.63.104 (Patrick 03.06. 08:13 Playwright-Befund): Loop nahm
                                     //   auch OFFLINE-Fahrzeuge mit stale GPS-Position. ovp-ii-600
                                     //   war offline seit Tagen aber GPS bei Homebase → _bestKm=0
@@ -2256,16 +2266,26 @@
                                         const _dLonRad = (_HOMEBASE_LON - _vInfo.lon) * Math.PI / 180;
                                         const _aH = Math.sin(_dLatRad/2)**2 + Math.cos(_vInfo.lat*Math.PI/180)*Math.cos(_HOMEBASE_LAT*Math.PI/180)*Math.sin(_dLonRad/2)**2;
                                         const _km = 6371 * 2 * Math.atan2(Math.sqrt(_aH), Math.sqrt(1-_aH));
-                                        if (_km < _bestKm) _bestKm = _km;
+                                        if (_km < _bestKm) {
+                                            _bestKm = _km;
+                                            _bestVehLat = _vInfo.lat;
+                                            _bestVehLon = _vInfo.lon;
+                                        }
                                     }
                                     // v6.63.106 (Patrick 03.06. 08:28 "einen Kilometer um
                                     //   die Homebase und da die Wartezeit berechnen"): 1 km
                                     //   Toleranz statt 5 km. Strenger — auch bei 2km weg wird
                                     //   schon Wartezeit angezeigt.
                                     if (_bestKm > 1 && _bestKm < 100) {
-                                        // v6.63.104 (Patrick 03.06. 08:18 "krumme Uhrzeiten,
-                                        //   immer in 5-Min-Schritten"): auf nächste 5-Min runden
-                                        const _raw = _bestKm * 1.4 / 35 * 60;
+                                        // v6.63.104: auf nächste 5-Min runden
+                                        // v6.63.128: Erst OSRM versuchen (genau wie landing.html), Haversine
+                                        //   als Fallback. _bestVid wurde im Loop oben gespeichert.
+                                        let _raw;
+                                        try {
+                                            _raw = await _buchenGetOSRMDurationMin(_bestVehLat, _bestVehLon, _HOMEBASE_LAT, _HOMEBASE_LON);
+                                        } catch (_eOsrm) {
+                                            _raw = _bestKm * 1.4 / 35 * 60;
+                                        }
                                         _minFreeWaitMin = Math.max(5, Math.round(_raw / 5) * 5);
                                     }
                                 }

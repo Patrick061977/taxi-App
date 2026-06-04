@@ -35,4 +35,7 @@ jobs:
           GMAIL_PASS:  ${{ secrets.GMAIL_PASS }}
           TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
           TG_CHAT_ID:   ${{ secrets.TG_CHAT_ID }}
+          # 🆕 Patrick 04.06. 12:52 "und das du das gleich vorsortierst": Werbung in
+          #   Trash + System als Seen markieren. Patrick kann aus Trash wiederherstellen.
+          MOVE_WERBUNG: 'true'
         run: node scripts/mail-briefing-daily.js

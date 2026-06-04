@@ -1186,7 +1186,7 @@
         //   Tesla-Browser hatte gecachte alte Version, obwohl Strato die neue ausspielte.
         //   Periodischer Build-Check: alle 60s das Server-buchen.html abklopfen, wenn
         //   neuere Build-Zeit als die gerade geladene → window.location.reload(true).
-        const _CLIENT_BUILD = 'v6.63.131-2026-06-04T05:44Z';
+        const _CLIENT_BUILD = 'v6.63.132-2026-06-04T05:54Z';
         (function setupAutoReloadOnNewBuild() {
             let _serverBuildMarker = null;
             async function _check() {
@@ -2518,9 +2518,22 @@
                 // 🆕 v6.62.179: Patrick (01.05. 12:13): 'da steht jetzt nicht dass die Fahrt
                 // berechnet wird — 23 Sekunden lang 5-10 Min'. Statt statischem 5-10-Default
                 // jetzt animiertes 'Anfahrt wird berechnet' bis Smart-ETA durch ist.
-                let etaText = pickupCoords
-                    ? '<span class="eta-loading-car">🚕</span> Anfahrt wird berechnet <span class="eta-loading-dots" style="opacity:0.6;">···</span>'
-                    : 'Erst Abholort eingeben';
+                // 🆕 v6.63.132 (Patrick 04.06. 07:50 'C'): ohne Pickup zeigen wir den Fahrer-
+                //   Status (X frei / Y unterwegs) als ehrliche Aufforderung. Mit Pickup nutzen
+                //   wir OSRM (echte Strassen-Fahrzeit) statt Haversine×1.6, weil Haversine bei
+                //   Greifswald->Heringsdorf 60 Min zeigte wo OSRM 40 Min sagt. Async-Refine
+                //   ueber fetchOSRMDuration() (Cache vorhanden → 2. Aufruf instant).
+                const _busyCount = _busyVids.size;
+                let etaText;
+                if (pickupCoords) {
+                    etaText = '<span class="eta-loading-car">🚕</span> Anfahrt wird berechnet <span class="eta-loading-dots" style="opacity:0.6;">···</span>';
+                } else {
+                    const _freeTxt = `${_freeCount} frei`;
+                    const _busyTxt = _busyCount > 0 ? ` · ${_busyCount} unterwegs` : '';
+                    etaText = `${_freeTxt}${_busyTxt} — Abholort eingeben für Wartezeit`;
+                }
+                let _closestFreeVeh = null;
+                let _closestFreeDist = Infinity;
                 if (pickupCoords && _gpsOnlineVehicles) {
                     let closestEta = null;
                     for (const [vid, vInfo] of Object.entries(_gpsOnlineVehicles)) {
@@ -2539,11 +2552,31 @@
                         // losfahren, evtl. wenden). Naeher an realistischer Anfahrtszeit.
                         const eta = Math.max(5, Math.round(dist * 1.6 + 3));
                         if (closestEta === null || eta < closestEta) closestEta = eta;
+                        if (dist < _closestFreeDist) { _closestFreeDist = dist; _closestFreeVeh = vInfo; }
                     }
                     if (closestEta) etaText = 'Taxi in ca. ' + closestEta + ' Min';
                 }
                 sofortBtn.innerHTML = '⚡ Sofort<br><span style="font-size:11px;font-weight:400;">' + etaText + '</span>';
                 sofortBtn.onclick = function() { setWann('sofort'); };
+                // 🆕 v6.63.132: OSRM-Async-Refine. Nach dem Sync-Render holen wir die echte
+                //   Strassen-Fahrzeit fuer das naechste freie Fahrzeug und ueberschreiben den
+                //   Button-Text wenn sie deutlich von Haversine abweicht. fetchOSRMDuration
+                //   nutzt _osrmCache → 2. Aufruf ist instant. Stale-Schutz: nur updaten wenn
+                //   pickupCoords sich nicht geaendert hat.
+                if (_closestFreeVeh && pickupCoords && typeof fetchOSRMDuration === 'function') {
+                    const _pSnap = { lat: pickupCoords.lat, lon: pickupCoords.lon };
+                    const _vSnap = { lat: _closestFreeVeh.lat, lon: _closestFreeVeh.lon };
+                    fetchOSRMDuration(_vSnap.lat, _vSnap.lon, _pSnap.lat, _pSnap.lon).then(osrmMin => {
+                        if (!osrmMin || osrmMin <= 0) return;
+                        if (!pickupCoords || pickupCoords.lat !== _pSnap.lat || pickupCoords.lon !== _pSnap.lon) return;
+                        // +3 Min Anlauf wie bei Haversine — fair
+                        const _osrmEta = Math.max(5, Math.round(osrmMin + 3));
+                        const _btn = document.querySelector('.wann-btn[onclick*="sofort"]');
+                        if (_btn) {
+                            _btn.innerHTML = '⚡ Sofort<br><span style="font-size:11px;font-weight:400;">Taxi in ca. ' + _osrmEta + ' Min</span>';
+                        }
+                    }).catch(() => {});
+                }
             } else if (gpsOnlineCount > 0) {
                 // v6.62.41: Patrick: 'farblich differenzieren — gruen bei sofort,
                 // orange bei Wartezeit, der Kunde sieht was ihn erwartet'.

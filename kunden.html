@@ -2545,36 +2545,30 @@
                     statusEl.style.display = 'block';
                     statusEl.style.background = '#dbeafe';
                     statusEl.style.color = '#1e40af';
-                    statusEl.innerHTML = '⏳ Stripe bestätigt die Hinterlegung… (max 30 Sek)';
+                    statusEl.innerHTML = '⏳ Stripe bestätigt die Hinterlegung — Sie können die Seite offen lassen, das geht von selbst weiter.';
                 }
                 if (formEl) formEl.style.display = 'none';
                 if (existingEl) existingEl.style.display = 'none';
-                // Poll max 30s
-                let _attempts = 0;
-                const _poll = setInterval(async () => {
-                    _attempts++;
-                    if (_attempts > 15) {
-                        clearInterval(_poll);
-                        if (statusEl) {
-                            statusEl.style.background = '#fef3c7';
-                            statusEl.style.color = '#92400e';
-                            statusEl.innerHTML = '⚠️ Bestätigung läuft noch — bitte in einer Minute neu laden.';
+                // 🆕 v6.63.157 (Patrick 04.06. 11:45 'dann muss ich den ganzen Scheiß
+                //   nochmal neu machen'): Statt 30s-Polling Firebase Live-Listener auf
+                //   /customers/{id}. Sobald Webhook autoChargeEnabled=true setzt, pushed
+                //   Firebase die Änderung sofort an den Browser — kein Reload nötig.
+                //   Patrick kann die Seite offen lassen, der Banner verschwindet von
+                //   selbst sobald Stripe bestätigt hat.
+                if (customerData && customerData.id) {
+                    const _custRef = db.ref('customers/' + customerData.id);
+                    const _listener = _custRef.on('value', snap => {
+                        const _cust = snap.val();
+                        if (_cust && _cust.autoChargeEnabled === true && _cust.defaultPaymentMethodId) {
+                            customerData = { ..._cust, id: customerData.id };
+                            _custRef.off('value', _listener);
+                            if (statusEl) statusEl.style.display = 'none';
+                            if (typeof initAutopay === 'function') {
+                                initAutopay().catch(() => {});
+                            }
                         }
-                        if (formEl) formEl.style.display = 'block';
-                        return;
-                    }
-                    try {
-                        await loadCustomerData();
-                    } catch (_) {}
-                    if (customerData && customerData.autoChargeEnabled === true) {
-                        clearInterval(_poll);
-                        if (statusEl) statusEl.style.display = 'none';
-                        // initAutopay rendert jetzt den existing-State
-                        if (typeof initAutopay === 'function') {
-                            initAutopay().catch(() => {});
-                        }
-                    }
-                }, 2000);
+                    });
+                }
             })();
         } else if (new URLSearchParams(location.search).get('autopay') === 'cancel') {
             try { history.replaceState({}, '', location.pathname); } catch (_) {}

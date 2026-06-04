@@ -772,6 +772,20 @@ async function autoAssignRide(rideId, rideData) {
                     }); } catch (_) {}
                     return null;
                 }
+                // 🆕 v6.63.159 (Patrick 04.06. 12:14 Tesla-Sperre): assignmentLocked
+                //   ist HARTER Schutz. Wenn Admin/Disponent ein Fahrzeug zur Fahrt
+                //   gesperrt hat, darf autoAssignRide das Fahrzeug NIE austauschen —
+                //   auch nicht wenn das Fahrzeug keinen Wochenplan-Eintrag hat.
+                //   Patrick entscheidet manuell, das System respektiert das Lock.
+                if (_cur.assignmentLocked === true && (_cur.assignedVehicle || _cur.vehicleId)) {
+                    console.warn(`🔒 autoAssignRide ABORT: ${rideId} assignmentLocked=true (Fahrzeug ${_cur.assignedVehicleName || _cur.assignedVehicle || _cur.vehicleId} fest gesperrt)`);
+                    try { await addRideLog(rideId, '🔒', `autoAssignRide blockiert: assignmentLocked=true`, {
+                        quelle: 'autoAssignRide v6.63.159 Lock-Guard',
+                        grund: `Admin/Disponent hat Fahrzeug fest gesperrt — kein Auto-Reassign`,
+                        aktuelleFahrzeug: _cur.assignedVehicleName || _cur.assignedVehicle || _cur.vehicleId || '?'
+                    }); } catch (_) {}
+                    return null;
+                }
             }
         } catch (_safetyErr) {
             console.warn('autoAssignRide Safety-Check Fehler (ignored):', _safetyErr.message);
@@ -25610,17 +25624,37 @@ exports.onShiftStatusChanged = onValueUpdated(
             const REASSIGN_WINDOW_MS = 6 * 60 * 60 * 1000; // 6h
             const affected = [];
             const skippedFuture = [];
+            const skippedLocked = [];
             ridesSnap.forEach(c => {
                 const r = c.val();
                 if (!r) return;
                 if (!['assigned', 'vorbestellt'].includes(r.status)) return;
                 if (!r.pickupTimestamp || r.pickupTimestamp <= now) return;
+                // 🆕 v6.63.159 (Patrick 04.06. 12:14 "wenn ich oben das Fahrzeug
+                //   sperren will, dann muss das auch gesperrt sein"): assignmentLocked
+                //   HART respektieren auch bei Schicht-Ende. Gesperrte Fahrten bleiben
+                //   beim Fahrzeug — Patrick entscheidet manuell ob umverteilt wird.
+                if (r.assignmentLocked === true) {
+                    skippedLocked.push({ id: c.key, customerName: r.customerName, pickupTime: r.pickupTime });
+                    return;
+                }
                 if (r.pickupTimestamp > now + REASSIGN_WINDOW_MS) {
                     skippedFuture.push({ id: c.key, customerName: r.customerName, pickupTime: r.pickupTime });
                     return;
                 }
                 affected.push({ id: c.key, ride: r });
             });
+            if (skippedLocked.length > 0) {
+                console.log(`🔒 ${vid}: ${skippedLocked.length} gesperrte Vorbestellung(en) — bleiben zugewiesen trotz Schicht-Ende`);
+                for (const sk of skippedLocked) {
+                    try {
+                        await addRideLog(sk.id, '🔒', `Schicht-Ende ${(OFFICIAL_VEHICLES[vid]||{}).name||vid} ignoriert — assignmentLocked=true`, {
+                            quelle: 'onShiftStatusChanged v6.63.159',
+                            vehicle: vid
+                        });
+                    } catch(_) {}
+                }
+            }
             if (skippedFuture.length > 0) {
                 console.log(`⏩ ${vid}: ${skippedFuture.length} Vorbestellung(en) > 6h — bleiben zugewiesen (Wochenplan-Schicht greift)`);
             }

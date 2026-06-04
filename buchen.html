@@ -1186,7 +1186,7 @@
         //   Tesla-Browser hatte gecachte alte Version, obwohl Strato die neue ausspielte.
         //   Periodischer Build-Check: alle 60s das Server-buchen.html abklopfen, wenn
         //   neuere Build-Zeit als die gerade geladene → window.location.reload(true).
-        const _CLIENT_BUILD = 'v6.63.133-2026-06-04T06:00Z';
+        const _CLIENT_BUILD = 'v6.63.134-2026-06-04T06:07Z';
         (function setupAutoReloadOnNewBuild() {
             let _serverBuildMarker = null;
             async function _check() {
@@ -2526,6 +2526,30 @@
                     btn.style.color = '#ffffff';
                 }
             };
+            // 🆕 v6.63.134 (Patrick 04.06. 08:05 "wenn 37 Min Anfahrt, dann kann +15/+30
+            //   nicht funktionieren"): Schnelltasten +15/+30/+45 disabled wenn Preset-Min
+            //   < closestEta. 'Jetzt' (data-pre=0) bleibt immer aktiv — bedeutet ASAP,
+            //   nicht "in 0 Min". Wenn die aktive Preset disabled wird, springen wir
+            //   auf den naechsten gueltigen Preset (oder Jetzt).
+            const _gateSofortPresets = (etaMin) => {
+                const _presets = document.querySelectorAll('.sofort-preset-btn');
+                if (!_presets.length) return;
+                let _activeDisabled = false;
+                _presets.forEach(b => {
+                    const _pre = parseInt(b.dataset.pre, 10);
+                    if (_pre === 0) return; // Jetzt = ASAP, immer aktiv
+                    const _viable = !etaMin || _pre >= etaMin;
+                    b.disabled = !_viable;
+                    b.style.opacity = _viable ? '1' : '0.4';
+                    b.style.cursor = _viable ? 'pointer' : 'not-allowed';
+                    b.title = _viable ? '' : `Anfahrt ca. ${etaMin} Min — frühestens +${etaMin} Min möglich`;
+                    if (!_viable && window._sofortPresetMin === _pre) _activeDisabled = true;
+                });
+                if (_activeDisabled) {
+                    // aktive Preset wurde gerade disabled → springe auf Jetzt (ASAP)
+                    if (typeof setSofortPreset === 'function') setSofortPreset(0);
+                }
+            };
             if (_freeCount > 0) {
                 // Mindestens 1 freies Fahrzeug → normaler Sofort-Button mit ETA
                 sofortBtn.style.background = '';
@@ -2586,6 +2610,11 @@
                 //   in Wahrheit weit weg ist (z.B. Patrick gerade in Greifswald), waere
                 //   Gruen-Default eine Luege. Schwellen analog _busyWaitMin-Branch unten.
                 _applySofortBtnColor(sofortBtn, closestEta);
+                // 🆕 v6.63.134 (Patrick 04.06. 08:05): Schnelltasten +15/+30/+45 disabled
+                //   wenn naechste Anfahrt > Preset-Min. Beispiel: ETA 37 Min → +15/+30
+                //   unrealistisch, nur +45 + Jetzt sinnvoll. 'Jetzt' (data-pre=0) bleibt
+                //   IMMER aktiv (= ASAP, das System nimmt was es kriegt).
+                _gateSofortPresets(closestEta);
                 // 🆕 v6.63.132: OSRM-Async-Refine. Nach dem Sync-Render holen wir die echte
                 //   Strassen-Fahrzeit fuer das naechste freie Fahrzeug und ueberschreiben den
                 //   Button-Text wenn sie deutlich von Haversine abweicht. fetchOSRMDuration
@@ -2607,6 +2636,8 @@
                                 : '🚕 Taxi unterwegs — ca. ' + _osrmEta + ' Min Wartezeit';
                             _btn.innerHTML = '⚡ Sofort<br><span style="font-size:11px;font-weight:400;">' + _osrmTxt + '</span>';
                             _applySofortBtnColor(_btn, _osrmEta);
+                            // 🆕 v6.63.134: Preset-Gate nach OSRM-Refine erneut anwenden
+                            _gateSofortPresets(_osrmEta);
                         }
                     }).catch(() => {});
                 }

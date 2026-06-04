@@ -18,6 +18,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
+import android.widget.Button;
 import android.widget.EditText;
 import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
@@ -220,17 +221,130 @@ public class CrmSearchActivity extends AppCompatActivity {
     private void launchPlaces(TextView field, double[] coordsOut) {
         // v6.62.220: OSM-Map-Picker statt Places-SDK (9011) oder Manual-Dialog.
         // Patrick: "Stecknadel-Picker einbauen". Tap auf Karte → Reverse-Geocode.
+        // v6.63.170: Patrick (04.06.): 'Dr. Dawisch finden wie im Web-Rechnungsmodul'.
+        //   Vorgeschalteter CRM-Such-Dialog: filtert all (CRM-Liste) nach
+        //   anrede+name + address. Treffer-Klick setzt field auf
+        //   'Anrede Name, Adresse' + Koordinaten. Karten/Google bleibt als Fallback-Button.
         pendingPlaceField = field;
         pendingPlaceCoords = coordsOut;
-        Intent i = new Intent(this, MapPickerActivity.class);
+
+        final EditText searchInput = new EditText(this);
+        searchInput.setHint("Name oder Adresse... (z.B. Dr. Dawisch)");
+        searchInput.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_WORDS);
+
+        final LinearLayout dlgLayout = new LinearLayout(this);
+        dlgLayout.setOrientation(LinearLayout.VERTICAL);
+        int dPad = (int)(getResources().getDisplayMetrics().density * 12);
+        dlgLayout.setPadding(dPad, dPad, dPad, dPad);
+        dlgLayout.addView(searchInput);
+
+        final ScrollView scrollResults = new ScrollView(this);
+        final LinearLayout resultsBox = new LinearLayout(this);
+        resultsBox.setOrientation(LinearLayout.VERTICAL);
+        scrollResults.addView(resultsBox);
+        LinearLayout.LayoutParams scrollLp = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            (int)(getResources().getDisplayMetrics().density * 280));
+        scrollResults.setLayoutParams(scrollLp);
+        dlgLayout.addView(scrollResults);
+
+        TextView tvHint = new TextView(this);
+        tvHint.setText("ℹ️ Min. 2 Buchstaben — sucht in CRM (Name + Adresse). Kein Treffer? → 🗺️ Karte/Google.");
+        tvHint.setTextSize(11);
+        tvHint.setTextColor(0xFF6B7280);
+        tvHint.setPadding(0, dPad / 2, 0, 0);
+        dlgLayout.addView(tvHint);
+
+        final AlertDialog dlg = new AlertDialog.Builder(this)
+            .setTitle("📍 Adresse suchen (CRM + Karte)")
+            .setView(dlgLayout)
+            .setPositiveButton("🗺️ Karte / Google", (d, w) -> {
+                Intent i = new Intent(this, MapPickerActivity.class);
+                String q = searchInput.getText().toString().trim();
+                if (!q.isEmpty()) {
+                    i.putExtra(MapPickerActivity.EXTRA_INITIAL_QUERY, q);
+                } else if (field != null) {
+                    String pre = field.getText() != null ? field.getText().toString() : "";
+                    pre = pre.replaceFirst("^📍\\s*", "").replaceFirst("^🎯\\s*", "").trim();
+                    if (!pre.isEmpty() && !pre.endsWith("wählen…")) {
+                        i.putExtra(MapPickerActivity.EXTRA_INITIAL_QUERY, pre);
+                    }
+                }
+                mapPickerLauncher.launch(i);
+            })
+            .setNegativeButton("Abbrechen", null)
+            .create();
+
+        final Runnable doFilter = () -> {
+            String q = searchInput.getText().toString().toLowerCase().trim();
+            resultsBox.removeAllViews();
+            if (q.length() < 2) return;
+            int hits = 0;
+            for (CrmEntry e : all) {
+                if (e.address == null || e.address.isEmpty()) continue;
+                String anrede = (e.anrede != null ? e.anrede : "");
+                String n = (anrede + " " + (e.name != null ? e.name : "")).toLowerCase();
+                String addr = e.address.toLowerCase();
+                if (!(n.contains(q) || addr.contains(q))) continue;
+                final CrmEntry hit = e;
+                final String hitAnrede = (hit.anrede != null && !hit.anrede.isEmpty()) ? hit.anrede + " " : "";
+                final String hitLabel = hitAnrede + (hit.name != null ? hit.name : "?");
+                Button btn = new Button(this);
+                btn.setText(hitLabel + "\n" + (hit.address != null ? hit.address : ""));
+                btn.setAllCaps(false);
+                btn.setGravity(android.view.Gravity.START | android.view.Gravity.CENTER_VERTICAL);
+                btn.setTextSize(13);
+                btn.setPadding(dPad / 2, dPad / 2, dPad / 2, dPad / 2);
+                btn.setBackgroundColor(0xFFF0FDF4);
+                LinearLayout.LayoutParams btnLp = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT);
+                btnLp.setMargins(0, 0, 0, (int)(getResources().getDisplayMetrics().density * 6));
+                btn.setLayoutParams(btnLp);
+                btn.setOnClickListener(_v -> {
+                    String currentTxt = field != null && field.getText() != null ? field.getText().toString() : "";
+                    String prefix = currentTxt.startsWith("🎯") ? "🎯 " : "📍 ";
+                    String poiAndAddr = hitLabel + ", " + (hit.address != null ? hit.address : "");
+                    if (field != null) field.setText(prefix + poiAndAddr);
+                    if (coordsOut != null && hit.lat != null && hit.lon != null) {
+                        coordsOut[0] = hit.lat;
+                        coordsOut[1] = hit.lon;
+                    }
+                    Toast.makeText(this, "✅ " + hitLabel + " übernommen", Toast.LENGTH_SHORT).show();
+                    dlg.dismiss();
+                });
+                resultsBox.addView(btn);
+                hits++;
+                if (hits >= 12) break;
+            }
+            if (hits == 0) {
+                TextView tvNone = new TextView(this);
+                tvNone.setText("Kein CRM-Treffer für „" + searchInput.getText().toString().trim() + "\". → 🗺️ Karte/Google unten nutzen.");
+                tvNone.setTextColor(0xFF9CA3AF);
+                tvNone.setTextSize(12);
+                tvNone.setPadding(dPad / 2, dPad / 2, dPad / 2, dPad / 2);
+                resultsBox.addView(tvNone);
+            }
+        };
+
+        searchInput.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int a, int b, int c) {}
+            @Override public void onTextChanged(CharSequence s, int a, int b, int c) {}
+            @Override public void afterTextChanged(Editable s) { doFilter.run(); }
+        });
+
+        // Pre-Fill aus aktuellem field-Wert
         if (field != null) {
             String pre = field.getText() != null ? field.getText().toString() : "";
             pre = pre.replaceFirst("^📍\\s*", "").replaceFirst("^🎯\\s*", "").trim();
             if (!pre.isEmpty() && !pre.endsWith("wählen…")) {
-                i.putExtra(MapPickerActivity.EXTRA_INITIAL_QUERY, pre);
+                searchInput.setText(pre);
+                searchInput.setSelection(pre.length());
+                doFilter.run();
             }
         }
-        mapPickerLauncher.launch(i);
+
+        dlg.show();
     }
 
     // v6.62.219: Manual-Adress-Dialog mit Nominatim-Geocode, parallel zu

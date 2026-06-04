@@ -2518,9 +2518,58 @@
             location.reload();
         }
 
-        // Bei Rückkehr nach Stripe-Confirm
+        // 🆕 v6.63.155 (Patrick 04.06. 11:33 'kommt zurück, dann ist alles leer'):
+        // Bei Rückkehr nach Stripe-Confirm Profil-Modal aufmachen + customerData
+        // reloaden + warten bis Webhook gefeuert hat (max 30s, alle 2s pollen).
         if (new URLSearchParams(location.search).get('autopay') === 'done') {
-            setTimeout(() => { switchTab('autopay'); }, 500);
+            // URL clean — sonst bleibt ?autopay=done dauerhaft drin
+            try { history.replaceState({}, '', location.pathname); } catch (_) {}
+            (async () => {
+                openProfileModal();
+                // Sektion-Wrap sichtbar machen + Loading-Banner
+                const _radio = document.querySelector("input[name='zahlmethode'][value='stored']");
+                if (_radio) { _radio.checked = true; _updateZahlSetupVisibility(); }
+                const statusEl = document.getElementById('autopay-status-banner');
+                const formEl = document.getElementById('autopay-setup-form');
+                const existingEl = document.getElementById('autopay-existing');
+                if (statusEl) {
+                    statusEl.style.display = 'block';
+                    statusEl.style.background = '#dbeafe';
+                    statusEl.style.color = '#1e40af';
+                    statusEl.innerHTML = '⏳ Stripe bestätigt die Hinterlegung… (max 30 Sek)';
+                }
+                if (formEl) formEl.style.display = 'none';
+                if (existingEl) existingEl.style.display = 'none';
+                // Poll max 30s
+                let _attempts = 0;
+                const _poll = setInterval(async () => {
+                    _attempts++;
+                    if (_attempts > 15) {
+                        clearInterval(_poll);
+                        if (statusEl) {
+                            statusEl.style.background = '#fef3c7';
+                            statusEl.style.color = '#92400e';
+                            statusEl.innerHTML = '⚠️ Bestätigung läuft noch — bitte in einer Minute neu laden.';
+                        }
+                        if (formEl) formEl.style.display = 'block';
+                        return;
+                    }
+                    try {
+                        await loadCustomerData();
+                    } catch (_) {}
+                    if (customerData && customerData.autoChargeEnabled === true) {
+                        clearInterval(_poll);
+                        if (statusEl) statusEl.style.display = 'none';
+                        // initAutopay rendert jetzt den existing-State
+                        if (typeof initAutopay === 'function') {
+                            initAutopay().catch(() => {});
+                        }
+                    }
+                }, 2000);
+            })();
+        } else if (new URLSearchParams(location.search).get('autopay') === 'cancel') {
+            try { history.replaceState({}, '', location.pathname); } catch (_) {}
+            // Stille Rückkehr — keine Action
         }
 
         function closeModal() {

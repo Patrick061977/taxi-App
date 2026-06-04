@@ -707,6 +707,24 @@ async function sendFCMToVehicle(vehicleId, payload) {
             if (_t === 'new_ride' || _t === 'new_ride_immediate') _severity = 'alarm';
             else if (_t === 'losfahren_reminder' || _t === 'replan_notification' || _t === 'new_ride_reminder') _severity = 'reminder';
             else if (_t === 'cancel_notification') _severity = 'reminder';
+            // 🆕 v6.63.162 (Patrick 04.06. 12:37 "ich sehe nicht das Datum,
+            //   sehe ich auch nicht im Push"): pickupTimestamp + Adressen direkt
+            //   aus der Ride nachholen — damit Web-UI volles Datum + Pickup/Ziel
+            //   anzeigen kann.
+            const _extras = {};
+            if (payload?.rideId) {
+                try {
+                    const _rSnap = await db.ref(`rides/${payload.rideId}`).once('value');
+                    const _r = _rSnap.val();
+                    if (_r) {
+                        _extras.pickupTimestamp = _r.pickupTimestamp || null;
+                        _extras.pickup = (_r.pickup || '').substring(0, 80) || null;
+                        _extras.destination = (_r.destination || '').substring(0, 80) || null;
+                        _extras.passengers = _r.passengers || null;
+                        _extras.rideStatus = _r.status || null;
+                    }
+                } catch (_e) { /* non-critical */ }
+            }
             await db.ref(`pushAudit/${vehicleId}/${_ts}`).set({
                 ts: _ts,
                 type: _t,
@@ -714,9 +732,10 @@ async function sendFCMToVehicle(vehicleId, payload) {
                 rideId: payload?.rideId || null,
                 customerName: payload?.customerName || null,
                 pickupTime: payload?.pickupTime || null,
+                ..._extras,
                 isReminder: payload?.isReminder === 'true' || payload?.isReminder === true,
                 success: true,
-                quelle: 'sendFCMToVehicle v6.63.159'
+                quelle: 'sendFCMToVehicle v6.63.162'
             });
         } catch (_auditErr) { /* non-critical */ }
         return true;
@@ -18400,6 +18419,17 @@ exports.autoResolveConflicts = onSchedule(
             for (const ride of allRides) {
                 if (['accepted', 'picked_up', 'on_way'].includes(ride.status)) {
                     debugPhase0Lines.push(`⏭️ ${ride.customerName || '?'} — übersprungen (Status: ${ride.status})`);
+                    continue;
+                }
+                // 🆕 v6.63.162 (Patrick 04.06. 12:38 "schon wieder den Toyota Prius
+                //   genommen für die Inselklinik-Fahrt für Sandy Zorno"): Phase 0
+                //   Schicht-Korrektur hatte KEINEN assignmentLocked-Check! Wenn
+                //   Patrick im Native sperrt und das Fahrzeug keinen Wochenplan-
+                //   Eintrag hat, war das der Pfad der Tesla durch Toyota Prius
+                //   ersetzte. Jetzt HART: gesperrte Rides werden NIE umverteilt,
+                //   auch nicht in Phase 0.
+                if (ride.assignmentLocked === true) {
+                    debugPhase0Lines.push(`🔒 ${ride.customerName || '?'} — assignmentLocked=true (kein Reassign trotz Schicht-Lücke)`);
                     continue;
                 }
                 const rideDateStr = berlinDate(ride.pickupTimestamp);

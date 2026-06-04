@@ -453,18 +453,20 @@
             padding: 0;
         }
         #profile-modal .modal {
-            max-width: min(420px, 92vw);
+            max-width: min(520px, 95vw);
             width: 100%;
             max-height: 100vh;
             height: 100vh;
             border-radius: 0;
-            border-top-left-radius: 16px;
-            border-bottom-left-radius: 16px;
-            padding: 22px 22px 30px 22px;
+            border-top-left-radius: 18px;
+            border-bottom-left-radius: 18px;
+            padding: 24px 26px 36px 26px;
             transform: translateX(100%);
             transition: transform 0.28s cubic-bezier(.4,0,.2,1);
             box-shadow: -12px 0 32px rgba(15,23,42,0.18);
         }
+        #profile-modal .profile-section { margin-bottom: 22px; }
+        #profile-modal .profile-section-label { font-size: 13px; font-weight: 700; color: var(--ink-2); margin-bottom: 10px; letter-spacing: 0.2px; }
         #profile-modal.active .modal { transform: translateX(0); }
         .modal h3 { font-size: 18px; margin-bottom: 14px; font-weight: 800; letter-spacing: -0.2px; }
         .form-group { margin-bottom: 14px; }
@@ -783,25 +785,25 @@
             <div class="profile-section">
                 <div class="profile-section-label">Zahlungsmethode</div>
                 <div style="display:flex;flex-direction:column;gap:8px;margin-top:6px;">
-                    <label class="zahl-row" style="display:flex;align-items:flex-start;gap:10px;padding:12px;border:1px solid var(--line);border-radius:var(--r-sm);cursor:pointer;">
-                        <input type="radio" name="zahlmethode" value="cash" style="margin-top:2px;">
+                    <label class="zahl-row" style="display:flex;align-items:flex-start;gap:12px;padding:14px;border:1px solid var(--line);border-radius:var(--r-sm);cursor:pointer;">
+                        <input type="radio" name="zahlmethode" value="cash" style="margin-top:3px;">
                         <div style="flex:1;">
                             <div style="font-size:14px;font-weight:600;color:var(--ink);">💵 Bar beim Fahrer</div>
-                            <div style="font-size:12px;color:var(--ink-3);margin-top:2px;">Sie zahlen direkt im Auto</div>
+                            <div style="font-size:12px;color:var(--ink-3);margin-top:3px;line-height:1.4;">Sie zahlen direkt im Auto</div>
                         </div>
                     </label>
-                    <label class="zahl-row" style="display:flex;align-items:flex-start;gap:10px;padding:12px;border:1px solid var(--line);border-radius:var(--r-sm);cursor:pointer;">
-                        <input type="radio" name="zahlmethode" value="card" style="margin-top:2px;">
+                    <label class="zahl-row" style="display:flex;align-items:flex-start;gap:12px;padding:14px;border:1px solid var(--line);border-radius:var(--r-sm);cursor:pointer;">
+                        <input type="radio" name="zahlmethode" value="card" style="margin-top:3px;">
                         <div style="flex:1;">
-                            <div style="font-size:14px;font-weight:600;color:var(--ink);">💳 EC/Karte beim Fahrer</div>
-                            <div style="font-size:12px;color:var(--ink-3);margin-top:2px;">Kartenzahlung am Terminal im Auto</div>
+                            <div style="font-size:14px;font-weight:600;color:var(--ink);">💳 EC/Kreditkarte beim Fahrer</div>
+                            <div style="font-size:12px;color:var(--ink-3);margin-top:3px;line-height:1.4;">Kartenzahlung am Terminal im Auto</div>
                         </div>
                     </label>
-                    <label class="zahl-row" style="display:flex;align-items:flex-start;gap:10px;padding:12px;border:1px solid var(--line);border-radius:var(--r-sm);cursor:pointer;">
-                        <input type="radio" name="zahlmethode" value="stored" style="margin-top:2px;">
+                    <label class="zahl-row" style="display:flex;align-items:flex-start;gap:12px;padding:14px;border:1px solid var(--line);border-radius:var(--r-sm);cursor:pointer;">
+                        <input type="radio" name="zahlmethode" value="stored" style="margin-top:3px;">
                         <div style="flex:1;">
-                            <div style="font-size:14px;font-weight:600;color:var(--ink);">💳 Karte / SEPA / PayPal hinterlegen</div>
-                            <div style="font-size:12px;color:var(--ink-3);margin-top:2px;">Sie wählen die Methode beim Hinterlegen — automatische Abbuchung nach jeder Fahrt</div>
+                            <div style="font-size:14px;font-weight:600;color:var(--ink);">💳 Kreditkarte / SEPA / PayPal hinterlegen</div>
+                            <div style="font-size:12px;color:var(--ink-3);margin-top:3px;line-height:1.4;">Sie wählen die Methode beim Hinterlegen — automatische Abbuchung nach jeder Fahrt</div>
                         </div>
                     </label>
                 </div>
@@ -1292,8 +1294,19 @@
             }
             // 🆕 v6.62.401: Autocomplete am Adress-Feld einmalig aktivieren
             setupProfileAddressAutocomplete();
-            // v6.63.149: initAutopay läuft jetzt nur wenn Radio 'stored' aktiv ist
-            //   (siehe _updateZahlSetupVisibility) — kein automatischer Start mehr beim Modal-Open.
+            // v6.63.149: initAutopay läuft nur wenn Radio 'stored' aktiv ist (siehe
+            // _updateZahlSetupVisibility) — kein automatischer Start mehr beim Modal-Open.
+
+            // 🆕 v6.63.150 (Patrick 04.06. Speed): Stripe.js eager-preloaden im Hintergrund
+            // sobald das Modal aufgeht — damit der User beim Klick auf 'hinterlegen' nicht
+            // erst die 200-600ms Script-Lade-Zeit hat.
+            if (typeof Stripe === 'undefined' && !window._stripeJsLoading) {
+                window._stripeJsLoading = true;
+                const s = document.createElement('script');
+                s.src = 'https://js.stripe.com/v3/';
+                s.async = true;
+                document.head.appendChild(s);
+            }
         }
 
         function closeProfileModal() {
@@ -2358,17 +2371,22 @@
             const btn = document.getElementById('autopay-submit-btn');
             const user = firebase.auth().currentUser;
             if (!user) return;
-            // CRM-Customer lookup via phone
+            // 🆕 v6.63.150 (Patrick 04.06. Speed): customerData direkt nutzen statt
+            // Firebase-Lookup. Spart 2 RTDB-Reads (~300-600ms) bei jedem Öffnen.
             const phone = user.phoneNumber;
-            let crmId = null, crmCustomer = null;
-            try {
-                const snap = await db.ref('customers').orderByChild('phone').equalTo(phone).once('value');
-                snap.forEach(c => { if (!crmId) { crmId = c.key; crmCustomer = c.val(); } });
-                if (!crmId) {
-                    const snap2 = await db.ref('customers').orderByChild('mobilePhone').equalTo(phone).once('value');
-                    snap2.forEach(c => { if (!crmId) { crmId = c.key; crmCustomer = c.val(); } });
-                }
-            } catch(e) {}
+            let crmId = (customerData && customerData.id) || null;
+            let crmCustomer = customerData || null;
+            if (!crmId) {
+                // Fallback: nur wenn customerData noch nicht vorhanden, lookup via Firebase
+                try {
+                    const snap = await db.ref('customers').orderByChild('phone').equalTo(phone).once('value');
+                    snap.forEach(c => { if (!crmId) { crmId = c.key; crmCustomer = c.val(); } });
+                    if (!crmId) {
+                        const snap2 = await db.ref('customers').orderByChild('mobilePhone').equalTo(phone).once('value');
+                        snap2.forEach(c => { if (!crmId) { crmId = c.key; crmCustomer = c.val(); } });
+                    }
+                } catch(e) {}
+            }
             if (!crmId) {
                 statusEl.textContent = 'CRM-Eintrag nicht gefunden. Bitte buchen Sie zuerst eine Fahrt, dann ist Auto-Pay verfügbar.';
                 statusEl.style.background = '#fee2e2'; statusEl.style.color = '#b91c1c';

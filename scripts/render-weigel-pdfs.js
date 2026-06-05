@@ -17,6 +17,8 @@ const FILES = [
     '2026-06-04_IFG_LK_VG_Anhoerung_Taxiverdraengung.md',
     '2026-06-05_Update_RA_Weigel_Kaiserbaederlinie_Botenfunde.md',
     '2026-06-05_Story_Chronologie_Kurkartenbus_Heringsdorf.md',
+    '2026-06-05_Faktentafel_Kurkartenbus_Weigel.md',
+    '2026-06-05_Faktentafel_Kurkartenbus_Weigel_ERWEITERUNG.md',
 ];
 
 const CHROME_PATHS = [

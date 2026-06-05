@@ -362,9 +362,12 @@ public class CallRecordingsActivity extends AppCompatActivity {
                     if (diff < 60_000) {
                         cur.parallel = true;
                         // v6.63.182 (Patrick 05.06. 18:04): Partner-Info merken für UI-Anzeige
-                        cur.parallelPartnerName = oth.customerName;
-                        cur.parallelPartnerPhone = oth.phone;
-                        break;
+                        if (cur.parallelPartnerName == null && cur.parallelPartnerPhone == null) {
+                            cur.parallelPartnerName = oth.customerName;
+                            cur.parallelPartnerPhone = oth.phone;
+                        }
+                        // v6.63.184 (Patrick 05.06. 19:38): alle Partner sammeln, nicht nur ersten
+                        cur.parallelPartners.add(new String[]{ oth.customerName, oth.phone, oth.customerId });
                     }
                 }
             }
@@ -914,6 +917,65 @@ public class CallRecordingsActivity extends AppCompatActivity {
         stopPlayback();
     }
 
+    // v6.63.184 (Patrick 05.06. 19:38 Bridge "ich würde am liebsten alle Nummern eine
+    //   Vorbestellung zusammenbauen"): bei Parallel-Aufnahmen Aktions-Dialog zeigen
+    //   damit Patrick wählen kann ob er die Haupt-Aufnahme oder einen Partner-Anruf als
+    //   Vorbestellungs-Quelle nimmt. Vorbestellungs-Maske öffnet sich genauso wie bisher
+    //   (über CrmSearchActivity mit auto_vorbestellung_* Extras), nur mit ausgewähltem
+    //   Telefon/Name vorbefüllt.
+    private void showRecordingActionDialog(Recording r) {
+        java.util.List<String> labels = new java.util.ArrayList<>();
+        java.util.List<Runnable> actions = new java.util.ArrayList<>();
+
+        // 1) Abspielen
+        labels.add("🔊 Aufnahme abspielen");
+        actions.add(() -> playRecording(r));
+
+        // 2) Vorbestellung für die Haupt-Aufnahme (= r)
+        String mainLabel = r.customerName != null && !r.customerName.isEmpty()
+            ? r.customerName + " (" + r.phone + ")"
+            : r.phone;
+        labels.add("📅 Vorbestellung für " + mainLabel);
+        actions.add(() -> openVorbestellungForPhone(r.phone, r.customerName, r.customerId, r.file != null ? r.file.getAbsolutePath() : null));
+
+        // 3) Vorbestellung für jeden Partner
+        if (r.parallelPartners != null) {
+            java.util.HashSet<String> seen = new java.util.HashSet<>();
+            seen.add(r.phone != null ? r.phone : "");
+            for (String[] p : r.parallelPartners) {
+                String pName = p[0];
+                String pPhone = p[1];
+                String pId = p.length > 2 ? p[2] : null;
+                if (pPhone == null || pPhone.isEmpty() || seen.contains(pPhone)) continue;
+                seen.add(pPhone);
+                String pLabel = (pName != null && !pName.isEmpty()) ? pName + " (" + pPhone + ")" : pPhone;
+                labels.add("📅 Vorbestellung für " + pLabel);
+                actions.add(() -> openVorbestellungForPhone(pPhone, pName, pId, null));
+            }
+        }
+
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Was möchtest Du machen?")
+            .setItems(labels.toArray(new String[0]), (d, w) -> {
+                if (w >= 0 && w < actions.size()) {
+                    try { actions.get(w).run(); } catch (Throwable t) {
+                        Toast.makeText(this, "Fehler: " + t.getMessage(), Toast.LENGTH_LONG).show();
+                    }
+                }
+            })
+            .setNegativeButton("Abbrechen", null)
+            .show();
+    }
+
+    private void openVorbestellungForPhone(String phone, String customerName, String customerId, String recordingPath) {
+        android.content.Intent i = new android.content.Intent(this, CrmSearchActivity.class);
+        if (customerId != null && !customerId.isEmpty()) i.putExtra("auto_vorbestellung_customer_id", customerId);
+        if (phone != null) i.putExtra("auto_vorbestellung_phone", phone);
+        if (customerName != null && !customerName.isEmpty()) i.putExtra("auto_vorbestellung_name", customerName);
+        if (recordingPath != null) i.putExtra("auto_vorbestellung_recording_path", recordingPath);
+        startActivity(i);
+    }
+
     static class Recording {
         File file;
         String phone;
@@ -928,6 +990,10 @@ public class CallRecordingsActivity extends AppCompatActivity {
         //   "⚠️ während Müller Hans (+49157...)".
         String parallelPartnerName;
         String parallelPartnerPhone;
+        // v6.63.184 (Patrick 05.06. 19:38 Bridge "alle Nummern eine Vorbestellung
+        //   zusammenbauen"): Liste aller Partner-Aufnahmen <60 Sek. Tap auf Aufnahme
+        //   öffnet Aktions-Dialog mit allen Partnern.
+        java.util.List<String[]> parallelPartners = new java.util.ArrayList<>(); // jeweils [name, phone, customerId]
     }
 
     class RecAdapter extends RecyclerView.Adapter<RecHolder> {
@@ -971,14 +1037,38 @@ public class CallRecordingsActivity extends AppCompatActivity {
                 } else {
                     partnerLabel = "anderem Anruf";
                 }
-                parallelSuffix = "  🔗 parallel zu " + partnerLabel;
+                // v6.63.184 (Patrick 05.06. 19:38): Wenn mehrere Partner vorhanden, alle
+                //   im Label auflisten (max 3, dann Kürzung). Damit Patrick beim Tippen
+                //   sieht WIE VIELE Anrufe parallel waren.
+                if (r.parallelPartners != null && r.parallelPartners.size() > 1) {
+                    StringBuilder sb = new StringBuilder();
+                    int show = Math.min(3, r.parallelPartners.size());
+                    for (int pi = 0; pi < show; pi++) {
+                        String[] p = r.parallelPartners.get(pi);
+                        if (sb.length() > 0) sb.append(", ");
+                        sb.append(p[0] != null && !p[0].isEmpty() ? p[0] : (p[1] != null ? p[1] : "?"));
+                    }
+                    if (r.parallelPartners.size() > 3) sb.append(" + ").append(r.parallelPartners.size() - 3).append(" weitere");
+                    parallelSuffix = "  🔗 parallel zu " + sb.toString();
+                } else {
+                    parallelSuffix = "  🔗 parallel zu " + partnerLabel;
+                }
             }
             h.t1.setText(prefix + dir + "  " + name + parallelSuffix);
             if (r.parallel) h.t1.setTextColor(0xFFfbbf24); else h.t1.setTextColor(0xFFffffff);
             String dt = new SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.GERMAN).format(new Date(r.timestamp));
             h.t2.setText(dt + "  ·  " + Formatter.formatShortFileSize(CallRecordingsActivity.this, r.size));
             h.t3.setText(r.phone);
-            h.itemView.setOnClickListener(v -> playRecording(r));
+            // v6.63.184 (Patrick 05.06. 19:38): bei Parallel-Aufnahmen Aktions-Dialog mit
+            //   Wahl-Optionen (Abspielen vs Vorbestellung pro Anrufer). Ohne Parallel: direkt
+            //   Abspielen wie bisher.
+            h.itemView.setOnClickListener(v -> {
+                if (r.parallel && r.parallelPartners != null && !r.parallelPartners.isEmpty()) {
+                    showRecordingActionDialog(r);
+                } else {
+                    playRecording(r);
+                }
+            });
             // v6.62.862: Long-Press = Lösch-Dialog (statt nur Stop, weil Stop ist im Detail-Dialog).
             h.itemView.setOnLongClickListener(v -> { confirmDeleteRecording(r); return true; });
         }

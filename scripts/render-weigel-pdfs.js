@@ -20,6 +20,9 @@ const FILES = [
     '2026-06-05_Faktentafel_Kurkartenbus_Weigel.md',
     '2026-06-05_Faktentafel_Kurkartenbus_Weigel_ERWEITERUNG.md',
     '2026-06-05_Sektion_P_Linienprofil_290_291.md',
+    '2026-06-05_Sektion_Q_Eigen_Gestaendnisse_Tourismus.md',
+    '2026-06-05_Sektion_Q9_Personen_Zitate.md',
+    '2026-06-05_Sektion_R_Vertragstext_Bekanntmachungen.md',
 ];
 
 const CHROME_PATHS = [

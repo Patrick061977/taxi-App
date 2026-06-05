@@ -19399,9 +19399,17 @@ exports.autoResolveConflicts = onSchedule(
                         // 🆕 v6.62.324: Pruefe ob oldVehicle (= aktueller assignedVehicle) noch
                         // WIRKLICH frei ist — durch frueheres Re-Assignment in dieser Iteration
                         // koennte es jetzt einen Konflikt geben. Wenn ja, MUSS umgelegt werden.
+                        // v6.63.179: Patrick 05.06. 13:05 (Völkner/Schindel Bug):
+                        // Den EIGENEN Slot der Ride ausfiltern, sonst Self-Conflict (=
+                        // direkter Overlap mit sich selbst) und Phase 3 sagt fälschlich
+                        // 'MUSS umgelegt'. Bug-Beispiel: Völkner 13:40 hatte Vito-Slot,
+                        // Phase 3 sah eigenen Slot → markierte Vito 'belegt' → mappte auf
+                        // Tesla MY obwohl Schindel da war → Doppel-Konflikt.
                         let oldVehicleStillFree = false;
                         if (oldVehicle && slotsPerVehicle[oldVehicle]) {
                             const _oldHasConflict = slotsPerVehicle[oldVehicle].some(slot => {
+                                // Eigenen Slot ausfiltern
+                                if (slot.start === ride.pickupTimestamp && slot.customer === ride.customerName) return false;
                                 if (slot.start < rideEnd && ride.pickupTimestamp < slot.end) return true;
                                 if (slot.end <= ride.pickupTimestamp) {
                                     const _lf = _quickLeerfahrtMin(slot.destLat, slot.destLon, ridePickupLat, ridePickupLon);

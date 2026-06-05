@@ -2643,8 +2643,20 @@ public class CallLogActivity extends AppCompatActivity {
                 String queueHint = "";
                 if (e.queueChain) {
                     // Kontext: gap negativ = waehrend prev lief = "Warteschlange"
-                    String when = e.queueGapMs < 0 ? "während des vorigen Anrufs" : "direkt nach vorigem";
-                    queueHint = "  🔗 " + when;
+                    String when = e.queueGapMs < 0 ? "während" : "direkt nach";
+                    // v6.63.182 (Patrick 05.06. 17:33 Bridge): "es wird auch nicht angezeigt,
+                    //   welche Nummer jetzt über dem Anruf liegt. Also kriegst du das hin,
+                    //   dass du auch anzeigst, welche Nummer jetzt über dem Anruf liegt".
+                    //   Nummer + Name (falls vorhanden) des verketten Anrufs hinzufuegen.
+                    String _prevLabel;
+                    if (e.prevQueueChainName != null && !e.prevQueueChainName.isEmpty()) {
+                        _prevLabel = e.prevQueueChainName + " (" + (e.prevQueueChainPhone != null ? e.prevQueueChainPhone : "?") + ")";
+                    } else if (e.prevQueueChainPhone != null && !e.prevQueueChainPhone.isEmpty()) {
+                        _prevLabel = e.prevQueueChainPhone;
+                    } else {
+                        _prevLabel = "vorigem";
+                    }
+                    queueHint = "  🔗 " + when + " " + _prevLabel;
                     // 🐛 v6.63.012 (Patrick 29.05. 17:34 'Doppler 14:32'): itemView ist
                     //   eine CardView (item_call_card.xml mit app:cardBackgroundColor=
                     //   #1E293B). setBackgroundColor wird vom cardBackgroundColor-

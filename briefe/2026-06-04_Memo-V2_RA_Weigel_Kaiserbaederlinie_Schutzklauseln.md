@@ -4,8 +4,6 @@
 **Betreff:** Kaiserbäderlinie 290/291 + ILSE-Bus (VVG) — Schutzklauseln PBefG & Verfahrensfehler
 **Datum:** 04.06.2026
 **Bezug:** Memo V1 vom 02.06.2026 ("MEMO an Rechtsanwalt Weigel — Kaiserbäder-Linie 290/291 [VVG] — Wettbewerbsverzerrung gegenüber Taxi-Gewerbe")
-**Erstellt durch:** Vorrecherche Mandant + Claude (KI-Assistent)
-
 ---
 
 ## 0. Was neu ist gegenüber Memo V1

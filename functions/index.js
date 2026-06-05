@@ -519,8 +519,19 @@ function isVehicleInShift(vehicleId, shiftsData, dateStr, timeStr) {
 //   isVehicleInShift returnt false → Phase 5 verwirft als Tausch-Kandidat.
 //   Fix: wenn vData.online===true UND vData.shift.status==='active' → akzeptiere
 //   fuer HEUTE (sonst nicht — Live-Status morgen weg, nicht voraussagbar).
-function isVehicleAvailableForRide(vehicleId, vehiclesData, shiftsData, dateStr, timeStr) {
+// v6.63.176: Patrick 05.06. 12:40+12:42 — Vorbestellung NUR an Fahrzeuge im
+// Schichtplan; Live-Override (online+active ohne Plan) nur fuer Sofortfahrten.
+// Bug: cloud-prio-time-resort hat Nicole Schindel 13:40 auf Toyota Prius IK
+// gemappt obwohl Kulpa (IK 222) Freitags FREI hat — App lief seit gestern
+// weil vergessen auszustempeln, Live-Override hat das als 'verfuegbar' gewertet.
+function isVehicleAvailableForRide(vehicleId, vehiclesData, shiftsData, dateStr, timeStr, opts) {
     if (isVehicleInShift(vehicleId, shiftsData, dateStr, timeStr)) return true;
+    // Live-Override nur erlaubt wenn explizit zugelassen (Sofortfahrten).
+    // Standard: zugelassen — Aufrufer fuer Vorbestellungen muss { allowLiveOverride: false } setzen.
+    const allowLiveOverride = !opts || opts.allowLiveOverride !== false;
+    if (!allowLiveOverride) {
+        return false;
+    }
     const vData = (vehiclesData || {})[vehicleId];
     if (!vData) return false;
     if (vData.online !== true) return false;
@@ -528,7 +539,7 @@ function isVehicleAvailableForRide(vehicleId, vehiclesData, shiftsData, dateStr,
     // Nur fuer heute akzeptieren (Berlin-TZ)
     const todayBerlin = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Berlin' });
     if (dateStr !== todayBerlin) return false;
-    console.log(`   🟢 Live-Override ${vehicleId}: kein Wochenplan, aber online+active → fuer ${dateStr} ${timeStr} verfuegbar`);
+    console.log(`   🟢 Live-Override ${vehicleId}: kein Wochenplan, aber online+active → fuer ${dateStr} ${timeStr} verfuegbar (allowLiveOverride=true)`);
     return true;
 }
 
@@ -19336,7 +19347,10 @@ exports.autoResolveConflicts = onSchedule(
                             if (!vInfo) continue;
                             if ((vInfo.capacity || 4) < (ride.passengers || 1)) continue;
                             // 🆕 v6.63.124: Live-Override fuer Fahrer ohne Wochenplan
-                            if (!isVehicleAvailableForRide(vid, vehiclesData, shiftsData, dateStr, timeStr)) continue;
+                            // v6.63.176: ABER nicht in Phase 3 — hier sind nur Vorbestellungen.
+                            // Patrick 05.06. 12:40: 'Vorbestellung darf er theoretisch gar nicht
+                            // verteilen [an Fahrzeuge die nicht im Schichtplan sind].'
+                            if (!isVehicleAvailableForRide(vid, vehiclesData, shiftsData, dateStr, timeStr, { allowLiveOverride: false })) continue;
                             // 🆕 v6.62.323: Konflikt-Check + Leerfahrt-Check zusammen.
                             // Fuer jeden Slot des Fahrzeugs: schafft der Fahrer es vom Slot-Ziel
                             // zum neuen Pickup rechtzeitig? bzw. schafft er nach dem neuen Pickup-
@@ -19534,7 +19548,8 @@ exports.autoResolveConflicts = onSchedule(
                         if (!vInfo) continue;
                         if ((vInfo.capacity || 4) < (earlier.passengers || 1)) continue;
                         // 🆕 v6.63.124: Live-Override fuer Fahrer ohne Wochenplan
-                        if (!isVehicleAvailableForRide(vid, vehiclesData, shiftsData, earlierDate, earlierTimeStr)) continue;
+                        // v6.63.176: Phase 4 ist Vorbestellungs-Resort → Live-Override aus.
+                        if (!isVehicleAvailableForRide(vid, vehiclesData, shiftsData, earlierDate, earlierTimeStr, { allowLiveOverride: false })) continue;
 
                         // SPAETERE vorbestellt/assigned-Fahrten auf vid (assignmentLocked=false)
                         const lateOnVid = allRides.filter(r =>
@@ -19570,7 +19585,8 @@ exports.autoResolveConflicts = onSchedule(
                             if (!altInfo) continue;
                             if ((altInfo.capacity || 4) < (conflictLate.passengers || 1)) continue;
                             // 🆕 v6.63.124: Live-Override fuer Fahrer ohne Wochenplan
-                            if (!isVehicleAvailableForRide(altVid, vehiclesData, shiftsData, laterDate, laterTimeStr)) continue;
+                            // v6.63.176: Phase 4 ist Vorbestellungs-Resort → Live-Override aus.
+                            if (!isVehicleAvailableForRide(altVid, vehiclesData, shiftsData, laterDate, laterTimeStr, { allowLiveOverride: false })) continue;
 
                             const altConflict = allRides.some(r => {
                                 if (r.firebaseId === conflictLate.firebaseId) return false;
@@ -21155,12 +21171,16 @@ exports.scheduledAutoAssign = onSchedule(
                     }
                     // 🔧 v6.38.27: Vier-Augen-Prinzip bei Zuweisung
                     // 🆕 v6.63.124: Live-Override fuer Fahrer ohne Wochenplan (heute aktiv eingeloggt)
+                    // v6.63.176: Live-Override nur fuer Sofortfahrten (Pickup < now+60min).
+                    // Patrick 05.06. 12:40 'Vorbestellung darf er theoretisch gar nicht
+                    // verteilen [an Fahrzeuge die nicht im Schichtplan sind].'
+                    const _isImmediateRide = ride.pickupTimestamp && ((ride.pickupTimestamp - Date.now()) < 60 * 60 * 1000);
                     const _sc1 = isVehicleInShift(vehicleId, shiftsData, dateStr, timeStr);
                     const _sc2 = verifyVehicleShiftIndependent(vehicleId, shiftsData, dateStr, timeStr);
-                    const _scLive = isVehicleAvailableForRide(vehicleId, vehiclesData, shiftsData, dateStr, timeStr);
+                    const _scLive = isVehicleAvailableForRide(vehicleId, vehiclesData, shiftsData, dateStr, timeStr, { allowLiveOverride: _isImmediateRide });
                     if ((!_sc1 || !_sc2.ok) && !_scLive) {
                         if (_sc1 !== _sc2.ok) console.warn(`   ⚠️ DISKREPANZ ${info.name}: isVehicleInShift=${_sc1}, verify=${_sc2.ok} (${_sc2.reason})`);
-                        console.log(`   ❌ ${info.name}: Kein Dienst (${_sc2.reason})`);
+                        console.log(`   ❌ ${info.name}: Kein Dienst (${_sc2.reason})${_isImmediateRide ? '' : ' [Vorbestellung — Live-Override aus]'}`);
                         continue;
                     }
 

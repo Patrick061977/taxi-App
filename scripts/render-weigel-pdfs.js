@@ -19,6 +19,7 @@ const FILES = [
     '2026-06-05_Story_Chronologie_Kurkartenbus_Heringsdorf.md',
     '2026-06-05_Faktentafel_Kurkartenbus_Weigel.md',
     '2026-06-05_Faktentafel_Kurkartenbus_Weigel_ERWEITERUNG.md',
+    '2026-06-05_Sektion_P_Linienprofil_290_291.md',
 ];
 
 const CHROME_PATHS = [

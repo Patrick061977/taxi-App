@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rechnung — Funk Taxi Heringsdorf</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; background: linear-gradient(135deg,#0ea5e9,#0284c7); min-height: 100vh; color: #1f2937; }
+  .wrap { max-width: 480px; margin: 0 auto; padding: 24px 18px; }
+  .logo { color: white; font-size: 22px; font-weight: 800; text-align: center; margin-bottom: 16px; letter-spacing: 0.5px; }
+  .card { background: white; border-radius: 14px; box-shadow: 0 12px 40px rgba(0,0,0,0.18); padding: 24px; }
+  h1 { margin: 0 0 8px 0; font-size: 22px; color: #0c4a6e; }
+  .sub { font-size: 13px; color: #6b7280; margin-bottom: 18px; }
+  .row { display:flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #e5e7eb; font-size: 14px; }
+  .row:last-of-type { border-bottom: 0; }
+  .lbl { color: #6b7280; }
+  .val { font-weight: 600; color: #0c4a6e; text-align: right; }
+  .btn { display: block; width: 100%; padding: 16px; background: linear-gradient(135deg,#10b981,#059669); color: white; border: none; border-radius: 12px; font-size: 16px; font-weight: 700; cursor: pointer; text-align: center; text-decoration: none; margin-top: 14px; }
+  .btn:active { transform: scale(0.98); }
+  .err { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; padding: 14px; border-radius: 10px; font-size: 14px; margin-top: 10px; }
+  .loading { text-align: center; color: #6b7280; padding: 30px 0; font-size: 14px; }
+  .foot { text-align: center; color: rgba(255,255,255,0.85); font-size: 11px; margin-top: 18px; line-height: 1.5; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="logo">🚖 Funk Taxi Heringsdorf</div>
+  <div class="card">
+    <h1>📄 Ihre Rechnung</h1>
+    <div class="sub">Beleg über Ihre Fahrt</div>
+    <div id="content"><div class="loading">⏳ Beleg wird geladen...</div></div>
+  </div>
+  <div class="foot">
+    Funk Taxi Heringsdorf · Patrick Wydra · Amselring 10 · 17424 Ostseebad Heringsdorf<br>
+    Tel. 038378 / 22022 · taxiwydra@googlemail.com
+  </div>
+</div>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyD2eHFcZBkTMU3hPnTBgkFf6lhd6rcgkR8",
+  authDomain: "taxi-heringsdorf.firebaseapp.com",
+  databaseURL: "https://taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "taxi-heringsdorf"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+function showError(msg) {
+  document.getElementById('content').innerHTML = `<div class="err">❌ ${msg}</div>`;
+}
+
+(async () => {
+  const params = new URLSearchParams(location.search);
+  const token = params.get('token') || params.get('t');
+  if (!token || token.length < 16) { showError('Ungültiger Beleg-Link — bitte erneut scannen oder beim Fahrer melden.'); return; }
+  try {
+    const tokSnap = await db.ref('invoiceTokens/' + token).once('value');
+    const tok = tokSnap.val();
+    if (!tok || !tok.rideId) { showError('Beleg nicht (mehr) verfügbar. Bitte beim Fahrer melden.'); return; }
+    if (tok.expiresAt && Date.now() > tok.expiresAt) { showError('Dieser Beleg-Link ist abgelaufen.'); return; }
+    const rideSnap = await db.ref('rides/' + tok.rideId).once('value');
+    const ride = rideSnap.val();
+    if (!ride) { showError('Fahrt nicht gefunden.'); return; }
+    let pdfUrl = ride.pdfUrl || ride.invoicePdfUrl;
+    let invNum = ride.invoiceNumber || '—';
+    if (!pdfUrl && ride.invoiceId) {
+      const invSnap = await db.ref('invoices/' + ride.invoiceId).once('value');
+      const inv = invSnap.val();
+      if (inv) { pdfUrl = inv.pdfUrl || pdfUrl; invNum = inv.invoiceNumber || invNum; }
+    }
+    const dateStr = ride.completedAt ? new Date(ride.completedAt).toLocaleDateString('de-DE') : (ride.pickupTime || '—');
+    const priceStr = ride.price ? (parseFloat(ride.price).toFixed(2).replace('.', ',') + ' €') : '—';
+    const html = `
+      <div class="row"><span class="lbl">Datum</span><span class="val">${dateStr}</span></div>
+      <div class="row"><span class="lbl">Strecke</span><span class="val">${(ride.pickup||'—').slice(0,40)} → ${(ride.destination||'—').slice(0,40)}</span></div>
+      <div class="row"><span class="lbl">Endpreis</span><span class="val">${priceStr}</span></div>
+      <div class="row"><span class="lbl">Rechnungsnr.</span><span class="val">${invNum}</span></div>
+      ${pdfUrl ? `<a class="btn" href="${pdfUrl}" target="_blank" rel="noopener">📥 PDF herunterladen</a>` : `<div class="err">📄 Rechnung wird gerade vom Büro erstellt. Bitte in wenigen Minuten erneut scannen.</div>`}
+    `;
+    document.getElementById('content').innerHTML = html;
+  } catch (e) {
+    console.error(e);
+    showError('Technischer Fehler: ' + e.message);
+  }
+})();
+</script>
+</body>
+</html>

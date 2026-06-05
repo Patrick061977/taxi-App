@@ -326,19 +326,46 @@ function gpsDistanceKm(lat1, lon1, lat2, lon2) {
 }
 
 // 🆕 v6.62.542: Chain-Leerfahrt — schnelle Haversine-Schaetzung der Leerfahrt
-// vom ZIEL der einen Fahrt zum ABHOLORT der naechsten. Loest das Problem dass
-// Erst-Zuweisungs-Konfliktchecks bisher nur eine pauschale Rueckfahrt-zur-Basis
-// (max 30 Min) verwenden — wenn die naechste Pickup weit von der Basis liegt
-// (z.B. PL ↔ DE Grenze) wird die Verkettung unrealistisch.
-// Mirrors _quickLeerfahrtMin in autoResolveConflicts (Zeile 17609 ff): 1.3 Strecken-
-// faktor, 40 km/h Schnitt, mind. 2 Min. Gibt null bei fehlenden Koords.
+// vom ZIEL der einen Fahrt zum ABHOLORT der naechsten.
+// v6.63.171: Faktor 1.3 → 1.4 fuer realistischere Strassen-Schaetzung.
+// Bleibt als synchroner FALLBACK fuer chainLeerfahrtMinAsync wenn OSRM down.
 function chainLeerfahrtMin(fromLat, fromLon, toLat, toLon) {
     const _f1 = parseFloat(fromLat), _f2 = parseFloat(fromLon);
     const _t1 = parseFloat(toLat),   _t2 = parseFloat(toLon);
     if (!Number.isFinite(_f1) || !Number.isFinite(_f2) ||
         !Number.isFinite(_t1) || !Number.isFinite(_t2)) return null;
     const distKm = gpsDistanceKm(_f1, _f2, _t1, _t2);
-    return Math.max(2, Math.round(distKm * 1.3 / 40 * 60));
+    return Math.max(2, Math.round(distKm * 1.4 / 40 * 60));
+}
+
+// v6.63.171: OSRM-Cache fuer Chain-Leerfahrt + Rueckfahrt (Patrick 05.06.07:21)
+// Patrick: 'Wenn der Abholort der naechsten Fahrt geaendert wird, berechnet ihr
+// verkehrt — das ist Quatsch'. Vorher Luftlinie x 1.3 + Cap 30 Min, jetzt echte
+// OSRM-Routing-Berechnung mit 24h-Cache. Bei OSRM-Fail Fallback auf chainLeerfahrtMin.
+const _osrmCache = new Map(); // key 'lat1,lon1>lat2,lon2' (gerundet 4 Dezimalstellen) → { min, t }
+const _OSRM_CACHE_TTL_MS = 24 * 3600 * 1000;
+async function osrmDrivingMin(fromLat, fromLon, toLat, toLon) {
+    const _f1 = parseFloat(fromLat), _f2 = parseFloat(fromLon);
+    const _t1 = parseFloat(toLat),   _t2 = parseFloat(toLon);
+    if (!Number.isFinite(_f1) || !Number.isFinite(_f2) ||
+        !Number.isFinite(_t1) || !Number.isFinite(_t2)) return null;
+    const key = `${_f1.toFixed(4)},${_f2.toFixed(4)}>${_t1.toFixed(4)},${_t2.toFixed(4)}`;
+    const cached = _osrmCache.get(key);
+    if (cached && (Date.now() - cached.t) < _OSRM_CACHE_TTL_MS) return cached.min;
+    try {
+        const url = `https://router.project-osrm.org/route/v1/driving/${_f2},${_f1};${_t2},${_t1}?overview=false`;
+        const resp = await fetch(url, { signal: AbortSignal.timeout(6000) });
+        if (!resp.ok) throw new Error('OSRM HTTP ' + resp.status);
+        const data = await resp.json();
+        const sec = data?.routes?.[0]?.duration;
+        if (typeof sec !== 'number') throw new Error('OSRM kein Route-Ergebnis');
+        const min = Math.max(2, Math.round(sec / 60));
+        _osrmCache.set(key, { min, t: Date.now() });
+        return min;
+    } catch (e) {
+        console.warn('⚠️ OSRM-Routing fehlgeschlagen, Fallback Luftlinie x 1.4:', e.message);
+        return chainLeerfahrtMin(_f1, _f2, _t1, _t2);
+    }
 }
 
 // 🆕 v6.38.27: Unabhängige Kontroll-Prüfung — Vier-Augen-Prinzip
@@ -1159,17 +1186,15 @@ async function autoAssignRide(rideId, rideData) {
                 const _rueckfahrtMinMs = 5 * 60000; // Minimum 5 Min Rückfahrt
 
                 // 🔧 v6.33.8: DYNAMISCHER Rückfahrt-Puffer statt pauschal 30 Min!
-                // Berechne echte Entfernung: Zielort → Homebase → geschätzte Rückfahrzeit
+                // v6.63.171 (Patrick 05.06.07:21): Rueckfahrt jetzt ueber OSRM, KEIN Cap 30 Min mehr.
                 const homeCoords = getVehicleHomeCoords(vehicleId, shiftsData, dateStr, timeStr);
-                function calcReturnMs(ride) {
+                async function calcReturnMsAsync(ride) {
                     const destLat = ride.destCoords?.lat || ride.destinationLat;
                     const destLon = ride.destCoords?.lon || ride.destinationLon;
                     if (!destLat || !destLon || !homeCoords?.lat || !homeCoords?.lon) return _rueckfahrtMaxMs;
-                    const distKm = gpsDistanceKm(destLat, destLon, homeCoords.lat, homeCoords.lon);
-                    // Faktor 1.3 für Straßen vs. Luftlinie, 50 km/h Durchschnitt, +2 Min Puffer
-                    const estMinutes = Math.round((distKm * 1.3 / 50) * 60) + 2;
-                    // Zwischen 5 und maxPuffer (default 30) Min clampen
-                    return Math.max(_rueckfahrtMinMs, Math.min(estMinutes * 60000, _rueckfahrtMaxMs));
+                    const osrmMin = await osrmDrivingMin(destLat, destLon, homeCoords.lat, homeCoords.lon);
+                    if (osrmMin == null) return _rueckfahrtMaxMs;
+                    return Math.max(_rueckfahrtMinMs, osrmMin * 60000); // KEIN Max-Cap mehr
                 }
 
                 // 🔧 v6.33.7: Sofortfahrt — KEIN Rückfahrt-Puffer für die neue Fahrt!
@@ -1187,12 +1212,14 @@ async function autoAssignRide(rideId, rideData) {
                 const newPickupLon = rideData.pickupCoords?.lon || rideData.pickupLon;
                 const newDestLat = rideData.destCoords?.lat || rideData.destinationLat;
                 const newDestLon = rideData.destCoords?.lon || rideData.destinationLon;
+                // v6.63.171: .some() → for-of mit OSRM-await fuer echte Chain-/Rueckfahrt-Berechnung
                 let _conflictRide = null;
-                const hasTimeConflict = allRides.some(r => {
-                    if (r.firebaseId === rideId) return false;
-                    if (r.vehicleId !== vehicleId && r.assignedTo !== vehicleId && r.assignedVehicle !== vehicleId) return false;
-                    if (!r.pickupTimestamp) return false;
-                    if (['deleted','cancelled','storniert','cancelled_pending_driver','completed'].includes(r.status)) return false;
+                let hasTimeConflict = false;
+                for (const r of allRides) {
+                    if (r.firebaseId === rideId) continue;
+                    if (r.vehicleId !== vehicleId && r.assignedTo !== vehicleId && r.assignedVehicle !== vehicleId) continue;
+                    if (!r.pickupTimestamp) continue;
+                    if (['deleted','cancelled','storniert','cancelled_pending_driver','completed'].includes(r.status)) continue;
                     const rDur = (r.duration || r.estimatedDuration || 20) * 60000;
                     const rStart = r.pickupTimestamp;
                     const rDestLat = r.destCoords?.lat || r.destinationLat;
@@ -1200,36 +1227,30 @@ async function autoAssignRide(rideId, rideData) {
                     const rPickupLat = r.pickupCoords?.lat || r.pickupLat;
                     const rPickupLon = r.pickupCoords?.lon || r.pickupLon;
 
-                    // Direktionaler Chain-Check: nur die FRUEHERE Fahrt braucht
-                    // Leerfahrt-Puffer zum Pickup der spaeteren.
                     let rEnd, newEnd;
                     if (rStart < newPickup) {
                         // Bestehende Fahrt r ist Vorgaenger der neuen Fahrt.
-                        // r.dest → new.pickup als echte Leerfahrt.
-                        const _chainMin = chainLeerfahrtMin(rDestLat, rDestLon, newPickupLat, newPickupLon);
-                        const _chainMs = (_chainMin !== null ? _chainMin * 60000 : calcReturnMs(r));
+                        // r.dest → new.pickup als ECHTE Leerfahrt via OSRM.
+                        let _chainMin = await osrmDrivingMin(rDestLat, rDestLon, newPickupLat, newPickupLon);
+                        const _chainMs = (_chainMin !== null) ? (_chainMin * 60000) : (await calcReturnMsAsync(r));
                         rEnd = rStart + rDur + bufferMs + _chainMs;
                         newEnd = newPickup + newDur + bufferMs;
                     } else {
                         // Neue Fahrt ist Vorgaenger der bestehenden Fahrt r.
-                        // new.dest → r.pickup als echte Leerfahrt (bei Sofortfahrt
-                        // genauso, da auch ein Sofort-Fahrer zur naechsten Buchung
-                        // anfahren muss).
-                        const _chainMin = chainLeerfahrtMin(newDestLat, newDestLon, rPickupLat, rPickupLon);
-                        const _chainMs = (_chainMin !== null ? _chainMin * 60000 : (isSofort ? 0 : calcReturnMs(rideData)));
+                        let _chainMin = await osrmDrivingMin(newDestLat, newDestLon, rPickupLat, rPickupLon);
+                        const _chainMs = (_chainMin !== null) ? (_chainMin * 60000) : (isSofort ? 0 : (await calcReturnMsAsync(rideData)));
                         newEnd = newPickup + newDur + bufferMs + _chainMs;
                         rEnd = rStart + rDur + bufferMs;
                     }
-                    if ((newPickup < rEnd) && (rStart < newEnd)) { _conflictRide = r; return true; }
-                    return false;
-                });
+                    if ((newPickup < rEnd) && (rStart < newEnd)) { _conflictRide = r; hasTimeConflict = true; break; }
+                }
                 if (hasTimeConflict) {
                     const _cTime = _conflictRide ? new Date(_conflictRide.pickupTimestamp).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' }) : '?';
-                    // 🔧 v6.38.53: busyUntil berechnen — wann ist das Fahrzeug wieder frei?
+                    // 🔧 v6.38.53: busyUntil berechnen — wann ist das Fahrzeug wieder frei? (v6.63.171: OSRM)
                     let _cBusyUntil = _cTime;
                     if (_conflictRide) {
                         const _cDur = (_conflictRide.duration || _conflictRide.estimatedDuration || 20) * 60000;
-                        const _cReturnMs = typeof calcReturnMs === 'function' ? calcReturnMs(_conflictRide) : 5 * 60000;
+                        const _cReturnMs = await calcReturnMsAsync(_conflictRide);
                         const _cEndMs = _conflictRide.pickupTimestamp + _cDur + bufferMs + _cReturnMs;
                         _cBusyUntil = new Date(_cEndMs).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' });
                     }
@@ -1505,7 +1526,7 @@ async function autoAssignRide(rideId, rideData) {
                 const _prevRide = _prevRides[0];
                 const _prevDurMs = (_prevRide.duration || _prevRide.estimatedDuration || 20) * 60000;
                 // 🔧 v6.38.53: Rückfahrt-Puffer in prevEnd einrechnen (vorher fehlte der!)
-                const _prevReturnMs = typeof calcReturnMs === 'function' ? calcReturnMs(_prevRide) : 5 * 60000;
+                const _prevReturnMs = await calcReturnMsAsync(_prevRide);
                 const _prevEndMs = _prevRide.pickupTimestamp + _prevDurMs + _bufferMs + _prevReturnMs;
 
                 // Leerfahrt vom Ziel der Vorfahrt zum neuen Abholort berechnen

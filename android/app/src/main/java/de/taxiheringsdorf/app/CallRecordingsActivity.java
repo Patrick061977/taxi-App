@@ -359,7 +359,13 @@ public class CallRecordingsActivity extends AppCompatActivity {
                     if (i == j) continue;
                     Recording oth = all.get(j);
                     long diff = Math.abs(cur.timestamp - oth.timestamp);
-                    if (diff < 60_000) { cur.parallel = true; break; }
+                    if (diff < 60_000) {
+                        cur.parallel = true;
+                        // v6.63.182 (Patrick 05.06. 18:04): Partner-Info merken für UI-Anzeige
+                        cur.parallelPartnerName = oth.customerName;
+                        cur.parallelPartnerPhone = oth.phone;
+                        break;
+                    }
                 }
             }
             int matched = 0;
@@ -917,6 +923,11 @@ public class CallRecordingsActivity extends AppCompatActivity {
         String customerName; // null wenn nicht in CRM
         String customerId;   // 🆕 v6.62.890: CRM-ID fuer korrekten Vorbestell-Maske-Pfad (Hotel/Stamm)
         boolean parallel; // v6.62.863: anderer Anruf <60 Sek davor/danach — möglich verpasst
+        // v6.63.182 (Patrick 05.06. 18:04 "auch bei Aufnahmen"): bei parallel-Markierung
+        //   auch Name + Nummer der anderen Aufnahme speichern, damit Anzeige zeigt
+        //   "⚠️ während Müller Hans (+49157...)".
+        String parallelPartnerName;
+        String parallelPartnerPhone;
     }
 
     class RecAdapter extends RecyclerView.Adapter<RecHolder> {
@@ -947,8 +958,22 @@ public class CallRecordingsActivity extends AppCompatActivity {
             String dir = r.direction == 0 ? "⬅️ EIN" : "➡️ AUS";
             String name = r.customerName != null ? r.customerName : r.phone;
             // v6.62.863: Parallel-Anruf-Warnung
+            // v6.63.182 (Patrick 05.06. 18:04 "auch bei Aufnahmen"): Partner-Info anhängen
+            //   damit sichtbar ist mit WELCHEM Anruf parallel.
             String prefix = r.parallel ? "⚠️ " : "";
-            h.t1.setText(prefix + dir + "  " + name);
+            String parallelSuffix = "";
+            if (r.parallel) {
+                String partnerLabel;
+                if (r.parallelPartnerName != null && !r.parallelPartnerName.isEmpty()) {
+                    partnerLabel = r.parallelPartnerName + " (" + (r.parallelPartnerPhone != null ? r.parallelPartnerPhone : "?") + ")";
+                } else if (r.parallelPartnerPhone != null && !r.parallelPartnerPhone.isEmpty()) {
+                    partnerLabel = r.parallelPartnerPhone;
+                } else {
+                    partnerLabel = "anderem Anruf";
+                }
+                parallelSuffix = "  🔗 parallel zu " + partnerLabel;
+            }
+            h.t1.setText(prefix + dir + "  " + name + parallelSuffix);
             if (r.parallel) h.t1.setTextColor(0xFFfbbf24); else h.t1.setTextColor(0xFFffffff);
             String dt = new SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.GERMAN).format(new Date(r.timestamp));
             h.t2.setText(dt + "  ·  " + Formatter.formatShortFileSize(CallRecordingsActivity.this, r.size));

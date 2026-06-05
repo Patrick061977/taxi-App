@@ -23,6 +23,7 @@ const FILES = [
     '2026-06-05_Sektion_Q_Eigen_Gestaendnisse_Tourismus.md',
     '2026-06-05_Sektion_Q9_Personen_Zitate.md',
     '2026-06-05_Sektion_R_Vertragstext_Bekanntmachungen.md',
+    '2026-06-05_IFG_LSBV_MV_Konzession_290_291.md',
 ];
 
 const CHROME_PATHS = [

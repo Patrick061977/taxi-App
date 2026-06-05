@@ -1,12 +1,13 @@
 #!/usr/bin/env node
-// gmail-daily-datev-forward.js — Patrick (29.05.2026 13:26 "Go Mail forward"):
-// Gmail-Rechnungen (taxiwydra@googlemail.com) einmal täglich an DATEV-Belegtransfer
-// weiterleiten. Spiegelt gmx-daily-datev-forward.js für das Gmail-Postfach.
+// gmx-daily-datev-forward.js — Patrick (27.05.2026): GMX-Rechnungen einmal täglich
+// an DATEV-Belegtransfer weiterleiten. Spiegelt das Verhalten der Gmail-Cloud-Function
+// (mailInboxPoller forwardToDatev) für das taxiwydra@gmx.de-Postfach.
 //
-// Beide Postfächer (GMX + Gmail) haben getrennte state-Files damit Duplikat-Schutz
-// pro Quelle wirkt.
+// Default: DRY-RUN (zeigt was gesendet würde, ohne wirklich zu senden).
+// Mit --apply: tatsächlich an DATEV mailen.
 //
-// Default: DRY-RUN. Mit --apply: tatsächlich an DATEV mailen.
+// Sicherheits-Backfill: scannt letzte 7 Tage. Duplikat-Schutz via .gmx-datev-state.json
+// (uid + pdf-filename pro Eintrag).
 
 const fs = require('fs');
 const path = require('path');
@@ -15,21 +16,14 @@ const { ImapFlow } = require('C:/Taxi App/taxi-App-github/functions/node_modules
 const { simpleParser } = require('C:/Taxi App/taxi-App-github/functions/node_modules/mailparser');
 const nodemailer = require('C:/Taxi App/taxi-App-github/functions/node_modules/nodemailer');
 
-const STATE_FILE = path.join(__dirname, '..', '.gmail-datev-state.json');
-const ONEDRIVE_GMX_ROOT = 'C:/Users/Taxi/OneDrive/5.Buchführung/Rechnungen/_Gmail-Eingang';
+const STATE_FILE = path.join(__dirname, '..', '.gmx-datev-state.json');
+const ONEDRIVE_GMX_ROOT = 'C:/Users/Taxi/OneDrive/5.Buchführung/Rechnungen/_GMX-Eingang';
 const DATEV_ADDR = 'e41e7435-8c6b-4078-a3d4-fd7a04a0c891@uploadmail.datev.de';
-const SUBJ_REGEX = /rechnung|invoice|beleg|quittung|abrechnung|fakturen?/i;
-const SUBJ_NEGATIVE = /taxiabrechnung|tagesumsatz|arbeitszeit|wichtiger hinweis|service-erlaubnis|auto-gmx|datev|forward|uploadmail/i;
-// Skip: alle DATEV-Bestätigungen + Forwards aus dem eigenen Postfach + bekannte Skip-Lieferanten
-const SKIP_DOMAINS = new Set([
-    'paypal.de', 'interactivebrokers.com', 'adobe.com',
-    'belege.lexware.de', 'lexware.de',
-    'uploadmail.datev.de',                  // DATEV-Bestätigungen ignorieren
-    'googlemail.com', 'gmail.com',          // eigene Auto-GMX-Forwards ignorieren
-    'taxiwydra@gmx.de'
-]);
-// Patrick 05.06.2026 09:28 — Default: nur Mails vom Vortag (Berlin)
-// weiterleiten, sonst doppelter Versand. Override per BACKFILL_DAYS/SINCE_DATE.
+const SUBJ_REGEX = /rechnung|invoice|beleg|quittung|abrechnung|fakturen?|kostenbescheid|zahlungsaufford|mahnung|kostennote|gebührenbescheid|honorarnote/i;
+// Negative Subject-Filter — Subjects mit diesen Wörtern sind interne Reports, keine Rechnungen
+const SUBJ_NEGATIVE = /taxiabrechnung|tagesumsatz|arbeitszeit|wichtiger hinweis|service-erlaubnis/i;
+const SKIP_DOMAINS = new Set(['paypal.de', 'interactivebrokers.com', 'adobe.com', 'belege.lexware.de', 'lexware.de']);
+// Patrick 05.06.2026 09:28 — Default: nur Mails vom Vortag (Berlin) weiterleiten.
 const BACKFILL_DAYS = parseInt(process.env.BACKFILL_DAYS || '2', 10);
 const SINCE_OVERRIDE = process.env.SINCE_DATE ? new Date(process.env.SINCE_DATE) : null;
 const ONLY_YESTERDAY = !process.env.BACKFILL_DAYS && !process.env.SINCE_DATE;
@@ -42,9 +36,7 @@ function yesterdayBerlinISO() {
 }
 const YESTERDAY_ISO = yesterdayBerlinISO();
 
-function pdfHash(buf) {
-    return crypto.createHash('sha256').update(buf).digest('hex').slice(0, 32);
-}
+function pdfHash(buf) { return crypto.createHash('sha256').update(buf).digest('hex').slice(0, 32); }
 
 function sanitize(s) { return String(s || '').replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').slice(0, 80); }
 
@@ -68,13 +60,13 @@ function saveState(s) { fs.writeFileSync(STATE_FILE, JSON.stringify(s, null, 2))
 
     const state = loadState();
     const imap = new ImapFlow({
-        host: 'imap.gmail.com', port: 993, secure: true,
-        auth: { user: 'taxiwydra@googlemail.com', pass: 'tiajmwotmnltltkh' },
+        host: 'imap.gmx.net', port: 993, secure: true,
+        auth: { user: 'taxiwydra@gmx.de', pass: '4bY2C3h77ZqV' },
         logger: false
     });
     await imap.connect();
     await imap.mailboxOpen('INBOX');
-    LOG('Gmail INBOX geöffnet');
+    LOG('GMX INBOX geöffnet');
 
     const since = SINCE_OVERRIDE || new Date(Date.now() - BACKFILL_DAYS * 86400000);
     const uids = await imap.search({ since });
@@ -112,7 +104,7 @@ function saveState(s) { fs.writeFileSync(STATE_FILE, JSON.stringify(s, null, 2))
             const filename = att.filename || `gmx-${uid}.pdf`;
             const localName = `${dateISO}_uid${uid}_${sanitize(filename)}`;
             const localPath = path.join(targetDir, localName);
-            const key = `gmail:${uid}:${filename}`;
+            const key = `gmx:${uid}:${filename}`;
             const fromFileKey = `${fromAddr}:${filename}`;
             const hash = pdfHash(att.content);
 
@@ -131,8 +123,8 @@ function saveState(s) { fs.writeFileSync(STATE_FILE, JSON.stringify(s, null, 2))
                     const info = await transporter.sendMail({
                         from: '"Funk-Taxi Heringsdorf" <taxiwydra@googlemail.com>',
                         to: DATEV_ADDR,
-                        subject: `[Auto-Gmail] ${fromAddr} — ${subject.slice(0, 60)}`,
-                        text: `Auto-Forward aus taxiwydra@googlemail.com\n\nVon: ${fromAddr}\nBetreff: ${subject}\nDatum: ${p.date?.toISOString() || '?'}\nAnhang: ${filename} (${Math.round(att.content.length / 1024)} KB)\nLokal: ${localPath}\n\nGesendet via scripts/gmail-daily-datev-forward.js`,
+                        subject: `[Auto-GMX] ${fromAddr} — ${subject.slice(0, 60)}`,
+                        text: `Auto-Forward aus taxiwydra@gmx.de\n\nVon: ${fromAddr}\nBetreff: ${subject}\nDatum: ${p.date?.toISOString() || '?'}\nAnhang: ${filename} (${Math.round(att.content.length / 1024)} KB)\nLokal: ${localPath}\n\nGesendet via scripts/gmx-daily-datev-forward.js`,
                         attachments: [{ filename, path: localPath, contentType: 'application/pdf' }]
                     });
                     const meta = { sentAt: Date.now(), messageId: info.messageId, from: fromAddr, subject: subject.slice(0, 200), localPath, key };

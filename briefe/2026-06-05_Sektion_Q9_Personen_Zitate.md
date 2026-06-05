@@ -78,6 +78,51 @@ Für Marisken, Petersen und Nagy bleibt daher der Weg über **Sitzungsprotokoll-
 
 ---
 
+## Q9.A Justiziar Simon Nagy — Schriftliche Stellungnahme an den Mandanten (08.09.2025)
+
+**Quelle:** E-Mail vom Justiziar der Gemeinde Ostseebad Heringsdorf, Simon Nagy (Simon.Nagy@ahlbeck.de), an Patrick Wydra (taxiwydra@googlemail.com) vom 08.09.2025, Betreff „Einbindung des Taxigewerbes in das Kurkarten-Mobilitätssystem".
+
+Die Mail liegt dem Mandanten im Original vor. Sie ist eine **schriftliche und datierte Selbstauskunft** des Justiziars der Gemeinde zur Klassifikation des Verkehrsdienstes und zur Begründung der Kurabgaben-Finanzierung. Sie hat einen besonderen Beweiswert, weil sie:
+- vom **Justiziar** stammt (juristische Hauptverantwortung)
+- **schriftlich + datiert** ist (kein „mündlich gesagt")
+- an den Mandanten **persönlich gerichtet** ist (offiziell adressiert)
+- die rechtliche Position der Gemeinde Heringsdorf **explizit darlegt** (nicht beiläufig)
+
+### Direktzitate (wörtlich):
+
+**N1** — Zur Klassifikation des Verkehrsdienstes:
+>> „Diese Busse **dienen ausschließlich dem Tourismus** und können nur so in die Kurkarte einkalkuliert werden."
+
+**N2** — Zum Zweck der Linie:
+>> „Sie dient dem umweltfreundlichen und möglichst auch effizienten Transport des **Massentourismus** zu Sehenswürdigkeiten und somit zu einer Verbesserung der Aufenthaltsqualität."
+
+**N3** — Zur Trennung Aufgabenträger Landkreis vs. zusätzliches Gemeinde-Angebot:
+>> „Der ÖPNV wird **ausschließlich in Verantwortung des Landkreises** betrieben. Die Gemeinde kooperiert darüber hinaus mit einem Anbieter des ÖPNV (aktuell UBB), der eine **zusätzliche Verbindung** in Heringsdorf schafft."
+
+**N4** — Zum Stellenwert des Taxengewerbes:
+>> „Dass Taxen hierbei eine wichtige und qualitativ noch hochwertigere Möglichkeit darstellen können, **steht außer Frage**."
+
+**N5** — Zur juristischen Konstruktion der Kurabgabe-ÖPNV-Verknüpfung:
+>> „Die juristische Grundlage für die Kurtaxe stellt folglich ein **Aufwiegen gemeindlicher Kosten für den Tourismus** dar. Gemäß § 11 Abs. 1a Nr. 2 Kommunalabgabengesetz M-V dürfen Gemeinden, die als Kur- oder Erholungsorte anerkannt sind, zur Deckung ihrer besonderen Kosten u.a. für die (...) den Abgabepflichtigen eingeräumte **Möglichkeit der kostenlosen oder ermäßigten Benutzung des öffentlichen Personennahverkehrs** und anderer Angebote eine Kurabgabe erheben."
+
+### Folge-Korrespondenz (24.02.2026):
+
+In zwei weiteren E-Mails vom 24.02.2026 (09:23 Uhr und 17:19 Uhr) bezieht sich Nagy auf die Anfrage des Mandanten zur Vorlage des Vertragstexts Heringsdorf↔VVG:
+
+**N6** — Zur Nichtveröffentlichung des VVG-Vertrags:
+>> „Der Vertrag beinhaltet, das liegt in der Natur der Sache, **personenbezogene Daten und Geschäftsfragen der VVG** in nicht unerheblichem Maße. Eine Übersendung via PDF oder die Einsicht für jedermann ist selbst in einem hypothetischen Vergabeverfahren nicht uneingeschränkt möglich."
+
+**N7** — Zur formalen Möglichkeit der Einsicht:
+>> „Es besteht allerdings die Möglichkeit, soweit Sie Ihren Antrag freundlicherweise dahingehend präzisieren mögen, dass die Gemeinde Ostseebad Heringsdorf gemäß § 9 I IFG dem Dritten die Gelegenheit zur Stellungnahme einräumt."
+
+→ Die Gemeinde verweigert die proaktive Veröffentlichung wesentlicher Vertragsinhalte, obwohl Art. 7 Abs. 2/3 VO (EG) 1370/2007 und § 8a Abs. 8 PBefG zwingende Veröffentlichungspflichten für öffentliche Dienstleistungsaufträge vorsehen.
+
+### Subsumtionsfrage Q.9-A für das Gericht:
+
+>> „Wie ist die schriftliche Selbstauskunft des Justiziars Simon Nagy vom 08.09.2025 — ‚Diese Busse dienen ausschließlich dem Tourismus' und ‚Massentourismus zu Sehenswürdigkeiten' — mit einer etwaigen Konzessionserteilung nach § 42 PBefG (klassischer Linienverkehr-ÖPNV) zur Kaiserbäderlinie 290/291 vereinbar? Wie hat die Genehmigungsbehörde LSBV M-V diese behördliche Selbsteinordnung der Gemeinde Heringsdorf bei ihrer Konzessionserteilung an die VVG mbH gewichtet?"
+
+---
+
 ## Q9.5 Hinweis zur Quellen-Lückenliste (Audio/PDF)
 
 Folgende Quellen sind als Direktzitat-Träger plausibel, aber als WebFetch-Ziel nicht ausgewertet (404/503 oder Audio-Format):

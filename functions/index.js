@@ -11809,7 +11809,11 @@ const _lastCallbackPerChat = {};
 //   Aus Telegram-Inline-Button auslösbar. Erstellt Ride aus /anfragen/{id}-Daten,
 //   markiert Anfrage bestätigt (onAnfrageStatusChanged triggert Kunden-SMS),
 //   optional Stripe-Link erstellen + an Kunde mailen.
-async function quickConfirmAnfrageHandler(anfrageId, withStripe, adminChatId) {
+async function quickConfirmAnfrageHandler(anfrageId, withStripe, adminChatId, withSms) {
+    // v6.63.186 (Patrick 05.06. 20:07): withSms-Parameter — wenn false, wird die
+    //   Anfrage mit confirmSkipped=true markiert damit onAnfrageStatusChanged keine
+    //   Kunden-SMS sendet. Use-Case: Patrick will Ride still anlegen ohne Notify.
+    if (typeof withSms === 'undefined') withSms = true;
     const aSnap = await db.ref('anfragen/' + anfrageId).once('value');
     const anfrage = aSnap.val();
     if (!anfrage) return { ok: false, message: 'Anfrage nicht gefunden: ' + anfrageId };
@@ -11865,11 +11869,13 @@ async function quickConfirmAnfrageHandler(anfrageId, withStripe, adminChatId) {
     await rideRef.set(ride);
 
     // Anfrage als bestätigt markieren — triggert onAnfrageStatusChanged → Kunden-SMS
+    //   v6.63.186: confirmSkipped=true wenn withSms=false (Patrick managt selbst)
     await db.ref('anfragen/' + anfrageId).update({
         status: 'bestaetigt',
         rideId,
         confirmedAt: Date.now(),
         confirmedBy: 'telegram-quick-confirm-' + adminChatId,
+        ...(withSms ? {} : { confirmSkipped: true }),
     });
 
     let stripeUrl = '';
@@ -12013,16 +12019,24 @@ async function handleCallback(callback) {
     await addTelegramLog('🖱️', chatId, `Button geklickt: ${_btnLabel}`);
     await answerCallbackQuery(callback.id);
 
-    // v6.63.185 (Patrick 05.06. 19:58 Bridge): Quick-Confirm Webanfrage
-    //   anfrage_stripe_<anfrageId>: Ride anlegen + Stripe-Link an Kunde senden
-    //   anfrage_accept_<anfrageId>: Ride anlegen, ohne Stripe (Patrick managt selbst)
-    if (data.startsWith('anfrage_stripe_') || data.startsWith('anfrage_accept_')) {
-        const _withStripe = data.startsWith('anfrage_stripe_');
-        const _anfrageId = data.replace(/^anfrage_(stripe|accept)_/, '');
+    // v6.63.186 (Patrick 05.06. 20:07 Bridge): 4-Varianten-Wahl statt 1-Klick.
+    //   anfrage_full_*: Ride + SMS + Stripe-Link
+    //   anfrage_ridesms_*: Ride + Kunden-SMS, kein Stripe
+    //   anfrage_rideonly_*: Nur Ride still, ohne SMS, ohne Stripe
+    //   anfrage_keepopen_*: Anfrage offen lassen (kein Backend-Effekt)
+    if (data.startsWith('anfrage_full_') || data.startsWith('anfrage_ridesms_') ||
+        data.startsWith('anfrage_rideonly_') || data.startsWith('anfrage_keepopen_')) {
+        if (data.startsWith('anfrage_keepopen_')) {
+            await sendTelegramMessage(chatId, '✋ Anfrage bleibt offen — Du kannst sie später bearbeiten.');
+            return;
+        }
+        const _withStripe = data.startsWith('anfrage_full_');
+        const _withSms = !data.startsWith('anfrage_rideonly_');
+        const _anfrageId = data.replace(/^anfrage_(full|ridesms|rideonly)_/, '');
         try {
-            const result = await quickConfirmAnfrageHandler(_anfrageId, _withStripe, chatId);
+            const result = await quickConfirmAnfrageHandler(_anfrageId, _withStripe, chatId, _withSms);
             await sendTelegramMessage(chatId,
-                (result.ok ? '✅ ' : '⚠️ ') + result.message,
+                (result.ok ? '' : '⚠️ ') + result.message,
                 result.replyMarkup ? { reply_markup: result.replyMarkup } : {});
         } catch (e) {
             console.error('handleCallback anfrage_:', e.message);
@@ -21925,18 +21939,18 @@ exports.onAnfrageCreated = onValueCreated(
             message += `👥 ${anfrage.passengers || '1'} Pers.\n`;
             message += `💰 ${anfrage.price || '?'}\n`;
             message += `\n⚡ <i>Über: ${anfrage.channel === 'whatsapp' ? 'WhatsApp' : 'E-Mail'}</i>`;
-            // v6.63.185 (Patrick 05.06. 19:58 Bridge "aus Webanfrage gleich Ride erstellen
-            //   bestätigen plus Zahlungslink generieren"): Inline-Buttons.
-            //   - "Akzeptieren + Stripe": legt Ride an + sendet Stripe-Link automatisch
-            //     (nur wenn Anfrage Festpreis-Hinweis + Email/Phone hat)
-            //   - "Nur akzeptieren": markiert Anfrage bestaetigt, Patrick legt Ride manuell
+            // v6.63.185 + v6.63.186 (Patrick 05.06. 20:07 Bridge "Häkchen was ich anklicken
+            //   kann"): 4 Varianten als getrennte Buttons statt 1-Klick-Lösung. Patrick will
+            //   wählen können was alles ausgeführt wird.
             const _hasFestpreis = !!(anfrage.price && String(anfrage.price).match(/\d+/));
             const _hasContact = !!(anfrage.email || anfrage.phone);
             const _btns = [];
             if (_hasFestpreis && _hasContact) {
-                _btns.push([{ text: '💳 Akzeptieren + Stripe-Link', callback_data: 'anfrage_stripe_' + anfrageId }]);
+                _btns.push([{ text: '💳 Ride + SMS + Stripe-Link', callback_data: 'anfrage_full_' + anfrageId }]);
             }
-            _btns.push([{ text: '✅ Nur akzeptieren (manuell)', callback_data: 'anfrage_accept_' + anfrageId }]);
+            _btns.push([{ text: '📅 Ride + Kunden-SMS (kein Stripe)', callback_data: 'anfrage_ridesms_' + anfrageId }]);
+            _btns.push([{ text: '📅 Nur Ride (still, ohne SMS)', callback_data: 'anfrage_rideonly_' + anfrageId }]);
+            _btns.push([{ text: '✋ Erst mal offen lassen', callback_data: 'anfrage_keepopen_' + anfrageId }]);
             await sendToAllAdmins(message, 'new_ride', { reply_markup: { inline_keyboard: _btns } });
             console.log(`✅ Anfrage-Telegram gesendet: ${anfrageId}`);
         } catch (err) {

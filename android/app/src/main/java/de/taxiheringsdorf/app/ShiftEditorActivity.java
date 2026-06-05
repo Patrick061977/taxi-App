@@ -545,12 +545,25 @@ public class ShiftEditorActivity extends AppCompatActivity {
         // v6.62.996: dow wird aus selDate berechnet (kann sich aendern wenn Patrick Datum
         // picked), nicht mehr aus today.
         final String[] dayNames = {"Sonntage", "Montage", "Dienstage", "Mittwoche", "Donnerstage", "Freitage", "Samstage"};
+        // v6.63.182 (Patrick 05.06.2026 17:48-17:53 Bridge): UI-Umkehrung. Patrick erwartet
+        //   dass Tap auf Uhrzeit die HAUPTSCHICHT (defaultTimes) ändert — nicht ein Override
+        //   nebendran schreibt. Bisher: Default OFF → nur Override, parallele "Zusatzschicht".
+        //   Jetzt: Default ON ("alle Freitage als Standard") → ändert defaultTimes UND KEIN
+        //   Override für den einzelnen Tag. Nur wenn User die Checkbox AUSschaltet, schreibt
+        //   die App ein Tag-Override.
         final android.widget.CheckBox cbAllSame = new android.widget.CheckBox(this);
-        cbAllSame.setText("📅 Auch fuer alle " + dayNames[selDate.get(Calendar.DAY_OF_WEEK) - 1] + " als Standard setzen");
-        cbAllSame.setChecked(false); // v6.62.996: Default OFF — Patrick will i.d.R. nur den einen Tag aendern
+        cbAllSame.setText("📅 Hauptschicht für alle " + dayNames[selDate.get(Calendar.DAY_OF_WEEK) - 1] + " ändern");
+        cbAllSame.setChecked(true); // v6.63.182: Default ON — intuitiv "Hauptschicht ändern"
         cbAllSame.setTextSize(13);
         cbAllSame.setPadding(0, pad/2, 0, 0);
         root.addView(cbAllSame);
+        // Zusatzhinweis darunter
+        android.widget.TextView _allSameHint = new android.widget.TextView(this);
+        _allSameHint.setText("✓ angekreuzt = Wochenplan-Hauptschicht ändern · ✗ deaktiviert = NUR diesen einen Tag überschreiben");
+        _allSameHint.setTextSize(10);
+        _allSameHint.setTextColor(0xFF94A3B8);
+        _allSameHint.setPadding(0, 0, 0, pad/2);
+        root.addView(_allSameHint);
 
         // v6.62.996: Inaktiv-Switch — Fahrzeug fuer diesen Tag komplett offline setzen
         final android.widget.CheckBox cbInactive = new android.widget.CheckBox(this);
@@ -660,39 +673,35 @@ public class ShiftEditorActivity extends AppCompatActivity {
                         .getReference("vehicleShifts/" + vs.vehicleId + "/defaults/" + dowSel)
                         .setValue(true);
                 }
-                // 🆕 v6.63.010 (Patrick 29.05. 16:44 'wo ist das Problem den Schichtplan
-                //   aufs Handy zu übernehmen'): No-Op-Save. Wenn die eingegebene Zeit
-                //   exakt der defaultTimes[dow] entspricht UND der User die "Auch für
-                //   alle <Wochentag>"-Checkbox nicht angekreuzt hat UND nicht inactive,
-                //   dann schreiben wir KEINE Tag-Exception → Wochenplan greift wie
-                //   gewuenscht. Plus: bestehende Tag-Exception fuer den Datums-Key
-                //   entfernen damit sie im Web-Editor nicht als 'Zusatzschicht' bleibt.
-                String _defStart = (vs.defaultTimes != null && vs.defaultTimes[dowSel] != null) ? vs.defaultTimes[dowSel][0] : null;
-                String _defEnd = (vs.defaultTimes != null && vs.defaultTimes[dowSel] != null) ? vs.defaultTimes[dowSel][1] : null;
-                boolean _matchesDefault = !inactive && !hasLate[0] && !cbAllSame.isChecked()
-                    && _defStart != null && _defEnd != null
-                    && _defStart.equals(startStr) && _defEnd.equals(endStr);
-                if (_matchesDefault) {
+                // v6.63.182 (Patrick 05.06.2026 17:48-17:53 Bridge): UI-Umkehrung.
+                //   Wenn cbAllSame CHECKED (Default, intuitive Erwartung "Hauptschicht ändern"):
+                //     → KEIN Override für den Tag schreiben — defaultTimes wurde oben bereits
+                //       in Z 631+ gesetzt, das reicht. Plus: alte Tag-Override für diesen
+                //       Datums-Key löschen damit keine "zwei Schichten" parallel angezeigt
+                //       werden (Patricks Bug 17:13 "baut nur eine zusätzliche Schicht ein").
+                //   Wenn cbAllSame UNCHECKED (User will nur diesen einen Tag überschreiben):
+                //     → Tag-Override schreiben wie bisher.
+                final String _todayKey = todayDateKey();
+                final String _datumWarn = _todayKey.equals(dateKey) ? "" : "  ⚠️ NICHT HEUTE";
+                if (cbAllSame.isChecked() && !inactive) {
+                    // Hauptschicht-Mode: nur defaults setzen (oben schon erledigt), alte
+                    //   Tag-Exception aufräumen damit Web-Editor keine 2 Schichten zeigt.
                     FirebaseDatabase.getInstance(DB_URL)
                         .getReference("vehicleShifts/" + vs.vehicleId + "/" + dateKey)
                         .removeValue()
                         .addOnSuccessListener(unused -> Toast.makeText(this,
-                            "✅ " + vs.name + ": " + _dayLabel + " — Wochenplan greift (" + startStr + "–" + endStr + "), keine Tag-Exception nötig.",
+                            "✅ " + vs.name + ": HAUPTSCHICHT alle " + dayNames[dowSel] + " → " + startStr + "–" + endStr,
                             Toast.LENGTH_LONG).show())
                         .addOnFailureListener(e -> Toast.makeText(this,
                             "Fehler beim Aufräumen: " + e.getMessage(), Toast.LENGTH_LONG).show());
                     return;
                 }
-                // v6.63.181: Datum prominent im Toast — Patrick hatte 05.06. 16:56 versehentlich
-                //   morgen editiert weil Default selDate=morgen war (jetzt heute-Default).
-                //   Toast zeigt jetzt "✅ Vito: Sa 06.06. — 07:00–17:00" damit Datum klar ist.
-                final String _todayKey = todayDateKey();
-                final String _datumWarn = _todayKey.equals(dateKey) ? "" : "  ⚠️ NICHT HEUTE";
+                // Override-Mode (cbAllSame OFF oder inactive): nur Tag-Exception schreiben
                 FirebaseDatabase.getInstance(DB_URL)
                     .getReference("vehicleShifts/" + vs.vehicleId + "/" + dateKey)
                     .setValue(entry)
                     .addOnSuccessListener(unused -> Toast.makeText(this,
-                        "✅ " + vs.name + ": " + _dayLabel + " — " + (inactive ? "OFFLINE" : startStr + "–" + endStr) + _datumWarn,
+                        "✅ " + vs.name + ": " + _dayLabel + " (NUR HEUTE) — " + (inactive ? "OFFLINE" : startStr + "–" + endStr) + _datumWarn,
                         Toast.LENGTH_LONG).show())
                     .addOnFailureListener(e -> Toast.makeText(this,
                         "Fehler: " + e.getMessage(), Toast.LENGTH_LONG).show());

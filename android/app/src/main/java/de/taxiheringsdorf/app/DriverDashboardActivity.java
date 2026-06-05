@@ -43,6 +43,7 @@ import java.util.Calendar;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.text.SimpleDateFormat; // v6.63.182 Vorkasse-Link InvoiceNumber-Format
 import java.util.Map;
 
 // v6.43.0: Phase 3a — Driver Dashboard mit allen wichtigen Aktionen.
@@ -1018,6 +1019,8 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 }
                 return true;
             }
+            // v6.63.182 (Patrick 05.06. 17:49 Bridge): Vorkasse-Stripe-Link aus Native
+            if (id == R.id.menu_preauth_link)   { showPreAuthLinkDialog(); return true; }
             if (id == R.id.menu_webapp)         { openWebView(); return true; }
             if (id == R.id.menu_change_vehicle) {
                 getSharedPreferences("driver", MODE_PRIVATE).edit().remove("vehicleId").remove("vehicleName").apply();
@@ -1816,6 +1819,158 @@ public class DriverDashboardActivity extends AppCompatActivity {
             svc.putExtra(ShiftForegroundService.EXTRA_CONTENT_TEXT, "Schicht aktiv via Native-Dashboard");
             startForegroundService(svc);
         }
+    }
+
+    // v6.63.182 (Patrick 05.06. 17:49 Bridge "Native-App Vorkasse-Rechnung verschicken"):
+    //   Modal-Dialog für Stripe-Vorkasse-Link. Eingabe Betrag + Kundenname + optional Email
+    //   + Beschreibung. POST an Cloud Function createStripeCheckout. Stripe-URL kommt zurück,
+    //   wird in Clipboard kopiert + Toast. Patrick kann dann per WhatsApp/Email einfügen.
+    //   Phase 2 (später): direkter WhatsApp-/Email-Intent ohne Clipboard-Umweg.
+    private void showPreAuthLinkDialog() {
+        final android.widget.LinearLayout root = new android.widget.LinearLayout(this);
+        root.setOrientation(android.widget.LinearLayout.VERTICAL);
+        int pad = (int)(16 * getResources().getDisplayMetrics().density);
+        root.setPadding(pad, pad, pad, pad);
+
+        android.widget.TextView lblAmount = new android.widget.TextView(this);
+        lblAmount.setText("💰 Betrag (€):");
+        lblAmount.setTextSize(13);
+        root.addView(lblAmount);
+        final android.widget.EditText edAmount = new android.widget.EditText(this);
+        edAmount.setInputType(android.text.InputType.TYPE_CLASS_NUMBER | android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL);
+        edAmount.setHint("z.B. 124,40");
+        root.addView(edAmount);
+
+        android.widget.TextView lblName = new android.widget.TextView(this);
+        lblName.setText("👤 Kundenname:");
+        lblName.setTextSize(13);
+        lblName.setPadding(0, pad, 0, 0);
+        root.addView(lblName);
+        final android.widget.EditText edName = new android.widget.EditText(this);
+        edName.setHint("Vor- und Nachname");
+        root.addView(edName);
+
+        android.widget.TextView lblEmail = new android.widget.TextView(this);
+        lblEmail.setText("📧 Email (optional, vorausgefüllt):");
+        lblEmail.setTextSize(13);
+        lblEmail.setPadding(0, pad, 0, 0);
+        root.addView(lblEmail);
+        final android.widget.EditText edEmail = new android.widget.EditText(this);
+        edEmail.setInputType(android.text.InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS | android.text.InputType.TYPE_CLASS_TEXT);
+        edEmail.setHint("kunde@example.de");
+        root.addView(edEmail);
+
+        android.widget.TextView lblDesc = new android.widget.TextView(this);
+        lblDesc.setText("📝 Beschreibung:");
+        lblDesc.setTextSize(13);
+        lblDesc.setPadding(0, pad, 0, 0);
+        root.addView(lblDesc);
+        final android.widget.EditText edDesc = new android.widget.EditText(this);
+        edDesc.setHint("z.B. Vorkasse Taxifahrt 13.06.2026 Heringsdorf → Berlin");
+        edDesc.setMinLines(2);
+        root.addView(edDesc);
+
+        android.widget.ScrollView scroll = new android.widget.ScrollView(this);
+        scroll.addView(root);
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("💳 Vorkasse-Link erstellen")
+            .setView(scroll)
+            .setPositiveButton("Stripe-Link generieren", (d, w) -> {
+                String amountStr = edAmount.getText().toString().trim().replace(',', '.');
+                String customerName = edName.getText().toString().trim();
+                String customerEmail = edEmail.getText().toString().trim();
+                String description = edDesc.getText().toString().trim();
+                double amount;
+                try { amount = Double.parseDouble(amountStr); }
+                catch (Throwable _e) {
+                    Toast.makeText(this, "⚠️ Ungültiger Betrag", Toast.LENGTH_LONG).show();
+                    return;
+                }
+                if (amount < 0.5) {
+                    Toast.makeText(this, "⚠️ Mindestbetrag 0,50 €", Toast.LENGTH_LONG).show();
+                    return;
+                }
+                if (customerName.isEmpty()) customerName = "Kunde";
+                final String _name = customerName;
+                final String _email = customerEmail;
+                final String _desc = description;
+                final double _amount = amount;
+                final String _invoiceNumber = "VKAS-" + new SimpleDateFormat("yyMMdd-HHmmss", Locale.GERMANY).format(new java.util.Date());
+                Toast.makeText(this, "⏳ Generiere Stripe-Link...", Toast.LENGTH_SHORT).show();
+                new Thread(() -> {
+                    try {
+                        java.net.URL url = new java.net.URL("https://europe-west1-taxi-heringsdorf.cloudfunctions.net/createStripeCheckout");
+                        java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
+                        conn.setRequestMethod("POST");
+                        conn.setRequestProperty("Content-Type", "application/json; charset=utf-8");
+                        conn.setDoOutput(true);
+                        conn.setConnectTimeout(10000);
+                        conn.setReadTimeout(20000);
+                        org.json.JSONObject body = new org.json.JSONObject();
+                        body.put("invoiceNumber", _invoiceNumber);
+                        body.put("amount", _amount);
+                        body.put("customerName", _name);
+                        if (!_email.isEmpty()) body.put("customerEmail", _email);
+                        body.put("description", _desc.isEmpty() ? ("Vorkasse Funk Taxi Heringsdorf") : _desc);
+                        try (java.io.OutputStream os = conn.getOutputStream()) {
+                            os.write(body.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                        }
+                        int rc = conn.getResponseCode();
+                        java.io.InputStream is = (rc >= 200 && rc < 300) ? conn.getInputStream() : conn.getErrorStream();
+                        java.io.BufferedReader br = new java.io.BufferedReader(new java.io.InputStreamReader(is, java.nio.charset.StandardCharsets.UTF_8));
+                        StringBuilder sb = new StringBuilder(); String line;
+                        while ((line = br.readLine()) != null) sb.append(line);
+                        br.close();
+                        org.json.JSONObject resp = new org.json.JSONObject(sb.toString());
+                        final String checkoutUrl = resp.optString("checkoutUrl", "");
+                        runOnUiThread(() -> {
+                            if (checkoutUrl.isEmpty()) {
+                                Toast.makeText(this, "❌ Kein Link zurück: " + sb, Toast.LENGTH_LONG).show();
+                                return;
+                            }
+                            android.content.ClipboardManager cm = (android.content.ClipboardManager) getSystemService(android.content.Context.CLIPBOARD_SERVICE);
+                            android.content.ClipData clip = android.content.ClipData.newPlainText("Stripe-Vorkasse-Link", checkoutUrl);
+                            cm.setPrimaryClip(clip);
+                            new androidx.appcompat.app.AlertDialog.Builder(this)
+                                .setTitle("✅ Stripe-Link kopiert")
+                                .setMessage("Betrag: " + String.format(Locale.GERMANY, "%.2f", _amount) + " €\n\nLink:\n" + checkoutUrl + "\n\nIn Zwischenablage kopiert — jetzt in WhatsApp / SMS / Email einfügen.")
+                                .setPositiveButton("WhatsApp", (d2, w2) -> shareToWhatsApp(_name, checkoutUrl, _amount))
+                                .setNeutralButton("Email", (d2, w2) -> shareToEmail(_email, _name, checkoutUrl, _amount, _desc))
+                                .setNegativeButton("Schließen", null)
+                                .show();
+                        });
+                    } catch (Throwable t) {
+                        runOnUiThread(() -> Toast.makeText(this, "❌ Fehler: " + t.getMessage(), Toast.LENGTH_LONG).show());
+                    }
+                }).start();
+            })
+            .setNegativeButton("Abbrechen", null)
+            .show();
+    }
+
+    private void shareToWhatsApp(String customerName, String url, double amount) {
+        String msg = "Hallo " + customerName + ",\n\nVorkasse-Link für Taxifahrt (" +
+            String.format(Locale.GERMANY, "%.2f", amount) + " €):\n" + url +
+            "\n\nViele Grüße\nFunk Taxi Heringsdorf";
+        Intent i = new Intent(Intent.ACTION_VIEW);
+        i.setData(android.net.Uri.parse("https://wa.me/?text=" + java.net.URLEncoder.encode(msg)));
+        try { startActivity(i); }
+        catch (Throwable t) { Toast.makeText(this, "WhatsApp nicht installiert", Toast.LENGTH_SHORT).show(); }
+    }
+
+    private void shareToEmail(String to, String customerName, String url, double amount, String desc) {
+        Intent i = new Intent(Intent.ACTION_SENDTO);
+        i.setData(android.net.Uri.parse("mailto:"));
+        if (to != null && !to.isEmpty()) i.putExtra(Intent.EXTRA_EMAIL, new String[]{to});
+        i.putExtra(Intent.EXTRA_SUBJECT, "Vorkasse-Rechnung Funk Taxi Heringsdorf — " + String.format(Locale.GERMANY, "%.2f", amount) + " €");
+        i.putExtra(Intent.EXTRA_TEXT,
+            "Hallo " + customerName + ",\n\n" +
+            (desc.isEmpty() ? "Vorkasse für Taxifahrt" : desc) + "\n\n" +
+            "Betrag: " + String.format(Locale.GERMANY, "%.2f", amount) + " €\n\n" +
+            "Zahlungs-Link (Kreditkarte/SEPA/PayPal/Klarna):\n" + url + "\n\n" +
+            "Mit freundlichen Grüßen\nFunk Taxi Heringsdorf");
+        try { startActivity(Intent.createChooser(i, "Email-App auswählen")); }
+        catch (Throwable t) { Toast.makeText(this, "Keine Email-App: " + t.getMessage(), Toast.LENGTH_SHORT).show(); }
     }
 
     private void openWebView() {

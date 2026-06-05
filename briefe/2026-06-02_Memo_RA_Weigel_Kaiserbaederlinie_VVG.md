@@ -3,8 +3,6 @@
 **Mandant:** Patrick Wydra, Funk Taxi Heringsdorf
 **Betreff:** Kaiserbäder-Linie 290/291 (VVG) — Wettbewerbsverzerrung gegenüber Taxi-Gewerbe
 **Datum:** 02.06.2026
-**Erstellt durch:** Vorrecherche Mandant + Claude (KI-Assistent)
-
 ---
 
 ## I. Sachverhalt

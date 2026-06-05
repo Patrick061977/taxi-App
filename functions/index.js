@@ -11805,6 +11805,195 @@ async function applyAdminAddressChange(chatId, rideId, field, addressText, geo) 
 
 // 🔧 v6.38.35: Duplikat-Schutz für Button-Klicks (verhindert Doppel-Verarbeitung)
 const _lastCallbackPerChat = {};
+// v6.63.185 (Patrick 05.06. 19:58 Bridge): Quick-Confirm Pipeline für Webanfragen.
+//   Aus Telegram-Inline-Button auslösbar. Erstellt Ride aus /anfragen/{id}-Daten,
+//   markiert Anfrage bestätigt (onAnfrageStatusChanged triggert Kunden-SMS),
+//   optional Stripe-Link erstellen + an Kunde mailen.
+async function quickConfirmAnfrageHandler(anfrageId, withStripe, adminChatId) {
+    const aSnap = await db.ref('anfragen/' + anfrageId).once('value');
+    const anfrage = aSnap.val();
+    if (!anfrage) return { ok: false, message: 'Anfrage nicht gefunden: ' + anfrageId };
+    if (anfrage.status === 'bestaetigt' && anfrage.rideId) {
+        return { ok: false, message: 'Anfrage ' + anfrageId + ' ist bereits bestätigt (Ride ' + anfrage.rideId + ').' };
+    }
+
+    // Pickup-Timestamp aus date/time
+    let pickupTimestamp = 0;
+    try {
+        if (anfrage.date && anfrage.time) {
+            // Format date "2026-06-13", time "20:01"
+            pickupTimestamp = new Date(anfrage.date + 'T' + anfrage.time + ':00+02:00').getTime();
+        }
+    } catch (_e) {}
+    if (!pickupTimestamp || isNaN(pickupTimestamp)) pickupTimestamp = Date.now() + 60 * 60 * 1000;
+
+    // Festpreis aus price-String extrahieren
+    let festpreisFix = 0;
+    if (anfrage.price) {
+        const m = String(anfrage.price).match(/(\d+(?:[.,]\d+)?)/);
+        if (m) festpreisFix = parseFloat(m[1].replace(',', '.'));
+    }
+
+    // Ride anlegen
+    const rideRef = db.ref('rides').push();
+    const rideId = rideRef.key;
+    const customerName = anfrage.name || 'Kunde';
+    const customerPhone = anfrage.phone || '';
+    const customerEmail = anfrage.email || '';
+    const customerMobile = anfrage.mobilePhone || (customerPhone && customerPhone.match(/^\+49?1\d/) ? customerPhone : '');
+    const ride = {
+        customerName,
+        customerPhone,
+        customerMobile,
+        email: customerEmail,
+        customerId: anfrage.customerId || null,
+        pickup: anfrage.pickup || '',
+        destination: anfrage.destination || '',
+        pickupTimestamp,
+        pickupDate: anfrage.date || '',
+        pickupTime: anfrage.time || '',
+        passengers: parseInt(anfrage.passengers || '1', 10) || 1,
+        notes: anfrage.notes || '',
+        festpreisFix,
+        status: 'vorbestellt',
+        source: 'web-anfrage-quick-confirm',
+        createdAt: Date.now(),
+        createdBy: 'cloud-quickConfirm-' + adminChatId,
+        anfrageId,
+        paymentMethod: withStripe ? 'stripe' : (festpreisFix > 0 ? 'vorkasse' : 'bar'),
+    };
+    await rideRef.set(ride);
+
+    // Anfrage als bestätigt markieren — triggert onAnfrageStatusChanged → Kunden-SMS
+    await db.ref('anfragen/' + anfrageId).update({
+        status: 'bestaetigt',
+        rideId,
+        confirmedAt: Date.now(),
+        confirmedBy: 'telegram-quick-confirm-' + adminChatId,
+    });
+
+    let stripeUrl = '';
+    let stripeMsg = '';
+    if (withStripe) {
+        if (festpreisFix < 0.5) {
+            stripeMsg = '\n\n⚠️ Kein gültiger Festpreis in der Anfrage — Stripe-Link nicht erstellt.';
+        } else {
+            try {
+                const stripeApi = await getStripe();
+                const invoiceNumber = 'VKAS-RIDE-' + new Date().toISOString().substring(0, 10).replace(/-/g, '') + '-' + rideId.slice(-6);
+                const session = await stripeApi.checkout.sessions.create({
+                    mode: 'payment',
+                    line_items: [{
+                        price_data: {
+                            currency: 'eur',
+                            product_data: {
+                                name: 'Vorkasse Taxifahrt ' + anfrage.date,
+                                description: 'Funk Taxi Heringsdorf — ' + (anfrage.pickup || '') + ' → ' + (anfrage.destination || '')
+                            },
+                            unit_amount: Math.round(festpreisFix * 100),
+                        },
+                        quantity: 1,
+                    }],
+                    metadata: { invoiceNumber, rideId, anfrageId, source: 'taxi-heringsdorf-quick' },
+                    success_url: 'https://taxi-heringsdorf.web.app/payment-success?invoice=' + invoiceNumber,
+                    cancel_url: 'https://taxi-heringsdorf.web.app/payment-cancel?invoice=' + invoiceNumber,
+                    locale: 'de',
+                    ...(customerEmail ? { customer_email: customerEmail } : {}),
+                });
+                stripeUrl = session.url;
+                await rideRef.update({
+                    stripeCheckoutUrl: stripeUrl,
+                    stripeSessionId: session.id,
+                    stripePaymentStatus: 'pending',
+                    stripeCreatedAt: Date.now(),
+                    invoiceNumber,
+                });
+                // Email + SMS senden
+                if (customerEmail) {
+                    try {
+                        await sendStripeLinkEmail(customerEmail, customerName, festpreisFix, stripeUrl, anfrage.date, anfrage.pickup, anfrage.destination);
+                        stripeMsg += '\n\n📧 Stripe-Link per Email an ' + customerEmail + ' gesendet.';
+                    } catch (e) {
+                        stripeMsg += '\n\n⚠️ Email-Versand fehlgeschlagen: ' + e.message;
+                    }
+                }
+                if (customerMobile) {
+                    try {
+                        const smsText = 'Funk Taxi Heringsdorf — Vorkasse-Link für Ihre Buchung ' + festpreisFix.toFixed(2) + ' EUR: ' + stripeUrl;
+                        await sendSmsViaSevenIo(customerMobile, smsText);
+                        stripeMsg += '\n📱 Stripe-Link per SMS an ' + customerMobile + ' gesendet.';
+                    } catch (e) {
+                        stripeMsg += '\n⚠️ SMS-Versand fehlgeschlagen: ' + e.message;
+                    }
+                }
+                if (!customerEmail && !customerMobile) {
+                    stripeMsg += '\n\n⚠️ Kein Email und kein Mobiltelefon — Stripe-Link konnte nicht automatisch gesendet werden. Link manuell weitergeben:\n' + stripeUrl;
+                }
+            } catch (e) {
+                stripeMsg = '\n\n⚠️ Stripe-Link-Erstellung fehlgeschlagen: ' + e.message;
+            }
+        }
+    }
+
+    return {
+        ok: true,
+        message: '✅ Anfrage ' + anfrageId + ' bestätigt → Ride ' + rideId + ' (' + customerName + ')' +
+                 (festpreisFix > 0 ? '\n💰 Festpreis: ' + festpreisFix.toFixed(2) + ' EUR' : '') +
+                 stripeMsg,
+    };
+}
+
+async function sendStripeLinkEmail(toEmail, customerName, amount, stripeUrl, date, pickup, destination) {
+    const _confSnap = await db.ref('settings/email/smtp').once('value');
+    const conf = _confSnap.val();
+    if (!conf || !conf.user || !conf.pass) throw new Error('SMTP-Konfiguration fehlt');
+    const nodemailer = require('nodemailer');
+    const transporter = nodemailer.createTransport({
+        host: conf.host || 'smtp.gmail.com',
+        port: conf.port || 587,
+        secure: conf.secure === true,
+        auth: { user: conf.user, pass: conf.pass },
+    });
+    await transporter.sendMail({
+        from: '"Funk Taxi Heringsdorf" <' + conf.user + '>',
+        to: toEmail,
+        subject: 'Vorkasse-Zahlungslink — Funk Taxi Heringsdorf — ' + amount.toFixed(2) + ' EUR',
+        text: 'Sehr geehrte/r ' + customerName + ',\n\n' +
+              'vielen Dank fuer Ihre Anfrage.\n\n' +
+              'Fuer Ihre Buchung am ' + date + '\n' +
+              'von ' + pickup + '\n' +
+              'nach ' + destination + '\n\n' +
+              'haben wir einen Festpreis von ' + amount.toFixed(2) + ' EUR vereinbart.\n\n' +
+              'Bitte zahlen Sie diesen Betrag vorab ueber den folgenden Stripe-Link (Kreditkarte / SEPA / PayPal / Klarna):\n\n' +
+              stripeUrl + '\n\n' +
+              'Nach erfolgreicher Zahlung gilt Ihre Buchung als bestaetigt.\n\n' +
+              'Mit freundlichen Gruessen\n' +
+              'Funk Taxi Heringsdorf\nTel. 038378 / 22022',
+    });
+}
+
+async function sendSmsViaSevenIo(toPhone, text) {
+    const _confSnap = await db.ref('settings/sms').once('value');
+    const conf = _confSnap.val();
+    if (!conf || !conf.sevenIoApiKey) throw new Error('SMS-Konfiguration fehlt');
+    const params = new URLSearchParams({
+        to: toPhone,
+        text,
+        from: conf.sevenIoFrom || 'FunkTaxi',
+    });
+    const res = await fetch('https://gateway.seven.io/api/sms', {
+        method: 'POST',
+        headers: {
+            'Authorization': 'basic ' + conf.sevenIoApiKey,
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: params.toString(),
+    });
+    if (!res.ok) throw new Error('seven.io HTTP ' + res.status);
+    const json = await res.json();
+    if (json.success !== '100') throw new Error('seven.io ' + (json.success || JSON.stringify(json).substring(0, 200)));
+}
+
 async function handleCallback(callback) {
     const chatId = callback.message.chat.id;
     const data = callback.data;
@@ -11823,6 +12012,24 @@ async function handleCallback(callback) {
     const _btnLabel = callback.message?.reply_markup?.inline_keyboard?.flat()?.find(b => b.callback_data === data)?.text || data;
     await addTelegramLog('🖱️', chatId, `Button geklickt: ${_btnLabel}`);
     await answerCallbackQuery(callback.id);
+
+    // v6.63.185 (Patrick 05.06. 19:58 Bridge): Quick-Confirm Webanfrage
+    //   anfrage_stripe_<anfrageId>: Ride anlegen + Stripe-Link an Kunde senden
+    //   anfrage_accept_<anfrageId>: Ride anlegen, ohne Stripe (Patrick managt selbst)
+    if (data.startsWith('anfrage_stripe_') || data.startsWith('anfrage_accept_')) {
+        const _withStripe = data.startsWith('anfrage_stripe_');
+        const _anfrageId = data.replace(/^anfrage_(stripe|accept)_/, '');
+        try {
+            const result = await quickConfirmAnfrageHandler(_anfrageId, _withStripe, chatId);
+            await sendTelegramMessage(chatId,
+                (result.ok ? '✅ ' : '⚠️ ') + result.message,
+                result.replyMarkup ? { reply_markup: result.replyMarkup } : {});
+        } catch (e) {
+            console.error('handleCallback anfrage_:', e.message);
+            await sendTelegramMessage(chatId, '❌ Fehler: ' + e.message);
+        }
+        return;
+    }
 
     // 🆕 v6.38.0: Foto/Screenshot-Aktionen
     if (data === 'photo_action_booking' || data === 'photo_action_contact' || data === 'photo_action_cancel') {
@@ -20312,8 +20519,12 @@ async function getAdminNotifyPrefs(chatId) {
     } catch (e) { return null; }
 }
 
-async function sendToAllAdmins(message, category) {
+async function sendToAllAdmins(message, category, extraParams) {
     try {
+        // v6.63.185 (Patrick 05.06. 19:58 Bridge): optional extraParams (z.B. inline_keyboard).
+        //   Use-Case: onAnfrageCreated will Telegram-Anfrage mit Inline-Buttons posten
+        //   ('Akzeptieren + Stripe-Link' / 'Nur akzeptieren').
+        const _params = extraParams || {};
         const snapshot = await db.ref('settings/telegram/adminChats').once('value');
         const _raw = snapshot.val();
         // 🔧 v6.38.43: Firebase gibt Arrays manchmal als Objekte zurück → normalisieren
@@ -20340,7 +20551,7 @@ async function sendToAllAdmins(message, category) {
                     }
                 }
             }
-            const result = await sendTelegramMessage(chatId, message);
+            const result = await sendTelegramMessage(chatId, message, _params);
             if (!result) console.error(`❌ sendToAllAdmins: Nachricht an ${chatId} fehlgeschlagen`);
         }
     } catch (e) {
@@ -21714,7 +21925,19 @@ exports.onAnfrageCreated = onValueCreated(
             message += `👥 ${anfrage.passengers || '1'} Pers.\n`;
             message += `💰 ${anfrage.price || '?'}\n`;
             message += `\n⚡ <i>Über: ${anfrage.channel === 'whatsapp' ? 'WhatsApp' : 'E-Mail'}</i>`;
-            await sendToAllAdmins(message, 'new_ride');
+            // v6.63.185 (Patrick 05.06. 19:58 Bridge "aus Webanfrage gleich Ride erstellen
+            //   bestätigen plus Zahlungslink generieren"): Inline-Buttons.
+            //   - "Akzeptieren + Stripe": legt Ride an + sendet Stripe-Link automatisch
+            //     (nur wenn Anfrage Festpreis-Hinweis + Email/Phone hat)
+            //   - "Nur akzeptieren": markiert Anfrage bestaetigt, Patrick legt Ride manuell
+            const _hasFestpreis = !!(anfrage.price && String(anfrage.price).match(/\d+/));
+            const _hasContact = !!(anfrage.email || anfrage.phone);
+            const _btns = [];
+            if (_hasFestpreis && _hasContact) {
+                _btns.push([{ text: '💳 Akzeptieren + Stripe-Link', callback_data: 'anfrage_stripe_' + anfrageId }]);
+            }
+            _btns.push([{ text: '✅ Nur akzeptieren (manuell)', callback_data: 'anfrage_accept_' + anfrageId }]);
+            await sendToAllAdmins(message, 'new_ride', { reply_markup: { inline_keyboard: _btns } });
             console.log(`✅ Anfrage-Telegram gesendet: ${anfrageId}`);
         } catch (err) {
             console.error('❌ onAnfrageCreated Telegram-Fehler:', err.message);

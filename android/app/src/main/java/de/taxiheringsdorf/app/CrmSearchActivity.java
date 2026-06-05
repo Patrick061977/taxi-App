@@ -3304,6 +3304,14 @@ public class CrmSearchActivity extends AppCompatActivity {
                         : ((e.phone != null) ? e.phone : (e.mobilePhone != null ? e.mobilePhone : ""));
                     // Closure: eigentlicher Save-Vorgang (gleicher Code wie vorher)
                     Runnable doActualSave = () -> {
+                        // v6.63.186 (Patrick 05.06. 20:07 Bridge "müsste ich aber auch bei
+                        //   Vorbestellungen das nochmal anhören können"): wenn die Vor-
+                        //   bestellung aus einer Aufnahme angelegt wurde, recordingPath in
+                        //   der Ride persistieren damit Patrick es spaeter in der Ride-
+                        //   Detail-Ansicht wieder abspielen kann.
+                        if (_pendingRecordingPath != null && !_pendingRecordingPath.isEmpty()) {
+                            r.put("audioRecordingPath", _pendingRecordingPath);
+                        }
                         FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("rides").push().setValue(r)
                             .addOnSuccessListener(_v -> {
                                 dlg.dismiss();

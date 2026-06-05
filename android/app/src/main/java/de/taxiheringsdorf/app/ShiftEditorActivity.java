@@ -415,9 +415,13 @@ public class ShiftEditorActivity extends AppCompatActivity {
      *    damit Patrick nicht nur HEUTE sondern beliebige Tage editieren kann. Speichert
      *    in vehicleShifts/{vid}/{YYYY-MM-DD} (gleicher Pfad wie Web-Editor → synchron). */
     private void showTimeEditDialog(VehicleShift vs) {
-        // Default: morgen (Patrick will fast immer den naechsten Tag planen)
+        // v6.63.181 (Patrick 05.06.2026 17:06 "egal ob ich Samstag oder Freitag nehme,
+        //   springt auf 18 Uhr zurueck"): Default selDate = HEUTE statt morgen. Patrick
+        //   hatte ein Override fuer Vito-heute (Vito-Schicht bis 17 statt 18 Uhr) gemacht
+        //   aber selDate=morgen → Save ging in 2026-06-06 (morgen) statt 2026-06-05 (heute).
+        //   Heute-Default ist intuitiver fuer das "fix-it-now"-Use-Case. Wer morgen planen
+        //   will, picked das Datum bewusst.
         final Calendar selDate = Calendar.getInstance();
-        selDate.add(Calendar.DAY_OF_YEAR, 1);
         // 🆕 v6.63.010 (Patrick 29.05. 16:44 "wo ist das Problem den Schichtplan
         //   aufs Handy zu übernehmen"): Pre-Fill aus defaultTimes[dow_of_selDate]
         //   falls vorhanden, statt vs.todayStartTime (= HEUTIGER Tag, falsch wenn
@@ -679,11 +683,16 @@ public class ShiftEditorActivity extends AppCompatActivity {
                             "Fehler beim Aufräumen: " + e.getMessage(), Toast.LENGTH_LONG).show());
                     return;
                 }
+                // v6.63.181: Datum prominent im Toast — Patrick hatte 05.06. 16:56 versehentlich
+                //   morgen editiert weil Default selDate=morgen war (jetzt heute-Default).
+                //   Toast zeigt jetzt "✅ Vito: Sa 06.06. — 07:00–17:00" damit Datum klar ist.
+                final String _todayKey = todayDateKey();
+                final String _datumWarn = _todayKey.equals(dateKey) ? "" : "  ⚠️ NICHT HEUTE";
                 FirebaseDatabase.getInstance(DB_URL)
                     .getReference("vehicleShifts/" + vs.vehicleId + "/" + dateKey)
                     .setValue(entry)
                     .addOnSuccessListener(unused -> Toast.makeText(this,
-                        vs.name + ": " + _dayLabel + " — " + (inactive ? "OFFLINE" : startStr + "–" + endStr),
+                        "✅ " + vs.name + ": " + _dayLabel + " — " + (inactive ? "OFFLINE" : startStr + "–" + endStr) + _datumWarn,
                         Toast.LENGTH_LONG).show())
                     .addOnFailureListener(e -> Toast.makeText(this,
                         "Fehler: " + e.getMessage(), Toast.LENGTH_LONG).show());

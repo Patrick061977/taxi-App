@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Demo C — Wizard Schritt-für-Schritt · Funk Taxi Heringsdorf</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;font-family:-apple-system,'Segoe UI',Roboto,sans-serif}
+  html,body{background:#f8fafc;min-height:100%;color:#1a1a1a;padding-bottom:env(safe-area-inset-bottom)}
+  #header{padding:14px 16px;background:#fff;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:50}
+  #header .logo{font-size:22px}
+  #header .title{font-size:16px;font-weight:700;flex:1}
+  #header .phone{padding:6px 12px;background:#10b981;color:#fff;border-radius:18px;font-size:13px;font-weight:600;text-decoration:none}
+  .step-bar{display:flex;gap:4px;padding:14px 16px;background:#fff;border-bottom:1px solid #e2e8f0}
+  .step-bar .step{flex:1;height:6px;background:#e2e8f0;border-radius:3px;position:relative}
+  .step-bar .step.done{background:#16a34a}
+  .step-bar .step.current{background:#3b82f6}
+  main{padding:18px 16px 30px;max-width:480px;margin:0 auto;min-height:80vh}
+  .step-content{background:#fff;border-radius:16px;padding:20px;box-shadow:0 1px 4px rgba(0,0,0,0.05)}
+  .step-num{font-size:11px;font-weight:700;color:#3b82f6;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px}
+  .step-title{font-size:22px;font-weight:700;margin-bottom:6px;color:#1a1a1a}
+  .step-subtitle{font-size:14px;color:#64748b;margin-bottom:18px}
+  .input-row{position:relative;margin-bottom:12px}
+  .input-row .icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:18px;z-index:2}
+  .input-row input{width:100%;padding:14px 14px 14px 42px;border:2px solid #e2e8f0;border-radius:12px;font-size:15px;background:#fff}
+  .input-row input:focus{border-color:#3b82f6;outline:none}
+  .wann-row{display:flex;gap:8px;margin-bottom:14px}
+  .wann-row .opt{flex:1;padding:18px 12px;text-align:center;border-radius:12px;border:2px solid #e2e8f0;background:#f8fafc;cursor:pointer;font-size:15px;font-weight:600;color:#475569}
+  .wann-row .opt.active{background:#dcfce7;border-color:#16a34a;color:#166534}
+  .nav-row{display:flex;gap:10px;margin-top:24px}
+  .nav-row .back{flex:0 0 80px;padding:14px;background:#fff;border:2px solid #cbd5e1;color:#475569;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer}
+  .nav-row .next{flex:1;padding:14px;background:#10b981;color:#fff;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer}
+  .demo-label{position:fixed;top:0;right:8px;padding:4px 10px;background:#ef4444;color:#fff;border-radius:0 0 8px 8px;font-size:10px;font-weight:700;z-index:200}
+  .demo-tabs{display:flex;gap:6px;padding:10px 16px;background:#fff;overflow-x:auto}
+  .demo-tabs button{padding:8px 14px;border-radius:8px;border:1px solid #cbd5e1;background:#fff;color:#475569;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap}
+  .demo-tabs button.active{background:#3b82f6;color:#fff;border-color:#3b82f6}
+  .panel{display:none}
+  .panel.active{display:block}
+  .eta-info{background:#dcfce7;color:#166534;padding:12px 14px;border-radius:10px;font-size:14px;font-weight:600;margin-bottom:14px;text-align:center}
+  .summary{padding:14px;background:#f8fafc;border-radius:12px;margin-bottom:14px}
+  .summary .row{display:flex;justify-content:space-between;padding:6px 0;font-size:14px}
+  .summary .row .lab{color:#64748b}
+  .summary .row .val{font-weight:600;color:#1a1a1a}
+  .summary .total{border-top:1px solid #cbd5e1;margin-top:8px;padding-top:10px;font-size:18px}
+</style>
+</head>
+<body>
+<div class="demo-label">DEMO C · Wizard</div>
+<div id="header">
+  <span class="logo">🚖</span>
+  <div class="title">Funk Taxi · Buchen</div>
+  <a href="tel:+4938378822022" class="phone">📞</a>
+</div>
+<div class="step-bar">
+  <div class="step current" id="s1-bar"></div>
+  <div class="step" id="s2-bar"></div>
+  <div class="step" id="s3-bar"></div>
+  <div class="step" id="s4-bar"></div>
+</div>
+<div class="demo-tabs">
+  <button class="active" onclick="showStep(1)">1 · Wohin?</button>
+  <button onclick="showStep(2)">2 · Wann?</button>
+  <button onclick="showStep(3)">3 · Karte</button>
+  <button onclick="showStep(4)">4 · Buchen</button>
+</div>
+<main>
+  <div class="panel active" id="p1">
+    <div class="step-content">
+      <div class="step-num">Schritt 1 von 4</div>
+      <div class="step-title">Wohin soll's gehen?</div>
+      <div class="step-subtitle">Tippe Abholort und Zielort ein</div>
+      <div class="input-row">
+        <span class="icon">📍</span>
+        <input type="text" placeholder="Abholort">
+      </div>
+      <div class="input-row">
+        <span class="icon">🎯</span>
+        <input type="text" placeholder="Zielort">
+      </div>
+      <div class="nav-row">
+        <button class="next" style="flex:1" onclick="showStep(2)">Weiter →</button>
+      </div>
+    </div>
+  </div>
+  <div class="panel" id="p2">
+    <div class="step-content">
+      <div class="step-num">Schritt 2 von 4</div>
+      <div class="step-title">Wann?</div>
+      <div class="step-subtitle">Sofort oder geplant?</div>
+      <div class="wann-row">
+        <div class="opt active">⚡ Sofort</div>
+        <div class="opt">📅 Geplant</div>
+      </div>
+      <div class="eta-info">⚡ Taxi sofort verfügbar — 5 Min Wartezeit</div>
+      <div class="nav-row">
+        <button class="back" onclick="showStep(1)">← Zurück</button>
+        <button class="next" onclick="showStep(3)">Weiter →</button>
+      </div>
+    </div>
+  </div>
+  <div class="panel" id="p3">
+    <div class="step-content">
+      <div class="step-num">Schritt 3 von 4</div>
+      <div class="step-title">Route bestätigen</div>
+      <div class="step-subtitle">Karte zeigt Deine Strecke und den Preis</div>
+      <div style="height:220px;background:linear-gradient(135deg,#1e3a8a,#0c4a6e);border-radius:12px;margin-bottom:14px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:16px;font-weight:600">🗺️ Route & Preis</div>
+      <div class="summary">
+        <div class="row"><span class="lab">Strecke</span><span class="val">— km</span></div>
+        <div class="row"><span class="lab">Fahrzeit</span><span class="val">— Min</span></div>
+        <div class="row total"><span class="lab">Preis</span><span class="val" style="color:#16a34a">— €</span></div>
+      </div>
+      <div class="nav-row">
+        <button class="back" onclick="showStep(2)">← Zurück</button>
+        <button class="next" onclick="showStep(4)">Weiter →</button>
+      </div>
+    </div>
+  </div>
+  <div class="panel" id="p4">
+    <div class="step-content">
+      <div class="step-num">Schritt 4 von 4</div>
+      <div class="step-title">Name & Buchen</div>
+      <div class="step-subtitle">Letzte Eingaben, dann ist's gebucht</div>
+      <div class="input-row">
+        <span class="icon">👤</span>
+        <input type="text" placeholder="Ihr Name">
+      </div>
+      <div class="input-row">
+        <span class="icon">📱</span>
+        <input type="tel" placeholder="Mobilnummer (für SMS)">
+      </div>
+      <div class="nav-row">
+        <button class="back" onclick="showStep(3)">← Zurück</button>
+        <button class="next">✅ Taxi buchen</button>
+      </div>
+    </div>
+  </div>
+</main>
+<script>
+function showStep(n) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('p' + n).classList.add('active');
+  document.querySelectorAll('.demo-tabs button').forEach((b, i) => b.classList.toggle('active', i + 1 === n));
+  for (let i = 1; i <= 4; i++) {
+    const bar = document.getElementById('s' + i + '-bar');
+    bar.className = 'step';
+    if (i < n) bar.classList.add('done');
+    else if (i === n) bar.classList.add('current');
+  }
+}
+</script>
+</body>
+</html>

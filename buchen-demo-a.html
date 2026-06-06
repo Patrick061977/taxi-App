@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Demo A — Bolt-Style · Funk Taxi Heringsdorf</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;font-family:-apple-system,'Segoe UI',Roboto,sans-serif}
+  html,body{height:100%;background:#1a1a1a;overflow:hidden}
+  #map{position:fixed;top:0;left:0;right:0;bottom:0;background:linear-gradient(135deg,#1e3a8a 0%,#0c4a6e 100%);display:flex;align-items:center;justify-content:center}
+  #map::before{content:'';position:absolute;top:30%;left:50%;width:60px;height:60px;background:radial-gradient(circle,#10b981 30%,transparent 50%);transform:translateX(-50%);animation:pulse 2s infinite}
+  #map::after{content:'🚕';position:absolute;top:calc(30% + 18px);left:calc(50% - 14px);font-size:32px;z-index:2}
+  .pin{position:absolute;font-size:24px;animation:float 3s infinite ease-in-out}
+  .pin1{top:20%;left:20%;animation-delay:0s}
+  .pin2{top:45%;left:75%;animation-delay:1s}
+  .pin3{top:60%;left:35%;animation-delay:2s}
+  @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+  @keyframes pulse{0%,100%{transform:translateX(-50%) scale(1);opacity:0.7}50%{transform:translateX(-50%) scale(1.4);opacity:0.3}}
+  #top-bar{position:fixed;top:env(safe-area-inset-top,0);left:0;right:0;padding:14px 16px;background:rgba(0,0,0,0.5);backdrop-filter:blur(8px);display:flex;align-items:center;gap:10px;z-index:100;color:#fff}
+  #top-bar .back{width:36px;height:36px;background:rgba(255,255,255,0.15);border:none;color:#fff;font-size:18px;border-radius:50%;cursor:pointer}
+  #top-bar .title{font-size:15px;font-weight:600;flex:1}
+  #top-bar .phone{padding:6px 12px;background:#10b981;color:#fff;border-radius:18px;font-size:13px;font-weight:600;text-decoration:none}
+  #bottom-sheet{position:fixed;bottom:0;left:0;right:0;background:#fff;border-radius:24px 24px 0 0;box-shadow:0 -8px 24px rgba(0,0,0,0.15);padding:8px 16px 18px;z-index:50;max-height:65vh;overflow-y:auto}
+  #bottom-sheet .grip{width:48px;height:4px;background:#cbd5e1;border-radius:2px;margin:0 auto 14px}
+  .eta-pill{background:#dcfce7;color:#166534;padding:10px 16px;border-radius:14px;font-size:14px;font-weight:700;text-align:center;margin-bottom:14px;display:flex;align-items:center;justify-content:center;gap:8px}
+  .input-row{margin-bottom:10px;position:relative}
+  .input-row .icon{position:absolute;left:14px;top:50%;transform:translateY(-50%);font-size:18px;z-index:2}
+  .input-row input{width:100%;padding:14px 14px 14px 44px;border:2px solid #e2e8f0;border-radius:12px;font-size:15px;background:#f8fafc;color:#1a1a1a}
+  .input-row input:focus{border-color:#10b981;background:#fff;outline:none}
+  .swap{text-align:center;margin:-4px 0 6px}
+  .swap button{width:36px;height:36px;border-radius:50%;border:1px solid #e2e8f0;background:#fff;color:#475569;cursor:pointer;font-size:14px}
+  .wann-row{display:flex;gap:8px;margin-bottom:14px}
+  .wann-row .opt{flex:1;padding:12px;text-align:center;border-radius:12px;border:2px solid #e2e8f0;background:#f8fafc;cursor:pointer;font-size:14px;font-weight:600;color:#475569}
+  .wann-row .opt.active{background:#dcfce7;border-color:#16a34a;color:#166534}
+  .price-summary{background:#f8fafc;border-radius:12px;padding:12px 14px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center}
+  .price-summary .km{font-size:12px;color:#64748b}
+  .price-summary .price{font-size:20px;font-weight:700;color:#1a1a1a}
+  .cta{width:100%;padding:16px;background:#1a1a1a;color:#fff;border:none;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer;letter-spacing:0.5px}
+  .cta:active{background:#000}
+  .demo-label{position:fixed;top:env(safe-area-inset-top,0);right:8px;padding:4px 10px;background:#ef4444;color:#fff;border-radius:0 0 8px 8px;font-size:10px;font-weight:700;z-index:200}
+</style>
+</head>
+<body>
+<div class="demo-label">DEMO A · Bolt-Style</div>
+<div id="map">
+  <div class="pin pin1">🚕</div>
+  <div class="pin pin2">🚖</div>
+  <div class="pin pin3">🚖</div>
+</div>
+<div id="top-bar">
+  <button class="back">←</button>
+  <div class="title">Taxi buchen</div>
+  <a href="tel:+4938378822022" class="phone">📞 Anruf</a>
+</div>
+<div id="bottom-sheet">
+  <div class="grip"></div>
+  <div class="eta-pill">⚡ Taxi verfügbar · 5 Min Wartezeit</div>
+  <div class="input-row">
+    <span class="icon">📍</span>
+    <input type="text" placeholder="Abholort eingeben…" value="">
+  </div>
+  <div class="swap"><button>🔄</button></div>
+  <div class="input-row">
+    <span class="icon">🎯</span>
+    <input type="text" placeholder="Wohin?" value="">
+  </div>
+  <div class="wann-row">
+    <div class="opt active">⚡ Sofort</div>
+    <div class="opt">📅 Geplant</div>
+  </div>
+  <div class="price-summary">
+    <div>
+      <div class="km">— km · — Min</div>
+      <div class="price">— €</div>
+    </div>
+    <div style="font-size:12px;color:#64748b;text-align:right;">Adressen<br>eingeben</div>
+  </div>
+  <button class="cta">Taxi buchen →</button>
+</div>
+</body>
+</html>

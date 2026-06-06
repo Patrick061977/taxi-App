@@ -21510,7 +21510,12 @@ exports.scheduledAutoAssign = onSchedule(
                     // 🐛 v6.62.534: Nur Fahrten am SELBEN TAG zaehlen (Patrick: "von schichtbeginn")
                     const _dayLastenmalus = getOptForTimestamp(ride.pickupTimestamp).lastenmalus;
                     const _pickupDayStr2 = berlinDateGlobal(ride.pickupTimestamp);
-                    const _activeStatusesScheduled = ['new','vorbestellt','assigned','accepted','on_way','arrived','picked_up','sofort','warteschlange'];
+                    // v6.63.192 (Patrick 06.06. 10:50): "Er kann die Last nicht berechnen,
+                    //   weil er die Vorbestellungen die er noch gar nicht macht mitzählt."
+                    //   Nur TATSÄCHLICHE Belastung zählen: on_way/arrived/picked_up (laufend)
+                    //   + completed (heute schon gefahren). vorbestellt/assigned/accepted sind
+                    //   nur Reservierungen, keine Last.
+                    const _activeStatusesScheduled = ['on_way','arrived','picked_up','completed'];
                     const _isActiveSameDay2 = (r) => {
                         if (!r || !r.pickupTimestamp) return false;
                         if (r.firebaseId === rideId) return false;

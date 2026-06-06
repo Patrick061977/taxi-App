@@ -2958,7 +2958,10 @@ public class CrmSearchActivity extends AppCompatActivity {
                 if (_ch && pickupCoords != null && destCoords != null
                     && !Double.isNaN(pickupCoords[0]) && !Double.isNaN(destCoords[0])
                     && pickupCoords[0] != 0 && destCoords[0] != 0) {
-                    // Distanz + Preis berechnen
+                    // 🔧 v6.63.199 (Patrick 06.06. 18:33): Preis-Bug. Bisher flache 2.50€/km
+                    //   plus immer *1.30 worst-case Aufschlag → für 11.2km 41.60€ statt 32€.
+                    //   Korrektur: gestaffelter Eichtarif M-V (3.30/2.80/2.20 €/km) ohne
+                    //   Pauschalaufschlag, identisch zu functions/index.js calculatePrice().
                     double _luftKm = haversineMeters(pickupCoords[0], pickupCoords[1], destCoords[0], destCoords[1]) / 1000.0;
                     double _strKm = _luftKm * 1.4;
                     long _tsCalc = _dtNow > 0 ? _dtNow : System.currentTimeMillis();
@@ -2967,11 +2970,18 @@ public class CrmSearchActivity extends AppCompatActivity {
                     int _hour = _picCal.get(java.util.Calendar.HOUR_OF_DAY);
                     int _day = _picCal.get(java.util.Calendar.DAY_OF_WEEK) - 1;
                     boolean _isNight = _hour >= 22 || _hour < 6 || _day == 0;
-                    double _kmPreis = _isNight ? _strKm * 2.80 : _strKm * 2.50;
-                    double _basePreis = 4.0 + _kmPreis;
+                    // Eichtarif M-V (Funk Taxi Heringsdorf — synchron zu functions/index.js TARIF)
+                    double _grund    = _isNight ? 5.50 : 4.00;
+                    double _km12     = 3.30;                          // Tag+Nacht gleich
+                    double _km34     = 2.80;                          // Tag+Nacht gleich
+                    double _kmAb5    = _isNight ? 2.40 : 2.20;
+                    double _kmPreis;
+                    if (_strKm <= 2)      { _kmPreis = _strKm * _km12; }
+                    else if (_strKm <= 4) { _kmPreis = 2 * _km12 + (_strKm - 2) * _km34; }
+                    else                  { _kmPreis = 2 * _km12 + 2 * _km34 + (_strKm - 4) * _kmAb5; }
+                    double _basePreis = _grund + _kmPreis;
                     int _pxNow = _paxNow + 1;
-                    if (_pxNow >= 5) _basePreis += 10.0;
-                    _basePreis *= 1.30;
+                    if (_pxNow >= 5) _basePreis += 10.0;              // Großraumzuschlag bei 5+ Personen
                     double _finalPreis = Math.round(_basePreis * 10) / 10.0;
                     String _tarifLbl = _day == 0 ? " (So-Tarif)" : (_isNight ? " (Nachttarif)" : "");
                     _livePriceInfo.setText(String.format(Locale.GERMANY,
@@ -3001,9 +3011,13 @@ public class CrmSearchActivity extends AppCompatActivity {
                         "</style>" +
                         "</head><body>" +
                         "<div id='overlay'><span class='km' id='kmTxt'>Lade Route…</span>" +
-                        "<span class='pr'>%s</span></div>" +
+                        "<span class='pr' id='prTxt'>%s</span></div>" +
                         "<div id='map'></div><script>" +
                         "const pLat=%f,pLon=%f,dLat=%f,dLon=%f;" +
+                        // 🔧 v6.63.199: Eichtarif-Parameter aus Java → JS reicht weiter
+                        "const isNight=%s,grund=%f,kmAb5=%f,pax=%d,tarifLbl=%s;" +
+                        "const km12=3.30,km34=2.80;" +
+                        "function calcPreis(km){let kp;if(km<=2)kp=km*km12;else if(km<=4)kp=2*km12+(km-2)*km34;else kp=2*km12+2*km34+(km-4)*kmAb5;let b=grund+kp;if(pax>=5)b+=10;return Math.round(b*10)/10;}" +
                         "const m=L.map('map',{zoomControl:false,attributionControl:false});" +
                         "L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(m);" +
                         "const pickIcon=L.divIcon({className:'',html:'<div style=\"background:#10b981;color:#fff;border-radius:50%%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-weight:bold;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.4)\">S</div>',iconSize:[28,28],iconAnchor:[14,14]});" +
@@ -3013,14 +3027,16 @@ public class CrmSearchActivity extends AppCompatActivity {
                         // Fallback bounds + Luftlinie (sofort sichtbar während OSRM lädt)
                         "let route=L.polyline([[pLat,pLon],[dLat,dLon]],{color:'#94a3b8',weight:3,opacity:0.6,dashArray:'8,8'}).addTo(m);" +
                         "m.fitBounds([[pLat,pLon],[dLat,dLon]],{padding:[40,40]});" +
-                        // Echte OSRM-Route holen
+                        // Echte OSRM-Route holen + Preis basierend auf ECHTER km neu berechnen
                         "fetch('https://router.project-osrm.org/route/v1/driving/'+pLon+','+pLat+';'+dLon+','+dLat+'?overview=full&geometries=geojson')" +
                         ".then(r=>r.json()).then(j=>{" +
                           "if(!j.routes||!j.routes[0])return;" +
                           "const r=j.routes[0];" +
-                          "const km=(r.distance/1000).toFixed(1);" +
+                          "const kmF=r.distance/1000;" +
                           "const min=Math.round(r.duration/60);" +
-                          "document.getElementById('kmTxt').textContent='📏 '+km+' km · '+min+' Min';" +
+                          "const preis=calcPreis(kmF);" +
+                          "document.getElementById('kmTxt').textContent='📏 '+kmF.toFixed(1)+' km · '+min+' Min';" +
+                          "document.getElementById('prTxt').textContent='~'+preis.toFixed(2).replace('.',',')+' €'+tarifLbl;" +
                           "route.remove();" +
                           "const coords=r.geometry.coordinates.map(c=>[c[1],c[0]]);" +
                           "L.polyline(coords,{color:'#4F46E5',weight:5,opacity:0.9}).addTo(m);" +
@@ -3028,7 +3044,9 @@ public class CrmSearchActivity extends AppCompatActivity {
                         "}).catch(e=>{document.getElementById('kmTxt').textContent='⚠️ Route nicht verfügbar';});" +
                         "</script></body></html>",
                         _preisLbl,
-                        _pLat, _pLon, _dLat, _dLon);
+                        _pLat, _pLon, _dLat, _dLon,
+                        _isNight ? "true" : "false", _grund, _kmAb5, _pxNow,
+                        "'" + _tarifLbl.replace("'", "\\'") + "'");
                     _liveMap.loadDataWithBaseURL("https://unpkg.com/", _html, "text/html", "UTF-8", null);
                     // Tap auf Live-Karte oeffnet Google Maps mit Route
                     _liveMap.setOnLongClickListener(_mv -> {

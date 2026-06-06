@@ -137,14 +137,6 @@
       <div style="font-size:11px;color:#94a3b8;text-align:right">Eichtarif M-V<br>inkl. MwSt.</div>
     </div>
   </div>
-  <div id="contact-felder" style="display:none">
-    <div style="position:relative;margin-bottom:8px">
-      <input type="text" id="b-name" placeholder="Ihr Name…" autocomplete="name" style="width:100%;padding:14px;border:2px solid #e5e7eb;border-radius:14px;font-size:15px;background:#f9fafb">
-    </div>
-    <div style="position:relative;margin-bottom:8px">
-      <input type="tel" id="b-phone" placeholder="Handynummer (für SMS)…" autocomplete="tel" style="width:100%;padding:14px;border:2px solid #e5e7eb;border-radius:14px;font-size:15px;background:#f9fafb">
-    </div>
-  </div>
   <button class="cta disabled" id="cta-btn" onclick="onBookClick()">Adressen eingeben →</button>
 </div>
 <script>
@@ -427,12 +419,10 @@
     const btn = document.getElementById('cta-btn');
     const contact = document.getElementById('contact-felder');
     if (p && d && pickupCoords && destCoords) {
-      contact.style.display = 'block';
       btn.classList.remove('disabled');
       btn.textContent = '🚖 Taxi buchen';
       document.body.classList.add('both-set');
     } else {
-      contact.style.display = 'none';
       btn.classList.add('disabled');
       btn.textContent = p || d ? 'Beide Adressen eingeben →' : 'Adressen eingeben →';
       document.body.classList.remove('both-set');
@@ -460,57 +450,32 @@
     ov.classList.toggle('show', show);
   }
 
-  // Buchung anlegen
-  async function onBookClick() {
+  // Buchung: Patrick 06.06. 21:27: 'SMS wird nach Taxi buchen eingegeben — Feld brauchen wir nicht'
+  // -> Redirect zu buchen.html mit allen Adress-Daten als URL-Params.
+  //    Dort übernimmt der bestehende Phone-Auth-Flow + SMS-Verifizierung.
+  function onBookClick() {
     if (!pickupCoords || !destCoords) return;
-    const name = (document.getElementById('b-name').value || '').trim();
-    const phone = (document.getElementById('b-phone').value || '').trim();
-    if (!name) return toast('Bitte Namen eingeben');
-    if (!phone || phone.length < 6) return toast('Bitte Handynummer eingeben');
+    const pickup = document.getElementById('b-pickup').value.trim();
+    const destination = document.getElementById('b-destination').value.trim();
     const mode = document.querySelector('.wann .opt.active').dataset.mode;
-    let pickupTimestamp = Date.now();
+    const params = new URLSearchParams();
+    params.set('from', pickup);
+    params.set('to', destination);
+    params.set('fromLat', pickupCoords.lat.toString());
+    params.set('fromLon', pickupCoords.lon.toString());
+    params.set('toLat', destCoords.lat.toString());
+    params.set('toLon', destCoords.lon.toString());
     if (mode === 'vorbestellen') {
       const d = document.getElementById('b-date').value;
       const t = document.getElementById('b-time').value;
       if (!d || !t) return toast('Datum + Uhrzeit wählen');
-      pickupTimestamp = new Date(d + 'T' + t + ':00').getTime();
-      if (pickupTimestamp < Date.now()) return toast('Zeitpunkt liegt in der Vergangenheit');
+      params.set('date', d);
+      params.set('time', t);
+    } else {
+      params.set('mode', 'sofort');
     }
-    const pickup = document.getElementById('b-pickup').value.trim();
-    const destination = document.getElementById('b-destination').value.trim();
-    busy(true, 'Buchung wird angelegt…');
-    try {
-      // Distanz + Preis
-      const km = Math.round(haversineKm(pickupCoords.lat, pickupCoords.lon, destCoords.lat, destCoords.lon) * 1.4 * 10) / 10;
-      const price = calculatePrice(km, pickupTimestamp);
-      const ride = {
-        pickup, destination,
-        pickupLat: pickupCoords.lat, pickupLon: pickupCoords.lon,
-        destinationLat: destCoords.lat, destinationLon: destCoords.lon,
-        pickupTimestamp,
-        passengers: 1,
-        customerName: name,
-        customerPhone: phone,
-        customerMobile: phone,
-        status: mode === 'vorbestellen' ? 'vorbestellt' : 'new',
-        distance: km,
-        estimatedPrice: price,
-        paymentMethod: 'bar',
-        source: 'buchen-v2',
-        createdAt: Date.now(),
-        bookingChannel: 'web-v2'
-      };
-      const ref = db.ref('rides').push();
-      await ref.set(ride);
-      busy(false);
-      toast('✅ Buchung erfolgreich — SMS-Bestätigung folgt');
-      setTimeout(() => {
-        window.location.href = `/Taxi-App/track.html?ride=${ref.key}`;
-      }, 1500);
-    } catch (e) {
-      busy(false);
-      toast('Fehler: ' + (e.message || e));
-    }
+    params.set('via', 'v2');
+    window.location.href = '/Taxi-App/buchen.html?' + params.toString();
   }
 </script>
 </body>

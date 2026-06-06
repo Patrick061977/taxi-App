@@ -2979,27 +2979,55 @@ public class CrmSearchActivity extends AppCompatActivity {
                         _strKm, _finalPreis, _tarifLbl));
                     _livePriceInfo.setVisibility(android.view.View.VISIBLE);
                     _liveMap.setVisibility(android.view.View.VISIBLE);
-                    // 🆕 v6.63.196: Leaflet+OSM via WebView (kein API-Key noetig — wie buchen.html)
+                    // 🆕 v6.63.198 (Patrick 06.06. 17:55): Echte OSRM-Route statt Luftlinie.
+                    //   Plus km+Preis als Overlay oben links auf der Karte.
                     final double _pLat = pickupCoords[0], _pLon = pickupCoords[1];
                     final double _dLat = destCoords[0], _dLon = destCoords[1];
+                    final String _preisLbl = String.format(Locale.GERMANY, "~%.2f €%s", _finalPreis, _tarifLbl);
                     String _html = String.format(Locale.US,
                         "<!doctype html><html><head>" +
                         "<meta name='viewport' content='width=device-width,initial-scale=1'/>" +
                         "<link rel='stylesheet' href='https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'/>" +
                         "<script src='https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'></script>" +
-                        "<style>html,body,#map{height:100%%;margin:0;padding:0;background:#1f2937}</style>" +
-                        "</head><body><div id='map'></div><script>" +
+                        "<style>" +
+                        "html,body,#map{height:100%%;margin:0;padding:0;background:#1f2937}" +
+                        "#overlay{position:absolute;top:8px;left:8px;right:8px;z-index:1000;" +
+                        "background:rgba(255,255,255,0.96);padding:8px 12px;border-radius:8px;" +
+                        "box-shadow:0 2px 8px rgba(0,0,0,0.25);" +
+                        "font-family:-apple-system,Segoe UI,Roboto,sans-serif;font-size:14px;color:#1f2937;" +
+                        "display:flex;justify-content:space-between;align-items:center;gap:8px}" +
+                        "#overlay .km{font-weight:700;color:#4F46E5}" +
+                        "#overlay .pr{font-weight:700;color:#10b981}" +
+                        "</style>" +
+                        "</head><body>" +
+                        "<div id='overlay'><span class='km' id='kmTxt'>Lade Route…</span>" +
+                        "<span class='pr'>%s</span></div>" +
+                        "<div id='map'></div><script>" +
+                        "const pLat=%f,pLon=%f,dLat=%f,dLon=%f;" +
                         "const m=L.map('map',{zoomControl:false,attributionControl:false});" +
                         "L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(m);" +
                         "const pickIcon=L.divIcon({className:'',html:'<div style=\"background:#10b981;color:#fff;border-radius:50%%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-weight:bold;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.4)\">S</div>',iconSize:[28,28],iconAnchor:[14,14]});" +
                         "const destIcon=L.divIcon({className:'',html:'<div style=\"background:#ef4444;color:#fff;border-radius:50%%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-weight:bold;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.4)\">Z</div>',iconSize:[28,28],iconAnchor:[14,14]});" +
-                        "L.marker([%f,%f],{icon:pickIcon}).addTo(m);" +
-                        "L.marker([%f,%f],{icon:destIcon}).addTo(m);" +
-                        "L.polyline([[%f,%f],[%f,%f]],{color:'#4F46E5',weight:5,opacity:0.8}).addTo(m);" +
-                        "m.fitBounds([[%f,%f],[%f,%f]],{padding:[40,40]});" +
+                        "L.marker([pLat,pLon],{icon:pickIcon}).addTo(m);" +
+                        "L.marker([dLat,dLon],{icon:destIcon}).addTo(m);" +
+                        // Fallback bounds + Luftlinie (sofort sichtbar während OSRM lädt)
+                        "let route=L.polyline([[pLat,pLon],[dLat,dLon]],{color:'#94a3b8',weight:3,opacity:0.6,dashArray:'8,8'}).addTo(m);" +
+                        "m.fitBounds([[pLat,pLon],[dLat,dLon]],{padding:[40,40]});" +
+                        // Echte OSRM-Route holen
+                        "fetch('https://router.project-osrm.org/route/v1/driving/'+pLon+','+pLat+';'+dLon+','+dLat+'?overview=full&geometries=geojson')" +
+                        ".then(r=>r.json()).then(j=>{" +
+                          "if(!j.routes||!j.routes[0])return;" +
+                          "const r=j.routes[0];" +
+                          "const km=(r.distance/1000).toFixed(1);" +
+                          "const min=Math.round(r.duration/60);" +
+                          "document.getElementById('kmTxt').textContent='📏 '+km+' km · '+min+' Min';" +
+                          "route.remove();" +
+                          "const coords=r.geometry.coordinates.map(c=>[c[1],c[0]]);" +
+                          "L.polyline(coords,{color:'#4F46E5',weight:5,opacity:0.9}).addTo(m);" +
+                          "m.fitBounds(coords,{padding:[40,40]});" +
+                        "}).catch(e=>{document.getElementById('kmTxt').textContent='⚠️ Route nicht verfügbar';});" +
                         "</script></body></html>",
-                        _pLat, _pLon, _dLat, _dLon,
-                        _pLat, _pLon, _dLat, _dLon,
+                        _preisLbl,
                         _pLat, _pLon, _dLat, _dLon);
                     _liveMap.loadDataWithBaseURL("https://unpkg.com/", _html, "text/html", "UTF-8", null);
                     // Tap auf Live-Karte oeffnet Google Maps mit Route

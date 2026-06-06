@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Demo D — Premium Karte · Funk Taxi Heringsdorf</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;font-family:-apple-system,'Segoe UI',Roboto,sans-serif}
+  html,body{height:100%;overflow:hidden;background:#0a0a0a;color:#fff}
+  #map{position:fixed;top:0;left:0;right:0;bottom:0}
+  /* Echte Leaflet Karte fuellt Hintergrund */
+  .leaflet-container{background:#0a0a0a !important}
+  .leaflet-tile-pane{filter:brightness(0.78) saturate(1.05)}
+  /* Top-Bar — schwebt ueber der Karte */
+  #top-bar{position:fixed;top:env(safe-area-inset-top,0);left:8px;right:8px;padding:10px 12px;background:rgba(15,15,15,0.65);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);display:flex;align-items:center;gap:10px;z-index:1000;border-radius:18px;margin-top:8px;border:1px solid rgba(255,255,255,0.08)}
+  #top-bar .menu{width:36px;height:36px;background:rgba(255,255,255,0.1);border:none;color:#fff;font-size:18px;border-radius:50%;cursor:pointer}
+  #top-bar .brand{flex:1;font-size:14px;font-weight:600;color:#fff;letter-spacing:0.3px}
+  #top-bar .brand span{color:#fbbf24;font-weight:800}
+  #top-bar .phone{padding:8px 14px;background:#fbbf24;color:#1a1a1a;border-radius:18px;font-size:13px;font-weight:700;text-decoration:none}
+  /* GPS-Button schwebend */
+  #gps-btn{position:fixed;bottom:340px;right:16px;width:44px;height:44px;background:#fff;color:#1a1a1a;border:none;border-radius:50%;font-size:18px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.3);z-index:500;display:flex;align-items:center;justify-content:center}
+  /* Bottom-Sheet */
+  #sheet{position:fixed;bottom:0;left:0;right:0;background:#fff;color:#1a1a1a;border-radius:24px 24px 0 0;box-shadow:0 -10px 30px rgba(0,0,0,0.25);padding:8px 18px 22px;z-index:600;transition:transform 0.3s cubic-bezier(0.4,0,0.2,1);max-height:75vh;overflow-y:auto}
+  #sheet .grip{width:42px;height:5px;background:#e2e8f0;border-radius:3px;margin:0 auto 14px}
+  /* ETA-Status */
+  .eta{display:flex;align-items:center;gap:10px;padding:12px 14px;background:#f0fdf4;border:1px solid #86efac;border-radius:12px;margin-bottom:14px}
+  .eta .dot{width:10px;height:10px;background:#16a34a;border-radius:50%;animation:pulse 1.5s infinite;flex-shrink:0}
+  .eta .text{font-size:14px;font-weight:700;color:#166534}
+  .eta .sub{font-size:11px;color:#16a34a;margin-top:1px}
+  @keyframes pulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.4);opacity:0.5}}
+  /* Adressen */
+  .addr{position:relative;margin-bottom:8px}
+  .addr .dot{position:absolute;left:14px;top:50%;transform:translateY(-50%);width:10px;height:10px;border-radius:50%;z-index:2}
+  .addr .dot.pick{background:#16a34a;box-shadow:0 0 0 4px #dcfce7}
+  .addr .dot.dest{background:#dc2626;box-shadow:0 0 0 4px #fecaca}
+  .addr input{width:100%;padding:14px 14px 14px 36px;border:2px solid #e5e7eb;border-radius:14px;font-size:15px;background:#f9fafb;color:#1a1a1a}
+  .addr input:focus{border-color:#1a1a1a;background:#fff;outline:none}
+  .swap-line{display:flex;align-items:center;gap:8px;margin:0 0 8px}
+  .swap-line::before,.swap-line::after{content:'';flex:1;height:1px;background:#e5e7eb}
+  .swap-line button{width:30px;height:30px;border-radius:50%;border:1px solid #cbd5e1;background:#fff;color:#475569;cursor:pointer;font-size:12px}
+  /* Wann-Toggle */
+  .wann{display:flex;gap:6px;margin-bottom:14px;background:#f1f5f9;padding:4px;border-radius:14px}
+  .wann .opt{flex:1;padding:11px;text-align:center;border-radius:10px;cursor:pointer;font-size:14px;font-weight:600;color:#64748b;transition:all 0.2s}
+  .wann .opt.active{background:#1a1a1a;color:#fff;box-shadow:0 2px 6px rgba(0,0,0,0.15)}
+  /* CTA */
+  .cta{width:100%;padding:16px;background:#1a1a1a;color:#fff;border:none;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer;letter-spacing:0.3px;display:flex;align-items:center;justify-content:center;gap:8px;transition:transform 0.1s}
+  .cta:active{transform:scale(0.98);background:#000}
+  .cta.disabled{background:#cbd5e1;color:#94a3b8;cursor:not-allowed}
+  /* Demo-Label */
+  .demo-label{position:fixed;top:0;right:8px;padding:4px 10px;background:#dc2626;color:#fff;border-radius:0 0 8px 8px;font-size:10px;font-weight:700;z-index:2000;letter-spacing:0.3px}
+  /* Pulse für eigene Position auf Karte */
+  .user-pulse{width:18px;height:18px;background:#1e88e5;border:3px solid #fff;border-radius:50%;box-shadow:0 0 0 0 rgba(30,136,229,0.6);animation:userPulse 2s infinite}
+  @keyframes userPulse{0%{box-shadow:0 0 0 0 rgba(30,136,229,0.7)}70%{box-shadow:0 0 0 16px rgba(30,136,229,0)}100%{box-shadow:0 0 0 0 rgba(30,136,229,0)}}
+  /* Taxi-Marker */
+  .taxi-pin{font-size:24px;text-align:center;line-height:1}
+</style>
+</head>
+<body>
+<div class="demo-label">DEMO D · Premium</div>
+<div id="map"></div>
+<div id="top-bar">
+  <button class="menu">☰</button>
+  <div class="brand">FUNK<span>TAXI</span> · Heringsdorf</div>
+  <a href="tel:+4938378822022" class="phone">📞</a>
+</div>
+<button id="gps-btn" title="Mein Standort">📍</button>
+<div id="sheet">
+  <div class="grip"></div>
+  <div class="eta">
+    <div class="dot"></div>
+    <div>
+      <div class="text">⚡ Taxi sofort verfügbar</div>
+      <div class="sub">Nächster Wagen: 5 Min · ab Heringsdorf</div>
+    </div>
+  </div>
+  <div class="addr">
+    <div class="dot pick"></div>
+    <input type="text" placeholder="Abholort eingeben…">
+  </div>
+  <div class="swap-line"><button>⇅</button></div>
+  <div class="addr">
+    <div class="dot dest"></div>
+    <input type="text" placeholder="Wohin?">
+  </div>
+  <div class="wann">
+    <div class="opt active">⚡ Sofort</div>
+    <div class="opt">📅 Geplant</div>
+  </div>
+  <button class="cta disabled">Adressen eingeben →</button>
+</div>
+<script>
+  const map = L.map('map', { zoomControl: false, attributionControl: false }).setView([53.951, 14.171], 14);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+  // User-Position (animiert)
+  const userIcon = L.divIcon({ className: '', html: '<div class="user-pulse"></div>', iconSize: [18,18], iconAnchor: [9,9] });
+  L.marker([53.951, 14.171], { icon: userIcon }).addTo(map);
+  // Taxi-Pins simuliert
+  const taxiIcon = (emoji) => L.divIcon({ className: '', html: '<div class="taxi-pin">' + emoji + '</div>', iconSize: [28,28], iconAnchor: [14,14] });
+  L.marker([53.954, 14.176], { icon: taxiIcon('🚕') }).addTo(map);
+  L.marker([53.948, 14.165], { icon: taxiIcon('🚖') }).addTo(map);
+  L.marker([53.953, 14.182], { icon: taxiIcon('🚖') }).addTo(map);
+</script>
+</body>
+</html>

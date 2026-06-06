@@ -378,38 +378,49 @@
 
     <script>
         // v6.63.135 (Patrick 04.06. 08:22): Erste Version der Veranstaltungs-Seite.
-        //   Daten aktuell hardcoded (Stand kaiserbaeder.de Juni 2026). Folge-PR: Cloud
-        //   Function syncEventsDaily soll täglich pullen und nach /events/ schreiben.
         // v6.63.138 (Patrick 04.06. 08:28): Ticket-URLs pro Event hinzugefuegt.
-        //   Fallback: kaiserbaeder.de/veranstaltungen (Quelle des Eintrags).
+        // v6.63.142 (Patrick 04.06. 08:51): 22 Juni-Events.
+        // v6.63.202 (Patrick 06.06. 19:08 "Ja Veranstaltungen + Chapeau Rouge"):
+        //   - Pro Event Direkt-Suchlink kaiserbaeder.de?s=<Titel> statt Sammel-URL
+        //   - Auto-Filter: Vergangene Events werden zur Laufzeit ausgeblendet
+        //   - Neue Events ergänzt: Chapeau Rouge, Strandläufer-Barfuß-Konzerte,
+        //     Seebrückenfest Bansin, Ahlbecker Sommerfest, STAHLZEIT, Uwe Steimle,
+        //     Open-Air-Kino
         const _TICKETS_FALLBACK = 'https://www.kaiserbaeder.de/veranstaltungen/';
-        // v6.63.142 (Patrick 04.06. 08:51 "ein bisschen scrapen, mehr Sachen,
-        //   nach Tagen geordnet"): 22 Juni-Events von kaiserbaeder.de.
-        //   Zeiten sind 19:30 default wenn unbekannt — wer's genau braucht,
-        //   klickt auf "Info beim Veranstalter".
+        const _ticketSearch = (title) => 'https://www.kaiserbaeder.de/?s=' + encodeURIComponent(title);
         const _events = [
-            { date: '2026-06-04T19:00', title: 'Lerne Lachen, ohne zu weinen', venue: 'Villa Irmgard', city: 'Heringsdorf', price: 'ab 16 €', category: 'Lesung', desc: 'Musikalisch-literarischer Abend', tickets: _TICKETS_FALLBACK },
-            { date: '2026-06-06T07:00', title: 'Usedom Beach Marathon', venue: 'Strandpromenade Heringsdorf', city: 'Heringsdorf', price: 'Anmeldung erforderlich', category: 'Sport', desc: 'Cross-Marathon entlang der Ostseeküste', tickets: _TICKETS_FALLBACK },
-            { date: '2026-06-06T19:30', title: 'Bach trifft Bachmann', venue: 'Hans-Werner-Richter-Haus', city: 'Bansin', price: 'ab 10 €', category: 'Konzert', desc: 'Klassisches Konzert', tickets: _TICKETS_FALLBACK },
-            { date: '2026-06-09T20:00', title: 'Gold von den Sternen', venue: 'Villa Irmgard', city: 'Heringsdorf', price: 'ab 16 €', category: 'Konzert', desc: 'Duo ›con emozione‹', tickets: _TICKETS_FALLBACK },
-            { date: '2026-06-10T19:30', title: 'Ostseebad Ahlbeck', venue: 'Haus des Gastes', city: 'Ahlbeck', price: 'ab 5 €', category: 'Vortrag', desc: 'Vortragsreihe Ortsgeschichte (10.06.-11.11.)', tickets: _TICKETS_FALLBACK },
-            { date: '2026-06-11T19:00', title: 'Oper und Operette', venue: 'Villa Irmgard', city: 'Heringsdorf', price: 'ab 16 €', category: 'Konzert', desc: 'Klassik-Abend', tickets: _TICKETS_FALLBACK },
-            { date: '2026-06-11T19:30', title: 'Ich möchte mir Flügel wünschen', venue: 'Hans-Werner-Richter-Haus', city: 'Bansin', price: 'ab 7 €', category: 'Lesung', desc: 'Literarischer Abend', tickets: _TICKETS_FALLBACK },
-            { date: '2026-06-12T20:00', title: 'Swing to Salsa', venue: 'Strandpromenade', city: 'Heringsdorf', price: 'frei', category: 'Tanz', desc: 'Drei Tage Tanz-Festival (12.-14.06.)', tickets: _TICKETS_FALLBACK },
-            { date: '2026-06-12T20:00', title: 'Melancholerisch', venue: 'Haus des Gastes', city: 'Ahlbeck', price: 'ab 16 €', category: 'Theater', desc: 'Theater-Comedy', tickets: _TICKETS_FALLBACK },
-            { date: '2026-06-13T20:00', title: 'Quatsch Comedy Club Live', venue: 'Kaiserbädersaal', city: 'Heringsdorf', price: 'ab 28 €', category: 'Comedy', desc: 'Stand-Up-Show mit wechselnden Comedians', tickets: _TICKETS_FALLBACK },
-            { date: '2026-06-16T19:00', title: 'Irgendwas ist immer', venue: 'Villa Irmgard', city: 'Heringsdorf', price: 'ab 16 €', category: 'Lesung', desc: 'mit Anette Richter & Ulrich Maria Kellner', tickets: _TICKETS_FALLBACK },
-            { date: '2026-06-17T19:30', title: 'Heringsdorf — Fischerkolonie zum Seebad', venue: 'Haus des Gastes', city: 'Ahlbeck', price: 'ab 5 €', category: 'Vortrag', desc: 'Ortsgeschichts-Vortrag', tickets: _TICKETS_FALLBACK },
-            { date: '2026-06-18T19:00', title: 'Literarischer Abend Maxim Gorki', venue: 'Villa Irmgard', city: 'Heringsdorf', price: 'ab 16 €', category: 'Lesung', desc: 'Russische Literatur', tickets: _TICKETS_FALLBACK },
-            { date: '2026-06-19T20:00', title: 'Vorsicht bissig!', venue: 'Haus des Gastes', city: 'Ahlbeck', price: 'ab 16 €', category: 'Comedy', desc: 'Comedy-Show', tickets: _TICKETS_FALLBACK },
-            { date: '2026-06-20T19:30', title: 'Die Geschichte des DDR-Fussballs', venue: 'Haus des Gastes', city: 'Ahlbeck', price: 'ab 5 €', category: 'Vortrag', desc: 'Sportgeschichts-Vortrag', tickets: _TICKETS_FALLBACK },
-            { date: '2026-06-21T19:30', title: 'Die Brotbäckerin', venue: 'Hans-Werner-Richter-Haus', city: 'Bansin', price: 'ab 10 €', category: 'Lesung', desc: 'Literarische Lesung', tickets: _TICKETS_FALLBACK },
-            { date: '2026-06-23T19:00', title: 'Chanson a la carte', venue: 'Villa Irmgard', city: 'Heringsdorf', price: 'ab 16 €', category: 'Konzert', desc: 'mit Arnold Krohne und Maxim Shagaev', tickets: _TICKETS_FALLBACK },
-            { date: '2026-06-24T19:30', title: 'Küstenflieger über Ostsee', venue: 'Haus des Gastes', city: 'Ahlbeck', price: 'ab 5 €', category: 'Vortrag', desc: 'Bildvortrag Luftfahrt (24.06.-09.12.)', tickets: _TICKETS_FALLBACK },
-            { date: '2026-06-25T19:00', title: 'Eine musikalische Weltreise', venue: 'Villa Irmgard', city: 'Heringsdorf', price: 'ab 16 €', category: 'Konzert', desc: 'Klassik-Abend', tickets: _TICKETS_FALLBACK },
-            { date: '2026-06-25T19:30', title: 'Im Etablissement der Schmetterlinge', venue: 'Hans-Werner-Richter-Haus', city: 'Bansin', price: 'ab 7 €', category: 'Lesung', desc: 'Literarischer Abend', tickets: _TICKETS_FALLBACK },
-            { date: '2026-06-26T20:00', title: 'Lerne lachen ohne zu weinen', venue: 'Haus des Gastes', city: 'Ahlbeck', price: 'ab 16 €', category: 'Theater', desc: 'Comedy-Abend', tickets: _TICKETS_FALLBACK },
-            { date: '2026-06-30T19:00', title: 'Erich Kästner — Johannes Kirchberg', venue: 'Villa Irmgard', city: 'Heringsdorf', price: 'ab 16 €', category: 'Lesung', desc: 'Lesung und Musik', tickets: _TICKETS_FALLBACK }
+            // Juni — verbleibende Events (vergangene werden zur Laufzeit gefiltert)
+            { date: '2026-06-09T20:00', title: 'Gold von den Sternen', venue: 'Villa Irmgard', city: 'Heringsdorf', price: 'ab 16 €', category: 'Konzert', desc: 'Duo ›con emozione‹', tickets: _ticketSearch('Gold von den Sternen Villa Irmgard') },
+            { date: '2026-06-10T19:30', title: 'Ostseebad Ahlbeck', venue: 'Haus des Gastes', city: 'Ahlbeck', price: 'ab 5 €', category: 'Vortrag', desc: 'Vortragsreihe Ortsgeschichte (10.06.-11.11.)', tickets: _ticketSearch('Ostseebad Ahlbeck Vortragsreihe') },
+            { date: '2026-06-11T19:00', title: 'Oper und Operette', venue: 'Villa Irmgard', city: 'Heringsdorf', price: 'ab 16 €', category: 'Konzert', desc: 'Klassik-Abend', tickets: _ticketSearch('Oper und Operette Villa Irmgard') },
+            { date: '2026-06-11T19:30', title: 'Ich möchte mir Flügel wünschen', venue: 'Hans-Werner-Richter-Haus', city: 'Bansin', price: 'ab 7 €', category: 'Lesung', desc: 'Literarischer Abend', tickets: _ticketSearch('Ich möchte mir Flügel wünschen') },
+            { date: '2026-06-12T20:00', title: 'Swing to Salsa', venue: 'Strandpromenade', city: 'Heringsdorf', price: 'frei', category: 'Tanz', desc: 'Drei Tage Tanz-Festival (12.-14.06.)', tickets: _ticketSearch('Swing to Salsa Heringsdorf') },
+            { date: '2026-06-12T20:00', title: 'Melancholerisch', venue: 'Haus des Gastes', city: 'Ahlbeck', price: 'ab 16 €', category: 'Theater', desc: 'Theater-Comedy', tickets: _ticketSearch('Melancholerisch Ahlbeck') },
+            { date: '2026-06-13T20:00', title: 'Quatsch Comedy Club Live', venue: 'Kaiserbädersaal', city: 'Heringsdorf', price: 'ab 28 €', category: 'Comedy', desc: 'Stand-Up-Show mit wechselnden Comedians', tickets: _ticketSearch('Quatsch Comedy Club Kaiserbädersaal') },
+            { date: '2026-06-16T19:00', title: 'Irgendwas ist immer', venue: 'Villa Irmgard', city: 'Heringsdorf', price: 'ab 16 €', category: 'Lesung', desc: 'mit Anette Richter & Ulrich Maria Kellner', tickets: _ticketSearch('Irgendwas ist immer Villa Irmgard') },
+            { date: '2026-06-17T19:30', title: 'Heringsdorf — Fischerkolonie zum Seebad', venue: 'Haus des Gastes', city: 'Ahlbeck', price: 'ab 5 €', category: 'Vortrag', desc: 'Ortsgeschichts-Vortrag', tickets: _ticketSearch('Fischerkolonie zum Seebad') },
+            { date: '2026-06-18T19:00', title: 'Literarischer Abend Maxim Gorki', venue: 'Villa Irmgard', city: 'Heringsdorf', price: 'ab 16 €', category: 'Lesung', desc: 'Russische Literatur', tickets: _ticketSearch('Maxim Gorki Villa Irmgard') },
+            { date: '2026-06-19T20:00', title: 'Vorsicht bissig!', venue: 'Haus des Gastes', city: 'Ahlbeck', price: 'ab 16 €', category: 'Comedy', desc: 'Comedy-Show', tickets: _ticketSearch('Vorsicht bissig Ahlbeck') },
+            { date: '2026-06-20T19:30', title: 'Die Geschichte des DDR-Fussballs', venue: 'Haus des Gastes', city: 'Ahlbeck', price: 'ab 5 €', category: 'Vortrag', desc: 'Sportgeschichts-Vortrag', tickets: _ticketSearch('DDR Fussball Vortrag Ahlbeck') },
+            { date: '2026-06-21T19:30', title: 'Die Brotbäckerin', venue: 'Hans-Werner-Richter-Haus', city: 'Bansin', price: 'ab 10 €', category: 'Lesung', desc: 'Literarische Lesung', tickets: _ticketSearch('Die Brotbäckerin Bansin') },
+            { date: '2026-06-23T19:00', title: 'Chanson a la carte', venue: 'Villa Irmgard', city: 'Heringsdorf', price: 'ab 16 €', category: 'Konzert', desc: 'mit Arnold Krohne und Maxim Shagaev', tickets: _ticketSearch('Chanson a la carte Villa Irmgard') },
+            { date: '2026-06-24T19:30', title: 'Küstenflieger über Ostsee', venue: 'Haus des Gastes', city: 'Ahlbeck', price: 'ab 5 €', category: 'Vortrag', desc: 'Bildvortrag Luftfahrt (24.06.-09.12.)', tickets: _ticketSearch('Küstenflieger Ostsee Ahlbeck') },
+            { date: '2026-06-25T19:00', title: 'Eine musikalische Weltreise', venue: 'Villa Irmgard', city: 'Heringsdorf', price: 'ab 16 €', category: 'Konzert', desc: 'Klassik-Abend', tickets: _ticketSearch('Musikalische Weltreise Villa Irmgard') },
+            { date: '2026-06-25T19:30', title: 'Im Etablissement der Schmetterlinge', venue: 'Hans-Werner-Richter-Haus', city: 'Bansin', price: 'ab 7 €', category: 'Lesung', desc: 'Literarischer Abend', tickets: _ticketSearch('Etablissement der Schmetterlinge') },
+            { date: '2026-06-26T20:00', title: 'Lerne lachen ohne zu weinen', venue: 'Haus des Gastes', city: 'Ahlbeck', price: 'ab 16 €', category: 'Theater', desc: 'Comedy-Abend', tickets: _ticketSearch('Lerne lachen ohne zu weinen Ahlbeck') },
+            { date: '2026-06-29T21:00', title: 'Open-Air-Kino Heringsdorf', venue: 'Strandpromenade', city: 'Heringsdorf', price: 'ab 9 €', category: 'Kino', desc: 'Sommer-Filmreihe unter freiem Himmel (29.06.-06.09.)', tickets: 'https://www.uci-kinowelt.de/' },
+            { date: '2026-06-30T19:00', title: 'Erich Kästner — Johannes Kirchberg', venue: 'Villa Irmgard', city: 'Heringsdorf', price: 'ab 16 €', category: 'Lesung', desc: 'Lesung und Musik', tickets: _ticketSearch('Erich Kästner Johannes Kirchberg') },
+            // Chapeau Rouge — Theaterzelt der Vorpommerschen Landesbühne (Juni-September)
+            { date: '2026-06-15T19:30', title: 'Chapeau Rouge — Sommer-Spielplan', venue: 'Theaterzelt Strandpromenade 999', city: 'Heringsdorf', price: 'ab 18 €', category: 'Theater', desc: 'Theaterzelt der Vorpommerschen Landesbühne — komplettes Sommer-Programm: Komödien, Klassiker, Konzerte', tickets: 'https://vorpommersche-landesbuehne.de/chapeau-rouge' },
+            // Juli
+            { date: '2026-07-09T18:00', title: 'Bansiner Seebrückenfest', venue: 'Seebrücke + Strandpromenade', city: 'Bansin', price: 'frei', category: 'Festival', desc: 'Großes Strandfest 09.-12.07. mit Live-Musik, Markttreiben, Feuerwerk', tickets: _ticketSearch('Bansiner Seebrückenfest') },
+            { date: '2026-07-17T20:00', title: 'Uwe Steimle & Helmut Schleich', venue: 'Kaiserbädersaal', city: 'Heringsdorf', price: 'ab 32 €', category: 'Comedy', desc: 'Kabarett-Doppel — politische Comedy auf höchstem Niveau', tickets: _ticketSearch('Uwe Steimle Helmut Schleich Kaiserbädersaal') },
+            { date: '2026-07-20T19:00', title: 'Strandläufer-Barfuß-Konzert', venue: 'Strand', city: 'Ahlbeck', price: 'ab 15 €', category: 'Konzert', desc: '7 Konzerte am Strand 20.07.-18.08. — Füße im Sand, Blick auf die Ostsee', tickets: 'https://www.kaiserbaeder-auf-usedom.de/highlights/strandlaeufer-barfuss-konzerte/' },
+            { date: '2026-07-23T17:00', title: 'Ahlbecker Sommerfest', venue: 'Strandpromenade + Konzertmuschel', city: 'Ahlbeck', price: 'frei', category: 'Festival', desc: 'Großes Sommerfest 23.-26.07. mit Buntmarkt, Live-Musik, Aktionen für Kinder', tickets: _ticketSearch('Ahlbecker Sommerfest') },
+            { date: '2026-07-30T18:00', title: 'Sommer am Konzertmuschel-Park', venue: 'Konzertmuschel', city: 'Ahlbeck', price: 'frei', category: 'Festival', desc: 'Vielfältiges Programm 30.07.-02.08. rund um die Konzertmuschel mit Ständen und Gastronomie', tickets: _ticketSearch('Konzertmuschel Ahlbeck') },
+            // August
+            { date: '2026-08-07T20:00', title: 'STAHLZEIT — Rammstein-Tribute', venue: 'Freifläche an der Seebrücke', city: 'Heringsdorf', price: 'ab 45 €', category: 'Konzert', desc: 'Deutschlands führende Rammstein-Tribute-Band — Open Air am Strand', tickets: _ticketSearch('STAHLZEIT Heringsdorf') },
+            { date: '2026-08-28T19:30', title: 'Two Guitars on the See — Ringelnatz & Malerei', venue: 'Haus des Gastes', city: 'Bansin', price: 'ab 16 €', category: 'Konzert', desc: 'Gitarrenduo mit literarisch-malerischem Programm', tickets: _ticketSearch('Two Guitars Ringelnatz Bansin') }
         ];
 
         const _months = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
@@ -436,7 +447,10 @@
         function _renderEvents(filter) {
             const grid = document.getElementById('events-grid');
             grid.innerHTML = '';
-            const filtered = filter === 'alle' ? _events : _events.filter(e => e.city === filter);
+            // v6.63.202: Vergangene Events automatisch ausblenden (Datum < heute 00:00)
+            const _todayStart = new Date(); _todayStart.setHours(0,0,0,0);
+            const _future = _events.filter(e => new Date(e.date) >= _todayStart);
+            const filtered = filter === 'alle' ? _future : _future.filter(e => e.city === filter);
             if (filtered.length === 0) {
                 grid.innerHTML = '<div class="empty-state">Keine Veranstaltungen für diesen Filter — schauen Sie morgen wieder vorbei.</div>';
                 return;

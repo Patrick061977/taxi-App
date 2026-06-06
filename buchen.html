@@ -2563,7 +2563,18 @@
                 //   wir OSRM (echte Strassen-Fahrzeit) statt Haversine×1.6, weil Haversine bei
                 //   Greifswald->Heringsdorf 60 Min zeigte wo OSRM 40 Min sagt. Async-Refine
                 //   ueber fetchOSRMDuration() (Cache vorhanden → 2. Aufruf instant).
-                const _busyCount = _busyVids.size;
+                // 🔧 v6.63.200 (Patrick 06.06. 18:48 'Ist doch Quatsch! Ist doch eigentlich nur einer
+                //   frei. Es ist keiner unterwegs.'): _busyVids enthaelt reserviert+physikalisch.
+                //   "unterwegs" soll aber NUR physikalisch-fahrende Fahrzeuge zaehlen (on_way/
+                //   picked_up/arrived). Reservierte Vorbestellungen sind nicht "unterwegs".
+                let _busyCount = 0;
+                Object.values(_activeRidesCache || {}).forEach(r => {
+                    if (!r) return;
+                    if (!_PHYSICALLY_BUSY.includes(r.status)) return;
+                    const _vid2 = r.vehicleId || r.assignedVehicle;
+                    if (!_vid2 || !_busyVids.has(_vid2)) return;
+                    _busyCount++;
+                });
                 let etaText;
                 if (pickupCoords) {
                     etaText = '<span class="eta-loading-car">🚕</span> Anfahrt wird berechnet <span class="eta-loading-dots" style="opacity:0.6;">···</span>';

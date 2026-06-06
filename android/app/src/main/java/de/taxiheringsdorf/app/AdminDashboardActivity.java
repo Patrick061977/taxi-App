@@ -1599,6 +1599,15 @@ public class AdminDashboardActivity extends AppCompatActivity {
         //   'web-booking', der alte Anfragen-Uebernahme-Flow schreibt 'web-anfrage',
         //   Berlin-Shuttle 'berlin-shuttle-anfrage'. Wir muessen ALLE matchen.
         String source; // 'web-booking', 'web-anfrage', 'berlin-shuttle-anfrage', 'qr-aufsteller', ...
+        // 🆕 v6.63.191 (Patrick 06.06. 10:17): Wartepool-Konflikt-Anzeige.
+        //   Patrick: "Bei Hache wird nichts angezeigt wo der Konflikt herkommt."
+        //   Hache hatte wartepoolReason='auto-assign-3x-failed', reassignReason
+        //   ='Vito Schicht-Ende — automatische Umverteilung' + assignedVehicleName
+        //   noch im Ride — aber Dispo zeigt nur "WARTEPOOL". Felder muessen sichtbar werden.
+        String wartepoolReason;
+        String reassignReason;
+        Integer autoAssignAttempts;
+        Long wartepoolAt;
         // v6.62.193: Patrick (01.05.): "Zwischenstops nicht angezeigt im kalender nativ app".
         // Waypoints fuer Sammeltransfers (Vetter Touristik) — addr + Pax-Name pro Stop.
         java.util.List<String> waypointDisplay; // formatierte Anzeige-Strings ("Adresse — Pax-Name")
@@ -1682,6 +1691,13 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 // v6.62.655: Lock-State lesen
                 Object _lock = s.child("assignmentLocked").getValue();
                 if (_lock instanceof Boolean) r.assignmentLocked = (Boolean) _lock;
+                // v6.63.191: Wartepool-Diagnose-Felder
+                r.wartepoolReason = s.child("wartepoolReason").getValue(String.class);
+                r.reassignReason = s.child("reassignReason").getValue(String.class);
+                Object _aaa = s.child("autoAssignAttempts").getValue();
+                if (_aaa instanceof Number) r.autoAssignAttempts = ((Number)_aaa).intValue();
+                Object _wpA = s.child("wartepoolAt").getValue();
+                if (_wpA instanceof Number) r.wartepoolAt = ((Number)_wpA).longValue();
                 // Waypoints: Liste von Objekten mit address+name — analog DriverDashboard
                 DataSnapshot wpSnap = s.child("waypoints");
                 if (wpSnap.exists() && wpSnap.hasChildren()) {
@@ -1906,6 +1922,30 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 // 🆕 v6.62.950 Smart-Scheduler: Konflikt-Hint unter Route
                 if (r.conflictHint != null) {
                     route.append("\n").append(r.conflictHint).append("\n💡 Karte tippen → Pickup verschieben um Konflikt zu lösen");
+                }
+                // 🆕 v6.63.191 (Patrick 06.06. 10:17): Wartepool-Konflikt-Grund sichtbar machen
+                if (_isWartepool) {
+                    StringBuilder wpDiag = new StringBuilder("\n⏸️ ");
+                    if (r.wartepoolAt != null) {
+                        java.text.SimpleDateFormat _wf = new java.text.SimpleDateFormat("HH:mm", Locale.GERMANY);
+                        _wf.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
+                        wpDiag.append("Wartepool seit ").append(_wf.format(new java.util.Date(r.wartepoolAt)));
+                    } else {
+                        wpDiag.append("Wartepool");
+                    }
+                    if (r.wartepoolReason != null && !r.wartepoolReason.isEmpty()) {
+                        wpDiag.append(" (").append(r.wartepoolReason).append(")");
+                    }
+                    if (r.reassignReason != null && !r.reassignReason.isEmpty()) {
+                        wpDiag.append("\n🔁 ").append(r.reassignReason);
+                    }
+                    if (r.assignedVehicleName != null && !r.assignedVehicleName.isEmpty() && (r.assignedVehicle == null || r.assignedVehicle.isEmpty())) {
+                        wpDiag.append("\n🚗 Vorheriges Fahrzeug: ").append(r.assignedVehicleName);
+                    }
+                    if (r.autoAssignAttempts != null && r.autoAssignAttempts > 0) {
+                        wpDiag.append("\n🔁 Auto-Assign-Versuche: ").append(r.autoAssignAttempts).append("×");
+                    }
+                    route.append(wpDiag.toString());
                 }
                 // 🆕 v6.63.096 (Patrick 03.06. 07:30): Krankenfahrt-Banner prominent.
                 //   Wenn paymentMethod=transportschein → grüner "🏥 KRANKENFAHRT" Banner damit

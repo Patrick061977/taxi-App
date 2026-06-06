@@ -2810,7 +2810,48 @@ public class DriverDashboardActivity extends AppCompatActivity {
         if (next == null) return;
 
         // v6.44.0: Vor Status=completed → erst Bezahl-Dialog zeigen
+        // v6.63.188 (Patrick 06.06. 08:37): Bei Einsteiger ohne Vorab-Ziel — wenn destination
+        //   noch leer ist beim Fahrt-fertig-Tap, ZUERST Ziel-Dialog (editRideDestination) +
+        //   im Anschluss showPaymentDialog. Spart das aktive Antippen der 🎯-Zeile.
         if (next.equals("completed")) {
+            boolean _destEmpty = r.destination == null
+                || r.destination.trim().isEmpty()
+                || "-".equals(r.destination.trim());
+            if (_destEmpty) {
+                new androidx.appcompat.app.AlertDialog.Builder(this)
+                    .setTitle("🎯 Ziel fehlt noch")
+                    .setMessage("Bei dieser Fahrt ist kein Ziel hinterlegt. Vor dem Abschluss bitte Ziel setzen:")
+                    .setPositiveButton("📍 GPS uebernehmen (ich bin da)", (d, w) -> {
+                        Toast.makeText(this, "📡 GPS wird gelesen ...", Toast.LENGTH_SHORT).show();
+                        fetchVehicleGpsAndReverseGeocode((addr, lat, lon) -> {
+                            runOnUiThread(() -> {
+                                if (addr == null || addr.isEmpty()) {
+                                    Toast.makeText(this, "⚠️ GPS-Standort nicht ermittelbar", Toast.LENGTH_LONG).show();
+                                    return;
+                                }
+                                Map<String, Object> u = new HashMap<>();
+                                u.put("destination", addr);
+                                u.put("destinationLat", lat);
+                                u.put("destinationLon", lon);
+                                Map<String, Object> dc = new HashMap<>();
+                                dc.put("lat", lat); dc.put("lon", lon);
+                                u.put("destCoords", dc);
+                                u.put("updatedAt", System.currentTimeMillis());
+                                FirebaseDatabase.getInstance(DB_INSTANCE_URL)
+                                    .getReference("rides/" + r.id).updateChildren(u);
+                                try { addLifecycleEntry(r.id, "📍", "Ziel = GPS-Standort (vor Abschluss)", addr); } catch (Throwable _e) {}
+                                r.destination = addr;
+                                r.destinationLat = lat;
+                                r.destinationLon = lon;
+                                showPaymentDialog(r);
+                            });
+                        });
+                    })
+                    .setNeutralButton("🗺 Karten-Picker", (d, w) -> editRideDestination(r))
+                    .setNegativeButton("Ohne Ziel abschliessen", (d, w) -> showPaymentDialog(r))
+                    .show();
+                return;
+            }
             showPaymentDialog(r);
             return;
         }

@@ -812,9 +812,14 @@ async function sendFCMToVehicle(vehicleId, payload) {
 // - Pickup + Duration + Boarding + Alighting Buffer
 async function estimateNextAvailableMinutes(allRides, vehiclesData, pricingSettings) {
     const now = Date.now();
-    const boardingMin = (pricingSettings && pricingSettings.boardingTime) || 2;
-    const alightingMin = (pricingSettings && pricingSettings.alightingTime) || 2;
-    const bufferMs = (boardingMin + alightingMin + 5) * 60000; // 5 Min für Rückkehr/Pufferzeit
+    // v6.63.188 (Patrick 06.06. 07:44): boarding/alighting/buffer aus settings.timeslotSettings
+    //   ziehen (vorher pricingSettings.boardingTime + hardcoded +5). Defaults 1/1/3 statt 2/2/5.
+    //   Marion-Analyse 06.06.: System rechnet 9 Min Polster zwischen Fahrten — gefuehlt zu lang.
+    const _tss = (await db.ref('settings/timeslotSettings').once('value')).val() || {};
+    const boardingMin = _tss.boardingTime != null ? _tss.boardingTime : ((pricingSettings && pricingSettings.boardingTime) || 1);
+    const alightingMin = _tss.alightingTime != null ? _tss.alightingTime : ((pricingSettings && pricingSettings.alightingTime) || 1);
+    const _bufMin = _tss.bufferTime != null ? _tss.bufferTime : 3;
+    const bufferMs = (boardingMin + alightingMin + _bufMin) * 60000;
     const candidates = [];
     for (const [vid, vData] of Object.entries(vehiclesData || {})) {
         if (!vData || !vData.online) continue;
@@ -25342,9 +25347,12 @@ exports.onRideUpdated = onValueUpdated(
                         .filter(([id, r]) => r && r.pickupTimestamp && !['deleted','cancelled','storniert','cancelled_pending_driver'].includes(r.status))
                         .map(([id, r]) => ({ ...r, firebaseId: id }));
 
-                    const boardingTime = 2, alightingTime = 2;
+                    // v6.63.188 (Patrick 06.06.): hardcoded 2,2,5 → settings.timeslotSettings (Defaults 1,1,3)
+                    const _tssLocal = (await db.ref('settings/timeslotSettings').once('value')).val() || {};
+                    const boardingTime = _tssLocal.boardingTime != null ? _tssLocal.boardingTime : 1;
+                    const alightingTime = _tssLocal.alightingTime != null ? _tssLocal.alightingTime : 1;
                     const _bufMs = (boardingTime + alightingTime) * 60000;
-                    const _returnBufferMs = 5 * 60000;
+                    const _returnBufferMs = (_tssLocal.bufferTime != null ? _tssLocal.bufferTime : 3) * 60000;
 
                     // Für jede betroffene Fahrt die vehicleScores aktualisieren
                     let _updatedCount = 0;
@@ -26696,16 +26704,20 @@ exports.scheduledDepartureAlert = onSchedule(
                 if (!pickupTs || pickupTs <= now) return;
                 const vehicleId = ride.assignedVehicle || ride.vehicleId;
                 if (!vehicleId) return;
-                // Fahrtdauer zum Kunden — wenn fehlt: Default 15 Min (konservativ vor Pickup)
+                // Fahrtdauer zum Kunden — wenn fehlt: Default 10 Min (v6.63.188: vorher 15 →
+                // Patrick 06.06.: \"die Berechnung ist ein bisschen pessimistisch\" — Inselstrecken
+                // sind selten >10 Min Anfahrt; 15-Default war fuer fehlende OSRM-Werte konservativ).
                 const driveMin = (typeof ride.drivingTimeToPickup === 'number' && ride.drivingTimeToPickup > 0)
-                    ? ride.drivingTimeToPickup : 15;
+                    ? ride.drivingTimeToPickup : 10;
                 // 🆕 v6.62.988 (Patrick 28.05. 11:06): '15 Min + Anfahrt' Soll-Push-Zeit.
                 // Vorher 10 Min Puffer (v6.62.886) → jetzt 15 Min Puffer.
                 // Bei 20 Min Anfahrt = 35 Min vor Pickup; 8 Min Anfahrt = 23 Min vor Pickup.
                 // Live-GPS-Recompute folgt in v6.62.989 (braucht async-Refactor des forEach).
                 // v6.63.094 (Patrick 03.06. 05:39): "Termin muss Anfahrt + 10 min Alarm geben
                 //   nicht vorher". Vorher 15 Min Puffer (v6.62.988) → jetzt 10 Min.
-                const losfahrtAt = pickupTs - driveMin * 60_000 - 10 * 60_000;
+                // v6.63.188 (Patrick 06.06. 07:24): Prentel-Analyse — System ein, zwei
+                //   Minütchen zu pessimistisch. 10 → 7 Min Sicherheits-Puffer.
+                const losfahrtAt = pickupTs - driveMin * 60_000 - 7 * 60_000;
                 // Trigger-Fenster: zwischen losfahrtAt und losfahrtAt + 2min
                 // (2min damit wir 1-2 Ticks verpassen koennen ohne den Alert zu verlieren)
                 if (now < losfahrtAt) return;

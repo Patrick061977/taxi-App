@@ -66,6 +66,23 @@
   .taxi-pin{font-size:26px;text-align:center;line-height:1;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.5))}
   /* V2-Label */
   .v2-label{position:fixed;top:0;right:8px;padding:4px 10px;background:#fbbf24;color:#1a1a1a;border-radius:0 0 8px 8px;font-size:10px;font-weight:700;z-index:2000;letter-spacing:0.3px}
+  /* Autocomplete-Dropdown */
+  .dropdown{position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid #e5e7eb;border-radius:12px;margin-top:4px;max-height:280px;overflow-y:auto;z-index:50;box-shadow:0 8px 20px rgba(0,0,0,0.12);display:none}
+  .dropdown.open{display:block}
+  .dropdown .item{padding:10px 14px;cursor:pointer;border-bottom:1px solid #f1f5f9;font-size:14px;color:#1a1a1a}
+  .dropdown .item:last-child{border-bottom:none}
+  .dropdown .item:hover,.dropdown .item.active{background:#f1f5f9}
+  .dropdown .item .sub{font-size:11px;color:#64748b;margin-top:2px}
+  /* Pickup-Pin auf Karte */
+  .pickup-pin{font-size:32px;text-align:center;line-height:1;filter:drop-shadow(0 3px 6px rgba(0,0,0,0.4))}
+  /* Status-Overlay */
+  #busy-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:5000;display:none;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+  #busy-overlay.show{display:flex}
+  #busy-box{background:#fff;color:#1a1a1a;padding:24px 28px;border-radius:16px;text-align:center;max-width:300px}
+  #busy-box .spin{width:38px;height:38px;border:3px solid #e5e7eb;border-top-color:#1a1a1a;border-radius:50%;margin:0 auto 12px;animation:spin 0.8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  #toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#1a1a1a;color:#fff;padding:12px 18px;border-radius:24px;font-size:14px;font-weight:600;z-index:6000;opacity:0;transition:opacity 0.3s;pointer-events:none;max-width:90vw;text-align:center}
+  #toast.show{opacity:1}
 </style>
 </head>
 <body>
@@ -89,15 +106,38 @@
   <div class="addr">
     <div class="pin pick"></div>
     <input type="text" id="b-pickup" placeholder="Abholort eingeben…" autocomplete="off">
+    <div class="dropdown" id="dd-pickup"></div>
   </div>
   <div class="swap-line"><button onclick="swapAddr()">⇅</button></div>
   <div class="addr">
     <div class="pin dest"></div>
     <input type="text" id="b-destination" placeholder="Wohin?" autocomplete="off">
+    <div class="dropdown" id="dd-destination"></div>
   </div>
   <div class="wann">
     <div class="opt active" data-mode="sofort" onclick="setMode('sofort')">⚡ Sofort</div>
     <div class="opt" data-mode="vorbestellen" onclick="setMode('vorbestellen')">📅 Geplant</div>
+  </div>
+  <div id="vorbest-felder" style="display:none;margin-bottom:14px">
+    <input type="date" id="b-date" style="width:48%;padding:10px;border:2px solid #e5e7eb;border-radius:10px;font-size:14px;margin-right:4%">
+    <input type="time" id="b-time" style="width:48%;padding:10px;border:2px solid #e5e7eb;border-radius:10px;font-size:14px">
+  </div>
+  <div id="route-info" style="display:none;background:#f8fafc;border-radius:12px;padding:12px 14px;margin-bottom:12px">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <div style="font-size:12px;color:#64748b" id="route-km">— km · — Min</div>
+        <div style="font-size:20px;font-weight:700;color:#16a34a" id="route-price">— €</div>
+      </div>
+      <div style="font-size:11px;color:#94a3b8;text-align:right">Eichtarif M-V<br>inkl. MwSt.</div>
+    </div>
+  </div>
+  <div id="contact-felder" style="display:none">
+    <div style="position:relative;margin-bottom:8px">
+      <input type="text" id="b-name" placeholder="Ihr Name…" autocomplete="name" style="width:100%;padding:14px;border:2px solid #e5e7eb;border-radius:14px;font-size:15px;background:#f9fafb">
+    </div>
+    <div style="position:relative;margin-bottom:8px">
+      <input type="tel" id="b-phone" placeholder="Handynummer (für SMS)…" autocomplete="tel" style="width:100%;padding:14px;border:2px solid #e5e7eb;border-radius:14px;font-size:15px;background:#f9fafb">
+    </div>
   </div>
   <button class="cta disabled" id="cta-btn" onclick="onBookClick()">Adressen eingeben →</button>
 </div>
@@ -233,39 +273,229 @@
   refreshETA();
   setInterval(refreshETA, 30000);
 
-  // CTA-Logik: vorerst Redirect auf echte buchen.html mit URL-Params
+  // Eichtarif M-V (synchron mit functions/index.js TARIF)
+  const TARIF = {
+    grundgebuehr: 4.00, km_1_2: 3.30, km_3_4: 2.80, km_ab_5: 2.20,
+    nacht_grundgebuehr: 5.50, nacht_km_1_2: 3.30, nacht_km_3_4: 2.80, nacht_km_ab_5: 2.40
+  };
+  function calculatePrice(km, pickupTs) {
+    const t = pickupTs ? new Date(pickupTs) : new Date();
+    const berlin = new Date(t.toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
+    const hour = berlin.getHours(), day = berlin.getDay();
+    const isNight = hour >= 22 || hour < 6 || day === 0;
+    const grund = isNight ? TARIF.nacht_grundgebuehr : TARIF.grundgebuehr;
+    const km12 = isNight ? TARIF.nacht_km_1_2 : TARIF.km_1_2;
+    const km34 = isNight ? TARIF.nacht_km_3_4 : TARIF.km_3_4;
+    const kmAb5 = isNight ? TARIF.nacht_km_ab_5 : TARIF.km_ab_5;
+    let kmPreis;
+    if (km <= 2) kmPreis = km * km12;
+    else if (km <= 4) kmPreis = 2 * km12 + (km - 2) * km34;
+    else kmPreis = 2 * km12 + 2 * km34 + (km - 4) * kmAb5;
+    return Math.round((grund + kmPreis) * 10) / 10;
+  }
+
+  // Adress-Status
+  let pickupCoords = null, destCoords = null;
+  let pickupMarker = null, destMarker = null, routeLine = null;
+  const pickupIcon = L.divIcon({ className: '', html: '<div class="pickup-pin">📍</div>', iconSize: [32,32], iconAnchor: [16,30] });
+  const destIcon = L.divIcon({ className: '', html: '<div class="pickup-pin">🎯</div>', iconSize: [32,32], iconAnchor: [16,30] });
+
+  // Nominatim Autocomplete (mit Debounce + Heringsdorf-Viewbox)
+  let dbTimer = {};
+  async function suggestAddr(q) {
+    if (q.length < 3) return [];
+    try {
+      const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=6&viewbox=13.60,54.20,14.45,53.75&bounded=0&accept-language=de`, { headers: { 'User-Agent': 'FunkTaxi/2.0' } });
+      const j = await r.json();
+      return j.map(x => ({ label: x.display_name, lat: parseFloat(x.lat), lon: parseFloat(x.lon) }));
+    } catch(e) { return []; }
+  }
+  function attachAutocomplete(inputId, ddId, which) {
+    const inp = document.getElementById(inputId);
+    const dd = document.getElementById(ddId);
+    inp.addEventListener('input', () => {
+      const q = inp.value.trim();
+      clearTimeout(dbTimer[inputId]);
+      dbTimer[inputId] = setTimeout(async () => {
+        const items = await suggestAddr(q);
+        if (items.length === 0) { dd.classList.remove('open'); return; }
+        dd.innerHTML = items.map((it, i) => {
+          const parts = it.label.split(',');
+          const title = parts[0];
+          const sub = parts.slice(1, 3).join(',').trim();
+          return `<div class="item" data-i="${i}" data-lat="${it.lat}" data-lon="${it.lon}"><div>${title}</div><div class="sub">${sub}</div></div>`;
+        }).join('');
+        dd.classList.add('open');
+        dd._items = items;
+        dd.querySelectorAll('.item').forEach(it => {
+          it.addEventListener('click', () => {
+            const i = parseInt(it.dataset.i);
+            const pick = dd._items[i];
+            inp.value = pick.label.split(',')[0];
+            if (which === 'pickup') {
+              pickupCoords = { lat: pick.lat, lon: pick.lon };
+              if (pickupMarker) pickupMarker.remove();
+              pickupMarker = L.marker([pick.lat, pick.lon], { icon: pickupIcon }).addTo(map);
+            } else {
+              destCoords = { lat: pick.lat, lon: pick.lon };
+              if (destMarker) destMarker.remove();
+              destMarker = L.marker([pick.lat, pick.lon], { icon: destIcon }).addTo(map);
+            }
+            dd.classList.remove('open');
+            drawRoute();
+            updateCTA();
+          });
+        });
+      }, 300);
+    });
+    inp.addEventListener('blur', () => { setTimeout(() => dd.classList.remove('open'), 200); });
+  }
+  attachAutocomplete('b-pickup', 'dd-pickup', 'pickup');
+  attachAutocomplete('b-destination', 'dd-destination', 'destination');
+
+  // Map-Klick setzt Pickup
+  map.on('click', async (e) => {
+    pickupCoords = { lat: e.latlng.lat, lon: e.latlng.lng };
+    if (pickupMarker) pickupMarker.remove();
+    pickupMarker = L.marker([pickupCoords.lat, pickupCoords.lon], { icon: pickupIcon }).addTo(map);
+    try {
+      const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${pickupCoords.lat}&lon=${pickupCoords.lon}&accept-language=de`, { headers: { 'User-Agent': 'FunkTaxi/2.0' } });
+      const j = await r.json();
+      if (j && j.display_name) document.getElementById('b-pickup').value = j.display_name.split(',')[0];
+    } catch(_) {
+      document.getElementById('b-pickup').value = `${pickupCoords.lat.toFixed(5)}, ${pickupCoords.lon.toFixed(5)}`;
+    }
+    drawRoute(); updateCTA();
+  });
+
+  // OSRM-Route + Preis
+  async function drawRoute() {
+    if (!pickupCoords || !destCoords) return;
+    try {
+      const r = await fetch(`https://router.project-osrm.org/route/v1/driving/${pickupCoords.lon},${pickupCoords.lat};${destCoords.lon},${destCoords.lat}?overview=full&geometries=geojson`);
+      const j = await r.json();
+      if (!j.routes || !j.routes[0]) return;
+      const route = j.routes[0];
+      const km = route.distance / 1000;
+      const min = Math.round(route.duration / 60);
+      const coords = route.geometry.coordinates.map(c => [c[1], c[0]]);
+      if (routeLine) routeLine.remove();
+      routeLine = L.polyline(coords, { color: '#fbbf24', weight: 5, opacity: 0.85 }).addTo(map);
+      map.fitBounds(routeLine.getBounds(), { padding: [40, 40] });
+      const price = calculatePrice(km);
+      document.getElementById('route-info').style.display = 'block';
+      document.getElementById('route-km').textContent = `${km.toFixed(1)} km · ${min} Min`;
+      document.getElementById('route-price').textContent = `~${price.toFixed(2).replace('.',',')} €`;
+    } catch(e) { console.warn('OSRM-Route:', e); }
+  }
+
+  // Mode-Toggle
   function setMode(m) {
     document.querySelectorAll('.wann .opt').forEach(o => o.classList.toggle('active', o.dataset.mode === m));
-  }
-  function swapAddr() {
-    const p = document.getElementById('b-pickup');
-    const d = document.getElementById('b-destination');
-    const tmp = p.value; p.value = d.value; d.value = tmp;
+    document.getElementById('vorbest-felder').style.display = m === 'vorbestellen' ? 'block' : 'none';
     updateCTA();
   }
+  function swapAddr() {
+    const tmpV = document.getElementById('b-pickup').value;
+    document.getElementById('b-pickup').value = document.getElementById('b-destination').value;
+    document.getElementById('b-destination').value = tmpV;
+    const tmpC = pickupCoords; pickupCoords = destCoords; destCoords = tmpC;
+    if (pickupMarker) { pickupMarker.remove(); pickupMarker = null; }
+    if (destMarker) { destMarker.remove(); destMarker = null; }
+    if (pickupCoords) pickupMarker = L.marker([pickupCoords.lat, pickupCoords.lon], { icon: pickupIcon }).addTo(map);
+    if (destCoords) destMarker = L.marker([destCoords.lat, destCoords.lon], { icon: destIcon }).addTo(map);
+    drawRoute(); updateCTA();
+  }
+
   function updateCTA() {
     const p = document.getElementById('b-pickup').value.trim();
     const d = document.getElementById('b-destination').value.trim();
     const btn = document.getElementById('cta-btn');
-    if (p && d) {
+    const contact = document.getElementById('contact-felder');
+    if (p && d && pickupCoords && destCoords) {
+      contact.style.display = 'block';
       btn.classList.remove('disabled');
-      btn.textContent = '🚖 Weiter zur Buchung →';
+      btn.textContent = '🚖 Taxi buchen';
     } else {
+      contact.style.display = 'none';
       btn.classList.add('disabled');
       btn.textContent = p || d ? 'Beide Adressen eingeben →' : 'Adressen eingeben →';
     }
   }
   document.getElementById('b-pickup').addEventListener('input', updateCTA);
   document.getElementById('b-destination').addEventListener('input', updateCTA);
-  function onBookClick() {
-    const p = document.getElementById('b-pickup').value.trim();
-    const d = document.getElementById('b-destination').value.trim();
-    if (!p || !d) return;
-    const url = `/Taxi-App/buchen.html?from=${encodeURIComponent(p)}&to=${encodeURIComponent(d)}`;
-    window.location.href = url;
+
+  // Toast
+  function toast(msg, duration) {
+    const t = document.getElementById('toast') || (() => {
+      const el = document.createElement('div'); el.id = 'toast'; document.body.appendChild(el); return el;
+    })();
+    t.textContent = msg; t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), duration || 2500);
+  }
+  function busy(show, msg) {
+    let ov = document.getElementById('busy-overlay');
+    if (!ov) {
+      ov = document.createElement('div'); ov.id = 'busy-overlay';
+      ov.innerHTML = '<div id="busy-box"><div class="spin"></div><div id="busy-msg">Wird gebucht…</div></div>';
+      document.body.appendChild(ov);
+    }
+    document.getElementById('busy-msg').textContent = msg || 'Wird gebucht…';
+    ov.classList.toggle('show', show);
   }
 
-  // GPS-Button Position anpassen wenn Bottom-Sheet sich öffnet/schließt (später)
+  // Buchung anlegen
+  async function onBookClick() {
+    if (!pickupCoords || !destCoords) return;
+    const name = (document.getElementById('b-name').value || '').trim();
+    const phone = (document.getElementById('b-phone').value || '').trim();
+    if (!name) return toast('Bitte Namen eingeben');
+    if (!phone || phone.length < 6) return toast('Bitte Handynummer eingeben');
+    const mode = document.querySelector('.wann .opt.active').dataset.mode;
+    let pickupTimestamp = Date.now();
+    if (mode === 'vorbestellen') {
+      const d = document.getElementById('b-date').value;
+      const t = document.getElementById('b-time').value;
+      if (!d || !t) return toast('Datum + Uhrzeit wählen');
+      pickupTimestamp = new Date(d + 'T' + t + ':00').getTime();
+      if (pickupTimestamp < Date.now()) return toast('Zeitpunkt liegt in der Vergangenheit');
+    }
+    const pickup = document.getElementById('b-pickup').value.trim();
+    const destination = document.getElementById('b-destination').value.trim();
+    busy(true, 'Buchung wird angelegt…');
+    try {
+      // Distanz + Preis
+      const km = Math.round(haversineKm(pickupCoords.lat, pickupCoords.lon, destCoords.lat, destCoords.lon) * 1.4 * 10) / 10;
+      const price = calculatePrice(km, pickupTimestamp);
+      const ride = {
+        pickup, destination,
+        pickupLat: pickupCoords.lat, pickupLon: pickupCoords.lon,
+        destinationLat: destCoords.lat, destinationLon: destCoords.lon,
+        pickupTimestamp,
+        passengers: 1,
+        customerName: name,
+        customerPhone: phone,
+        customerMobile: phone,
+        status: mode === 'vorbestellen' ? 'vorbestellt' : 'new',
+        distance: km,
+        estimatedPrice: price,
+        paymentMethod: 'bar',
+        source: 'buchen-v2',
+        createdAt: Date.now(),
+        bookingChannel: 'web-v2'
+      };
+      const ref = db.ref('rides').push();
+      await ref.set(ride);
+      busy(false);
+      toast('✅ Buchung erfolgreich — SMS-Bestätigung folgt');
+      setTimeout(() => {
+        window.location.href = `/Taxi-App/track.html?ride=${ref.key}`;
+      }, 1500);
+    } catch (e) {
+      busy(false);
+      toast('Fehler: ' + (e.message || e));
+    }
+  }
 </script>
 </body>
 </html>

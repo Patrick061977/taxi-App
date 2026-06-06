@@ -21189,14 +21189,21 @@ exports.scheduledAutoAssign = onSchedule(
                 // 🆕 v6.62.913 (Patrick 24.05. 09:53): 10-Min-Heartbeat-Grace.
                 //   Patrick: 'du kannst nicht jedes Mal wenn ich ein Update mache die Schichten
                 //   umverteilen. Fahrer muss mind. 10 Min offline sein.'
-                //   Wenn vehicle.shift.lastHeartbeat < 10 Min alt ist → Fahrer hat nur kurz
-                //   die App neu gestartet, kommt gleich wieder. KEINE Umverteilung.
+                // 🔧 v6.63.197 (Patrick 06.06. 17:01: "GPS gilt nur fuer Sofortfahrten"):
+                //   Grace darf nur bei naher Zukunft (Sofortfahrten/Anschluss) greifen.
+                //   Vorbestellungen Stunden/Tage in der Zukunft MUESSEN gegen den Schichtplan
+                //   geprueft werden — der Live-Heartbeat des Fahrers JETZT sagt nichts ueber
+                //   seine Schicht morgen 07:00 aus.
+                //   Beispiel-Bug: Vito (Danilo) heute online → Richter 07:00 morgen blieb
+                //   auf Vito, obwohl Vito-So-Schicht erst 08:00 anfaengt.
                 if (_vehData.shift && _vehData.shift.lastHeartbeat) {
                     const _hbAgeMin = (Date.now() - _vehData.shift.lastHeartbeat) / 60_000;
-                    if (_hbAgeMin < 10) {
-                        // Fahrer ist 'online genug' — Heartbeat vor weniger als 10 Min
+                    const _minUntilPickup = r.pickupTimestamp
+                        ? (r.pickupTimestamp - Date.now()) / 60_000
+                        : 0;
+                    if (_hbAgeMin < 10 && _minUntilPickup < 30) {
+                        // Fahrer ist 'online genug' UND Pickup ist nah → App-Update-Toleranz
                         // → Nicht umplanen, auch wenn shift.status temporaer falsch ist.
-                        // (Skip alle weiteren Umplanungs-Checks unten ausser Inkonsistenz)
                         return false;
                     }
                 }

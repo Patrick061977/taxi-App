@@ -23,11 +23,15 @@
   #top-bar .brand{flex:1;font-size:14px;font-weight:600;color:#fff;letter-spacing:0.3px}
   #top-bar .brand span{color:#fbbf24;font-weight:800}
   #top-bar .phone{padding:8px 14px;background:#fbbf24;color:#1a1a1a;border-radius:18px;font-size:13px;font-weight:700;text-decoration:none}
-  /* GPS-Button */
-  #gps-btn{position:fixed;bottom:340px;right:16px;width:44px;height:44px;background:#fff;color:#1a1a1a;border:none;border-radius:50%;font-size:18px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.3);z-index:500;display:flex;align-items:center;justify-content:center;transition:bottom 0.3s}
-  /* Bottom-Sheet */
-  #sheet{position:fixed;bottom:0;left:0;right:0;background:#fff;color:#1a1a1a;border-radius:24px 24px 0 0;box-shadow:0 -10px 30px rgba(0,0,0,0.25);padding:8px 18px 22px;z-index:600;max-height:75vh;overflow-y:auto}
-  #sheet .grip{width:42px;height:5px;background:#e2e8f0;border-radius:3px;margin:0 auto 14px}
+  /* GPS-Button — Position relativ zum Bottom-Sheet */
+  #gps-btn{position:fixed;bottom:calc(55vh + 16px);right:16px;width:44px;height:44px;background:#fff;color:#1a1a1a;border:none;border-radius:50%;font-size:18px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.3);z-index:500;display:flex;align-items:center;justify-content:center;transition:bottom 0.3s}
+  body.sheet-collapsed #gps-btn{bottom:146px}
+  /* Bottom-Sheet — kompakt, kann via Grip auf-/zugeklappt werden */
+  #sheet{position:fixed;bottom:0;left:0;right:0;background:#fff;color:#1a1a1a;border-radius:24px 24px 0 0;box-shadow:0 -10px 30px rgba(0,0,0,0.25);padding:6px 18px 18px;z-index:600;max-height:55vh;overflow-y:auto;transition:max-height 0.3s ease}
+  #sheet.collapsed{max-height:130px;overflow:hidden}
+  #sheet.collapsed .eta{margin-bottom:8px}
+  #sheet .grip{width:42px;height:5px;background:#cbd5e1;border-radius:3px;margin:4px auto 10px;cursor:pointer;transition:background 0.15s}
+  #sheet .grip:hover{background:#94a3b8}
   /* ETA-Card */
   .eta{display:flex;align-items:center;gap:10px;padding:12px 14px;background:#f0fdf4;border:1px solid #86efac;border-radius:12px;margin-bottom:14px}
   .eta.warn{background:#fef3c7;border-color:#fcd34d}
@@ -97,7 +101,7 @@
 </div>
 <button id="gps-btn" title="Mein Standort" onclick="centerOnUser()">📍</button>
 <div id="sheet">
-  <div class="grip"></div>
+  <div class="grip" onclick="toggleSheet()" title="Zum Auf-/Zuklappen tippen"></div>
   <div class="eta" id="eta-card">
     <div class="dot"></div>
     <div>
@@ -275,6 +279,14 @@
   refreshETA();
   setInterval(refreshETA, 30000);
 
+  // Bottom-Sheet Auf-/Zuklappen via Grip (Patrick 06.06. 21:26 "Karte wird komplett vom toast verdeckt")
+  function toggleSheet() {
+    const s = document.getElementById('sheet');
+    const collapsed = s.classList.toggle('collapsed');
+    document.body.classList.toggle('sheet-collapsed', collapsed);
+    // Karte neu zentrieren auf Route wenn da
+    setTimeout(() => map.invalidateSize(), 320);
+  }
   // Eichtarif M-V (synchron mit functions/index.js TARIF)
   const TARIF = {
     grundgebuehr: 4.00, km_1_2: 3.30, km_3_4: 2.80, km_ab_5: 2.20,

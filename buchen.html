@@ -742,9 +742,49 @@
         <!-- 🆕 v6.41.69: Sticky am oberen Bildschirmrand → bleibt sichtbar beim Scrollen (Mobile-Wunsch) -->
         <div id="step-progress" style="display:none;gap:4px;padding:8px 10px;margin-bottom:10px;background:rgba(255,255,255,0.96);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid #e5e7eb;border-radius:12px;overflow-x:auto;white-space:nowrap;font-size:11px;font-weight:600;position:sticky;top:8px;z-index:50;box-shadow:0 4px 14px rgba(15,23,42,0.08);"></div>
 
-        <!-- 🔧 v6.62.710: Wann-Card OBEN wiederhergestellt. Patrick (14.05. 10:16):
-             "Sofort ist nicht oben sondern unten — die Leute muessen nach oben sehen wenn
-             sie buchen wollen". v6.62.704 hatte den Toggle versteckt nach unten verschoben. -->
+        <!-- 🆕 v6.63.209 (Patrick 06.06. 20:18 "erst Abholort dann Uhrzeit, tausch das mal"):
+             pickup-dest-card jetzt OBEN, vor wann-card. Klassischer Buchungsflow: zuerst
+             Wohin? (Adressen), dann Wann? (Uhrzeit), dann Buchen. -->
+        <div class="card" id="pickup-dest-card" style="padding:14px;">
+            <!-- v6.62.912 (Patrick 24.05. 09:48): Title 'Wohin solls gehen' entfernt — Platz sparen, Inputs sprechen fuer sich. -->
+            <div class="input-group">
+                <label>📍 Abholort</label>
+                <input type="text" id="b-pickup" placeholder="Stecknadel drücken oder Abholort eintippen" autocomplete="off" style="padding-left:14px;padding-right:70px;">
+                <button onclick="clearAddressField('pickup')" title="Abholort löschen" style="position:absolute;right:48px;top:28px;width:28px;height:28px;padding:0;background:#f1f5f9;border:none;border-radius:50%;cursor:pointer;font-size:14px;color:#64748b;display:flex;align-items:center;justify-content:center;">✕</button>
+                <button class="gps-btn" onclick="useGPS('pickup')" title="Standort per Stecknadel setzen">📍</button>
+                <div class="autocomplete-dropdown" id="b-pickup-dropdown"></div>
+                <div id="pickup-hint" style="display:none;font-size:12px;color:#f59e0b;margin-top:4px;padding:4px 8px;background:#fffbeb;border-radius:6px;border:1px solid #fde68a;">
+                    ⚠️ Bitte einen Vorschlag aus der Liste auswählen
+                </div>
+            </div>
+            <div id="b-stopp-btn-box" style="text-align:center;margin-bottom:12px;">
+                <button onclick="showZwischenstopp()" style="padding:6px 14px;background:white;color:#f59e0b;border:2px solid #f59e0b;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">+ Zwischenstopp hinzufügen</button>
+            </div>
+            <div class="input-group" id="b-stopp-box" style="display:none;">
+                <label>📍 Zwischenstopp</label>
+                <div style="display:flex;gap:6px;">
+                    <input type="text" id="b-stopp" placeholder="Adresse eingeben…" autocomplete="off" style="flex:1;padding:12px 14px;border:2px solid #f59e0b;border-radius:10px;font-size:16px;background:#fffbeb;">
+                    <button onclick="clearZwischenstopp()" style="width:44px;height:44px;border:2px solid #ef4444;border-radius:10px;background:white;cursor:pointer;font-size:18px;color:#ef4444;flex-shrink:0;display:flex;align-items:center;justify-content:center;">&times;</button>
+                </div>
+                <div class="autocomplete-dropdown" id="b-stopp-dropdown" style="border-color:#f59e0b;"></div>
+            </div>
+            <div id="swap-btn-box" style="text-align:center;margin:-4px 0 4px;">
+                <button onclick="swapPickupDest()" style="padding:4px 16px;background:white;color:#6b7280;border:1px solid #e2e8f0;border-radius:8px;font-size:14px;cursor:pointer;" title="Abholort und Zielort tauschen">🔄</button>
+            </div>
+            <div class="input-group">
+                <label>🎯 Zielort</label>
+                <input type="text" id="b-destination" placeholder="Adresse eingeben…" autocomplete="off" style="padding-left:14px;padding-right:40px;">
+                <button onclick="clearAddressField('destination')" title="Zielort löschen" style="position:absolute;right:10px;top:28px;width:28px;height:28px;padding:0;background:#f1f5f9;border:none;border-radius:50%;cursor:pointer;font-size:14px;color:#64748b;display:flex;align-items:center;justify-content:center;">✕</button>
+                <div class="autocomplete-dropdown" id="b-destination-dropdown"></div>
+                <div id="dest-hint" style="display:none;font-size:12px;color:#f59e0b;margin-top:4px;padding:4px 8px;background:#fffbeb;border-radius:6px;border:1px solid #fde68a;">
+                    ⚠️ Bitte einen Vorschlag aus der Liste auswählen
+                </div>
+            </div>
+        </div>
+        <!-- 🔧 v6.62.710: Wann-Card. Patrick (14.05. 10:16): "Sofort ist nicht oben sondern unten —
+             die Leute muessen nach oben sehen wenn sie buchen wollen". v6.62.704 hatte den
+             Toggle versteckt nach unten verschoben. v6.63.209 (06.06.): pickup-dest-card davor
+             verschoben — wann-card kommt jetzt NACH den Adressen. -->
         <div class="card" id="wann-card" style="padding:12px;position:relative;">
             <!-- 🆕 v6.62.911 (Patrick 24.05. 09:45): X-Close-Button oben rechts.
                  Wenn User fertig ist mit Editieren → tippt X → Card schliesst + zeigt Compact-Badge mit aktuellen Werten. -->
@@ -856,45 +896,8 @@
              aus, bevor er den "Leider nicht moeglich"-Hinweis sieht. -->
         <div class="availability-card" id="availability" style="display:none !important;"></div>
 
-        <!-- 🆕 v6.62.880 (Patrick 22.05. 19:15+19:17): "Abholort und Zielort gehoeren oben — ohne
-             Scrollen. Karte bleibt unten, die Leute sehen freie Taxis sich bewegen, aber zuerst
-             die Adressen eingeben können." Pickup+Ziel direkt nach Wann-Card vor der Live-Karte. -->
-        <div class="card" id="pickup-dest-card" style="padding:14px;">
-            <!-- v6.62.912 (Patrick 24.05. 09:48): Title 'Wohin solls gehen' entfernt — Platz sparen, Inputs sprechen fuer sich. -->
-            <div class="input-group">
-                <label>📍 Abholort</label>
-                <input type="text" id="b-pickup" placeholder="Stecknadel drücken oder Abholort eintippen" autocomplete="off" style="padding-left:14px;padding-right:70px;">
-                <button onclick="clearAddressField('pickup')" title="Abholort löschen" style="position:absolute;right:48px;top:28px;width:28px;height:28px;padding:0;background:#f1f5f9;border:none;border-radius:50%;cursor:pointer;font-size:14px;color:#64748b;display:flex;align-items:center;justify-content:center;">✕</button>
-                <button class="gps-btn" onclick="useGPS('pickup')" title="Standort per Stecknadel setzen">📍</button>
-                <div class="autocomplete-dropdown" id="b-pickup-dropdown"></div>
-                <div id="pickup-hint" style="display:none;font-size:12px;color:#f59e0b;margin-top:4px;padding:4px 8px;background:#fffbeb;border-radius:6px;border:1px solid #fde68a;">
-                    ⚠️ Bitte einen Vorschlag aus der Liste auswählen
-                </div>
-            </div>
-            <div id="b-stopp-btn-box" style="text-align:center;margin-bottom:12px;">
-                <button onclick="showZwischenstopp()" style="padding:6px 14px;background:white;color:#f59e0b;border:2px solid #f59e0b;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">+ Zwischenstopp hinzufügen</button>
-            </div>
-            <div class="input-group" id="b-stopp-box" style="display:none;">
-                <label>📍 Zwischenstopp</label>
-                <div style="display:flex;gap:6px;">
-                    <input type="text" id="b-stopp" placeholder="Adresse eingeben…" autocomplete="off" style="flex:1;padding:12px 14px;border:2px solid #f59e0b;border-radius:10px;font-size:16px;background:#fffbeb;">
-                    <button onclick="clearZwischenstopp()" style="width:44px;height:44px;border:2px solid #ef4444;border-radius:10px;background:white;cursor:pointer;font-size:18px;color:#ef4444;flex-shrink:0;display:flex;align-items:center;justify-content:center;">&times;</button>
-                </div>
-                <div class="autocomplete-dropdown" id="b-stopp-dropdown" style="border-color:#f59e0b;"></div>
-            </div>
-            <div id="swap-btn-box" style="text-align:center;margin:-4px 0 4px;">
-                <button onclick="swapPickupDest()" style="padding:4px 16px;background:white;color:#6b7280;border:1px solid #e2e8f0;border-radius:8px;font-size:14px;cursor:pointer;" title="Abholort und Zielort tauschen">🔄</button>
-            </div>
-            <div class="input-group">
-                <label>🎯 Zielort</label>
-                <input type="text" id="b-destination" placeholder="Adresse eingeben…" autocomplete="off" style="padding-left:14px;padding-right:40px;">
-                <button onclick="clearAddressField('destination')" title="Zielort löschen" style="position:absolute;right:10px;top:28px;width:28px;height:28px;padding:0;background:#f1f5f9;border:none;border-radius:50%;cursor:pointer;font-size:14px;color:#64748b;display:flex;align-items:center;justify-content:center;">✕</button>
-                <div class="autocomplete-dropdown" id="b-destination-dropdown"></div>
-                <div id="dest-hint" style="display:none;font-size:12px;color:#f59e0b;margin-top:4px;padding:4px 8px;background:#fffbeb;border-radius:6px;border:1px solid #fde68a;">
-                    ⚠️ Bitte einen Vorschlag aus der Liste auswählen
-                </div>
-            </div>
-        </div>
+        <!-- v6.63.209 (Patrick 06.06. 20:18 "erst Abholort dann Uhrzeit, tausch das mal"):
+             pickup-dest-card nach OBEN vor wann-card verschoben. Sieh ganz oben. -->
         <!-- 🆕 v6.41.39: Live-Taxi-Karte mittig — Uber-Style, zeigt aktive Fahrzeuge UND Route (v6.41.44) -->
         <div class="card" id="live-taxi-card" style="padding:12px;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">

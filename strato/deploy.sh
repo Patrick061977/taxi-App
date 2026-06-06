@@ -45,6 +45,7 @@ APP_FILES=(
     "buchen-demo-b.html"
     "buchen-demo-c.html"
     "buchen-demo-d.html"
+    "buchen-v2.html"
     "buchung-test.html"
     "hotel.html"
     "landing.html"

@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<title>Funk Taxi · Buchen (v2 Premium)</title>
+<meta name="description" content="Funk Taxi Heringsdorf — schnell und einfach Taxi buchen. Live-Fahrzeuge auf der Karte. 24/7 unter 038378 22022.">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;font-family:-apple-system,'Segoe UI',Roboto,sans-serif;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;overflow:hidden;background:#0a0a0a;color:#fff}
+  #map{position:fixed;top:0;left:0;right:0;bottom:0}
+  .leaflet-container{background:#0a0a0a !important}
+  .leaflet-tile-pane{filter:brightness(0.78) saturate(1.05)}
+  /* Top-Bar */
+  #top-bar{position:fixed;top:env(safe-area-inset-top,0);left:8px;right:8px;padding:10px 12px;background:rgba(15,15,15,0.7);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);display:flex;align-items:center;gap:10px;z-index:1000;border-radius:18px;margin-top:8px;border:1px solid rgba(255,255,255,0.08)}
+  #top-bar .menu{width:36px;height:36px;background:rgba(255,255,255,0.1);border:none;color:#fff;font-size:18px;border-radius:50%;cursor:pointer}
+  #top-bar .brand{flex:1;font-size:14px;font-weight:600;color:#fff;letter-spacing:0.3px}
+  #top-bar .brand span{color:#fbbf24;font-weight:800}
+  #top-bar .phone{padding:8px 14px;background:#fbbf24;color:#1a1a1a;border-radius:18px;font-size:13px;font-weight:700;text-decoration:none}
+  /* GPS-Button */
+  #gps-btn{position:fixed;bottom:340px;right:16px;width:44px;height:44px;background:#fff;color:#1a1a1a;border:none;border-radius:50%;font-size:18px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.3);z-index:500;display:flex;align-items:center;justify-content:center;transition:bottom 0.3s}
+  /* Bottom-Sheet */
+  #sheet{position:fixed;bottom:0;left:0;right:0;background:#fff;color:#1a1a1a;border-radius:24px 24px 0 0;box-shadow:0 -10px 30px rgba(0,0,0,0.25);padding:8px 18px 22px;z-index:600;max-height:75vh;overflow-y:auto}
+  #sheet .grip{width:42px;height:5px;background:#e2e8f0;border-radius:3px;margin:0 auto 14px}
+  /* ETA-Card */
+  .eta{display:flex;align-items:center;gap:10px;padding:12px 14px;background:#f0fdf4;border:1px solid #86efac;border-radius:12px;margin-bottom:14px}
+  .eta.warn{background:#fef3c7;border-color:#fcd34d}
+  .eta.bad{background:#fee2e2;border-color:#fca5a5}
+  .eta .dot{width:10px;height:10px;background:#16a34a;border-radius:50%;animation:pulse 1.5s infinite;flex-shrink:0}
+  .eta.warn .dot{background:#d97706}
+  .eta.bad .dot{background:#dc2626}
+  .eta .text{font-size:14px;font-weight:700;color:#166534}
+  .eta.warn .text{color:#92400e}
+  .eta.bad .text{color:#991b1b}
+  .eta .sub{font-size:11px;color:#16a34a;margin-top:1px}
+  .eta.warn .sub{color:#b45309}
+  .eta.bad .sub{color:#b91c1c}
+  @keyframes pulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.4);opacity:0.5}}
+  /* Adressen */
+  .addr{position:relative;margin-bottom:8px}
+  .addr .pin{position:absolute;left:14px;top:50%;transform:translateY(-50%);width:10px;height:10px;border-radius:50%;z-index:2}
+  .addr .pin.pick{background:#16a34a;box-shadow:0 0 0 4px #dcfce7}
+  .addr .pin.dest{background:#dc2626;box-shadow:0 0 0 4px #fecaca}
+  .addr input{width:100%;padding:14px 14px 14px 36px;border:2px solid #e5e7eb;border-radius:14px;font-size:15px;background:#f9fafb;color:#1a1a1a;font-family:inherit}
+  .addr input:focus{border-color:#1a1a1a;background:#fff;outline:none}
+  .swap-line{display:flex;align-items:center;gap:8px;margin:0 0 8px}
+  .swap-line::before,.swap-line::after{content:'';flex:1;height:1px;background:#e5e7eb}
+  .swap-line button{width:30px;height:30px;border-radius:50%;border:1px solid #cbd5e1;background:#fff;color:#475569;cursor:pointer;font-size:12px}
+  /* Wann */
+  .wann{display:flex;gap:6px;margin-bottom:14px;background:#f1f5f9;padding:4px;border-radius:14px}
+  .wann .opt{flex:1;padding:11px;text-align:center;border-radius:10px;cursor:pointer;font-size:14px;font-weight:600;color:#64748b;transition:all 0.2s}
+  .wann .opt.active{background:#1a1a1a;color:#fff;box-shadow:0 2px 6px rgba(0,0,0,0.15)}
+  /* CTA */
+  .cta{width:100%;padding:16px;background:#1a1a1a;color:#fff;border:none;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer;letter-spacing:0.3px;display:flex;align-items:center;justify-content:center;gap:8px;transition:transform 0.1s;font-family:inherit}
+  .cta:active{transform:scale(0.98);background:#000}
+  .cta.disabled{background:#cbd5e1;color:#94a3b8;cursor:not-allowed}
+  .cta.disabled:active{transform:none}
+  /* User-Pulse */
+  .user-pulse{width:18px;height:18px;background:#1e88e5;border:3px solid #fff;border-radius:50%;box-shadow:0 0 0 0 rgba(30,136,229,0.6);animation:userPulse 2s infinite}
+  @keyframes userPulse{0%{box-shadow:0 0 0 0 rgba(30,136,229,0.7)}70%{box-shadow:0 0 0 16px rgba(30,136,229,0)}100%{box-shadow:0 0 0 0 rgba(30,136,229,0)}}
+  /* Taxi-Marker */
+  .taxi-pin{font-size:26px;text-align:center;line-height:1;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.5))}
+  /* V2-Label */
+  .v2-label{position:fixed;top:0;right:8px;padding:4px 10px;background:#fbbf24;color:#1a1a1a;border-radius:0 0 8px 8px;font-size:10px;font-weight:700;z-index:2000;letter-spacing:0.3px}
+</style>
+</head>
+<body>
+<div class="v2-label">v2 · PREMIUM</div>
+<div id="map"></div>
+<div id="top-bar">
+  <button class="menu" onclick="alert('Menü kommt später')">☰</button>
+  <div class="brand">FUNK<span>TAXI</span> · Heringsdorf</div>
+  <a href="tel:+4938378822022" class="phone">📞</a>
+</div>
+<button id="gps-btn" title="Mein Standort" onclick="centerOnUser()">📍</button>
+<div id="sheet">
+  <div class="grip"></div>
+  <div class="eta" id="eta-card">
+    <div class="dot"></div>
+    <div>
+      <div class="text" id="eta-text">⏳ Verfügbarkeit wird geprüft…</div>
+      <div class="sub" id="eta-sub">Live-Daten aus Funk Taxi-System</div>
+    </div>
+  </div>
+  <div class="addr">
+    <div class="pin pick"></div>
+    <input type="text" id="b-pickup" placeholder="Abholort eingeben…" autocomplete="off">
+  </div>
+  <div class="swap-line"><button onclick="swapAddr()">⇅</button></div>
+  <div class="addr">
+    <div class="pin dest"></div>
+    <input type="text" id="b-destination" placeholder="Wohin?" autocomplete="off">
+  </div>
+  <div class="wann">
+    <div class="opt active" data-mode="sofort" onclick="setMode('sofort')">⚡ Sofort</div>
+    <div class="opt" data-mode="vorbestellen" onclick="setMode('vorbestellen')">📅 Geplant</div>
+  </div>
+  <button class="cta disabled" id="cta-btn" onclick="onBookClick()">Adressen eingeben →</button>
+</div>
+<script>
+  // 🆕 v6.63.210 (Patrick 06.06. 21:12 "live testen"): buchen-v2.html — Demo D-Stil
+  //   mit echter Firebase + Live-Fahrzeuge + Live-ETA. Schritt 1 von 3.
+  //   Buchung selbst leitet aktuell auf die echte buchen.html weiter mit
+  //   vorbefüllten Adressen via URL-Param.
+  const firebaseConfig = {
+    apiKey: "AIzaSyD2eHFEFqEPCmiAQy8d1q-r0fNW_dWiZk0",
+    authDomain: "taxi-heringsdorf.firebaseapp.com",
+    databaseURL: "https://taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "taxi-heringsdorf"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
+
+  const CENTER = [53.951, 14.171];
+  const map = L.map('map', { zoomControl: false, attributionControl: false }).setView(CENTER, 14);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+  const userIcon = L.divIcon({ className: '', html: '<div class="user-pulse"></div>', iconSize: [18,18], iconAnchor: [9,9] });
+  let userMarker = null;
+  let userPos = null;
+  function centerOnUser() {
+    if (!navigator.geolocation) return alert('GPS nicht verfügbar');
+    navigator.geolocation.getCurrentPosition(pos => {
+      userPos = [pos.coords.latitude, pos.coords.longitude];
+      if (userMarker) userMarker.remove();
+      userMarker = L.marker(userPos, { icon: userIcon }).addTo(map);
+      map.setView(userPos, 15);
+    }, err => {
+      alert('Standort konnte nicht ermittelt werden: ' + (err.message || err));
+    }, { enableHighAccuracy: true, timeout: 8000 });
+  }
+
+  // Live Fahrzeug-Marker
+  const taxiIcon = (emoji) => L.divIcon({ className: '', html: '<div class="taxi-pin">' + emoji + '</div>', iconSize: [32,32], iconAnchor: [16,16] });
+  const vehicleMarkers = {};
+  db.ref('vehicles').on('value', snap => {
+    const data = snap.val() || {};
+    const seenVids = new Set();
+    Object.entries(data).forEach(([vid, v]) => {
+      if (!v || !v.lat || !v.lon || v.online === false) return;
+      const ageMin = v.timestamp ? (Date.now() - v.timestamp) / 60000 : 999;
+      if (ageMin > 10) return;
+      seenVids.add(vid);
+      const emoji = ageMin < 5 ? '🚕' : '🚖';
+      if (vehicleMarkers[vid]) {
+        vehicleMarkers[vid].setLatLng([v.lat, v.lon]);
+      } else {
+        vehicleMarkers[vid] = L.marker([v.lat, v.lon], { icon: taxiIcon(emoji) }).addTo(map);
+      }
+    });
+    // Cleanup verschwundener Fahrzeuge
+    Object.keys(vehicleMarkers).forEach(vid => {
+      if (!seenVids.has(vid)) {
+        vehicleMarkers[vid].remove();
+        delete vehicleMarkers[vid];
+      }
+    });
+  });
+
+  // Live-ETA-Banner (gleiche Logik wie landing.html)
+  function haversineKm(lat1, lon1, lat2, lon2) {
+    const dLat = (lat1 - lat2) * Math.PI / 180;
+    const dLon = (lon1 - lon2) * Math.PI / 180;
+    const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+    return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  }
+  async function osrmMin(fromLat, fromLon, toLat, toLon) {
+    try {
+      const ctrl = new AbortController();
+      const tid = setTimeout(() => ctrl.abort(), 5000);
+      const r = await fetch(`https://router.project-osrm.org/route/v1/driving/${fromLon},${fromLat};${toLon},${toLat}?overview=false`, { signal: ctrl.signal });
+      clearTimeout(tid);
+      const j = await r.json();
+      if (j.routes && j.routes[0]) return Math.round(j.routes[0].duration / 60);
+    } catch(_) {}
+    return Math.max(1, Math.round(haversineKm(fromLat, fromLon, toLat, toLon) * 1.5));
+  }
+  async function refreshETA() {
+    try {
+      const [vSnap, rSnap] = await Promise.all([db.ref('vehicles').once('value'), db.ref('rides').once('value')]);
+      const vData = vSnap.val() || {};
+      const rData = rSnap.val() || {};
+      const busyStatuses = ['accepted','sofort','assigned','arrived','on_way','picked_up','in_progress'];
+      const busy = new Set();
+      Object.values(rData).forEach(r => {
+        if (!r || !busyStatuses.includes(r.status)) return;
+        const vid = r.vehicleId || r.assignedVehicle;
+        if (vid) busy.add(vid);
+      });
+      const cands = [];
+      Object.entries(vData).forEach(([vid, v]) => {
+        if (!v || !v.lat || !v.lon) return;
+        const age = v.lastUpdate ? (Date.now() - v.lastUpdate) / 60000 : (v.timestamp ? (Date.now() - v.timestamp) / 60000 : 999);
+        if (age > 10) return;
+        if (v.online === false && !(v.shift && v.shift.status === 'active')) return;
+        cands.push({ vid, lat: v.lat, lon: v.lon, distKm: haversineKm(CENTER[0], CENTER[1], v.lat, v.lon), busy: busy.has(vid) });
+      });
+      const card = document.getElementById('eta-card');
+      const t = document.getElementById('eta-text');
+      const s = document.getElementById('eta-sub');
+      if (cands.length === 0) {
+        card.className = 'eta bad';
+        t.textContent = '☎ Bitte anrufen: 038378 22022';
+        s.textContent = 'Kein Fahrzeug online — Sofort-Buchung per Telefon';
+        return;
+      }
+      const free = cands.filter(c => !c.busy);
+      const pool = free.length > 0 ? free : cands;
+      const top3 = pool.sort((a,b) => a.distKm - b.distKm).slice(0,3);
+      const etas = await Promise.all(top3.map(c => osrmMin(c.lat, c.lon, CENTER[0], CENTER[1])));
+      const etaMin = Math.max(1, Math.min(...etas));
+      if (free.length > 0 && etaMin <= 5) {
+        card.className = 'eta';
+        t.textContent = `⚡ Taxi sofort verfügbar`;
+        s.textContent = `Nächster Wagen: ${etaMin} Min · ab Heringsdorf`;
+      } else if (free.length > 0) {
+        card.className = 'eta warn';
+        t.textContent = `🚕 Taxi unterwegs`;
+        s.textContent = `ca. ${etaMin} Min Wartezeit · ab Heringsdorf`;
+      } else {
+        card.className = 'eta warn';
+        t.textContent = `🚕 Alle Taxis besetzt`;
+        s.textContent = `Nächstes frei in ca. ${etaMin} Min`;
+      }
+    } catch(e) {
+      console.warn('ETA-Refresh fehler:', e);
+    }
+  }
+  refreshETA();
+  setInterval(refreshETA, 30000);
+
+  // CTA-Logik: vorerst Redirect auf echte buchen.html mit URL-Params
+  function setMode(m) {
+    document.querySelectorAll('.wann .opt').forEach(o => o.classList.toggle('active', o.dataset.mode === m));
+  }
+  function swapAddr() {
+    const p = document.getElementById('b-pickup');
+    const d = document.getElementById('b-destination');
+    const tmp = p.value; p.value = d.value; d.value = tmp;
+    updateCTA();
+  }
+  function updateCTA() {
+    const p = document.getElementById('b-pickup').value.trim();
+    const d = document.getElementById('b-destination').value.trim();
+    const btn = document.getElementById('cta-btn');
+    if (p && d) {
+      btn.classList.remove('disabled');
+      btn.textContent = '🚖 Weiter zur Buchung →';
+    } else {
+      btn.classList.add('disabled');
+      btn.textContent = p || d ? 'Beide Adressen eingeben →' : 'Adressen eingeben →';
+    }
+  }
+  document.getElementById('b-pickup').addEventListener('input', updateCTA);
+  document.getElementById('b-destination').addEventListener('input', updateCTA);
+  function onBookClick() {
+    const p = document.getElementById('b-pickup').value.trim();
+    const d = document.getElementById('b-destination').value.trim();
+    if (!p || !d) return;
+    const url = `/Taxi-App/buchen.html?from=${encodeURIComponent(p)}&to=${encodeURIComponent(d)}`;
+    window.location.href = url;
+  }
+
+  // GPS-Button Position anpassen wenn Bottom-Sheet sich öffnet/schließt (später)
+</script>
+</body>
+</html>

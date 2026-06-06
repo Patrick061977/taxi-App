@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Demo B — Klassisch optimiert · Funk Taxi Heringsdorf</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;font-family:-apple-system,'Segoe UI',Roboto,sans-serif}
+  html,body{background:linear-gradient(180deg,#dbeafe 0%,#f1f5f9 100%);min-height:100%;color:#1a1a1a;padding-bottom:env(safe-area-inset-bottom)}
+  #header{padding:14px 16px;background:rgba(255,255,255,0.95);backdrop-filter:blur(8px);box-shadow:0 1px 4px rgba(0,0,0,0.05);display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:50}
+  #header .logo{font-size:22px}
+  #header .title{font-size:16px;font-weight:700;flex:1}
+  #header .phone{padding:6px 12px;background:#10b981;color:#fff;border-radius:18px;font-size:13px;font-weight:600;text-decoration:none}
+  .eta-banner{padding:10px 16px;background:#fde68a;color:#854d0e;font-size:14px;font-weight:600;text-align:center}
+  main{padding:14px 14px 30px;max-width:480px;margin:0 auto}
+  .card{background:#fff;border-radius:14px;padding:14px;margin-bottom:8px;box-shadow:0 1px 4px rgba(0,0,0,0.05)}
+  .card-title{font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px}
+  .input-row{position:relative;margin-bottom:8px}
+  .input-row .icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:18px;z-index:2}
+  .input-row .clear{position:absolute;right:10px;top:50%;transform:translateY(-50%);width:28px;height:28px;border-radius:50%;border:none;background:#f1f5f9;color:#64748b;font-size:13px;cursor:pointer}
+  .input-row input{width:100%;padding:12px 42px 12px 42px;border:2px solid #e2e8f0;border-radius:10px;font-size:15px;background:#fff}
+  .input-row input:focus{border-color:#3b82f6;outline:none}
+  .swap{text-align:center;margin:-4px 0 4px}
+  .swap button{width:32px;height:32px;border-radius:50%;border:1px solid #cbd5e1;background:#fff;color:#475569;cursor:pointer}
+  .wann-row{display:flex;gap:6px}
+  .wann-row .opt{flex:1;padding:11px;text-align:center;border-radius:10px;border:2px solid #e2e8f0;background:#f8fafc;cursor:pointer;font-size:14px;font-weight:600;color:#475569}
+  .wann-row .opt.active{background:#dcfce7;border-color:#16a34a;color:#166534}
+  .preset-row{display:flex;gap:5px;margin-top:8px;flex-wrap:wrap}
+  .preset-row .preset{flex:1;min-width:60px;padding:7px 4px;font-size:12px;text-align:center;border-radius:8px;border:2px solid #cbd5e1;background:#f1f5f9;color:#475569;cursor:pointer;font-weight:600}
+  .preset-row .preset.active{background:#dcfce7;border-color:#16a34a;color:#166534}
+  #live-map{height:200px;background:linear-gradient(135deg,#1e3a8a,#0c4a6e);border-radius:12px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;position:relative;overflow:hidden}
+  #live-map::before{content:'';position:absolute;top:50%;left:50%;width:40px;height:40px;background:radial-gradient(circle,#10b981 30%,transparent 60%);transform:translate(-50%,-50%);animation:pulse 2s infinite}
+  #live-map .car{position:absolute;font-size:20px}
+  #live-map .c1{top:25%;left:25%;animation:float 3s infinite}
+  #live-map .c2{top:50%;left:65%;animation:float 3s infinite 1s}
+  #live-map .c3{top:70%;left:40%;animation:float 3s infinite 2s}
+  @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+  @keyframes pulse{0%,100%{transform:translate(-50%,-50%) scale(1);opacity:0.7}50%{transform:translate(-50%,-50%) scale(1.4);opacity:0.3}}
+  .price-row{display:flex;justify-content:space-between;align-items:center;padding:14px;background:#f8fafc;border-radius:12px;margin-bottom:10px}
+  .price-row .km{font-size:12px;color:#64748b}
+  .price-row .price{font-size:24px;font-weight:700;color:#16a34a}
+  .cta{width:100%;padding:14px;background:#10b981;color:#fff;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer}
+  .demo-label{position:fixed;top:0;right:8px;padding:4px 10px;background:#ef4444;color:#fff;border-radius:0 0 8px 8px;font-size:10px;font-weight:700;z-index:200}
+</style>
+</head>
+<body>
+<div class="demo-label">DEMO B · Klassisch optimiert</div>
+<div id="header">
+  <span class="logo">🚖</span>
+  <div class="title">Funk Taxi · Buchen</div>
+  <a href="tel:+4938378822022" class="phone">📞</a>
+</div>
+<div class="eta-banner">⚡ Taxi sofort verfügbar — nur 5 Min Wartezeit</div>
+<main>
+  <div class="card">
+    <div class="card-title">1. Wohin?</div>
+    <div class="input-row">
+      <span class="icon">📍</span>
+      <input type="text" placeholder="Abholort eingeben…" value="">
+      <button class="clear">✕</button>
+    </div>
+    <div class="swap"><button>🔄</button></div>
+    <div class="input-row">
+      <span class="icon">🎯</span>
+      <input type="text" placeholder="Zielort eingeben…" value="">
+      <button class="clear">✕</button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">2. Wann?</div>
+    <div class="wann-row">
+      <div class="opt active">⚡ Sofort</div>
+      <div class="opt">📅 Vorbestellen</div>
+    </div>
+    <div class="preset-row">
+      <div class="preset active">Jetzt</div>
+      <div class="preset">+15 Min</div>
+      <div class="preset">+30 Min</div>
+      <div class="preset">+45 Min</div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">3. Taxis & Route</div>
+    <div id="live-map">
+      <div class="car c1">🚕</div>
+      <div class="car c2">🚖</div>
+      <div class="car c3">🚖</div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">4. Buchen</div>
+    <div class="price-row">
+      <div>
+        <div class="km">— km · — Min</div>
+        <div class="price">— €</div>
+      </div>
+      <div style="font-size:12px;color:#64748b;text-align:right">Adressen<br>eingeben</div>
+    </div>
+    <button class="cta">✅ Taxi buchen</button>
+  </div>
+</main>
+</body>
+</html>

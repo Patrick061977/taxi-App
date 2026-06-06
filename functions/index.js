@@ -25196,22 +25196,44 @@ exports.onRideUpdated = onValueUpdated(
             // korrekt zur richtigen Zeit (15+Anfahrt Min vor Pickup). Diese sofortige
             // Push-Stelle sollte NUR feuern wenn der Push jetzt wirklich relevant ist.
             const _minutesUntilPickup = after.pickupTimestamp ? (after.pickupTimestamp - Date.now()) / 60000 : 0;
-            const _isVorbestPlan = (after.status === 'vorbestellt') && _minutesUntilPickup > 60;
+            // v6.63.190 (Patrick 06.06. 09:46): Sofort-Push-Grenze 60 → 30 Min. Vorher
+            //   gingen Re-Assignments fuer Pickup in 35-60 Min sofort als "neue Fahrt"-Push
+            //   raus — nervt, der regulaere Losfahr-Alarm kommt eh in pickup-17 Min.
+            //   Mit 30 Min: zwischen 30-60 Min Vorlauf kein sofortiger Push.
+            const _isVorbestPlan = (after.status === 'vorbestellt') && _minutesUntilPickup > 30;
             if (_isVorbestPlan) {
                 console.log(`📋 Vorbestellungs-Tagesplanung — kein sofortiger FCM-Push (Pickup in ${Math.round(_minutesUntilPickup)} Min). PUSH-REMINDER greift spaeter.`);
             } else if (after.silentReassign === true) {
-                // 🆕 v6.63.189 (Patrick 06.06. 09:32): Wenn der Admin aktiv aus dem
-                //   Wartepool zieht (AdminDashboardActivity wartepool-spinner setzt
-                //   silentReassign=true), KEIN Akzeptanz-Push. Der Admin hat die Fahrt
-                //   bewusst übernommen — die Ride taucht via Listener in der Native-Dispo
-                //   auf, kein "Annehmen-Druck" noetig. cancel_notification an oldVehicle
-                //   bleibt aktiv (sonst klebt der Push beim vorherigen Fahrer).
-                console.log(`🤫 v6.63.189 silentReassign=true — kein FCM new_ride an ${newVehicle}`);
-                try { await addRideLog(rideId, '🤫', `Silent Re-Assign — kein Akzeptanz-Push an ${newVehicle}`, { quelle: 'onRideUpdated v6.63.189', neuesVehicle: newVehicle, altesVehicle: oldVehicle || null }); } catch(_) {}
+                // 🆕 v6.63.189 (Patrick 06.06. 09:32): silentReassign=true → KEIN Akzeptanz-
+                //   Push am neuen Fahrer.
+                // 🔧 v6.63.190 (Patrick 09:46): "leise Information ist OK — keine 'neue Fahrt'
+                //   mit Geballer, aber Fahrer soll sehen 'umgeplant, kommt was'." Statt
+                //   komplett-skippen jetzt ride_changed-Push (leiser Standard-Notification-
+                //   Channel, keine Annehmen-Buttons, keinen full-screen). cancel_notification
+                //   an oldVehicle bleibt aktiv.
+                try {
+                    const _pickupLabel = after.pickupTime || (after.pickupTimestamp ? new Date(after.pickupTimestamp).toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit',timeZone:'Europe/Berlin'}) : 'Sofort');
+                    await sendFCMToVehicle(newVehicle, {
+                        type: 'ride_changed',
+                        rideId,
+                        vehicleId: newVehicle,
+                        pickup: after.pickup || '',
+                        destination: after.destination || '',
+                        pickupTime: _pickupLabel,
+                        customerName: after.customerName || 'Kunde',
+                        changes: '🚗 Fahrzeug umgeplant auf Dich',
+                        isReminder: 'false',
+                        reason: 'silent-reassign'
+                    });
+                    console.log(`🤫 v6.63.190 silentReassign=true — leiser ride_changed-Push an ${newVehicle}`);
+                    try { await addRideLog(rideId, '🤫', `Leise Umplanung an ${newVehicle} (kein Annehmen-Druck)`, { quelle: 'onRideUpdated v6.63.190', neuesVehicle: newVehicle, altesVehicle: oldVehicle || null }); } catch(_) {}
+                } catch (_qFcm) {
+                    console.warn('silent-Re-Assign ride_changed FCM-Fehler:', _qFcm.message);
+                }
                 if (oldVehicle && oldVehicle !== newVehicle) {
                     try {
                         await sendFCMToVehicle(oldVehicle, { type: 'cancel_notification', rideId });
-                        console.log(`📵 v6.63.189 silent-Re-Assign cancel_notification → ${oldVehicle}`);
+                        console.log(`📵 v6.63.190 silent-Re-Assign cancel_notification → ${oldVehicle}`);
                     } catch (_cancelErr) {
                         console.warn('silent-Re-Assign cancel FCM-Fehler:', _cancelErr.message);
                     }

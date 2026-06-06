@@ -2916,6 +2916,10 @@ public class CrmSearchActivity extends AppCompatActivity {
         // 🆕 v6.62.507: Save-Once-Flag (final Array fuer Lambda-Closure).
         //   Patrick (08.05. 17:47): Confirmation-OK-Klick triggerte zweiten Save.
         final boolean[] _alreadySavedRef = { false };
+        // 🆕 v6.63.193 (Patrick 06.06. 12:43): Preis-Vorschau-Dialog vor Save.
+        //   Patrick: "Damit ich weiss was die Kunden für eine Preisinformation bekommen."
+        //   Skip wenn schon bestätigt (Re-Entry nach performClick) oder Festpreis gesetzt.
+        final boolean[] _priceConfirmedRef = { false };
         // 🆕 v6.62.817: Vergangenheits-Datum erlaubt nach Bestaetigung (Nachtrag fuer Rechnung).
         final boolean[] _backdateConfirmedRef = { false };
         // 🆕 v6.62.819: Im Backdate-Dialog stellbare Flags fuer status/Rechnung.
@@ -3176,6 +3180,51 @@ public class CrmSearchActivity extends AppCompatActivity {
                     Log.w("CrmSearch", "Save bereits durchgeführt — ignoriere zweiten Klick");
                     return;
                 }
+
+                // 🆕 v6.63.193 (Patrick 06.06. 12:43): Preis-Vorschau VOR Save.
+                //   Sanity-Berechnung: Haversine × 1.4 + Sonntag-Nachttarif + 5+ Pax + 8-Sitzer-Worst-Case.
+                //   Wenn Festpreis im Hauptfeld → Skip Dialog (Patrick weiss was er macht).
+                //   Wenn _priceConfirmedRef gesetzt → Re-Entry nach OK, weiter zum Save.
+                if (!_priceConfirmedRef[0] && _priceStr.isEmpty()
+                    && pickupCoords[0] != 0 && destCoords[0] != 0) {
+                    double _luftKm = haversineMeters(pickupCoords[0], pickupCoords[1], destCoords[0], destCoords[1]) / 1000.0;
+                    double _strKm = _luftKm * 1.4;
+                    java.util.Calendar _picCal = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("Europe/Berlin"));
+                    _picCal.setTimeInMillis(pickupTs);
+                    int _hour = _picCal.get(java.util.Calendar.HOUR_OF_DAY);
+                    int _day = _picCal.get(java.util.Calendar.DAY_OF_WEEK) - 1; // 0=So
+                    boolean _isNight = _hour >= 22 || _hour < 6 || _day == 0;
+                    double _kmPreis = _isNight ? _strKm * 2.80 : _strKm * 2.50;
+                    double _basePreis = 4.0 + _kmPreis;
+                    StringBuilder _tarifInfo = new StringBuilder();
+                    if (_day == 0) _tarifInfo.append(" • Sonntag-Tarif");
+                    else if (_isNight) _tarifInfo.append(" • Nachttarif");
+                    if (pax >= 5) { _basePreis += 10.0; _tarifInfo.append(" • +10€ Großraum"); }
+                    _basePreis *= 1.30;
+                    _tarifInfo.append(" • +30% (8-Sitzer worst case)");
+                    final double _finalPreis = Math.round(_basePreis * 10) / 10.0;
+                    final double _finalKm = _strKm;
+                    new AlertDialog.Builder(this)
+                        .setTitle("📊 System-Preis-Vorschau")
+                        .setMessage(String.format(Locale.GERMANY,
+                            "Geschätzte Distanz: %.1f km\n(Luftlinie %.1f km × 1.4)\n\n" +
+                            "Tarif-Schätzung: %.2f €%s\n\n" +
+                            "Festpreis im Hauptfeld unten überschreibt diesen Wert.\n" +
+                            "Anlegen?",
+                            _finalKm, _luftKm, _finalPreis, _tarifInfo.toString()))
+                        .setPositiveButton("Anlegen", (d, w) -> {
+                            _priceConfirmedRef[0] = true;
+                            btnSave.performClick();
+                        })
+                        .setNeutralButton("Festpreis eintragen", (d, w) -> {
+                            etPrice.requestFocus();
+                        })
+                        .setNegativeButton("Abbrechen", null)
+                        .setCancelable(false)
+                        .show();
+                    return;
+                }
+
                 _alreadySavedRef[0] = true;
 
                 // 🆕 v6.62.504: Click-Lock

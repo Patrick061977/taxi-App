@@ -2579,9 +2579,11 @@
                 if (pickupCoords) {
                     etaText = '<span class="eta-loading-car">🚕</span> Anfahrt wird berechnet <span class="eta-loading-dots" style="opacity:0.6;">···</span>';
                 } else {
-                    const _freeTxt = `${_freeCount} frei`;
+                    // 🔧 v6.63.201 (Patrick 06.06. 18:56 "Es ist nur einer frei. Und dann reicht
+                    //   ein Fahrzeug frei Abholort für Wartezeit eingeben."): Wortlaut praeziser.
+                    const _freeTxt = `${_freeCount} Fahrzeug${_freeCount === 1 ? '' : 'e'} frei`;
                     const _busyTxt = _busyCount > 0 ? ` · ${_busyCount} unterwegs` : '';
-                    etaText = `${_freeTxt}${_busyTxt} — Abholort eingeben für Wartezeit`;
+                    etaText = `${_freeTxt}${_busyTxt} · Abholort für Wartezeit eingeben`;
                 }
                 let _closestFreeVeh = null;
                 let _closestFreeDist = Infinity;

@@ -1817,16 +1817,17 @@ public class CrmSearchActivity extends AppCompatActivity {
         tvKundeInfo.setPadding(0, 0, 0, padHalf);
         layout.addView(tvKundeInfo);
 
-        // 🆕 v6.63.195 (Patrick 06.06. 13:18 "Karte automatisch on-line"):
-        //   Live-Karte + Preis-Vorschau direkt im Modal. Bild wird async geladen
-        //   sobald pickupCoords+destCoords gesetzt sind. Update via 1.5s-Poll-Handler
-        //   damit Auto-Refresh bei Map-Picker-Auswahl / Pax/Datum-Wechsel greift.
-        final android.widget.ImageView _liveMap = new android.widget.ImageView(this);
+        // 🆕 v6.63.196 (Patrick 06.06. 14:06 "Kartenbild nicht erkennen"):
+        //   Static Maps API mit unserem API-Key gibt 403 zurück (nur Places New aktiv).
+        //   Stattdessen: WebView mit Leaflet + OpenStreetMap (genau wie buchen.html, kein API-Key).
+        //   Update via 1.5s-Poll-Handler damit Auto-Refresh bei Picker-Auswahl/Pax/Datum greift.
+        final android.webkit.WebView _liveMap = new android.webkit.WebView(this);
         android.widget.LinearLayout.LayoutParams _lmLp = new android.widget.LinearLayout.LayoutParams(
             android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
-            (int)(180 * getResources().getDisplayMetrics().density));
+            (int)(220 * getResources().getDisplayMetrics().density));
         _liveMap.setLayoutParams(_lmLp);
-        _liveMap.setScaleType(android.widget.ImageView.ScaleType.CENTER_CROP);
+        _liveMap.getSettings().setJavaScriptEnabled(true);
+        _liveMap.getSettings().setDomStorageEnabled(true);
         _liveMap.setBackgroundColor(0xFF1F2937);
         _liveMap.setVisibility(android.view.View.GONE);
         layout.addView(_liveMap);
@@ -2978,33 +2979,31 @@ public class CrmSearchActivity extends AppCompatActivity {
                         _strKm, _finalPreis, _tarifLbl));
                     _livePriceInfo.setVisibility(android.view.View.VISIBLE);
                     _liveMap.setVisibility(android.view.View.VISIBLE);
-                    // Static Map async laden
+                    // 🆕 v6.63.196: Leaflet+OSM via WebView (kein API-Key noetig — wie buchen.html)
                     final double _pLat = pickupCoords[0], _pLon = pickupCoords[1];
                     final double _dLat = destCoords[0], _dLon = destCoords[1];
-                    new Thread(() -> {
-                        try {
-                            String _apiKey = "AIzaSyCEL-wtoIrVm0-PXpILLabGQXfuFaA17lg";
-                            String _url = String.format(Locale.US,
-                                "https://maps.googleapis.com/maps/api/staticmap?" +
-                                "size=600x300&scale=2" +
-                                "&markers=color:green%%7Clabel:S%%7C%f,%f" +
-                                "&markers=color:red%%7Clabel:E%%7C%f,%f" +
-                                "&path=color:0x4F46E5FF%%7Cweight:5%%7C%f,%f%%7C%f,%f" +
-                                "&key=%s",
-                                _pLat, _pLon, _dLat, _dLon,
-                                _pLat, _pLon, _dLat, _dLon, _apiKey);
-                            java.net.HttpURLConnection _conn = (java.net.HttpURLConnection)
-                                new java.net.URL(_url).openConnection();
-                            _conn.setConnectTimeout(8000);
-                            _conn.setReadTimeout(8000);
-                            android.graphics.Bitmap _bmp = android.graphics.BitmapFactory.decodeStream(_conn.getInputStream());
-                            runOnUiThread(() -> {
-                                if (_bmp != null) _liveMap.setImageBitmap(_bmp);
-                            });
-                        } catch (Throwable _err) { /* ignore */ }
-                    }).start();
-                    // Tap auf Live-Karte öffnet Google Maps mit Route
-                    _liveMap.setOnClickListener(_mv -> {
+                    String _html = String.format(Locale.US,
+                        "<!doctype html><html><head>" +
+                        "<meta name='viewport' content='width=device-width,initial-scale=1'/>" +
+                        "<link rel='stylesheet' href='https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'/>" +
+                        "<script src='https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'></script>" +
+                        "<style>html,body,#map{height:100%%;margin:0;padding:0;background:#1f2937}</style>" +
+                        "</head><body><div id='map'></div><script>" +
+                        "const m=L.map('map',{zoomControl:false,attributionControl:false});" +
+                        "L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(m);" +
+                        "const pickIcon=L.divIcon({className:'',html:'<div style=\"background:#10b981;color:#fff;border-radius:50%%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-weight:bold;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.4)\">S</div>',iconSize:[28,28],iconAnchor:[14,14]});" +
+                        "const destIcon=L.divIcon({className:'',html:'<div style=\"background:#ef4444;color:#fff;border-radius:50%%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-weight:bold;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.4)\">Z</div>',iconSize:[28,28],iconAnchor:[14,14]});" +
+                        "L.marker([%f,%f],{icon:pickIcon}).addTo(m);" +
+                        "L.marker([%f,%f],{icon:destIcon}).addTo(m);" +
+                        "L.polyline([[%f,%f],[%f,%f]],{color:'#4F46E5',weight:5,opacity:0.8}).addTo(m);" +
+                        "m.fitBounds([[%f,%f],[%f,%f]],{padding:[40,40]});" +
+                        "</script></body></html>",
+                        _pLat, _pLon, _dLat, _dLon,
+                        _pLat, _pLon, _dLat, _dLon,
+                        _pLat, _pLon, _dLat, _dLon);
+                    _liveMap.loadDataWithBaseURL("https://unpkg.com/", _html, "text/html", "UTF-8", null);
+                    // Tap auf Live-Karte oeffnet Google Maps mit Route
+                    _liveMap.setOnLongClickListener(_mv -> {
                         try {
                             Intent _mIntent = new Intent(android.content.Intent.ACTION_VIEW,
                                 android.net.Uri.parse(String.format(Locale.US,
@@ -3012,6 +3011,7 @@ public class CrmSearchActivity extends AppCompatActivity {
                                     _pLat, _pLon, _dLat, _dLon)));
                             startActivity(_mIntent);
                         } catch (Throwable _tt) { /* ignore */ }
+                        return true;
                     });
                 }
                 _mapPollHandler.postDelayed(this, 1500);
@@ -3288,117 +3288,8 @@ public class CrmSearchActivity extends AppCompatActivity {
                     return;
                 }
 
-                // 🆕 v6.63.193 (Patrick 06.06. 12:43): Preis-Vorschau VOR Save.
-                //   Sanity-Berechnung: Haversine × 1.4 + Sonntag-Nachttarif + 5+ Pax + 8-Sitzer-Worst-Case.
-                //   Wenn Festpreis im Hauptfeld → Skip Dialog (Patrick weiss was er macht).
-                //   Wenn _priceConfirmedRef gesetzt → Re-Entry nach OK, weiter zum Save.
-                if (!_priceConfirmedRef[0] && _priceStr.isEmpty()
-                    && pickupCoords[0] != 0 && destCoords[0] != 0) {
-                    double _luftKm = haversineMeters(pickupCoords[0], pickupCoords[1], destCoords[0], destCoords[1]) / 1000.0;
-                    double _strKm = _luftKm * 1.4;
-                    java.util.Calendar _picCal = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("Europe/Berlin"));
-                    _picCal.setTimeInMillis(pickupTs);
-                    int _hour = _picCal.get(java.util.Calendar.HOUR_OF_DAY);
-                    int _day = _picCal.get(java.util.Calendar.DAY_OF_WEEK) - 1; // 0=So
-                    boolean _isNight = _hour >= 22 || _hour < 6 || _day == 0;
-                    double _kmPreis = _isNight ? _strKm * 2.80 : _strKm * 2.50;
-                    double _basePreis = 4.0 + _kmPreis;
-                    StringBuilder _tarifInfo = new StringBuilder();
-                    if (_day == 0) _tarifInfo.append(" • Sonntag-Tarif");
-                    else if (_isNight) _tarifInfo.append(" • Nachttarif");
-                    if (pax >= 5) { _basePreis += 10.0; _tarifInfo.append(" • +10€ Großraum"); }
-                    _basePreis *= 1.30;
-                    _tarifInfo.append(" • +30% (8-Sitzer worst case)");
-                    final double _finalPreis = Math.round(_basePreis * 10) / 10.0;
-                    final double _finalKm = _strKm;
-                    // 🆕 v6.63.194 (Patrick 06.06. 12:49 "D sofort"): Karten-Anzeige der Route.
-                    //   Static Maps API mit Markern + Polyline. Bild async laden + im Dialog
-                    //   zeigen. Plus Tap auf Karte oeffnet Google Maps App mit Route.
-                    int _dp = (int)(getResources().getDisplayMetrics().density);
-                    android.widget.LinearLayout _content = new android.widget.LinearLayout(this);
-                    _content.setOrientation(android.widget.LinearLayout.VERTICAL);
-                    _content.setPadding(16*_dp, 16*_dp, 16*_dp, 8*_dp);
-                    android.widget.ImageView _mapView = new android.widget.ImageView(this);
-                    android.widget.LinearLayout.LayoutParams _mapLp = new android.widget.LinearLayout.LayoutParams(
-                        android.widget.LinearLayout.LayoutParams.MATCH_PARENT, 200*_dp);
-                    _mapView.setLayoutParams(_mapLp);
-                    _mapView.setScaleType(android.widget.ImageView.ScaleType.CENTER_CROP);
-                    _mapView.setBackgroundColor(0xFF1F2937);
-                    android.widget.TextView _mapLoading = new android.widget.TextView(this);
-                    _mapLoading.setText("📍 Karte wird geladen ...");
-                    _mapLoading.setTextColor(0xFF94A3B8);
-                    _mapLoading.setGravity(android.view.Gravity.CENTER);
-                    _mapLoading.setPadding(0, 8*_dp, 0, 8*_dp);
-                    _content.addView(_mapView);
-                    _content.addView(_mapLoading);
-                    android.widget.TextView _infoView = new android.widget.TextView(this);
-                    _infoView.setText(String.format(Locale.GERMANY,
-                        "Geschätzte Distanz: %.1f km\n(Luftlinie %.1f km × 1.4)\n\n" +
-                        "Tarif-Schätzung: %.2f €%s\n\n" +
-                        "Festpreis im Hauptfeld unten überschreibt diesen Wert.\n" +
-                        "Anlegen?",
-                        _finalKm, _luftKm, _finalPreis, _tarifInfo.toString()));
-                    _infoView.setTextColor(0xFFE5E7EB);
-                    _infoView.setPadding(0, 8*_dp, 0, 0);
-                    _content.addView(_infoView);
-                    // Tap auf Karte → Google Maps App mit Route oeffnen
-                    final double _pLat = pickupCoords[0], _pLon = pickupCoords[1];
-                    final double _dLat = destCoords[0], _dLon = destCoords[1];
-                    _mapView.setOnClickListener(_mv -> {
-                        try {
-                            Intent _mIntent = new Intent(android.content.Intent.ACTION_VIEW,
-                                android.net.Uri.parse(String.format(Locale.US,
-                                    "https://www.google.com/maps/dir/?api=1&origin=%f,%f&destination=%f,%f&travelmode=driving",
-                                    _pLat, _pLon, _dLat, _dLon)));
-                            startActivity(_mIntent);
-                        } catch (Throwable _tt) {}
-                    });
-                    new AlertDialog.Builder(this)
-                        .setTitle("📊 System-Preis-Vorschau")
-                        .setView(_content)
-                        .setPositiveButton("Anlegen", (d, w) -> {
-                            _priceConfirmedRef[0] = true;
-                            btnSave.performClick();
-                        })
-                        .setNeutralButton("Festpreis eintragen", (d, w) -> {
-                            etPrice.requestFocus();
-                        })
-                        .setNegativeButton("Abbrechen", null)
-                        .setCancelable(false)
-                        .show();
-                    // Async Static Maps Bild laden
-                    new Thread(() -> {
-                        try {
-                            String _apiKey = "AIzaSyCEL-wtoIrVm0-PXpILLabGQXfuFaA17lg";
-                            String _url = String.format(Locale.US,
-                                "https://maps.googleapis.com/maps/api/staticmap?" +
-                                "size=600x300&scale=2" +
-                                "&markers=color:green%%7Clabel:S%%7C%f,%f" +
-                                "&markers=color:red%%7Clabel:E%%7C%f,%f" +
-                                "&path=color:0x4F46E5FF%%7Cweight:5%%7C%f,%f%%7C%f,%f" +
-                                "&key=%s",
-                                _pLat, _pLon, _dLat, _dLon,
-                                _pLat, _pLon, _dLat, _dLon, _apiKey);
-                            java.net.HttpURLConnection _conn = (java.net.HttpURLConnection)
-                                new java.net.URL(_url).openConnection();
-                            _conn.setConnectTimeout(8000);
-                            _conn.setReadTimeout(8000);
-                            android.graphics.Bitmap _bmp = android.graphics.BitmapFactory.decodeStream(_conn.getInputStream());
-                            runOnUiThread(() -> {
-                                if (_bmp != null) {
-                                    _mapView.setImageBitmap(_bmp);
-                                    _mapLoading.setVisibility(android.view.View.GONE);
-                                } else {
-                                    _mapLoading.setText("⚠️ Karten-Bild leer");
-                                }
-                            });
-                        } catch (Throwable _err) {
-                            runOnUiThread(() -> _mapLoading.setText("⚠️ Karte: " + _err.getMessage()));
-                        }
-                    }).start();
-                    return;
-                }
-
+                // v6.63.196: AlertDialog-Karten-Code (v6.63.193+194) entfernt — die Live-Karte
+                //   im Modal-Header zeigt schon alles. Doppelt-gemoppelt war nicht gewollt.
                 _alreadySavedRef[0] = true;
 
                 // 🆕 v6.62.504: Click-Lock

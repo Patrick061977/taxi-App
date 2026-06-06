@@ -2617,11 +2617,56 @@
                 if (pickupCoords) {
                     etaText = '<span class="eta-loading-car">🚕</span> Anfahrt wird berechnet <span class="eta-loading-dots" style="opacity:0.6;">···</span>';
                 } else {
-                    // 🔧 v6.63.201 (Patrick 06.06. 18:56 "Es ist nur einer frei. Und dann reicht
-                    //   ein Fahrzeug frei Abholort für Wartezeit eingeben."): Wortlaut praeziser.
+                    // 🔧 v6.63.207 (Patrick 06.06. 19:37 [BS-A]): Auch ohne Pickup eine
+                    //   Min-Zahl zeigen — analog landing.html-Banner Wartezeit zum
+                    //   Heringsdorf-Mitte-Punkt (53.951/14.171). Plus 'Abholort eingeben'-
+                    //   Hinweis bleibt.
+                    const _CENTER_LAT = 53.951, _CENTER_LON = 14.171;
+                    let _centerEta = null;
+                    for (const [vid, vInfo] of Object.entries(_gpsOnlineVehicles || {})) {
+                        if (!OFFICIAL_VEHICLES[vid]) continue;
+                        if (!vInfo.lat || !vInfo.lon) continue;
+                        const _gpsAge = vInfo.timestamp ? (Date.now() - vInfo.timestamp) / 60000 : 999;
+                        if (_gpsAge > 10 || vInfo.online === false) continue;
+                        if (_busyVids.has(vid)) continue;
+                        const _dLat = (vInfo.lat - _CENTER_LAT) * Math.PI / 180;
+                        const _dLon = (vInfo.lon - _CENTER_LON) * Math.PI / 180;
+                        const _aH = Math.sin(_dLat/2)**2 + Math.cos(vInfo.lat*Math.PI/180)*Math.cos(_CENTER_LAT*Math.PI/180)*Math.sin(_dLon/2)**2;
+                        const _km = 6371 * 2 * Math.atan2(Math.sqrt(_aH), Math.sqrt(1-_aH));
+                        const _eta = Math.max(5, Math.round(_km * 1.6 + 3));
+                        if (_centerEta === null || _eta < _centerEta) _centerEta = _eta;
+                    }
                     const _freeTxt = `${_freeCount} Fahrzeug${_freeCount === 1 ? '' : 'e'} frei`;
                     const _busyTxt = _busyCount > 0 ? ` · ${_busyCount} unterwegs` : '';
-                    etaText = `${_freeTxt}${_busyTxt} · Abholort für Wartezeit eingeben`;
+                    if (_centerEta) {
+                        etaText = `⚡ ${_freeTxt}${_busyTxt} · ca. ${_centerEta} Min ab Heringsdorf · Abholort eingeben`;
+                        // Async OSRM-Refine fuer praezisere Min-Zahl
+                        if (typeof fetchOSRMDuration === 'function') {
+                            let _bestVeh = null, _bestKm = Infinity;
+                            for (const [vid, vInfo] of Object.entries(_gpsOnlineVehicles || {})) {
+                                if (!OFFICIAL_VEHICLES[vid] || !vInfo.lat || !vInfo.lon) continue;
+                                if (vInfo.online === false || _busyVids.has(vid)) continue;
+                                const _gpsAge = vInfo.timestamp ? (Date.now() - vInfo.timestamp) / 60000 : 999;
+                                if (_gpsAge > 10) continue;
+                                const _dLat = (vInfo.lat - _CENTER_LAT) * Math.PI / 180;
+                                const _dLon = (vInfo.lon - _CENTER_LON) * Math.PI / 180;
+                                const _aH = Math.sin(_dLat/2)**2 + Math.cos(vInfo.lat*Math.PI/180)*Math.cos(_CENTER_LAT*Math.PI/180)*Math.sin(_dLon/2)**2;
+                                const _km = 6371 * 2 * Math.atan2(Math.sqrt(_aH), Math.sqrt(1-_aH));
+                                if (_km < _bestKm) { _bestKm = _km; _bestVeh = vInfo; }
+                            }
+                            if (_bestVeh && !pickupCoords) {
+                                fetchOSRMDuration(_bestVeh.lat, _bestVeh.lon, _CENTER_LAT, _CENTER_LON).then(osrmMin => {
+                                    if (pickupCoords) return; // User hat inzwischen Pickup gesetzt
+                                    const _refined = Math.max(5, osrmMin);
+                                    sofortBtn.innerHTML = '⚡ Sofort<br><span style="font-size:11px;font-weight:400;">' +
+                                        `⚡ ${_freeTxt}${_busyTxt} · ca. ${_refined} Min ab Heringsdorf · Abholort eingeben` +
+                                        '</span>';
+                                }).catch(()=>{});
+                            }
+                        }
+                    } else {
+                        etaText = `${_freeTxt}${_busyTxt} · Abholort für Wartezeit eingeben`;
+                    }
                 }
                 let _closestFreeVeh = null;
                 let _closestFreeDist = Infinity;

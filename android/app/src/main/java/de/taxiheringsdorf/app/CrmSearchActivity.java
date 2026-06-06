@@ -3204,14 +3204,51 @@ public class CrmSearchActivity extends AppCompatActivity {
                     _tarifInfo.append(" • +30% (8-Sitzer worst case)");
                     final double _finalPreis = Math.round(_basePreis * 10) / 10.0;
                     final double _finalKm = _strKm;
+                    // 🆕 v6.63.194 (Patrick 06.06. 12:49 "D sofort"): Karten-Anzeige der Route.
+                    //   Static Maps API mit Markern + Polyline. Bild async laden + im Dialog
+                    //   zeigen. Plus Tap auf Karte oeffnet Google Maps App mit Route.
+                    int _dp = (int)(getResources().getDisplayMetrics().density);
+                    android.widget.LinearLayout _content = new android.widget.LinearLayout(this);
+                    _content.setOrientation(android.widget.LinearLayout.VERTICAL);
+                    _content.setPadding(16*_dp, 16*_dp, 16*_dp, 8*_dp);
+                    android.widget.ImageView _mapView = new android.widget.ImageView(this);
+                    android.widget.LinearLayout.LayoutParams _mapLp = new android.widget.LinearLayout.LayoutParams(
+                        android.widget.LinearLayout.LayoutParams.MATCH_PARENT, 200*_dp);
+                    _mapView.setLayoutParams(_mapLp);
+                    _mapView.setScaleType(android.widget.ImageView.ScaleType.CENTER_CROP);
+                    _mapView.setBackgroundColor(0xFF1F2937);
+                    android.widget.TextView _mapLoading = new android.widget.TextView(this);
+                    _mapLoading.setText("📍 Karte wird geladen ...");
+                    _mapLoading.setTextColor(0xFF94A3B8);
+                    _mapLoading.setGravity(android.view.Gravity.CENTER);
+                    _mapLoading.setPadding(0, 8*_dp, 0, 8*_dp);
+                    _content.addView(_mapView);
+                    _content.addView(_mapLoading);
+                    android.widget.TextView _infoView = new android.widget.TextView(this);
+                    _infoView.setText(String.format(Locale.GERMANY,
+                        "Geschätzte Distanz: %.1f km\n(Luftlinie %.1f km × 1.4)\n\n" +
+                        "Tarif-Schätzung: %.2f €%s\n\n" +
+                        "Festpreis im Hauptfeld unten überschreibt diesen Wert.\n" +
+                        "Anlegen?",
+                        _finalKm, _luftKm, _finalPreis, _tarifInfo.toString()));
+                    _infoView.setTextColor(0xFFE5E7EB);
+                    _infoView.setPadding(0, 8*_dp, 0, 0);
+                    _content.addView(_infoView);
+                    // Tap auf Karte → Google Maps App mit Route oeffnen
+                    final double _pLat = pickupCoords[0], _pLon = pickupCoords[1];
+                    final double _dLat = destCoords[0], _dLon = destCoords[1];
+                    _mapView.setOnClickListener(_mv -> {
+                        try {
+                            Intent _mIntent = new Intent(android.content.Intent.ACTION_VIEW,
+                                android.net.Uri.parse(String.format(Locale.US,
+                                    "https://www.google.com/maps/dir/?api=1&origin=%f,%f&destination=%f,%f&travelmode=driving",
+                                    _pLat, _pLon, _dLat, _dLon)));
+                            startActivity(_mIntent);
+                        } catch (Throwable _tt) {}
+                    });
                     new AlertDialog.Builder(this)
                         .setTitle("📊 System-Preis-Vorschau")
-                        .setMessage(String.format(Locale.GERMANY,
-                            "Geschätzte Distanz: %.1f km\n(Luftlinie %.1f km × 1.4)\n\n" +
-                            "Tarif-Schätzung: %.2f €%s\n\n" +
-                            "Festpreis im Hauptfeld unten überschreibt diesen Wert.\n" +
-                            "Anlegen?",
-                            _finalKm, _luftKm, _finalPreis, _tarifInfo.toString()))
+                        .setView(_content)
                         .setPositiveButton("Anlegen", (d, w) -> {
                             _priceConfirmedRef[0] = true;
                             btnSave.performClick();
@@ -3222,6 +3259,36 @@ public class CrmSearchActivity extends AppCompatActivity {
                         .setNegativeButton("Abbrechen", null)
                         .setCancelable(false)
                         .show();
+                    // Async Static Maps Bild laden
+                    new Thread(() -> {
+                        try {
+                            String _apiKey = "AIzaSyCEL-wtoIrVm0-PXpILLabGQXfuFaA17lg";
+                            String _url = String.format(Locale.US,
+                                "https://maps.googleapis.com/maps/api/staticmap?" +
+                                "size=600x300&scale=2" +
+                                "&markers=color:green%%7Clabel:S%%7C%f,%f" +
+                                "&markers=color:red%%7Clabel:E%%7C%f,%f" +
+                                "&path=color:0x4F46E5FF%%7Cweight:5%%7C%f,%f%%7C%f,%f" +
+                                "&key=%s",
+                                _pLat, _pLon, _dLat, _dLon,
+                                _pLat, _pLon, _dLat, _dLon, _apiKey);
+                            java.net.HttpURLConnection _conn = (java.net.HttpURLConnection)
+                                new java.net.URL(_url).openConnection();
+                            _conn.setConnectTimeout(8000);
+                            _conn.setReadTimeout(8000);
+                            android.graphics.Bitmap _bmp = android.graphics.BitmapFactory.decodeStream(_conn.getInputStream());
+                            runOnUiThread(() -> {
+                                if (_bmp != null) {
+                                    _mapView.setImageBitmap(_bmp);
+                                    _mapLoading.setVisibility(android.view.View.GONE);
+                                } else {
+                                    _mapLoading.setText("⚠️ Karten-Bild leer");
+                                }
+                            });
+                        } catch (Throwable _err) {
+                            runOnUiThread(() -> _mapLoading.setText("⚠️ Karte: " + _err.getMessage()));
+                        }
+                    }).start();
                     return;
                 }
 

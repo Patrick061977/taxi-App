@@ -1817,6 +1817,26 @@ public class CrmSearchActivity extends AppCompatActivity {
         tvKundeInfo.setPadding(0, 0, 0, padHalf);
         layout.addView(tvKundeInfo);
 
+        // 🆕 v6.63.195 (Patrick 06.06. 13:18 "Karte automatisch on-line"):
+        //   Live-Karte + Preis-Vorschau direkt im Modal. Bild wird async geladen
+        //   sobald pickupCoords+destCoords gesetzt sind. Update via 1.5s-Poll-Handler
+        //   damit Auto-Refresh bei Map-Picker-Auswahl / Pax/Datum-Wechsel greift.
+        final android.widget.ImageView _liveMap = new android.widget.ImageView(this);
+        android.widget.LinearLayout.LayoutParams _lmLp = new android.widget.LinearLayout.LayoutParams(
+            android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+            (int)(180 * getResources().getDisplayMetrics().density));
+        _liveMap.setLayoutParams(_lmLp);
+        _liveMap.setScaleType(android.widget.ImageView.ScaleType.CENTER_CROP);
+        _liveMap.setBackgroundColor(0xFF1F2937);
+        _liveMap.setVisibility(android.view.View.GONE);
+        layout.addView(_liveMap);
+        final android.widget.TextView _livePriceInfo = new android.widget.TextView(this);
+        _livePriceInfo.setTextSize(14);
+        _livePriceInfo.setTextColor(0xFFE5E7EB);
+        _livePriceInfo.setPadding(0, padHalf, 0, padHalf);
+        _livePriceInfo.setVisibility(android.view.View.GONE);
+        layout.addView(_livePriceInfo);
+
         // 🆕 v6.63.011 (Patrick 29.05. 17:23 'nicht zurück zum Abhören'): Audio-Replay-Row.
         // 🆕 v6.63.013 (Patrick 29.05. 17:56 'kann ich auch zurückspulen'): SeekBar +
         //   ⏪ -10s + ⏩ +10s + Position-Anzeige damit Patrick im Audio springen kann.
@@ -2912,6 +2932,93 @@ public class CrmSearchActivity extends AppCompatActivity {
             .create();
 
         btnCancel.setOnClickListener(_btn -> dlg.dismiss());
+
+        // 🆕 v6.63.195: Live-Karten-Polling — Update _liveMap + _livePriceInfo wenn
+        //   pickupCoords/destCoords/datetime/spnPax sich ändern. 1.5s Poll-Tick.
+        //   Stop bei Dialog-Dismiss.
+        final android.os.Handler _mapPollHandler = new android.os.Handler(android.os.Looper.getMainLooper());
+        final double[] _lastPickupChk = { Double.NaN, Double.NaN };
+        final double[] _lastDestChk = { Double.NaN, Double.NaN };
+        final long[] _lastDtChk = { 0L };
+        final int[] _lastPaxChk = { -1 };
+        final Runnable _mapPollRunnable = new Runnable() {
+            @Override public void run() {
+                boolean _ch = false;
+                if (pickupCoords != null && (pickupCoords[0] != _lastPickupChk[0] || pickupCoords[1] != _lastPickupChk[1])) {
+                    _lastPickupChk[0] = pickupCoords[0]; _lastPickupChk[1] = pickupCoords[1]; _ch = true;
+                }
+                if (destCoords != null && (destCoords[0] != _lastDestChk[0] || destCoords[1] != _lastDestChk[1])) {
+                    _lastDestChk[0] = destCoords[0]; _lastDestChk[1] = destCoords[1]; _ch = true;
+                }
+                long _dtNow = (datetime != null && datetime.length > 0) ? datetime[0] : 0L;
+                if (_dtNow != _lastDtChk[0]) { _lastDtChk[0] = _dtNow; _ch = true; }
+                int _paxNow = (spnPax != null) ? spnPax.getSelectedItemPosition() : -1;
+                if (_paxNow != _lastPaxChk[0]) { _lastPaxChk[0] = _paxNow; _ch = true; }
+                if (_ch && pickupCoords != null && destCoords != null
+                    && !Double.isNaN(pickupCoords[0]) && !Double.isNaN(destCoords[0])
+                    && pickupCoords[0] != 0 && destCoords[0] != 0) {
+                    // Distanz + Preis berechnen
+                    double _luftKm = haversineMeters(pickupCoords[0], pickupCoords[1], destCoords[0], destCoords[1]) / 1000.0;
+                    double _strKm = _luftKm * 1.4;
+                    long _tsCalc = _dtNow > 0 ? _dtNow : System.currentTimeMillis();
+                    java.util.Calendar _picCal = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("Europe/Berlin"));
+                    _picCal.setTimeInMillis(_tsCalc);
+                    int _hour = _picCal.get(java.util.Calendar.HOUR_OF_DAY);
+                    int _day = _picCal.get(java.util.Calendar.DAY_OF_WEEK) - 1;
+                    boolean _isNight = _hour >= 22 || _hour < 6 || _day == 0;
+                    double _kmPreis = _isNight ? _strKm * 2.80 : _strKm * 2.50;
+                    double _basePreis = 4.0 + _kmPreis;
+                    int _pxNow = _paxNow + 1;
+                    if (_pxNow >= 5) _basePreis += 10.0;
+                    _basePreis *= 1.30;
+                    double _finalPreis = Math.round(_basePreis * 10) / 10.0;
+                    String _tarifLbl = _day == 0 ? " (So-Tarif)" : (_isNight ? " (Nachttarif)" : "");
+                    _livePriceInfo.setText(String.format(Locale.GERMANY,
+                        "🗺 %.1f km • ~%.2f €%s",
+                        _strKm, _finalPreis, _tarifLbl));
+                    _livePriceInfo.setVisibility(android.view.View.VISIBLE);
+                    _liveMap.setVisibility(android.view.View.VISIBLE);
+                    // Static Map async laden
+                    final double _pLat = pickupCoords[0], _pLon = pickupCoords[1];
+                    final double _dLat = destCoords[0], _dLon = destCoords[1];
+                    new Thread(() -> {
+                        try {
+                            String _apiKey = "AIzaSyCEL-wtoIrVm0-PXpILLabGQXfuFaA17lg";
+                            String _url = String.format(Locale.US,
+                                "https://maps.googleapis.com/maps/api/staticmap?" +
+                                "size=600x300&scale=2" +
+                                "&markers=color:green%%7Clabel:S%%7C%f,%f" +
+                                "&markers=color:red%%7Clabel:E%%7C%f,%f" +
+                                "&path=color:0x4F46E5FF%%7Cweight:5%%7C%f,%f%%7C%f,%f" +
+                                "&key=%s",
+                                _pLat, _pLon, _dLat, _dLon,
+                                _pLat, _pLon, _dLat, _dLon, _apiKey);
+                            java.net.HttpURLConnection _conn = (java.net.HttpURLConnection)
+                                new java.net.URL(_url).openConnection();
+                            _conn.setConnectTimeout(8000);
+                            _conn.setReadTimeout(8000);
+                            android.graphics.Bitmap _bmp = android.graphics.BitmapFactory.decodeStream(_conn.getInputStream());
+                            runOnUiThread(() -> {
+                                if (_bmp != null) _liveMap.setImageBitmap(_bmp);
+                            });
+                        } catch (Throwable _err) { /* ignore */ }
+                    }).start();
+                    // Tap auf Live-Karte öffnet Google Maps mit Route
+                    _liveMap.setOnClickListener(_mv -> {
+                        try {
+                            Intent _mIntent = new Intent(android.content.Intent.ACTION_VIEW,
+                                android.net.Uri.parse(String.format(Locale.US,
+                                    "https://www.google.com/maps/dir/?api=1&origin=%f,%f&destination=%f,%f&travelmode=driving",
+                                    _pLat, _pLon, _dLat, _dLon)));
+                            startActivity(_mIntent);
+                        } catch (Throwable _tt) { /* ignore */ }
+                    });
+                }
+                _mapPollHandler.postDelayed(this, 1500);
+            }
+        };
+        _mapPollHandler.postDelayed(_mapPollRunnable, 800);
+        dlg.setOnDismissListener(_d -> _mapPollHandler.removeCallbacks(_mapPollRunnable));
 
         // 🆕 v6.62.507: Save-Once-Flag (final Array fuer Lambda-Closure).
         //   Patrick (08.05. 17:47): Confirmation-OK-Klick triggerte zweiten Save.

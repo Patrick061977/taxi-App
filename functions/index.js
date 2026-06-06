@@ -25199,6 +25199,23 @@ exports.onRideUpdated = onValueUpdated(
             const _isVorbestPlan = (after.status === 'vorbestellt') && _minutesUntilPickup > 60;
             if (_isVorbestPlan) {
                 console.log(`📋 Vorbestellungs-Tagesplanung — kein sofortiger FCM-Push (Pickup in ${Math.round(_minutesUntilPickup)} Min). PUSH-REMINDER greift spaeter.`);
+            } else if (after.silentReassign === true) {
+                // 🆕 v6.63.189 (Patrick 06.06. 09:32): Wenn der Admin aktiv aus dem
+                //   Wartepool zieht (AdminDashboardActivity wartepool-spinner setzt
+                //   silentReassign=true), KEIN Akzeptanz-Push. Der Admin hat die Fahrt
+                //   bewusst übernommen — die Ride taucht via Listener in der Native-Dispo
+                //   auf, kein "Annehmen-Druck" noetig. cancel_notification an oldVehicle
+                //   bleibt aktiv (sonst klebt der Push beim vorherigen Fahrer).
+                console.log(`🤫 v6.63.189 silentReassign=true — kein FCM new_ride an ${newVehicle}`);
+                try { await addRideLog(rideId, '🤫', `Silent Re-Assign — kein Akzeptanz-Push an ${newVehicle}`, { quelle: 'onRideUpdated v6.63.189', neuesVehicle: newVehicle, altesVehicle: oldVehicle || null }); } catch(_) {}
+                if (oldVehicle && oldVehicle !== newVehicle) {
+                    try {
+                        await sendFCMToVehicle(oldVehicle, { type: 'cancel_notification', rideId });
+                        console.log(`📵 v6.63.189 silent-Re-Assign cancel_notification → ${oldVehicle}`);
+                    } catch (_cancelErr) {
+                        console.warn('silent-Re-Assign cancel FCM-Fehler:', _cancelErr.message);
+                    }
+                }
             } else {
                 try {
                     const _pickupLabel = after.pickupTime || 'Sofort';
@@ -26611,6 +26628,13 @@ exports.scheduledDepartureAlert = onSchedule(
             let arrivalAlerts = 0;
             const updates = {};
             const arrivalAlertPromises = [];
+            // 🆕 v6.63.189 (Patrick 06.06. 09:07): Gegenseitiger Ausschluss Akzeptanz-Alarm
+            //   vs Losfahr-Alarm. Patrick: "die neue Fahrt Push kommt zur gleichen Zeit wie
+            //   der Losfahrt Push". Wurzel: Block 1 (pickup-(10+driveMin)) und Block 2
+            //   (pickup-driveMin-Puffer) konnten bei pessimistischen Default-Werten den
+            //   selben Cron-Tick treffen (Prentel 06:50:02 mit pickup-25=06:50 fuer beide).
+            //   Fix: wenn Block 1 in dieser Iteration gefeuert hat → Block 2 skip.
+            const _block1FiredThisTick = new Set();
 
             ridesSnap.forEach(child => {
                 const ride = child.val();
@@ -26663,6 +26687,9 @@ exports.scheduledDepartureAlert = onSchedule(
                             updates[`rides/${rideId}/statusTransitionedAt`] = now;
                             updates[`rides/${rideId}/statusTransitionReason`] = 'v6.62.928 Akzeptanz-Alarm';
                         }
+                        // v6.63.189: Block 2 (Losfahr-Alarm) im selben Tick fuer dieselbe
+                        //   Ride ueberspringen — verhindert Doppel-Push (Patrick 06.06.).
+                        _block1FiredThisTick.add(rideId);
                         arrivalAlerts++;
                         arrivalAlertPromises.push((async () => {
                             try {
@@ -26700,6 +26727,9 @@ exports.scheduledDepartureAlert = onSchedule(
                 const validStatuses = ['accepted', 'vorbestellt', 'assigned', 'on_way'];
                 if (!validStatuses.includes(ride.status)) return;
                 if (ride.departureAlertSent) return;
+                // v6.63.189: Wenn Block 1 (Akzeptanz-Alarm) im selben Tick gefeuert hat,
+                //   keinen zweiten Losfahr-Push schicken — entzerrt auf 1 Push/Cron-Tick.
+                if (_block1FiredThisTick.has(rideId)) return;
                 const pickupTs = ride.pickupTimestamp;
                 if (!pickupTs || pickupTs <= now) return;
                 const vehicleId = ride.assignedVehicle || ride.vehicleId;

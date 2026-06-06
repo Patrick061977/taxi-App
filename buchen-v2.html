@@ -14,7 +14,9 @@
   html,body{height:100%;overflow:hidden;background:#0a0a0a;color:#fff}
   #map{position:fixed;top:0;left:0;right:0;bottom:0}
   .leaflet-container{background:#0a0a0a !important}
-  .leaflet-tile-pane{filter:brightness(0.78) saturate(1.05)}
+  .leaflet-tile-pane{filter:brightness(0.92) saturate(1.05);transition:filter 0.5s ease}
+  /* Patrick 06.06. 21:22: Karte wird komplett hell sobald beide Adressen gesetzt */
+  body.both-set .leaflet-tile-pane{filter:brightness(1) saturate(1.05)}
   /* Top-Bar */
   #top-bar{position:fixed;top:env(safe-area-inset-top,0);left:8px;right:8px;padding:10px 12px;background:rgba(15,15,15,0.7);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);display:flex;align-items:center;gap:10px;z-index:1000;border-radius:18px;margin-top:8px;border:1px solid rgba(255,255,255,0.08)}
   #top-bar .menu{width:36px;height:36px;background:rgba(255,255,255,0.1);border:none;color:#fff;font-size:18px;border-radius:50%;cursor:pointer}
@@ -416,10 +418,12 @@
       contact.style.display = 'block';
       btn.classList.remove('disabled');
       btn.textContent = '🚖 Taxi buchen';
+      document.body.classList.add('both-set');
     } else {
       contact.style.display = 'none';
       btn.classList.add('disabled');
       btn.textContent = p || d ? 'Beide Adressen eingeben →' : 'Adressen eingeben →';
+      document.body.classList.remove('both-set');
     }
   }
   document.getElementById('b-pickup').addEventListener('input', updateCTA);

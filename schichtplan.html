@@ -595,6 +595,18 @@
                     </div>
                 </div>
 
+                <!-- 🆕 v6.63.225 (Patrick 07.06. 16:37 V3): Urlaub Schicht-Snapshot — welche
+                     Schicht wäre regulär dran gewesen? Nur sichtbar wenn type=vacation. -->
+                <div id="urlaub-shift-pick" style="display:none;background:#fef3c7;border:1px solid #fbbf24;border-radius:8px;padding:10px;margin-bottom:10px;">
+                    <div style="font-size:13px;font-weight:600;color:#78350f;margin-bottom:6px;">🏖 Welche Schicht wäre regulär dran gewesen?</div>
+                    <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                        <button type="button" data-orig-shift="day" onclick="selectOriginalShift('day')" style="padding:8px 12px;background:white;border:2px solid #d97706;border-radius:6px;font-size:13px;font-weight:600;color:#92400e;cursor:pointer;">☀️ Tagschicht</button>
+                        <button type="button" data-orig-shift="night" onclick="selectOriginalShift('night')" style="padding:8px 12px;background:white;border:2px solid #d97706;border-radius:6px;font-size:13px;font-weight:600;color:#92400e;cursor:pointer;">🌙 Nachtschicht</button>
+                        <button type="button" data-orig-shift="standby" onclick="selectOriginalShift('standby')" style="padding:8px 12px;background:white;border:2px solid #d97706;border-radius:6px;font-size:13px;font-weight:600;color:#92400e;cursor:pointer;">📞 Nur Rufber.</button>
+                    </div>
+                    <div style="font-size:11px;color:#92400e;margin-top:6px;">Lohnoptimierer nutzt diese Info um Urlaubsstunden + Zuschläge korrekt zu berechnen.</div>
+                </div>
+
                 <!-- v6.62.244: Pause + Pre/Post-Standby (manuell pro Schicht) -->
                 <details id="extra-fields" style="margin-bottom:10px;">
                     <summary style="cursor:pointer;font-size:13px;color:#2563eb;font-weight:600;padding:6px 0;">+ Pause / Rufbereitschaft hinzufügen</summary>
@@ -793,6 +805,7 @@
         let currentIstShifts = {};       // v6.62.213: {staffId: {0..6: [{vehicleId, shiftId, sh}, ...]}} fuer Detail-Modal
         let editing = null;              // {staffId, dayIdx}
         let selectedType = null;
+        let selectedOriginalShift = null;  // 🆕 v6.63.225: für Urlaub-Tage
 
         auth.onAuthStateChanged(async (user) => {
             document.getElementById('loading').style.display = 'none';
@@ -1213,6 +1226,7 @@
             const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ''; };
             if (existing) {
                 selectedType = existing.type;
+                selectedOriginalShift = existing.originalShift || null;  // 🆕 v6.63.225 restore
                 setVal('shift-start', existing.start);
                 setVal('shift-end', existing.end);
                 setVal('shift-note', existing.note);
@@ -1227,6 +1241,7 @@
                 document.getElementById('extra-fields').open = !!hasExtra;
             } else {
                 selectedType = 'free';
+                selectedOriginalShift = null;  // 🆕 v6.63.225 reset
                 ['shift-start','shift-end','shift-note',
                  'shift-pause-start','shift-pause-end',
                  'shift-pre-start','shift-pre-end',
@@ -1334,6 +1349,20 @@
             const showTime = !['free', 'vacation', 'sick'].includes(selectedType);
             document.getElementById('time-row').style.display = showTime ? 'grid' : 'none';
             document.getElementById('extra-fields').style.display = showTime ? '' : 'none';
+            // 🆕 v6.63.225: Urlaub-Schicht-Picker nur bei vacation zeigen
+            const _urlaubPick = document.getElementById('urlaub-shift-pick');
+            if (_urlaubPick) _urlaubPick.style.display = (selectedType === 'vacation' || selectedType === 'sick') ? '' : 'none';
+            // Selected-Highlight für die 3 Buttons
+            document.querySelectorAll('#urlaub-shift-pick button[data-orig-shift]').forEach(b => {
+                const sel = b.dataset.origShift === selectedOriginalShift;
+                b.style.background = sel ? '#d97706' : 'white';
+                b.style.color = sel ? 'white' : '#92400e';
+            });
+        }
+
+        function selectOriginalShift(s) {
+            selectedOriginalShift = s;
+            updateTypeUI();
         }
 
         // v6.62.244: alle Zeit-Felder triggern Live-Preview
@@ -1425,6 +1454,7 @@
             const userEmail = (auth.currentUser || {}).email || (auth.currentUser || {}).phoneNumber || '?';
             const data = {
                 type: selectedType,
+                originalShift: (selectedType === 'vacation' || selectedType === 'sick') ? selectedOriginalShift : null,  // 🆕 v6.63.225
                 start, end,
                 hours: Number(bezahlt.toFixed(2)),                // = Voll bezahlt (kompatibel mit Lohnexport)
                 hoursAttendance: Number(fullVor.toFixed(2)),       // = Voll vor Pause

@@ -546,18 +546,17 @@ public class ShiftEditorActivity extends AppCompatActivity {
         // picked), nicht mehr aus today.
         final String[] dayNames = {"Sonntage", "Montage", "Dienstage", "Mittwoche", "Donnerstage", "Freitage", "Samstage"};
         // v6.63.182 (05.06.) cbAllSame Default ON.
-        // v6.63.215 (Patrick 07.06. 11:28): Patrick will GAR KEINE Overrides aus Native —
-        //   nur Wochenplan-Anpassungen. Checkbox bleibt sichtbar als Info, ist aber FEST
-        //   auf ON gestellt und disabled — kein versehentliches Override mehr.
+        // v6.63.216 (Patrick 07.06. 11:34): Patrick will doch Override-Möglichkeit aus Native
+        //   ('weil ich nicht jeden Tag am Computer bin'). Default bleibt ON (Wochenplan),
+        //   aber Häkchen ABwählbar damit nur Tag-Override geschrieben wird.
         final android.widget.CheckBox cbAllSame = new android.widget.CheckBox(this);
         cbAllSame.setText("📅 Hauptschicht für alle " + dayNames[selDate.get(Calendar.DAY_OF_WEEK) - 1] + " ändern");
         cbAllSame.setChecked(true);
-        cbAllSame.setEnabled(false); // v6.63.215: nicht mehr deaktivierbar — Patrick will keine Datum-Overrides
         cbAllSame.setTextSize(13);
         cbAllSame.setPadding(0, pad/2, 0, 0);
         root.addView(cbAllSame);
         android.widget.TextView _allSameHint = new android.widget.TextView(this);
-        _allSameHint.setText("Native-App ändert IMMER die Wochenplan-Hauptschicht (für Datum-spezifische Overrides Web nutzen).");
+        _allSameHint.setText("✓ angekreuzt = Wochenplan-Hauptschicht ändern · ✗ deaktiviert = NUR diesen einen Tag überschreiben (Override)");
         _allSameHint.setTextSize(10);
         _allSameHint.setTextColor(0xFF94A3B8);
         _allSameHint.setPadding(0, 0, 0, pad/2);

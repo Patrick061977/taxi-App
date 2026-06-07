@@ -13,15 +13,20 @@ const POLL_INTERVAL_MS = 15000;
 const INSTANCE = 'taxi-heringsdorf-default-rtdb';
 const seenKeys = new Set();
 
-function fbGet(refPath) {
+function fbGet(refPath, queryArgs = '') {
     try {
         const out = execSync(
-            `firebase database:get --instance ${INSTANCE} "/${refPath}"`,
+            `firebase database:get --instance ${INSTANCE} "/${refPath}" ${queryArgs}`.trim(),
             // 🆕 v6.62.538: maxBuffer von 1MB→64MB (Default-1MB war Ursache stiller
             // ENOBUFS-Fehler sobald inbox>1MB wuchs → Bridge-Polling lief silent leer)
             { encoding: 'utf8', env: { ...process.env, MSYS_NO_PATHCONV: '1' }, stdio: ['ignore', 'pipe', 'pipe'], shell: true, maxBuffer: 64 * 1024 * 1024 }
         );
-        return JSON.parse(out.trim() || 'null');
+        // 🆕 v6.63.214 (07.06.): FIREBASE_TOKEN-Auth wirft Deprecation-Warning
+        // direkt nach stdout — JSON.parse() crasht an ANSI-Codes. Filtern.
+        const lines = out.split('\n');
+        const jsonStart = lines.findIndex(l => /^\s*[\{\["null]/.test(l.replace(/\x1b\[[0-9;]*m/g, '')));
+        const cleaned = jsonStart >= 0 ? lines.slice(jsonStart).join('\n').trim() : out.trim();
+        return JSON.parse(cleaned || 'null');
     } catch (e) {
         console.error(`[fbGet ERR] ${refPath}: ${e.message}`);
         return null;
@@ -49,8 +54,9 @@ function poll() {
     // 🆕 v6.41.92: Heartbeat — claudeBotWebhook erkennt daraus dass Claude online ist.
     fbUpdate('claudeBridge/heartbeat', { ts: Date.now(), pid: process.pid });
 
-    // 1) Telegram-Bridge inbox
-    const root = fbGet('claudeBridge/inbox');
+    // 1) Telegram-Bridge inbox — 🆕 v6.63.232: limitToLast(50) statt komplette Inbox
+    // (Inbox-Read mit 4767 Einträgen zog 1.65 MB pro Poll = 396 MB/h!)
+    const root = fbGet('claudeBridge/inbox', '--order-by-key --limit-to-last 50');
     if (root) {
         const keys = Object.keys(root).filter(k => root[k] && !root[k].read && !seenKeys.has(k)).sort();
         for (const k of keys) {

@@ -20923,6 +20923,27 @@ exports.scheduledAutoAssign = onSchedule(
         try {
             // 🔧 v6.38.30: Relevante Fahrten laden (nicht alle 5000+)
             const now = Date.now();
+
+            // 🆕 v6.63.234 (Patrick 07.06. 21:36 'wenn nichts passiert muss System nichts machen'):
+            //   QUICK-CHECK vor den fetten 4-Status-Queries. Wenn keine pending/wartepool-Ride
+            //   existiert, return EARLY — spart 99% des Reads in Idle-Phasen.
+            const _quickNew = await db.ref('rides').orderByChild('status').equalTo('new').limitToFirst(1).once('value');
+            const _quickWP = await db.ref('rides').orderByChild('status').equalTo('warteschlange').limitToFirst(1).once('value');
+            // Vorbestellungen: nur die in den nächsten 2h relevant (sonst auch im Idle-Skip)
+            const _futureWindow = now + 2 * 60 * 60 * 1000;
+            const _quickVB = await db.ref('rides').orderByChild('pickupTimestamp').startAt(now).endAt(_futureWindow).limitToFirst(5).once('value');
+            let _vbHasPending = false;
+            if (_quickVB.exists()) {
+                _quickVB.forEach(c => {
+                    const r = c.val();
+                    if (r && r.status === 'vorbestellt' && !r.assignedVehicle) { _vbHasPending = true; }
+                });
+            }
+            if (!_quickNew.exists() && !_quickWP.exists() && !_vbHasPending) {
+                console.log('🌙 v6.63.234: IDLE — keine pending/wartepool/vorbestellt(2h) Rides. Skip.');
+                return;
+            }
+
             // v6.62.22 FIX-2: warteschlange zur Query addieren — sonst landen Sofort-Fahrten
             // bei denen alle besetzt waren (Status warteschlange) NIE wieder in der Auto-Zuweisung.
             const [assignedSnap, vorbestelltSnap, newSnap, warteschlSnap, vehiclesSnap, shiftsSnap, settingsSnap, prioritiesSnap, prioMalusSnap, optByDaySnap] = await Promise.all([

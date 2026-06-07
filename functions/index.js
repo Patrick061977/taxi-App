@@ -23016,10 +23016,14 @@ exports.scheduledTourPlanner = onSchedule(
                 }
 
                 // Option A: Pickup 5/10 Min früher → check ob blockierter Vehicle dann frei
+                // 🔧 v6.63.223 (Patrick 07.06. 15:22 "die Vorschläge sind Quatsch"):
+                //   oEnd berechnete bisher nur Hin-Fahrt-Dauer — bei Sandy 06:00 Greifswald
+                //   gab das oEnd=07:00 (Sandy in Greifswald). Realistisch ist Tesla MY erst
+                //   ~08:00 in HER zurück (hin+zurück+Puffer). Faktor 2 + Puffer-Erhöhung.
                 for (const delta of [5, 10]) {
                     const newPt = ride.pickupTimestamp - delta * 60000;
                     const gDur = ride.estimatedDuration || 15;
-                    const newArrival = newPt + gDur * 60000;
+                    const newArrival = newPt + gDur * 2 * 60000 + 5 * 60000;  // hin+zurück+5min
                     for (const bv of blockerVehicles) {
                         // Schaut nach den realen Folgefahrten dieses Vehicles
                         const conflicts = allRides.filter(o =>
@@ -23029,7 +23033,9 @@ exports.scheduledTourPlanner = onSchedule(
                         ).filter(o => {
                             const oStart = o.pickupTimestamp - 5*60000;
                             const oDur = o.estimatedDuration || 15;
-                            const oEnd = o.pickupTimestamp + oDur*60000 + 5*60000;
+                            // 🔧 v6.63.223: oEnd = pickup + (hin+zurück) + Puffer.
+                            //   Fahrer ist nur "frei" wenn er BEIDE Strecken zurück ist.
+                            const oEnd = o.pickupTimestamp + oDur * 2 * 60000 + 10*60000;
                             return (newPt - 5*60000) < oEnd && (newArrival + 5*60000) > oStart;
                         });
                         if (conflicts.length === 0) {

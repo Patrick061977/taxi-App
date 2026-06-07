@@ -20042,6 +20042,158 @@ exports.autoResolveConflicts = onSchedule(
 );
 
 // ═══════════════════════════════════════════════════════════════
+// 🆕 v6.63.221 (Patrick 07.06. 14:26 "Konfliktvorrang. Längste Strecke
+//   muss immer zuerst gefahren werden, bevor die kürzere fährt"):
+//   scheduledProposeLongestFirst — KEINE Auto-Verteilung (Memory
+//   feedback_no-auto-assign), nur VORSCHLÄGE die im Native-Dispo
+//   als Badge erscheinen und manuell bestätigt werden müssen.
+//
+// Algorithmus:
+//   1. Wartepool-Rides der nächsten 24h sammeln (mit distance > 0).
+//   2. Sortiere DESC nach distance (längste zuerst).
+//   3. Pro wartepool-Ride: finde 'vorbestellt'-Rides die zeitlich kollidieren
+//      und KÜRZERE distance haben — die wären sinnvoll umzuverteilen.
+//   4. Wähle das kürzeste Opfer und schreibe BEIDE Rides:
+//      - wartepool.proposedSwap = { victim*, reason, proposedAt }
+//      - victim.proposedDisplace = { bywartepoolRideId, reason, proposedAt }
+//   5. Native-Dispo zeigt Badge → Patrick tippt → Ausführen oder Anders.
+//
+// AUSNAHME (Bahnhofsfahrten — Memory feedback_first-come-first-served-dispo):
+//   Wenn destinationIsBahnhof / pickupIsBahnhof Flag gesetzt + Zeit knapp:
+//   victim wird NICHT vorgeschlagen (Zug-Anschluss heilig).
+// ═══════════════════════════════════════════════════════════════
+exports.scheduledProposeLongestFirst = onSchedule(
+    {
+        schedule: 'every 5 minutes',
+        region: 'europe-west1',
+        timeoutSeconds: 60,
+        memory: '256MiB'
+    },
+    async (event) => {
+        try {
+            const _now = Date.now();
+            const _wStart = _now - 60 * 60000;
+            const _wEnd = _now + 24 * 60 * 60000;
+            const ridesSnap = await db.ref('rides')
+                .orderByChild('pickupTimestamp')
+                .startAt(_wStart).endAt(_wEnd).once('value');
+
+            const wartepool = [];
+            const assigned = [];
+
+            ridesSnap.forEach(c => {
+                const r = { firebaseId: c.key, ...c.val() };
+                if (!r.pickupTimestamp) return;
+                const dist = parseFloat(r.distance || r.distanceKm || 0);
+                if (!Number.isFinite(dist) || dist <= 0) return;
+                if (r.status === 'wartepool') {
+                    wartepool.push({ firebaseId: r.firebaseId, distance: dist, pickupTs: r.pickupTimestamp, ride: r });
+                } else if ((r.status === 'vorbestellt' || r.status === 'accepted')
+                           && r.assignedVehicle && !r.assignmentLocked) {
+                    assigned.push({ firebaseId: r.firebaseId, distance: dist, pickupTs: r.pickupTimestamp,
+                                    vehicleId: r.assignedVehicle, ride: r });
+                }
+            });
+
+            if (wartepool.length === 0) {
+                console.log('📐 LongestFirst: 0 wartepool-Rides — nichts vorzuschlagen.');
+                return;
+            }
+
+            wartepool.sort((a, b) => b.distance - a.distance);
+
+            const updates = {};
+            const proposals = [];
+            const KONFLIKT_FENSTER_MS = 90 * 60000;
+
+            for (const wp of wartepool) {
+                // Vorhandene Vorschläge nicht überschreiben (sonst Loop)
+                if (wp.ride.proposedSwap && wp.ride.proposedSwap.proposedAt > _now - 60 * 60000) continue;
+
+                // Konflikt-Opfer: zugewiesene Fahrten mit kürzerer distance + zeitlich nah
+                const conflicts = assigned.filter(a => {
+                    if (a.distance >= wp.distance) return false;
+                    if (Math.abs(a.pickupTs - wp.pickupTs) > KONFLIKT_FENSTER_MS) return false;
+                    // Bahnhof-Cutoff: wenn victim destination=Bahnhof + <30 Min zur Pickup-Zeit → tabu
+                    const destStr = (a.ride.destination || '').toLowerCase();
+                    if (destStr.includes('bahnhof') && (a.pickupTs - _now) < 30 * 60000) return false;
+                    return true;
+                });
+                if (conflicts.length === 0) continue;
+
+                // Kürzeste Strecke = bester Tausch-Kandidat
+                const victim = conflicts.sort((a, b) => a.distance - b.distance)[0];
+
+                updates[`rides/${wp.firebaseId}/proposedSwap`] = {
+                    victimRideId: victim.firebaseId,
+                    victimVehicle: victim.vehicleId,
+                    victimDistance: victim.distance,
+                    victimCustomer: victim.ride.customerName || '?',
+                    wpDistance: wp.distance,
+                    reason: 'laengste-strecke-vorrang',
+                    proposedAt: _now,
+                    proposedBy: 'scheduledProposeLongestFirst v6.63.221'
+                };
+                updates[`rides/${victim.firebaseId}/proposedDisplace`] = {
+                    byWartepoolRideId: wp.firebaseId,
+                    byWartepoolCustomer: wp.ride.customerName || '?',
+                    byWartepoolDistance: wp.distance,
+                    reason: 'kuerzere-weicht-laengerer',
+                    proposedAt: _now
+                };
+                proposals.push(`${wp.ride.customerName || '?'} (${wp.distance.toFixed(1)}km) ↔ ${victim.ride.customerName || '?'} (${victim.distance.toFixed(1)}km auf ${victim.vehicleId})`);
+            }
+
+            if (Object.keys(updates).length > 0) {
+                await db.ref().update(updates);
+                console.log(`📐 LongestFirst: ${proposals.length} Vorschlag(e) geschrieben:`);
+                proposals.forEach(p => console.log('   ' + p));
+
+                // 🆕 Auto-Execute wenn settings/cloudJobs/longestFirstAutoExecute=true.
+                //   Patrick 07.06. 14:54: "Als Option kann das System das trotzdem als
+                //   Konfliktlöser nehmen". Default false (Vorschlag), Toggle in Admin-UI.
+                const _autoSnap = await db.ref('settings/cloudJobs/longestFirstAutoExecute').once('value');
+                if (_autoSnap.val() === true) {
+                    const execUpdates = {};
+                    for (const wp of wartepool) {
+                        const sw = updates[`rides/${wp.firebaseId}/proposedSwap`];
+                        if (!sw) continue;
+                        // Wartepool-Ride bekommt das Vehicle des Opfers
+                        execUpdates[`rides/${wp.firebaseId}/assignedVehicle`] = sw.victimVehicle;
+                        execUpdates[`rides/${wp.firebaseId}/vehicleId`] = sw.victimVehicle;
+                        execUpdates[`rides/${wp.firebaseId}/status`] = 'vorbestellt';
+                        execUpdates[`rides/${wp.firebaseId}/assignedBy`] = 'cloud-longest-first-auto';
+                        execUpdates[`rides/${wp.firebaseId}/assignedAt`] = _now;
+                        execUpdates[`rides/${wp.firebaseId}/updatedAt`] = _now;
+                        // Victim wird wartepool — Hauptlogik (autoResolveConflicts) kann es neu zuweisen
+                        execUpdates[`rides/${sw.victimRideId}/assignedVehicle`] = null;
+                        execUpdates[`rides/${sw.victimRideId}/vehicleId`] = null;
+                        execUpdates[`rides/${sw.victimRideId}/status`] = 'wartepool';
+                        execUpdates[`rides/${sw.victimRideId}/wartepoolReason`] = `verdraengt durch laengere Fahrt ${wp.ride.customerName} (${wp.distance.toFixed(1)}km > ${sw.victimDistance.toFixed(1)}km)`;
+                        execUpdates[`rides/${sw.victimRideId}/updatedAt`] = _now;
+                    }
+                    if (Object.keys(execUpdates).length > 0) {
+                        await db.ref().update(execUpdates);
+                        console.log(`📐 LongestFirst AUTO-EXECUTE: ${proposals.length} Swap(s) ausgeführt`);
+                    }
+                }
+            } else {
+                console.log(`📐 LongestFirst: ${wartepool.length} wartepool-Rides, keine Vorschläge möglich.`);
+            }
+
+            db.ref('settings/cloudJobs/scheduledProposeLongestFirst').set({
+                lastRun: _now,
+                schedule: 'every 5 minutes',
+                intervalMs: 5 * 60 * 1000,
+                proposalsThisRun: proposals.length
+            }).catch(() => {});
+        } catch (e) {
+            console.error('❌ scheduledProposeLongestFirst Fehler:', e.message, e.stack);
+        }
+    }
+);
+
+// ═══════════════════════════════════════════════════════════════
 // 🆕 v6.62.354 (06.05.): scheduledReachabilityCheck
 // Patrick (06.05. 11:53): "Wenn das GPS an ist muesstest du doch sehen
 // dass das nicht klappt mit dem Fahrzeug." — bisher gab's nur die Live-

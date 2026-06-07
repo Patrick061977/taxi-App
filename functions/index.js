@@ -20104,7 +20104,10 @@ exports.scheduledProposeLongestFirst = onSchedule(
 
             const updates = {};
             const proposals = [];
-            const KONFLIKT_FENSTER_MS = 90 * 60000;
+            // 🔧 v6.63.222 (Patrick 07.06. 15:12): Sandy 06:00 + Scholz 07:30 waren
+            //   EXAKT 90.0 Min auseinander (446ms drüber!) — Konflikt wurde nicht erkannt.
+            //   Realistischer: Greifswald-Tour braucht 2h hin+zurück → 3h-Fenster.
+            const KONFLIKT_FENSTER_MS = 180 * 60000;
 
             for (const wp of wartepool) {
                 // Vorhandene Vorschläge nicht überschreiben (sonst Loop)

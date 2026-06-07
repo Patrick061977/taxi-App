@@ -481,6 +481,14 @@ public class ShiftEditorActivity extends AppCompatActivity {
         endRow.setPadding(0, pad, 0, 0);
         root.addView(endRow);
 
+        // 🆕 v6.63.218 (Patrick 07.06. 13:12 "Web sagt Mo 05:45, Native sagt Mo 07:00"):
+        //   Beim Datum-Wechsel müssen start[]/end[] aus defaultTimes des NEUEN Wochentags
+        //   nachgezogen werden. Sonst bleiben die HEUTE (Sonntag-Werte) sichtbar wenn Patrick
+        //   auf Mo wechselt — das wirkte als ob Web/Native nicht synchron wären.
+        //   Wir greifen den TextView val (Child-Index 2 in makeTimeRow) heraus, um den Text zu refreshen.
+        final android.widget.TextView _startVal = (android.widget.TextView) startRow.getChildAt(2);
+        final android.widget.TextView _endVal = (android.widget.TextView) endRow.getChildAt(2);
+
         // 🆕 v6.62.999 (Patrick 28.05. 21:06 "F heute"): Split-Shift-Support.
         //   Spätschicht-Block kann hinzugefügt werden — Speichert dann als timeRanges-
         //   Array (kompatibel mit Web-Editor index.html Z~41181).
@@ -583,6 +591,15 @@ public class ShiftEditorActivity extends AppCompatActivity {
                     // v6.62.998: Checkbox-Text auf neuen Wochentag aktualisieren
                     int _newDow = selDate.get(Calendar.DAY_OF_WEEK) - 1;
                     cbAllSame.setText("📅 Auch fuer alle " + dayNames[_newDow] + " als Standard setzen");
+                    // 🆕 v6.63.218: Zeiten aus defaultTimes[_newDow] neu laden
+                    String _ns = (vs.defaultTimes != null && vs.defaultTimes[_newDow] != null) ? vs.defaultTimes[_newDow][0] : null;
+                    String _ne = (vs.defaultTimes != null && vs.defaultTimes[_newDow] != null) ? vs.defaultTimes[_newDow][1] : null;
+                    int[] _newStart = parseHM(_ns != null ? _ns : "06:00");
+                    int[] _newEnd = parseHM(_ne != null ? _ne : "22:00");
+                    start[0] = _newStart[0]; start[1] = _newStart[1];
+                    end[0] = _newEnd[0]; end[1] = _newEnd[1];
+                    _startVal.setText(String.format(Locale.GERMANY, "  %02d:%02d  ", start[0], start[1]));
+                    _endVal.setText(String.format(Locale.GERMANY, "  %02d:%02d  ", end[0], end[1]));
                 },
                 selDate.get(Calendar.YEAR), selDate.get(Calendar.MONTH), selDate.get(Calendar.DAY_OF_MONTH));
             dp.show();

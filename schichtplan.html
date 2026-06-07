@@ -2352,8 +2352,17 @@
                     ['A', 'inlineStr', dayLabel],
                     ['B', 'inlineStr', tagShort]
                 ];
+                // 🆕 v6.63.228 (Patrick 07.06. 16:55 "beim Excel-Export muss Urlaub erkennbar sein"):
+                //   Urlaub/Krank-Tage in der Schichtzeit-Spalte D mit Klartext markieren statt nur
+                //   die theoretischen Uhrzeiten zu zeigen. Steuerberater sieht auf einen Blick
+                //   welcher Tag Urlaubstag war.
+                if (cls.isUrlaub && cls.ranges.shift) {
+                    const _label = (cls.urlaubType === 'sick' ? 'KRANK' : 'URLAUB');
+                    cells.push(['D', 'inlineStr', _label + ' — Berechnung: ' + cls.ranges.shift]);
+                } else if (cls.ranges.shift) {
+                    cells.push(['D', 'inlineStr', cls.ranges.shift]);
+                }
                 if (cls.ranges.pre) cells.push(['C', 'inlineStr', cls.ranges.pre]);
-                if (cls.ranges.shift) cells.push(['D', 'inlineStr', cls.ranges.shift]);
                 if (cls.pauseH > 0) cells.push(['E', 'n', cls.pauseH]);
                 else cells.push(['E', 'inlineStr', '-']);
                 if (cls.ranges.pause) cells.push(['F', 'inlineStr', cls.ranges.pause]);

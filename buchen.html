@@ -4852,27 +4852,87 @@
                 let waypoints = `${pickupCoords.lon},${pickupCoords.lat}`;
                 if (stoppCoords) waypoints += `;${stoppCoords.lon},${stoppCoords.lat}`;
                 waypoints += `;${destCoords.lon},${destCoords.lat}`;
-                // 🔧 v6.62.763 (Patrick 16.05. 07:56 "20 Kilometer Umweg"):
-                //   OSRM nimmt by-default die zeit-schnellste Route — bei Heringsdorf
-                //   fuehrt das ueber B111/Schnellstrecke (20 km, 21 min) statt der
-                //   kuerzeren Nebenstrecke (14 km, 22 min). Wir holen alternatives=true
-                //   und nehmen die KUERZESTE Route solange die Fahrzeit nicht >5 Min
-                //   schlechter ist. Spart Kunde 6 km × Tarif = ~15 €.
-                const resp = await fetch(`https://router.project-osrm.org/route/v1/driving/${waypoints}?overview=full&geometries=geojson&alternatives=true`);
-                const data = await resp.json();
-                if (data.routes && data.routes[0]) {
-                    let route = data.routes[0];
-                    if (data.routes.length > 1) {
-                        const fastest = data.routes.reduce((a, b) => a.duration <= b.duration ? a : b);
-                        const shortest = data.routes.reduce((a, b) => a.distance <= b.distance ? a : b);
-                        // Kuerzeste nehmen wenn maximal 5 Min langsamer als die Schnellste
-                        if ((shortest.duration - fastest.duration) <= 5 * 60) {
-                            route = shortest;
-                        } else {
-                            route = fastest;
+                // 🆕 v6.63.219 (Patrick 07.06. 13:50 "fährt durch den Wald"):
+                //   OSRM (router.project-osrm.org) nimmt einen falsch in OSM getaggten
+                //   Fußweg im Heringsdorf-Zentrum als befahrbar an. Google Routes API
+                //   (TRAFFIC_AWARE) bleibt auf richtigen Straßen und liefert realistische
+                //   Distanzen. Routes API ist seit 26.05. enabled für unseren Web-Key.
+                //   Fallback bleibt OSRM falls Google-Quote überschritten oder Fehler.
+                const GOOGLE_ROUTES_KEY = 'AIzaSyCEL-wtoIrVm0-PXpILLabGQXfuFaA17lg';
+                let route = null;
+                let routeSource = 'osrm';
+                try {
+                    const _wpsArr = waypoints.split(';').map(p => {
+                        const [lon, lat] = p.split(',').map(Number);
+                        return { location: { latLng: { latitude: lat, longitude: lon } } };
+                    });
+                    const _origin = _wpsArr.shift();
+                    const _destination = _wpsArr.pop();
+                    const _gBody = {
+                        origin: _origin,
+                        destination: _destination,
+                        travelMode: 'DRIVE',
+                        routingPreference: 'TRAFFIC_AWARE',
+                        polylineEncoding: 'GEO_JSON_LINESTRING',
+                        computeAlternativeRoutes: true
+                    };
+                    if (_wpsArr.length > 0) _gBody.intermediates = _wpsArr;
+                    const _gResp = await fetch('https://routes.googleapis.com/directions/v2:computeRoutes', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-Goog-Api-Key': GOOGLE_ROUTES_KEY,
+                            'X-Goog-FieldMask': 'routes.duration,routes.distanceMeters,routes.polyline'
+                        },
+                        body: JSON.stringify(_gBody)
+                    });
+                    if (_gResp.ok) {
+                        const _gData = await _gResp.json();
+                        if (_gData.routes && _gData.routes[0]) {
+                            // 🔧 v6.63.219 (Patrick 07.06. 14:00 "immer vergleichen kürzeste und schnellste"):
+                            //   Aus alternatives kürzeste UND schnellste extrahieren, kürzeste
+                            //   nehmen wenn nicht mehr als 5 Min langsamer als schnellste.
+                            const _gRoutes = _gData.routes.map(r => ({
+                                distance: r.distanceMeters,
+                                duration: parseInt(String(r.duration).replace(/[^0-9]/g, ''), 10) || 0,
+                                geometry: r.polyline && r.polyline.geoJsonLinestring ? r.polyline.geoJsonLinestring : null
+                            }));
+                            let _picked = _gRoutes[0];
+                            if (_gRoutes.length > 1) {
+                                const _fastest = _gRoutes.reduce((a, b) => a.duration <= b.duration ? a : b);
+                                const _shortest = _gRoutes.reduce((a, b) => a.distance <= b.distance ? a : b);
+                                _picked = (_shortest.duration - _fastest.duration) <= 5 * 60 ? _shortest : _fastest;
+                                console.log('[Route-Pick Google] fastest', (_fastest.distance/1000).toFixed(1)+'km/'+(_fastest.duration/60).toFixed(1)+'min', 'shortest', (_shortest.distance/1000).toFixed(1)+'km/'+(_shortest.duration/60).toFixed(1)+'min', '→ gewaehlt:', (_picked.distance/1000).toFixed(1)+'km');
+                            }
+                            route = _picked;
+                            routeSource = 'google-routes';
+                            console.log('[Route] Google Routes:', (route.distance/1000).toFixed(2)+'km', (route.duration/60).toFixed(1)+'min', '('+_gRoutes.length+' alternatives)');
                         }
-                        console.log('[Route-Pick] fastest', (fastest.distance/1000).toFixed(1)+'km/'+(fastest.duration/60).toFixed(1)+'min', 'shortest', (shortest.distance/1000).toFixed(1)+'km/'+(shortest.duration/60).toFixed(1)+'min', '→ gewaehlt:', (route.distance/1000).toFixed(1)+'km');
+                    } else {
+                        console.warn('[Route] Google Routes HTTP', _gResp.status, '— fallback OSRM');
                     }
+                } catch (_gErr) {
+                    console.warn('[Route] Google Routes fail:', _gErr.message, '— fallback OSRM');
+                }
+                // OSRM-Fallback
+                if (!route) {
+                    const resp = await fetch(`https://router.project-osrm.org/route/v1/driving/${waypoints}?overview=full&geometries=geojson&alternatives=true`);
+                    const data = await resp.json();
+                    if (data.routes && data.routes[0]) {
+                        route = data.routes[0];
+                        if (data.routes.length > 1) {
+                            const fastest = data.routes.reduce((a, b) => a.duration <= b.duration ? a : b);
+                            const shortest = data.routes.reduce((a, b) => a.distance <= b.distance ? a : b);
+                            if ((shortest.duration - fastest.duration) <= 5 * 60) {
+                                route = shortest;
+                            } else {
+                                route = fastest;
+                            }
+                            console.log('[Route-Pick OSRM-FALLBACK] fastest', (fastest.distance/1000).toFixed(1)+'km/'+(fastest.duration/60).toFixed(1)+'min', 'shortest', (shortest.distance/1000).toFixed(1)+'km/'+(shortest.duration/60).toFixed(1)+'min', '→ gewaehlt:', (route.distance/1000).toFixed(1)+'km');
+                        }
+                    }
+                }
+                if (route) {
                     const km = (route.distance / 1000).toFixed(1);
                     // v6.63.058 (Patrick 31.05. 16:05): Minuten auf 5er-Schritt aufrunden.
                     // "28 → 30, 34 → 35, 38 → 40 — alles auf jeden 5er aufrunden."

@@ -2193,6 +2193,42 @@
                 hasData: false
             };
             const plan = dataD && dataD.plan;
+            // 🆕 v6.63.226 (Patrick 07.06. 16:46 "lohn optimierer anpassen"):
+            //   Urlaub/Krank-Tage mit originalShift → theoretische Schicht-Stunden ansetzen.
+            //   Mapping originalShift → TYPES-Eintrag, daraus Standard-Zeiten + Zuschläge.
+            //   Lohnoptimierer sieht den Tag dann genauso als wäre normal gearbeitet worden.
+            if (plan && (plan.type === 'vacation' || plan.type === 'sick') && plan.originalShift) {
+                const _origType = TYPES.find(t => t.id === plan.originalShift);
+                if (_origType && _origType.time) {
+                    out.hasData = true;
+                    out.isUrlaub = true;  // damit Optimizer-Anzeige es markieren kann
+                    out.urlaubType = plan.type;  // 'vacation' oder 'sick'
+                    out.urlaubOriginalShift = plan.originalShift;
+                    if (plan.originalShift === 'standby') {
+                        // Nur Standby-Stunden, kein Voll-Schicht-Lohn
+                        out.preH = calcHours(_origType.time.start, _origType.time.end);
+                        out.standbyGes = out.preH;
+                        out.ranges.pre = fmtTimeRange(_origType.time.start, _origType.time.end, out.preH);
+                    } else {
+                        // day / late / night → volle Schicht als Urlaubsstunden
+                        const _fullVor = calcHours(_origType.time.start, _origType.time.end);
+                        const _pflichtPause = _fullVor >= 8 ? 0.5 : 0;
+                        out.vollVor = _fullVor;
+                        out.pauseH = _pflichtPause;
+                        out.vollBezahlt = _fullVor - _pflichtPause;
+                        out.ranges.shift = fmtTimeRange(_origType.time.start, _origType.time.end, _fullVor);
+                        // Zuschläge: bei night auch nacht25 + nacht40 mitrechnen
+                        const _z = calcZuschlagsStunden(dateObj, _origType.time.start, _origType.time.end, null, null);
+                        out.sonntag = _z.sonntag;
+                        out.nacht25 = _z.nacht25;
+                        out.nacht40 = _z.nacht40;
+                        out.feiertag = _z.feiertag;
+                        out.feiertag150 = _z.feiertag150 || 0;
+                        out.feiertag125 = _z.feiertag125 || 0;
+                    }
+                    return out;
+                }
+            }
             if (plan && (plan.type === 'day' || plan.type === 'late' || plan.type === 'night')) {
                 out.hasData = true;
                 // Voll-Schicht aus Plan-Range

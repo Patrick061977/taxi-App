@@ -3228,6 +3228,16 @@ ${rows.join('\n')}
                 sick: { cls: 'm-sick', sym: 'K' }
             };
             const e = map[shift.type] || { cls: 'm-day', sym: '?' };
+            // 🆕 v6.63.227 (Patrick 07.06. 16:55 "zur hälfte vielleicht sehen urlaub aber
+            //   nachtschicht berechnet"): bei Urlaub/Krank mit originalShift den Sub-Indikator
+            //   anhängen — U/N (Urlaub als Nacht berechnet) etc.
+            if ((shift.type === 'vacation' || shift.type === 'sick') && shift.originalShift) {
+                const subMap = { day: 'T', late: 'S', night: 'N', standby: 'R' };
+                const sub = subMap[shift.originalShift];
+                if (sub) {
+                    return `<span class="m-badge ${e.cls}" title="${shift.type === 'vacation' ? 'Urlaub' : 'Krank'} (Berechnung: ${sub === 'T' ? 'Tagschicht' : sub === 'S' ? 'Spätschicht' : sub === 'N' ? 'Nachtschicht' : 'Rufbereitschaft'})">${e.sym}/${sub}</span>`;
+                }
+            }
             return `<span class="m-badge ${e.cls}">${e.sym}</span>`;
         }
 

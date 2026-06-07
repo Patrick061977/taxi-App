@@ -1310,6 +1310,19 @@
                 document.getElementById('shift-start').value = '';
                 document.getElementById('shift-end').value = '';
             }
+            // 🆕 v6.63.224 (Patrick 07.06. 16:37 "rufbereitschaft muss trotzdem raus"):
+            //   Bei Urlaub/Krank/Frei alle Rufbereitschaft-Felder (Pre+Post) automatisch leeren.
+            //   Standby gehört NICHT in Urlaubs-Tage, sonst zählt der Lohnoptimierer das fälschlich
+            //   als Urlaub + Standby gleichzeitig.
+            if (t === 'vacation' || t === 'sick' || t === 'free') {
+                ['shift-pre-start', 'shift-pre-end', 'shift-post-start', 'shift-post-end',
+                 'shift-pause-start', 'shift-pause-end'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.value = '';
+                });
+                const _extra = document.getElementById('extra-fields');
+                if (_extra) _extra.open = false;
+            }
             updateTypeUI();
             updateHoursPreview();
         }

@@ -18373,7 +18373,9 @@ exports.setupBotCommands = onRequest(
 
 exports.autoResolveConflicts = onSchedule(
     {
-        schedule: 'every 5 minutes',
+        // v6.63.233 (Patrick 07.06. 21:17 'wenn nichts passiert braucht nichts laufen'):
+        // 5min → 15min. Konflikte ändern sich nicht von Minute zu Minute.
+        schedule: 'every 15 minutes',
         region: 'europe-west1',
         timeoutSeconds: 120,
         memory: '256MiB'
@@ -20064,7 +20066,8 @@ exports.autoResolveConflicts = onSchedule(
 // ═══════════════════════════════════════════════════════════════
 exports.scheduledProposeLongestFirst = onSchedule(
     {
-        schedule: 'every 5 minutes',
+        // v6.63.233: 5min → 15min. Vorrang-Bestimmung Wartepool-Auflösung.
+        schedule: 'every 15 minutes',
         region: 'europe-west1',
         timeoutSeconds: 60,
         memory: '256MiB'
@@ -22520,7 +22523,8 @@ exports.scheduledGpsHeartbeatWatchdog = onSchedule(
 // Tipp pro Typ pro Ride pro Tag (24h). Verhindert Spam wenn Wartepool persistiert.
 exports.scheduledDispatcherTips = onSchedule(
     {
-        schedule: 'every 5 minutes',
+        // v6.63.233: 5min → 15min. AI-Tipps brauchen keine Minutengenauigkeit.
+        schedule: 'every 15 minutes',
         region: 'europe-west1',
         timeZone: 'Europe/Berlin',
         timeoutSeconds: 90,
@@ -22951,7 +22955,8 @@ function haversineMeters(lat1, lon1, lat2, lon2) {
 // Push-Limit: 1 Vorschlag pro Ride pro 60 Min (verhindert Spam).
 exports.scheduledTourPlanner = onSchedule(
     {
-        schedule: 'every 5 minutes',
+        // v6.63.233: 5min → 15min. Tour-Optimierung läuft trotzdem fest genug.
+        schedule: 'every 15 minutes',
         region: 'europe-west1',
         timeZone: 'Europe/Berlin',
         timeoutSeconds: 90,
@@ -27510,7 +27515,8 @@ exports.scheduledLateCheck = onSchedule(
         //   2 → 5 Min. Late-Check rechnet Cloud-Anfahrt + Vorgänger-Dauer auf
         //   Minutengenauigkeit aus — 5-Min-Cadence reicht völlig für die
         //   typische 20-Min-Verspätungswarnung.
-        schedule: 'every 5 minutes',
+        // v6.63.233: 5 → 10 Min. Bei 20-Min-Warnung reichen 10min-Buckets.
+        schedule: 'every 10 minutes',
         region: 'europe-west1',
         timeoutSeconds: 90,
         memory: '256MiB'
@@ -27727,7 +27733,8 @@ exports.scheduledLateCheck = onSchedule(
 // Schickt Telegram an Admins wenn 0 GPS-Fahrer online + offene Vorbestellung in den
 // naechsten 2h existiert. Cooldown 30 Min damit kein Spam.
 exports.scheduledOnlineFahrerCheck = onSchedule(
-    { schedule: 'every 5 minutes', region: 'europe-west1', timeZone: 'Europe/Berlin' },
+    // v6.63.233: 5min → 15min. Cooldown 30 Min — 15min-Cadence reicht.
+    { schedule: 'every 15 minutes', region: 'europe-west1', timeZone: 'Europe/Berlin' },
     async (event) => {
         try {
             const now = Date.now();
@@ -28695,7 +28702,8 @@ exports.scheduledMorningBriefing = onSchedule(
 
 exports.scheduledHistorySnapshot = onSchedule(
     {
-        schedule: 'every 5 minutes',
+        // v6.63.233: 5min → 15min. History-Snapshot ist kein Hot-Path.
+        schedule: 'every 15 minutes',
         region: 'europe-west1',
         timeoutSeconds: 30,
         memory: '256MiB'

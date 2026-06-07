@@ -3166,12 +3166,16 @@ ${rows.join('\n')}
             if (window._vacationCountCache[year]) return window._vacationCountCache[year];
             const counts = {};
             try {
-                // Wochen-Schlüssel sind ISO-Wochen → YYYY-WW. Wir laden ALLE shiftPlan einmal
-                //   (Patrick hat eh nur ~20 Wochen/Jahr) und filtern client-seitig.
-                const snap = await db.ref('shiftPlan').once('value');
+                // 🔧 v6.63.230 (Patrick 07.06. 17:42 'downloads 400 MB/h, haben sich erhöht'):
+                //   Vorher .once('value') auf KOMPLETTE /shiftPlan → bei jedem Tab-Open MB.
+                //   Jetzt: orderByKey().startAt(YYYY-01).endAt(YYYY-53) — nur diese Jahres-Wochen.
+                const snap = await db.ref('shiftPlan')
+                    .orderByKey()
+                    .startAt(year + '-01')
+                    .endAt(year + '-53')
+                    .once('value');
                 const all = snap.val() || {};
                 for (const [wkKey, wkData] of Object.entries(all)) {
-                    if (!wkKey.startsWith(year + '-')) continue;  // nur passende Jahres-Wochen
                     for (const [staffId, days] of Object.entries(wkData || {})) {
                         for (const dayPlan of Object.values(days || {})) {
                             if (dayPlan && dayPlan.type === 'vacation') {

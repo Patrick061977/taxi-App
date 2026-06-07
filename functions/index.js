@@ -892,10 +892,14 @@ async function autoAssignRide(rideId, rideData) {
         } catch (_safetyErr) {
             console.warn('autoAssignRide Safety-Check Fehler (ignored):', _safetyErr.message);
         }
+        // 🔧 v6.63.217 (Cost-Detox Phase X): rides nur Fenster -2h..+24h statt ALLES.
+        //   Vorher 5-15 MB pro Call × 100ks Calls/Tag = ~16 GB/Tag Hauptkostenfresser.
+        const _rWS = Date.now() - 2 * 60 * 60 * 1000;
+        const _rWE = Date.now() + 24 * 60 * 60 * 1000;
         const [vehiclesSnap, shiftsSnap, ridesSnap, prioritiesSnap, pricingSnap, prioMalusSnap, optByDaySnap] = await Promise.all([
             db.ref('vehicles').once('value'),
             db.ref('vehicleShifts').once('value'),
-            db.ref('rides').once('value'),
+            db.ref('rides').orderByChild('pickupTimestamp').startAt(_rWS).endAt(_rWE).once('value'),
             db.ref('settings/vehiclePriorities').once('value'),
             db.ref('settings/pricing').once('value'),
             db.ref('settings/vehiclePrioMalus').once('value'),  // 🆕 v6.62.518: pro-Fahrzeug Override
@@ -1851,9 +1855,12 @@ async function autoAssignRide(rideId, rideData) {
 // 🔧 v6.20.2: Wartezeit schätzen wenn alle Fahrer besetzt sind
 async function estimateWaitTime(pickupCoords) {
     try {
+        // 🔧 v6.63.217: nur nahe Pickups (= aktive Fahrten)
+        const _eWS = Date.now() - 4 * 60 * 60 * 1000;
+        const _eWE = Date.now() + 4 * 60 * 60 * 1000;
         const [vehiclesSnap, ridesSnap] = await Promise.all([
             db.ref('vehicles').once('value'),
-            db.ref('rides').once('value')
+            db.ref('rides').orderByChild('pickupTimestamp').startAt(_eWS).endAt(_eWE).once('value')
         ]);
         const vehicles = vehiclesSnap.val() || {};
         const activeRides = [];
@@ -4092,8 +4099,10 @@ async function searchNominatimForTelegram(query) {
 
     // 1d) Häufige Ziele aus ALLEN Buchungen (nutzt USEDOM_PLZ/_looksLikeUsedom von oben)
     // 🔧 v6.38.27: ALLE Fahrten durchsuchen, nicht nur die letzten 200
+    // 🔧 v6.63.217: Cost-Detox — auf letzte 90 Tage beschränken (Adress-Historie reicht)
     try {
-        const ridesSnap = await db.ref('rides').once('value');
+        const _addrWS = Date.now() - 90 * 24 * 60 * 60 * 1000;
+        const ridesSnap = await db.ref('rides').orderByChild('pickupTimestamp').startAt(_addrWS).once('value');
         const destCount = {};
         // 🔧 v6.38.48: Normalisierung für Duplikat-Erkennung
         const _normAddr = (a) => {
@@ -8533,13 +8542,15 @@ async function handleTelegramBookingQuery(chatId, text, knownCustomer) {
     const phone = knownCustomer.phone || knownCustomer.mobile || '';
     const cleanPhone = phone.replace(/\s/g, '');
     try {
-        const ridesSnap = await db.ref('rides').once('value');
+        // 🔧 v6.63.217: Cost-Detox — nur Pickup >= now-1h via orderByChild
+        const _qWS = Date.now() - 3600000;
+        const ridesSnap = await db.ref('rides').orderByChild('pickupTimestamp').startAt(_qWS).once('value');
         const allRides = Object.entries(ridesSnap.val() || {});
         const now = Date.now();
         const upcoming = allRides.filter(([, r]) => {
             if (r.status === 'deleted' || r.status === 'storniert' || r.status === 'cancelled') return false;
             const rPhone = (r.customerPhone || '').replace(/\s/g, '');
-            return rPhone && cleanPhone && rPhone.slice(-9) === cleanPhone.slice(-9) && (r.pickupTimestamp || 0) >= now - 3600000;
+            return rPhone && cleanPhone && rPhone.slice(-9) === cleanPhone.slice(-9);
         }).sort((a, b) => (a[1].pickupTimestamp || 0) - (b[1].pickupTimestamp || 0)).slice(0, 5);
 
         if (upcoming.length === 0) {
@@ -8588,7 +8599,9 @@ async function handleTelegramHistoryQuery(chatId, knownCustomer) {
     const phone = knownCustomer.phone || knownCustomer.mobile || '';
     const cleanPhone = phone.replace(/\s/g, '');
     try {
-        const ridesSnap = await db.ref('rides').once('value');
+        // 🔧 v6.63.217: Cost-Detox — letzte 30 Tage statt alle
+        const _pWS = Date.now() - 30 * 86400000;
+        const ridesSnap = await db.ref('rides').orderByChild('pickupTimestamp').startAt(_pWS).once('value');
         const allRides = Object.entries(ridesSnap.val() || {});
         const now = Date.now();
 
@@ -8657,7 +8670,10 @@ async function handleAdminRidesOverview(chatId, filter = 'today') {
         return;
     }
     try {
-        const ridesSnap = await db.ref('rides').once('value');
+        // 🔧 v6.63.217: Cost-Detox — Admin-Übersicht heute/morgen reicht ±2 Tage
+        const _aWS = Date.now() - 2 * 86400000;
+        const _aWE = Date.now() + 2 * 86400000;
+        const ridesSnap = await db.ref('rides').orderByChild('pickupTimestamp').startAt(_aWS).endAt(_aWE).once('value');
         const allRides = Object.entries(ridesSnap.val() || {});
         const now = new Date();
         const berlinNow = new Date(now.toLocaleString('en-US', TZ_BERLIN));
@@ -9054,7 +9070,9 @@ async function handleTelegramDeleteQuery(chatId, knownCustomer) {
         return;
     }
     try {
-        const ridesSnap = await db.ref('rides').once('value');
+        // 🔧 v6.63.217: Cost-Detox — Stornieren-Kontext = zukünftige Pickups
+        const _dWS = Date.now() - 3600000;
+        const ridesSnap = await db.ref('rides').orderByChild('pickupTimestamp').startAt(_dWS).once('value');
         const allRides = Object.entries(ridesSnap.val() || {});
         const cleanPhone = (knownCustomer.phone || knownCustomer.mobile || '').replace(/\s/g, '');
         const now = Date.now();
@@ -9089,7 +9107,9 @@ async function handleTelegramModifyQuery(chatId, knownCustomer) {
         return;
     }
     try {
-        const ridesSnap = await db.ref('rides').once('value');
+        // 🔧 v6.63.217: Cost-Detox — Modify-Kontext = zukünftige Pickups
+        const _mWS = Date.now() - 3600000;
+        const ridesSnap = await db.ref('rides').orderByChild('pickupTimestamp').startAt(_mWS).once('value');
         const allRides = Object.entries(ridesSnap.val() || {});
         const cleanPhone = (knownCustomer.phone || knownCustomer.mobile || '').replace(/\s/g, '');
         const now = Date.now();
@@ -13112,9 +13132,12 @@ async function handleCallback(callback) {
                         // dem Kunden konkrete Minuten zeigen kann.
                         let _estWaitMin = null;
                         try {
+                            // 🔧 v6.63.217: Cost-Detox — Wartezeit-Schätzung braucht nur aktuelle/nahe Rides
+                            const _ewWS = Date.now() - 2 * 60 * 60 * 1000;
+                            const _ewWE = Date.now() + 6 * 60 * 60 * 1000;
                             const [_vSnap, _rSnap, _pSnap] = await Promise.all([
                                 db.ref('vehicles').once('value'),
-                                db.ref('rides').once('value'),
+                                db.ref('rides').orderByChild('pickupTimestamp').startAt(_ewWS).endAt(_ewWE).once('value'),
                                 db.ref('settings/pricing').once('value')
                             ]);
                             const _allRides = [];
@@ -22788,7 +22811,10 @@ exports.scheduledTourPlanner = onSchedule(
             }
             const now = Date.now();
             const TOURPLANNER_SILENCE_MS = (settings.silenceMin || 60) * 60000;
-            const ridesSnap = await db.ref('rides').once('value');
+            // 🔧 v6.63.217: Cost-Detox — TourPlanner braucht nur heute+morgen, nicht alle Historie
+            const _tpWS = now - 2 * 60 * 60 * 1000;
+            const _tpWE = now + 36 * 60 * 60 * 1000;
+            const ridesSnap = await db.ref('rides').orderByChild('pickupTimestamp').startAt(_tpWS).endAt(_tpWE).once('value');
             if (!ridesSnap.exists()) return;
 
             const allRides = [];
@@ -24032,9 +24058,12 @@ ${ride.passengers ? `<tr><td style="padding:6px 0;color:#6b7280;">👥 Personen:
                             try {
                                 let _estWaitMin = null;
                                 try {
+                                    // 🔧 v6.63.217: Cost-Detox — Wartezeit nur aktuelle/nahe Rides
+                                    const _ew2WS = Date.now() - 2 * 60 * 60 * 1000;
+                                    const _ew2WE = Date.now() + 6 * 60 * 60 * 1000;
                                     const [_vSnap, _rSnap, _pSnap] = await Promise.all([
                                         db.ref('vehicles').once('value'),
-                                        db.ref('rides').once('value'),
+                                        db.ref('rides').orderByChild('pickupTimestamp').startAt(_ew2WS).endAt(_ew2WE).once('value'),
                                         db.ref('settings/pricing').once('value')
                                     ]);
                                     const _allRides = [];
@@ -24969,7 +24998,10 @@ exports.onRideUpdated = onValueUpdated(
                         const anschlussZeitMin = _pricing.anschlussfahrtWeiterfahrtMin ?? 10;
 
                         // Alle heutigen Fahrten für dieses Fahrzeug laden
-                        const ridesSnap = await db.ref('rides').once('value');
+                        // 🔧 v6.63.217: Cost-Detox — nur Fahrten heute + morgen, nicht Historie
+                        const _nrWS = Date.now() - 1 * 60 * 60 * 1000;
+                        const _nrWE = Date.now() + 36 * 60 * 60 * 1000;
+                        const ridesSnap = await db.ref('rides').orderByChild('pickupTimestamp').startAt(_nrWS).endAt(_nrWE).once('value');
                         const allRidesObj = ridesSnap.val() || {};
                         const now = Date.now();
 

@@ -18447,7 +18447,15 @@ exports.autoResolveConflicts = onSchedule(
                 //   waren gelockt → autoResolveConflicts sah sie nicht → 09:55/10:00/10:15
                 //   auf Mercedes blieb unentdeckt. Jetzt: gelockte Rides bleiben in beiden
                 //   Listen sichtbar; Reassign-Filter weiter unten respektiert das Lock.
-                if (r.pickupTimestamp > now + vorlaufMin * 60000) {
+                // 🔧 v6.63.214 (Patrick 07.06. 07:42 'warum wird die Marion-Fahrt nicht aus
+                //   dem Wartepool aufgelöst?'): Status 'wartepool' uebersteuert vorlaufMin —
+                //   sonst werden Wartepool-Rides die naeher als 60 Min am Pickup sind
+                //   nie wieder versucht. Patrick wartet GPS-frei, aber Cron beruehrt die
+                //   Ride nicht weil ausserhalb Vorlauf-Fenster.
+                const _isWartepool = r.status === 'wartepool';
+                const _isInVorlauf = r.pickupTimestamp > now + vorlaufMin * 60000;
+                const _isPickupNotPast = r.pickupTimestamp > now - 5 * 60000;
+                if (_isInVorlauf || (_isWartepool && _isPickupNotPast)) {
                     if (r.assignedVehicle) {
                         allRides.push(r);
                     } else {

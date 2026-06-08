@@ -23001,7 +23001,15 @@ exports.scheduledTourPlanner = onSchedule(
             }
             const now = Date.now();
             const TOURPLANNER_SILENCE_MS = (settings.silenceMin || 60) * 60000;
-            // 🔧 v6.63.217: Cost-Detox — TourPlanner braucht nur heute+morgen, nicht alle Historie
+            // 🆕 v6.63.237 (Patrick 08.06. 06:11 'Such den Fehler'):
+            //   QUICK-CHECK: TourPlaner analysiert NUR warteschlange-Rides. Wenn keine existieren
+            //   → 38h-Window-Read überspringen → 99% des Reads gespart.
+            const _quickWP = await db.ref('rides').orderByChild('status').equalTo('warteschlange').limitToFirst(1).once('value');
+            if (!_quickWP.exists()) {
+                console.log('🌙 v6.63.237: TourPlaner IDLE — keine warteschlange-Rides. Skip.');
+                return;
+            }
+            // 🔧 v6.63.217: Cost-Detox — TourPlaner braucht nur heute+morgen, nicht alle Historie
             const _tpWS = now - 2 * 60 * 60 * 1000;
             const _tpWE = now + 36 * 60 * 60 * 1000;
             const ridesSnap = await db.ref('rides').orderByChild('pickupTimestamp').startAt(_tpWS).endAt(_tpWE).once('value');

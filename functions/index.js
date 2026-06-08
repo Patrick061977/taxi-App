@@ -20947,19 +20947,22 @@ exports.scheduledAutoAssign = onSchedule(
                 return;
             }
 
-            // v6.62.22 FIX-2: warteschlange zur Query addieren — sonst landen Sofort-Fahrten
-            // bei denen alle besetzt waren (Status warteschlange) NIE wieder in der Auto-Zuweisung.
-            const [assignedSnap, vorbestelltSnap, newSnap, warteschlSnap, vehiclesSnap, shiftsSnap, settingsSnap, prioritiesSnap, prioMalusSnap, optByDaySnap] = await Promise.all([
-                db.ref('rides').orderByChild('status').equalTo('assigned').once('value'),
-                db.ref('rides').orderByChild('status').equalTo('vorbestellt').once('value'),
-                db.ref('rides').orderByChild('status').equalTo('new').once('value'),
-                db.ref('rides').orderByChild('status').equalTo('warteschlange').once('value'),
+            // 🆕 v6.63.236 (Patrick 08.06. 05:58 'nur Rides in der Zukunft lesen'):
+            //   Konsolidiere die 4 Status-Queries in 1 pickupTimestamp-Window-Query.
+            //   Vorher: 4× orderByChild('status').equalTo(...) — zog auch alte Zombies (Status seit Jahren nicht final).
+            //   Jetzt: 1× orderByChild('pickupTimestamp').startAt(-2h).endAt(+24h) + clientseitig Status-Filter.
+            //   Spart: ~60% der Bytes (~400 Zombies × 3 KB raus).
+            const _pTSStart = now - 2 * 60 * 60 * 1000;
+            const _pTSEnd = now + 24 * 60 * 60 * 1000;
+            const _RELEVANT_STATUSES = new Set(['assigned','vorbestellt','new','warteschlange']);
+            const [ridesWindowSnap, vehiclesSnap, shiftsSnap, settingsSnap, prioritiesSnap, prioMalusSnap, optByDaySnap] = await Promise.all([
+                db.ref('rides').orderByChild('pickupTimestamp').startAt(_pTSStart).endAt(_pTSEnd).once('value'),
                 db.ref('vehicles').once('value'),
                 db.ref('vehicleShifts').once('value'),
                 db.ref('settings/pricing').once('value'),
                 db.ref('settings/vehiclePriorities').once('value'),
-                db.ref('settings/vehiclePrioMalus').once('value'),  // 🆕 v6.62.518
-                db.ref('settings/optimizationByDay').once('value')  // 🆕 v6.62.520
+                db.ref('settings/vehiclePrioMalus').once('value'),
+                db.ref('settings/optimizationByDay').once('value')
             ]);
 
             const vehiclesData = vehiclesSnap.val() || {};
@@ -21085,10 +21088,13 @@ exports.scheduledAutoAssign = onSchedule(
             // return als 'cancel iteration'. push() returnt array.length=1 (truthy) → Loop stoppt
             // nach 1 Element. Das war der 3-Fahrten-Bug (1+1+1 von je drei Snapshots).
             const allRides = [];
-            assignedSnap.forEach(c => { allRides.push({ ...c.val(), firebaseId: c.key }); });
-            vorbestelltSnap.forEach(c => { allRides.push({ ...c.val(), firebaseId: c.key }); });
-            newSnap.forEach(c => { allRides.push({ ...c.val(), firebaseId: c.key }); });
-            warteschlSnap.forEach(c => { allRides.push({ ...c.val(), firebaseId: c.key }); }); // v6.62.22
+            // 🆕 v6.63.236: clientseitig auf relevante Statuses filtern (statt 4 separate Queries)
+            ridesWindowSnap.forEach(c => {
+                const r = c.val();
+                if (r && _RELEVANT_STATUSES.has(r.status)) {
+                    allRides.push({ ...r, firebaseId: c.key });
+                }
+            });
 
             // 🆕 v6.63.009 (Patrick 29.05. 16:40 'Wagscher 5-Tags-Alarm'): pickupTimestamp-Watchdog.
             //   Symptom: ride hatte pickupDate='2026-05-28' + pickupTime='17:00' aber pickupTimestamp

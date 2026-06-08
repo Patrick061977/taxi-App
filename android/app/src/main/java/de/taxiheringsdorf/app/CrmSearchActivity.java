@@ -2942,6 +2942,8 @@ public class CrmSearchActivity extends AppCompatActivity {
         final double[] _lastDestChk = { Double.NaN, Double.NaN };
         final long[] _lastDtChk = { 0L };
         final int[] _lastPaxChk = { -1 };
+        // 🆕 v6.63.242: Tracking ob Krankenfahrt-Checkbox seit letztem Poll-Tick gewechselt hat
+        final boolean[] _lastKrankenChk = { false };
         final Runnable _mapPollRunnable = new Runnable() {
             @Override public void run() {
                 boolean _ch = false;
@@ -2955,9 +2957,16 @@ public class CrmSearchActivity extends AppCompatActivity {
                 if (_dtNow != _lastDtChk[0]) { _lastDtChk[0] = _dtNow; _ch = true; }
                 int _paxNow = (spnPax != null) ? spnPax.getSelectedItemPosition() : -1;
                 if (_paxNow != _lastPaxChk[0]) { _lastPaxChk[0] = _paxNow; _ch = true; }
+                // 🆕 v6.63.242: bei Krankenfahrt-Toggle Re-Render erzwingen
+                boolean _krankenNow = cbTransportschein != null && cbTransportschein.isChecked();
+                if (_krankenNow != _lastKrankenChk[0]) { _lastKrankenChk[0] = _krankenNow; _ch = true; }
                 if (_ch && pickupCoords != null && destCoords != null
                     && !Double.isNaN(pickupCoords[0]) && !Double.isNaN(destCoords[0])
                     && pickupCoords[0] != 0 && destCoords[0] != 0) {
+                    // 🆕 v6.63.242 (Patrick 08.06. 10:50): Bei Krankenfahrt (Transportschein-Checkbox)
+                    //   KEINE Preisberechnung — Abrechnung läuft später über DMRZ. Karte/Strecke
+                    //   bleibt, weil der Fahrer die Route sehen muss.
+                    final boolean _isKranken = cbTransportschein != null && cbTransportschein.isChecked();
                     // 🔧 v6.63.199 (Patrick 06.06. 18:33): Preis-Bug. Bisher flache 2.50€/km
                     //   plus immer *1.30 worst-case Aufschlag → für 11.2km 41.60€ statt 32€.
                     //   Korrektur: gestaffelter Eichtarif M-V (3.30/2.80/2.20 €/km) ohne
@@ -2984,16 +2993,25 @@ public class CrmSearchActivity extends AppCompatActivity {
                     if (_pxNow >= 5) _basePreis += 10.0;              // Großraumzuschlag bei 5+ Personen
                     double _finalPreis = Math.round(_basePreis * 10) / 10.0;
                     String _tarifLbl = _day == 0 ? " (So-Tarif)" : (_isNight ? " (Nachttarif)" : "");
-                    _livePriceInfo.setText(String.format(Locale.GERMANY,
-                        "🗺 %.1f km • ~%.2f €%s",
-                        _strKm, _finalPreis, _tarifLbl));
+                    if (_isKranken) {
+                        _livePriceInfo.setText(String.format(Locale.GERMANY,
+                            "🗺 %.1f km • 🏥 Krankenfahrt (DMRZ)",
+                            _strKm));
+                    } else {
+                        _livePriceInfo.setText(String.format(Locale.GERMANY,
+                            "🗺 %.1f km • ~%.2f €%s",
+                            _strKm, _finalPreis, _tarifLbl));
+                    }
                     _livePriceInfo.setVisibility(android.view.View.VISIBLE);
                     _liveMap.setVisibility(android.view.View.VISIBLE);
                     // 🆕 v6.63.198 (Patrick 06.06. 17:55): Echte OSRM-Route statt Luftlinie.
                     //   Plus km+Preis als Overlay oben links auf der Karte.
                     final double _pLat = pickupCoords[0], _pLon = pickupCoords[1];
                     final double _dLat = destCoords[0], _dLon = destCoords[1];
-                    final String _preisLbl = String.format(Locale.GERMANY, "~%.2f €%s", _finalPreis, _tarifLbl);
+                    // 🆕 v6.63.242: bei Krankenfahrt statt Preis das DMRZ-Label
+                    final String _preisLbl = _isKranken
+                        ? "🏥 Krankenfahrt (DMRZ)"
+                        : String.format(Locale.GERMANY, "~%.2f €%s", _finalPreis, _tarifLbl);
                     String _html = String.format(Locale.US,
                         "<!doctype html><html><head>" +
                         "<meta name='viewport' content='width=device-width,initial-scale=1'/>" +
@@ -3036,7 +3054,8 @@ public class CrmSearchActivity extends AppCompatActivity {
                           "const min=Math.round(r.duration/60);" +
                           "const preis=calcPreis(kmF);" +
                           "document.getElementById('kmTxt').textContent='📏 '+kmF.toFixed(1)+' km · '+min+' Min';" +
-                          "document.getElementById('prTxt').textContent='~'+preis.toFixed(2).replace('.',',')+' €'+tarifLbl;" +
+                          // 🆕 v6.63.242: bei Krankenfahrt prTxt nicht ueberschreiben (bleibt 🏥 Label)
+                          (_isKranken ? "" : "document.getElementById('prTxt').textContent='~'+preis.toFixed(2).replace('.',',')+' €'+tarifLbl;") +
                           "route.remove();" +
                           "const coords=r.geometry.coordinates.map(c=>[c[1],c[0]]);" +
                           "L.polyline(coords,{color:'#4F46E5',weight:5,opacity:0.9}).addTo(m);" +

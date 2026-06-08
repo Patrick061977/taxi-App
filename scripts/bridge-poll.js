@@ -9,7 +9,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-const POLL_INTERVAL_MS = 15000;
+const POLL_INTERVAL_MS = 30000;  // 🆕 v6.63.239 (Patrick 08.06. 07:25 'Bridge effektiv machen'): 15s → 30s, -50% Polling-Traffic
 const INSTANCE = 'taxi-heringsdorf-default-rtdb';
 const seenKeys = new Set();
 

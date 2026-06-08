@@ -43,8 +43,8 @@
     },
 
     "settings": {
-      ".read": "auth != null",
-      ".write": "auth != null",
+      ".read": false,
+      ".write": false,
       "calendarExport": {
         ".read": true
       },
@@ -65,6 +65,18 @@
         ".read": true
       },
       "pricing": {
+        ".read": true
+      },
+      "googleMapsApiKey": {
+        ".read": true
+      },
+      "googlePlacesApiKey": {
+        ".read": true
+      },
+      "bookingSystemOnline": {
+        ".read": true
+      },
+      "timeslotSettings": {
         ".read": true
       }
     },

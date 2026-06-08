@@ -28947,6 +28947,56 @@ exports.scheduledHistoryCleanup = onSchedule(
 );
 
 // ═══════════════════════════════════════════════════════════════
+// 🆕 v6.63.238 (Patrick 08.06. 05:58 'nur Rides in der Zukunft lesen'):
+// scheduledArchiveCompletedRides
+//
+// Verschiebt jeden Tag um 02:30 Berlin alle completed/cancelled-Rides
+// mit pickupTimestamp >24h alt von /rides nach /archiveRides.
+//
+// Warum: Cloud Functions lesen häufig /rides (pickupTimestamp-Window).
+// Wenn /rides 1700+ alte Rides enthält, ziehen alle Reads die mit.
+// Initial-Migration 08.06. 06:48 hat /rides von 1724 → 74 verkleinert.
+// Dieser Cron hält das so.
+// ═══════════════════════════════════════════════════════════════
+exports.scheduledArchiveCompletedRides = onSchedule(
+    {
+        schedule: '30 2 * * *', // taeglich 02:30 Berlin
+        timeZone: 'Europe/Berlin',
+        region: 'europe-west1',
+        timeoutSeconds: 540,
+        memory: '512MiB'
+    },
+    async (event) => {
+        try {
+            const FINAL = new Set(['completed','cancelled','storniert','deleted']);
+            const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+            const snap = await db.ref('rides').once('value');
+            const data = snap.val() || {};
+            const archive = {};
+            const removals = {};
+            let total = 0, archived = 0;
+            for (const k in data) {
+                total++;
+                const r = data[k];
+                if (!r) continue;
+                if (FINAL.has(r.status) && (r.pickupTimestamp || 0) < cutoff) {
+                    archive[k] = r;
+                    removals[k] = null;
+                    archived++;
+                }
+            }
+            console.log(`📦 scheduledArchiveCompletedRides: ${archived} von ${total} Rides zu archivieren`);
+            if (archived === 0) return;
+            await db.ref('archiveRides').update(archive);
+            await db.ref('rides').update(removals);
+            console.log(`✅ scheduledArchiveCompletedRides: ${archived} Rides nach /archiveRides verschoben, /rides hat jetzt ${total - archived}`);
+        } catch (e) {
+            console.error('scheduledArchiveCompletedRides Fehler:', e.message);
+        }
+    }
+);
+
+// ═══════════════════════════════════════════════════════════════
 // 🧹 SMS-QUEUE-CLEANUP — v6.62.73
 // Markiert SMS-Eintraege >7 Tage alt + nicht-sent als 'expired'.
 // Verhindert dass die Queue mit Karteileichen voll laeuft.

@@ -21289,6 +21289,10 @@ exports.scheduledAutoAssign = onSchedule(
                     //   assignmentLocked gesetzt hat. Reminder soll TROTZDEM kommen.
                     // Doppel-Reminder-Schutz: wenn schon mal gepusht (openRideWarned), skip
                     if (r.openRideWarned) return false;
+                    // v6.63.247 (Patrick 08.06. 19:13): Fahrer hat 'Unterwegs' geklickt
+                    //   → onWayAt ist gesetzt → KEIN Losfahren-Reminder mehr noetig.
+                    //   Schuetzt gegen Race-Condition + falls Native Status-Update lag.
+                    if (r.onWayAt) return false;
                     return true;
                 });
                 // 🆕 v6.62.63: Stranded-Vorbestellungs-Warnung — Rides die in den Filter

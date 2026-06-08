@@ -20927,10 +20927,13 @@ exports.scheduledAutoAssign = onSchedule(
             // 🆕 v6.63.234 (Patrick 07.06. 21:36 'wenn nichts passiert muss System nichts machen'):
             //   QUICK-CHECK vor den fetten 4-Status-Queries. Wenn keine pending/wartepool-Ride
             //   existiert, return EARLY — spart 99% des Reads in Idle-Phasen.
+            // 🔧 v6.63.235 (Patrick 08.06. 05:47 'leg los'): Window von 2h → 25min.
+            //   Vorbestellungen werden in autoAssignRide nur 15 Min vor pickup zugewiesen.
+            //   Bei 10-min-Schedule müssen wir [now, now+25min] abdecken (10min Slot + 15min Lead).
+            //   Vorher (2h-Fenster) trafen wir IMMER eine Vorbestellung tagsüber = kein Skip.
             const _quickNew = await db.ref('rides').orderByChild('status').equalTo('new').limitToFirst(1).once('value');
             const _quickWP = await db.ref('rides').orderByChild('status').equalTo('warteschlange').limitToFirst(1).once('value');
-            // Vorbestellungen: nur die in den nächsten 2h relevant (sonst auch im Idle-Skip)
-            const _futureWindow = now + 2 * 60 * 60 * 1000;
+            const _futureWindow = now + 25 * 60 * 1000;  // 🔧 v6.63.235: 25 Min statt 2h
             const _quickVB = await db.ref('rides').orderByChild('pickupTimestamp').startAt(now).endAt(_futureWindow).limitToFirst(5).once('value');
             let _vbHasPending = false;
             if (_quickVB.exists()) {
@@ -20940,7 +20943,7 @@ exports.scheduledAutoAssign = onSchedule(
                 });
             }
             if (!_quickNew.exists() && !_quickWP.exists() && !_vbHasPending) {
-                console.log('🌙 v6.63.234: IDLE — keine pending/wartepool/vorbestellt(2h) Rides. Skip.');
+                console.log('🌙 v6.63.235: IDLE — keine pending/wartepool/vorbestellt(25min) Rides. Skip.');
                 return;
             }
 

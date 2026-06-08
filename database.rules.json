@@ -28,8 +28,8 @@
     },
 
     "invoices": {
-      ".read": "auth != null",
-      ".write": "auth != null",
+      ".read": "auth != null && root.child('users/' + auth.uid + '/role').val() === 'admin'",
+      ".write": "auth != null && root.child('users/' + auth.uid + '/role').val() === 'admin'",
       ".indexOn": ["rideId", "createdAt", "stripePaymentStatus"]
     },
 
@@ -155,8 +155,8 @@
     },
 
     "customers": {
-      ".read": "auth != null",
-      ".write": "auth != null"
+      ".read": "auth != null && (root.child('users/' + auth.uid + '/role').val() === 'admin' || root.child('users/' + auth.uid + '/role').val() === 'fahrer')",
+      ".write": "auth != null && root.child('users/' + auth.uid + '/role').val() === 'admin'"
     },
 
     "activity_log": {
@@ -165,8 +165,8 @@
     },
 
     "callHistory": {
-      ".read": "auth != null",
-      ".write": "auth != null",
+      ".read": "auth != null && root.child('users/' + auth.uid + '/role').val() === 'admin'",
+      ".write": "auth != null && root.child('users/' + auth.uid + '/role').val() === 'admin'",
       ".indexOn": ["timestamp"]
     },
 
@@ -176,8 +176,8 @@
     },
 
     "hotelInvoices": {
-      ".read": "auth != null",
-      ".write": "auth != null"
+      ".read": "auth != null && root.child('users/' + auth.uid + '/role').val() === 'admin'",
+      ".write": "auth != null && root.child('users/' + auth.uid + '/role').val() === 'admin'"
     },
 
     "cancellations": {

@@ -28,14 +28,14 @@
     },
 
     "invoices": {
-      ".read": "auth != null",
-      ".write": "auth != null",
+      ".read": "auth != null && root.child('users/' + auth.uid + '/role').val() === 'admin'",
+      ".write": "auth != null && root.child('users/' + auth.uid + '/role').val() === 'admin'",
       ".indexOn": ["rideId", "createdAt", "stripePaymentStatus"]
     },
 
     "invoiceRequests": {
       ".read": "auth != null",
-      ".write": true
+      ".write": "auth != null"
     },
 
     "tracking": {
@@ -109,7 +109,7 @@
 
     "geocache": {
       ".read": true,
-      ".write": true
+      ".write": "auth != null"
     },
 
     "optimierungsLog": {
@@ -155,8 +155,8 @@
     },
 
     "customers": {
-      ".read": "auth != null",
-      ".write": "auth != null"
+      ".read": "auth != null && (root.child('users/' + auth.uid + '/role').val() === 'admin' || root.child('users/' + auth.uid + '/role').val() === 'fahrer')",
+      ".write": "auth != null && root.child('users/' + auth.uid + '/role').val() === 'admin'"
     },
 
     "activity_log": {
@@ -165,8 +165,8 @@
     },
 
     "callHistory": {
-      ".read": "auth != null",
-      ".write": "auth != null",
+      ".read": "auth != null && root.child('users/' + auth.uid + '/role').val() === 'admin'",
+      ".write": "auth != null && root.child('users/' + auth.uid + '/role').val() === 'admin'",
       ".indexOn": ["timestamp"]
     },
 
@@ -176,8 +176,8 @@
     },
 
     "hotelInvoices": {
-      ".read": "auth != null",
-      ".write": "auth != null"
+      ".read": "auth != null && root.child('users/' + auth.uid + '/role').val() === 'admin'",
+      ".write": "auth != null && root.child('users/' + auth.uid + '/role').val() === 'admin'"
     },
 
     "cancellations": {
@@ -192,7 +192,10 @@
 
     "anfragen": {
       ".read": "auth != null",
-      ".write": true
+      ".indexOn": ["createdAt", "status"],
+      "$reqId": {
+        ".write": "(!data.exists() && newData.child('name').isString() && newData.child('name').val().length >= 2 && newData.child('name').val().length <= 100 && (newData.hasChild('pickup') || newData.hasChild('destination'))) || auth != null"
+      }
     },
 
     "publicData": {
@@ -202,7 +205,7 @@
 
     "emailInbox": {
       ".read": "auth != null",
-      ".write": true,
+      ".write": "auth != null",
       ".indexOn": ["ts", "read"]
     },
 

@@ -24351,6 +24351,32 @@ exports.onRideUpdated = onValueUpdated(
         const oldVehicle = before.assignedVehicle || before.vehicleId;
         const newVehicle = after.assignedVehicle || after.vehicleId;
 
+        // 🆕 v6.63.241 (Patrick 08.06. 10:02 'Wenn abgelehnt wird, dass es sofort vermittelt wird'):
+        //   Reject via native_dashboard schreibt direkt in DB (nicht via rideAction-Endpunkt) und
+        //   loest dann kein autoAssignRide aus. Folge: 60-Sek-Tick des scheduledAutoAssign-Cron
+        //   wartet. Petrizien 08.06. 09:56: 1:32 Min Reject → Re-Assign.
+        //   Fix: onRideUpdated erkennt rejectedVehicles-Wachstum + leerer assignedVehicle und
+        //   ruft autoAssignRide SOFORT.
+        try {
+            const _wasLen = Array.isArray(before.rejectedVehicles) ? before.rejectedVehicles.length : 0;
+            const _isLen = Array.isArray(after.rejectedVehicles) ? after.rejectedVehicles.length : 0;
+            const _newReject = _isLen > _wasLen;
+            const _noAssign = !after.assignedVehicle && !after.vehicleId;
+            const _validStatus = !after.status || after.status === 'new' || after.status === 'warteschlange';
+            if (_newReject && _noAssign && _validStatus) {
+                console.log(`🔄 v6.63.241 onRideUpdated: Reject erkannt fuer ${rideId} (rejectedVehicles ${_wasLen}→${_isLen}), sofort Re-Assign...`);
+                const _result = await autoAssignRide(rideId, after);
+                if (_result && _result.vehicleId) {
+                    console.log(`✅ v6.63.241 Sofort-Re-Assign: ${rideId} → ${_result.vehicleId}`);
+                    try { await addRideLog(rideId, '🔄', `v6.63.241 onRideUpdated Sofort-Re-Assign nach Reject: ${_result.name || _result.vehicleId}`, { quelle: 'onRideUpdated v6.63.241', rejectedVehicles: after.rejectedVehicles, viaTrigger: true }); } catch(_) {}
+                    return; // weitere Logiken (Wartepool etc.) nicht ausfuehren — wir haben gerade re-assigned
+                } else {
+                    console.log(`⚠️ v6.63.241 Sofort-Re-Assign: kein anderes Fahrzeug verfuegbar fuer ${rideId}`);
+                    try { await addRideLog(rideId, '⚠️', `v6.63.241 Sofort-Re-Assign nach Reject: kein Fahrzeug verfuegbar — Cron uebernimmt`, { quelle: 'onRideUpdated v6.63.241', rejectedVehicles: after.rejectedVehicles }); } catch(_) {}
+                }
+            }
+        } catch (_e) { console.error('v6.63.241 onRideUpdated Sofort-Re-Assign Fehler:', _e.message); }
+
         // 🆕 v6.62.725 (Patrick 15.05. 10:01) Punkt 5: Wartepool-Auto-Ruf wenn Fahrt in Wartepool
         // landet UND 0 GPS-Fahrer online → SMS an alle Schicht-Fahrer 'Hilfe noetig'.
         if (oldStatus !== 'wartepool' && newStatus === 'wartepool') {

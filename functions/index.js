@@ -20128,10 +20128,24 @@ exports.scheduledProposeLongestFirst = onSchedule(
                 // Vorhandene Vorschläge nicht überschreiben (sonst Loop)
                 if (wp.ride.proposedSwap && wp.ride.proposedSwap.proposedAt > _now - 60 * 60000) continue;
 
-                // Konflikt-Opfer: zugewiesene Fahrten mit kürzerer distance + zeitlich nah
+                // Konflikt-Opfer: zugewiesene Fahrten mit kürzerer distance + ECHTEM Zeit-Überlapp.
+                // v6.63.245 (Patrick 08.06. 16:14): Hotel-zur-Post 19:20 wurde gegen Wansing 17:00 verdraengt
+                //   nur weil 22.4km > 1.5km — aber zeitlich 2h20 dazwischen, Wansing endet ~17:33,
+                //   MY222 ab dann locker frei. Bug: Filter prüfte nur 'zeitlich nah' (3h-Fenster) +
+                //   'Strecke kürzer', NICHT ob Wagen beide nacheinander schafft.
                 const conflicts = assigned.filter(a => {
                     if (a.distance >= wp.distance) return false;
                     if (Math.abs(a.pickupTs - wp.pickupTs) > KONFLIKT_FENSTER_MS) return false;
+                    // ECHTER Zeit-Konflikt-Check: prüfe ob Wagen beide nacheinander schafft.
+                    // Wenn die eine Fahrt (mit 30 Min Puffer fuer Rueckweg) endet bevor die andere
+                    // startet → KEIN Konflikt, KEIN Verdraengen noetig.
+                    const wpDurMin = wp.ride.estimatedDuration || wp.ride.duration || 30;
+                    const aDurMin = a.ride.estimatedDuration || a.ride.duration || 30;
+                    const PUFFER_MS = 30 * 60000;
+                    const wpEnd = wp.pickupTs + wpDurMin * 60000 + PUFFER_MS;
+                    const aEnd = a.pickupTs + aDurMin * 60000 + PUFFER_MS;
+                    if (wpEnd <= a.pickupTs) return false; // wp endet vor a-Start → kein Konflikt
+                    if (aEnd <= wp.pickupTs) return false; // a endet vor wp-Start → kein Konflikt
                     // Bahnhof-Cutoff: wenn victim destination=Bahnhof + <30 Min zur Pickup-Zeit → tabu
                     const destStr = (a.ride.destination || '').toLowerCase();
                     if (destStr.includes('bahnhof') && (a.pickupTs - _now) < 30 * 60000) return false;

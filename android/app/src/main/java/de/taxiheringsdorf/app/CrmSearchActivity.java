@@ -3320,6 +3320,15 @@ public class CrmSearchActivity extends AppCompatActivity {
                 tf.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
                 r.put("pickupTime", tf.format(new java.util.Date(pickupTs)));
                 r.put("updatedAt", now);
+                // v6.63.244 Flex-Marge PR-A: Auto-Default flexibility (Min).
+                //   Default 10 Min. Bahnhof/Flughafen-Stichwort in pickup ODER destination → 0 (FIX).
+                //   Beim Edit-Modus wird existierender Wert respektiert (nicht ueberschrieben).
+                if (!isEdit || !editRide.containsKey("flexibility")) {
+                    String _fxBlob = ((pickup != null ? pickup : "") + " " + (dest != null ? dest : "")).toLowerCase();
+                    boolean _isFixed = _fxBlob.contains("bahnhof") || _fxBlob.contains("flughafen")
+                        || _fxBlob.contains("hbf") || _fxBlob.contains("edah") || _fxBlob.contains("airport");
+                    r.put("flexibility", _isFixed ? 0 : 10);
+                }
                 r.put("passengers", pax);
                 // 🆕 v6.62.479: Notizen mitschreiben falls ausgefüllt
                 String _notes = etNotes.getText().toString().trim();

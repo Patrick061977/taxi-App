@@ -5746,6 +5746,12 @@
                 updatedAt: now,
                 pickupTimestamp: pickupTs,
                 pickupTime: pickupTimeStr,
+                // v6.63.244 Flex-Marge PR-A: Auto-Default flexibility (Min).
+                //   10 Min Default, 0 (FIX) wenn Bahnhof/Flughafen-Stichwort in pickup oder destination.
+                flexibility: (function(){
+                    const _blob = ((pickup||'') + ' ' + (destination||'')).toLowerCase();
+                    return (_blob.includes('bahnhof') || _blob.includes('flughafen') || _blob.includes('hbf') || _blob.includes('edah') || _blob.includes('airport')) ? 0 : 10;
+                })(),
                 paymentMethod: (window._customerDefaultPayment || 'cash'),
                 ...(window._customerDefaultPayment === 'stripe' && { _vorkasseRequested: true }),
                 ...(routeData && {

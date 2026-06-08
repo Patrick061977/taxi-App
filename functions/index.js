@@ -11890,6 +11890,11 @@ async function quickConfirmAnfrageHandler(anfrageId, withStripe, adminChatId, wi
         createdBy: 'cloud-quickConfirm-' + adminChatId,
         anfrageId,
         paymentMethod: withStripe ? 'stripe' : (festpreisFix > 0 ? 'vorkasse' : 'bar'),
+        // v6.63.244 Flex-Marge PR-A: Default flexibility (Min). 10 = Default, 0 = FIX (Bahnhof/Flughafen).
+        flexibility: (function(){
+            const _blob = ((anfrage.pickup || '') + ' ' + (anfrage.destination || '')).toLowerCase();
+            return (_blob.includes('bahnhof') || _blob.includes('flughafen') || _blob.includes('hbf') || _blob.includes('edah') || _blob.includes('airport')) ? 0 : 10;
+        })(),
     };
     await rideRef.set(ride);
 
@@ -13015,6 +13020,13 @@ async function handleCallback(callback) {
                         }
                     }
                 } catch(e) { console.warn('⚠️ CRM Auto-Match fehlgeschlagen:', e.message); }
+            }
+
+            // v6.63.244 Flex-Marge PR-A: Default flexibility (Min) wenn nicht schon gesetzt.
+            //   10 = Default, 0 = FIX (Bahnhof/Flughafen-Stichwort in pickup oder destination).
+            if (rideData.flexibility == null) {
+                const _flxBlob = ((rideData.pickup || '') + ' ' + (rideData.destination || '')).toLowerCase();
+                rideData.flexibility = (_flxBlob.includes('bahnhof') || _flxBlob.includes('flughafen') || _flxBlob.includes('hbf') || _flxBlob.includes('edah') || _flxBlob.includes('airport')) ? 0 : 10;
             }
 
             const newRef = db.ref('rides').push();

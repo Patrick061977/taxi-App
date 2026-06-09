@@ -20,3 +20,13 @@ package-lock.json
 *.keystore.base64
 *.jks
 keystore.properties
+.env
+
+# v6.63.252 Patrick 09.06.: lokale Audit/Temp/Debug-Files
+.tmp-audit/
+.tmp-debug/
+.tmp-xlsx/
+.tmp-xlsx-kargoll/
+.playwright-mcp/
+.hale-baseline-*/
+*.log

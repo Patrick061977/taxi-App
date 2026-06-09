@@ -2,7 +2,7 @@ const nodemailer = require('C:/Taxi App/taxi-App-github/functions/node_modules/n
 
 const transporter = nodemailer.createTransport({
     host: 'smtp.gmail.com', port: 587, secure: false,
-    auth: { user: 'taxiwydra@googlemail.com', pass: 'tiajmwotmnltltkh' },
+    auth: { user: 'taxiwydra@googlemail.com', pass: process.env.GMAIL_PASS },
 });
 
 const body = `Sehr geehrte Frau Kaufmann,

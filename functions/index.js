@@ -23169,6 +23169,76 @@ exports.scheduledTourPlanner = onSchedule(
 
                 if (suggestions.length === 0) continue;
 
+                // 🆕 v6.63.255 (Patrick 09.06. 21:25 "System soll Konflikte selber loesen"):
+                //   AUTO-RESOLVE-PHASE-1: Wenn Option A5 oder A10 eindeutig gefunden +
+                //   Ride hat flexibility >= delta + KEINE Bahnhofs-/Flughafen-Fahrt →
+                //   System verschiebt automatisch ohne Patrick-Eingriff.
+                //   SMS-Confirm-Workflow (PR-E) kommt spaeter — Phase 1 verschiebt
+                //   einfach + sendet Info-SMS an Kunden.
+                const _optionA = suggestions.find(s => s.option && s.option.startsWith('A'));
+                const _flexMin = Number(ride.flexibility);
+                const _isBahnhof = /bahnhof|flughafen|hbf|edah|airport/i.test(
+                    (ride.pickup || '') + ' ' + (ride.destination || '')
+                );
+                const _hasUniqueAOption = _optionA && !suggestions.find(s => s.option && s.option.startsWith('A') && s.option !== _optionA.option);
+
+                if (_optionA && _hasUniqueAOption && Number.isFinite(_flexMin) && !_isBahnhof) {
+                    const _deltaMin = parseInt(_optionA.option.slice(1), 10);
+                    if (_deltaMin > 0 && _deltaMin <= _flexMin) {
+                        const _newPt = ride.pickupTimestamp - _deltaMin * 60000;
+                        const _newTimeStr = new Date(_newPt).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Europe/Berlin' });
+                        try {
+                            // Pickup-Zeit + Audit-Felder updaten
+                            await db.ref(`rides/${ride.firebaseId}`).update({
+                                pickupTimestamp: _newPt,
+                                pickupTime: _newTimeStr,
+                                autoResolvedAt: now,
+                                autoResolvedBy: 'scheduledTourPlanner-v6.63.255',
+                                autoResolvedDeltaMin: -_deltaMin,
+                                autoResolvedOption: _optionA.option,
+                                status: 'vorbestellt',
+                                wartepoolFreedAt: now,
+                                wartepoolFreedReason: 'auto-resolved-flex-' + _deltaMin + 'min-earlier',
+                                updatedAt: now
+                            });
+
+                            // SMS an Kunden (Info, kein Confirm)
+                            const _smsPhone = ride.customerMobile || ride.customerPhone;
+                            if (_smsPhone && isMobileNumber(_smsPhone)) {
+                                await db.ref('pendingSMS').push({
+                                    phone: _smsPhone,
+                                    message: `Funktaxi: Ihre Fahrt verschiebt sich um ${_deltaMin} Min nach VORNE auf ${_newTimeStr} Uhr. Bei Aenderungen 038378/22022.`,
+                                    reason: 'auto-resolve-shift-earlier',
+                                    rideId: ride.firebaseId,
+                                    ts: now
+                                });
+                            }
+
+                            await addRideLog(ride.firebaseId, '🤖', `Auto-Resolve: ${_deltaMin} Min frueher (Flex ${_flexMin}min konform)`, {
+                                quelle: 'scheduledTourPlanner v6.63.255',
+                                option: _optionA.option,
+                                neueZeit: _newTimeStr
+                            });
+
+                            // Bridge-Push an Patrick (zur Info, nicht zur Entscheidung)
+                            const _infoMsg = `🤖 AUTO-RESOLVE Phase 1:\n${ride.customerName || '?'} verschoben ${_deltaMin} Min nach vorne auf ${_newTimeStr}.\nGrund: Flex ${_flexMin}min konform, eindeutige Option ${_optionA.option}, kein Bahnhof.\nKein Eingriff noetig.`;
+                            await db.ref('claudeBridge/outbox').push({
+                                message: _infoMsg,
+                                targetChatId: 6229490043,
+                                via: 'claude',
+                                ts: now,
+                                purpose: 'auto-resolve-info',
+                                rideId: ride.firebaseId
+                            });
+                            console.log(`🤖 v6.63.255 Auto-Resolve: ${ride.firebaseId} ${_deltaMin}min frueher`);
+                            continue; // skip Vorschlags-Push - schon geloest
+                        } catch (_arErr) {
+                            console.error('v6.63.255 Auto-Resolve fehlgeschlagen:', _arErr.message);
+                            // fall through zum normalen Vorschlags-Push
+                        }
+                    }
+                }
+
                 // Bridge-Push
                 const _ptStr = new Date(ride.pickupTimestamp).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Europe/Berlin' });
                 const _dateStr = new Date(ride.pickupTimestamp).toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit', timeZone: 'Europe/Berlin' });

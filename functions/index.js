@@ -23281,6 +23281,51 @@ exports.onRideCreated = onValueCreated(
             }
         } catch (_pwErr) { console.warn('v6.63.060 paymentResponsible-Pull fehlgeschlagen:', _pwErr.message); }
 
+        // 🆕 v6.63.254 (Patrick 09.06. 21:00 Hein-Bug): Mobile-Nr-Auto-Picker.
+        //   Symptom heute Hein-Buchung 20.06.:
+        //   - customerMobile +4965819999474 (Schweizer Festnetz-Pattern, kein DE-Mobil)
+        //   - additionalPhones: ['+491717584999'] (echte DE-Mobil-Nr!)
+        //   - SMS waere an Festnetz gegangen → keine Lieferung + Roaming-Kosten
+        //   Fix: bei onRideCreated alle Phones der Ride + CRM-Customer durchgehen
+        //   und customerMobile auf die erste echte DE-Mobil-Nr ueberschreiben.
+        //   isMobileNumber() erkennt schon AT/CH Mobile — beste Wahl ist DE-Mobil.
+        try {
+            const _isCurrentMobile = isMobileNumber(ride.customerMobile);
+            if (!_isCurrentMobile && ride.customerId) {
+                const _custSnap2 = await db.ref(`customers/${ride.customerId}`).once('value');
+                const _cust2 = _custSnap2.val() || {};
+                // Sammle alle moeglichen Phones aus Ride + CRM
+                const _allPhones = new Set();
+                if (ride.customerPhone) _allPhones.add(ride.customerPhone);
+                if (ride.customerMobile) _allPhones.add(ride.customerMobile);
+                if (_cust2.phone) _allPhones.add(_cust2.phone);
+                if (_cust2.mobilePhone) _allPhones.add(_cust2.mobilePhone);
+                if (_cust2.phone2) _allPhones.add(_cust2.phone2);
+                if (Array.isArray(_cust2.additionalPhones)) {
+                    for (const p of _cust2.additionalPhones) if (p) _allPhones.add(p);
+                }
+                // Erste echte DE-Mobil-Nr finden (+49 15/16/17)
+                let _bestMobile = null;
+                for (const p of _allPhones) {
+                    const _norm = String(p).replace(/[\s\-\/\(\)]/g, '');
+                    if (/^\+49(1[567])/.test(_norm) || /^0?1[567]\d/.test(_norm)) {
+                        _bestMobile = _norm.startsWith('0') ? '+49' + _norm.slice(1) : _norm;
+                        break;
+                    }
+                }
+                if (_bestMobile && _bestMobile !== ride.customerMobile) {
+                    await db.ref(`rides/${rideId}`).update({
+                        customerMobile: _bestMobile,
+                        customerMobileAutoPicked: true,
+                        customerMobileAutoPickedAt: Date.now(),
+                        customerMobileAutoPickedFrom: ride.customerMobile || null
+                    });
+                    console.log(`📱 v6.63.254 Mobile-Picker: ${rideId} customerMobile ${ride.customerMobile || '∅'} → ${_bestMobile} (von CRM additionalPhones)`);
+                    ride.customerMobile = _bestMobile;
+                }
+            }
+        } catch (_mpErr) { console.warn('v6.63.254 Mobile-Picker fehlgeschlagen:', _mpErr.message); }
+
         // 🆕 v6.62.171: Past-Date-Auto-Schutz fuer historische Auftrag-Importe.
         // Wenn confirmAuftragImport eine Ride bereits mit status='completed' + completedBy=
         // 'auftrag-import-historic' anlegt (Patrick reicht z.B. Vetter 25.04. nachtraeglich

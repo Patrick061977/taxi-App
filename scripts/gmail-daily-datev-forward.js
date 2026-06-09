@@ -18,7 +18,8 @@ const nodemailer = require('C:/Taxi App/taxi-App-github/functions/node_modules/n
 const STATE_FILE = path.join(__dirname, '..', '.gmail-datev-state.json');
 const ONEDRIVE_GMX_ROOT = 'C:/Users/Taxi/OneDrive/5.Buchführung/Rechnungen/_Gmail-Eingang';
 const DATEV_ADDR = 'e41e7435-8c6b-4078-a3d4-fd7a04a0c891@uploadmail.datev.de';
-const SUBJ_REGEX = /rechnung|invoice|beleg|quittung|abrechnung|fakturen?/i;
+// v6.63.253 (Patrick 09.06.): Bons/Kassenbelege analog zum GMX-Pendant.
+const SUBJ_REGEX = /rechnung|invoice|beleg|quittung|abrechnung|fakturen?|ebon|kassenbon|kaufbeleg|bonbeleg/i;
 const SUBJ_NEGATIVE = /taxiabrechnung|tagesumsatz|arbeitszeit|wichtiger hinweis|service-erlaubnis|auto-gmx|datev|forward|uploadmail/i;
 // Skip: alle DATEV-Bestätigungen + Forwards aus dem eigenen Postfach + bekannte Skip-Lieferanten
 const SKIP_DOMAINS = new Set([

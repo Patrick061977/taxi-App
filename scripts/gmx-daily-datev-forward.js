@@ -19,7 +19,10 @@ const nodemailer = require('C:/Taxi App/taxi-App-github/functions/node_modules/n
 const STATE_FILE = path.join(__dirname, '..', '.gmx-datev-state.json');
 const ONEDRIVE_GMX_ROOT = 'C:/Users/Taxi/OneDrive/5.Buchführung/Rechnungen/_GMX-Eingang';
 const DATEV_ADDR = 'e41e7435-8c6b-4078-a3d4-fd7a04a0c891@uploadmail.datev.de';
-const SUBJ_REGEX = /rechnung|invoice|beleg|quittung|abrechnung|fakturen?|kostenbescheid|zahlungsaufford|mahnung|kostennote|gebührenbescheid|honorarnote/i;
+// v6.63.253 (Patrick 09.06.): Bons/Kassenbelege miteinbeziehen — bisher fielen
+// REWE/Aldi/Lidl-eBons durch ("Subject kein Match"). Alles was bargeld-relevant ist
+// kommt jetzt mit. Patrick: "alles was mit Rechnungen zu tun hat, schiess ruhig hoch".
+const SUBJ_REGEX = /rechnung|invoice|beleg|quittung|abrechnung|fakturen?|kostenbescheid|zahlungsaufford|mahnung|kostennote|gebührenbescheid|honorarnote|ebon|kassenbon|kaufbeleg|bonbeleg/i;
 // Negative Subject-Filter — Subjects mit diesen Wörtern sind interne Reports, keine Rechnungen
 const SUBJ_NEGATIVE = /taxiabrechnung|tagesumsatz|arbeitszeit|wichtiger hinweis|service-erlaubnis/i;
 const SKIP_DOMAINS = new Set(['paypal.de', 'interactivebrokers.com', 'adobe.com', 'belege.lexware.de', 'lexware.de']);

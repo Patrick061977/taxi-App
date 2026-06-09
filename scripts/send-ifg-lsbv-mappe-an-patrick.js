@@ -3,7 +3,7 @@ const path = require('path');
 
 const transporter = nodemailer.createTransport({
     host: 'smtp.gmail.com', port: 587, secure: false,
-    auth: { user: 'taxiwydra@googlemail.com', pass: 'tiajmwotmnltltkh' },
+    auth: { user: 'taxiwydra@googlemail.com', pass: process.env.GMAIL_PASS },
 });
 
 const pdfDir = 'C:/Taxi App/taxi-App-github/briefe/pdf';

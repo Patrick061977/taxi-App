@@ -69,7 +69,7 @@ function saveState(s) { fs.writeFileSync(STATE_FILE, JSON.stringify(s, null, 2))
     const state = loadState();
     const imap = new ImapFlow({
         host: 'imap.gmail.com', port: 993, secure: true,
-        auth: { user: 'taxiwydra@googlemail.com', pass: 'tiajmwotmnltltkh' },
+        auth: { user: 'taxiwydra@googlemail.com', pass: process.env.GMAIL_PASS },
         logger: false
     });
     await imap.connect();
@@ -82,7 +82,7 @@ function saveState(s) { fs.writeFileSync(STATE_FILE, JSON.stringify(s, null, 2))
 
     const transporter = APPLY ? nodemailer.createTransport({
         host: 'smtp.gmail.com', port: 587, secure: false,
-        auth: { user: 'taxiwydra@googlemail.com', pass: 'tiajmwotmnltltkh' }
+        auth: { user: 'taxiwydra@googlemail.com', pass: process.env.GMAIL_PASS }
     }) : null;
 
     let sent = 0, skippedDup = 0, skippedNoMatch = 0, skippedSkipDomain = 0, skippedNoPdf = 0, skippedNotYesterday = 0, skippedHashDup = 0, skippedFromFileDup = 0;

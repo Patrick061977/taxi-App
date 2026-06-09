@@ -32963,22 +32963,24 @@ exports.onClaudeBridgeOutbox = onValueCreated(
         }
         if (!data || data.sent || !data.message) return;
         try {
-            // 🆕 v6.62.352: Patrick (06.05. 11:03): "Telegram-Nachrichten kommen schon wieder
-            // nicht an" — Cloud Function sendet mit parse_mode='HTML', der "5", "<5" oder
-            // "Hans <Mueller>" wird von Telegram als ungueltiger HTML-Tag abgelehnt → Bot
-            // returned null → deliveryFailed. Fix: alle unsafe Zeichen HTML-escapen.
-            const _esc = String(data.message)
-                .replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;');
-            const text = '🤖 ' + _esc.slice(0, 3500);
+            // 🆕 v6.63.251 (Patrick 09.06.): parse_mode=HTML ausgeschaltet fuer Bridge-Pushes.
+            // Symptom: ab 11:36 kamen Pushes zwar mit sent=True + telegramMessageId vergeben
+            // in der Outbox an, wurden aber bei Patrick nicht ausgeliefert (Stille). Direct-API
+            // ohne parse_mode klappte gleichzeitig. Vermutung: Telegram akzeptiert API-Call,
+            // droppt aber Zustellung wenn Mix aus Unicode-Trennlinien (━) + Emojis im
+            // HTML-Parser stockt. Plain-Text umgeht das komplett. HTML-Escape damit hinfaellig.
+            //
+            // (Alter v6.62.352-Kommentar verbleibt nur als Doku: dort war "<5" das Problem.
+            // Mit parse_mode='' geht <, >, & jetzt als Literal durch — ist OK fuer Bridge.)
+            const text = '🤖 ' + String(data.message).slice(0, 3500);
             const useClaudeBot = data.via === 'claude' || data.source === 'claudeBot';
+            const _bridgeExtra = { parse_mode: '' }; // Plain-Text, KEIN HTML — v6.63.251
             let textMsgResult = null;
             if (data.targetChatId) {
                 if (useClaudeBot) {
-                    textMsgResult = await sendClaudeBotMessage(data.targetChatId, text);
+                    textMsgResult = await sendClaudeBotMessage(data.targetChatId, text, _bridgeExtra);
                 } else {
-                    textMsgResult = await sendTelegramMessage(data.targetChatId, text);
+                    textMsgResult = await sendTelegramMessage(data.targetChatId, text, _bridgeExtra);
                 }
                 // 🆕 v6.62.317: Silent-Fail-Schutz — sendXxxMessage returnt null wenn
                 // Telegram-API ablehnt (HTML-Parse-Fehler, Throttle, Bot blockiert,

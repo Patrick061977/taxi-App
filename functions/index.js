@@ -19446,9 +19446,15 @@ exports.autoResolveConflicts = onSchedule(
                 };
 
                 // Umplanen in Firebase
+                // 🐛 v6.63.250 (Patrick 09.06.): assignedTo MUSS auch gesetzt werden,
+                // sonst sieht Consistency-Healer (Z. 24514) v1=neu/v2=alt/v3=neu, distinct=2 →
+                // setzt assignedTo nach v1, ABER bei mehrfachen Update-Pfaden kann auch
+                // umgekehrt v1+v3 alt bleiben und v2 neu → Healer setzt zurück auf alt.
+                // Ahlbeck Ping-Pong (4× heute) hatte genau diese Spur in consistencyHealedReason.
                 await db.ref(`rides/${ride.firebaseId}`).update({
                     assignedVehicle: bestAlt,
                     vehicleId: bestAlt,
+                    assignedTo: bestAlt, // 🐛 v6.63.250
                     vehicle: altInfo.name || bestAlt,
                     vehicleLabel: altInfo.name || bestAlt,
                     vehiclePlate: altInfo.plate || '',
@@ -19725,6 +19731,23 @@ exports.autoResolveConflicts = onSchedule(
                             slotsPerVehicle[oldVehicle].push({ start: ride.pickupTimestamp, end: rideEnd, destLat: ride.destinationLat || ride.destCoords?.lat, destLon: ride.destinationLon || ride.destCoords?.lon, customer: ride.customerName });
                             continue;
                         }
+                        // 🐛 v6.63.250 (Patrick 09.06. Ahlbeck-Ping-Pong): Cooldown gegen
+                        // 4×-pro-Stunde Re-Sort. Phase 2 hat seit v6.25.4 Cooldown
+                        // (lastOptimizedAt + lastOptimizedTo, 60min) — Phase 3 hatte keinen.
+                        // Folge: Phase 3 lief alle 15 Min und legte Das Ahlbeck immer wieder
+                        // Tesla → Prius um, Phase 2 unmittelbar Push-Spam "Optimierung 28 Min besser".
+                        // Cooldown greift NUR wenn oldVehicle noch frei ist — bei echtem Konflikt
+                        // MUSS umgelegt werden, sonst Doppelbelegung.
+                        if (oldVehicleStillFree && ride.lastOptimizedTo === bestVehicle &&
+                            ride.lastOptimizedAt && (now - ride.lastOptimizedAt) < 60 * 60000) {
+                            const minAgo = Math.round((now - ride.lastOptimizedAt) / 60000);
+                            phase3DebugLines.push(`⏭️ ${timeStr} ${ride.customerName || '?'} → ${(OFFICIAL_VEHICLES[bestVehicle] || {}).name} bereits vor ${minAgo} Min optimiert (Cooldown 60min, v6.63.250)`);
+                            // Slot fuer altes Fahrzeug eintragen damit nachfolgende Iterationen
+                            // die Fahrt als belegt sehen
+                            slotsPerVehicle[oldVehicle].push({ start: ride.pickupTimestamp, end: rideEnd, destLat: ride.destinationLat || ride.destCoords?.lat, destLon: ride.destinationLon || ride.destCoords?.lon, customer: ride.customerName });
+                            continue;
+                        }
+
                         if (!oldVehicleStillFree) {
                             phase3DebugLines.push(`🚨 ${timeStr} ${ride.customerName || '?'} → ${(OFFICIAL_VEHICLES[oldVehicle] || {}).name} hat Konflikt (durch frueheres Re-Assign), MUSS umgelegt auf ${(OFFICIAL_VEHICLES[bestVehicle] || {}).name} (P${newPrio})`);
                         }
@@ -19744,6 +19767,8 @@ exports.autoResolveConflicts = onSchedule(
                             assignedBy: 'cloud-prio-time-resort',
                             assignedAt: Date.now(),
                             updatedAt: Date.now(),
+                            lastOptimizedAt: Date.now(), // 🐛 v6.63.250: Cooldown-Tracking teilen mit Phase 2
+                            lastOptimizedTo: bestVehicle, // 🐛 v6.63.250
                             replanReason: `Phase 3 Prio-Time: ${oldVInfo.name || oldVehicle} (P${oldPrio}) → ${newVInfo.name || bestVehicle} (P${newPrio})`
                         });
                         prioReassignCount++;

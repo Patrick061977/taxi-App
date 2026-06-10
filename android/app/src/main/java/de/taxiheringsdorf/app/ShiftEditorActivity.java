@@ -361,7 +361,9 @@ public class ShiftEditorActivity extends AppCompatActivity {
                             vs.todayStartTime = strOrNull(todaySnap.child("startTime").getValue());
                             vs.todayEndTime = strOrNull(todaySnap.child("endTime").getValue());
                             // 🆕 v6.63.010: defaultTimes-Map pro Wochentag parsen
+                            // 🆕 v6.63.269: homeLocation pro Wochentag aus Web-Editor uebernehmen
                             vs.defaultTimes = new String[7][2];
+                            vs.homeLocations = new String[7];
                             DataSnapshot _dt = vSnap.child("defaultTimes");
                             if (_dt.exists()) {
                                 for (DataSnapshot dtChild : _dt.getChildren()) {
@@ -370,6 +372,7 @@ public class ShiftEditorActivity extends AppCompatActivity {
                                         if (dow < 0 || dow > 6) continue;
                                         vs.defaultTimes[dow][0] = strOrNull(dtChild.child("startTime").getValue());
                                         vs.defaultTimes[dow][1] = strOrNull(dtChild.child("endTime").getValue());
+                                        vs.homeLocations[dow] = strOrNull(dtChild.child("homeLocation").getValue());
                                     } catch (Throwable _ignore) { }
                                 }
                             }
@@ -906,6 +909,12 @@ public class ShiftEditorActivity extends AppCompatActivity {
         //   den Wochenplan als Pre-Fill nutzen kann (statt todayStartTime bei
         //   beliebigem Datums-Wechsel). Format: [startTime, endTime] pro dow 0..6.
         String[][] defaultTimes = new String[7][2];
+        // 🆕 v6.63.269 (Patrick 10.06. 13:13 "Standort nicht synchron mit Web-Kalender"):
+        //   Web-Editor speichert pro Wochentag in defaultTimes[{dow}].homeLocation +
+        //   homeCoords. Das ist die "geplante Heimat" des Fahrzeugs an dem Tag (Bhf
+        //   Ahlbeck / Bhf Heringsdorf etc). Patrick will diese als PRIO sehen statt
+        //   nur das Live-GPS (das oft veraltet ist wenn Fahrer offline).
+        String[] homeLocations = new String[7]; // null = kein Eintrag im Web
     }
 
     /**
@@ -986,6 +995,20 @@ public class ShiftEditorActivity extends AppCompatActivity {
             // kuerzen: vor Klammer
             int idx = shortName.indexOf('(');
             if (idx > 0) shortName = shortName.substring(0, idx).trim();
+            // 🆕 v6.63.269: Beide Teslas heissen "Tesla Model Y" — fuer Patrick
+            //   unterscheidbar machen via Kennzeichen-Suffix aus vehicleId.
+            //   pw-my-222-e → "MY", pw-ym-222-e → "YM".
+            String _plateHint = null;
+            if (vs.vehicleId != null) {
+                String _vid = vs.vehicleId.toLowerCase();
+                if (_vid.contains("my-222")) _plateHint = "MY";
+                else if (_vid.contains("ym-222")) _plateHint = "YM";
+                else if (_vid.contains("ik-")) _plateHint = "IK";
+                else if (_vid.contains("vg-lk-111")) _plateHint = "Vito";
+            }
+            if (_plateHint != null && !shortName.contains(_plateHint)) {
+                shortName = shortName + " " + _plateHint;
+            }
             name.setText(" " + shortName);
             name.setTextColor(activeToday ? 0xFFF8FAFC : 0xFF64748B);
             name.setTextSize(12);
@@ -1001,8 +1024,13 @@ public class ShiftEditorActivity extends AppCompatActivity {
                 timeText.setText(startT + "–" + endT + (vs.todayOverride ? " ⓘ" : ""));
                 timeText.setTextColor(0xFF10B981);
             } else if (activeToday) {
-                timeText.setText("aktiv (keine Zeit)");
-                timeText.setTextColor(0xFFF59E0B);
+                // 🆕 v6.63.269 (Patrick 10.06. 13:13 Vito-Bug: defaults=true aber
+                //   defaultTimes=null → zeigte "aktiv (keine Zeit)", verwirrte). Jetzt
+                //   klarer Hinweis "Zeit fehlt → tippen!" + auffaellige Farbe damit
+                //   Patrick weiss: ein Tap fuegt die Zeit hinzu.
+                timeText.setText("⚠ Zeit fehlt — tippen!");
+                timeText.setTextColor(0xFFEF4444);
+                timeText.setTypeface(null, android.graphics.Typeface.BOLD);
             } else {
                 timeText.setText("kein Dienst");
                 timeText.setTextColor(0xFF64748B);
@@ -1016,17 +1044,27 @@ public class ShiftEditorActivity extends AppCompatActivity {
             card.addView(timeText);
 
             // 🆕 v6.63.262 (Patrick 10.06. 09:43 "Standort"): Ortsteil-Label aus GPS.
+            // 🆕 v6.63.269 (Patrick 10.06. 13:13 "Standort nicht synchron mit Web-Kalender"):
+            //   Web-Editor-homeLocation = PRIO. GPS-Reverse-Lookup nur Fallback wenn
+            //   homeLocation leer ODER vom Web ueberholt (zB Fahrer fuhr schon weg).
+            //   Format: "📍 BhfAhlbeck (Live: Heringsdorf)" zeigt beides wenn divergiert.
             final TextView ortText = new TextView(this);
-            ortText.setText("📍 …");
+            String _webHome = vs.homeLocations != null ? vs.homeLocations[dow] : null;
+            if (_webHome != null && !_webHome.isEmpty()) {
+                ortText.setText("📍 " + _webHome);
+            } else {
+                ortText.setText("📍 …");
+            }
             ortText.setTextColor(0xFF94A3B8);
             ortText.setTextSize(10);
-            ortText.setMaxLines(1);
+            ortText.setMaxLines(2);
             LinearLayout.LayoutParams olp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
             olp.topMargin = (int)(2 * dp);
             ortText.setLayoutParams(olp);
             card.addView(ortText);
-            // GPS asynchron pullen
+            // GPS asynchron pullen — zeigt Live-Position falls Web-Wert leer oder als Vergleich
+            final String _webHomeFinal = _webHome;
             try {
                 FirebaseDatabase.getInstance(DB_URL).getReference("vehicles/" + vs.vehicleId)
                     .addListenerForSingleValueEvent(new ValueEventListener() {
@@ -1038,7 +1076,17 @@ public class ShiftEditorActivity extends AppCompatActivity {
                             if (lo instanceof Number) _lon = ((Number)lo).doubleValue();
                             String ort = reverseLookupOrt(_lat, _lon);
                             String driver = strOrNull(snap.child("currentDriverName").getValue());
-                            String txt = (ort != null ? ("📍 " + ort) : "📍 keine Position");
+                            String txt;
+                            if (_webHomeFinal != null && !_webHomeFinal.isEmpty()) {
+                                // Web-Wert PRIO; Live nur als Diff anhaengen
+                                txt = "📍 " + _webHomeFinal;
+                                if (ort != null && !ort.equalsIgnoreCase(_webHomeFinal)
+                                        && !_webHomeFinal.toLowerCase().contains(ort.toLowerCase())) {
+                                    txt += "\n(Live: " + ort + ")";
+                                }
+                            } else {
+                                txt = (ort != null ? ("📍 " + ort + " (Live)") : "📍 keine Position");
+                            }
                             if (driver != null && !driver.isEmpty()) txt += " · " + driver;
                             ortText.setText(txt);
                         }

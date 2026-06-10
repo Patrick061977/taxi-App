@@ -209,13 +209,16 @@
         app:layout_behavior="@string/appbar_scrolling_view_behavior" />
 
     <!-- v6.62.734: nestedScrollingEnabled=true damit Scroll bei 2+ Auftraegen funktioniert (Patrick 15.05. 13:35) -->
+    <!-- v6.63.268 (Patrick 10.06. 12:39 ADB-Live-Debug): paddingBottom 180→260dp damit die letzten
+         Card-Buttons NICHT mehr von der EINSTEIGER-Bottom-Bar (147dp hoch) verdeckt werden.
+         UI-Dump zeigte: 2. Bin-unterwegs-Button y=1898-2020, Bottom-Bar y=1915-2062 → 105px Overlap. -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rv_rides"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:padding="12dp"
         android:clipToPadding="false"
-        android:paddingBottom="180dp"
+        android:paddingBottom="260dp"
         android:nestedScrollingEnabled="true"
         android:overScrollMode="always"
         app:layout_behavior="@string/appbar_scrolling_view_behavior" />

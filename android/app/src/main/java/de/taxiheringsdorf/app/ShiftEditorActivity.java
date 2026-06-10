@@ -403,6 +403,23 @@ public class ShiftEditorActivity extends AppCompatActivity {
     }
     private static String strOrNull(Object o) { return o == null ? null : String.valueOf(o); }
 
+    /** 🆕 v6.63.270: Mode-Pill-Buttons visuell hervorheben — aktiver in Gelb, andere grau. */
+    private void updateModePills(android.widget.Button[] pills, int activeIdx) {
+        int[] activeBg = { 0xFFFBBF24, 0xFF3B82F6, 0xFFEF4444 }; // WP=gelb, Override=blau, Aus=rot
+        int[] activeFg = { 0xFF0F172A, 0xFFFFFFFF, 0xFFFFFFFF };
+        for (int i = 0; i < pills.length; i++) {
+            if (i == activeIdx) {
+                pills[i].setBackgroundColor(activeBg[i]);
+                pills[i].setTextColor(activeFg[i]);
+                pills[i].setTypeface(null, android.graphics.Typeface.BOLD);
+            } else {
+                pills[i].setBackgroundColor(0xFF334155);
+                pills[i].setTextColor(0xFF94A3B8);
+                pills[i].setTypeface(null, android.graphics.Typeface.NORMAL);
+            }
+        }
+    }
+
     private static String todayDateKey() {
         SimpleDateFormat f = new SimpleDateFormat("yyyy-MM-dd", Locale.GERMANY);
         return f.format(new Date());
@@ -564,30 +581,125 @@ public class ShiftEditorActivity extends AppCompatActivity {
         // v6.62.996: dow wird aus selDate berechnet (kann sich aendern wenn Patrick Datum
         // picked), nicht mehr aus today.
         final String[] dayNames = {"Sonntage", "Montage", "Dienstage", "Mittwoche", "Donnerstage", "Freitage", "Samstage"};
-        // v6.63.182 (05.06.) cbAllSame Default ON.
-        // v6.63.216 (Patrick 07.06. 11:34): Patrick will doch Override-Möglichkeit aus Native
-        //   ('weil ich nicht jeden Tag am Computer bin'). Default bleibt ON (Wochenplan),
-        //   aber Häkchen ABwählbar damit nur Tag-Override geschrieben wird.
-        final android.widget.CheckBox cbAllSame = new android.widget.CheckBox(this);
-        cbAllSame.setText("📅 Hauptschicht für alle " + dayNames[selDate.get(Calendar.DAY_OF_WEEK) - 1] + " ändern");
-        cbAllSame.setChecked(true);
-        cbAllSame.setTextSize(13);
-        cbAllSame.setPadding(0, pad/2, 0, 0);
-        root.addView(cbAllSame);
-        android.widget.TextView _allSameHint = new android.widget.TextView(this);
-        _allSameHint.setText("✓ angekreuzt = Wochenplan-Hauptschicht ändern · ✗ deaktiviert = NUR diesen einen Tag überschreiben (Override)");
-        _allSameHint.setTextSize(10);
-        _allSameHint.setTextColor(0xFF94A3B8);
-        _allSameHint.setPadding(0, 0, 0, pad/2);
-        root.addView(_allSameHint);
 
-        // v6.62.996: Inaktiv-Switch — Fahrzeug fuer diesen Tag komplett offline setzen
+        // 🆕 v6.63.270 (Patrick 10.06. 13:13 "entwirrt + uebersichtlich"): Phase-2 UI.
+        //   Statt 2 verwirrender Checkboxen (cbAllSame + cbInactive) jetzt 3 klare
+        //   Pill-Buttons als Mode-Switcher. Eine Auswahl, klar getrennt.
+        //   modeState: 0=WOCHENPLAN, 1=NUR_HEUTE, 2=AUS
+        final int[] modeState = { 0 };
+        android.widget.TextView modeLabel = new android.widget.TextView(this);
+        modeLabel.setText("📋 Was tun?");
+        modeLabel.setTextSize(13);
+        modeLabel.setTypeface(null, android.graphics.Typeface.BOLD);
+        modeLabel.setTextColor(0xFFFBBF24);
+        modeLabel.setPadding(0, pad, 0, pad/3);
+        root.addView(modeLabel);
+
+        final android.widget.LinearLayout pillRow = new android.widget.LinearLayout(this);
+        pillRow.setOrientation(android.widget.LinearLayout.HORIZONTAL);
+        final android.widget.Button[] pills = new android.widget.Button[3];
+        final String[] pillLabels = {
+            "📅 Wochenplan\n(jeden " + dayNames[selDate.get(Calendar.DAY_OF_WEEK) - 1].replace("e","").replace("Samstag","Samstag") + ")",
+            "📌 Nur dieser Tag\n(Override)",
+            "⚫ Aus\n(offline)"
+        };
+        for (int i = 0; i < 3; i++) {
+            final int _idx = i;
+            android.widget.Button b = new android.widget.Button(this);
+            b.setText(pillLabels[i]);
+            b.setTextSize(11);
+            b.setAllCaps(false);
+            android.widget.LinearLayout.LayoutParams plp = new android.widget.LinearLayout.LayoutParams(0,
+                (int)(56 * dp), 1f);
+            plp.setMargins(i == 0 ? 0 : pad/3, 0, i == 2 ? 0 : pad/3, 0);
+            b.setLayoutParams(plp);
+            b.setOnClickListener(v -> {
+                modeState[0] = _idx;
+                updateModePills(pills, _idx);
+            });
+            pills[i] = b;
+            pillRow.addView(b);
+        }
+        root.addView(pillRow);
+        updateModePills(pills, 0);
+
+        android.widget.TextView modeHint = new android.widget.TextView(this);
+        modeHint.setText("📅 = ab kommender Woche jeden " + dayNames[selDate.get(Calendar.DAY_OF_WEEK) - 1] + " · 📌 = nur dieses Datum · ⚫ = Fahrzeug heute offline");
+        modeHint.setTextSize(10);
+        modeHint.setTextColor(0xFF94A3B8);
+        modeHint.setPadding(0, pad/3, 0, pad/2);
+        root.addView(modeHint);
+
+        // Legacy-Variablen-Bridge: damit der bestehende Save-Code unten unveraendert
+        //   weiterlaeuft. cbAllSame.isChecked() <- modeState==0, cbInactive.isChecked() <- modeState==2.
+        final android.widget.CheckBox cbAllSame = new android.widget.CheckBox(this);
         final android.widget.CheckBox cbInactive = new android.widget.CheckBox(this);
-        cbInactive.setText("🚫 Fahrzeug an diesem Tag NICHT fahren lassen (offline)");
-        cbInactive.setChecked(false);
-        cbInactive.setTextSize(13);
-        cbInactive.setPadding(0, pad/4, 0, 0);
+        cbAllSame.setVisibility(android.view.View.GONE);
+        cbInactive.setVisibility(android.view.View.GONE);
+        root.addView(cbAllSame);
         root.addView(cbInactive);
+        // Sync vor Save: setze die Checkboxen entsprechend modeState
+        final Runnable syncCheckboxes = () -> {
+            cbAllSame.setChecked(modeState[0] == 0);
+            cbInactive.setChecked(modeState[0] == 2);
+        };
+
+        // 🆕 v6.63.270 Phase-2C: Vorschau-Block — zeigt LIVE was beim Speichern passiert.
+        //   Aktualisiert sich bei jedem Pill-Klick + Zeit-Aenderung.
+        final android.widget.TextView previewLabel = new android.widget.TextView(this);
+        previewLabel.setText("👁 Vorschau");
+        previewLabel.setTextSize(12);
+        previewLabel.setTypeface(null, android.graphics.Typeface.BOLD);
+        previewLabel.setTextColor(0xFF94A3B8);
+        previewLabel.setPadding(0, pad, 0, pad/4);
+        root.addView(previewLabel);
+
+        final android.widget.TextView previewText = new android.widget.TextView(this);
+        previewText.setTextSize(12);
+        previewText.setTextColor(0xFFE2E8F0);
+        previewText.setBackgroundColor(0xFF0F172A);
+        previewText.setPadding(pad/2, pad/2, pad/2, pad/2);
+        previewText.setLineSpacing(0f, 1.3f);
+        root.addView(previewText);
+
+        // Vorschau-Renderer (wird in jedem Pill-Click + nach Zeit-Aenderung getriggert)
+        final Runnable refreshPreview = new Runnable() {
+            @Override public void run() {
+                String _startStr = String.format(Locale.GERMANY, "%02d:%02d", start[0], start[1]);
+                String _endStr = String.format(Locale.GERMANY, "%02d:%02d", end[0], end[1]);
+                int _dow = selDate.get(Calendar.DAY_OF_WEEK) - 1;
+                String _dayLong = _dfDisplay.format(selDate.getTime());
+                String _curStartT = (vs.defaultTimes != null && vs.defaultTimes[_dow] != null) ? vs.defaultTimes[_dow][0] : null;
+                String _curEndT   = (vs.defaultTimes != null && vs.defaultTimes[_dow] != null) ? vs.defaultTimes[_dow][1] : null;
+                String _cur = (_curStartT != null && _curEndT != null) ? (_curStartT + "–" + _curEndT) : "—";
+                String txt;
+                if (modeState[0] == 0) { // WOCHENPLAN
+                    txt = "📅 Ab kommender Woche fährt " + vs.name + " jeden " + dayNames[_dow] + "\n"
+                        + "      neu: " + _startStr + "–" + _endStr
+                        + (_cur.equals("—") ? "" : ("   (alt: " + _cur + ")"))
+                        + "\n      Standort bleibt: " + (vs.homeLocations != null && vs.homeLocations[_dow] != null ? vs.homeLocations[_dow] : "—");
+                } else if (modeState[0] == 1) { // NUR DIESER TAG
+                    txt = "📌 Override für " + _dayLong + "\n"
+                        + "      heute: " + _startStr + "–" + _endStr
+                        + "\n      Wochenplan bleibt unverändert (" + _cur + ")";
+                } else { // AUS
+                    txt = "⚫ " + vs.name + " am " + _dayLong + " komplett OFFLINE\n"
+                        + "      Wochenplan bleibt unverändert (" + _cur + ")";
+                }
+                previewText.setText(txt);
+            }
+        };
+        refreshPreview.run();
+
+        // Pill-Clicks: zusätzlich refreshPreview aufrufen
+        for (int i = 0; i < 3; i++) {
+            final int _idx = i;
+            pills[i].setOnClickListener(v -> {
+                modeState[0] = _idx;
+                updateModePills(pills, _idx);
+                refreshPreview.run();
+            });
+        }
 
         // v6.62.998 (Patrick 28.05. 20:59 Bug): Click-Listener fuer btnDate erst HIER setzen
         //   damit das Lambda cbAllSame referenzieren und dessen Wochentag-Label updaten
@@ -622,6 +734,8 @@ public class ShiftEditorActivity extends AppCompatActivity {
             .setTitle("⏰ " + vs.name + " — Schicht")
             .setView(scroll)
             .setPositiveButton("Speichern", (d, w) -> {
+                // 🆕 v6.63.270: Mode-Pill-State auf Legacy-Checkboxen mappen
+                syncCheckboxes.run();
                 String startStr = String.format(Locale.GERMANY, "%02d:%02d", start[0], start[1]);
                 String endStr = String.format(Locale.GERMANY, "%02d:%02d", end[0], end[1]);
                 // v6.62.996: Datum-Key aus selDate (statt heute)

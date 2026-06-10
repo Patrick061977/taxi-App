@@ -68,6 +68,9 @@ public class ShiftEditorActivity extends AppCompatActivity {
     private RecyclerView attendanceList;
     private RecyclerView driverViewList;
     private TabLayout tabs;
+    // v6.63.259: HEUTE IM DIENST Mini-Cards-Container + Hint
+    private LinearLayout todayCardsContainer;
+    private TextView todayEmptyHint;
 
     private final List<VehicleShift> data = new ArrayList<>();
     private VehicleAdapter adapter;
@@ -89,6 +92,9 @@ public class ShiftEditorActivity extends AppCompatActivity {
 
             content = findViewById(R.id.shift_content);
             editorList = findViewById(R.id.shift_editor_list);
+            // v6.63.259: HEUTE IM DIENST Mini-Cards-Container
+            todayCardsContainer = findViewById(R.id.shift_today_cards);
+            todayEmptyHint = findViewById(R.id.shift_today_empty);
             attendanceContainer = findViewById(R.id.shift_attendance_container);
             driverViewContainer = findViewById(R.id.shift_driver_view_container);
             attendanceList = findViewById(R.id.shift_attendance_list);
@@ -372,6 +378,8 @@ public class ShiftEditorActivity extends AppCompatActivity {
                         }
                     }
                     if (adapter != null) adapter.notifyDataSetChanged();
+                    // v6.63.259: HEUTE IM DIENST Mini-Cards aufbauen
+                    renderTodayCards();
                 } catch (Throwable t) {
                     Log.e(TAG, "🚨 ShiftEditor onDataChange Crash: " + t.getMessage(), t);
                     try {
@@ -898,6 +906,87 @@ public class ShiftEditorActivity extends AppCompatActivity {
         //   den Wochenplan als Pre-Fill nutzen kann (statt todayStartTime bei
         //   beliebigem Datums-Wechsel). Format: [startTime, endTime] pro dow 0..6.
         String[][] defaultTimes = new String[7][2];
+    }
+
+    /**
+     * 🆕 v6.63.259 (Patrick 10.06. 08:00 "Ich sehe nicht wer Dienst hat"):
+     * Mini-Cards-Container ueber der Editor-Liste mit Schicht-Status pro Fahrzeug.
+     * Pro Card: Fahrzeug-Name + 🟢/🟡/⚫ Status + Schicht-Zeitraum (heute).
+     */
+    private void renderTodayCards() {
+        if (todayCardsContainer == null) return;
+        todayCardsContainer.removeAllViews();
+        if (data.isEmpty()) {
+            if (todayEmptyHint != null) todayEmptyHint.setVisibility(View.VISIBLE);
+            return;
+        }
+        if (todayEmptyHint != null) todayEmptyHint.setVisibility(View.GONE);
+
+        java.util.Calendar cal = java.util.Calendar.getInstance();
+        int dow = cal.get(java.util.Calendar.DAY_OF_WEEK) - 1; // 0=So .. 6=Sa
+        float dp = getResources().getDisplayMetrics().density;
+
+        for (VehicleShift vs : data) {
+            boolean activeToday = vs.todayOverride
+                ? (vs.todayActive != null && vs.todayActive)
+                : (vs.defaults != null && vs.defaults[dow]);
+            String startT = vs.todayOverride ? vs.todayStartTime : vs.defaultTimes[dow][0];
+            String endT   = vs.todayOverride ? vs.todayEndTime   : vs.defaultTimes[dow][1];
+
+            // Mini-Card pro Fahrzeug
+            LinearLayout card = new LinearLayout(this);
+            card.setOrientation(LinearLayout.VERTICAL);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                (int)(150 * dp), LinearLayout.LayoutParams.WRAP_CONTENT);
+            lp.setMargins(0, 0, (int)(8 * dp), 0);
+            card.setLayoutParams(lp);
+            card.setBackgroundColor(0xFF0F172A);
+            int pad = (int)(8 * dp);
+            card.setPadding(pad, pad, pad, pad);
+
+            // Name + Status-Dot
+            LinearLayout nameRow = new LinearLayout(this);
+            nameRow.setOrientation(LinearLayout.HORIZONTAL);
+            TextView dot = new TextView(this);
+            dot.setText(activeToday ? "🟢" : "⚫");
+            dot.setTextSize(10);
+            nameRow.addView(dot);
+            TextView name = new TextView(this);
+            String shortName = vs.name != null ? vs.name : vs.vehicleId;
+            // kuerzen: vor Klammer
+            int idx = shortName.indexOf('(');
+            if (idx > 0) shortName = shortName.substring(0, idx).trim();
+            name.setText(" " + shortName);
+            name.setTextColor(activeToday ? 0xFFF8FAFC : 0xFF64748B);
+            name.setTextSize(12);
+            name.setTypeface(null, android.graphics.Typeface.BOLD);
+            name.setMaxLines(1);
+            name.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            nameRow.addView(name);
+            card.addView(nameRow);
+
+            // Schicht-Zeit
+            TextView timeText = new TextView(this);
+            if (activeToday && startT != null && endT != null) {
+                timeText.setText(startT + "–" + endT + (vs.todayOverride ? " ⓘ" : ""));
+                timeText.setTextColor(0xFF10B981);
+            } else if (activeToday) {
+                timeText.setText("aktiv (keine Zeit)");
+                timeText.setTextColor(0xFFF59E0B);
+            } else {
+                timeText.setText("kein Dienst");
+                timeText.setTextColor(0xFF64748B);
+            }
+            timeText.setTextSize(11);
+            timeText.setMaxLines(1);
+            LinearLayout.LayoutParams tlp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+            tlp.topMargin = (int)(4 * dp);
+            timeText.setLayoutParams(tlp);
+            card.addView(timeText);
+
+            todayCardsContainer.addView(card);
+        }
     }
 
     /* ─── Adapter ─── */

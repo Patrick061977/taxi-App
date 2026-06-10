@@ -23410,6 +23410,75 @@ exports.onRideCreated = onValueCreated(
             }
         } catch (_mpErr) { console.warn('v6.63.254 Mobile-Picker fehlgeschlagen:', _mpErr.message); }
 
+        // 🆕 v6.63.263 (Patrick 10.06. 09:44 "Stripe aus Vorbestellung, gleich mit bei
+        //   Uebernahme"): Wenn beim Anlegen paymentMethod='stripe' gesetzt wurde,
+        //   automatisch Payment-Link erzeugen + SMS an Kunde + Status auf 'pending'.
+        //   Vorausetzung: festen Preis vorhanden (ride.price oder ride.festpreisFix).
+        //   Webhook (existierende handleStripeWebhook-Funktion) setzt nach Bezahlung
+        //   ride.stripePaymentStatus='paid' → Native zeigt BEZAHLT-Badge (v6.63.258).
+        try {
+            if (ride.paymentMethod === 'stripe' && !ride.stripeCheckoutUrl && !ride.stripeAutoCreatedAt) {
+                const _amount = Number(ride.festpreisFix || ride.price || 0);
+                if (_amount > 0 && _amount < 10000) {
+                    const _stripeApi = await getStripe();
+                    if (_stripeApi) {
+                        const _ptStr = ride.pickupTimestamp
+                            ? new Date(ride.pickupTimestamp).toLocaleString('de-DE', { timeZone: 'Europe/Berlin' })
+                            : (ride.pickupTime || 'unbekannt');
+                        const _prodName = 'Vorkasse Taxifahrt ' + _ptStr;
+                        const _prodDesc = 'Funk Taxi Heringsdorf · ' + (ride.pickup || '') + ' → ' + (ride.destination || '');
+                        const _session = await _stripeApi.checkout.sessions.create({
+                            mode: 'payment',
+                            line_items: [{
+                                price_data: {
+                                    currency: 'eur',
+                                    product_data: { name: _prodName.slice(0, 250), description: _prodDesc.slice(0, 500) },
+                                    unit_amount: Math.round(_amount * 100),
+                                },
+                                quantity: 1,
+                            }],
+                            metadata: { rideId, source: 'taxi-heringsdorf-uebernahme' },
+                            success_url: 'https://taxi-heringsdorf.web.app/payment-success?ride=' + rideId,
+                            cancel_url: 'https://taxi-heringsdorf.web.app/payment-cancel?ride=' + rideId,
+                            locale: 'de',
+                        });
+                        await db.ref(`rides/${rideId}`).update({
+                            stripeCheckoutUrl: _session.url,
+                            stripeSessionId: _session.id,
+                            stripePaymentStatus: 'pending',
+                            stripeAutoCreatedAt: Date.now(),
+                            stripeAmount: _amount,
+                            updatedAt: Date.now()
+                        });
+                        // SMS an Kunde
+                        const _smsPhone = ride.customerMobile || ride.customerPhone;
+                        if (_smsPhone && isMobileNumber(_smsPhone)) {
+                            const _smsText = 'Funk Taxi Heringsdorf — Vorkasse-Link fuer Ihre Buchung ' +
+                                _amount.toFixed(2) + ' EUR (' + _ptStr + '): ' + _session.url;
+                            await db.ref('pendingSMS').push({
+                                phone: _smsPhone,
+                                message: _smsText,
+                                reason: 'stripe-vorkasse-link',
+                                rideId,
+                                ts: Date.now()
+                            });
+                            console.log(`💳 v6.63.263 Stripe-Link erstellt + SMS gequeued: ${rideId} ${_amount}€ → ${_smsPhone}`);
+                        } else {
+                            console.log(`💳 v6.63.263 Stripe-Link erstellt aber keine Mobilnr: ${rideId} ${_amount}€`);
+                        }
+                        await addRideLog(rideId, '💳', `Stripe-Vorkasse-Link erzeugt: ${_amount.toFixed(2)} EUR`, {
+                            quelle: 'onRideCreated v6.63.263',
+                            stripeSessionId: _session.id
+                        });
+                    } else {
+                        console.warn(`v6.63.263 Stripe-Link skip: getStripe() lieferte null fuer ${rideId}`);
+                    }
+                } else {
+                    console.warn(`v6.63.263 Stripe-Link skip: kein gueltiger Preis (${_amount}) fuer ${rideId}`);
+                }
+            }
+        } catch (_stErr) { console.error('v6.63.263 Stripe-Auto-Link fehlgeschlagen:', _stErr.message); }
+
         // 🆕 v6.62.171: Past-Date-Auto-Schutz fuer historische Auftrag-Importe.
         // Wenn confirmAuftragImport eine Ride bereits mit status='completed' + completedBy=
         // 'auftrag-import-historic' anlegt (Patrick reicht z.B. Vetter 25.04. nachtraeglich

@@ -3568,6 +3568,12 @@ public class DriverDashboardActivity extends AppCompatActivity {
         //   guestName=tatsaechlicher Gast. Native muss BEIDES zeigen damit der Fahrer
         //   weiss wen er abholt.
         String guestName;
+        // 🆕 v6.63.258 (Patrick 10.06. 06:23 "Stripe-Zahlung wer schon bezahlt hat"):
+        //   Fahrer muss bei Pickup sofort sehen "💳 BEZAHLT" damit er nicht versucht
+        //   Bar/Karte zu kassieren obwohl Kunde vorab via Stripe-Link bezahlt hat.
+        //   paymentMethod='stripe'|'vorkasse'|'bar', stripePaymentStatus='pending'|'paid'.
+        String paymentMethod;
+        String stripePaymentStatus;
 
         static Ride fromSnap(DataSnapshot s) {
             try {
@@ -3575,6 +3581,8 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 r.id = s.getKey();
                 r.customerName = s.child("customerName").getValue(String.class);
                 r.guestName = s.child("guestName").getValue(String.class);
+                r.paymentMethod = s.child("paymentMethod").getValue(String.class);
+                r.stripePaymentStatus = s.child("stripePaymentStatus").getValue(String.class);
                 r.pickup = s.child("pickup").getValue(String.class);
                 r.destination = s.child("destination").getValue(String.class);
                 r.pickupTime = s.child("pickupTime").getValue(String.class);
@@ -3674,12 +3682,13 @@ public class DriverDashboardActivity extends AppCompatActivity {
         @Override public int getItemCount() { return data.size(); }
 
         class VH extends RecyclerView.ViewHolder {
-            TextView tvBadge, tvTime, tvName, tvPickup, tvDest, tvPriceDist, tvLiveEta;
+            TextView tvBadge, tvPaidBadge, tvTime, tvName, tvPickup, tvDest, tvPriceDist, tvLiveEta;
             MaterialButton btnAccept, btnReject, btnNavigate, btnCall, btnSmsTrack, btnStatusNext, btnCancelRide;
             LinearLayout actionRow, activeToolbar;
             VH(View v) {
                 super(v);
                 tvBadge = v.findViewById(R.id.tv_status_badge);
+                tvPaidBadge = v.findViewById(R.id.tv_paid_badge);
                 tvTime = v.findViewById(R.id.tv_pickup_time);
                 tvName = v.findViewById(R.id.tv_customer_name);
                 tvPickup = v.findViewById(R.id.tv_pickup);
@@ -4039,6 +4048,14 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 }
                 tvBadge.setText(badge);
                 tvBadge.setBackgroundColor(bgColor);
+
+                // 🆕 v6.63.258 (Patrick 10.06. 06:23): BEZAHLT-Badge wenn Stripe-Vorkasse done.
+                //   Fahrer sieht sofort dass Kunde schon bezahlt hat -> kein Bar/Karte mehr kassieren.
+                if (tvPaidBadge != null) {
+                    boolean _isPaid = "paid".equalsIgnoreCase(r.stripePaymentStatus)
+                        || ("stripe".equalsIgnoreCase(r.paymentMethod) && "paid".equalsIgnoreCase(r.stripePaymentStatus));
+                    tvPaidBadge.setVisibility(_isPaid ? View.VISIBLE : View.GONE);
+                }
 
                 String stl = s.toLowerCase();
                 boolean canAcceptReject = stl.equals("new") || stl.equals("assigned") || stl.equals("sofort") || stl.equals("vorbestellt") || stl.equals("warteschlange");

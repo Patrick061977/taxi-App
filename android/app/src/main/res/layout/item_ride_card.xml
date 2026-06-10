@@ -37,6 +37,24 @@
                 android:textSize="10sp"
                 android:textStyle="bold" />
 
+            <!-- v6.63.258 (Patrick 10.06. 06:23): BEZAHLT-Badge wenn Kunde Stripe-Vorkasse
+                 schon abgeschlossen hat. Fahrer kassiert dann NICHT mehr Bar/Karte. -->
+            <TextView
+                android:id="@+id/tv_paid_badge"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:background="#059669"
+                android:paddingStart="8dp"
+                android:paddingTop="3dp"
+                android:paddingEnd="8dp"
+                android:paddingBottom="3dp"
+                android:text="💳 BEZAHLT"
+                android:textColor="#F8FAFC"
+                android:textSize="10sp"
+                android:textStyle="bold"
+                android:visibility="gone" />
+
             <View
                 android:layout_width="0dp"
                 android:layout_height="1dp"

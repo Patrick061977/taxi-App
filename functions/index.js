@@ -18505,6 +18505,39 @@ exports.autoResolveConflicts = onSchedule(
                     allActiveAssignedRides.push(r);
                 }
             });
+            // 🐛 v6.63.274 (Patrick 10.06. 15:53 B): Vorlauf-Filter UEBERSPRINGEN bei
+            //   echtem Zeit-Konflikt auf demselben Vehicle. Mathes/Nautic 16:30 wurden
+            //   nicht angefasst weil 21 Min Vorlauf < 60 Min. Fix: vor der Phase-3-
+            //   Iteration alle Konflikt-Rides ermitteln (gleiches Fahrzeug + Overlap)
+            //   und in allRides aufnehmen falls fehlend. So sieht Phase 3 den Konflikt.
+            const _conflictPairsByVeh = {};
+            for (const r of allActiveAssignedRides) {
+                const vid = r.assignedVehicle;
+                if (!vid) continue;
+                if (!_conflictPairsByVeh[vid]) _conflictPairsByVeh[vid] = [];
+                _conflictPairsByVeh[vid].push(r);
+            }
+            for (const [vid, rs] of Object.entries(_conflictPairsByVeh)) {
+                if (rs.length < 2) continue;
+                rs.sort((a, b) => a.pickupTimestamp - b.pickupTimestamp);
+                for (let i = 0; i < rs.length - 1; i++) {
+                    const a = rs[i], b = rs[i + 1];
+                    const aDurMs = (a.duration || a.estimatedDuration || 20) * 60000;
+                    const aEnd = a.pickupTimestamp + aDurMs + bufferMs;
+                    if (aEnd > b.pickupTimestamp) {
+                        // Konflikt — beide in allRides aufnehmen falls fehlend
+                        for (const r of [a, b]) {
+                            if (!allRides.find(x => x.firebaseId === r.firebaseId)) {
+                                if (['vorbestellt','assigned','wartepool','new'].includes(r.status) &&
+                                    r.pickupTimestamp > now + 5 * 60000) { // 5min Mindest-Vorlauf
+                                    allRides.push(r);
+                                    console.log(`⚠️ v6.63.274 Konflikt-Vorlauf-Override: ${r.customerName || '?'} (${new Date(r.pickupTimestamp).toLocaleString('de-DE')}) auf ${vid} in allRides aufgenommen trotz < ${vorlaufMin} Min Vorlauf`);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
 
             // 🔧 v6.25.4: PHASE -1 — Unzugewiesene Vorbestellungen zuweisen
             // Cloud übernimmt jetzt die Zuweisung (Browser macht das nicht mehr)

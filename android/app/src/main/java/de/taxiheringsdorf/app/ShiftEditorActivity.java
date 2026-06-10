@@ -77,6 +77,14 @@ public class ShiftEditorActivity extends AppCompatActivity {
     private DatabaseReference shiftsRef;
     private ValueEventListener shiftsListener;
 
+    // 🆕 v6.63.277 (Patrick 10.06. 18:05 "Online-Fahrzeuge vorne sortieren"):
+    //   Live-online-Map aus /vehicles fuer Mini-Card-Sortierung. Wird in
+    //   attachListener() pro vid einmal initial geladen + per ChildEventListener
+    //   aktualisiert. Map<vehicleId, online-bool>.
+    private final java.util.Map<String, Boolean> vehiclesOnlineCache = new java.util.HashMap<>();
+    private DatabaseReference vehiclesRef;
+    private ValueEventListener vehiclesListener;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -395,6 +403,25 @@ public class ShiftEditorActivity extends AppCompatActivity {
             }
         };
         shiftsRef.addValueEventListener(shiftsListener);
+
+        // 🆕 v6.63.277 (Patrick 10.06. 18:05): /vehicles online-Status fuer Mini-Card-Sortierung.
+        vehiclesRef = FirebaseDatabase.getInstance(DB_URL).getReference("vehicles");
+        vehiclesListener = new ValueEventListener() {
+            @Override public void onDataChange(@NonNull DataSnapshot snap) {
+                vehiclesOnlineCache.clear();
+                for (DataSnapshot c : snap.getChildren()) {
+                    Object onlineRaw = c.child("online").getValue();
+                    boolean online = onlineRaw instanceof Boolean && (Boolean) onlineRaw;
+                    vehiclesOnlineCache.put(c.getKey(), online);
+                }
+                // Mini-Cards neu rendern damit Sortierung sich aktualisiert
+                renderTodayCards();
+            }
+            @Override public void onCancelled(@NonNull DatabaseError error) {
+                Log.w(TAG, "vehiclesListener err: " + error.getMessage());
+            }
+        };
+        vehiclesRef.addValueEventListener(vehiclesListener);
     }
 
     private static Boolean bool(Object o) {
@@ -435,6 +462,7 @@ public class ShiftEditorActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         if (shiftsRef != null && shiftsListener != null) shiftsRef.removeEventListener(shiftsListener);
+        if (vehiclesRef != null && vehiclesListener != null) vehiclesRef.removeEventListener(vehiclesListener);
         super.onDestroy();
     }
 
@@ -1081,7 +1109,24 @@ public class ShiftEditorActivity extends AppCompatActivity {
         int dow = cal.get(java.util.Calendar.DAY_OF_WEEK) - 1; // 0=So .. 6=Sa
         float dp = getResources().getDisplayMetrics().density;
 
-        for (VehicleShift vs : data) {
+        // 🆕 v6.63.277 (Patrick 10.06. 18:05): Online-Fahrzeuge VORNE, Offline HINTEN.
+        //   Sortier-Snapshot von data (Original-Liste unveraendert lassen — sonst stoert
+        //   das den Editor-Adapter unten). Sekundaer-Sortierung: activeToday > inaktiv,
+        //   Tertiaer: Name aufsteigend.
+        java.util.List<VehicleShift> sorted = new java.util.ArrayList<>(data);
+        sorted.sort((a, b) -> {
+            boolean aOnline = vehiclesOnlineCache.getOrDefault(a.vehicleId, false);
+            boolean bOnline = vehiclesOnlineCache.getOrDefault(b.vehicleId, false);
+            if (aOnline != bOnline) return aOnline ? -1 : 1;
+            boolean aActive = a.todayOverride ? (a.todayActive != null && a.todayActive) : (a.defaults != null && a.defaults[dow]);
+            boolean bActive = b.todayOverride ? (b.todayActive != null && b.todayActive) : (b.defaults != null && b.defaults[dow]);
+            if (aActive != bActive) return aActive ? -1 : 1;
+            String an = a.name != null ? a.name : a.vehicleId;
+            String bn = b.name != null ? b.name : b.vehicleId;
+            return an.compareToIgnoreCase(bn);
+        });
+
+        for (VehicleShift vs : sorted) {
             boolean activeToday = vs.todayOverride
                 ? (vs.todayActive != null && vs.todayActive)
                 : (vs.defaults != null && vs.defaults[dow]);
@@ -1103,7 +1148,15 @@ public class ShiftEditorActivity extends AppCompatActivity {
             LinearLayout nameRow = new LinearLayout(this);
             nameRow.setOrientation(LinearLayout.HORIZONTAL);
             TextView dot = new TextView(this);
-            dot.setText(activeToday ? "🟢" : "⚫");
+            // 🆕 v6.63.277: Online-Indikator (Wifi-Pkt) statt nur activeToday-Status.
+            //   🟢 = online im Dienst, 🟡 = im Dienst aber offline, ⚫ = kein Dienst.
+            boolean isOnline = vehiclesOnlineCache.getOrDefault(vs.vehicleId, false);
+            String _dotIcon;
+            if (isOnline && activeToday) _dotIcon = "🟢";
+            else if (activeToday) _dotIcon = "🟡";
+            else if (isOnline) _dotIcon = "🔵"; // online aber kein Dienst (selten — sollte aus)
+            else _dotIcon = "⚫";
+            dot.setText(_dotIcon);
             dot.setTextSize(10);
             nameRow.addView(dot);
             TextView name = new TextView(this);

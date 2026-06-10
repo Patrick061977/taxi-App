@@ -4757,8 +4757,21 @@
                             type: 'google-places',
                             createdAt: Date.now()
                         }).catch(() => {});
-                        // Anzeigename aktualisieren
-                        document.getElementById(inputId).value = place.formattedAddress || r.name;
+                        // 🆕 v6.63.271 (Patrick 10.06. 14:05 Stefan-Jung-Vorfall):
+                        //   Google formattedAddress war "17429 Heringsdorf, Deutschland" —
+                        //   POI-Name "Bansin Bahnhof" ging dabei verloren. Patrick sah nur die
+                        //   PLZ und konnte den POI nicht erkennen. Fix: wenn displayName ein POI
+                        //   ist (also nicht in formattedAddress enthalten), beides zusammensetzen:
+                        //   "Bansin Bahnhof, 17429 Heringsdorf-Bansin, Deutschland".
+                        const _dn = (place.displayName || '').trim();
+                        const _fa = (place.formattedAddress || '').trim();
+                        let _label;
+                        if (_dn && _fa && !_fa.toLowerCase().includes(_dn.toLowerCase())) {
+                            _label = _dn + ', ' + _fa;
+                        } else {
+                            _label = _fa || _dn || r.name;
+                        }
+                        document.getElementById(inputId).value = _label;
                         console.log('✅ Google Places → Geocache:', place.displayName, lat, lng);
                     }
                 } catch(e) {

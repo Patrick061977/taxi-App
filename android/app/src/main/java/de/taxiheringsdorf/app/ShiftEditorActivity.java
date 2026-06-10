@@ -909,9 +909,39 @@ public class ShiftEditorActivity extends AppCompatActivity {
     }
 
     /**
+     * 🆕 v6.63.262 (Patrick 10.06. 09:43 "Standort"): Reverse-Lookup GPS → Ortsteil
+     * via nächstgelegener Anker-Punkt aus einer fest definierten Liste der Hauptorte
+     * im Usedom-/Vorpommern-Raum. Vermeidet Live-Nominatim-Calls in Native (Quota +
+     * Latenz). Lokationen wurden manuell aus OSM ausgelesen.
+     */
+    private static final double[][] ORT_ANKERS = {
+        // {lat, lon, label}
+        // — nicht primitive, daher Strings separat
+    };
+    private static final double[] ANKER_LAT  = {53.946, 53.930, 53.973, 54.072, 54.105, 54.053, 53.870, 53.823, 54.039, 54.143, 54.082};
+    private static final double[] ANKER_LON  = {14.171, 14.207, 14.135, 13.921, 13.402, 13.770, 14.066, 14.013, 14.196, 13.745, 13.892};
+    private static final String[] ANKER_NAME = {"Heringsdorf", "Ahlbeck", "Bansin", "Zinnowitz", "Greifswald", "Wolgast", "Usedom-Stadt", "Garz/Flughafen", "Swinemünde", "Stralsund", "Trassenheide"};
+
+    private static String reverseLookupOrt(Double lat, Double lon) {
+        if (lat == null || lon == null) return null;
+        double bestKm = 9999;
+        String best = null;
+        for (int i = 0; i < ANKER_LAT.length; i++) {
+            double dLat = (ANKER_LAT[i] - lat) * 111.0;
+            double dLon = (ANKER_LON[i] - lon) * 71.0; // ~grobe km bei 54°N
+            double km = Math.sqrt(dLat * dLat + dLon * dLon);
+            if (km < bestKm) { bestKm = km; best = ANKER_NAME[i]; }
+        }
+        if (best != null && bestKm > 30) return best + " (~" + Math.round(bestKm) + "km)";
+        return best;
+    }
+
+    /**
      * 🆕 v6.63.259 (Patrick 10.06. 08:00 "Ich sehe nicht wer Dienst hat"):
      * Mini-Cards-Container ueber der Editor-Liste mit Schicht-Status pro Fahrzeug.
      * Pro Card: Fahrzeug-Name + 🟢/🟡/⚫ Status + Schicht-Zeitraum (heute).
+     * v6.63.260: Tap → Zeit-Edit-Dialog.
+     * v6.63.262: Standort (📍 Ortsteil) aus /vehicles/{vid}/lat,lon.
      */
     private void renderTodayCards() {
         if (todayCardsContainer == null) return;
@@ -984,6 +1014,37 @@ public class ShiftEditorActivity extends AppCompatActivity {
             tlp.topMargin = (int)(4 * dp);
             timeText.setLayoutParams(tlp);
             card.addView(timeText);
+
+            // 🆕 v6.63.262 (Patrick 10.06. 09:43 "Standort"): Ortsteil-Label aus GPS.
+            final TextView ortText = new TextView(this);
+            ortText.setText("📍 …");
+            ortText.setTextColor(0xFF94A3B8);
+            ortText.setTextSize(10);
+            ortText.setMaxLines(1);
+            LinearLayout.LayoutParams olp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+            olp.topMargin = (int)(2 * dp);
+            ortText.setLayoutParams(olp);
+            card.addView(ortText);
+            // GPS asynchron pullen
+            try {
+                FirebaseDatabase.getInstance(DB_URL).getReference("vehicles/" + vs.vehicleId)
+                    .addListenerForSingleValueEvent(new ValueEventListener() {
+                        @Override public void onDataChange(@NonNull DataSnapshot snap) {
+                            Double _lat = null, _lon = null;
+                            Object la = snap.child("lat").getValue();
+                            Object lo = snap.child("lon").getValue();
+                            if (la instanceof Number) _lat = ((Number)la).doubleValue();
+                            if (lo instanceof Number) _lon = ((Number)lo).doubleValue();
+                            String ort = reverseLookupOrt(_lat, _lon);
+                            String driver = strOrNull(snap.child("currentDriverName").getValue());
+                            String txt = (ort != null ? ("📍 " + ort) : "📍 keine Position");
+                            if (driver != null && !driver.isEmpty()) txt += " · " + driver;
+                            ortText.setText(txt);
+                        }
+                        @Override public void onCancelled(@NonNull DatabaseError error) {}
+                    });
+            } catch (Throwable _t) { /* non-critical */ }
 
             // 🆕 v6.63.260 (Patrick 10.06. 08:45 "Card klick"): Tap auf Card → Zeit-Edit-Dialog
             final VehicleShift _vs = vs;

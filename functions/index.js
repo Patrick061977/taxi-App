@@ -18744,17 +18744,31 @@ exports.autoResolveConflicts = onSchedule(
 
                 if (inShift) continue;
 
+                // 🆕 v6.63.261 (Patrick 10.06. 08:43 "wenn ich bloss ein Update machen will,
+                //   dann nicht sofort umverteilen"): Manuell zugewiesene Fahrten + assignmentLocked
+                //   IMMER respektieren, auch ohne Heartbeat. Sonst werden Konflikt-Loesungen
+                //   die Patrick (oder ich via REST) gemacht hat innerhalb 10 Min wieder zerstoert.
+                if (ride.assignmentLocked === true) {
+                    debugPhase0Lines.push(`🔒 ${ride.customerName || '?'} → ${vName}: assignmentLocked — kein Reassign trotz Schicht-Fehler`);
+                    continue;
+                }
+                if (ride.assignedBy && (ride.assignedBy.startsWith('claude-manual-') || ride.assignedBy === 'manual-admin' || ride.assignedBy === 'native_dashboard_grab')) {
+                    debugPhase0Lines.push(`👤 ${ride.customerName || '?'} → ${vName}: manuell zugewiesen (${ride.assignedBy}) — kein Reassign`);
+                    continue;
+                }
+
                 // 🆕 v6.62.923 (Patrick 25.05. 09:57): 10-Min-Heartbeat-Grace, analog
                 //   scheduledAutoAssign (Z20335 seit v6.62.913). Bei App-Update vom Fahrer
                 //   ist die App ~5-10s offline, autoResolveConflicts darf das Fahrzeug NICHT
                 //   sofort wegnehmen. Wenn vehicle.shift.lastHeartbeat < 10 Min alt → skip.
+                // 🆕 v6.63.261: Grace auf 15 Min erhoeht (Patrick "5 Min Update + Puffer").
                 try {
                     const _hbSnap = await db.ref(`vehicles/${ride.assignedVehicle}/shift/lastHeartbeat`).once('value');
                     const _hb = _hbSnap.val();
-                    if (_hb && (Date.now() - _hb) < 10 * 60 * 1000) {
+                    if (_hb && (Date.now() - _hb) < 15 * 60 * 1000) {
                         const _hbAgeMin = Math.round((Date.now() - _hb) / 60000);
-                        debugPhase0Lines.push(`⏸️ ${ride.customerName || '?'} → ${vName}: 10-Min-Grace (Heartbeat ${_hbAgeMin} Min alt) — kein Reassign`);
-                        console.log(`⏸️ v6.62.923 Heartbeat-Grace: ${ride.customerName || '?'} → ${vName} (HB ${_hbAgeMin} Min alt)`);
+                        debugPhase0Lines.push(`⏸️ ${ride.customerName || '?'} → ${vName}: 15-Min-Grace (Heartbeat ${_hbAgeMin} Min alt) — kein Reassign`);
+                        console.log(`⏸️ v6.63.261 Heartbeat-Grace 15min: ${ride.customerName || '?'} → ${vName} (HB ${_hbAgeMin} Min alt)`);
                         continue;
                     }
                 } catch (_hbErr) { /* non-critical */ }

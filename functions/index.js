@@ -18526,12 +18526,19 @@ exports.autoResolveConflicts = onSchedule(
                     const aEnd = a.pickupTimestamp + aDurMs + bufferMs;
                     if (aEnd > b.pickupTimestamp) {
                         // Konflikt — beide in allRides aufnehmen falls fehlend
+                        // 🆕 v6.63.275 (Patrick 10.06. 16:16): Mindest-Vorlauf 5min → 30min.
+                        //   Patrick: 'mach Vorlauf-Filter auf 30 Minuten' + 'aber trotzdem
+                        //   sollte es nicht passieren'. Konflikt-Erkennung soll NUR helfen
+                        //   wenn noch >30 Min Vorlauf sind — sonst hat der Fahrer schon
+                        //   Anfahrt geplant, kurzfristiger Wechsel ist disruptiv.
+                        //   v6.63.273 (slotsPerVehicle-Fix) ist die richtige Loesung gegen
+                        //   Konflikt-ENTSTEHUNG. Override hier ist nur Backup.
                         for (const r of [a, b]) {
                             if (!allRides.find(x => x.firebaseId === r.firebaseId)) {
                                 if (['vorbestellt','assigned','wartepool','new'].includes(r.status) &&
-                                    r.pickupTimestamp > now + 5 * 60000) { // 5min Mindest-Vorlauf
+                                    r.pickupTimestamp > now + 30 * 60000) {
                                     allRides.push(r);
-                                    console.log(`⚠️ v6.63.274 Konflikt-Vorlauf-Override: ${r.customerName || '?'} (${new Date(r.pickupTimestamp).toLocaleString('de-DE')}) auf ${vid} in allRides aufgenommen trotz < ${vorlaufMin} Min Vorlauf`);
+                                    console.log(`⚠️ v6.63.275 Konflikt-Vorlauf-Override: ${r.customerName || '?'} (${new Date(r.pickupTimestamp).toLocaleString('de-DE')}) auf ${vid} in allRides aufgenommen`);
                                 }
                             }
                         }

@@ -269,26 +269,16 @@
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_call_log"
-            android:layout_width="56dp"
+            android:layout_width="64dp"
             android:layout_height="56dp"
-            android:layout_marginEnd="4dp"
+            android:layout_marginEnd="6dp"
             android:text="📞"
-            android:textSize="20sp"
+            android:textSize="22sp"
             app:backgroundTint="#3B82F6"
             app:cornerRadius="14dp" />
 
-        <!-- 🆕 v6.63.266 (Patrick 10.06. 11:16 "ranhaengen ans Geraet"):
-             Floating Stripe-Quick-Pay-Button (1-Tap zum Vorkasse-Link-Dialog statt Menu) -->
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btn_quick_pay"
-            android:layout_width="56dp"
-            android:layout_height="56dp"
-            android:layout_marginStart="2dp"
-            android:layout_marginEnd="4dp"
-            android:text="💳"
-            android:textSize="20sp"
-            app:backgroundTint="#7C3AED"
-            app:cornerRadius="14dp" />
+        <!-- v6.63.267: btn_quick_pay entfernt — Patrick "haben wir ja im Hamburger-Menue".
+             Quick-Pay bleibt erreichbar via ☰ → '💳 Vorkasse-Link (Stripe)'. -->
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_einsteiger"

@@ -245,11 +245,7 @@ public class DriverDashboardActivity extends AppCompatActivity {
         btnMenu.setOnClickListener(v -> showHamburgerMenu(v));
         btnEinsteiger.setOnClickListener(v -> showEinsteigerDialog());
         btnCallLog.setOnClickListener(v -> startActivity(new Intent(this, CallLogActivity.class)));
-        // 🆕 v6.63.266 (Patrick 10.06. 11:16): Quick-Pay direkt aus Bottom-Bar (1 Tap)
-        try {
-            MaterialButton btnQuickPay = findViewById(R.id.btn_quick_pay);
-            if (btnQuickPay != null) btnQuickPay.setOnClickListener(v -> showPreAuthLinkDialog());
-        } catch (Throwable _t) { /* legacy: btn_quick_pay nicht im Layout */ }
+        // v6.63.267: btn_quick_pay entfernt — Patrick "haben wir ja im Hamburger-Menü"
 
         // v6.50.0: Update-Check beim Start
         // v6.52.1: nutzt jetzt geteilte UpdateChecker-Klasse (gleiche Logik im LoginActivity)

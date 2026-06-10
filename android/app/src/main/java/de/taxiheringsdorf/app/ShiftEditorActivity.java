@@ -735,7 +735,7 @@ public class ShiftEditorActivity extends AppCompatActivity {
         //   damit das Lambda cbAllSame referenzieren und dessen Wochentag-Label updaten
         //   kann wenn Patrick das Datum wechselt.
         btnDate.setOnClickListener(v -> {
-            android.app.DatePickerDialog dp = new android.app.DatePickerDialog(this,
+            android.app.DatePickerDialog dpDialog = new android.app.DatePickerDialog(this,
                 (view, year, month, day) -> {
                     selDate.set(Calendar.YEAR, year);
                     selDate.set(Calendar.MONTH, month);
@@ -755,7 +755,7 @@ public class ShiftEditorActivity extends AppCompatActivity {
                     _endVal.setText(String.format(Locale.GERMANY, "  %02d:%02d  ", end[0], end[1]));
                 },
                 selDate.get(Calendar.YEAR), selDate.get(Calendar.MONTH), selDate.get(Calendar.DAY_OF_MONTH));
-            dp.show();
+            dpDialog.show();
         });
         // v6.62.999: ScrollView damit Dialog scrollbar wird wenn Spätschicht aufgeklappt
         android.widget.ScrollView scroll = new android.widget.ScrollView(this);

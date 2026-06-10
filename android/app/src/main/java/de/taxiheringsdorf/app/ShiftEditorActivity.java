@@ -985,6 +985,19 @@ public class ShiftEditorActivity extends AppCompatActivity {
             timeText.setLayoutParams(tlp);
             card.addView(timeText);
 
+            // 🆕 v6.63.260 (Patrick 10.06. 08:45 "Card klick"): Tap auf Card → Zeit-Edit-Dialog
+            final VehicleShift _vs = vs;
+            card.setClickable(true);
+            card.setFocusable(true);
+            card.setOnClickListener(v -> {
+                try { showTimeEditDialog(_vs); }
+                catch (Throwable t) { Log.e(TAG, "Mini-Card Tap-Edit Fehler: " + t.getMessage(), t); }
+            });
+            // visueller Tap-Effekt
+            android.util.TypedValue _tv = new android.util.TypedValue();
+            getTheme().resolveAttribute(android.R.attr.selectableItemBackground, _tv, true);
+            if (_tv.resourceId != 0) card.setForeground(getDrawable(_tv.resourceId));
+
             todayCardsContainer.addView(card);
         }
     }

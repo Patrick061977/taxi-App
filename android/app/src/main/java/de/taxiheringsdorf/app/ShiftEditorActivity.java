@@ -466,6 +466,8 @@ public class ShiftEditorActivity extends AppCompatActivity {
         android.widget.LinearLayout root = new android.widget.LinearLayout(this);
         root.setOrientation(android.widget.LinearLayout.VERTICAL);
         int pad = (int)(16 * getResources().getDisplayMetrics().density);
+        // 🆕 v6.63.272 build-fix: dp fuer Pill-Button-Hoehe in Phase-2-Code
+        final float dp = getResources().getDisplayMetrics().density;
         root.setPadding(pad, pad, pad, pad);
 
         final int[] start = { startHM[0], startHM[1] };

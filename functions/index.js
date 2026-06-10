@@ -19574,6 +19574,15 @@ exports.autoResolveConflicts = onSchedule(
                     // umfassen, auch <60 Min Vorlauf. Sonst werden Konflikte mit unmittelbar
                     // bevorstehenden Fahrten (z.B. Petrizien 57 Min vor Pickup) uebersehen.
                     const fixedRides = allActiveAssignedRides.filter(r => !reassignableRides.find(rr => rr.firebaseId === r.firebaseId));
+                    // 🐛 v6.63.273 (Patrick 10.06. 15:41 Mattis-Mathes/Nautic-Doppelbelegung 16:30):
+                    //   Phase-3 baute slotsPerVehicle NUR aus fixedRides. Beide Konflikt-Rides
+                    //   waren aber selbst reassignable → slotsPerVehicle leer beim Start →
+                    //   First-Iterated-Ride bekam Slot, Second sah nichts und kollidierte.
+                    //   Fix: ALLE aktiv-assigned Rides werden als initial slots eingetragen.
+                    //   In der Iteration filtern wir den EIGENEN Slot der gerade verarbeiteten
+                    //   Ride aus (per firebaseId — robuster als pickupTimestamp+customerName
+                    //   bei identischen pickupTimestamps mehrerer Fahrten).
+                    const allAssignedForSlots = [...fixedRides, ...reassignableRides.filter(r => r.assignedVehicle)];
                     // 🆕 v6.62.323: Patrick (06.05. 08:04): "Du musst auch immer die Rueckfahrt
                     // mit berechnen, wann er wieder am naechsten Abholort sein kann."
                     // Slot enthaelt jetzt destLat/destLon → spaetere Konfliktpruefung kann
@@ -19588,9 +19597,13 @@ exports.autoResolveConflicts = onSchedule(
                     }
                     const slotsPerVehicle = {};
                     Object.keys(OFFICIAL_VEHICLES).forEach(vid => {
-                        slotsPerVehicle[vid] = fixedRides
+                        // v6.63.273: aus allAssignedForSlots (= fixedRides + reassignableRides
+                        // mit assignedVehicle). Mit firebaseId damit der eigene Slot bei der
+                        // Iteration ausgefiltert werden kann.
+                        slotsPerVehicle[vid] = allAssignedForSlots
                             .filter(r => (r.assignedVehicle === vid || r.vehicleId === vid) && r.pickupTimestamp)
                             .map(r => ({
+                                firebaseId: r.firebaseId, // 🆕 v6.63.273
                                 start: r.pickupTimestamp,
                                 end: r.pickupTimestamp + ((r.duration || r.estimatedDuration || 20) * 60000) + bufferMs,
                                 destLat: r.destinationLat || r.destCoords?.lat,
@@ -19649,6 +19662,10 @@ exports.autoResolveConflicts = onSchedule(
                             let hasConflict = false;
                             let _leerfahrtForRide = 0;
                             for (const slot of slotsPerVehicle[vid]) {
+                                // 🐛 v6.63.273: eigenen Slot ausfiltern (firebaseId-basiert, robust
+                                //   bei identischen pickupTimestamps). Wenn ride bereits diesem
+                                //   vehicle assigned ist und der Slot zu IHR gehoert, skip.
+                                if (slot.firebaseId && ride.firebaseId === slot.firebaseId) continue;
                                 if (slot.start < rideEnd && ride.pickupTimestamp < slot.end) {
                                     // Direkter Zeit-Overlap
                                     hasConflict = true;
@@ -19699,7 +19716,9 @@ exports.autoResolveConflicts = onSchedule(
                         let oldVehicleStillFree = false;
                         if (oldVehicle && slotsPerVehicle[oldVehicle]) {
                             const _oldHasConflict = slotsPerVehicle[oldVehicle].some(slot => {
-                                // Eigenen Slot ausfiltern
+                                // 🐛 v6.63.273: firebaseId-Check zuerst (robust bei identischen pickupTimestamps)
+                                if (slot.firebaseId && ride.firebaseId === slot.firebaseId) return false;
+                                // Eigenen Slot ausfiltern (Fallback fuer Slots ohne firebaseId)
                                 if (slot.start === ride.pickupTimestamp && slot.customer === ride.customerName) return false;
                                 if (slot.start < rideEnd && ride.pickupTimestamp < slot.end) return true;
                                 if (slot.end <= ride.pickupTimestamp) {

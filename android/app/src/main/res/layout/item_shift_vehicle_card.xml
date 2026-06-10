@@ -31,6 +31,23 @@
                 android:textSize="16sp"
                 android:textStyle="bold" />
 
+            <!-- v6.63.265 (Patrick 10.06. 09:53 'sehe nicht ob Fahrzeug online'):
+                 Live-Status Badge -->
+            <TextView
+                android:id="@+id/shift_online_badge"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="6dp"
+                android:background="#64748B"
+                android:paddingStart="8dp"
+                android:paddingTop="3dp"
+                android:paddingEnd="8dp"
+                android:paddingBottom="3dp"
+                android:text="⚫ OFFLINE"
+                android:textColor="#F8FAFC"
+                android:textSize="10sp"
+                android:textStyle="bold" />
+
             <TextView
                 android:id="@+id/shift_today_badge"
                 android:layout_width="wrap_content"
@@ -45,6 +62,17 @@
                 android:textSize="11sp"
                 android:textStyle="bold" />
         </LinearLayout>
+
+        <!-- v6.63.265: Live-Fahrer + Standort-Zeile (klein, grau) -->
+        <TextView
+            android:id="@+id/shift_live_status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingTop="2dp"
+            android:text=""
+            android:textColor="#94A3B8"
+            android:textSize="10sp"
+            android:visibility="gone" />
 
         <TextView
             android:id="@+id/shift_today_times"

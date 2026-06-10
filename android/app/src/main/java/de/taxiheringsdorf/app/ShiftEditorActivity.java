@@ -1084,6 +1084,9 @@ public class ShiftEditorActivity extends AppCompatActivity {
         private final MaterialSwitch todaySwitch;
         private final LinearLayout weekRow;
         private final TextView weekSummary;
+        // v6.63.265: Live-Online-Badge + Status-Zeile
+        private final TextView onlineBadge;
+        private final TextView liveStatus;
 
         VehicleViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -1093,10 +1096,57 @@ public class ShiftEditorActivity extends AppCompatActivity {
             todaySwitch = itemView.findViewById(R.id.shift_today_switch);
             weekRow = itemView.findViewById(R.id.shift_week_row);
             weekSummary = itemView.findViewById(R.id.shift_week_summary);
+            onlineBadge = itemView.findViewById(R.id.shift_online_badge);
+            liveStatus = itemView.findViewById(R.id.shift_live_status);
         }
 
         void bind(VehicleShift vs) {
             name.setText(vs.name);
+            // 🆕 v6.63.265: Live-Status (online/offline + Fahrer + Standort) aus /vehicles/{vid}
+            if (onlineBadge != null) {
+                onlineBadge.setText("⚫ OFFLINE");
+                onlineBadge.setBackgroundColor(0xFF64748B);
+            }
+            if (liveStatus != null) liveStatus.setVisibility(View.GONE);
+            try {
+                FirebaseDatabase.getInstance(DB_URL).getReference("vehicles/" + vs.vehicleId)
+                    .addListenerForSingleValueEvent(new ValueEventListener() {
+                        @Override public void onDataChange(@NonNull DataSnapshot snap) {
+                            boolean _online = Boolean.TRUE.equals(snap.child("online").getValue(Boolean.class));
+                            String _driver = strOrNull(snap.child("currentDriverName").getValue());
+                            Double _lat = null, _lon = null;
+                            Object la = snap.child("lat").getValue();
+                            Object lo = snap.child("lon").getValue();
+                            if (la instanceof Number) _lat = ((Number)la).doubleValue();
+                            if (lo instanceof Number) _lon = ((Number)lo).doubleValue();
+                            String _ort = reverseLookupOrt(_lat, _lon);
+
+                            if (onlineBadge != null) {
+                                if (_online) {
+                                    onlineBadge.setText("🟢 ONLINE");
+                                    onlineBadge.setBackgroundColor(0xFF10B981);
+                                } else {
+                                    onlineBadge.setText("⚫ OFFLINE");
+                                    onlineBadge.setBackgroundColor(0xFF64748B);
+                                }
+                            }
+                            if (liveStatus != null) {
+                                StringBuilder sb = new StringBuilder();
+                                if (_driver != null && !_driver.isEmpty()) sb.append("👤 ").append(_driver);
+                                if (_ort != null) {
+                                    if (sb.length() > 0) sb.append("  ·  ");
+                                    sb.append("📍 ").append(_ort);
+                                }
+                                if (sb.length() > 0) {
+                                    liveStatus.setText(sb.toString());
+                                    liveStatus.setVisibility(View.VISIBLE);
+                                }
+                            }
+                        }
+                        @Override public void onCancelled(@NonNull DatabaseError error) {}
+                    });
+            } catch (Throwable _t) { /* non-critical */ }
+
             // Heute-Status berechnen
             int dow = todayDow();
             boolean isActiveToday;

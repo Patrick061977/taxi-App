@@ -72,6 +72,45 @@ function parseFlexXml(xml) {
     fs.writeFileSync(path.join(OUT_DIR, '_summary-7days.json'),
         JSON.stringify({ generatedAt: new Date().toISOString(), totalTrades: allTrades.length, trades: allTrades }, null, 2));
     console.log(`\n✅ ${allTrades.length} Trades total in ${OUT_DIR}/_summary-7days.json`);
+
+    // 🆕 v6.63.276 (Patrick 10.06. 16:58 'taeglich aktualisieren'):
+    //   Pro Symbol die letzten Trades + offene Optionen-Positionen extrahieren
+    //   und als latest-trades.json fuer dhwi.html bereitstellen.
+    const lastFile = [...new Set(allTrades.map(t => t._file))].sort().pop();
+    const todayTrades = allTrades.filter(t => t._file === lastFile);
+    const byTicker = {};
+    for (const t of todayTrades) {
+        const underlying = t.underlyingSymbol || (t.symbol || '').split(' ')[0];
+        if (!underlying) continue;
+        if (!byTicker[underlying]) byTicker[underlying] = { trades: [] };
+        byTicker[underlying].trades.push({
+            date: t.tradeDate,
+            time: t.tradeTime || '',
+            symbol: t.symbol,
+            buySell: t.buySell,
+            quantity: parseFloat(t.quantity || 0),
+            tradePrice: parseFloat(t.tradePrice || 0),
+            proceeds: parseFloat(t.proceeds || 0),
+            openClose: t.openCloseIndicator || '',
+            assetCategory: t.assetCategory || '',
+            putCall: t.putCall || '',
+            strike: t.strike ? parseFloat(t.strike) : null,
+            expiry: t.expiry || ''
+        });
+    }
+    // Letzte 20 pro Ticker, sortiert nach Datum desc
+    for (const k of Object.keys(byTicker)) {
+        byTicker[k].trades.sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time));
+        byTicker[k].trades = byTicker[k].trades.slice(0, 20);
+    }
+    const latestPath = 'C:/Taxi App/graham-value/public/data/flex-latest.json';
+    fs.mkdirSync(path.dirname(latestPath), { recursive: true });
+    fs.writeFileSync(latestPath, JSON.stringify({
+        generatedAt: new Date().toISOString(),
+        sourceFile: lastFile,
+        byTicker
+    }, null, 2));
+    console.log(`📊 flex-latest.json fuer dhwi.html: ${Object.keys(byTicker).length} Ticker`);
     // Quick-Stat
     const bySymbol = {};
     for (const t of allTrades) {

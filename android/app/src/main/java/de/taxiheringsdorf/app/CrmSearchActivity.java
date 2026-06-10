@@ -2633,6 +2633,31 @@ public class CrmSearchActivity extends AppCompatActivity {
             cbTransportschein.setBackgroundColor(isChecked ? 0xFFD1FAE5 : 0x00000000));
         layout.addView(cbTransportschein);
 
+        // 🆕 v6.63.264 (Patrick 10.06. 09:44 "Stripe aus Vorbestellung gleich mit bei
+        //   Uebernahme"): Stripe-Vorkasse-Checkbox. Wenn an:
+        //   paymentMethod=stripe wird gesetzt, Cloud-Function generiert in onRideCreated
+        //   automatisch Payment-Link + sendet SMS an Kunde mit Vorkasse-Link.
+        //   Cloud-Funktion (v6.63.263 schon live) macht den Rest.
+        final android.widget.CheckBox cbStripeVorkasse = new android.widget.CheckBox(this);
+        boolean _initialStripe = isEdit && "stripe".equals(String.valueOf(editRide.get("paymentMethod")));
+        cbStripeVorkasse.setText("💳 Stripe-Vorkasse — Link wird per SMS verschickt, BEZAHLT-Badge wenn bezahlt");
+        cbStripeVorkasse.setChecked(_initialStripe);
+        cbStripeVorkasse.setTextSize(13);
+        cbStripeVorkasse.setPadding(padHalf, padHalf, padHalf, padHalf);
+        cbStripeVorkasse.setTextColor(0xFF1E40AF);
+        cbStripeVorkasse.setBackgroundColor(_initialStripe ? 0xFFDBEAFE : 0x00000000);
+        cbStripeVorkasse.setOnCheckedChangeListener((bv, isChecked) -> {
+            cbStripeVorkasse.setBackgroundColor(isChecked ? 0xFFDBEAFE : 0x00000000);
+            // Wenn Stripe an, Transportschein deaktivieren (gegenseitig ausschliessend)
+            if (isChecked && cbTransportschein.isChecked()) cbTransportschein.setChecked(false);
+        });
+        cbTransportschein.setOnCheckedChangeListener((bv, isChecked) -> {
+            cbTransportschein.setBackgroundColor(isChecked ? 0xFFD1FAE5 : 0x00000000);
+            // Wenn Transportschein an, Stripe deaktivieren
+            if (isChecked && cbStripeVorkasse.isChecked()) cbStripeVorkasse.setChecked(false);
+        });
+        layout.addView(cbStripeVorkasse);
+
         // 🆕 v6.62.608: Live-Konflikt-Check unter dem Datum-Picker
         // Patrick (11.05. 12:44): "baue das mal ein, dass ich zumindest weiss, ob der
         // Termin ueberlappt oder nicht ueberlappt".
@@ -3301,6 +3326,11 @@ public class CrmSearchActivity extends AppCompatActivity {
                     r.put("paymentStatus", "transportschein-pending");
                     // KEINE Auto-Rechnung
                     r.put("autoInvoiceSkipReason", "transportschein-pre-set");
+                } else if (cbStripeVorkasse.isChecked()) {
+                    // 🆕 v6.63.264: Stripe-Vorkasse aktivieren — Cloud-Function (v6.63.263)
+                    //   generiert in onRideCreated den Payment-Link + sendet SMS an Kunde.
+                    r.put("paymentMethod", "stripe");
+                    r.put("stripePaymentStatus", "pending");
                 }
                 r.put("pickup", pickup);
                 r.put("pickupLat", pickupCoords[0]);

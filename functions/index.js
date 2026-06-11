@@ -19033,6 +19033,118 @@ exports.autoResolveConflicts = onSchedule(
                         continue;
                     }
 
+                    // 🆕 v6.63.282 STUFE 2 (Patrick 11.06. 10:11 GO):
+                    //   Vor Vehicle-Swap erst TIME-SHIFT versuchen. Patrick's Regel:
+                    //   - vorherige Fahrt 5-15 Min frueher (curr)
+                    //   - nachfolgende Fahrt max 5 Min spaeter (next)
+                    //   - assignmentLocked + manuelle Zuweisungen NIE verschieben
+                    //   - Status accepted/picked_up/on_way NIE verschieben (Fahrer plant Anfahrt)
+                    //   - Feature-Flag /settings/dispatch/timeShiftEnabled (default true)
+                    let _timeShiftEnabled = true;
+                    try {
+                        const _flagSnap = await db.ref('settings/dispatch/timeShiftEnabled').once('value');
+                        _timeShiftEnabled = _flagSnap.val() !== false; // default ON
+                    } catch(_) { /* default on */ }
+                    let _shiftResolved = false;
+                    if (_timeShiftEnabled) {
+                        // Wieviel Overlap muss weg? earliestArrivalMs - nextStartMs
+                        const _gapNeededMin = overlapMin + 1; // 1 Min Puffer
+                        // Option A: next nach hinten schieben (max 5 Min)
+                        const _nextShiftableMax = 5;
+                        const _nextCanShift =
+                            !['accepted','picked_up','on_way','completed','cancelled','deleted','storniert'].includes(next.status) &&
+                            next.assignmentLocked !== true &&
+                            !(next.assignedBy || '').startsWith('claude-manual-') &&
+                            !(next.assignedBy || '').startsWith('manual-admin');
+                        // Option B: curr nach vorne schieben (5-15 Min)
+                        const _currShiftableMax = 15;
+                        const _currCanShift =
+                            !['accepted','picked_up','on_way','completed','cancelled','deleted','storniert'].includes(curr.status) &&
+                            curr.assignmentLocked !== true &&
+                            !(curr.assignedBy || '').startsWith('claude-manual-') &&
+                            !(curr.assignedBy || '').startsWith('manual-admin');
+                        // Versuche kombinierte Verschiebung (next-Spaeter + curr-Frueher)
+                        if (_gapNeededMin <= _nextShiftableMax && _nextCanShift) {
+                            // Nur next verschieben
+                            const _newNextTs = next.pickupTimestamp + _gapNeededMin * 60000;
+                            await db.ref(`rides/${next.firebaseId}`).update({
+                                pickupTimestamp: _newNextTs,
+                                pickupTime: berlinTime(_newNextTs),
+                                updatedAt: Date.now(),
+                                replanReason: `v6.63.282 Time-Shift: ${nextTime} → +${_gapNeededMin}min (Konflikt mit ${curr.customerName || '?'} auf ${vName} aufgeloest)`,
+                                lastTimeShiftAt: Date.now(),
+                                lastTimeShiftBy: 'cloud-time-shift-phase1'
+                            });
+                            await db.ref('conflictResolveLog').push({
+                                ts: Date.now(), action: 'time-shift-next',
+                                rideId: next.firebaseId, vehicle: vehicleId,
+                                oldTime: next.pickupTimestamp, newTime: _newNextTs,
+                                shiftMin: _gapNeededMin, reason: 'overlap ' + overlapMin + 'min'
+                            }).catch(()=>{});
+                            console.log(`   🕐 Time-Shift: ${next.customerName || '?'} ${nextTime} → +${_gapNeededMin}min (Konflikt geloest ohne Vehicle-Swap)`);
+                            next.pickupTimestamp = _newNextTs;
+                            _shiftResolved = true;
+                        } else if (_gapNeededMin <= _currShiftableMax && _currCanShift) {
+                            // Nur curr verschieben (frueher)
+                            const _newCurrTs = curr.pickupTimestamp - _gapNeededMin * 60000;
+                            await db.ref(`rides/${curr.firebaseId}`).update({
+                                pickupTimestamp: _newCurrTs,
+                                pickupTime: berlinTime(_newCurrTs),
+                                updatedAt: Date.now(),
+                                replanReason: `v6.63.282 Time-Shift: ${currTime} → -${_gapNeededMin}min (Konflikt mit ${next.customerName || '?'} auf ${vName} aufgeloest)`,
+                                lastTimeShiftAt: Date.now(),
+                                lastTimeShiftBy: 'cloud-time-shift-phase1'
+                            });
+                            await db.ref('conflictResolveLog').push({
+                                ts: Date.now(), action: 'time-shift-curr',
+                                rideId: curr.firebaseId, vehicle: vehicleId,
+                                oldTime: curr.pickupTimestamp, newTime: _newCurrTs,
+                                shiftMin: -_gapNeededMin, reason: 'overlap ' + overlapMin + 'min'
+                            }).catch(()=>{});
+                            console.log(`   🕐 Time-Shift: ${curr.customerName || '?'} ${currTime} → -${_gapNeededMin}min (Konflikt geloest ohne Vehicle-Swap)`);
+                            curr.pickupTimestamp = _newCurrTs;
+                            _shiftResolved = true;
+                        } else if (_gapNeededMin <= (_nextShiftableMax + _currShiftableMax) && _nextCanShift && _currCanShift) {
+                            // Beide kombiniert: max-next (5min) + Rest auf curr
+                            const _nextShift = Math.min(_nextShiftableMax, _gapNeededMin);
+                            const _currShift = _gapNeededMin - _nextShift;
+                            const _newNextTs = next.pickupTimestamp + _nextShift * 60000;
+                            const _newCurrTs = curr.pickupTimestamp - _currShift * 60000;
+                            await Promise.all([
+                                db.ref(`rides/${next.firebaseId}`).update({
+                                    pickupTimestamp: _newNextTs,
+                                    pickupTime: berlinTime(_newNextTs),
+                                    updatedAt: Date.now(),
+                                    replanReason: `v6.63.282 Time-Shift-Combined: ${nextTime} → +${_nextShift}min (Konflikt mit ${curr.customerName || '?'})`,
+                                    lastTimeShiftAt: Date.now(),
+                                    lastTimeShiftBy: 'cloud-time-shift-phase1-combined'
+                                }),
+                                db.ref(`rides/${curr.firebaseId}`).update({
+                                    pickupTimestamp: _newCurrTs,
+                                    pickupTime: berlinTime(_newCurrTs),
+                                    updatedAt: Date.now(),
+                                    replanReason: `v6.63.282 Time-Shift-Combined: ${currTime} → -${_currShift}min (Konflikt mit ${next.customerName || '?'})`,
+                                    lastTimeShiftAt: Date.now(),
+                                    lastTimeShiftBy: 'cloud-time-shift-phase1-combined'
+                                })
+                            ]);
+                            await db.ref('conflictResolveLog').push({
+                                ts: Date.now(), action: 'time-shift-combined',
+                                rideIdCurr: curr.firebaseId, rideIdNext: next.firebaseId,
+                                vehicle: vehicleId, currShiftMin: -_currShift, nextShiftMin: _nextShift,
+                                reason: 'overlap ' + overlapMin + 'min'
+                            }).catch(()=>{});
+                            console.log(`   🕐 Combined-Shift: ${curr.customerName || '?'} -${_currShift}m + ${next.customerName || '?'} +${_nextShift}m (Konflikt geloest)`);
+                            next.pickupTimestamp = _newNextTs;
+                            curr.pickupTimestamp = _newCurrTs;
+                            _shiftResolved = true;
+                        }
+                    }
+                    if (_shiftResolved) {
+                        totalReplanned++;
+                        continue; // Konflikt geloest, naechstes Paar
+                    }
+
                     // Alternatives Fahrzeug suchen
                     const altVehicle = findAlternativeVehicle(
                         next, vehicleId, allRides, shiftsData, dateStr, pricingSettings, vehiclePriorities
@@ -19040,6 +19152,29 @@ exports.autoResolveConflicts = onSchedule(
 
                     if (!altVehicle) {
                         console.warn(`   ❌ Kein alternatives Fahrzeug für ${next.firebaseId}`);
+                        // 🆕 v6.63.282 STUFE 4: Admin-Push bei NICHT-loesbarem Konflikt.
+                        //   Heute: silent log. Jetzt: Telegram an Admin damit er entscheidet.
+                        try {
+                            await sendToAllAdmins(
+                                `🚨 *Konflikt-Eskalation*\n\n` +
+                                `Fahrzeug: ${vName}\n` +
+                                `Konflikt: ${currTime} (${curr.customerName || '?'}) ⇄ ${nextTime} (${next.customerName || '?'})\n` +
+                                `Overlap: ${overlapMin} Min${leerfahrtInfo}\n\n` +
+                                `Time-Shift nicht moeglich (Status/Lock).\n` +
+                                `Kein anderes Fahrzeug verfuegbar.\n\n` +
+                                `Bitte manuell entscheiden:\n` +
+                                `• Eine Fahrt absagen?\n` +
+                                `• Andere Schicht aktivieren?\n` +
+                                `• Patrick selbst fahren?`,
+                                'conflict-escalation'
+                            );
+                            await db.ref('conflictResolveLog').push({
+                                ts: Date.now(), action: 'escalation-push',
+                                rideIdCurr: curr.firebaseId, rideIdNext: next.firebaseId,
+                                vehicle: vehicleId, overlapMin,
+                                reason: 'kein vehicle + time-shift nicht moeglich'
+                            }).catch(()=>{});
+                        } catch (_pushErr) { console.warn('Admin-Push Konflikt-Eskalation fail:', _pushErr.message); }
                         continue;
                     }
 

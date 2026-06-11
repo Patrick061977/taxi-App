@@ -1415,20 +1415,26 @@ async function autoAssignRide(rideId, rideData) {
             //   kann die Native-Dispo pro Fahrzeug die Reject-Reason anzeigen. Plus zusammen-
             //   gefasster wartepoolReason damit der Dispo-Card-Hint sprechend wird.
             try {
+                // 🆕 v6.63.301 (Patrick 11.06. 22:37 'aber model y hat dienst wo ist der fehler'):
+                //   Bisher zeigte der Reason nur den TOP-Grund. Bei Sachs gewann "3/6 Fahrzeuge:
+                //   Fr nicht aktiv" obwohl MY222 + IK Dienst hatten — der Konflikt-Grund fuer
+                //   die aktiven Vehicles war versteckt. Jetzt: Top-3 Gruende joinen damit Patrick
+                //   sieht WAS bei den aktiven Vehicles schief lief.
                 const _summary = (() => {
                     const _reasons = Object.values(vehicleScores)
                         .map(s => s && s.reason ? s.reason : '')
                         .filter(Boolean);
                     if (_reasons.length === 0) return 'Kein Fahrzeug im Schichtplan/verfügbar';
-                    // Häufigsten Grund kürzen + zählen
                     const _counts = {};
                     for (const r of _reasons) {
-                        const _short = r.split(' ').slice(0, 6).join(' ');
+                        const _short = r.split(' ').slice(0, 7).join(' ');
                         _counts[_short] = (_counts[_short] || 0) + 1;
                     }
                     const _sorted = Object.entries(_counts).sort((a, b) => b[1] - a[1]);
-                    const _top = _sorted[0];
-                    return `${_top[1]}/${candidates.length || Object.keys(vehicleScores).length} Fahrzeuge: ${_top[0]}`;
+                    const _total = candidates.length || Object.keys(vehicleScores).length;
+                    // Top-3 Gruende joinen
+                    const _parts = _sorted.slice(0, 3).map(([reason, count]) => `${count}× ${reason}`);
+                    return `${_total} Fahrzeuge gepr.: ${_parts.join(' | ')}`;
                 })();
                 await db.ref('rides/' + rideId).update({
                     vehicleScores,

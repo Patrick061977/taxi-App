@@ -4373,6 +4373,24 @@ public class CrmSearchActivity extends AppCompatActivity {
         tvAddr.setOnClickListener(_v -> launchPlaces(tvAddr, addrCoords));
         layout.addView(tvAddr);
 
+        // 🆕 v6.63.292 (Patrick 11.06. 18:37 'Rechnungsadresse korrigieren in CRM'):
+        //   Rechnungsadresse als mehrzeiliges Editfeld. Wenn leer beim Save: wird auf
+        //   Stammadresse (address) zurueckgefallen. Cloud-Function generateInvoice
+        //   nutzt invoiceAddress falls vorhanden, sonst address.
+        TextView lblInvAddr = new TextView(this);
+        lblInvAddr.setText("📄 Rechnungsadresse (falls abweichend)");
+        lblInvAddr.setPadding(0, pad, 0, pad / 4);
+        lblInvAddr.setTextSize(12);
+        layout.addView(lblInvAddr);
+        final EditText etInvAddr = new EditText(this);
+        etInvAddr.setHint("z.B. Anna Holl\nMusterstrasse 12\n17424 Heringsdorf\nLeer = Stammadresse oben wird genutzt");
+        etInvAddr.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE);
+        etInvAddr.setMinLines(3);
+        etInvAddr.setMaxLines(6);
+        etInvAddr.setGravity(android.view.Gravity.TOP | android.view.Gravity.START);
+        if (e.invoiceAddress != null && !e.invoiceAddress.isEmpty()) etInvAddr.setText(e.invoiceAddress);
+        layout.addView(etInvAddr);
+
         // 🆕 v6.62.544: Bevorzugte Zahlungsart (Web-CRM-Schema: preferredPayment)
         TextView lblPay = new TextView(this);
         lblPay.setText("💰 Bevorzugte Zahlungsart");
@@ -4610,6 +4628,9 @@ public class CrmSearchActivity extends AppCompatActivity {
                 upd.put("notes", notes);
                 upd.put("preferredPayment", _preferredPayment);
                 upd.put("additionalPhones", _additionalPhones);
+                // 🆕 v6.63.292: Rechnungsadresse
+                String _invAddr = etInvAddr.getText().toString().trim();
+                upd.put("invoiceAddress", _invAddr.isEmpty() ? null : _invAddr);
                 // 🆕 v6.62.545: fixedRoutes Array (Festpreise) speichern
                 upd.put("fixedRoutes", _fpList);
                 String addr = tvAddr.getText().toString().replaceFirst("^📍 ", "").trim();
@@ -5004,6 +5025,10 @@ public class CrmSearchActivity extends AppCompatActivity {
         String id, name, phone, phone2, mobilePhone, email, address, customerKind;
         // 🆕 v6.62.544: anrede + notes + preferredPayment fuer Anlegen-Form
         String anrede, notes, preferredPayment, type;
+        // 🆕 v6.63.292 (Patrick 11.06. 18:37 'Rechnungsadresse korrigieren in CRM'):
+        //   separates Feld fuer Rechnungs-Anschrift. Web-CRM-Schema: invoiceAddress
+        //   ist ein mehrzeiliger Block. Wenn leer: address wird als Rechnungsadresse genommen.
+        String invoiceAddress;
         String firstName, lastName;
         // 🆕 v6.62.545: Festpreise pro Hotel/Kunde — Strecken-Pauschalen.
         // Schema: { id, name, fromName, fromLat, fromLon, toName, toLat, toLon, price }
@@ -5025,6 +5050,7 @@ public class CrmSearchActivity extends AppCompatActivity {
                 e.mobilePhone = s.child("mobilePhone").getValue(String.class);
                 e.email = s.child("email").getValue(String.class);
                 e.address = s.child("address").getValue(String.class);
+                e.invoiceAddress = s.child("invoiceAddress").getValue(String.class);
                 e.customerKind = s.child("customerKind").getValue(String.class);
                 // 🆕 v6.62.544: anrede + notes + preferredPayment + type/firstName/lastName
                 e.anrede = s.child("anrede").getValue(String.class);

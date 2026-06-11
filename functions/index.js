@@ -18888,6 +18888,15 @@ exports.autoResolveConflicts = onSchedule(
                                     _upd.wartepoolAt = Date.now();
                                     _wartepoolJustEntered = true;
                                 }
+                                // 🆕 v6.63.297 (Patrick 11.06. 20:04 'warte pool Konflikt loesen'):
+                                //   Resolver-Push auch fuer Rides die SCHON in wartepool sind aber
+                                //   noch nicht 'gepusht' wurden (per Flag wartepoolResolverPushed).
+                                //   v6.63.291 hat den Push nur beim ERSTEN Eintritt gemacht — Rides
+                                //   die VOR v6.63.291 schon im Wartepool waren, bekamen nie einen.
+                                if (!_wartepoolJustEntered && ride.status === 'wartepool' && !ride.wartepoolResolverPushed) {
+                                    _wartepoolJustEntered = true;
+                                    _upd.wartepoolResolverPushed = true;
+                                }
                                 await db.ref(`rides/${ride.firebaseId}`).update(_upd);
                                 // 🆕 v6.62.705: Telegram-Push beim Eintritt in Wartepool. Patrick
                                 // (14.05.): "Die See-Eck-Fahrt steht gar nicht in meiner Disposition" —

@@ -4586,26 +4586,27 @@ async function calculateRoute(from, to, waypointCoords = []) {
             console.warn('⚠️ Kein Google-Maps-API-Key in settings/googleMapsApiKey — Skip Google, direkt OSRM');
             throw new Error('No API key');
         }
-        // 🆕 v6.63.285 (Patrick 11.06. 14:07/14:18 GO): Routen-Mode konfigurierbar
-        //   settings/dispatch/routeMode (default 'fastest'):
-        //   - 'fastest':           TRAFFIC_AWARE - schnellste mit Verkehr (default)
-        //   - 'fastest-no-traffic': TRAFFIC_UNAWARE - planbarer, keine Stau-Aufschlaege
-        //   - 'distance-optimized': TRAFFIC_UNAWARE + avoidTolls/avoidHighways - kuerzeste km
-        let _routeMode = 'fastest';
+        // 🆕 v6.63.286 (Patrick 11.06. 14:21): Hybrid-Routen-Logik.
+        //   "Kuerzeste Strecke. Aber wenn schnellste 5+ Min schneller ist, schnellste."
+        //   Implementation: computeAlternativeRoutes=true → Google liefert 2-3 Routen,
+        //   wir vergleichen Distance+Duration und waehlen nach Patricks Regel.
+        //   settings/dispatch/routeMode steuert (default 'hybrid'):
+        //   - 'fastest':           immer schnellste (TRAFFIC_AWARE)
+        //   - 'shortest':          immer kuerzeste (Distance)
+        //   - 'hybrid' (default):  kuerzeste, ausser schnellste 5+ Min besser
+        let _routeMode = 'hybrid';
         try {
             const _modeSnap = await db.ref('settings/dispatch/routeMode').once('value');
             const _v = _modeSnap.val();
-            if (_v === 'fastest-no-traffic' || _v === 'distance-optimized') _routeMode = _v;
-        } catch(_) { /* default fastest */ }
+            if (_v === 'fastest' || _v === 'shortest' || _v === 'hybrid') _routeMode = _v;
+        } catch(_) { /* default hybrid */ }
         const body = {
             origin: { location: { latLng: { latitude: from.lat, longitude: from.lon } } },
             destination: { location: { latLng: { latitude: to.lat, longitude: to.lon } } },
             travelMode: 'DRIVE',
-            routingPreference: _routeMode === 'fastest' ? 'TRAFFIC_AWARE' : 'TRAFFIC_UNAWARE'
+            routingPreference: 'TRAFFIC_AWARE',
+            computeAlternativeRoutes: (_routeMode === 'hybrid' || _routeMode === 'shortest')
         };
-        if (_routeMode === 'distance-optimized') {
-            body.routeModifiers = { avoidTolls: true, avoidHighways: true };
-        }
         if (waypointCoords && waypointCoords.length > 0) {
             body.intermediates = waypointCoords.map(wp => ({
                 location: { latLng: { latitude: wp.lat, longitude: wp.lon } }
@@ -4625,19 +4626,46 @@ async function calculateRoute(from, to, waypointCoords = []) {
         if (!resp.ok) throw new Error('Google Routes HTTP ' + resp.status);
         const data = await resp.json();
         if (!data.routes || !data.routes[0]) throw new Error('Google Routes kein Ergebnis');
-        const route = data.routes[0];
+        // 🆕 v6.63.286: Hybrid-Auswahl wenn computeAlternativeRoutes aktiviert war
+        const _allRoutes = data.routes.map(r => ({
+            distanceM: r.distanceMeters || 0,
+            durationS: parseInt(String(r.duration || '0').replace('s', '')) || 0,
+            legs: r.legs || []
+        }));
+        let route;
+        if (_routeMode === 'shortest' && _allRoutes.length > 1) {
+            // Kuerzeste Distanz
+            _allRoutes.sort((a, b) => a.distanceM - b.distanceM);
+            route = data.routes[_allRoutes.findIndex(r => r.distanceM === _allRoutes[0].distanceM)];
+            console.log(`🛣️ HYBRID/SHORTEST: ${_allRoutes.length} Alternativen, gewaehlt kuerzeste`);
+        } else if (_routeMode === 'hybrid' && _allRoutes.length > 1) {
+            // Kuerzeste Distanz, aber wenn schnellste 5+ Min schneller → schnellste
+            const _sortByDist = [..._allRoutes].sort((a, b) => a.distanceM - b.distanceM);
+            const _sortByDur = [..._allRoutes].sort((a, b) => a.durationS - b.durationS);
+            const _shortest = _sortByDist[0];
+            const _fastest = _sortByDur[0];
+            const _shortestDurMin = _shortest.durationS / 60;
+            const _fastestDurMin = _fastest.durationS / 60;
+            const _chosen = (_shortestDurMin - _fastestDurMin) >= 5 ? _fastest : _shortest;
+            const _idx = _allRoutes.indexOf(_chosen);
+            route = data.routes[_idx];
+            console.log(`🛣️ HYBRID: ${_allRoutes.length} Alternativen | kuerzeste ${(_shortest.distanceM/1000).toFixed(1)}km/${Math.round(_shortestDurMin)}min | schnellste ${(_fastest.distanceM/1000).toFixed(1)}km/${Math.round(_fastestDurMin)}min | gewaehlt ${_chosen === _fastest ? 'SCHNELLSTE' : 'KUERZESTE'}`);
+        } else {
+            // 'fastest' oder nur 1 Route
+            route = data.routes[0];
+        }
         const totalDistanceKm = (route.distanceMeters || 0) / 1000;
         const totalDurationMin = Math.round(parseInt(String(route.duration || '0').replace('s', '')) / 60);
         const legs = (route.legs || []).map(l => ({
             duration: Math.round(parseInt(String(l.duration || '0').replace('s', '')) / 60),
             distance: +(((l.distanceMeters || 0) / 1000).toFixed(1))
         }));
-        console.log(`✅ Google Routes (TRAFFIC_AWARE): ${totalDistanceKm.toFixed(1)} km, ${totalDurationMin} min`);
+        console.log(`✅ Google Routes (${_routeMode}): ${totalDistanceKm.toFixed(1)} km, ${totalDurationMin} min`);
         return {
             distance: totalDistanceKm.toFixed(1),
             duration: totalDurationMin,
             legs: legs.length > 0 ? legs : [{ duration: totalDurationMin, distance: +totalDistanceKm.toFixed(1) }],
-            source: 'google-routes'
+            source: 'google-routes-' + _routeMode
         };
     } catch (e) {
         console.warn('⚠️ Google Routes fehlgeschlagen, Fallback OSRM:', e.message);

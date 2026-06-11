@@ -12151,6 +12151,106 @@ async function handleCallback(callback) {
         }
     }
 
+    // 🆕 v6.63.283 Konflikt-Resolver Buttons
+    if (data.startsWith('conf_')) {
+        const _parts = data.split('_'); // ['conf', pendingId, optKey]
+        const _pendingId = _parts[1];
+        const _optKey = _parts[2];
+        try {
+            const _pcSnap = await db.ref('pendingConflicts/' + _pendingId).once('value');
+            const _pc = _pcSnap.val();
+            if (!_pc || _pc.status !== 'open') {
+                await answerCallbackQuery(callback.id);
+                return;
+            }
+            const _opt = (_pc.options || []).find(o => o.key === _optKey);
+            if (!_opt) {
+                await answerCallbackQuery(callback.id);
+                return;
+            }
+            const _berlinTime = ts => new Date(new Date(ts).toLocaleString('en-US', { timeZone: 'Europe/Berlin' })).toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'});
+            // Aktion ausfuehren
+            let _resultMsg = '';
+            if (_opt.action === 'shift-curr') {
+                const _currSnap = await db.ref('rides/' + _pc.currRideId).once('value');
+                const _curr = _currSnap.val();
+                if (!_curr || !_curr.pickupTimestamp) {
+                    _resultMsg = '⚠ Curr-Ride nicht mehr da.';
+                } else {
+                    const _newTs = _curr.pickupTimestamp + _opt.shiftMin * 60000;
+                    await db.ref('rides/' + _pc.currRideId).update({
+                        pickupTimestamp: _newTs,
+                        pickupTime: _berlinTime(_newTs),
+                        updatedAt: Date.now(),
+                        replanReason: 'v6.63.283 Suggest-Shift: ' + _pc.currTime + ' ' + (_opt.shiftMin > 0 ? '+' : '') + _opt.shiftMin + 'min',
+                        lastTimeShiftAt: Date.now(),
+                        lastTimeShiftBy: 'patrick-suggest-button'
+                    });
+                    _resultMsg = '✅ ' + _pc.currCustomer + ' ' + _pc.currTime + ' → ' + _berlinTime(_newTs);
+                }
+            } else if (_opt.action === 'shift-next') {
+                const _nextSnap = await db.ref('rides/' + _pc.nextRideId).once('value');
+                const _next = _nextSnap.val();
+                if (!_next || !_next.pickupTimestamp) {
+                    _resultMsg = '⚠ Next-Ride nicht mehr da.';
+                } else {
+                    const _newTs = _next.pickupTimestamp + _opt.shiftMin * 60000;
+                    await db.ref('rides/' + _pc.nextRideId).update({
+                        pickupTimestamp: _newTs,
+                        pickupTime: _berlinTime(_newTs),
+                        updatedAt: Date.now(),
+                        replanReason: 'v6.63.283 Suggest-Shift: ' + _pc.nextTime + ' +' + _opt.shiftMin + 'min',
+                        lastTimeShiftAt: Date.now(),
+                        lastTimeShiftBy: 'patrick-suggest-button'
+                    });
+                    _resultMsg = '✅ ' + _pc.nextCustomer + ' ' + _pc.nextTime + ' → ' + _berlinTime(_newTs);
+                }
+            } else if (_opt.action === 'vehicle-swap') {
+                const _altInfo = OFFICIAL_VEHICLES[_opt.targetVehicle] || {};
+                await db.ref('rides/' + _pc.nextRideId).update({
+                    assignedVehicle: _opt.targetVehicle,
+                    vehicleId: _opt.targetVehicle,
+                    vehicle: _altInfo.name || _opt.targetVehicle,
+                    vehicleLabel: _altInfo.name || _opt.targetVehicle,
+                    vehiclePlate: _altInfo.plate || '',
+                    assignedVehicleName: _altInfo.name || _opt.targetVehicle,
+                    assignedVehiclePlate: _altInfo.plate || '',
+                    assignedBy: 'patrick-suggest-swap',
+                    assignedAt: Date.now(),
+                    updatedAt: Date.now(),
+                    replanReason: 'v6.63.283 Suggest-Swap: ' + _pc.vehicleName + ' → ' + (_altInfo.name || _opt.targetVehicle)
+                });
+                _resultMsg = '✅ ' + _pc.nextCustomer + ' → ' + (_altInfo.name || _opt.targetVehicle);
+            } else if (_opt.action === 'manual') {
+                _resultMsg = '✋ Manuell loesen vorgemerkt.';
+            }
+            await db.ref('pendingConflicts/' + _pendingId).update({
+                status: 'resolved',
+                resolvedAt: Date.now(),
+                resolvedBy: 'patrick-' + (callback.from?.id || '?'),
+                chosenOption: _optKey,
+                resultMsg: _resultMsg
+            });
+            await db.ref('conflictResolveLog').push({
+                ts: Date.now(), action: 'suggest-resolved',
+                pendingId: _pendingId, chosenOption: _optKey,
+                chosenAction: _opt.action, resultMsg: _resultMsg,
+                resolvedBy: callback.from?.id || '?'
+            }).catch(()=>{});
+            // Buttons entfernen + Bestaetigung anhängen
+            try {
+                await editTelegramMessage(callback.message.chat.id, callback.message.message_id,
+                    (callback.message.text || '') + '\n\n' + _resultMsg + '\n\nGewaehlt: [' + _optKey + '] ' + _opt.label,
+                    { reply_markup: { inline_keyboard: [] }, parse_mode: '' });
+            } catch (_e) { /* edit kann fail wenn parse_mode-issue, OK */ }
+            await answerCallbackQuery(callback.id);
+        } catch (_confErr) {
+            console.error('conf_ Handler Fehler:', _confErr.message);
+            await answerCallbackQuery(callback.id);
+        }
+        return;
+    }
+
     // Menü-Buttons
     if (data === 'menu_buchen') {
         let _buchenMsg = '🚕 <b>Neue Fahrt buchen</b>\n\n';
@@ -19033,19 +19133,110 @@ exports.autoResolveConflicts = onSchedule(
                         continue;
                     }
 
-                    // 🆕 v6.63.282 STUFE 2 (Patrick 11.06. 10:11 GO):
-                    //   Vor Vehicle-Swap erst TIME-SHIFT versuchen. Patrick's Regel:
-                    //   - vorherige Fahrt 5-15 Min frueher (curr)
-                    //   - nachfolgende Fahrt max 5 Min spaeter (next)
-                    //   - assignmentLocked + manuelle Zuweisungen NIE verschieben
-                    //   - Status accepted/picked_up/on_way NIE verschieben (Fahrer plant Anfahrt)
-                    //   - Feature-Flag /settings/dispatch/timeShiftEnabled (default true)
-                    let _timeShiftEnabled = true;
+                    // 🆕 v6.63.283 (Patrick 11.06. 10:18 'erst Halbautomatisch'):
+                    //   Modi:
+                    //   - 'suggest' (default): Telegram-Push mit [A/B/C/D/E] Buttons
+                    //   - 'auto': v6.63.282-Verhalten (direkt verschieben)
+                    //   - 'off': keine Konfliktloesung, nur silent log
+                    let _dispatchMode = 'suggest';
                     try {
-                        const _flagSnap = await db.ref('settings/dispatch/timeShiftEnabled').once('value');
-                        _timeShiftEnabled = _flagSnap.val() !== false; // default ON
-                    } catch(_) { /* default on */ }
+                        const _modeSnap = await db.ref('settings/dispatch/conflictMode').once('value');
+                        const _modeVal = _modeSnap.val();
+                        if (_modeVal === 'auto' || _modeVal === 'suggest' || _modeVal === 'off') {
+                            _dispatchMode = _modeVal;
+                        }
+                    } catch(_) { /* default suggest */ }
+                    const _timeShiftEnabled = (_dispatchMode === 'auto'); // alte API-Variable behalten
                     let _shiftResolved = false;
+
+                    // 🆕 v6.63.283 SUGGEST-MODE: nicht direkt verschieben, sondern Push mit Buttons
+                    if (_dispatchMode === 'suggest') {
+                        // Pruefe ob noch nicht bereits ein offener pendingConflict fuer dieses Paar
+                        try {
+                            const _pcSnap = await db.ref('pendingConflicts')
+                                .orderByChild('pairKey')
+                                .equalTo(curr.firebaseId + '|' + next.firebaseId)
+                                .once('value');
+                            const _existing = _pcSnap.val() || {};
+                            const _hasOpen = Object.values(_existing).some(p => p && p.status === 'open' && (Date.now() - (p.createdAt || 0)) < 60 * 60 * 1000);
+                            if (_hasOpen) {
+                                console.log(`   ⏸ Suggest-Mode: offener pendingConflict bereits da fuer ${curr.firebaseId}|${next.firebaseId}, skip`);
+                                continue;
+                            }
+                        } catch (_) { /* tolerant */ }
+                        // 5 Optionen aufbauen
+                        const _gapNeededMin = overlapMin + 1;
+                        const _options = [];
+                        const _currCanShift =
+                            !['accepted','picked_up','on_way','completed','cancelled','deleted','storniert'].includes(curr.status) &&
+                            curr.assignmentLocked !== true &&
+                            !(curr.assignedBy || '').startsWith('claude-manual-') &&
+                            !(curr.assignedBy || '').startsWith('manual-admin');
+                        const _nextCanShift =
+                            !['accepted','picked_up','on_way','completed','cancelled','deleted','storniert'].includes(next.status) &&
+                            next.assignmentLocked !== true &&
+                            !(next.assignedBy || '').startsWith('claude-manual-') &&
+                            !(next.assignedBy || '').startsWith('manual-admin');
+                        // PRIO 1: curr frueher
+                        if (_currCanShift) {
+                            _options.push({ key: 'A', label: `${curr.customerName || '?'} ${currTime} → -5 Min`, action: 'shift-curr', shiftMin: -5 });
+                            if (_gapNeededMin > 5) {
+                                _options.push({ key: 'B', label: `${curr.customerName || '?'} ${currTime} → -10 Min`, action: 'shift-curr', shiftMin: -10 });
+                            }
+                        }
+                        // PRIO 2: next spaeter
+                        if (_nextCanShift) {
+                            _options.push({ key: 'C', label: `${next.customerName || '?'} ${nextTime} → +5 Min`, action: 'shift-next', shiftMin: 5 });
+                        }
+                        // PRIO 3: Vehicle-Swap (nur wenn Alternative existiert)
+                        const _altPreview = findAlternativeVehicle(next, vehicleId, allRides, shiftsData, dateStr, pricingSettings, vehiclePriorities);
+                        if (_altPreview) {
+                            const _altName = OFFICIAL_VEHICLES[_altPreview]?.name || _altPreview;
+                            _options.push({ key: 'D', label: `${next.customerName || '?'} → ${_altName}`, action: 'vehicle-swap', targetVehicle: _altPreview });
+                        }
+                        _options.push({ key: 'E', label: 'Manuell loesen', action: 'manual' });
+                        // pendingConflict speichern
+                        const _pcRef = db.ref('pendingConflicts').push();
+                        const _pendingId = _pcRef.key;
+                        await _pcRef.set({
+                            currRideId: curr.firebaseId,
+                            nextRideId: next.firebaseId,
+                            currCustomer: curr.customerName || '?',
+                            nextCustomer: next.customerName || '?',
+                            currTime, nextTime,
+                            vehicle: vehicleId,
+                            vehicleName: vName,
+                            overlapMin,
+                            options: _options,
+                            pairKey: curr.firebaseId + '|' + next.firebaseId,
+                            status: 'open',
+                            createdAt: Date.now()
+                        });
+                        // Telegram-Push mit Buttons
+                        try {
+                            const _inlineKb = _options.map(o => [{
+                                text: `[${o.key}] ${o.label}`,
+                                callback_data: `conf_${_pendingId}_${o.key}`
+                            }]);
+                            const _msg = `🚨 *Konflikt erkannt*\n\n` +
+                                `Fahrzeug: ${vName}\n` +
+                                `${currTime} ${curr.customerName || '?'} ⇄ ${nextTime} ${next.customerName || '?'}\n` +
+                                `Overlap: ${overlapMin} Min${leerfahrtInfo}\n\n` +
+                                `Bitte waehlen:`;
+                            await sendToAllAdmins(_msg, 'conflict-suggest', { reply_markup: { inline_keyboard: _inlineKb } });
+                            await db.ref('conflictResolveLog').push({
+                                ts: Date.now(), action: 'suggest-push',
+                                pendingId: _pendingId,
+                                currRideId: curr.firebaseId, nextRideId: next.firebaseId,
+                                vehicle: vehicleId, overlapMin,
+                                optionCount: _options.length
+                            }).catch(()=>{});
+                            console.log(`   📨 Suggest-Push fuer Konflikt ${vName} ${currTime}/${nextTime} - pendingId=${_pendingId}`);
+                        } catch (_pushErr) {
+                            console.warn('Suggest-Push fail:', _pushErr.message);
+                        }
+                        continue; // Auf Patrick warten, kein Auto-Aktion
+                    }
                     if (_timeShiftEnabled) {
                         // Wieviel Overlap muss weg? earliestArrivalMs - nextStartMs
                         const _gapNeededMin = overlapMin + 1; // 1 Min Puffer

@@ -51,6 +51,16 @@ jobs:
       - name: 📦 GitHub Pages Setup
         uses: actions/configure-pages@v4
 
+      # 🆕 11.06.2026 Patrick 05:54 'Run failed' bei Attempt #2:
+      # Bei Re-Runs entsteht ein zweites Artifact 'github-pages' (Bug
+      # https://github.com/actions/upload-pages-artifact/issues/86).
+      # Loesche bestehende erst, dann upload neu.
+      - name: 🧹 Alte github-pages Artifacts loeschen
+        uses: geekyeggo/delete-artifact@v5
+        with:
+          name: github-pages
+          failOnError: false
+
       - name: 📤 Upload Artifact
         uses: actions/upload-pages-artifact@v3
         with:

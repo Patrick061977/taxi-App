@@ -1248,16 +1248,29 @@ public class CrmSearchActivity extends AppCompatActivity {
         _pd.setMessage("Lade Fahrten…");
         _pd.setCancelable(false);
         _pd.show();
-        FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("rides")
-            .orderByChild("customerId").equalTo(e.id).limitToLast(50)
-            .get().addOnCompleteListener(task -> {
+        // 🆕 v6.63.288 (Patrick 11.06. 15:17 'nach der Verschiebung der rides war die history weg'):
+        //   Archive-Cron v6.63.238 verschiebt completed-Rides >24h aus /rides nach /archiveRides.
+        //   Native las nur /rides → History weg. Jetzt parallel beides + merge.
+        com.google.android.gms.tasks.Task<DataSnapshot> _ridesTask =
+            FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("rides")
+                .orderByChild("customerId").equalTo(e.id).limitToLast(50)
+                .get();
+        com.google.android.gms.tasks.Task<DataSnapshot> _archiveTask =
+            FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("archiveRides")
+                .orderByChild("customerId").equalTo(e.id).limitToLast(150)
+                .get();
+        com.google.android.gms.tasks.Tasks.whenAllComplete(_ridesTask, _archiveTask).addOnCompleteListener(allTask -> {
                 _pd.dismiss();
-                if (!task.isSuccessful() || task.getResult() == null) {
+                if ((!_ridesTask.isSuccessful() || _ridesTask.getResult() == null) &&
+                    (!_archiveTask.isSuccessful() || _archiveTask.getResult() == null)) {
                     Toast.makeText(this, "❌ Konnte Fahrten nicht laden", Toast.LENGTH_LONG).show();
                     return;
                 }
                 List<Map<String, Object>> rides = new ArrayList<>();
-                for (DataSnapshot s : task.getResult().getChildren()) {
+                final java.util.Set<String> _seenIds = new java.util.HashSet<>();
+                java.util.function.Consumer<DataSnapshot> _processSnap = (snap) -> {
+                    if (snap == null) return;
+                    for (DataSnapshot s : snap.getChildren()) {
                     // 🔧 v6.62.738 (Patrick 17.05. 19:55): Komplette Ride als Map laden statt
                     //   Field-by-Field. So enthaelt rideListEntry ALLES (auch lifecycleLog,
                     //   notes, vehicleScores etc.) und der Disposition-Pfad-Cache-Bug
@@ -1281,7 +1294,34 @@ public class CrmSearchActivity extends AppCompatActivity {
                     // pickupTimestamp typisiert (war Long-Sortier-Schluessel)
                     Long _ts = s.child("pickupTimestamp").getValue(Long.class);
                     r.put("pickupTimestamp", _ts != null ? _ts : 0L);
+                    // 🆕 v6.63.288: Duplikat-Schutz (falls archiveRides + rides ein eintraegen
+                    //   doppelt haben). Plus _fromArchive-Flag fuer UI-Hinweis.
+                    if (_seenIds.contains(s.getKey())) continue;
+                    _seenIds.add(s.getKey());
                     rides.add(r);
+                    }
+                };
+                if (_ridesTask.isSuccessful()) _processSnap.accept(_ridesTask.getResult());
+                if (_archiveTask.isSuccessful()) {
+                    final DataSnapshot _archiveSnap = _archiveTask.getResult();
+                    // Markiere Archiv-Rides damit UI sie als 'Archiv' zeigen kann
+                    if (_archiveSnap != null) {
+                        for (DataSnapshot s : _archiveSnap.getChildren()) {
+                            if (_seenIds.contains(s.getKey())) continue;
+                            Object _rawVal = s.getValue();
+                            Map<String, Object> r = (_rawVal instanceof Map) ? new HashMap<>((Map<String, Object>) _rawVal) : new HashMap<>();
+                            r.put("id", s.getKey());
+                            r.put("_fromArchive", true);
+                            String _pickupTyped = s.child("pickup").getValue(String.class);
+                            String _destTyped = s.child("destination").getValue(String.class);
+                            if (_pickupTyped != null) r.put("pickup", _pickupTyped);
+                            if (_destTyped != null) r.put("destination", _destTyped);
+                            Long _ts = s.child("pickupTimestamp").getValue(Long.class);
+                            r.put("pickupTimestamp", _ts != null ? _ts : 0L);
+                            _seenIds.add(s.getKey());
+                            rides.add(r);
+                        }
+                    }
                 }
                 // Neueste zuerst
                 rides.sort((a, b) -> Long.compare((Long) b.get("pickupTimestamp"), (Long) a.get("pickupTimestamp")));

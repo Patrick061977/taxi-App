@@ -154,6 +154,65 @@ Jetzt fixen? Ja/Nein
 
 ---
 
+## ⚖️ KONFLIKT-LÖSUNG — Regelkatalog (WICHTIG!)
+
+Patrick (10.06.2026 16:37 + 18:13): "Wir brauchen eine FAQ für Konfliktlösungen. Eigentlich gibt es ja gar nicht so viele." Hier sein Regelkatalog für `autoResolveConflicts` und manuelle Disposition:
+
+### Grundprinzip — Minimum-Disruption
+Bei einem Konflikt so wenig wie möglich umverteilen. Lieber **eine Fahrt um 5-15 Min verschieben** als zwei Fahrzeuge umzuplanen. Berechnete Zeiten im Protokoll sichtbar machen.
+
+### Toleranzen für Zeit-Verschiebung
+- **Vorherige Fahrt früher**: erlaubt 5–15 Min nach vorn (Patrick 10.06.: "früher geht immer 10 bis 15 Minuten")
+- **Folgefahrt später**: maximal 5 Min nach hinten (Patrick 10.06.: "später maximal 5 Minuten")
+- **Bahnhofsfahrten sind FIX** (Patrick 07.06.): Pickup/Dropoff am Bahnhof = nicht verschieben. Anderes Fahrzeug muss ausweichen.
+
+### Vorlauf-Filter — 30 Min Hard-Cutoff
+- `settings/pricing/autoOptimierungVorlaufMinuten = 30` (Patrick 10.06. 16:16)
+- Unterhalb 30 Min Pickup-Vorlauf: KEINE Auto-Umplanung mehr. Fahrer hat schon Anfahrt geplant. Patrick entscheidet manuell.
+- Ausnahme: bei echtem Doppelbelegungs-Konflikt darf der Konflikt-Scanner v6.63.275 Rides auch <30 Min in den Pool aufnehmen — aber: 30 Min ist Mindest-Vorlauf für Reassign (5-Min-Override raus).
+
+### Schichtplan = FAHRZEUG, NICHT FAHRER (Patrick 09.06. 20:59)
+- Nie "Kulpa kein Dienst" sagen — immer "Prius IK kein Dienst" / "Vito kein Dienst"
+- Auto-Assign + Schichtplan-Validierung richten sich nach `vehicleShifts/{vid}`, nicht nach Fahrer-ID
+- Vorbestellung nur an Fahrzeuge die laut Schichtplan zur Pickup-Zeit im Dienst sind (online-Status reicht NICHT)
+
+### Lock-Schutz — Patrick-Entscheidung kompromisslos respektieren
+- `assignmentLocked === true` → Phase 0/2/3 + autoResolveConflicts NIE umverteilen
+- `assignedBy` startsWith `claude-manual-` oder `manual-admin` oder `native_dashboard_grab` → wie Lock
+- 15-Min-Heartbeat-Grace (Phase 0 v6.63.261): wenn vehicle.shift.lastHeartbeat <15 Min alt → kein Reassign (App-Update-Schutz)
+
+### First-Come-First-Served Dispo (Patrick 07.06.)
+- Frühere Pickup-Zeit hat IMMER Vorrang
+- Spätere Fahrt muss ausweichen (Re-Assign / Zeit-Vorschlag / Vito-Schicht-Vorschlag)
+- Bahnhofsfahrt + FCFS = wenn 2 Bahnhofsfahrten kollidieren: die zuerst gebuchte gewinnt
+
+### Phase-Hierarchie in autoResolveConflicts
+1. **Phase -1 / -2**: unzugewiesene Vorbestellungen + Duration-Reparatur (vor Konflikt-Check)
+2. **Phase 0**: Schicht-Validierung. Fahrzeug ohne Dienst zur Pickup-Zeit → Alternative suchen
+3. **Phase 1**: Zeit-Konflikt-Auflösung (curr-Ende + Leerfahrt > next-Start)
+4. **Phase 2**: Auto-Optimize wenn besseres Fahrzeug verfügbar (60-Min-Cooldown gegen Ping-Pong)
+5. **Phase 3 Prio-Time-Re-Sort**: höher priorisiertes Fahrzeug, wenn frei (60-Min-Cooldown ebenfalls)
+
+### Konflikt-Erkennung-Logik (v6.63.273)
+- `slotsPerVehicle` muss aus ALLEN aktiven Assignments gebaut werden (nicht nur fixedRides) → sonst übersieht Phase 3 Konflikte zwischen reassignable-Rides
+- Bei Iteration: eigenen Slot per `firebaseId` ausfiltern — robust bei identischen `pickupTimestamps`
+
+### Eskalations-Reihenfolge bei NICHT-lösbarem Konflikt
+1. Time-Shift versuchen (5-15 Min früher / max 5 Min später)
+2. Vehicle-Swap zwischen kompatiblen Fahrzeugen
+3. Wartepool + Push an Admin ("manuelle Entscheidung nötig")
+4. Niemals eigenmächtig stornieren oder doppelt belegen
+
+### Memory-Quervergleich
+- [Konflikt-Loesung Minimum-Disruption](memory/feedback_konflikt-minimum-disruption.md)
+- [First-Come-First-Served Dispo](memory/feedback_first-come-first-served-dispo.md)
+- [Konflikt-Lösung 10-15 Min auseinanderziehen](memory/feedback_konflikt-15min-auseinander.md)
+- [Schichtplan ist FAHRZEUG, nicht Fahrer](memory/feedback_schichtplan-ist-fahrzeug-nicht-fahrer.md)
+- [Vorbestellung nur an Fahrzeuge im Schichtplan](memory/feedback_vorbestellung-schichtplan-pflicht.md)
+- [NIE eigenmächtig Fahrzeuge zuweisen](memory/feedback_no-auto-assign.md)
+
+---
+
 ## 🏨 Hotel Residenz Bug — Ursache & Prävention
 
 ### Was ist passiert:

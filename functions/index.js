@@ -18913,8 +18913,11 @@ exports.autoResolveConflicts = onSchedule(
                                     // 🆕 v6.63.298: Konkretes Logging + Flag erst nach Erfolg setzen
                                     console.log(`🚨 v6.63.298 Wartepool-Resolver START fuer ${ride.firebaseId} (${ride.customerName||'?'})`);
                                     try {
-                                        const _options = await buildWartepoolOptions(ride, allRides, vehicles, shiftsData);
-                                        console.log(`   v6.63.298 buildOptions OK: ${_options.length} Optionen`);
+                                        // 🐛 v6.63.299 (Patrick 11.06. 22:15 — Log zeigte 'vehicles is not defined'):
+                                        //   autoResolveConflicts hat keine vehicles-Variable im Scope, nur shiftsData.
+                                        //   buildWartepoolOptions nutzt vehicles intern aktuell nicht — leeres Objekt reicht.
+                                        const _options = await buildWartepoolOptions(ride, allRides, {}, shiftsData);
+                                        console.log(`   v6.63.299 buildOptions OK: ${_options.length} Optionen`);
                                         const _pcRef = db.ref('pendingConflicts').push();
                                         const _pendingId = _pcRef.key;
                                         await _pcRef.set({

@@ -1837,6 +1837,17 @@ public class CrmSearchActivity extends AppCompatActivity {
         //   im Edit-Modus (Patrick: 'vergangene fahrten kopieren für die zukunft als
         //   fahrt anlegen' — also Vorlage). isEdit bleibt false → Save = push neue.
         final boolean hasTemplate = (editRide != null);
+        // 🆕 v6.63.289 (Patrick 11.06. 16:08 'wenn ich die Aufnahmen abspiele und im
+        //   Vorbestellen-Modal kommt nicht mehr dass ich das Gespraech abspielen kann'):
+        //   bei Edit/Template aus CRM-Ride die audioRecordingPath aus der Ride ziehen
+        //   damit Audio-Box unten (Z.1884+) angezeigt wird. _pendingRecordingPath ist
+        //   die Intent-Variable, hier setzen wir sie auf den Ride-Wert.
+        if (_pendingRecordingPath == null && hasTemplate) {
+            Object _rideRecPath = editRide.get("audioRecordingPath");
+            if (_rideRecPath instanceof String && !((String)_rideRecPath).isEmpty()) {
+                _pendingRecordingPath = (String) _rideRecPath;
+            }
+        }
         final boolean isHotel = isAuftraggeberCrm(e);
         LinearLayout layout = new LinearLayout(this);
         layout.setOrientation(LinearLayout.VERTICAL);

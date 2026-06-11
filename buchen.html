@@ -2301,7 +2301,14 @@
                                     if (_bestKm > 1 && _bestKm < 100) {
                                         // v6.63.104 (Patrick 03.06. 08:18 "krumme Uhrzeiten,
                                         //   immer in 5-Min-Schritten"): auf nächste 5-Min runden
-                                        const _raw = _bestKm * 1.4 / 35 * 60;
+                                        // 🆕 v6.63.278 (Patrick 11.06. 07:24 "Wartezeit 12 Min
+                                        //   obwohl ich in Greifswald bin 60-70 Min weg"):
+                                        //   Faktor 1.4 zu optimistisch fuer Landstrassen-Routen
+                                        //   (Greifswald → Heringsdorf via B109/B110 hat viele
+                                        //   Ortsdurchfahrten). landing.html nutzt OSRM-Routing.
+                                        //   Quick-Fix Faktor 1.7. Plus: OSRM-Refine asynchron
+                                        //   ueberschreibt unten den Text mit echter Routing-Min.
+                                        const _raw = _bestKm * 1.7 / 35 * 60;
                                         _minFreeWaitMin = Math.max(5, Math.round(_raw / 5) * 5);
                                     }
                                 }
@@ -2317,6 +2324,33 @@
                                     bar.className = 'status-bar online';
                                     bar.style.background = '';
                                     bar.style.color = '';
+                                    // 🆕 v6.63.278: OSRM-Refine async — Haversine ist Approx,
+                                    //   OSRM zeigt echte Strassenroute. analog landing.html.
+                                    if (typeof fetchOSRMDuration === 'function') {
+                                        let _bestVehInfo = null;
+                                        for (const [_vid, _vInfo] of Object.entries(_gpsOnlineVehicles || {})) {
+                                            if (!OFFICIAL_VEHICLES[_vid]) continue;
+                                            if (_busyVehiclesSet.has(_vid)) continue;
+                                            if (!_vInfo || _vInfo.online === false) continue;
+                                            if (!_vInfo.lat || !_vInfo.lon) continue;
+                                            const _gpsAgeMin = _vInfo.timestamp ? (Date.now() - _vInfo.timestamp) / 60000 : 9999;
+                                            if (_gpsAgeMin > 10) continue;
+                                            const _dLat = (_vInfo.lat - _CENTER_LAT) * Math.PI / 180;
+                                            const _dLon = (_vInfo.lon - _CENTER_LON) * Math.PI / 180;
+                                            const _aH = Math.sin(_dLat/2)**2 + Math.cos(_vInfo.lat*Math.PI/180)*Math.cos(_CENTER_LAT*Math.PI/180)*Math.sin(_dLon/2)**2;
+                                            const _km = 6371 * 2 * Math.atan2(Math.sqrt(_aH), Math.sqrt(1-_aH));
+                                            if (!_bestVehInfo || _km < _bestVehInfo._km) _bestVehInfo = { ..._vInfo, _km };
+                                        }
+                                        if (_bestVehInfo) {
+                                            fetchOSRMDuration(_bestVehInfo.lat, _bestVehInfo.lon, _CENTER_LAT, _CENTER_LON).then(osrmMin => {
+                                                if (!osrmMin || osrmMin < 1) return;
+                                                const _refined = Math.max(5, Math.round(osrmMin / 5) * 5);
+                                                if (Math.abs(_refined - _minFreeWaitMin) >= 5) {
+                                                    bar.textContent = `🚕 Wartezeit ca. ${_refined} Min`;
+                                                }
+                                            }).catch(()=>{});
+                                        }
+                                    }
                                 } else if (_earliestFreeMs) {
                                     // v6.63.099 (Patrick 03.06. 07:46 "auch bevor ich Pickup
                                     //   eingeklickt habe"): GELB statt grün wenn keine Fahrer

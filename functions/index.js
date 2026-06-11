@@ -26867,7 +26867,12 @@ exports.onRideUpdated = onValueUpdated(
                     customerName: after.customerName || after.guestName || _billingName || _custData.name || 'Kunde',
                     guestName: (after.customerName && after.guestName && after.customerName !== after.guestName) ? after.guestName : '',
                     customerAnrede: _custData.anrede || '',
-                    customerAddress: _billingAddrStr || _custData.billingAddress || _custData.address || '',
+                    // 🆕 v6.63.293 (Patrick 11.06. 19:09): invoiceAddress als oberste Prio.
+                    //   CRM-Edit-Dialog hat in v6.63.292 ein 'Rechnungsadresse' Feld bekommen
+                    //   das in /customers/{id}/invoiceAddress speichert. Wenn gesetzt: vor
+                    //   billingAddress + address. So kann Patrick gezielt Rechnungs-spezifische
+                    //   Adresse pflegen ohne Stamm-Adresse zu aendern.
+                    customerAddress: _billingAddrStr || _custData.invoiceAddress || _custData.billingAddress || _custData.address || '',
                     customerEmail: _custData.email || after.customerEmail || '',
                     customerPhone: after.customerPhone || after.customerMobile || _custData.mobilePhone || _custData.phone || '',
                     customerKundennummer: _custData.kundennummer || '',

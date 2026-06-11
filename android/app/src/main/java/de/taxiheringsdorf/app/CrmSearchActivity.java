@@ -987,6 +987,9 @@ public class CrmSearchActivity extends AppCompatActivity {
             opts.add("↩️ Zurueck auf versendet");
             actionIds.add(5);
         }
+        // 🆕 v6.63.293 (Patrick 11.06. 19:09): Rechnung neu generieren wenn Adresse korrigiert
+        opts.add("🔄 PDF neu generieren (mit aktueller CRM-Adresse)");
+        actionIds.add(6);
 
         new AlertDialog.Builder(this)
             .setTitle(sb.toString())
@@ -1013,7 +1016,45 @@ public class CrmSearchActivity extends AppCompatActivity {
                     case 5:
                         updateInvoicePaymentStatus(invPath, rideId, "versendet", num);
                         break;
+                    case 6:
+                        regenerateInvoicePdf(invPath, rideId, num, e);
+                        break;
                 }
+            })
+            .setNegativeButton("Abbrechen", null)
+            .show();
+    }
+
+    // 🆕 v6.63.293 (Patrick 11.06. 19:09): PDF neu generieren wenn Adresse korrigiert.
+    //   1. Patcht /invoices/{invPath}/customerAddress + customerName/anrede/email aus CRM
+    //   2. Setzt pdfUrl = null und pdfNeedsRegeneration = true
+    //   3. Cloud-Function generateInvoicePdf triggert auto und schreibt neuen PDF
+    private void regenerateInvoicePdf(String invPath, String rideId, String num, CrmEntry e) {
+        final String _newAddr = (e.invoiceAddress != null && !e.invoiceAddress.isEmpty())
+            ? e.invoiceAddress : (e.address != null ? e.address : "");
+        if (_newAddr.isEmpty()) {
+            new AlertDialog.Builder(this)
+                .setTitle("⚠️ Keine Rechnungsadresse")
+                .setMessage("Bitte erst im CRM-Eintrag eine Rechnungsadresse oder Stammadresse eintragen.")
+                .setPositiveButton("OK", null).show();
+            return;
+        }
+        new AlertDialog.Builder(this)
+            .setTitle("🔄 PDF neu generieren")
+            .setMessage("Rechnung " + num + " wird mit der neuen Adresse erstellt:\n\n" + _newAddr)
+            .setPositiveButton("✅ Ja, neu generieren", (d, w) -> {
+                Map<String, Object> upd = new HashMap<>();
+                upd.put("customerAddress", _newAddr);
+                if (e.name != null) upd.put("customerName", e.name);
+                if (e.anrede != null) upd.put("customerAnrede", e.anrede);
+                if (e.email != null) upd.put("customerEmail", e.email);
+                upd.put("pdfUrl", null);
+                upd.put("pdfNeedsRegeneration", true);
+                upd.put("addressUpdatedAt", System.currentTimeMillis());
+                upd.put("addressUpdatedBy", "native-crm-correct-v6.63.293");
+                FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference(invPath).updateChildren(upd)
+                    .addOnSuccessListener(_v -> Toast.makeText(this, "✅ Rechnung wird neu erstellt (Cloud-Function ~30s)", Toast.LENGTH_LONG).show())
+                    .addOnFailureListener(ex -> Toast.makeText(this, "❌ Fehler: " + ex.getMessage(), Toast.LENGTH_LONG).show());
             })
             .setNegativeButton("Abbrechen", null)
             .show();

@@ -2228,6 +2228,11 @@
                                     let _totalMin = 0;
                                     let _cLat = _vInfo.lat, _cLon = _vInfo.lon;
                                     const _vRides = _ridesByVehicle[_vid] || [];
+                                    // 🆕 v6.63.279 (Patrick 11.06. 07:43 'zeigt nur Restzeit zum
+                                    //   Ziel, NICHT Rueckfahrt zum Zentrum'): Debug-Log damit
+                                    //   Patrick im Browser-DevTools sehen kann wo die Rechnung
+                                    //   abreisst.
+                                    const _dbg = { vid: _vid, gps: [_cLat, _cLon], legs: [] };
                                     for (const _r of _vRides) {
                                         const _dLat = _r.destinationLat || (_r.destCoords && _r.destCoords.lat);
                                         const _dLon = _r.destinationLon || (_r.destCoords && _r.destCoords.lon);
@@ -2235,33 +2240,50 @@
                                         const _rpLon = _r.pickupLon || (_r.pickupCoords && _r.pickupCoords.lon);
                                         if (['picked_up', 'in_progress'].includes(_r.status)) {
                                             if (_dLat && _dLon) {
-                                                _totalMin += await fetchOSRMDuration(_cLat, _cLon, _dLat, _dLon) + _PUFFER_MIN;
+                                                const _leg = await fetchOSRMDuration(_cLat, _cLon, _dLat, _dLon);
+                                                _dbg.legs.push({ from:'GPS', to:'Drop', min:_leg, status:_r.status });
+                                                _totalMin += _leg + _PUFFER_MIN;
                                                 _cLat = _dLat; _cLon = _dLon;
                                             }
                                         } else if (_r.status === 'on_way') {
                                             if (_rpLat && _rpLon) {
-                                                _totalMin += await fetchOSRMDuration(_cLat, _cLon, _rpLat, _rpLon) + _PUFFER_MIN;
+                                                const _leg = await fetchOSRMDuration(_cLat, _cLon, _rpLat, _rpLon);
+                                                _dbg.legs.push({ from:'GPS', to:'Pickup', min:_leg, status:_r.status });
+                                                _totalMin += _leg + _PUFFER_MIN;
                                                 _cLat = _rpLat; _cLon = _rpLon;
                                             }
                                             if (_dLat && _dLon) {
-                                                _totalMin += await fetchOSRMDuration(_cLat, _cLon, _dLat, _dLon) + _PUFFER_MIN;
+                                                const _leg = await fetchOSRMDuration(_cLat, _cLon, _dLat, _dLon);
+                                                _dbg.legs.push({ from:'Pickup', to:'Drop', min:_leg });
+                                                _totalMin += _leg + _PUFFER_MIN;
                                                 _cLat = _dLat; _cLon = _dLon;
                                             }
                                         } else {
                                             // accepted/assigned/sofort/arrived — nur einrechnen wenn Pickup < 30 min in Zukunft
                                             if (_r.pickupTimestamp && (_r.pickupTimestamp - _nowMs) > 30 * 60000) continue;
                                             if (_rpLat && _rpLon) {
-                                                _totalMin += await fetchOSRMDuration(_cLat, _cLon, _rpLat, _rpLon) + _PUFFER_MIN;
+                                                const _leg = await fetchOSRMDuration(_cLat, _cLon, _rpLat, _rpLon);
+                                                _dbg.legs.push({ from:'GPS', to:'Pickup', min:_leg, status:_r.status });
+                                                _totalMin += _leg + _PUFFER_MIN;
                                                 _cLat = _rpLat; _cLon = _rpLon;
                                             }
                                             if (_dLat && _dLon) {
-                                                _totalMin += await fetchOSRMDuration(_cLat, _cLon, _dLat, _dLon) + _PUFFER_MIN;
+                                                const _leg = await fetchOSRMDuration(_cLat, _cLon, _dLat, _dLon);
+                                                _dbg.legs.push({ from:'Pickup', to:'Drop', min:_leg });
+                                                _totalMin += _leg + _PUFFER_MIN;
                                                 _cLat = _dLat; _cLon = _dLon;
                                             }
                                         }
                                     }
                                     // Rückfahrt vom letzten Drop zum Zentrum
-                                    _totalMin += await fetchOSRMDuration(_cLat, _cLon, _CENTER_LAT, _CENTER_LON);
+                                    const _ruckMin = await fetchOSRMDuration(_cLat, _cLon, _CENTER_LAT, _CENTER_LON);
+                                    _dbg.legs.push({ from:'LastDrop', to:'CENTER', min:_ruckMin });
+                                    _totalMin += _ruckMin;
+                                    _dbg.totalMin = Math.round(_totalMin);
+                                    // 🆕 v6.63.279 console.info damit Patrick im DevTools sieht
+                                    //   wo welche Minuten herkommen. Bei 'Wartezeit zu niedrig'
+                                    //   sieht man sofort welcher OSRM-Call 0 zurueckgab.
+                                    try { console.info('[v6.63.279 BUSY-ETA]', JSON.stringify(_dbg)); } catch(_){}
                                     return _nowMs + Math.max(2, Math.round(_totalMin)) * 60000;
                                 }));
                                 for (const _ms of _busyEtas) {

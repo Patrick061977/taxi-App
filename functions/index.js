@@ -4586,12 +4586,26 @@ async function calculateRoute(from, to, waypointCoords = []) {
             console.warn('⚠️ Kein Google-Maps-API-Key in settings/googleMapsApiKey — Skip Google, direkt OSRM');
             throw new Error('No API key');
         }
+        // 🆕 v6.63.285 (Patrick 11.06. 14:07/14:18 GO): Routen-Mode konfigurierbar
+        //   settings/dispatch/routeMode (default 'fastest'):
+        //   - 'fastest':           TRAFFIC_AWARE - schnellste mit Verkehr (default)
+        //   - 'fastest-no-traffic': TRAFFIC_UNAWARE - planbarer, keine Stau-Aufschlaege
+        //   - 'distance-optimized': TRAFFIC_UNAWARE + avoidTolls/avoidHighways - kuerzeste km
+        let _routeMode = 'fastest';
+        try {
+            const _modeSnap = await db.ref('settings/dispatch/routeMode').once('value');
+            const _v = _modeSnap.val();
+            if (_v === 'fastest-no-traffic' || _v === 'distance-optimized') _routeMode = _v;
+        } catch(_) { /* default fastest */ }
         const body = {
             origin: { location: { latLng: { latitude: from.lat, longitude: from.lon } } },
             destination: { location: { latLng: { latitude: to.lat, longitude: to.lon } } },
             travelMode: 'DRIVE',
-            routingPreference: 'TRAFFIC_AWARE'
+            routingPreference: _routeMode === 'fastest' ? 'TRAFFIC_AWARE' : 'TRAFFIC_UNAWARE'
         };
+        if (_routeMode === 'distance-optimized') {
+            body.routeModifiers = { avoidTolls: true, avoidHighways: true };
+        }
         if (waypointCoords && waypointCoords.length > 0) {
             body.intermediates = waypointCoords.map(wp => ({
                 location: { latLng: { latitude: wp.lat, longitude: wp.lon } }

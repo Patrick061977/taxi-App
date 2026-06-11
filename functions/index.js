@@ -20613,6 +20613,13 @@ exports.scheduledProposeLongestFirst = onSchedule(
                 const conflicts = assigned.filter(a => {
                     if (a.distance >= wp.distance) return false;
                     if (Math.abs(a.pickupTs - wp.pickupTs) > KONFLIKT_FENSTER_MS) return false;
+                    // 🆕 v6.63.290 (Patrick 11.06. 17:11 'warum 4-Sitzer auf 8 Personen?'):
+                    //   KAPAZITAETS-CHECK fehlte komplett. Holl 8 Pax wurde auf Prius IK
+                    //   (4 Sitzer) gelegt nur weil seine Strecke laenger war. Krasser Bug.
+                    //   Jetzt: victim-Vehicle MUSS Kapazitaet fuer Wartepool-Ride haben.
+                    const _victimCap = (OFFICIAL_VEHICLES[a.vehicleId] || {}).capacity || 4;
+                    const _wpPax = parseInt(wp.ride.passengers || 1);
+                    if (_victimCap < _wpPax) return false;
                     // ECHTER Zeit-Konflikt-Check: prüfe ob Wagen beide nacheinander schafft.
                     // Wenn die eine Fahrt (mit 30 Min Puffer fuer Rueckweg) endet bevor die andere
                     // startet → KEIN Konflikt, KEIN Verdraengen noetig.

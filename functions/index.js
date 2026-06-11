@@ -18893,9 +18893,13 @@ exports.autoResolveConflicts = onSchedule(
                                 //   noch nicht 'gepusht' wurden (per Flag wartepoolResolverPushed).
                                 //   v6.63.291 hat den Push nur beim ERSTEN Eintritt gemacht — Rides
                                 //   die VOR v6.63.291 schon im Wartepool waren, bekamen nie einen.
+                                // 🆕 v6.63.298 (Patrick 11.06. 21:39 'Wartepool wird trotzdem nicht
+                                //   aufgeloest'): Flag NICHT mehr vorab setzen — wird erst NACH
+                                //   erfolgreichem pendingConflicts.set+sendToAllAdmins gesetzt.
+                                //   Vorher konnte buildWartepoolOptions werfen und der Flag war schon
+                                //   true → kein Retry mehr moeglich.
                                 if (!_wartepoolJustEntered && ride.status === 'wartepool' && !ride.wartepoolResolverPushed) {
                                     _wartepoolJustEntered = true;
-                                    _upd.wartepoolResolverPushed = true;
                                 }
                                 await db.ref(`rides/${ride.firebaseId}`).update(_upd);
                                 // 🆕 v6.62.705: Telegram-Push beim Eintritt in Wartepool. Patrick
@@ -18906,8 +18910,11 @@ exports.autoResolveConflicts = onSchedule(
                                     // 🆕 v6.63.291 (Patrick 11.06. 17:51 'Wartepool ist auch Konflikt'):
                                     //   Resolver-Aufruf: Time-Shift-Probe gegen umliegende assigned Rides.
                                     //   Patrick-Regel: -5, -10, +5 Min. (Minus 15 raus, zu viel.)
+                                    // 🆕 v6.63.298: Konkretes Logging + Flag erst nach Erfolg setzen
+                                    console.log(`🚨 v6.63.298 Wartepool-Resolver START fuer ${ride.firebaseId} (${ride.customerName||'?'})`);
                                     try {
                                         const _options = await buildWartepoolOptions(ride, allRides, vehicles, shiftsData);
+                                        console.log(`   v6.63.298 buildOptions OK: ${_options.length} Optionen`);
                                         const _pcRef = db.ref('pendingConflicts').push();
                                         const _pendingId = _pcRef.key;
                                         await _pcRef.set({
@@ -18920,6 +18927,7 @@ exports.autoResolveConflicts = onSchedule(
                                             status: 'open',
                                             createdAt: Date.now()
                                         });
+                                        console.log(`   v6.63.298 pendingConflict gespeichert: ${_pendingId}`);
                                         const _pickupAtStr = ride.pickupTimestamp
                                             ? new Date(ride.pickupTimestamp).toLocaleString('de-DE', { timeZone: 'Europe/Berlin' })
                                             : (ride.pickupTime || '?');
@@ -18932,17 +18940,26 @@ exports.autoResolveConflicts = onSchedule(
                                             `Abholung: ${_pickupAtStr}\n\n` +
                                             (_options.length > 1 ? 'Bitte waehlen:' : 'Kein automatischer Loesungsweg, bitte manuell:');
                                         await sendToAllAdmins(_msg, 'wartepool-suggest', { reply_markup: { inline_keyboard: _inlineKb } });
+                                        console.log(`   v6.63.298 sendToAllAdmins durch — ${_options.length} Optionen, pendingId=${_pendingId}`);
+                                        // 🆕 v6.63.298: Flag erst HIER setzen, nach erfolgreichem Push
+                                        await db.ref(`rides/${ride.firebaseId}/wartepoolResolverPushed`).set(true);
                                         await db.ref('conflictResolveLog').push({
                                             ts: Date.now(), action: 'wartepool-suggest-push',
                                             pendingId: _pendingId, rideId: ride.firebaseId,
                                             optionCount: _options.length
                                         }).catch(()=>{});
                                         await addRideLog(ride.firebaseId, '🚨', 'Wartepool-Resolver-Vorschlaege gesendet (' + _options.length + ' Optionen)', {
-                                            quelle: 'scheduledAutoAssign v6.63.291',
+                                            quelle: 'scheduledAutoAssign v6.63.298',
                                             pendingId: _pendingId
                                         });
                                     } catch (_pushErr) {
-                                        console.error('Wartepool-Resolver-Fehler:', _pushErr.message);
+                                        console.error(`❌ v6.63.298 Wartepool-Resolver-Fehler fuer ${ride.firebaseId}:`, _pushErr.message);
+                                        console.error('   stack:', (_pushErr.stack || '').split('\n').slice(0,5).join(' | '));
+                                        await logError('wartepool-resolver', _pushErr, {
+                                            rideId: ride.firebaseId,
+                                            customerName: ride.customerName,
+                                            severity: 'warning'
+                                        }).catch(()=>{});
                                     }
                                 }
                             } catch (_e) {}
@@ -29029,12 +29046,17 @@ async function _doRegenerateInvoicePdf(invoiceNumber) {
     const fileRef = bucket.file(`invoices/${fileName}`);
     await fileRef.save(pdfBuffer, { metadata: { contentType: 'application/pdf' }, resumable: false });
     await fileRef.makePublic();
-    const pdfUrl = `https://storage.googleapis.com/${bucket.name}/${encodeURI(`invoices/${fileName}`)}`;
+    // 🆕 v6.63.298 Cache-Buster (Patrick 11.06. 20:52 'Sabine steht immer noch'):
+    //   Browser/Native-App cached PDFs unter der pdfUrl. Bei Re-Generate aendert
+    //   sich der Dateiname nicht → alter Cache wird gezeigt. Mit ?t=Timestamp
+    //   sieht der Client eine andere URL und laedt neu.
+    const _cacheBuster = Date.now();
+    const pdfUrl = `https://storage.googleapis.com/${bucket.name}/${encodeURI(`invoices/${fileName}`)}?t=${_cacheBuster}`;
     await db.ref(`invoices/${invoiceNumber}`).update({
         pdfUrl,
         pdfFileName: fileName,
         pdfGeneratedAt: Date.now(),
-        pdfGeneratedVia: 'cloud_function_puppeteer_v6.63.296_regenerate',
+        pdfGeneratedVia: 'cloud_function_puppeteer_v6.63.298_regenerate',
         pdfNeedsRegeneration: false   // 🆕 Flag explizit clearen damit Trigger nicht loopt
     });
     if (rideId) {

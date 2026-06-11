@@ -5221,6 +5221,14 @@ public class CrmSearchActivity extends AppCompatActivity {
                     if (_extras.length() > 0) _extras.append("  ");
                     _extras.append("💰 ").append(e.fixedRoutes.size()).append(" Festpreis").append(e.fixedRoutes.size() > 1 ? "e" : "");
                 }
+                // 🆕 v6.63.298 (Patrick 11.06. 20:53 'mach das mal bitte einheitlich'):
+                //   Rechnungsadresse als 3. Untertitel-Zeile zeigen wenn vorhanden.
+                //   Multi-Line auf eine Zeile mit ', ' joinen damit es kompakt bleibt.
+                if (e.invoiceAddress != null && !e.invoiceAddress.trim().isEmpty()) {
+                    String _invOneLine = e.invoiceAddress.replaceAll("\\s*\\n\\s*", ", ").trim();
+                    if (_invOneLine.length() > 75) _invOneLine = _invOneLine.substring(0, 72) + "…";
+                    sub += (sub.isEmpty() ? "" : "\n") + "🧾 " + _invOneLine;
+                }
                 if (_extras.length() > 0) {
                     sub += (sub.isEmpty() ? "" : "\n") + _extras.toString();
                 }

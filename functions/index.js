@@ -851,6 +851,75 @@ async function estimateNextAvailableMinutes(allRides, vehiclesData, pricingSetti
     return Math.max(1, minUntil);
 }
 
+// 🆕 v6.63.291 (Patrick 11.06. 17:51): Wartepool-Resolver Helper.
+//   Patrick's Algorithmus:
+//   fuer jede Wartepool-Ride W:
+//     fuer jede assigned Ride R in 30-Min-Naehe (gleiche Vehicles)
+//       versuche R -5 / R -10 / W +5 Min
+//   Returns: Optionen-Array [{key, label, action, shiftMin, ...}]
+async function buildWartepoolOptions(wpRide, allRides, vehicles, shiftsData) {
+    const _options = [];
+    const _key = (n) => String.fromCharCode(64 + n); // 1->A, 2->B, ...
+    let _n = 1;
+    if (!wpRide.pickupTimestamp) {
+        _options.push({ key: _key(_n++), label: 'Manuell loesen', action: 'manual' });
+        return _options;
+    }
+    const _wpTs = wpRide.pickupTimestamp;
+    const _wpPax = parseInt(wpRide.passengers || 1);
+    // Naheliegende assigned Rides (30 Min Window davor)
+    const _candidates = allRides.filter(r => {
+        if (!r || !r.assignedVehicle || !r.pickupTimestamp) return false;
+        if (r.firebaseId === wpRide.firebaseId) return false;
+        if (['accepted','picked_up','on_way','completed','cancelled','deleted','storniert'].includes(r.status)) return false;
+        if (r.assignmentLocked === true) return false;
+        if ((r.assignedBy || '').startsWith('claude-manual-')) return false;
+        if ((r.assignedBy || '').startsWith('manual-admin')) return false;
+        const _gap = _wpTs - r.pickupTimestamp;
+        if (_gap < 0 || _gap > 30 * 60000) return false;
+        // Kapazitaet pruefen — Vehicle muss W passen
+        const _vCap = (OFFICIAL_VEHICLES[r.assignedVehicle] || {}).capacity || 4;
+        if (_vCap < _wpPax) return false;
+        // Bahnhof-Tabu: wenn R Pickup Bahnhof, nicht verschieben
+        const _puStr = (r.pickup || '').toLowerCase();
+        if (_puStr.includes('bahnhof') || _puStr.includes('hbf') || _puStr.includes('flughafen')) return false;
+        return true;
+    });
+    // Patrick-Regel: -5, -10 versuchen
+    for (const r of _candidates.slice(0, 2)) {
+        const _vName = (OFFICIAL_VEHICLES[r.assignedVehicle] || {}).name || r.assignedVehicle;
+        const _rTime = berlinTimeGlobal(r.pickupTimestamp);
+        _options.push({
+            key: _key(_n++),
+            label: (r.customerName || '?') + ' ' + _rTime + ' -5 Min auf ' + _vName,
+            action: 'shift-other-assign-to-wp',
+            otherRideId: r.firebaseId,
+            shiftMin: -5,
+            targetVehicleForWp: r.assignedVehicle
+        });
+        if (_n > 4) break;
+        _options.push({
+            key: _key(_n++),
+            label: (r.customerName || '?') + ' ' + _rTime + ' -10 Min auf ' + _vName,
+            action: 'shift-other-assign-to-wp',
+            otherRideId: r.firebaseId,
+            shiftMin: -10,
+            targetVehicleForWp: r.assignedVehicle
+        });
+        if (_n > 4) break;
+    }
+    // W +5 Min versuchen
+    _options.push({
+        key: _key(_n++),
+        label: 'Diese Fahrt +5 Min spaeter ' + berlinTimeGlobal(_wpTs + 5*60000),
+        action: 'shift-wartepool',
+        shiftMin: 5
+    });
+    // Manuell-Option als Fallback
+    _options.push({ key: _key(_n++), label: 'Manuell loesen', action: 'manual' });
+    return _options;
+}
+
 async function autoAssignRide(rideId, rideData) {
     console.log('🎯 v6.25.4: Cloud-AutoAssign für Fahrt:', rideId);
     try {
@@ -12274,6 +12343,64 @@ async function handleCallback(callback) {
                     replanReason: 'v6.63.283 Suggest-Swap: ' + _pc.vehicleName + ' → ' + (_altInfo.name || _opt.targetVehicle)
                 });
                 _resultMsg = '✅ ' + _pc.nextCustomer + ' → ' + (_altInfo.name || _opt.targetVehicle);
+            } else if (_opt.action === 'shift-other-assign-to-wp') {
+                // 🆕 v6.63.291: andere Assign-Ride zeitlich verschieben + Vehicle der Wartepool-Ride geben
+                const _otherSnap = await db.ref('rides/' + _opt.otherRideId).once('value');
+                const _other = _otherSnap.val();
+                if (!_other || !_other.pickupTimestamp) {
+                    _resultMsg = '⚠ Andere Ride nicht mehr da.';
+                } else {
+                    const _newOtherTs = _other.pickupTimestamp + _opt.shiftMin * 60000;
+                    const _wpSnap = await db.ref('rides/' + _pc.wartepoolRideId).once('value');
+                    const _wp = _wpSnap.val();
+                    if (!_wp) {
+                        _resultMsg = '⚠ Wartepool-Ride nicht mehr da.';
+                    } else {
+                        const _altInfo = OFFICIAL_VEHICLES[_opt.targetVehicleForWp] || {};
+                        await Promise.all([
+                            db.ref('rides/' + _opt.otherRideId).update({
+                                pickupTimestamp: _newOtherTs,
+                                pickupTime: _berlinTime(_newOtherTs),
+                                updatedAt: Date.now(),
+                                replanReason: 'v6.63.291 Wartepool-Resolver: ' + _opt.shiftMin + 'min frueher (Patrick gewaehlt)'
+                            }),
+                            db.ref('rides/' + _pc.wartepoolRideId).update({
+                                assignedVehicle: _opt.targetVehicleForWp,
+                                vehicleId: _opt.targetVehicleForWp,
+                                vehicle: _altInfo.name || _opt.targetVehicleForWp,
+                                vehicleLabel: _altInfo.name || _opt.targetVehicleForWp,
+                                vehiclePlate: _altInfo.plate || '',
+                                status: 'vorbestellt',
+                                assignedBy: 'patrick-wartepool-suggest',
+                                assignedAt: Date.now(),
+                                updatedAt: Date.now(),
+                                wartepoolFreedAt: Date.now(),
+                                wartepoolFreedReason: 'patrick-suggest-shift-other-assign'
+                            })
+                        ]);
+                        _resultMsg = '✅ ' + (_pc.wartepoolCustomer || '?') + ' → ' + (_altInfo.name || _opt.targetVehicleForWp) + ' (' + (_other.customerName || '?') + ' ' + _opt.shiftMin + 'min frueher)';
+                    }
+                }
+            } else if (_opt.action === 'shift-wartepool') {
+                // 🆕 v6.63.291: Wartepool-Ride selbst spaeter setzen + nochmal autoAssign probieren
+                const _wpSnap = await db.ref('rides/' + _pc.wartepoolRideId).once('value');
+                const _wp = _wpSnap.val();
+                if (!_wp || !_wp.pickupTimestamp) {
+                    _resultMsg = '⚠ Wartepool-Ride nicht mehr da.';
+                } else {
+                    const _newWpTs = _wp.pickupTimestamp + _opt.shiftMin * 60000;
+                    await db.ref('rides/' + _pc.wartepoolRideId).update({
+                        pickupTimestamp: _newWpTs,
+                        pickupTime: _berlinTime(_newWpTs),
+                        status: 'vorbestellt',
+                        autoAssignAttempts: 0,
+                        wartepoolFreedAt: Date.now(),
+                        wartepoolFreedReason: 'patrick-suggest-shift-wartepool',
+                        updatedAt: Date.now(),
+                        replanReason: 'v6.63.291 Wartepool +' + _opt.shiftMin + 'min (Patrick gewaehlt)'
+                    });
+                    _resultMsg = '✅ ' + (_pc.wartepoolCustomer || '?') + ' → ' + _berlinTime(_newWpTs) + ' (autoAssign neu)';
+                }
             } else if (_opt.action === 'manual') {
                 _resultMsg = '✋ Manuell loesen vorgemerkt.';
             }
@@ -18767,25 +18894,46 @@ exports.autoResolveConflicts = onSchedule(
                                 // wartepool war ein toter Status, Admin merkte es nicht. Jetzt: einmaliger
                                 // Push wenn die Schwelle ueberschritten wird.
                                 if (_wartepoolJustEntered) {
+                                    // 🆕 v6.63.291 (Patrick 11.06. 17:51 'Wartepool ist auch Konflikt'):
+                                    //   Resolver-Aufruf: Time-Shift-Probe gegen umliegende assigned Rides.
+                                    //   Patrick-Regel: -5, -10, +5 Min. (Minus 15 raus, zu viel.)
                                     try {
+                                        const _options = await buildWartepoolOptions(ride, allRides, vehicles, shiftsData);
+                                        const _pcRef = db.ref('pendingConflicts').push();
+                                        const _pendingId = _pcRef.key;
+                                        await _pcRef.set({
+                                            wartepoolRideId: ride.firebaseId,
+                                            wartepoolCustomer: ride.customerName || '?',
+                                            wartepoolPickup: ride.pickup || '?',
+                                            wartepoolTime: berlinTimeGlobal(ride.pickupTimestamp),
+                                            options: _options,
+                                            type: 'wartepool-resolver',
+                                            status: 'open',
+                                            createdAt: Date.now()
+                                        });
                                         const _pickupAtStr = ride.pickupTimestamp
                                             ? new Date(ride.pickupTimestamp).toLocaleString('de-DE', { timeZone: 'Europe/Berlin' })
                                             : (ride.pickupTime || '?');
-                                        const _msg = '⚠️ <b>WARTEPOOL — Fahrt braucht manuelle Disposition</b>\n\n' +
-                                            `👤 <b>Kunde:</b> ${ride.customerName || '?'}\n` +
-                                            `📍 <b>Von:</b> ${ride.pickup || '?'}\n` +
-                                            `📍 <b>Nach:</b> ${ride.destination || '?'}\n` +
-                                            `⏰ <b>Abholung:</b> ${_pickupAtStr}\n` +
-                                            `🆔 <code>${ride.firebaseId}</code>\n\n` +
-                                            `<i>Auto-Zuweisung hat 3× kein freies Fahrzeug gefunden.\nBitte manuell zuweisen oder Schichtplan pruefen.</i>`;
-                                        await sendToAllAdmins(_msg, 'wartepool_alert');
-                                        await addRideLog(ride.firebaseId, '⚠️', 'Wartepool-Eintritt (3× Auto-Assign-Fehlschlag) — Admin per Telegram benachrichtigt', {
-                                            quelle: 'scheduledAutoAssign v6.62.705',
-                                            grund: 'auto-assign-3x-failed',
-                                            attempts: _attemptsNow
+                                        // Buttons aus _options bauen
+                                        const _inlineKb = _options.map(o => [{ text: '[' + o.key + '] ' + o.label, callback_data: 'conf_' + _pendingId + '_' + o.key }]);
+                                        const _msg = '🚨 *WARTEPOOL — Vorschlaege*\n\n' +
+                                            `Kunde: ${ride.customerName || '?'}\n` +
+                                            `Von: ${ride.pickup || '?'}\n` +
+                                            `Nach: ${ride.destination || '?'}\n` +
+                                            `Abholung: ${_pickupAtStr}\n\n` +
+                                            (_options.length > 1 ? 'Bitte waehlen:' : 'Kein automatischer Loesungsweg, bitte manuell:');
+                                        await sendToAllAdmins(_msg, 'wartepool-suggest', { reply_markup: { inline_keyboard: _inlineKb } });
+                                        await db.ref('conflictResolveLog').push({
+                                            ts: Date.now(), action: 'wartepool-suggest-push',
+                                            pendingId: _pendingId, rideId: ride.firebaseId,
+                                            optionCount: _options.length
+                                        }).catch(()=>{});
+                                        await addRideLog(ride.firebaseId, '🚨', 'Wartepool-Resolver-Vorschlaege gesendet (' + _options.length + ' Optionen)', {
+                                            quelle: 'scheduledAutoAssign v6.63.291',
+                                            pendingId: _pendingId
                                         });
                                     } catch (_pushErr) {
-                                        console.error('Wartepool-Push-Fehler:', _pushErr.message);
+                                        console.error('Wartepool-Resolver-Fehler:', _pushErr.message);
                                     }
                                 }
                             } catch (_e) {}

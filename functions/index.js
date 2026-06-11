@@ -22954,6 +22954,28 @@ exports.onAnfrageStatusChanged = onValueUpdated(
             const _channel = (after.channel || '').toLowerCase();
             const _email = (after.email || '').trim();
             if (_channel === 'email' && _email) {
+                // 🆕 v6.63.294 (Patrick 11.06. 19:17 'wurde schon 1000 mal besprochen'):
+                //   Stripe-Bezahl-Link in der Email-Bestaetigung mitschicken wenn Festpreis
+                //   vorhanden. Patrick will dass Kunden direkt online bezahlen koennen ohne
+                //   Bar-Hassle bei der Fahrt.
+                let _stripeUrl = null;
+                try {
+                    const _priceRaw = after.price ? parseFloat(String(after.price).replace(/[^0-9.,]/g,'').replace(',','.')) : 0;
+                    if (_priceRaw > 0) {
+                        const _checkoutResp = await fetch('https://europe-west1-taxi-heringsdorf.cloudfunctions.net/createStripeCheckout', {
+                            method: 'POST', headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                invoiceNumber: 'ANF-' + (anfrageId || '').substring(0, 12),
+                                amount: _priceRaw,
+                                customerName: _name,
+                                customerEmail: _email,
+                                description: 'Funk Taxi — Transfer ' + (after.date || '') + ' ' + (after.time || '') + ' ' + (after.pickup || '').substring(0,30)
+                            })
+                        });
+                        const _ckJson = await _checkoutResp.json();
+                        if (_ckJson && _ckJson.url) _stripeUrl = _ckJson.url;
+                    }
+                } catch (_stripeErr) { console.warn('Stripe-Checkout Fehler:', _stripeErr.message); }
                 // Email-Bestaetigung
                 const _emailBody = `Sehr geehrte/r ${_name},\n\n` +
                     `vielen Dank fuer Ihre Reservierung — wir bestaetigen Ihnen den Transfer:\n\n` +
@@ -22964,6 +22986,7 @@ exports.onAnfrageStatusChanged = onValueUpdated(
                     (after.passengers ? `  Personen: ${after.passengers}\n` : '') +
                     (after.price ? `  Preis:    ca. ${String(after.price).replace('?', '€')}\n` : '') +
                     (_vehicleName ? `\nFahrzeug ${_vehicleName} wird Sie abholen.\n` : '') +
+                    (_stripeUrl ? `\n💳 Sicher per Karte/PayPal vorab bezahlen:\n${_stripeUrl}\n(Optional — Sie koennen auch bar beim Fahrer zahlen)\n` : '') +
                     `\nBei Fragen erreichen Sie uns unter 038378/22022.\n\n` +
                     `Mit freundlichen Gruessen\nPatrick Wydra\nFunk Taxi Heringsdorf`;
                 await db.ref('personalMailQueue').push({
@@ -22972,10 +22995,14 @@ exports.onAnfrageStatusChanged = onValueUpdated(
                     text: _emailBody,
                     status: 'approved',
                     createdAt: Date.now(),
-                    source: 'cloud-onAnfrageStatusChanged-v6.62.900-channel-email',
+                    source: 'cloud-onAnfrageStatusChanged-v6.63.294-stripe',
                     rideId: after.rideId || null,
-                    anfrageId: anfrageId
+                    anfrageId: anfrageId,
+                    stripeUrl: _stripeUrl
                 });
+                if (_stripeUrl) {
+                    await db.ref(`anfragen/${anfrageId}`).update({ stripePaymentLink: _stripeUrl, stripeRequestedAt: Date.now() });
+                }
                 await db.ref(`anfragen/${anfrageId}`).update({
                     confirmSent: true, confirmChannel: 'email',
                     confirmSentAt: Date.now(), confirmSentBy: 'cloud-onAnfrageStatusChanged-v6.62.900'

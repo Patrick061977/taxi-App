@@ -28940,6 +28940,114 @@ exports.shiftBriefingNow = onRequest(
 //     5. buildInvoicePdfBuffer -> Storage-Upload -> pdfUrl
 //     6. /invoices/{nr}.pdfUrl + /rides/{rideId}.invoicePdfUrl gesetzt
 //     7. JSON-Response mit before/after Diff
+// 🆕 v6.63.296 (Patrick 11.06. 20:00 'Neu generierte E-Mails koennen immer noch
+//   nicht angezeigt werden'): Logik aus dem HTTP-Endpoint extrahiert damit auch
+//   der DB-Trigger (onInvoicePdfRegenRequested) sie verwenden kann, ohne ueber
+//   HTTP zu gehen + Token-Round-Trip.
+async function _doRegenerateInvoicePdf(invoiceNumber) {
+    const invSnap = await db.ref(`invoices/${invoiceNumber}`).once('value');
+    const invoice = invSnap.val();
+    if (!invoice) throw new Error(`Rechnung ${invoiceNumber} nicht gefunden`);
+    const rideId = invoice.rideId;
+    let ride = {};
+    if (rideId) {
+        const rs = await db.ref(`rides/${rideId}`).once('value');
+        ride = rs.val() || {};
+    }
+    let customer = {};
+    const custId = ride.customerId || invoice.customerId;
+    if (custId) {
+        const cs = await db.ref(`customers/${custId}`).once('value');
+        customer = cs.val() || {};
+    }
+    // billingAddresses[] resolven
+    let _billingName = '';
+    let _billingAddrStr = '';
+    if (Array.isArray(customer.billingAddresses) && customer.billingAddresses.length > 0) {
+        const _ba = customer.billingAddresses.find(b => b && b.isDefault) || customer.billingAddresses[0];
+        if (_ba) {
+            _billingName = (_ba.empfaengerName || _ba.label || '').trim();
+            const _parts = [];
+            if (_ba.strasse) _parts.push(_ba.strasse + (_ba.adresszusatz ? ', ' + _ba.adresszusatz : ''));
+            const _plzOrt = [_ba.plz, _ba.ort].filter(Boolean).join(' ').trim();
+            if (_plzOrt) _parts.push(_plzOrt);
+            if (_ba.land && _ba.land.toLowerCase() !== 'deutschland') _parts.push(_ba.land);
+            _billingAddrStr = _parts.join(', ');
+        }
+    }
+    const before = {
+        customerName: invoice.customerName,
+        customerAddress: invoice.customerAddress,
+        positionDesc: invoice.positions?.[0]?.description
+    };
+    const fixes = {};
+    if (_billingName && (!invoice.customerName
+        || invoice.customerName.trim() === (customer.name || '').trim()
+        || invoice.customerName === 'Kunde')) {
+        fixes.customerName = _billingName;
+    }
+    if (_billingAddrStr && !invoice.customerAddress) {
+        fixes.customerAddress = _billingAddrStr;
+    }
+    if (Array.isArray(invoice.positions) && invoice.positions[0]) {
+        const desc = invoice.positions[0].description || '';
+        const _routeText = `${invoice.pickup || ''} ${invoice.destination || ''}`;
+        const _shouldBeKranken = /(krankenhaus|klinik|arzt|doktor|praxis)/i.test(_routeText);
+        const _targetDesc = _shouldBeKranken ? 'Krankenfahrt' : 'Taxifahrt';
+        const _isOldLongForm = desc.startsWith('Taxifahrt:') && desc.length > 'Taxifahrt'.length + 5;
+        const _isWrongCategory = (_shouldBeKranken && desc === 'Taxifahrt');
+        if (_isOldLongForm || _isWrongCategory) {
+            const newPos = [...invoice.positions];
+            newPos[0] = { ...newPos[0], description: _targetDesc };
+            fixes.positions = newPos;
+        }
+    }
+    const correctedInvoice = { ...invoice, ...fixes };
+    if (Object.keys(fixes).length > 0) {
+        await db.ref(`invoices/${invoiceNumber}`).update({
+            ...fixes,
+            regeneratedAt: Date.now(),
+            regeneratedFrom: 'cloud_function_v6.63.296'
+        });
+    }
+    const invoicePdfMod = require('./invoice-pdf');
+    const settings = await invoicePdfMod.loadInvoiceSettings(db);
+    const pdfBuffer = await invoicePdfMod.buildInvoicePdfBuffer(
+        invoiceNumber, ride, customer, settings, correctedInvoice
+    );
+    const fileName = `rechnung-${invoiceNumber}.pdf`;
+    const bucket = admin.storage().bucket();
+    const fileRef = bucket.file(`invoices/${fileName}`);
+    await fileRef.save(pdfBuffer, { metadata: { contentType: 'application/pdf' }, resumable: false });
+    await fileRef.makePublic();
+    const pdfUrl = `https://storage.googleapis.com/${bucket.name}/${encodeURI(`invoices/${fileName}`)}`;
+    await db.ref(`invoices/${invoiceNumber}`).update({
+        pdfUrl,
+        pdfFileName: fileName,
+        pdfGeneratedAt: Date.now(),
+        pdfGeneratedVia: 'cloud_function_puppeteer_v6.63.296_regenerate',
+        pdfNeedsRegeneration: false   // 🆕 Flag explizit clearen damit Trigger nicht loopt
+    });
+    if (rideId) {
+        await db.ref(`rides/${rideId}`).update({
+            invoicePdfUrl: pdfUrl,
+            invoicePdfGeneratedAt: Date.now()
+        });
+    }
+    return {
+        ok: true,
+        invoiceNumber,
+        pdfUrl,
+        fixes: Object.keys(fixes),
+        before,
+        after: {
+            customerName: correctedInvoice.customerName,
+            customerAddress: correctedInvoice.customerAddress,
+            positionDesc: correctedInvoice.positions?.[0]?.description
+        }
+    };
+}
+
 exports.regenerateInvoicePdf = onRequest(
     {
         region: 'europe-west1',
@@ -28964,133 +29072,44 @@ exports.regenerateInvoicePdf = onRequest(
                 return res.status(401).json({ error: 'token falsch — TELEGRAM_BOT_TOKEN als ?token= mitschicken' });
             }
 
-            // Daten laden
-            const invSnap = await db.ref(`invoices/${invoiceNumber}`).once('value');
-            const invoice = invSnap.val();
-            if (!invoice) {
-                return res.status(404).json({ error: `Rechnung ${invoiceNumber} nicht gefunden` });
-            }
-            const rideId = invoice.rideId;
-            let ride = {};
-            if (rideId) {
-                const rs = await db.ref(`rides/${rideId}`).once('value');
-                ride = rs.val() || {};
-            }
-            let customer = {};
-            const custId = ride.customerId || invoice.customerId;
-            if (custId) {
-                const cs = await db.ref(`customers/${custId}`).once('value');
-                customer = cs.val() || {};
-            }
-
-            // billingAddresses[] resolven (gleiche Logik wie functions/index.js v6.62.812)
-            let _billingName = '';
-            let _billingAddrStr = '';
-            if (Array.isArray(customer.billingAddresses) && customer.billingAddresses.length > 0) {
-                const _ba = customer.billingAddresses.find(b => b && b.isDefault)
-                    || customer.billingAddresses[0];
-                if (_ba) {
-                    _billingName = (_ba.empfaengerName || _ba.label || '').trim();
-                    const _parts = [];
-                    if (_ba.strasse) _parts.push(_ba.strasse + (_ba.adresszusatz ? ', ' + _ba.adresszusatz : ''));
-                    const _plzOrt = [_ba.plz, _ba.ort].filter(Boolean).join(' ').trim();
-                    if (_plzOrt) _parts.push(_plzOrt);
-                    if (_ba.land && _ba.land.toLowerCase() !== 'deutschland') _parts.push(_ba.land);
-                    _billingAddrStr = _parts.join(', ');
-                }
-            }
-
-            // Welche Felder muessen wir korrigieren?
-            const before = {
-                customerName: invoice.customerName,
-                customerAddress: invoice.customerAddress,
-                positionDesc: invoice.positions?.[0]?.description
-            };
-            const fixes = {};
-
-            // customerName: ersetze wenn entweder leer ODER es ist nur der CRM-name-Fallback (= customer.name)
-            //   und wir haben einen besseren billingAddresses-Eintrag.
-            if (_billingName && (!invoice.customerName
-                || invoice.customerName.trim() === (customer.name || '').trim()
-                || invoice.customerName === 'Kunde')) {
-                fixes.customerName = _billingName;
-            }
-            // customerAddress: ersetze wenn leer
-            if (_billingAddrStr && !invoice.customerAddress) {
-                fixes.customerAddress = _billingAddrStr;
-            }
-            // 🆕 v6.62.812: position.description: 'Taxifahrt: X → Y' -> 'Taxifahrt'
-            // 🆕 v6.62.815: + Auto-Detect Krankenfahrt wenn Pickup/Destination
-            //   "Krankenhaus" oder "Klinik" enthaelt.
-            if (Array.isArray(invoice.positions) && invoice.positions[0]) {
-                const desc = invoice.positions[0].description || '';
-                const _routeText = `${invoice.pickup || ''} ${invoice.destination || ''}`;
-                const _shouldBeKranken = /(krankenhaus|klinik|arzt|doktor|praxis)/i.test(_routeText);
-                const _targetDesc = _shouldBeKranken ? 'Krankenfahrt' : 'Taxifahrt';
-                // Aktualisiere wenn alte 'Taxifahrt: X → Y' Form ODER wenn aktueller
-                // Wert weder Taxifahrt noch Krankenfahrt ist ODER wenn Krankenhaus-
-                // Auto-Detect greift aber 'Taxifahrt' steht.
-                const _isOldLongForm = desc.startsWith('Taxifahrt:') && desc.length > 'Taxifahrt'.length + 5;
-                const _isWrongCategory = (_shouldBeKranken && desc === 'Taxifahrt');
-                if (_isOldLongForm || _isWrongCategory) {
-                    const newPos = [...invoice.positions];
-                    newPos[0] = { ...newPos[0], description: _targetDesc };
-                    fixes.positions = newPos;
-                }
-            }
-
-            // Falls Korrekturen noetig: in DB schreiben BEVOR PDF gebaut wird
-            //   (sonst zeigt PDF die alten Werte).
-            const correctedInvoice = { ...invoice, ...fixes };
-            if (Object.keys(fixes).length > 0) {
-                await db.ref(`invoices/${invoiceNumber}`).update({
-                    ...fixes,
-                    regeneratedAt: Date.now(),
-                    regeneratedFrom: 'cloud_function_v6.62.813'
-                });
-            }
-
-            // PDF bauen
-            const invoicePdfMod = require('./invoice-pdf');
-            const settings = await invoicePdfMod.loadInvoiceSettings(db);
-            const pdfBuffer = await invoicePdfMod.buildInvoicePdfBuffer(
-                invoiceNumber, ride, customer, settings, correctedInvoice
-            );
-            const fileName = `rechnung-${invoiceNumber}.pdf`;
-            const bucket = admin.storage().bucket();
-            const fileRef = bucket.file(`invoices/${fileName}`);
-            await fileRef.save(pdfBuffer, { metadata: { contentType: 'application/pdf' }, resumable: false });
-            await fileRef.makePublic();
-            const pdfUrl = `https://storage.googleapis.com/${bucket.name}/${encodeURI(`invoices/${fileName}`)}`;
-
-            await db.ref(`invoices/${invoiceNumber}`).update({
-                pdfUrl,
-                pdfFileName: fileName,
-                pdfGeneratedAt: Date.now(),
-                pdfGeneratedVia: 'cloud_function_puppeteer_v6.62.813_regenerate'
-            });
-            if (rideId) {
-                await db.ref(`rides/${rideId}`).update({
-                    invoicePdfUrl: pdfUrl,
-                    invoicePdfGeneratedAt: Date.now()
-                });
-            }
-
-            res.status(200).json({
-                ok: true,
-                invoiceNumber,
-                pdfUrl,
-                fixes: Object.keys(fixes),
-                before,
-                after: {
-                    customerName: correctedInvoice.customerName,
-                    customerAddress: correctedInvoice.customerAddress,
-                    positionDesc: correctedInvoice.positions?.[0]?.description
-                }
-            });
+            const result = await _doRegenerateInvoicePdf(invoiceNumber);
+            return res.status(200).json(result);
         } catch (e) {
             console.error('regenerateInvoicePdf-Fehler:', e);
-            res.status(500).json({ error: e.message, stack: (e.stack || '').split('\n').slice(0, 5).join('\n') });
+            return res.status(e.message?.includes('nicht gefunden') ? 404 : 500)
+                .json({ error: e.message, stack: (e.stack || '').split('\n').slice(0, 5).join('\n') });
+        }
+    }
+);
+
+// 🆕 v6.63.296: DB-Trigger fuer pdfNeedsRegeneration=true
+//   Patrick 11.06. 20:00 Bridge: "Neu generierte E-Mails koennen immer noch nicht
+//   angezeigt werden". Native-App setzt pdfUrl=null + pdfNeedsRegeneration=true,
+//   ABER bisher reagierte niemand auf das Flag. Dieser Trigger feuert
+//   _doRegenerateInvoicePdf und setzt pdfNeedsRegeneration zurueck auf false.
+exports.onInvoicePdfRegenRequested = onValueUpdated(
+    {
+        ref: '/invoices/{invoiceNumber}/pdfNeedsRegeneration',
+        region: 'europe-west1',
+        memory: '2GiB',
+        timeoutSeconds: 120
+    },
+    async (event) => {
+        try {
+            const after = event.data.after.val();
+            const before = event.data.before.val();
+            // Nur reagieren wenn Flag NEU true wird (false/undef -> true)
+            if (after !== true || before === true) return;
+            const invoiceNumber = event.params.invoiceNumber;
+            console.log(`🔄 v6.63.296 pdfNeedsRegeneration=true Trigger fuer ${invoiceNumber} — starte Regenerierung`);
+            const result = await _doRegenerateInvoicePdf(invoiceNumber);
+            console.log(`✅ v6.63.296 PDF neu generiert: ${invoiceNumber} -> ${result.pdfUrl}`);
+        } catch (e) {
+            console.error('❌ v6.63.296 onInvoicePdfRegenRequested-Fehler:', e);
+            await logError('onInvoicePdfRegenRequested', e, {
+                invoiceNumber: event.params.invoiceNumber,
+                severity: 'critical'
+            });
         }
     }
 );

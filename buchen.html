@@ -2181,14 +2181,12 @@
                             //   Ohne pickupCoords: berechne wann irgendein Fahrer wieder
                             //   frei wird (= Ende seiner aktuellen Fahrt + 5 Min Puffer).
                             try {
-                                // 🔧 v6.63.203 (Patrick 06.06. 19:10 "wenn ich nach Greifswald
-                                //   unterwegs bin und 130 Min brauche, kann nicht 70 Min stehen.
-                                //   Die Wartezeit muss bis das Fahrzeug wieder am Zentrum ist."):
-                                //   Bisher primitive Berechnung pickupTimestamp + duration +
-                                //   Haversine/35 (ignorierte Tesla-GPS + Folge-Vorbestellungen).
-                                //   Neu: landing.html-Style OSRM-Chain — GPS → noch offene
-                                //   Pickups → Drops → zurück zum Zentrum. Identisch zu
-                                //   landing.html._refreshBanner.
+                                // 🔧 v6.63.281 (Patrick 11.06. 09:12 'landing zeigt 120 Min,
+                                //   buchen zeigt 60 Min — Code kann nicht gleich sein'):
+                                //   Single Source of Truth. Frueher (v6.63.203) hab ich die
+                                //   Logik 'aehnlich' nachgebaut. Patrick beobachtet weiterhin
+                                //   Diskrepanz. Jetzt: identisches Daten-Schema wie landing.html
+                                //   _refreshBanner und identische OSRM-Wrapper-Aufrufe.
                                 const _nowMs = Date.now();
                                 const _busyStatuses = ['accepted','sofort','assigned','arrived','on_way','picked_up','in_progress'];
                                 const _CENTER_LAT = 53.951;
@@ -2221,9 +2219,19 @@
                                 const _busyVehiclesCount = _busyVehiclesSet.size;
                                 const _freeNowCount = sofortCount - _busyVehiclesCount;
                                 let _earliestFreeMs = null;
+                                // 🆕 v6.63.281: GPS-Quelle einheitlich. landing.html nutzt
+                                //   /vehicles direkt (_vData), nicht _gpsOnlineVehicles
+                                //   (das ist eine vor-gefilterte Kopie). Wir laden hier auch
+                                //   /vehicles um konsistente Koords mit landing.html zu haben.
+                                let _vDataDirect = null;
+                                try {
+                                    const _vSnap = await db.ref('vehicles').once('value');
+                                    _vDataDirect = _vSnap.val() || {};
+                                } catch(_) { _vDataDirect = {}; }
                                 // Für jedes busy Vehicle: komplette OSRM-Chain
                                 const _busyEtas = await Promise.all(Array.from(_busyVehiclesSet).map(async _vid => {
-                                    const _vInfo = (_gpsOnlineVehicles || {})[_vid];
+                                    // landing.html-konformer Lookup: direkt /vehicles statt vorgefilterte Map.
+                                    const _vInfo = (_vDataDirect && _vDataDirect[_vid]) || (_gpsOnlineVehicles || {})[_vid];
                                     if (!_vInfo || !_vInfo.lat || !_vInfo.lon) return null;
                                     let _totalMin = 0;
                                     let _cLat = _vInfo.lat, _cLon = _vInfo.lon;

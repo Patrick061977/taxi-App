@@ -1366,6 +1366,17 @@ async function autoAssignRide(rideId, rideData) {
                     vehicleScoresAt: Date.now(),
                     autoAssignLastReason: _summary
                 });
+                // 🆕 v6.63.284 (Patrick 11.06. 13:53 'Logging verbessern'): Versuchs-Historie
+                //   in /rideScoresHistory/{rideId}/{push}. Damit man sieht WARUM eine Ride
+                //   X-mal fail wurde - jeder Versuch mit eigenem Snapshot der vehicleScores.
+                try {
+                    await db.ref('rideScoresHistory/' + rideId).push({
+                        ts: Date.now(),
+                        attempt: (rideData.autoAssignAttempts || 0) + 1,
+                        summary: _summary,
+                        vehicleScores
+                    });
+                } catch(_) { /* non-critical */ }
             } catch (_persistErr) {
                 console.warn('vehicleScores-Persist Fehler:', _persistErr.message);
             }

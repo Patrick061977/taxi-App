@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>Anrufstatistik — Funk Taxi Heringsdorf</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, system-ui, sans-serif; background: #f1f5f9; color: #0f172a; padding: 16px; max-width: 1200px; margin: 0 auto; }
+h1 { color: #1e293b; margin-bottom: 4px; }
+.sub { color: #64748b; font-size: 13px; margin-bottom: 18px; }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 20px; }
+.kpi { background: white; padding: 16px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+.kpi .v { font-size: 28px; font-weight: 700; color: #0f172a; }
+.kpi .l { font-size: 12px; color: #64748b; text-transform: uppercase; letter-spacing: .5px; }
+.kpi.warn .v { color: #dc2626; }
+.kpi.ok .v { color: #16a34a; }
+.section { background: white; padding: 16px; border-radius: 8px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+.section h2 { font-size: 16px; margin-bottom: 10px; color: #334155; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { background: #f8fafc; padding: 8px; text-align: left; color: #475569; font-weight: 600; font-size: 11px; text-transform: uppercase; }
+td { padding: 6px 8px; border-bottom: 1px solid #f1f5f9; }
+.dir-in { color: #16a34a; font-weight: 600; }
+.dir-out { color: #2563eb; font-weight: 600; }
+.bar { display: inline-block; height: 14px; background: #16a34a; border-radius: 3px; vertical-align: middle; }
+.bar.out { background: #2563eb; }
+.daygrid { display: grid; grid-template-columns: 80px 1fr 1fr; gap: 8px; align-items: center; padding: 4px 0; font-size: 13px; }
+.hourgrid { display: grid; grid-template-columns: 50px 1fr 1fr; gap: 8px; align-items: center; padding: 3px 0; font-size: 12px; }
+.note { background: #fef3c7; border-left: 4px solid #f59e0b; padding: 10px 14px; border-radius: 4px; margin-bottom: 16px; font-size: 13px; color: #78350f; }
+</style>
+</head>
+<body>
+
+<h1>📞 Anrufstatistik</h1>
+<div class="sub">Quelle: ACRPhone Cloud Uploads (OneDrive) · <span id="updatedAt"></span></div>
+
+<div id="content">Lade Daten…</div>
+
+<script>
+async function load() {
+    const r = await fetch('/data/anrufstatistik.json?t=' + Date.now());
+    const d = await r.json();
+    document.getElementById('updatedAt').textContent = 'Stand: ' + new Date(d.generatedAt).toLocaleString('de-DE');
+
+    const root = document.getElementById('content');
+    let html = '';
+
+    // KPIs
+    const lostPct = d.incomingLast7 > 0 ? Math.round(d.lostInLast7Days / d.incomingLast7 * 100) : 0;
+    html += '<div class="kpis">';
+    html += `<div class="kpi"><div class="v">${d.last90DaysCount}</div><div class="l">Anrufe 90 Tage</div></div>`;
+    html += `<div class="kpi ok"><div class="v">${d.incoming90d}</div><div class="l">Eingehend 90 Tage</div></div>`;
+    html += `<div class="kpi"><div class="v">${d.outgoing90d}</div><div class="l">Ausgehend 90 Tage</div></div>`;
+    html += `<div class="kpi warn"><div class="v">${d.lostInLast7Days}</div><div class="l">Verloren 7 Tage (${lostPct}%)</div></div>`;
+    html += '</div>';
+
+    // Letzte 08.06.-Warnung
+    if (d.latestCall) {
+        const latestDate = new Date(d.latestCall);
+        const daysAgo = Math.floor((Date.now() - latestDate.getTime()) / (24*60*60*1000));
+        if (daysAgo > 2) {
+            html += `<div class="note">⚠ Letzte ACR-Datei: ${latestDate.toLocaleDateString('de-DE')} (${daysAgo} Tage alt). S9+ Cloud-Upload pruefen — sonst fehlen aktuelle Daten.</div>`;
+        }
+    }
+
+    // Pro Tag (letzte 30 Tage)
+    html += '<div class="section"><h2>Pro Tag (letzte 30 Tage)</h2>';
+    const days = Object.entries(d.byDay).slice(-30);
+    const maxDay = Math.max(...days.map(([_, v]) => v.in + v.out), 1);
+    days.reverse().forEach(([day, v]) => {
+        const totalW = ((v.in + v.out) / maxDay * 100).toFixed(0);
+        const inW = (v.in / maxDay * 100).toFixed(0);
+        const outW = (v.out / maxDay * 100).toFixed(0);
+        html += `<div class="daygrid"><div>${day}</div>`;
+        html += `<div><span class="bar" style="width:${inW}%"></span> <span class="dir-in">${v.in}</span></div>`;
+        html += `<div><span class="bar out" style="width:${outW}%"></span> <span class="dir-out">${v.out}</span></div>`;
+        html += '</div>';
+    });
+    html += '</div>';
+
+    // Pro Stunde
+    html += '<div class="section"><h2>Anrufe pro Stunde (Schnitt 90 Tage)</h2>';
+    const maxHour = Math.max(...d.byHour.map(h => h.in + h.out), 1);
+    d.byHour.forEach((h, i) => {
+        const inW = (h.in / maxHour * 100).toFixed(0);
+        const outW = (h.out / maxHour * 100).toFixed(0);
+        html += `<div class="hourgrid"><div>${String(i).padStart(2, '0')}:00</div>`;
+        html += `<div><span class="bar" style="width:${inW}%"></span> <span class="dir-in">${h.in}</span></div>`;
+        html += `<div><span class="bar out" style="width:${outW}%"></span> <span class="dir-out">${h.out}</span></div>`;
+        html += '</div>';
+    });
+    html += '</div>';
+
+    // Pro Wochentag
+    html += '<div class="section"><h2>Pro Wochentag (Schnitt 90 Tage)</h2>';
+    const maxWd = Math.max(...d.byWeekday.map(w => w.in + w.out), 1);
+    d.byWeekday.forEach(w => {
+        const inW = (w.in / maxWd * 100).toFixed(0);
+        const outW = (w.out / maxWd * 100).toFixed(0);
+        html += `<div class="daygrid"><div>${w.day}</div>`;
+        html += `<div><span class="bar" style="width:${inW}%"></span> <span class="dir-in">${w.in}</span></div>`;
+        html += `<div><span class="bar out" style="width:${outW}%"></span> <span class="dir-out">${w.out}</span></div>`;
+        html += '</div>';
+    });
+    html += '</div>';
+
+    // Letzte 30 Anrufe
+    html += '<div class="section"><h2>Letzte 30 Anrufe</h2><table>';
+    html += '<tr><th>Zeit</th><th>Richtung</th><th>Name</th><th>Telefon</th></tr>';
+    d.recent30.forEach(c => {
+        const dirCls = c.direction === 'in' ? 'dir-in' : 'dir-out';
+        const dirIcon = c.direction === 'in' ? '↙ in' : '↗ out';
+        html += `<tr><td>${c.tsStr}</td><td class="${dirCls}">${dirIcon}</td><td>${c.name||''}</td><td>${c.phone}</td></tr>`;
+    });
+    html += '</table></div>';
+
+    root.innerHTML = html;
+}
+load().catch(e => { document.getElementById('content').innerHTML = '<div class="note">Fehler beim Laden: ' + e.message + '</div>'; });
+</script>
+
+</body>
+</html>

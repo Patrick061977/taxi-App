@@ -25042,6 +25042,42 @@ exports.onRideUpdated = onValueUpdated(
         const oldVehicle = before.assignedVehicle || before.vehicleId;
         const newVehicle = after.assignedVehicle || after.vehicleId;
 
+        // 🆕 v6.63.287 (Patrick 11.06. 14:22 GO): Route-Drift-Tracking.
+        //   Bei Ride-Completion: Live-Google-Route vs gespeicherte Werte vergleichen.
+        //   Drift >= 10 Min → log fuer Realitaets-Abgleich.
+        if (oldStatus !== 'completed' && newStatus === 'completed' &&
+            after.pickupLat && after.pickupLon && after.destinationLat && after.destinationLon) {
+            try {
+                const _liveRoute = await calculateRoute(
+                    { lat: after.pickupLat, lon: after.pickupLon },
+                    { lat: after.destinationLat, lon: after.destinationLon }
+                );
+                if (_liveRoute && _liveRoute.duration) {
+                    const _stored = parseFloat(after.duration || after.estimatedDuration || 0);
+                    const _drift = Math.abs(_liveRoute.duration - _stored);
+                    const _storedDist = parseFloat(after.distance || 0);
+                    const _liveDist = parseFloat(_liveRoute.distance || 0);
+                    const _distDrift = Math.abs(_liveDist - _storedDist);
+                    await db.ref('routeDriftLog/' + rideId).set({
+                        ts: Date.now(),
+                        customerName: after.customerName || '?',
+                        pickup: after.pickup || '?',
+                        destination: after.destination || '?',
+                        storedDuration: _stored,
+                        liveDuration: _liveRoute.duration,
+                        driftMin: _drift,
+                        storedDistance: _storedDist,
+                        liveDistance: _liveDist,
+                        distDriftKm: _distDrift,
+                        source: _liveRoute.source || 'unknown'
+                    });
+                    if (_drift >= 10 || _distDrift >= 3) {
+                        console.warn(`⚠️ v6.63.287 Route-Drift ${rideId}: dur ${_stored}min vs live ${_liveRoute.duration}min (Diff ${_drift}) | dist ${_storedDist}km vs ${_liveDist}km`);
+                    }
+                }
+            } catch (_) { /* non-critical */ }
+        }
+
         // 🆕 v6.63.241 (Patrick 08.06. 10:02 'Wenn abgelehnt wird, dass es sofort vermittelt wird'):
         //   Reject via native_dashboard schreibt direkt in DB (nicht via rideAction-Endpunkt) und
         //   loest dann kein autoAssignRide aus. Folge: 60-Sek-Tick des scheduledAutoAssign-Cron

@@ -18936,11 +18936,17 @@ exports.autoResolveConflicts = onSchedule(
                                             : (ride.pickupTime || '?');
                                         // Buttons aus _options bauen
                                         const _inlineKb = _options.map(o => [{ text: '[' + o.key + '] ' + o.label, callback_data: 'conf_' + _pendingId + '_' + o.key }]);
+                                        // 🆕 v6.63.300 (Patrick 11.06. 22:34 'Wo ist der Konflikt'):
+                                        //   Konkrete Konflikt-Begruendung im Push: wartepoolReason +
+                                        //   autoAssignLastReason zeigen damit Patrick versteht WARUM
+                                        //   das System keine bessere Option hat.
+                                        const _reason = ride.wartepoolReason || ride.autoAssignLastReason || 'auto-assign-3x-failed';
                                         const _msg = '🚨 *WARTEPOOL — Vorschlaege*\n\n' +
                                             `Kunde: ${ride.customerName || '?'}\n` +
                                             `Von: ${ride.pickup || '?'}\n` +
                                             `Nach: ${ride.destination || '?'}\n` +
-                                            `Abholung: ${_pickupAtStr}\n\n` +
+                                            `Abholung: ${_pickupAtStr}\n` +
+                                            `Konflikt: ${_reason}\n\n` +
                                             (_options.length > 1 ? 'Bitte waehlen:' : 'Kein automatischer Loesungsweg, bitte manuell:');
                                         await sendToAllAdmins(_msg, 'wartepool-suggest', { reply_markup: { inline_keyboard: _inlineKb } });
                                         console.log(`   v6.63.298 sendToAllAdmins durch — ${_options.length} Optionen, pendingId=${_pendingId}`);

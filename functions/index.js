@@ -22969,6 +22969,7 @@ exports.onAnfrageStatusChanged = onValueUpdated(
                                 amount: _priceRaw,
                                 customerName: _name,
                                 customerEmail: _email,
+                                anfrageId,
                                 description: 'Funk Taxi — Transfer ' + (after.date || '') + ' ' + (after.time || '') + ' ' + (after.pickup || '').substring(0,30)
                             })
                         });
@@ -30359,7 +30360,7 @@ exports.createStripeCheckout = onRequest(
         }
 
         try {
-            const { invoiceNumber, amount, customerName, customerEmail, description } = req.body;
+            const { invoiceNumber, amount, customerName, customerEmail, description, anfrageId } = req.body;
 
             if (!invoiceNumber || !amount) {
                 res.status(400).json({ error: 'invoiceNumber und amount sind erforderlich' });
@@ -30393,7 +30394,8 @@ exports.createStripeCheckout = onRequest(
                 }],
                 metadata: {
                     invoiceNumber: invoiceNumber,
-                    source: 'taxi-heringsdorf'
+                    source: 'taxi-heringsdorf',
+                    ...(anfrageId ? { anfrageId } : {})
                 },
                 success_url: `https://taxi-heringsdorf.web.app/payment-success?invoice=${invoiceNumber}`,
                 cancel_url: `https://taxi-heringsdorf.web.app/payment-cancel?invoice=${invoiceNumber}`,
@@ -30620,6 +30622,45 @@ exports.stripeWebhook = onRequest(
                     //   (Vorkasse via Email-Vorschau-Dialog) → Ride direkt updaten damit
                     //   Native-Dashboard "✅ BEZAHLT"-Badge zeigt. Vorher: nur invoice
                     //   geupdated, ride blieb auf paymentStatus=offen → Bug bei Olaf-Zahlung.
+                    // 🆕 v6.63.295 (Patrick 11.06. 19:27): Bei Stripe-Zahlung an Anfrage-Link
+                    //   (kommt aus Email-Bestaetigung v6.63.294): Anfrage UND alle daraus
+                    //   abgeleiteten Rides auf paymentStatus=paid setzen damit Fahrer im
+                    //   Dashboard 'BEZAHLT'-Badge sieht.
+                    try {
+                        const _anfrId = session.metadata?.anfrageId
+                            || (invoiceNumber && invoiceNumber.startsWith('ANF-')
+                                ? invoiceNumber.replace(/^ANF-/, '')
+                                : null);
+                        if (_anfrId) {
+                            // Anfrage updaten
+                            await db.ref(`anfragen/${_anfrId}`).update({
+                                paymentStatus: 'paid',
+                                stripePaidAt: Date.now(),
+                                stripePaidAmount: session.amount_total / 100,
+                                stripePayerName: session.customer_details?.name || null,
+                                stripePayerEmail: session.customer_details?.email || null
+                            });
+                            // Alle Rides finden die aus dieser Anfrage stammen
+                            const _ridesSnap = await db.ref('rides').orderByChild('anfrageId').equalTo(_anfrId).once('value');
+                            const _updates = {};
+                            _ridesSnap.forEach(c => {
+                                const _rid = c.key;
+                                _updates[`rides/${_rid}/paymentStatus`] = 'paid';
+                                _updates[`rides/${_rid}/paymentMethod`] = 'stripe';
+                                _updates[`rides/${_rid}/stripePaymentStatus`] = 'paid';
+                                _updates[`rides/${_rid}/stripePaidAt`] = Date.now();
+                                _updates[`rides/${_rid}/stripePaidAmount`] = session.amount_total / 100;
+                                _updates[`rides/${_rid}/updatedAt`] = Date.now();
+                            });
+                            if (Object.keys(_updates).length > 0) {
+                                await db.ref().update(_updates);
+                                console.log(`✅ v6.63.295 Anfrage ${_anfrId} + ${_ridesSnap.numChildren()} Rides → paid via Webhook`);
+                            } else {
+                                console.log(`✅ v6.63.295 Anfrage ${_anfrId} → paid (noch keine Rides)`);
+                            }
+                        }
+                    } catch (_anfrErr) { console.warn('v6.63.295 Anfrage-Webhook Fehler:', _anfrErr.message); }
+
                     const _rideIdFromMeta = session.metadata?.rideId;
                     if (_rideIdFromMeta) {
                         try {

@@ -29133,7 +29133,12 @@ exports.regenerateInvoicePdf = onRequest(
 //   angezeigt werden". Native-App setzt pdfUrl=null + pdfNeedsRegeneration=true,
 //   ABER bisher reagierte niemand auf das Flag. Dieser Trigger feuert
 //   _doRegenerateInvoicePdf und setzt pdfNeedsRegeneration zurueck auf false.
-exports.onInvoicePdfRegenRequested = onValueUpdated(
+// 🐛 v6.63.305 (Patrick 12.06. 11:48 Bridge): Trigger feuerte nicht bei Ostseeblick
+//   20-26-942 Preis-Edit weil onValueUpdated nicht feuert wenn Sub-Field NEU
+//   geschrieben wird (vorher gar nicht existierte). Plus: updateChildren auf
+//   Parent setzt mehrere Felder atomisch — Sub-Field-Trigger erwischt das
+//   manchmal nicht. Switch auf onValueWritten + auch wenn before undefined ist.
+exports.onInvoicePdfRegenRequested = onValueWritten(
     {
         ref: '/invoices/{invoiceNumber}/pdfNeedsRegeneration',
         region: 'europe-west1',
@@ -29144,14 +29149,15 @@ exports.onInvoicePdfRegenRequested = onValueUpdated(
         try {
             const after = event.data.after.val();
             const before = event.data.before.val();
-            // Nur reagieren wenn Flag NEU true wird (false/undef -> true)
-            if (after !== true || before === true) return;
+            // Nur reagieren wenn Flag NEU true wird (undef/false/missing -> true)
+            if (after !== true) return;
+            if (before === true) return; // schon true, kein Re-Trigger
             const invoiceNumber = event.params.invoiceNumber;
-            console.log(`🔄 v6.63.296 pdfNeedsRegeneration=true Trigger fuer ${invoiceNumber} — starte Regenerierung`);
+            console.log(`🔄 v6.63.305 pdfNeedsRegeneration=true Trigger fuer ${invoiceNumber} (before=${before}, after=${after}) — starte Regenerierung`);
             const result = await _doRegenerateInvoicePdf(invoiceNumber);
-            console.log(`✅ v6.63.296 PDF neu generiert: ${invoiceNumber} -> ${result.pdfUrl}`);
+            console.log(`✅ v6.63.305 PDF neu generiert: ${invoiceNumber} -> ${result.pdfUrl}`);
         } catch (e) {
-            console.error('❌ v6.63.296 onInvoicePdfRegenRequested-Fehler:', e);
+            console.error('❌ v6.63.305 onInvoicePdfRegenRequested-Fehler:', e);
             await logError('onInvoicePdfRegenRequested', e, {
                 invoiceNumber: event.params.invoiceNumber,
                 severity: 'critical'

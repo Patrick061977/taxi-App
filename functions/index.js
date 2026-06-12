@@ -35144,3 +35144,100 @@ exports.datevExport = onRequest(
         }
     }
 );
+
+// 🆕 v6.63.302 (Patrick 12.06. 07:04 Bridge: 'Kannst du automatisch die
+//   Schichtverlaengerung machen. Und kriegt dann der Fahrer eine Nachricht'):
+//   DB-Trigger auf /vehicleShifts/{vehicleId}/{dateStr} — wenn explicit
+//   Date-Eintrag NEU geschrieben wird (Tages-Ausnahme), sende Telegram-Push
+//   an den Fahrer.
+exports.onShiftExceptionWritten = onValueWritten(
+    {
+        ref: '/vehicleShifts/{vehicleId}/{dateStr}',
+        region: 'europe-west1',
+        timeoutSeconds: 60
+    },
+    async (event) => {
+        try {
+            const dateStr = event.params.dateStr;
+            // Nur Date-Pattern YYYY-MM-DD verarbeiten, NICHT 'defaults', 'defaultTimes', 'exceptions' etc.
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return;
+            const after = event.data.after.val();
+            const before = event.data.before.val();
+            if (!after) return; // Geloescht — kein Push
+            const vehicleId = event.params.vehicleId;
+
+            // Nur reagieren wenn aktiv=true UND startTime/endTime gesetzt sind
+            if (after.active !== true || !after.endTime) return;
+
+            // Vergleiche mit defaults dieser Wochentag-Schicht: wenn endTime gleich
+            // → keine Notification noetig
+            const dt = new Date(dateStr + 'T12:00:00');
+            const dow = dt.getDay(); // 0=So, 1=Mo, ...
+            const shiftSnap = await db.ref(`vehicleShifts/${vehicleId}`).once('value');
+            const fullShift = shiftSnap.val() || {};
+            const defTimes = (fullShift.defaultTimes || [])[dow];
+            const defStart = defTimes?.startTime || '00:00';
+            const defEnd = defTimes?.endTime || '23:59';
+
+            // Schon vorher gleicher Wert? Dann nichts neues
+            if (before && before.active === true &&
+                before.startTime === after.startTime && before.endTime === after.endTime) {
+                return;
+            }
+
+            const vehicleName = (OFFICIAL_VEHICLES[vehicleId] || {}).name || vehicleId;
+            const vehiclePlate = (OFFICIAL_VEHICLES[vehicleId] || {}).plate || '';
+
+            // Format Datum DD.MM.YYYY
+            const _dateDe = dateStr.split('-').reverse().join('.');
+
+            const _isExtension = after.endTime > defEnd;
+            const _isEarlierStart = after.startTime < defStart;
+            const _isShortened = after.endTime < defEnd || after.startTime > defStart;
+
+            let _emoji = '🕒';
+            let _kindText = 'angepasst';
+            if (_isExtension && !_isShortened) { _emoji = '⏰➕'; _kindText = 'verlaengert'; }
+            else if (_isEarlierStart && !_isShortened) { _emoji = '⏰⬅️'; _kindText = 'frueher beginnend'; }
+            else if (_isShortened) { _emoji = '⏰➖'; _kindText = 'verkuerzt'; }
+
+            const _msg = `${_emoji} *Schicht-Hinweis ${vehicleName}*\n\n` +
+                `Am ${_dateDe} wurde deine Schicht ${_kindText}:\n` +
+                `  Wochenplan: ${defStart} – ${defEnd}\n` +
+                `  Heute:      ${after.startTime} – ${after.endTime}\n` +
+                (after.exceptionReason ? `\nGrund: ${after.exceptionReason}\n` : '') +
+                `\nGilt nur fuer ${_dateDe}, keine Aenderung am Wochenplan.`;
+
+            const driverChatId = await getDriverChatId(vehicleId);
+            if (driverChatId) {
+                try {
+                    await sendTelegramMessage(driverChatId, _msg, { parse_mode: 'Markdown' });
+                    console.log(`✅ v6.63.302 Schicht-Notif an Fahrer ${vehicleName} (${driverChatId}) gesendet`);
+                } catch (e) {
+                    console.error('v6.63.302 sendTelegram Fehler:', e.message);
+                }
+            } else {
+                console.log(`⚠️ v6.63.302 Keine Fahrer-ChatId fuer ${vehicleId} — Schicht-Notif uebersprungen`);
+            }
+
+            // Audit log
+            await db.ref('shiftExceptionLog').push({
+                ts: Date.now(),
+                vehicleId, vehicleName,
+                dateStr,
+                wochenplan: { startTime: defStart, endTime: defEnd },
+                heute: { startTime: after.startTime, endTime: after.endTime },
+                kind: _kindText,
+                reason: after.exceptionReason || null,
+                notifiedDriver: !!driverChatId
+            }).catch(() => {});
+        } catch (e) {
+            console.error('onShiftExceptionWritten Fehler:', e);
+            await logError('onShiftExceptionWritten', e, {
+                vehicleId: event.params.vehicleId,
+                dateStr: event.params.dateStr,
+                severity: 'warning'
+            }).catch(() => {});
+        }
+    }
+);

@@ -20946,14 +20946,24 @@ exports.scheduledReachabilityCheck = onSchedule(
             const _dispatchSettingsSnap = await db.ref('settings/dispatch').once('value');
             const _dispatchSettings = _dispatchSettingsSnap.val() || {};
 
+            // 🐛 v6.63.307 (Patrick 12.06. 16:23 Bridge: 'A war dauerhaft bei 9 Minuten'):
+            //   ReachabilityCheck zeigte 'ReachabilityCheck: 0 Fahrten geprueft' obwohl
+            //   Reintjes 15:30 in der 30-Min-Window war. Ursache: startAt(now) filtert
+            //   Rides aus deren pickupTimestamp < now — bei on_way/picked_up Rides ist
+            //   pickup-Zeit oft schon verstrichen → ride aus dem Query rausgefiltert →
+            //   keine ETA-Updates mehr → "9 Min" eingefroren.
+            //   Fix: startAt(now-30min) statt startAt(now), damit auch frisch-on_way
+            //   Rides drin sind. Plus pro-Ride-Logging warum es nicht gepruef wurde.
+            const windowStart = now - 30 * 60 * 1000;
             const [ridesSnap, vehiclesSnap] = await Promise.all([
-                db.ref('rides').orderByChild('pickupTimestamp').startAt(now).endAt(windowEnd).once('value'),
+                db.ref('rides').orderByChild('pickupTimestamp').startAt(windowStart).endAt(windowEnd).once('value'),
                 db.ref('vehicles').once('value')
             ]);
             const vehicles = vehiclesSnap.val() || {};
 
             let checkedCount = 0;
             let alertCount = 0;
+            let skipDebug = { wrongStatus: 0, noVehicle: 0, noGps: 0, staleGps: 0, noCoords: 0 };
             const promises = [];
 
             ridesSnap.forEach(child => {
@@ -20966,18 +20976,18 @@ exports.scheduledReachabilityCheck = onSchedule(
                 //   - accepted/vorbestellt/new/sofort/warteschlange/assigned → ETA zum Pickup
                 //   - on_way → ETA zum Pickup (Restanfahrt) — Fahrer will sehen wie weit
                 //   - picked_up → ETA zum Destination — Fahrer braucht Zielzeit
-                if (!['accepted', 'vorbestellt', 'new', 'sofort', 'warteschlange', 'assigned', 'on_way', 'picked_up'].includes(ride.status)) return;
+                if (!['accepted', 'vorbestellt', 'new', 'sofort', 'warteschlange', 'assigned', 'on_way', 'picked_up'].includes(ride.status)) { skipDebug.wrongStatus++; return; }
                 const vid = ride.assignedVehicle || ride.vehicleId || ride.vehicle;
-                if (!vid) return;
+                if (!vid) { skipDebug.noVehicle++; return; }
                 const v = vehicles[vid];
-                if (!v || !v.lat || !v.lon) return;
+                if (!v || !v.lat || !v.lon) { skipDebug.noGps++; return; }
                 const vLastSeen = v.lastSeen || v.lastUpdate || 0;
-                if (vLastSeen && (now - vLastSeen) > STALE_GPS_MS) return;
+                if (vLastSeen && (now - vLastSeen) > STALE_GPS_MS) { skipDebug.staleGps++; return; }
                 // Ziel haengt vom Status ab
                 const _isToDest = ride.status === 'picked_up';
                 const tgtLatRaw = _isToDest ? (ride.destinationLat) : (ride.pickupLat);
                 const tgtLonRaw = _isToDest ? (ride.destinationLon) : (ride.pickupLon);
-                if (!tgtLatRaw || !tgtLonRaw) return;
+                if (!tgtLatRaw || !tgtLonRaw) { skipDebug.noCoords++; return; }
                 const tgtLat = parseFloat(tgtLatRaw);
                 const tgtLon = parseFloat(tgtLonRaw);
                 if (isNaN(tgtLat) || isNaN(tgtLon)) return;
@@ -21092,7 +21102,7 @@ exports.scheduledReachabilityCheck = onSchedule(
             });
 
             await Promise.all(promises);
-            console.log(`📡 ReachabilityCheck: ${checkedCount} Fahrten geprüft, ${alertCount} Alarm(e) gesendet`);
+            console.log(`📡 v6.63.307 ReachabilityCheck: ${checkedCount} geprüft, ${alertCount} Alarm | skipped: status=${skipDebug.wrongStatus}, noVeh=${skipDebug.noVehicle}, noGps=${skipDebug.noGps}, staleGps=${skipDebug.staleGps}, noCoords=${skipDebug.noCoords}`);
         } catch (e) {
             console.error('❌ scheduledReachabilityCheck Fehler:', e.message, e.stack);
         }

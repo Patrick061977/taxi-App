@@ -990,6 +990,9 @@ public class CrmSearchActivity extends AppCompatActivity {
         // 🆕 v6.63.293 (Patrick 11.06. 19:09): Rechnung neu generieren wenn Adresse korrigiert
         opts.add("🔄 PDF neu generieren (mit aktueller CRM-Adresse)");
         actionIds.add(6);
+        // 🆕 v6.63.303 (Patrick 12.06. 07:49 Bridge: 'nachtraeglich Preis + Position bearbeiten'):
+        opts.add("✏️ Preis & Position bearbeiten");
+        actionIds.add(7);
 
         new AlertDialog.Builder(this)
             .setTitle(sb.toString())
@@ -1018,6 +1021,9 @@ public class CrmSearchActivity extends AppCompatActivity {
                         break;
                     case 6:
                         regenerateInvoicePdf(invPath, rideId, num, e);
+                        break;
+                    case 7:
+                        editInvoicePriceAndPosition(invPath, rideId, num, gross);
                         break;
                 }
             })
@@ -1058,6 +1064,104 @@ public class CrmSearchActivity extends AppCompatActivity {
             })
             .setNegativeButton("Abbrechen", null)
             .show();
+    }
+
+    // 🆕 v6.63.303 (Patrick 12.06. 07:49 Bridge: 'nachtraeglich Preis + Position bearbeiten —
+    //   Ostseeblick steht 8.30 statt 10€ Festpreis, plus Taxifahrt vs Krankenfahrt'):
+    //   Modal mit zwei Feldern (Preis + Position-Description). Save patcht totalGross +
+    //   positions[0] + setzt pdfNeedsRegeneration=true → Cloud-Function-Trigger neu generiert.
+    private void editInvoicePriceAndPosition(String invPath, String rideId, String num, Double currentGross) {
+        // Aktuelle Position-Description aus DB lesen damit Vor-Filling stimmt
+        FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference(invPath).get()
+            .addOnSuccessListener(snap -> {
+                String _curDesc = "Taxifahrt";
+                if (snap.exists() && snap.child("positions").exists()) {
+                    DataSnapshot pos0 = snap.child("positions").getChildren().iterator().hasNext()
+                        ? snap.child("positions").getChildren().iterator().next() : null;
+                    if (pos0 != null && pos0.child("description").exists()) {
+                        _curDesc = String.valueOf(pos0.child("description").getValue());
+                    }
+                }
+                final String _initialDesc = _curDesc;
+
+                LinearLayout layout = new LinearLayout(this);
+                layout.setOrientation(LinearLayout.VERTICAL);
+                int _pad = (int) (getResources().getDisplayMetrics().density * 16);
+                layout.setPadding(_pad, _pad, _pad, _pad);
+
+                TextView lblP = new TextView(this);
+                lblP.setText("💶 Preis (Brutto in €)");
+                lblP.setTextSize(12);
+                lblP.setTextColor(0xFF64748B);
+                layout.addView(lblP);
+
+                EditText etPrice = new EditText(this);
+                etPrice.setHint("z.B. 10.00");
+                etPrice.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
+                if (currentGross != null) etPrice.setText(String.format(Locale.GERMANY, "%.2f", currentGross));
+                layout.addView(etPrice);
+
+                TextView lblD = new TextView(this);
+                lblD.setText("📋 Position (z.B. Taxifahrt / Krankenfahrt / Sonderfahrt)");
+                lblD.setTextSize(12);
+                lblD.setTextColor(0xFF64748B);
+                LinearLayout.LayoutParams lblLp = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+                lblLp.setMargins(0, _pad, 0, 0);
+                lblD.setLayoutParams(lblLp);
+                layout.addView(lblD);
+
+                EditText etDesc = new EditText(this);
+                etDesc.setText(_initialDesc);
+                etDesc.setInputType(InputType.TYPE_CLASS_TEXT);
+                layout.addView(etDesc);
+
+                new AlertDialog.Builder(this)
+                    .setTitle("✏️ Rechnung " + num + " bearbeiten")
+                    .setView(layout)
+                    .setPositiveButton("Speichern + PDF neu", (d, w) -> {
+                        String _priceStr = etPrice.getText().toString().trim().replace(',', '.');
+                        String _descStr = etDesc.getText().toString().trim();
+                        double _newGross;
+                        try { _newGross = Double.parseDouble(_priceStr); }
+                        catch (Throwable t) {
+                            Toast.makeText(this, "❌ Ungueltiger Preis", Toast.LENGTH_LONG).show();
+                            return;
+                        }
+                        if (_descStr.isEmpty()) {
+                            Toast.makeText(this, "❌ Position darf nicht leer sein", Toast.LENGTH_LONG).show();
+                            return;
+                        }
+                        Map<String, Object> upd = new HashMap<>();
+                        upd.put("totalGross", _newGross);
+                        // 19% MwSt brutto rechnen → netto = brutto / 1.19
+                        upd.put("totalNet", Math.round(_newGross / 1.19 * 100.0) / 100.0);
+                        upd.put("totalTax", Math.round((_newGross - _newGross / 1.19) * 100.0) / 100.0);
+                        // positions[0] patchen
+                        List<Map<String, Object>> _newPos = new ArrayList<>();
+                        Map<String, Object> _p = new HashMap<>();
+                        _p.put("description", _descStr);
+                        _p.put("amount", _newGross);
+                        _p.put("unitPrice", _newGross);
+                        _p.put("quantity", 1);
+                        _newPos.add(_p);
+                        upd.put("positions", _newPos);
+                        // PDF-Regenerieren triggern
+                        upd.put("pdfUrl", null);
+                        upd.put("pdfNeedsRegeneration", true);
+                        upd.put("priceEditedAt", System.currentTimeMillis());
+                        upd.put("priceEditedBy", "native-crm-edit-v6.63.303");
+                        FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference(invPath).updateChildren(upd)
+                            .addOnSuccessListener(_v -> Toast.makeText(this,
+                                "✅ Aktualisiert (PDF wird in ~30s neu generiert)", Toast.LENGTH_LONG).show())
+                            .addOnFailureListener(ex -> Toast.makeText(this,
+                                "❌ Fehler: " + ex.getMessage(), Toast.LENGTH_LONG).show());
+                    })
+                    .setNegativeButton("Abbrechen", null)
+                    .show();
+            })
+            .addOnFailureListener(ex -> Toast.makeText(this,
+                "❌ Konnte Rechnung nicht laden: " + ex.getMessage(), Toast.LENGTH_LONG).show());
     }
 
     private void sendInvoiceMail(CrmEntry e, String num, String pdfUrl, String dt, Double gross, String invPath) {

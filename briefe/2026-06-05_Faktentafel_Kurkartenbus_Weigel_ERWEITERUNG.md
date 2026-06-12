@@ -1,5 +1,5 @@
 # FAKTENTAFEL Kurkartenbus — ERWEITERUNG
-## Verdichtung der wesentlichen Punkte für RA Tom-Marek Weigel
+## Verdichtung der wesentlichen Punkte für RA Ingo-Holger Weigel
 
 **Mandant:** Patrick Wydra, Funk Taxi Heringsdorf
 **Stand:** 05.06.2026 (Ergänzung zur Basis-Faktentafel vom selben Tag)

@@ -2,7 +2,7 @@
 
 **Datum:** 05.06.2026
 **Mandant:** Patrick Wydra, Funk Taxi Heringsdorf
-**Empfänger:** RA Tom-Marek Weigel
+**Empfänger:** RA Ingo-Holger Weigel
 **Recherche-Frage:** „Wenn das ein öffentlicher Dienstleistungsvertrag ist, müsste doch irgendwo ersichtlich sein, was das für ein Dienstleistungsvertrag ist."
 **Recherche-Auftrag:** Allris Heringsdorf + Allris/Kreistag LK VG + TED + Bundesanzeiger + Vergabeplattformen + LSBV.
 

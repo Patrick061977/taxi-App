@@ -71,7 +71,7 @@ Ich bitte um Bescheidung innerhalb der gesetzlichen Frist von einem Monat nach �
 
 ## Hintergrund
 
-Die Anfrage erfolgt im Rahmen der rechtlichen Prüfung möglicher Wettbewerbsverzerrungen gegenüber dem ortsansässigen Taxigewerbe. Die Vertretung erfolgt durch Rechtsanwalt Tom-Marek Weigel, Kanzlei Anklam (Schreiben an dortige Kanzlei beigefügt bzw. nachgereicht).
+Die Anfrage erfolgt im Rahmen der rechtlichen Prüfung möglicher Wettbewerbsverzerrungen gegenüber dem ortsansässigen Taxigewerbe. Die Vertretung erfolgt durch Rechtsanwalt Ingo-Holger Weigel, Kanzlei Anklam (Schreiben an dortige Kanzlei beigefügt bzw. nachgereicht).
 
 Mit freundlichen Grüßen
 

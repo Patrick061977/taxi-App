@@ -3214,14 +3214,19 @@ public class CrmSearchActivity extends AppCompatActivity {
                     if (_pxNow >= 5) _basePreis += 10.0;              // Großraumzuschlag bei 5+ Personen
                     double _finalPreis = Math.round(_basePreis * 10) / 10.0;
                     String _tarifLbl = _day == 0 ? " (So-Tarif)" : (_isNight ? " (Nachttarif)" : "");
+                    // 🆕 v6.63.304 (Patrick 12.06. 11:44 Bridge: 'optimistische
+                    //   Vorab-Schaetzung verwirrt den Kunden, 11,70€ vs 14,60€ — den
+                    //   Scheiss kannst du gleich mal raus machen'): Preis-Schaetzung
+                    //   raus. Cloud Function berechnet beim Anlegen mit TRAFFIC_AWARE
+                    //   den realen Preis. Live-Anzeige zeigt nur noch Distanz + Tarif-Label.
                     if (_isKranken) {
                         _livePriceInfo.setText(String.format(Locale.GERMANY,
                             "🗺 %.1f km • 🏥 Krankenfahrt (DMRZ)",
                             _strKm));
                     } else {
                         _livePriceInfo.setText(String.format(Locale.GERMANY,
-                            "🗺 %.1f km • ~%.2f €%s",
-                            _strKm, _finalPreis, _tarifLbl));
+                            "🗺 %.1f km%s",
+                            _strKm, _tarifLbl));
                     }
                     _livePriceInfo.setVisibility(android.view.View.VISIBLE);
                     _liveMap.setVisibility(android.view.View.VISIBLE);

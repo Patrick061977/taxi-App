@@ -1713,7 +1713,9 @@ public class CrmSearchActivity extends AppCompatActivity {
             //   "Als Vorlage neu anlegen" ist der häufigere Wunsch.
             _b.setPositiveButton("✏️ Bearbeiten", (d, w) -> openRideEditDialog(e, _rideIdFinal, r));
             _b.setNeutralButton("📅 Als Vorlage neu anlegen", (d, w) -> openRideAsTemplate(e, _rideIdFinal, r));
-            _b.setNegativeButton("Zurück", null);
+            // 🆕 v6.63.308 (Patrick 12.06. 12:36 + 16:24 Bridge: 'aus dieser Fahrt noch ein
+            //   Stripe-Link verschicken'): Vorkasse-Link bei zukuenftigen Vorbestellungen.
+            _b.setNegativeButton("💳 Vorkasse", (d, w) -> createStripeLinkFromRide(e, _rideIdFinal, r));
         } else {
             // v6.62.598: Patrick (11.05. 07:26): "Wenn ich eine Rechnung erstellen moechte
             //   die aber gestern war, wie kann ich das ueber die Native-App?"
@@ -1747,6 +1749,152 @@ public class CrmSearchActivity extends AppCompatActivity {
         }
 
         _b.show();
+    }
+
+    // 🆕 v6.63.308 (Patrick 12.06. Bridge 'Stripe-Link aus Disposition' + 'Vorkasse fuer Fahrer
+    //   ersichtlich'): Erstellt Vorkasse-Link aus einer bestehenden Ride. Ride-Daten
+    //   vorgefuellt: Preis, Customer-Name, Email, Beschreibung aus Pickup→Destination.
+    //   Cloud Function createStripeCheckout liefert URL zurueck → in Clipboard + Toast.
+    //   ride.stripePaymentLink + ride.stripeRequestedAt gespeichert damit Fahrer den
+    //   Bezahl-Status spaeter sieht (Webhook setzt stripePaymentReceived=true).
+    private void createStripeLinkFromRide(CrmEntry e, String rideId, Map<String, Object> r) {
+        if (rideId == null) {
+            Toast.makeText(this, "❌ Fahrt-ID fehlt", Toast.LENGTH_LONG).show();
+            return;
+        }
+        Object _pr = r.get("price");
+        double _initialPrice = 0.0;
+        if (_pr instanceof Number) _initialPrice = ((Number) _pr).doubleValue();
+        else if (_pr != null) { try { _initialPrice = Double.parseDouble(String.valueOf(_pr).replace(',', '.')); } catch (Throwable __) {} }
+        final double _prefillPrice = _initialPrice;
+        String _custEmail = (e.email != null && e.email.contains("@")) ? e.email : "";
+        final String _emailPrefill = _custEmail;
+        String _custName = e.name != null ? e.name : "Kunde";
+        final String _namePrefill = _custName;
+        String _pu = r.get("pickup") != null ? String.valueOf(r.get("pickup")) : "";
+        String _de = r.get("destination") != null ? String.valueOf(r.get("destination")) : "";
+        long _ts = r.get("pickupTimestamp") instanceof Long ? (Long) r.get("pickupTimestamp") : 0L;
+        java.text.SimpleDateFormat _dtFmt = new java.text.SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.GERMANY);
+        _dtFmt.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
+        final String _descPrefill = "Vorkasse Funk Taxi " + (_ts > 0 ? _dtFmt.format(new java.util.Date(_ts)) : "")
+            + " " + (_pu.length() > 25 ? _pu.substring(0, 25) : _pu)
+            + " → " + (_de.length() > 25 ? _de.substring(0, 25) : _de);
+
+        LinearLayout layout = new LinearLayout(this);
+        layout.setOrientation(LinearLayout.VERTICAL);
+        int pad = (int)(getResources().getDisplayMetrics().density * 12);
+        layout.setPadding(pad, pad, pad, pad);
+
+        TextView lblP = new TextView(this);
+        lblP.setText("💰 Betrag (€) — vorgefuellt aus Fahrt:");
+        lblP.setTextSize(11);
+        layout.addView(lblP);
+        EditText etAmount = new EditText(this);
+        etAmount.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
+        etAmount.setText(String.format(Locale.GERMANY, "%.2f", _prefillPrice));
+        layout.addView(etAmount);
+
+        TextView lblE = new TextView(this);
+        lblE.setText("📧 Email (Stripe schickt Quittung):");
+        lblE.setTextSize(11);
+        LinearLayout.LayoutParams _lp = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        _lp.setMargins(0, pad, 0, 0);
+        lblE.setLayoutParams(_lp);
+        layout.addView(lblE);
+        EditText etEmail = new EditText(this);
+        etEmail.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS);
+        etEmail.setText(_emailPrefill);
+        etEmail.setHint("kunde@example.de (optional)");
+        layout.addView(etEmail);
+
+        TextView lblD = new TextView(this);
+        lblD.setText("📝 Beschreibung (im Stripe-Checkout sichtbar):");
+        lblD.setTextSize(11);
+        lblD.setLayoutParams(_lp);
+        layout.addView(lblD);
+        EditText etDesc = new EditText(this);
+        etDesc.setText(_descPrefill);
+        layout.addView(etDesc);
+
+        android.widget.ScrollView _scroll = new android.widget.ScrollView(this);
+        _scroll.addView(layout);
+
+        new AlertDialog.Builder(this)
+            .setTitle("💳 Vorkasse-Link fuer " + (_namePrefill))
+            .setView(_scroll)
+            .setPositiveButton("Stripe-Link generieren", (d, w) -> {
+                String _amountStr = etAmount.getText().toString().trim().replace(',', '.');
+                String _finalEmail = etEmail.getText().toString().trim();
+                String _finalDesc = etDesc.getText().toString().trim();
+                double _amount;
+                try { _amount = Double.parseDouble(_amountStr); }
+                catch (Throwable _err) {
+                    Toast.makeText(this, "⚠️ Ungueltiger Betrag", Toast.LENGTH_LONG).show();
+                    return;
+                }
+                if (_amount < 0.5) {
+                    Toast.makeText(this, "⚠️ Mindestbetrag 0,50 €", Toast.LENGTH_LONG).show();
+                    return;
+                }
+                final double _fAmount = _amount;
+                final String _invoiceNumber = "VKAS-" + rideId.substring(Math.max(0, rideId.length() - 8));
+                Toast.makeText(this, "⏳ Generiere Stripe-Link...", Toast.LENGTH_SHORT).show();
+                new Thread(() -> {
+                    try {
+                        java.net.URL _url = new java.net.URL("https://europe-west1-taxi-heringsdorf.cloudfunctions.net/createStripeCheckout");
+                        java.net.HttpURLConnection conn = (java.net.HttpURLConnection) _url.openConnection();
+                        conn.setRequestMethod("POST");
+                        conn.setRequestProperty("Content-Type", "application/json; charset=utf-8");
+                        conn.setDoOutput(true);
+                        conn.setConnectTimeout(10000);
+                        conn.setReadTimeout(20000);
+                        org.json.JSONObject _body = new org.json.JSONObject();
+                        _body.put("invoiceNumber", _invoiceNumber);
+                        _body.put("amount", _fAmount);
+                        _body.put("customerName", _namePrefill);
+                        if (!_finalEmail.isEmpty()) _body.put("customerEmail", _finalEmail);
+                        _body.put("description", _finalDesc.isEmpty() ? "Vorkasse Funk Taxi Heringsdorf" : _finalDesc);
+                        _body.put("rideId", rideId);
+                        try (java.io.OutputStream _os = conn.getOutputStream()) {
+                            _os.write(_body.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                        }
+                        int _rc = conn.getResponseCode();
+                        if (_rc < 200 || _rc >= 300) {
+                            runOnUiThread(() -> Toast.makeText(this, "❌ Stripe-Fehler HTTP " + _rc, Toast.LENGTH_LONG).show());
+                            return;
+                        }
+                        java.io.BufferedReader _br = new java.io.BufferedReader(new java.io.InputStreamReader(conn.getInputStream(), java.nio.charset.StandardCharsets.UTF_8));
+                        StringBuilder _sb = new StringBuilder();
+                        String _line; while ((_line = _br.readLine()) != null) _sb.append(_line);
+                        org.json.JSONObject _resp = new org.json.JSONObject(_sb.toString());
+                        final String _checkoutUrl = _resp.optString("url", "");
+                        if (_checkoutUrl.isEmpty()) {
+                            runOnUiThread(() -> Toast.makeText(this, "❌ Stripe lieferte keine URL", Toast.LENGTH_LONG).show());
+                            return;
+                        }
+                        // Ride aktualisieren
+                        Map<String, Object> _upd = new HashMap<>();
+                        _upd.put("stripePaymentLink", _checkoutUrl);
+                        _upd.put("stripeRequestedAt", System.currentTimeMillis());
+                        _upd.put("stripeRequestedBy", "native-crm-ride-history-v6.63.308");
+                        _upd.put("stripeAmount", _fAmount);
+                        FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("rides/" + rideId).updateChildren(_upd);
+                        runOnUiThread(() -> {
+                            android.content.ClipboardManager _cm = (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+                            if (_cm != null) _cm.setPrimaryClip(android.content.ClipData.newPlainText("Stripe", _checkoutUrl));
+                            new AlertDialog.Builder(this)
+                                .setTitle("💳 Stripe-Link bereit")
+                                .setMessage("Link in Zwischenablage kopiert:\n\n" + _checkoutUrl + "\n\nIn WhatsApp / SMS / E-Mail einfuegen.")
+                                .setPositiveButton("OK", null).show();
+                        });
+                    } catch (Throwable _err) {
+                        runOnUiThread(() -> Toast.makeText(this, "❌ Stripe-Fehler: " + _err.getMessage(), Toast.LENGTH_LONG).show());
+                    }
+                }).start();
+            })
+            .setNegativeButton("Abbrechen", null)
+            .show();
     }
 
     // v6.62.598: Retro-Rechnung fuer vergangene completed-Fahrt anstossen.

@@ -1227,11 +1227,18 @@ public class CrmSearchActivity extends AppCompatActivity {
         _etBodyExtra.setMinLines(2);
         _layout.addView(_etBodyExtra);
 
+        // 🆕 v6.63.311 (Patrick 12.06. 21:34 Bridge: 'fuer Bar steht trotzdem in der Mail
+        //   wir ueberweisen den Betrag innerhalb von 14 Tagen — passt nicht'):
+        //   Bei preferredPayment=bar wird im Body 'vielen Dank fuer die Bar-Zahlung' statt
+        //   'innerhalb 14 Tagen auf Konto'.
+        final String _payHint = (e.preferredPayment != null && e.preferredPayment.trim().equalsIgnoreCase("bar"))
+            ? "Die Zahlung erfolgte BAR am Tag der Fahrt — vielen Dank.\n\n"
+            : "Bitte um Begleichung innerhalb 14 Tagen auf das angegebene Konto.\n\n";
         TextView _lblPreview = new TextView(this);
         _lblPreview.setText("\nSehr geehrte Damen und Herren,\n\nanbei erhalten Sie die Rechnung Nr. " + num +
             (_dt.isEmpty() ? "" : (" vom " + _dt)) + ".\n" +
             (_gross.isEmpty() ? "" : ("Rechnungsbetrag: " + _gross + "\n")) +
-            "Bitte um Begleichung innerhalb 14 Tagen auf das angegebene Konto.\n\n" +
+            _payHint +
             "Mit freundlichen Gruessen\nPatrick Wydra");
         _lblPreview.setBackgroundColor(0xFFF1F5F9);
         _lblPreview.setPadding(_pad, _pad, _pad, _pad);
@@ -1259,15 +1266,18 @@ public class CrmSearchActivity extends AppCompatActivity {
                 String _finalTo = _etTo.getText().toString().trim();
                 String _finalSubject = _etSubject.getText().toString().trim();
                 String _finalExtra = _etBodyExtra.getText().toString().trim();
-                sendInvoiceMailNow(invPath, num, _finalTo, _name, _finalSubject, _pdfUrl, _dt, _gross, _finalExtra);
+                boolean _isBar = (e.preferredPayment != null && e.preferredPayment.trim().equalsIgnoreCase("bar"));
+                sendInvoiceMailNow(invPath, num, _finalTo, _name, _finalSubject, _pdfUrl, _dt, _gross, _finalExtra, _isBar);
             })
             .setNegativeButton("Abbrechen", null)
             .show();
     }
 
     // 🆕 v6.63.306 ausgelagert: tatsaechlicher Send-Call nach Vorschau-Bestaetigung
+    // 🆕 v6.63.311: isBarPayment-Flag damit Mail-Body sich anpasst
     private void sendInvoiceMailNow(String invPath, String num, String hotelEmail, String _name,
-                                     String subject, String _pdfUrl, String _dt, String _gross, String _extraBody) {
+                                     String subject, String _pdfUrl, String _dt, String _gross, String _extraBody,
+                                     boolean isBarPayment) {
         Toast.makeText(this, "📨 Rechnung wird versendet…", Toast.LENGTH_SHORT).show();
         new Thread(() -> {
             try {
@@ -1288,14 +1298,19 @@ public class CrmSearchActivity extends AppCompatActivity {
                 if (!_dt.isEmpty()) html.append(" vom ").append(_dt);
                 html.append(".</p>");
                 if (!_gross.isEmpty()) html.append("<p>Rechnungsbetrag: <b>").append(_gross).append("</b></p>");
-                html.append("<p>Wir bitten um Begleichung des Betrags innerhalb von 14 Tagen auf folgendes Konto:</p>");
-                html.append("<table cellpadding='4' style='border-collapse:collapse;font-size:13px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:4px;margin:8px 0;'>");
-                html.append("<tr><td>Empfaenger:</td><td><b>Taxiunternehmen Patrick Wydra</b></td></tr>");
-                html.append("<tr><td>Bank:</td><td>Volksbank Vorpommern</td></tr>");
-                html.append("<tr><td>IBAN:</td><td>DE16 1309 1054 0001 5524 90</td></tr>");
-                html.append("<tr><td>BIC:</td><td>GENODEF1HST</td></tr>");
-                html.append("<tr><td>Verwendungszweck:</td><td><b>").append(num).append("</b></td></tr>");
-                html.append("</table>");
+                if (isBarPayment) {
+                    // 🆕 v6.63.311: Bar-Zahlung — keine Bank-Daten + Dank-Text
+                    html.append("<p>Die Zahlung erfolgte BAR am Tag der Fahrt. Vielen Dank.</p>");
+                } else {
+                    html.append("<p>Wir bitten um Begleichung des Betrags innerhalb von 14 Tagen auf folgendes Konto:</p>");
+                    html.append("<table cellpadding='4' style='border-collapse:collapse;font-size:13px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:4px;margin:8px 0;'>");
+                    html.append("<tr><td>Empfaenger:</td><td><b>Taxiunternehmen Patrick Wydra</b></td></tr>");
+                    html.append("<tr><td>Bank:</td><td>Volksbank Vorpommern</td></tr>");
+                    html.append("<tr><td>IBAN:</td><td>DE16 1309 1054 0001 5524 90</td></tr>");
+                    html.append("<tr><td>BIC:</td><td>GENODEF1HST</td></tr>");
+                    html.append("<tr><td>Verwendungszweck:</td><td><b>").append(num).append("</b></td></tr>");
+                    html.append("</table>");
+                }
                 html.append("<p>Bei Fragen erreichen Sie uns unter <a href='tel:+4938378220 22'>038378 / 22022</a>.</p>");
                 html.append("<p>Mit freundlichen Gruessen<br><br>Patrick Wydra<br>Taxiunternehmen Patrick Wydra<br>Amselring 10<br>17424 Ostseebad Heringsdorf<br>");
                 html.append("Tel.: 038378/22022<br>E-Mail: taxiwydra@googlemail.com<br>USt-ID: DE205006336 &nbsp;|&nbsp; St-Nr: 084/289/01178</p>");
@@ -5572,6 +5587,22 @@ public class CrmSearchActivity extends AppCompatActivity {
                     String _invOneLine = e.invoiceAddress.replaceAll("\\s*\\n\\s*", ", ").trim();
                     if (_invOneLine.length() > 75) _invOneLine = _invOneLine.substring(0, 72) + "…";
                     sub += (sub.isEmpty() ? "" : "\n") + "🧾 " + _invOneLine;
+                }
+                // 🆕 v6.63.311 (Patrick 12.06. 21:34 Bridge: 'in CRM-Suche sehen ob Bar/Rechnung'):
+                //   Zahlungsart-Badge als zusaetzliche Zeile damit Patrick auf einen Blick sieht
+                //   wie der Kunde abrechnet.
+                if (e.preferredPayment != null && !e.preferredPayment.trim().isEmpty()) {
+                    String _pay = e.preferredPayment.trim().toLowerCase();
+                    String _payLabel = "";
+                    switch (_pay) {
+                        case "bar": _payLabel = "💵 BAR"; break;
+                        case "ec": _payLabel = "💳 EC"; break;
+                        case "rechnung": _payLabel = "📄 RECHNUNG"; break;
+                        case "kreditkarte": _payLabel = "💳 Kreditkarte"; break;
+                        case "ueberweisung": _payLabel = "🏦 Ueberweisung"; break;
+                        default: _payLabel = "💰 " + e.preferredPayment;
+                    }
+                    sub += (sub.isEmpty() ? "" : "\n") + _payLabel;
                 }
                 if (_extras.length() > 0) {
                     sub += (sub.isEmpty() ? "" : "\n") + _extras.toString();

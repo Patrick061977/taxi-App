@@ -20954,7 +20954,11 @@ exports.scheduledReachabilityCheck = onSchedule(
             //   keine ETA-Updates mehr → "9 Min" eingefroren.
             //   Fix: startAt(now-30min) statt startAt(now), damit auch frisch-on_way
             //   Rides drin sind. Plus pro-Ride-Logging warum es nicht gepruef wurde.
-            const windowStart = now - 30 * 60 * 1000;
+            // v6.63.310 (Patrick 12.06. 20:48 Bridge: 'er merkt jetzt wieder nicht'):
+            //   Window-Start auf -90min erweitert. Wald-und-See ride pickup 20:15,
+            //   on_way 20:45, now 20:48 → war ausserhalb des -30min Window. ETA-Updates
+            //   sollten on_way Rides bis 90 Min nach Pickup-Time erfassen.
+            const windowStart = now - 90 * 60 * 1000;
             const [ridesSnap, vehiclesSnap] = await Promise.all([
                 db.ref('rides').orderByChild('pickupTimestamp').startAt(windowStart).endAt(windowEnd).once('value'),
                 db.ref('vehicles').once('value')

@@ -2170,11 +2170,25 @@ public class DriverDashboardActivity extends AppCompatActivity {
         });
         layout.addView(btnGpsPin);
 
+        // 🆕 v6.63.302 (Patrick 11.06. 21:41 Bridge: 'wenn man den Standort nimmt wo
+        //   man losfaehrt, dann kann man nachher tauschen den Standort wo man
+        //   angekommen ist'): Tausch-Button zwischen Pickup + Destination + Koords.
+        MaterialButton btnSwap = new MaterialButton(this);
+        btnSwap.setText("⇅ Abholort und Zielort tauschen");
+        btnSwap.setBackgroundColor(Color.parseColor("#7c3aed"));
+        btnSwap.setTextColor(Color.WHITE);
+        LinearLayout.LayoutParams swapLp = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        swapLp.setMargins(0, gap, 0, gap * 2);
+        btnSwap.setLayoutParams(swapLp);
+        // Click-Handler wird unten registriert, NACHDEM etDest erstellt ist
+
         // Destination
         TextView lblDest = new TextView(this);
         lblDest.setText("🎯 Zielort");
         lblDest.setTextSize(12);
         lblDest.setTextColor(Color.parseColor("#64748b"));
+        layout.addView(btnSwap);
         layout.addView(lblDest);
 
         EditText etDest = new EditText(this);
@@ -2199,6 +2213,24 @@ public class DriverDashboardActivity extends AppCompatActivity {
         btnDestPicker.setLayoutParams(destLp);
         btnDestPicker.setOnClickListener(v -> launchMapPickerFor(etDest, einsteigerDestCoords));
         layout.addView(btnDestPicker);
+
+        // 🆕 v6.63.302 OnClickListener fuer btnSwap (oben deklariert)
+        btnSwap.setOnClickListener(v -> {
+            String _puText = etPickup.getText().toString();
+            String _deText = etDest.getText().toString();
+            etPickup.setText(_deText);
+            etDest.setText(_puText);
+            double _puLat = einsteigerPickupCoords[0];
+            double _puLon = einsteigerPickupCoords[1];
+            einsteigerPickupCoords[0] = einsteigerDestCoords[0];
+            einsteigerPickupCoords[1] = einsteigerDestCoords[1];
+            einsteigerDestCoords[0] = _puLat;
+            einsteigerDestCoords[1] = _puLon;
+            String _puAddr = einsteigerPickupAddress;
+            einsteigerPickupAddress = einsteigerDestAddress;
+            einsteigerDestAddress = _puAddr;
+            Toast.makeText(this, "⇅ Abholort und Zielort getauscht", Toast.LENGTH_SHORT).show();
+        });
 
         // Preis + Pax
         EditText etPrice = new EditText(this);
@@ -3391,18 +3423,81 @@ public class DriverDashboardActivity extends AppCompatActivity {
         }
     }
 
+    // 🆕 v6.63.312 (Patrick 12.06. 21:41 Bridge: 'wenn die Fahrt beendet wurde, Email an
+    //   den Auftraggeber gleich machen koennen, ohne CRM-Suche-Detour. Es muss ein Flow sein.'):
+    //   Email-Adresse aus Ride/CRM vorausfuellen + Subject + Body-Preview damit Patrick
+    //   nur 1x bestaetigen muss. Cloud-Function macht Rechnung+PDF+SMTP automatisch.
     private void showMailInvoiceDialog(Ride r, double amount) {
-        EditText et = new EditText(this);
-        et.setHint("Email-Adresse");
-        et.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS);
+        // 1. Customer-Email aus Ride lesen, dann ggf. aus CRM nachladen
+        final String _prefilledFromRide = firstNonEmpty(r.customerEmail, r.email);
+        if (_prefilledFromRide != null && !_prefilledFromRide.isEmpty()) {
+            _renderMailInvoiceDialog(r, amount, _prefilledFromRide);
+            return;
+        }
+        final String _custId = r.customerId;
+        if (_custId == null || _custId.isEmpty() || db == null) {
+            _renderMailInvoiceDialog(r, amount, "");
+            return;
+        }
+        db.getReference("customers/" + _custId + "/email").get().addOnSuccessListener(snap -> {
+            String _e = snap != null && snap.getValue() != null ? String.valueOf(snap.getValue()) : "";
+            _renderMailInvoiceDialog(r, amount, _e);
+        }).addOnFailureListener(_x -> _renderMailInvoiceDialog(r, amount, ""));
+    }
+
+    private void _renderMailInvoiceDialog(Ride r, double amount, String prefilledEmail) {
+        LinearLayout layout = new LinearLayout(this);
+        layout.setOrientation(LinearLayout.VERTICAL);
+        int pad = (int)(getResources().getDisplayMetrics().density * 12);
+        layout.setPadding(pad, pad, pad, pad);
+
+        TextView lblE = new TextView(this);
+        lblE.setText("📧 Email-Adresse (Auftraggeber)");
+        lblE.setTextSize(11);
+        layout.addView(lblE);
+        EditText etEmail = new EditText(this);
+        etEmail.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS);
+        if (prefilledEmail != null && !prefilledEmail.isEmpty()) {
+            etEmail.setText(prefilledEmail);
+        } else {
+            etEmail.setHint("kunde@example.de");
+        }
+        layout.addView(etEmail);
+
+        TextView lblP = new TextView(this);
+        lblP.setText("\n📝 Vorschau:");
+        lblP.setTextSize(11);
+        layout.addView(lblP);
+
+        String _cust = r.customerName != null ? r.customerName : "Auftraggeber";
+        String _gross = String.format(Locale.GERMANY, "%.2f €", amount);
+        String _payHint = r.paymentMethod != null && r.paymentMethod.equalsIgnoreCase("bar")
+            ? "Die Zahlung erfolgte BAR — vielen Dank."
+            : "Bitte um Begleichung innerhalb 14 Tagen auf das angegebene Konto.";
+        String _preview =
+            "Sehr geehrte Damen und Herren,\n\n" +
+            "anbei erhalten Sie die Rechnung fuer den heutigen Transfer fuer " + _cust + ".\n" +
+            "Rechnungsbetrag: " + _gross + "\n\n" +
+            _payHint + "\n\n" +
+            "Mit freundlichen Gruessen\nPatrick Wydra";
+        TextView tvPreview = new TextView(this);
+        tvPreview.setText(_preview);
+        tvPreview.setBackgroundColor(0xFFF1F5F9);
+        tvPreview.setTextColor(0xFF334155);
+        tvPreview.setPadding(pad, pad, pad, pad);
+        tvPreview.setTextSize(11);
+        layout.addView(tvPreview);
+
+        android.widget.ScrollView scroll = new android.widget.ScrollView(this);
+        scroll.addView(layout);
+
         new AlertDialog.Builder(this)
-            .setTitle("✉ Email-Rechnung")
-            .setMessage("An welche Email senden? (Rechnung wird Cloud-seitig generiert)")
-            .setView(et)
-            .setPositiveButton("Senden", (d, w) -> {
-                String email = et.getText().toString().trim();
+            .setTitle("✉ Rechnung an Auftraggeber senden")
+            .setView(scroll)
+            .setPositiveButton("Jetzt senden", (d, w) -> {
+                String email = etEmail.getText().toString().trim();
                 if (email.isEmpty() || !email.contains("@")) {
-                    Toast.makeText(this, "Ungültige Email", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, "⚠️ Ungueltige Email", Toast.LENGTH_SHORT).show();
                     return;
                 }
                 Map<String, Object> u = new HashMap<>();
@@ -3413,8 +3508,9 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 u.put("paymentAmount", amount);
                 u.put("invoiceEmail", email);
                 u.put("invoiceRequested", true); // Cloud Function reagiert auf Flag
+                u.put("autoSendMail", true);     // 🆕 v6.63.312: Cloud sendet auto Mail nach Rechnungs-Erstellung
                 db.getReference("rides/" + r.id).updateChildren(u);
-                Toast.makeText(this, "✅ Rechnung beauftragt", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "✅ Rechnung + Mail beauftragt (Cloud uebernimmt in ~30s)", Toast.LENGTH_LONG).show();
             })
             .setNegativeButton("Abbrechen", null)
             .show();
@@ -3575,6 +3671,8 @@ public class DriverDashboardActivity extends AppCompatActivity {
         //   paymentMethod='stripe'|'vorkasse'|'bar', stripePaymentStatus='pending'|'paid'.
         String paymentMethod;
         String stripePaymentStatus;
+        // 🆕 v6.63.312: Email + customerId für 1-Klick-Mail-Vorausfuellung beim 'Email-Rechnung'-Flow
+        String customerEmail, email, customerId;
 
         static Ride fromSnap(DataSnapshot s) {
             try {
@@ -3584,6 +3682,10 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 r.guestName = s.child("guestName").getValue(String.class);
                 r.paymentMethod = s.child("paymentMethod").getValue(String.class);
                 r.stripePaymentStatus = s.child("stripePaymentStatus").getValue(String.class);
+                // 🆕 v6.63.312
+                r.customerEmail = s.child("customerEmail").getValue(String.class);
+                r.email = s.child("email").getValue(String.class);
+                r.customerId = s.child("customerId").getValue(String.class);
                 r.pickup = s.child("pickup").getValue(String.class);
                 r.destination = s.child("destination").getValue(String.class);
                 r.pickupTime = s.child("pickupTime").getValue(String.class);

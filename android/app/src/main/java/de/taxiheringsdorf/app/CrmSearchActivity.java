@@ -1178,13 +1178,97 @@ public class CrmSearchActivity extends AppCompatActivity {
                 .show();
             return;
         }
-        Toast.makeText(this, "📨 Rechnung wird versendet…", Toast.LENGTH_SHORT).show();
-        final String subject = "Rechnung " + num + " — Funk-Taxi Heringsdorf";
+        // 🆕 v6.63.306 (Patrick 12.06. 12:36 Bridge: 'die Mail-Vorschau haben wir doch
+        //   schon wie in der Web-App ... Uebersicht was ich verschicke + PDF nochmal
+        //   anschauen'): Vor-Modal mit Empfaenger + Subject + Body-Vorschau + PDF-Link.
+        //   Send-Button schickt erst nach Bestaetigung.
+        final String _subject = "Rechnung " + num + " — Funk-Taxi Heringsdorf";
         final String _pdfUrl = pdfUrl != null ? pdfUrl : "";
         final String _gross = gross != null ? String.format(Locale.GERMANY, "%.2f€", gross) : "";
         final String _dt = dt != null ? dt : "";
         final String _name = e.name != null ? e.name : "";
 
+        LinearLayout _layout = new LinearLayout(this);
+        _layout.setOrientation(LinearLayout.VERTICAL);
+        int _pad = (int)(getResources().getDisplayMetrics().density * 12);
+        _layout.setPadding(_pad, _pad, _pad, _pad);
+
+        TextView _lblEmpf = new TextView(this);
+        _lblEmpf.setText("📧 Empfaenger");
+        _lblEmpf.setTextSize(11);
+        _lblEmpf.setTextColor(0xFF64748B);
+        _layout.addView(_lblEmpf);
+        EditText _etTo = new EditText(this);
+        _etTo.setText(hotelEmail);
+        _etTo.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS);
+        _layout.addView(_etTo);
+
+        TextView _lblSub = new TextView(this);
+        _lblSub.setText("Subject");
+        _lblSub.setTextSize(11);
+        _lblSub.setTextColor(0xFF64748B);
+        LinearLayout.LayoutParams _lp = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        _lp.setMargins(0, _pad, 0, 0);
+        _lblSub.setLayoutParams(_lp);
+        _layout.addView(_lblSub);
+        EditText _etSubject = new EditText(this);
+        _etSubject.setText(_subject);
+        _layout.addView(_etSubject);
+
+        TextView _lblBody = new TextView(this);
+        _lblBody.setText("📝 Body (Vorschau, kann ggf hier ergaenzt werden)");
+        _lblBody.setTextSize(11);
+        _lblBody.setTextColor(0xFF64748B);
+        _lblBody.setLayoutParams(_lp);
+        _layout.addView(_lblBody);
+        EditText _etBodyExtra = new EditText(this);
+        _etBodyExtra.setHint("Optional: Zusatztext (wird oben in die Mail eingefuegt)");
+        _etBodyExtra.setMinLines(2);
+        _layout.addView(_etBodyExtra);
+
+        TextView _lblPreview = new TextView(this);
+        _lblPreview.setText("\nSehr geehrte Damen und Herren,\n\nanbei erhalten Sie die Rechnung Nr. " + num +
+            (_dt.isEmpty() ? "" : (" vom " + _dt)) + ".\n" +
+            (_gross.isEmpty() ? "" : ("Rechnungsbetrag: " + _gross + "\n")) +
+            "Bitte um Begleichung innerhalb 14 Tagen auf das angegebene Konto.\n\n" +
+            "Mit freundlichen Gruessen\nPatrick Wydra");
+        _lblPreview.setBackgroundColor(0xFFF1F5F9);
+        _lblPreview.setPadding(_pad, _pad, _pad, _pad);
+        _lblPreview.setTextSize(11);
+        _layout.addView(_lblPreview);
+
+        if (!_pdfUrl.isEmpty()) {
+            android.widget.Button _btnPdf = new android.widget.Button(this);
+            _btnPdf.setText("📄 PDF im Anhang oeffnen + pruefen");
+            _btnPdf.setAllCaps(false);
+            _btnPdf.setOnClickListener(_v -> {
+                try { startActivity(new Intent(Intent.ACTION_VIEW, android.net.Uri.parse(_pdfUrl))); }
+                catch (Throwable t) { Toast.makeText(this, "PDF nicht oeffnen: " + t.getMessage(), Toast.LENGTH_LONG).show(); }
+            });
+            _layout.addView(_btnPdf);
+        }
+
+        android.widget.ScrollView _scroll = new android.widget.ScrollView(this);
+        _scroll.addView(_layout);
+
+        new AlertDialog.Builder(this)
+            .setTitle("✉️ Vorschau Rechnung " + num)
+            .setView(_scroll)
+            .setPositiveButton("Jetzt senden", (d, w) -> {
+                String _finalTo = _etTo.getText().toString().trim();
+                String _finalSubject = _etSubject.getText().toString().trim();
+                String _finalExtra = _etBodyExtra.getText().toString().trim();
+                sendInvoiceMailNow(invPath, num, _finalTo, _name, _finalSubject, _pdfUrl, _dt, _gross, _finalExtra);
+            })
+            .setNegativeButton("Abbrechen", null)
+            .show();
+    }
+
+    // 🆕 v6.63.306 ausgelagert: tatsaechlicher Send-Call nach Vorschau-Bestaetigung
+    private void sendInvoiceMailNow(String invPath, String num, String hotelEmail, String _name,
+                                     String subject, String _pdfUrl, String _dt, String _gross, String _extraBody) {
+        Toast.makeText(this, "📨 Rechnung wird versendet…", Toast.LENGTH_SHORT).show();
         new Thread(() -> {
             try {
                 org.json.JSONObject body = new org.json.JSONObject();
@@ -1197,6 +1281,9 @@ public class CrmSearchActivity extends AppCompatActivity {
                 StringBuilder html = new StringBuilder();
                 html.append("<div style='font-family:Arial,sans-serif;font-size:14px;color:#222;max-width:640px;'>");
                 html.append("<p>Sehr geehrte Damen und Herren,</p>");
+                if (_extraBody != null && !_extraBody.isEmpty()) {
+                    html.append("<p>").append(_extraBody.replace("\n", "<br>")).append("</p>");
+                }
                 html.append("<p>anbei erhalten Sie die Rechnung Nr. <b>").append(num).append("</b>");
                 if (!_dt.isEmpty()) html.append(" vom ").append(_dt);
                 html.append(".</p>");

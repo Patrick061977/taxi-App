@@ -3,7 +3,7 @@
 
 **Mandant:** Patrick Wydra, Funk Taxi Heringsdorf
 **Stand:** 05.06.2026 (Anschluss an BASIS + ERWEITERUNG + Sektion P)
-**Adressat:** RA Tom-Marek Weigel
+**Adressat:** RA Ingo-Holger Weigel
 **Vorgabe Patrick:** Ausschließlich wörtliche Quellen-Zitate der handelnden Akteure (Aufgabenträger, Betreiber, Gemeinde, Marketing, Presse). Keine eigene Subsumtion — nur die Selbst-Charakterisierung sammeln. Subsumtion bleibt Anwalt/Gericht.
 
 ---

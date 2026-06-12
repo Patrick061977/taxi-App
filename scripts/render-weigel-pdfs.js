@@ -24,6 +24,9 @@ const FILES = [
     '2026-06-05_Sektion_Q9_Personen_Zitate.md',
     '2026-06-05_Sektion_R_Vertragstext_Bekanntmachungen.md',
     '2026-06-05_IFG_LSBV_MV_Konzession_290_291.md',
+    '2026-06-06_Sektion_S_Konzern_Doppelverdraengung_VVG.md',
+    '2026-06-06_Sektion_T_Innerer_Widerspruch_Tourismus_vs_Paragraf_42.md',
+    '2026-06-06_Sektion_U_Vergleich_Kurorte_und_Alternativen.md',
 ];
 
 const CHROME_PATHS = [

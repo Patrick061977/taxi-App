@@ -3,7 +3,7 @@
 
 **Mandant:** Patrick Wydra, Funk Taxi Heringsdorf
 **Stand:** 05.06.2026 (Ergänzung zu Sektion Q.1–Q.8 in `2026-06-05_Sektion_Q_Eigen_Gestaendnisse_Tourismus.md`)
-**Adressat:** RA Tom-Marek Weigel
+**Adressat:** RA Ingo-Holger Weigel
 **Vorgabe Patrick (05.06.2026 18:16):** Ausschließlich wörtliche Personen-Zitate zur Linie 290/291 (Kurkartenbus / Kaiserbäderlinie / VVG-Vertrag / Pilotprojekt 2018), keine Subsumtion durch Sammler. Subsumtion bleibt Anwalt/Gericht.
 
 ---

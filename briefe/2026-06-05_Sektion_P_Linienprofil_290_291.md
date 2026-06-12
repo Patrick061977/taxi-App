@@ -3,7 +3,7 @@
 
 **Mandant:** Patrick Wydra, Funk Taxi Heringsdorf
 **Stand:** 05.06.2026 (Anschluss an Faktentafel BASIS + ERWEITERUNG vom selben Tag)
-**Adressat:** RA Tom-Marek Weigel
+**Adressat:** RA Ingo-Holger Weigel
 **Vorgabe Patrick:** Keine eigene Subsumtion „ÖPNV ja/nein" — nur belegbare Indizien. Subsumtion bleibt Anwalt/Gericht.
 
 ---

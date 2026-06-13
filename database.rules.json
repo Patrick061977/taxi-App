@@ -11,7 +11,7 @@
     },
 
     "rides": {
-      ".read": true,
+      ".read": "auth != null",
       ".write": "auth != null",
       ".indexOn": ["pickupTimestamp", "status", "vehicleId", "completedAt", "createdAt", "customerId"]
     },
@@ -23,7 +23,7 @@
     },
 
     "drivers": {
-      ".read": true,
+      ".read": "auth != null",
       ".write": "auth != null"
     },
 
@@ -39,12 +39,12 @@
     },
 
     "tracking": {
-      ".read": true,
+      ".read": "auth != null",
       ".write": "auth != null"
     },
 
     "vehicles": {
-      ".read": true,
+      ".read": "auth != null",
       ".write": "auth != null"
     },
 
@@ -56,15 +56,15 @@
       },
       "telegram": {
         "pending": {
-          ".read": true
+          ".read": "auth != null"
         },
         "botlog": {
-          ".read": true
+          ".read": "auth != null"
         }
       },
       "buchenLog": {
-        ".read": true,
-        ".write": true,
+        ".read": "auth != null",
+        ".write": "auth != null",
         ".indexOn": ["time"]
       },
       "tarif": {
@@ -135,7 +135,7 @@
     },
 
     "vehicleShifts": {
-      ".read": true,
+      ".read": "auth != null",
       ".write": "auth != null"
     },
 

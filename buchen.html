@@ -1163,6 +1163,29 @@
         });
         const db = firebase.database();
 
+        // 🔐 v6.63.319 (Patrick 13.06.2026 15:13 DSGVO-Audit): Anonymous-Auth automatisch.
+        //   Damit /rides /vehicles /vehicleShifts /tracking /drivers nicht mehr public lesbar
+        //   sein muessen. Vorbedingung: 'Anonymous Auth' in Firebase Console > Authentication >
+        //   Sign-in method > Anonymous > Enable muss aktiviert sein.
+        //   Wenn nicht aktiviert: signInAnonymously wirft Fehler — Page-Reads schlagen fehl
+        //   nach Rules-Verschaerfung.
+        (function setupAnonAuth() {
+            try {
+                firebase.auth().onAuthStateChanged(function(user) {
+                    if (!user) {
+                        firebase.auth().signInAnonymously().catch(function(e) {
+                            console.warn('⚠️ Anonymous-Auth fehlgeschlagen:', e.code, e.message);
+                            try { db.ref('debugErrors/' + Date.now()).set({
+                                where: 'buchen.html setupAnonAuth',
+                                error: e.code + ' ' + e.message,
+                                ts: Date.now(), userAgent: navigator.userAgent.slice(0, 200)
+                            }); } catch(_){}
+                        });
+                    }
+                });
+            } catch(e) { console.warn('Anon-Auth-Setup-Fehler:', e.message); }
+        })();
+
         // 🚑 v6.62.471: Auto-Reload-Recovery raus (Firefox-Loop-Block). Nur ?reset=1 bleibt.
         (function setupAuthRecovery() {
             if (location.search.includes('reset=1')) {

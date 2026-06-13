@@ -27998,8 +27998,13 @@ exports.scheduledDepartureAlert = onSchedule(
                 // 'assigned' / 'on_way' triggern wenn ein Fahrzeug zugewiesen ist. Viele
                 // Vorbestellungen bleiben 'vorbestellt' weil der Fahrer sie nicht aktiv
                 // 'annimmt' (Cloud-Auto-Assign vergibt sie ohne Annehmen-Tap).
-                const validStatuses = ['accepted', 'vorbestellt', 'assigned', 'on_way'];
+                // v6.63.313 (Patrick 13.06. 07:08 Bridge: 'Wieso kommt der Push fuer
+                //   Christ jetzt losfahren, obwohl ich schon losgefahren bin'):
+                //   on_way aus validStatuses raus + onWayAt-Skip. Wenn Fahrer schon
+                //   unterwegs (onWayAt gesetzt), ist Losfahr-Alarm verwirrend.
+                const validStatuses = ['accepted', 'vorbestellt', 'assigned'];
                 if (!validStatuses.includes(ride.status)) return;
+                if (ride.onWayAt) return; // schon losgefahren → kein Reminder mehr
                 if (ride.departureAlertSent) return;
                 // v6.63.189: Wenn Block 1 (Akzeptanz-Alarm) im selben Tick gefeuert hat,
                 //   keinen zweiten Losfahr-Push schicken — entzerrt auf 1 Push/Cron-Tick.

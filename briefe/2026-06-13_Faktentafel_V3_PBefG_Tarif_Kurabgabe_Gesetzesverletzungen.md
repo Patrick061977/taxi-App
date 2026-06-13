@@ -29,7 +29,7 @@ Seit 01.01.2026 betreibt die Verkehrsgesellschaft Vorpommern-Greifswald mbH (VVG
 | 1 | § 13 Abs. 2 Nr. 2 PBefG | Schutz des bestehenden Verkehrs | Keine ordnungsgemäße Prüfung der Beeinträchtigung des Pflichtfahrgebiet-Taxi-Gewerbes |
 | 2 | § 39 PBefG | Tarifgenehmigungs-Pflicht | „Nulltarif" via Kurabgabe ist kein gem. § 39 zustimmungsfähiger Beförderungstarif |
 | 3 | § 8 PBefG / § 1 ÖPNVG MV | Allgemein-Zugänglichkeit / Daseinsvorsorge | Kurkarten-Pflicht widerspricht „allgemein zugänglich"; Touristen-Bedienung ist keine Daseinsvorsorge |
-| 4 | § 11 Abs. 1 Nr. 1d KAG MV | Zweckbindung Kurabgabe für ÖPNV | Kurabgabe-Mittel dürfen nur für ÖPNV i.S.d. ÖPNVG MV eingesetzt werden — nicht für Touristen-Bus |
+| 4 | § 11 Abs. 1a Nr. 2 KAG MV | Zweckbindung Kurabgabe für ÖPNV | Kurabgabe-Mittel dürfen nur für ÖPNV i.S.d. ÖPNVG MV eingesetzt werden — nicht für Touristen-Bus |
 | 5 | EU-VO 1370/2007 Art. 3 | Gemeinwirtschaftliche Verpflichtung | Direktvergabe / Subvention nur für gemeinwirtschaftliche Verpflichtung; Tourismus ist keine |
 | 6 | Art. 107 AEUV | EU-Beihilfeverbot | Quersubvention an einen privaten Verkehrsbetreiber (UBB/VVG) auf einem Wettbewerbsmarkt mit Taxi-Anbietern ohne Subvention = wettbewerbsverzerrende Beihilfe |
 | 7 | § 39 PBefG (Folge) | Fehlende Tarif-Infrastruktur | Fehlen von Fahrkartenautomaten, Fahrer-Tickets, digitalem Vertrieb — atypisch für Linienverkehr i.S.d. § 42 |
@@ -75,7 +75,7 @@ Kurabgabe-Bus hat keines dieser Merkmale.
 
 **Konsequenz:** Wenn KEIN ÖPNV i.S.d. PBefG / ÖPNVG MV → ist die Genehmigung nach § 42 PBefG rechtsfehlerhaft → entweder § 43 Sonderlinienverkehr oder § 48 Ausflugsfahrt einschlägig.
 
-### Nr. 4 — § 11 Abs. 1 Nr. 1d KAG MV (Zweckbindung Kurabgabe)
+### Nr. 4 — § 11 Abs. 1a Nr. 2 KAG MV (Zweckbindung Kurabgabe)
 
 **Wortlaut:** „Anerkannte Kur- oder Erholungsorte können zur Deckung ihres Aufwands […] für die Möglichkeit der kostenlosen oder ermäßigten Benutzung des öffentlichen Personennahverkehrs und anderer Angebote […] eine Kurabgabe erheben."
 
@@ -158,11 +158,29 @@ Diese Verbrauchssubvention wirkt **direkt wettbewerbsverzerrend** gegenüber Tax
 - Hilfsweise: Verpflichtungsklage auf Tarifgenehmigung (= UBB muss Einzelfahrkarten verkaufen)
 - Hilfsweise: Feststellungsklage über Rechtswidrigkeit der Kurabgabe-Verwendung
 
-### Stufe 4 — EU-Beschwerde
+### Stufe 4 — Normenkontrollklage gegen Kurabgabesatzung (§ 47 VwGO)
+- **Antrag auf gerichtliche Überprüfung** der Kurabgabesatzung der Gemeinde Ostseebad Heringsdorf gem. § 47 Abs. 1 Nr. 2 VwGO i.V.m. § 13 AGGerStrG MV
+- Zuständig: **OVG Mecklenburg-Vorpommern in Greifswald**
+- Frist: 1 Jahr ab Bekanntmachung der Satzung — bei späteren Änderungssatzungen jeweils neue Frist
+- Klagebefugnis (§ 47 Abs. 2 VwGO): „Wer geltend macht, durch die Rechtsvorschrift oder deren Anwendung in seinen Rechten verletzt zu sein"
+  - Kurabgabe-Pflichtige (Hoteliers, Vermieter, Gäste) sind unmittelbar betroffen → klagebefugt
+  - Patrick als **Taxi-Konkurrent** könnte ebenfalls Klagebefugnis haben über Art. 12 GG (Berufsfreiheit) und § 13 Abs. 2 Nr. 2 PBefG (mittelbar)
+- Erfolg: Satzung wird **gegen jedermann** für nichtig erklärt (Wirkung erga omnes)
+- **Strategie:** Klage-Allianz aus 3-5 Hoteliers + Patrick als Nebenintervenient
+
+### Stufe 5 — Inzident-Anfechtungsklage gegen Kurabgabe-Bescheid
+- Hotelier lässt sich einen konkreten Kurabgabe-Bescheid zustellen und klagt gegen den Bescheid
+- Im Klageverfahren wird **inzident** die Satzung geprüft
+- Vorteil: kein Normenkontroll-Frist-Problem
+- Nachteil: Wirkung nur im Einzelfall
+- Praktisch geeignet, wenn Normenkontroll-Frist abgelaufen
+
+### Stufe 6 — EU-Beihilfe-Beschwerde
 - Beschwerde bei EU-Kommission GD COMP wegen Art. 107 AEUV-Verstoß
 - Kann parallel zur deutschen Verwaltungsklage betrieben werden
+- Klagebefugnis: jeder Wettbewerber → Patrick direkt
 
-### Stufe 5 — Politische Flankierung
+### Stufe 7 — Politische Flankierung
 - IHK Neubrandenburg (Wirtschafts-Argument)
 - Bundesverband Taxi und Mietwagen (BZP) — bundespolitische Begleitung, ggf. Musterklage
 - Tourismusverband MV (Querfinanzierungs-Sorgen anderer Kurorte)
@@ -178,10 +196,11 @@ Nicht alle Klagewege stehen Patrick offen — die richtige Klagebefugnis muss pr
 | IFG-Anfrage | jeder (§ 1 IFG MV) | Patrick als Bürger |
 | Widerspruch gg. Konzession | Pflichtfahrgebiet-Konzessions-Inhaber (Drittbetroffener) | Patrick als Konkurrent |
 | Verwaltungsklage Konzession | Pflichtfahrgebiet-Konzessions-Inhaber | Patrick (Drittanfechtung wegen § 13 Abs. 2 Nr. 2 PBefG) |
-| Klage Kurabgabe-Verwendung | Kurabgabepflichtige | nicht Patrick — Hotelier-Allianz erforderlich |
+| **Normenkontrollklage Kurabgabesatzung § 47 VwGO** | Ferienwohnungs-Vermieter als Kurabgabe-Einzugs-Pflichtiger UND Patrick als Wettbewerber Art. 12 GG | **Patrick auch direkt** (Patrick betreibt selbst eine Ferienwohnung und ist Einzugs-Pflichtiger der Kurabgabe — siehe § 11 KAG MV i.V.m. örtlicher Kurabgabesatzung) |
+| Inzident-Anfechtung Kurabgabe-Bescheid | Kurabgabepflichtige (Gäste, Vermieter) | Patrick als Vermieter direkt |
 | EU-Beihilfe-Beschwerde | jeder Wettbewerber | Patrick als Konkurrent |
 
-→ Patrick hat in 4 von 5 Klagewegen Klagebefugnis. Für die Kurabgabe-Klage (Nr. 4) muss eine Allianz mit Hoteliers gebildet werden.
+→ **Patrick hat in allen 6 Klagewegen Klagebefugnis** — auch in den Kurabgabe-Verfahren als Ferienwohnungs-Vermieter (Einzugsstelle für die Gemeinde + selbst belastet wenn Gäste den Aufenthalt wegen der Kurabgabe-Höhe reduzieren).
 
 ---
 
@@ -199,7 +218,70 @@ Nicht alle Klagewege stehen Patrick offen — die richtige Klagebefugnis muss pr
 
 ---
 
-## VII. Anlagen / Bezug zu anderen Schriftsätzen
+## VII. Nagy-Eigengeständnisse — Beweismaterial aus dem Email-Verkehr
+
+Die Email-Korrespondenz zwischen Patrick Wydra und Simon Nagy (Justiziar Gemeinde Ostseebad Heringsdorf) enthält **direkte Eigengeständnisse** der Behörde, die die Tourismus-Qualifikation des UBB-Kurkartenbusses bestätigen und damit den ÖPNV-Charakter widerlegen.
+
+### Email vom 08.09.2025 — „Einbindung des Taxigewerbes in das Kurkarten-Mobilitätssystem"
+**Absender:** Simon.Nagy@ahlbeck.de
+**Empfänger:** Patrick Wydra
+
+**Zitat 1 (Tourismus-Charakter eingestanden):**
+> „Die juristische Grundlage für die Kurtaxe stellt folglich ein **Aufwiegen gemeindlicher Kosten für den TOURISMUS** dar."
+
+**Zitat 2 (Eigenbetrieb Kaiserbäder = Tourismus, nicht ÖPNV-Aufgabenträger):**
+> „Herr Heilmann als Leiter des **Eigenbetriebes Kaiserbäder mit den TOURISTISCHEN AUFGABEN in der Gemeinde**, als somit sehr kompetenter Ansprechpartner …"
+
+**Zitat 3 (Bestätigung § 13 Abs. 2 Nr. 2 PBefG-Defizit):**
+> „… und **weshalb das Taxiunternehmen in diesem keine Berücksichtigung finden** [solle]."
+
+**Zitat 4 (konkrete Norm zitiert):**
+> „Gemäß **§ 11 Abs. 1a Nr. 2 Kommunalabgabengesetz M-V** dürfen Gemeinden, die als Kur- oder Erholungsorte anerkannt sind, zur Deckung ihrer besonderen Kosten u.a. für die … den Abgabepflichtigen eingeräumte Möglichkeit der kostenlosen oder ermäßigten Benutzung des öffentlichen Personennahverkehrs … eine Kurabgabe erheben."
+
+**Juristische Bewertung:**
+Nagy nennt **explizit Tourismus**, nicht Daseinsvorsorge. Er bezieht sich auf einen **„Eigenbetrieb Kaiserbäder mit touristischen Aufgaben"** — was ein klares Bekenntnis zur Tourismus-Funktion ist. Damit ist die ÖPNV-Eigenschaft i.S.d. § 8 PBefG / § 1 ÖPNVG MV nicht erfüllt — und damit auch die Kurabgabe-Zweckbindung gem. § 11 Abs. 1a Nr. 2 KAG MV nicht eingehalten (denn die Norm fordert ÖPNV-Charakter, nicht Tourismus-Charakter).
+
+### Emails vom 24.02.2026 — „Terminanfrage / Kaiserbäderlinie 290/291"
+**Absender:** Simon.Nagy@ahlbeck.de
+**Empfänger:** Patrick Wydra
+
+**Verweigerung Vertragseinsicht:**
+> „Eine **Übersendung via PDF oder die Einsicht für jedermann ist** selbst in einem hypothetischen Vergabeverfahren **nicht uneingeschränkt möglich**. Obgleich ich Ihr berechtigtes Interesse an der Sache verstehe, so sind die Belange des Vertragspartners nicht pauschal umgänglich und werden seitens des Gesetzgebers hoch angesetzt (vgl. § 7 IFG)."
+
+**Verfahrens-Angebot:**
+> „Es besteht allerdings die Möglichkeit, soweit Sie Ihren Antrag freundlicherweise dahingehend präzisieren mögen, dass die Gemeinde Ostseebad Heringsdorf gemäß § 9 I IFG **dem Dritten die Gelegenheit zur Stellungnahme** einräumt …"
+
+**Juristische Bewertung:**
+Diese Mails sind Beleg dafür, dass die VVG-Vertragseinsicht aktiv verzögert wird. Das spricht für eine fortgeschrittene Vertraulichkeit-Strategie der Gemeinde. Patrick hat den IFG-Antrag bereits vorbereitet (siehe `2026-06-05_IFG_LSBV_MV_Konzession_290_291.md`).
+
+---
+
+## VIII. Tatbestandsmerkmale-Tabelle ÖPNV vs. Touristenbus
+
+| # | Tatbestandsmerkmal ÖPNV (§ 8 PBefG + § 1 ÖPNVG MV) | UBB-Kurkartenbus erfüllt? | Tatbestandsmerkmal Touristenbus (§§ 48, 49 PBefG) | UBB-Kurkartenbus erfüllt? |
+|---|---|---|---|---|
+| 1 | Allgemein zugänglich — Jedermann kann tarifgenehmigte Einzelfahrt lösen | ❌ Nein (Kurkarten-Pflicht) | Zielgruppe Touristen; Werbung gezielt darauf ausgerichtet | ✅ Ja (Vermarktung als „Kaiserbäder-Linie") |
+| 2 | Linienverkehr §§ 42, 42a, 43 PBefG | ⚠️ Linien-Charakter ja, aber atypisch | Touristisches Reisemotiv (Strand / Sehenswürdigkeit / Hotel) | ✅ Ja (Hauptachse Hotel ↔ Strand ↔ Bahnhof) |
+| 3 | Daseinsvorsorge der ortsansässigen Bevölkerung | ❌ Nein (Tourismus-Bedienung dominiert, Nagy-Eigengeständnis) | Schwerpunkt saisonal (Sommer / Kur-Saison) | ✅ Ja (20-Minuten-Takt nur in Saison) |
+| 4 | Aus-/Berufs-/Einkaufs-/Schulverkehr im Vordergrund | ❌ Nein | Auftraggeber Tourismus-Eigenbetrieb / Hotelverband / Kurverwaltung | ✅ Ja (Eigenbetrieb Kaiserbäder) |
+| 5 | Aufgabenträger Land + Kreise nach ÖPNVG MV | ❌ Nein (Gemeinde-Eigenbetrieb) | Streckenführung an touristischen Orten orientiert | ✅ Ja (51 Haltestellen über 5,5 km, Touristen-Korridor) |
+| 6 | Genehmigter Einzeltarif § 39 PBefG (Fahrgeld pro Fahrt) | ❌ Nein (Nulltarif via Pauschalsubvention) | Pauschal-Tarif typisch (Kurabgabe / Tagespass / Hotel-inclusive) | ✅ Ja (Kurabgabe-Modell) |
+| 7 | Fahrkarten-Vertriebsweg vorhanden (Automat / Fahrer / digital) | ❌ Nein (keine Fahrkartensysteme) | Kein klassischer Fahrkarten-Vertriebsweg | ✅ Ja |
+
+**Auswertung:**
+- ÖPNV-Tatbestand: **1 von 7 erfüllt** (nur Linien-Charakter, und dieser nur atypisch)
+- Touristenbus-Tatbestand: **7 von 7 erfüllt**
+
+**Konsequenz:** Der UBB-Kurkartenbus erfüllt rechtssystematisch den Tatbestand eines Touristenbusses (§§ 48 / 49 PBefG), nicht den eines ÖPNV (§ 8 PBefG / § 1 ÖPNVG MV).
+
+**Folgen:**
+- Kurabgabe-Finanzierung gem. § 11 Abs. 1a Nr. 2 KAG MV ist **rechtswidrig**, weil die Norm ÖPNV-Charakter voraussetzt
+- Linienverkehrs-Genehmigung als § 42 PBefG ist rechtsfehlerhaft — richtige Norm wäre § 48 oder § 49 PBefG
+- EU-Beihilfe-Charakter ist gegeben, weil keine gemeinwirtschaftliche Verpflichtung vorliegt
+
+---
+
+## IX. Anlagen / Bezug zu anderen Schriftsätzen
 
 - `2026-06-02_Memo_RA_Weigel_Kaiserbaederlinie_VVG.md` — Grund-Memo zur VVG-Übernahme
 - `2026-06-04_Memo-V2_RA_Weigel_Kaiserbaederlinie_Schutzklauseln.md` — Schutzklauseln-Variante

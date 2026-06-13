@@ -124,8 +124,19 @@ function saveState(s) { fs.writeFileSync(STATE_FILE, JSON.stringify(s, null, 2))
             if (state.sentFromFile[fromFileKey]) { skippedFromFileDup++; LOG(`⚠️  From+File-Dup ${fromAddr} ${filename}`); continue; }
 
             // v6.63.315: Routing pro Beleg (5 Postfaecher)
+            // v6.63.316: SKIP (Bar-Eigenrechnung) → nicht senden, aber im state markieren
             const bodyText = (p.text || p.html || '').slice(0, 5000);
             const target = pickDatevTarget({ fromAddr, fromDomain, subject, body: bodyText });
+            if (target.key === 'skip') {
+                if (APPLY) {
+                    const meta = { sentAt: Date.now(), skipped: target.reason, from: fromAddr, subject: subject.slice(0, 200), key };
+                    state.sentKeys[key] = meta;
+                    state.sentHashes[hash] = meta;
+                    state.sentFromFile[fromFileKey] = meta;
+                }
+                LOG(`⏭️  SKIP ${fromAddr} ${filename} — ${target.reason}`);
+                continue;
+            }
 
             candidates.push({ uid, fromAddr, subject, filename, localPath, size: att.content.length, date: p.date, key, fromFileKey, hash, target });
 

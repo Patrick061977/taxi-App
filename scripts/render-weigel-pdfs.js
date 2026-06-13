@@ -28,6 +28,7 @@ const FILES = [
     '2026-06-06_Sektion_T_Innerer_Widerspruch_Tourismus_vs_Paragraf_42.md',
     '2026-06-06_Sektion_U_Vergleich_Kurorte_und_Alternativen.md',
     '2026-06-13_Notruf_Tariferhoehung_Bundesvergleich.md',
+    '2026-06-13_Faktentafel_V3_PBefG_Tarif_Kurabgabe_Gesetzesverletzungen.md',
 ];
 
 const CHROME_PATHS = [

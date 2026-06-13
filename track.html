@@ -495,13 +495,16 @@
                     }
                     firebase.auth().signInAnonymously()
                         .then(function(cred) {
-                            // v6.63.322 (Patrick 13.06.2026 19:18 Bähr-Vorfall):
-                            //   signInAnonymously resolved BEVOR der RTDB-WebSocket den neuen
-                            //   Auth-Token uebernommen hat → erster Read gibt 'permission_denied'
-                            //   trotz erfolgreichem Anon-Sign-In. Fix: idToken FORCE refresh
-                            //   triggert WebSocket-Re-Auth + kurzer Delay.
+                            // v6.63.323 (Patrick 13.06.2026 19:30 Fix-2): goOffline/goOnline
+                            //   FORCE-Reconnect — RTDB-WebSocket nimmt den neuen Auth-Token
+                            //   nicht in bereits offene Verbindung uebernehmen, sondern erst
+                            //   beim Re-Connect. Force-Refresh allein hilft nicht.
                             return cred.user.getIdToken(true).then(function() {
-                                return new Promise(function(r) { setTimeout(function(){ r(cred.user); }, 300); });
+                                try {
+                                    firebase.database().goOffline();
+                                    firebase.database().goOnline();
+                                } catch(_) {}
+                                return new Promise(function(r) { setTimeout(function(){ r(cred.user); }, 600); });
                             });
                         })
                         .then(function(u) { resolve(u); })

@@ -677,7 +677,7 @@ async function anfSelect(inputId, placeId, mainText, secText) {
     if (_anfPlace && placeId) {
         try {
             var place = new _anfPlace({id:placeId});
-            await place.fetchFields({fields:['location','formattedAddress']});
+            await place.fetchFields({fields:['displayName','location','formattedAddress']});
             var lat = place.location?.lat();
             var lng = place.location?.lng();
             if (inputId === 'anf-festpreis-addr-input') {
@@ -705,7 +705,20 @@ async function anfSelect(inputId, placeId, mainText, secText) {
                 else if (inputId === 'anf-stopp') anfStoppCoords = {lat:lat,lon:lng};
                 else anfDestCoords = {lat:lat,lon:lng};
             }
-            document.getElementById(inputId).value = place.formattedAddress || mainText;
+            // 🆕 v6.63.318 (Patrick 13.06.2026 14:47 Schroth-Vorfall): POI-Name nicht
+            //   verschlucken. Wenn displayName ein POI ist (z.B. "Bansin Bahnhof") und
+            //   formattedAddress die Adresse (z.B. "17429 Heringsdorf, Deutschland"),
+            //   beides zusammen anzeigen damit der Fahrer den POI erkennen kann.
+            //   Analog zum Fix in buchen.html Z. 4842 (v6.63.271 Stefan-Jung-Vorfall).
+            var _dn = (place.displayName || '').toString().trim();
+            var _fa = (place.formattedAddress || '').toString().trim();
+            var _label;
+            if (_dn && _fa && _fa.toLowerCase().indexOf(_dn.toLowerCase()) === -1) {
+                _label = _dn + ', ' + _fa;
+            } else {
+                _label = _fa || _dn || mainText;
+            }
+            document.getElementById(inputId).value = _label;
             if (inputId !== 'anf-festpreis-addr-input') calcAnfPrice();
         } catch(e) {}
     }

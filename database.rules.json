@@ -23,7 +23,7 @@
     },
 
     "drivers": {
-      ".read": "auth != null",
+      ".read": true,
       ".write": "auth != null"
     },
 
@@ -44,7 +44,7 @@
     },
 
     "vehicles": {
-      ".read": "auth != null",
+      ".read": true,
       ".write": "auth != null"
     },
 

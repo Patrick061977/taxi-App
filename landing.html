@@ -1651,15 +1651,31 @@ function showAnfrageSuccess() {
         });
     } catch(_e) { /* may already be inited */ }
     const _db = firebase.database();
-    // 🔐 v6.63.320: Anonymous-Auth fuer Live-ETA-Banner (liest /vehicles + /rides).
-    //   Phase A der DSGVO-Stopfung 13.06.2026 hat diese Pfade auf auth!=null gesetzt.
-    try {
-        firebase.auth().onAuthStateChanged(function(u) {
-            if (!u) firebase.auth().signInAnonymously().catch(function(e) {
-                console.warn('landing-anon-auth:', e.code, e.message);
+    // 🔐 v6.63.326 (Patrick 13.06.2026 20:20): vollstaendige Anonymous-Auth analog
+    //   track.html v6.63.323: getIdToken-Refresh + goOffline/goOnline + warten BEVOR
+    //   _refreshBanner laeuft. Sonst permission_denied beim ersten /rides Read.
+    const _landingAuthReady = new Promise(function(resolve) {
+        try {
+            firebase.auth().onAuthStateChanged(function(u) {
+                if (u) {
+                    u.getIdToken(true).then(function(){ resolve(u); }).catch(function(){ resolve(u); });
+                    return;
+                }
+                firebase.auth().signInAnonymously()
+                    .then(function(cred) {
+                        return cred.user.getIdToken(true).then(function() {
+                            try { _db.goOffline(); _db.goOnline(); } catch(_){}
+                            return new Promise(function(r){ setTimeout(function(){ r(cred.user); }, 600); });
+                        });
+                    })
+                    .then(function(u){ resolve(u); })
+                    .catch(function(e) {
+                        console.warn('landing-anon-auth:', e.code, e.message);
+                        resolve(null);
+                    });
             });
-        });
-    } catch(_) {}
+        } catch(_) { resolve(null); }
+    });
     const _bannerEl = document.getElementById('live-eta-banner');
     if (!_bannerEl) return;
 
@@ -1699,6 +1715,8 @@ function showAnfrageSuccess() {
 
     async function _refreshBanner() {
         try {
+            // v6.63.326: vor jedem DB-Read auf Anonymous-Auth warten
+            await _landingAuthReady;
             // Vehicles + aktive Rides parallel laden — wir muessen wissen welcher
             // Fahrer gerade in einer aktiven Fahrt ist (on_way/picked_up/in_progress).
             // 🆕 v6.62.184: Patrick: 'wenn Taxi sofort frei → sofort buchen, wenn unterwegs → Wartezeit'.

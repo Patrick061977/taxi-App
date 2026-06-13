@@ -1331,7 +1331,13 @@ async function autoAssignRide(rideId, rideData) {
                         newEnd = newPickup + newDur + bufferMs + _chainMs;
                         rEnd = rStart + rDur + bufferMs;
                     }
-                    if ((newPickup < rEnd) && (rStart < newEnd)) { _conflictRide = r; hasTimeConflict = true; break; }
+                    // 🆕 v6.63.314 (Patrick 13.06. 07:38 Bridge: 'Nayef-Fahrt nicht auto
+                    //   zugeteilt obwohl Marion knapp davor endet'): Karenz-Toleranz 5 Min
+                    //   einbauen (Patrick-Regel '2 Min zu spaet ist egal, alles unter 5 Min
+                    //   geht'). Ohne Karenz blieben knappe Anschluesse wie Marion 07:30 → Nayef
+                    //   07:40 (rEnd 07:43, only 3 Min Verspaetung) in Wartepool stehen.
+                    const _karenzMs = 5 * 60000;
+                    if ((newPickup + _karenzMs < rEnd) && (rStart < newEnd)) { _conflictRide = r; hasTimeConflict = true; break; }
                 }
                 if (hasTimeConflict) {
                     const _cTime = _conflictRide ? new Date(_conflictRide.pickupTimestamp).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' }) : '?';

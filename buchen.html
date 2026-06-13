@@ -4731,6 +4731,35 @@
             const searchKey = (query || '').toLowerCase().trim();
             const results = [];
 
+            // 🆕 v6.63.327 (Patrick 13.06.2026 21:04 'wie macht Uber das'):
+            //   Lokale Bahnhof-POIs VOR Google Places. Google liefert fuer
+            //   'Bahnhof Bansin' GAR NICHT den Bahnhof, fuer 'Bahnhof Heringsdorf'
+            //   den Ahlbeck-Bahnhof zuerst. Wir wissen es besser — kuratiertes
+            //   POI-Hardcode-Mapping.
+            const _STATION_POIS = [
+                { keywords: ['bahnhof heringsdorf', 'heringsdorf bahnhof', 'bahnhof seebad heringsdorf'],
+                  name: 'Bahnhof Heringsdorf', addr: 'Bülowstraße, 17424 Ostseebad Heringsdorf',
+                  lat: 53.949456456543906, lon: 14.16965961456299, icon: '🚉' },
+                { keywords: ['bahnhof bansin', 'bansin bahnhof', 'bahnhof seebad bansin'],
+                  name: 'Bahnhof Bansin', addr: 'Bahnhofstraße 3, 17429 Bansin',
+                  lat: 53.964456899999995, lon: 14.1297471, icon: '🚉' },
+                { keywords: ['bahnhof ahlbeck', 'ahlbeck bahnhof', 'bahnhof seebad ahlbeck'],
+                  name: 'Bahnhof Ahlbeck', addr: 'Bahnhofstraße, 17419 Ahlbeck',
+                  lat: 53.935974, lon: 14.1885889, icon: '🚉' }
+            ];
+            if (searchKey.length >= 3) {
+                for (const _poi of _STATION_POIS) {
+                    const _match = _poi.keywords.some(function(k) { return searchKey.includes(k) || k.includes(searchKey); });
+                    if (_match) {
+                        results.push({
+                            name: _poi.name + ', ' + _poi.addr,
+                            mainText: _poi.name, secText: _poi.addr,
+                            lat: _poi.lat, lon: _poi.lon, icon: _poi.icon, source: 'local-poi'
+                        });
+                    }
+                }
+            }
+
             // 🔧 v6.41.51: POI-Favoriten + Geocache-Einträge im Dropdown DEAKTIVIERT.
             // User-Wunsch: 'Die Favoriten brauchen wir da nicht — die Leute sollen das
             // eingeben was sie möchten und nicht irgendwelche Vorschläge vorgesetzt bekommen.'

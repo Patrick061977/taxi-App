@@ -45,6 +45,11 @@ const OWN_FROM = /taxiwydra@(gmx\.de|googlemail\.com|gmail\.com)/i;
 const OWN_INVOICE_SUBJ = /rechnung|invoice|RE-?\d{3,}/i;
 const KASSE_BODY_HINT = /\b(bar(zahlung)?|bar\s*bezahlt|ebon|kassenbon|kaufbeleg)\b/i;
 const FEWO_SUBJ_HINT = /ferienwohnung|booking\.com|airbnb|reservierung[s\-]?best|buchungsbest/i;
+// v6.63.316 (Patrick 13.06.2026 10:13): Eigene Rechnungen mit "Bar erhalten" gehoeren NICHT
+// in den Rechnungsausgang — die sind schon kassiert und werden ueber die Kasse gebucht.
+// Nur "Zahlbar innerhalb..."/"Bitte ueberweisen" → AUSGANG.
+const OWN_INVOICE_BAR_HINT = /betrag\s+in\s+bar\s+erhalten|bar\s+erhalten|bar\s+bezahlt|bar\s+kassiert/i;
+const OWN_INVOICE_UEBERWEIS_HINT = /zahlbar\s+innerhalb|bitte\s+ueberweisen|bitte\s+überweisen|ueberweisung\s+innerhalb|bankverbindung/i;
 
 function pickDatevTarget({ fromAddr = '', fromDomain = '', subject = '', body = '' }) {
     const _from = String(fromAddr).toLowerCase();
@@ -53,7 +58,12 @@ function pickDatevTarget({ fromAddr = '', fromDomain = '', subject = '', body = 
     const _body = String(body || '');
 
     // 1. AUSGANG: Eigene Rechnungen (taxiwydra als Absender + Subject 'Rechnung')
+    //    v6.63.316 (Patrick 13.06.2026): Bar-Eigenrechnung NICHT in AUSGANG — wird ueber Kasse
+    //    gebucht, nicht ueber Ausgangsrechnungs-Postfach.
     if (OWN_FROM.test(_from) && OWN_INVOICE_SUBJ.test(_subj)) {
+        if (OWN_INVOICE_BAR_HINT.test(_body)) {
+            return { key: 'skip', email: null, label: '⏭️ SKIP', reason: 'own-invoice-bar' };
+        }
         return { key: 'ausgang', ...TARGETS.ausgang, reason: 'own-invoice' };
     }
 

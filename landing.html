@@ -1650,6 +1650,15 @@ function showAnfrageSuccess() {
         });
     } catch(_e) { /* may already be inited */ }
     const _db = firebase.database();
+    // 🔐 v6.63.320: Anonymous-Auth fuer Live-ETA-Banner (liest /vehicles + /rides).
+    //   Phase A der DSGVO-Stopfung 13.06.2026 hat diese Pfade auf auth!=null gesetzt.
+    try {
+        firebase.auth().onAuthStateChanged(function(u) {
+            if (!u) firebase.auth().signInAnonymously().catch(function(e) {
+                console.warn('landing-anon-auth:', e.code, e.message);
+            });
+        });
+    } catch(_) {}
     const _bannerEl = document.getElementById('live-eta-banner');
     if (!_bannerEl) return;
 

@@ -479,7 +479,26 @@
         
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
-        
+
+        // 🔐 v6.63.320 (Patrick 13.06.2026 DSGVO-Audit Phase A): Anonymous-Auth
+        //   automatisch beim Page-Load. track.html liest /tracking/{code} + /rides/{id}
+        //   + /vehicles — alle drei sind nach Phase A auth!=null. Ohne Anon-Auth
+        //   wuerden Kunden mit SMS-Tracking-Link 'Permission denied' bekommen.
+        //   Vorbedingung: 'Anonymous Auth' in Firebase Console aktiviert.
+        const _trackingAuthReady = new Promise(function(resolve) {
+            try {
+                firebase.auth().onAuthStateChanged(function(user) {
+                    if (user) { resolve(user); return; }
+                    firebase.auth().signInAnonymously()
+                        .then(function(cred) { resolve(cred.user); })
+                        .catch(function(e) {
+                            console.warn('⚠️ Anonymous-Auth fehlgeschlagen:', e.code, e.message);
+                            resolve(null);
+                        });
+                });
+            } catch(e) { console.warn('Anon-Auth-Setup-Fehler:', e.message); resolve(null); }
+        });
+
         // Tracking-Code oder Ride-ID aus URL
         const urlParams = new URLSearchParams(window.location.search);
         const trackingCode = urlParams.get('code');
@@ -513,6 +532,9 @@
         // Tracking-Daten laden (per Code ODER direkt per Ride-ID)
         async function loadTrackingData() {
             let rideId, vehicleId;
+
+            // v6.63.320: vor jedem DB-Read auf Anonymous-Auth warten (sonst 'Permission denied')
+            await _trackingAuthReady;
 
             if (trackingCode) {
                 // Per Tracking-Code → /tracking/{code}

@@ -533,8 +533,19 @@
         async function loadTrackingData() {
             let rideId, vehicleId;
 
+            // v6.63.321 (Patrick 13.06.2026 19:13 Bähr-Vorfall): Diagnose-Banner mit
+            //   Step-by-Step-Status damit Patrick sieht WO es haengt.
+            const _diagSetStep = function(t) {
+                try {
+                    var el = document.getElementById('vehicle-info');
+                    if (el) { el.style.display = 'block'; el.innerHTML = '<div style="padding:10px;background:#fef9c3;border:1px solid #facc15;border-radius:6px;font-size:12px;color:#854d0e;">🔧 ' + t + '</div>'; }
+                } catch(_) {}
+            };
+            _diagSetStep('Step 1/4: Auth-Setup laeuft...');
+
             // v6.63.320: vor jedem DB-Read auf Anonymous-Auth warten (sonst 'Permission denied')
-            await _trackingAuthReady;
+            const _authResult = await _trackingAuthReady;
+            _diagSetStep('Step 2/4: Auth = ' + (_authResult ? 'OK uid='+(_authResult.uid||'').slice(0,8) : 'NULL (Anon-Auth fehlgeschlagen — pruefe Firebase Console Anonym aktiv)'));
 
             if (trackingCode) {
                 // Per Tracking-Code → /tracking/{code}
@@ -546,9 +557,13 @@
             } else if (directRideId) {
                 // 🆕 v6.38.97: Direkt per Ride-ID → /rides/{id}
                 rideId = directRideId;
-                const rideSnap = await db.ref('rides').child(rideId).once('value');
+                _diagSetStep('Step 3/4: Lese /rides/' + rideId.slice(0,10) + '...');
+                let rideSnap;
+                try { rideSnap = await db.ref('rides').child(rideId).once('value'); }
+                catch (e) { _diagSetStep('FEHLER /rides Read: ' + (e.code||'')+' '+(e.message||e)); throw e; }
                 const ride = rideSnap.val();
-                if (!ride) { showError('❌ Fahrt nicht gefunden'); return; }
+                if (!ride) { _diagSetStep('Fahrt nicht gefunden in /rides/' + rideId.slice(0,10)); showError('❌ Fahrt nicht gefunden'); return; }
+                _diagSetStep('Step 4/4: Ride OK — ' + (ride.customerName||'?') + ' status=' + (ride.status||'?'));
                 vehicleId = ride.vehicleId || ride.assignedVehicle;
             }
 

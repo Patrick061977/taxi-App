@@ -84,6 +84,9 @@
       },
       "timeslotSettings": {
         ".read": true
+      },
+      "googleReviewUrl": {
+        ".read": true
       }
     },
 

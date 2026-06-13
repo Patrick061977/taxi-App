@@ -14,10 +14,11 @@ const crypto = require('crypto');
 const { ImapFlow } = require('C:/Taxi App/taxi-App-github/functions/node_modules/imapflow');
 const { simpleParser } = require('C:/Taxi App/taxi-App-github/functions/node_modules/mailparser');
 const nodemailer = require('C:/Taxi App/taxi-App-github/functions/node_modules/nodemailer');
+const { pickDatevTarget } = require('./lib/datev-routing');
 
 const STATE_FILE = path.join(__dirname, '..', '.gmail-datev-state.json');
 const ONEDRIVE_GMX_ROOT = 'C:/Users/Taxi/OneDrive/5.Buchführung/Rechnungen/_Gmail-Eingang';
-const DATEV_ADDR = 'e41e7435-8c6b-4078-a3d4-fd7a04a0c891@uploadmail.datev.de';
+// v6.63.315 (Patrick 13.06.2026): 5-Postfach-Routing — siehe scripts/lib/datev-routing.js
 // v6.63.253 (Patrick 09.06.): Bons/Kassenbelege analog zum GMX-Pendant.
 const SUBJ_REGEX = /rechnung|invoice|beleg|quittung|abrechnung|fakturen?|ebon|kassenbon|kaufbeleg|bonbeleg/i;
 const SUBJ_NEGATIVE = /taxiabrechnung|tagesumsatz|arbeitszeit|wichtiger hinweis|service-erlaubnis|auto-gmx|datev|forward|uploadmail/i;
@@ -122,7 +123,11 @@ function saveState(s) { fs.writeFileSync(STATE_FILE, JSON.stringify(s, null, 2))
             if (state.sentHashes[hash]) { skippedHashDup++; LOG(`⚠️  Hash-Dup ${fromAddr} ${filename} (war: ${state.sentHashes[hash].key || '?'})`); continue; }
             if (state.sentFromFile[fromFileKey]) { skippedFromFileDup++; LOG(`⚠️  From+File-Dup ${fromAddr} ${filename}`); continue; }
 
-            candidates.push({ uid, fromAddr, subject, filename, localPath, size: att.content.length, date: p.date, key, fromFileKey, hash });
+            // v6.63.315: Routing pro Beleg (5 Postfaecher)
+            const bodyText = (p.text || p.html || '').slice(0, 5000);
+            const target = pickDatevTarget({ fromAddr, fromDomain, subject, body: bodyText });
+
+            candidates.push({ uid, fromAddr, subject, filename, localPath, size: att.content.length, date: p.date, key, fromFileKey, hash, target });
 
             if (APPLY) {
                 try {
@@ -131,17 +136,17 @@ function saveState(s) { fs.writeFileSync(STATE_FILE, JSON.stringify(s, null, 2))
 
                     const info = await transporter.sendMail({
                         from: '"Funk-Taxi Heringsdorf" <taxiwydra@googlemail.com>',
-                        to: DATEV_ADDR,
-                        subject: `[Auto-Gmail] ${fromAddr} — ${subject.slice(0, 60)}`,
-                        text: `Auto-Forward aus taxiwydra@googlemail.com\n\nVon: ${fromAddr}\nBetreff: ${subject}\nDatum: ${p.date?.toISOString() || '?'}\nAnhang: ${filename} (${Math.round(att.content.length / 1024)} KB)\nLokal: ${localPath}\n\nGesendet via scripts/gmail-daily-datev-forward.js`,
+                        to: target.email,
+                        subject: `[Auto-Gmail/${target.key}] ${fromAddr} — ${subject.slice(0, 60)}`,
+                        text: `Auto-Forward aus taxiwydra@googlemail.com\n\nRouting: ${target.label} (${target.reason})\nVon: ${fromAddr}\nBetreff: ${subject}\nDatum: ${p.date?.toISOString() || '?'}\nAnhang: ${filename} (${Math.round(att.content.length / 1024)} KB)\nLokal: ${localPath}\n\nGesendet via scripts/gmail-daily-datev-forward.js`,
                         attachments: [{ filename, path: localPath, contentType: 'application/pdf' }]
                     });
-                    const meta = { sentAt: Date.now(), messageId: info.messageId, from: fromAddr, subject: subject.slice(0, 200), localPath, key };
+                    const meta = { sentAt: Date.now(), messageId: info.messageId, from: fromAddr, subject: subject.slice(0, 200), localPath, key, datevTarget: target.key };
                     state.sentKeys[key] = meta;
                     state.sentHashes[hash] = meta;
                     state.sentFromFile[fromFileKey] = meta;
                     sent++;
-                    LOG(`✅ [${sent}] ${fromAddr} → ${localPath} → DATEV`);
+                    LOG(`✅ [${sent}] ${fromAddr} → ${target.label} (${target.reason})`);
                     await new Promise(r => setTimeout(r, 1100)); // SMTP rate limit
                 } catch (e) {
                     LOG(`❌ ${fromAddr} ${filename}: ${e.message.slice(0, 80)}`);
@@ -162,10 +167,13 @@ function saveState(s) { fs.writeFileSync(STATE_FILE, JSON.stringify(s, null, 2))
     LOG(`Keine PDFs: ${skippedNoPdf}`);
     if (!APPLY && candidates.length) {
         LOG('\n--- WAS WIRD GESENDET (DRY-RUN) ---');
-        candidates.slice(0, 20).forEach((c, i) => {
-            LOG(`  ${i + 1}. uid=${c.uid} ${c.fromAddr.padEnd(40)} ${c.filename.slice(0, 30)} (${Math.round(c.size / 1024)}KB)`);
+        candidates.slice(0, 30).forEach((c, i) => {
+            LOG(`  ${i + 1}. ${c.target.label.padEnd(14)} uid=${c.uid} ${c.fromAddr.padEnd(35)} ${c.filename.slice(0, 30)} (${Math.round(c.size / 1024)}KB)`);
             LOG(`     "${c.subject.slice(0, 80)}"`);
         });
-        if (candidates.length > 20) LOG(`  ... + ${candidates.length - 20} weitere`);
+        if (candidates.length > 30) LOG(`  ... + ${candidates.length - 30} weitere`);
+        const byTarget = candidates.reduce((acc, c) => { acc[c.target.label] = (acc[c.target.label] || 0) + 1; return acc; }, {});
+        LOG('\n--- ROUTING-SUMMARY ---');
+        for (const [label, count] of Object.entries(byTarget)) LOG(`  ${label}: ${count}`);
     }
 })().catch(e => { console.error('FATAL:', e.message); process.exit(1); });

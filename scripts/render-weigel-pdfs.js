@@ -27,6 +27,7 @@ const FILES = [
     '2026-06-06_Sektion_S_Konzern_Doppelverdraengung_VVG.md',
     '2026-06-06_Sektion_T_Innerer_Widerspruch_Tourismus_vs_Paragraf_42.md',
     '2026-06-06_Sektion_U_Vergleich_Kurorte_und_Alternativen.md',
+    '2026-06-13_Notruf_Tariferhoehung_Bundesvergleich.md',
 ];
 
 const CHROME_PATHS = [

@@ -12238,6 +12238,40 @@ async function handleCallback(callback) {
         return;
     }
 
+    // v6.63.338 (Patrick 14.06. 15:51): Mail-Vorschau-Approval
+    //   mail_approve_{id}: status='approved' → personalMailSender sendet
+    //   mail_cancel_{id}: status='cancelled' → keine Mail
+    if (data.startsWith('mail_approve_') || data.startsWith('mail_cancel_')) {
+        const isApprove = data.startsWith('mail_approve_');
+        const mailId = data.replace(/^mail_(approve|cancel)_/, '');
+        try {
+            const snap = await db.ref('personalMailQueue/' + mailId).once('value');
+            const mail = snap.val();
+            if (!mail) {
+                await sendTelegramMessage(chatId, '❌ Mail nicht gefunden (ID: ' + mailId + ')');
+                return;
+            }
+            if (mail.status !== 'pending_approval') {
+                await sendTelegramMessage(chatId, `⚠️ Mail bereits ${mail.status} — nichts zu tun.`);
+                return;
+            }
+            await db.ref('personalMailQueue/' + mailId).update({
+                status: isApprove ? 'approved' : 'cancelled',
+                approvedBy: chatId,
+                approvedAt: Date.now()
+            });
+            await sendTelegramMessage(chatId,
+                isApprove
+                    ? `✅ Mail freigegeben → Versand laeuft an ${mail.to}`
+                    : `❌ Mail abgebrochen — kein Versand an ${mail.to}`
+            );
+        } catch (e) {
+            console.error('handleCallback mail_:', e.message);
+            await sendTelegramMessage(chatId, '❌ Fehler: ' + e.message);
+        }
+        return;
+    }
+
     // 🆕 v6.38.0: Foto/Screenshot-Aktionen
     if (data === 'photo_action_booking' || data === 'photo_action_contact' || data === 'photo_action_cancel') {
         const pending = await getPending(chatId);
@@ -23102,17 +23136,40 @@ exports.onAnfrageStatusChanged = onValueUpdated(
                     (_stripeUrl ? `\n💳 Sicher per Karte/PayPal vorab bezahlen:\n${_stripeUrl}\n(Optional — Sie koennen auch bar beim Fahrer zahlen)\n` : '') +
                     `\nBei Fragen erreichen Sie uns unter 038378/22022.\n\n` +
                     `Mit freundlichen Gruessen\nPatrick Wydra\nFunk Taxi Heringsdorf`;
-                await db.ref('personalMailQueue').push({
+                // v6.63.338 (Patrick 14.06. 15:51): Email-Vorschau-Modal vor Send.
+                //   Erstmal status='pending_approval', Bridge-Push mit Inline-Buttons
+                //   [✅ Senden] [❌ Abbrechen]. personalMailSender skipt pending → Mail
+                //   geht erst raus nach Patrick-Tap.
+                const _mailRef = await db.ref('personalMailQueue').push({
                     to: _email,
                     subject: `Bestaetigung Ihrer Taxi-Buchung${_zeit}`,
                     text: _emailBody,
-                    status: 'approved',
+                    status: 'pending_approval',
                     createdAt: Date.now(),
-                    source: 'cloud-onAnfrageStatusChanged-v6.63.294-stripe',
+                    source: 'cloud-onAnfrageStatusChanged-v6.63.338-preview',
                     rideId: after.rideId || null,
                     anfrageId: anfrageId,
                     stripeUrl: _stripeUrl
                 });
+                try {
+                    const _mailId = _mailRef.key;
+                    const _previewText = _emailBody.length > 600 ? _emailBody.slice(0, 600) + '\n…(gekuerzt)' : _emailBody;
+                    const _msg =
+                        `📩 <b>EMAIL-VORSCHAU vor Send</b>\n\n` +
+                        `An: ${_email}\n` +
+                        `Betreff: Bestaetigung Ihrer Taxi-Buchung${_zeit}\n\n` +
+                        `<pre>${_previewText.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>\n` +
+                        `<i>Mail wartet auf deine Freigabe.</i>`;
+                    const _keyboard = {
+                        inline_keyboard: [
+                            [
+                                { text: '✅ Senden', callback_data: `mail_approve_${_mailId}` },
+                                { text: '❌ Abbrechen', callback_data: `mail_cancel_${_mailId}` }
+                            ]
+                        ]
+                    };
+                    await sendToAllAdmins(_msg, 'mail-preview', { reply_markup: _keyboard });
+                } catch (_pErr) { console.warn('mail-preview Push fehlgeschlagen:', _pErr.message); }
                 if (_stripeUrl) {
                     await db.ref(`anfragen/${anfrageId}`).update({ stripePaymentLink: _stripeUrl, stripeRequestedAt: Date.now() });
                 }
@@ -35442,9 +35499,17 @@ exports.scheduledAutoCompleteAtDestination = onSchedule(
                     parseFloat(veh.lat), parseFloat(veh.lon),
                     parseFloat(ride.destinationLat), parseFloat(ride.destinationLon)
                 );
-                if (dist > 200) return;
-                const lastChange = ride.pickedUpAt || ride.updatedAt || 0;
-                if (lastChange > NOW - FIVE_MIN) return;
+                // v6.63.338 (Patrick 14.06. 15:51): Auto-Complete auch wenn Fahrer
+                //   schon weitergefahren ist. Speichere atDestinationSince beim
+                //   ersten Erkennen, completion wenn >5 Min vergangen — egal wo Vehicle jetzt ist.
+                const nearNow = dist <= 200;
+                if (nearNow && !ride.atDestinationSince) {
+                    // erstmal nur markieren
+                    db.ref('rides/' + rideId).update({ atDestinationSince: NOW }).catch(() => {});
+                    return;
+                }
+                if (!ride.atDestinationSince) return;
+                if (ride.atDestinationSince > NOW - FIVE_MIN) return;
                 completes.push({ rideId, ride, dist });
             });
 

@@ -19744,10 +19744,21 @@ exports.autoResolveConflicts = onSchedule(
                         });
                     } catch(e) { /* non-critical */ }
 
-                    // 🐛 v6.63.032 (Patrick 30.05. 11:14 "Alarme rausschicken… interessiert keinen"):
-                    //   Telegram-Push für Konflikt-Umplanung entfernt. Patrick sieht die Umplanung
-                    //   im Dispo + Lifecycle-Log; ein Push erschreckt unnötig die Fahrer.
-                    //   Lifecycle bleibt erhalten (Z18583 addRideLog).
+                    // v6.63.340 (Patrick 14.06. 18:47 'Vorbestellt ist Teilzuweisung — wenn angenommen
+                    //   dann NICHT wegnehmen — sonst System darf, aber dann melden!'):
+                    //   Push reaktiviert mit klarer Begruendung + Hint dass Patrick im
+                    //   Native umverteilen kann wenn falsch entschieden.
+                    try {
+                        await sendToAllAdmins(
+                            `🔄 <b>Auto-Reassign Phase 1</b>\n` +
+                            `${next.customerName || '?'} (${nextTime})\n` +
+                            `von ${vName} → ${altInfo.name || altVehicle}\n` +
+                            `Grund: Zeitkonflikt ${overlapMin} Min${leerfahrtInfo}\n` +
+                            `<i>Falsch entschieden? Tap im Native zum manuellen Umstellen.</i>`,
+                            'cloud-replan-phase1',
+                            { rideId: next.firebaseId }
+                        );
+                    } catch (_pErr) { /* non-critical */ }
                 }
             }
 

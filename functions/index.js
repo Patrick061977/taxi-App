@@ -25286,6 +25286,44 @@ exports.onRideUpdated = onValueUpdated(
         const oldVehicle = before.assignedVehicle || before.vehicleId;
         const newVehicle = after.assignedVehicle || after.vehicleId;
 
+        // 🆕 v6.63.329 (Patrick 14.06.2026 10:00 Nayef-Phantom-Vorfall):
+        //   Status-Audit-Log fuer jeden Wechsel. Schreibt in /rideStatusAudit/{rideId}/{ts}
+        //   die alte+neue Werte + welche Quelle das geaendert hat. Hilft 'wer hat das gesetzt'
+        //   bei Phantom-Completes (Nayef-Bug heute frueh).
+        if (oldStatus !== newStatus) {
+            try {
+                const _auditTs = Date.now();
+                const _audit = {
+                    ts: _auditTs,
+                    oldStatus: oldStatus || null,
+                    newStatus: newStatus || null,
+                    oldVehicle: oldVehicle || null,
+                    newVehicle: newVehicle || null,
+                    // Mehrere mögliche 'who-did-it' Felder einsammeln
+                    completedBy: after.completedBy || null,
+                    assignedBy: after.assignedBy || null,
+                    acceptedVia: after.acceptedVia || null,
+                    acceptedByVehicle: after.acceptedByVehicle || null,
+                    cancelledBy: after.cancelledBy || null,
+                    closedBy: after.closedBy || null,
+                    cleanedUpBy: after.cleanedUpBy || null,
+                    autoCompleted: after.autoCompleted || null,
+                    autoCompleteReason: after.autoCompleteReason || null,
+                    statusTransitionReason: after.statusTransitionReason || null,
+                    updatedBy: after.updatedBy || null,
+                    // Pickup-Shift-Tracking
+                    pickupShiftedBy: after.pickupShiftedBy || null,
+                    pickupShiftMinutes: after.pickupShiftMinutes || null,
+                    // Lock-Indikator
+                    assignmentLocked: after.assignmentLocked || null,
+                    assignmentLockedBy: after.assignmentLockedBy || null
+                };
+                await db.ref('rideStatusAudit/' + rideId + '/' + _auditTs).set(_audit);
+            } catch (_auditErr) {
+                console.warn('rideStatusAudit write fail:', _auditErr.message);
+            }
+        }
+
         // 🆕 v6.63.287 (Patrick 11.06. 14:22 GO): Route-Drift-Tracking.
         //   Bei Ride-Completion: Live-Google-Route vs gespeicherte Werte vergleichen.
         //   Drift >= 10 Min → log fuer Realitaets-Abgleich.
@@ -29995,6 +30033,46 @@ exports.scheduledHistoryCleanup = onSchedule(
 // Initial-Migration 08.06. 06:48 hat /rides von 1724 → 74 verkleinert.
 // Dieser Cron hält das so.
 // ═══════════════════════════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════════════════
+// 🆕 v6.63.329 (Patrick 14.06.2026): scheduledCleanupOldStatusAudits
+// Loescht /rideStatusAudit Eintraege aelter als 30 Tage. Audit-Log wird nur
+// fuer kurzfristige Bug-Diagnose gebraucht — alte Eintraege bloaten die DB.
+// ═══════════════════════════════════════════════════════════════
+exports.scheduledCleanupOldStatusAudits = onSchedule(
+    {
+        schedule: 'every day 03:00',
+        timeZone: 'Europe/Berlin',
+        region: 'europe-west1',
+        timeoutSeconds: 60,
+        memory: '256MiB'
+    },
+    async () => {
+        try {
+            const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
+            const snap = await db.ref('rideStatusAudit').once('value');
+            const all = snap.val() || {};
+            let deleted = 0;
+            const updates = {};
+            for (const rideId of Object.keys(all)) {
+                const entries = all[rideId] || {};
+                for (const ts of Object.keys(entries)) {
+                    if (parseInt(ts, 10) < cutoff) {
+                        updates['rideStatusAudit/' + rideId + '/' + ts] = null;
+                        deleted++;
+                    }
+                }
+            }
+            if (deleted > 0) {
+                await db.ref().update(updates);
+                console.log('🧹 scheduledCleanupOldStatusAudits: ' + deleted + ' Eintraege >30 Tage geloescht');
+            }
+        } catch (e) {
+            console.error('scheduledCleanupOldStatusAudits Fehler:', e.message);
+        }
+    }
+);
+
 exports.scheduledArchiveCompletedRides = onSchedule(
     {
         schedule: '30 2 * * *', // taeglich 02:30 Berlin

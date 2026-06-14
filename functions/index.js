@@ -867,6 +867,15 @@ async function buildWartepoolOptions(wpRide, allRides, vehicles, shiftsData) {
     }
     const _wpTs = wpRide.pickupTimestamp;
     const _wpPax = parseInt(wpRide.passengers || 1);
+    // 🆕 v6.63.330 (Patrick 14.06.2026 09:34): Bahnhof-Tabu fuer WARTEPOOL-Fahrt selbst.
+    //   Wenn Pickup ODER Drop Bahnhof/Flughafen → wartepool-Fahrt darf NICHT +5 Min spaeter
+    //   (Kunde verpasst Zug/Flug). Nur OTHER-Verschiebung zulaessig.
+    const _wpIsTrainOrAirport = (() => {
+        const _p = (wpRide.pickup || '').toLowerCase();
+        const _d = (wpRide.destination || '').toLowerCase();
+        const _hit = s => s.includes('bahnhof') || s.includes('hbf') || s.includes('flughafen');
+        return _hit(_p) || _hit(_d);
+    })();
     // Naheliegende assigned Rides (30 Min Window davor)
     const _candidates = allRides.filter(r => {
         if (!r || !r.assignedVehicle || !r.pickupTimestamp) return false;
@@ -880,20 +889,32 @@ async function buildWartepoolOptions(wpRide, allRides, vehicles, shiftsData) {
         // Kapazitaet pruefen — Vehicle muss W passen
         const _vCap = (OFFICIAL_VEHICLES[r.assignedVehicle] || {}).capacity || 4;
         if (_vCap < _wpPax) return false;
-        // Bahnhof-Tabu: wenn R Pickup Bahnhof, nicht verschieben
+        // Bahnhof-Tabu: wenn R Pickup ODER Drop Bahnhof/Flughafen, nicht verschieben (Patrick 09:34)
         const _puStr = (r.pickup || '').toLowerCase();
-        if (_puStr.includes('bahnhof') || _puStr.includes('hbf') || _puStr.includes('flughafen')) return false;
+        const _dStr = (r.destination || '').toLowerCase();
+        const _hit = s => s.includes('bahnhof') || s.includes('hbf') || s.includes('flughafen');
+        if (_hit(_puStr) || _hit(_dStr)) return false;
         return true;
     });
     // Patrick-Regel: -5, -10 versuchen
     for (const r of _candidates.slice(0, 2)) {
         const _vName = (OFFICIAL_VEHICLES[r.assignedVehicle] || {}).name || r.assignedVehicle;
         const _rTime = berlinTimeGlobal(r.pickupTimestamp);
+        // 🆕 v6.63.330: zusaetzliche Detail-Felder fuer Push-Nachricht
+        const _rFrom = (r.pickup || '').slice(0, 40);
+        const _rTo = (r.destination || '').slice(0, 40);
+        const _rPax = r.passengers || 1;
         _options.push({
             key: _key(_n++),
             label: (r.customerName || '?') + ' ' + _rTime + ' -5 Min auf ' + _vName,
             action: 'shift-other-assign-to-wp',
             otherRideId: r.firebaseId,
+            otherCustomerName: r.customerName || '?',
+            otherTime: _rTime,
+            otherFrom: _rFrom,
+            otherTo: _rTo,
+            otherPax: _rPax,
+            otherVehicleName: _vName,
             shiftMin: -5,
             targetVehicleForWp: r.assignedVehicle
         });
@@ -903,18 +924,26 @@ async function buildWartepoolOptions(wpRide, allRides, vehicles, shiftsData) {
             label: (r.customerName || '?') + ' ' + _rTime + ' -10 Min auf ' + _vName,
             action: 'shift-other-assign-to-wp',
             otherRideId: r.firebaseId,
+            otherCustomerName: r.customerName || '?',
+            otherTime: _rTime,
+            otherFrom: _rFrom,
+            otherTo: _rTo,
+            otherPax: _rPax,
+            otherVehicleName: _vName,
             shiftMin: -10,
             targetVehicleForWp: r.assignedVehicle
         });
         if (_n > 4) break;
     }
-    // W +5 Min versuchen
-    _options.push({
-        key: _key(_n++),
-        label: 'Diese Fahrt +5 Min spaeter ' + berlinTimeGlobal(_wpTs + 5*60000),
-        action: 'shift-wartepool',
-        shiftMin: 5
-    });
+    // 🆕 v6.63.330: W +5 Min NUR wenn Bahnhof-Tabu nicht greift
+    if (!_wpIsTrainOrAirport) {
+        _options.push({
+            key: _key(_n++),
+            label: 'Diese Fahrt +5 Min spaeter ' + berlinTimeGlobal(_wpTs + 5*60000),
+            action: 'shift-wartepool',
+            shiftMin: 5
+        });
+    }
     // Manuell-Option als Fallback
     _options.push({ key: _key(_n++), label: 'Manuell loesen', action: 'manual' });
     return _options;
@@ -18953,13 +18982,32 @@ exports.autoResolveConflicts = onSchedule(
                                         //   autoAssignLastReason zeigen damit Patrick versteht WARUM
                                         //   das System keine bessere Option hat.
                                         const _reason = ride.wartepoolReason || ride.autoAssignLastReason || 'auto-assign-3x-failed';
+                                        // 🆕 v6.63.330 (Patrick 14.06.2026 09:34): Optionen-Detail-Block
+                                        //   damit Patrick sieht MIT WELCHER Fahrt der Konflikt ist
+                                        //   (Route von/nach, Uhrzeit, Pax). Vorher sah er nur den Kundennamen.
+                                        const _optDetailLines = [];
+                                        for (const _o of _options) {
+                                            if (_o.action === 'shift-other-assign-to-wp' && _o.otherFrom) {
+                                                _optDetailLines.push(
+                                                    `[${_o.key}] ${_o.otherCustomerName} ${_o.otherTime} ${_o.shiftMin>0?'+':''}${_o.shiftMin} Min auf ${_o.otherVehicleName}\n` +
+                                                    `      von: ${_o.otherFrom}\n` +
+                                                    `      nach: ${_o.otherTo}\n` +
+                                                    `      ${_o.otherPax} Pax`
+                                                );
+                                            } else if (_o.action === 'shift-wartepool') {
+                                                _optDetailLines.push(`[${_o.key}] Diese Fahrt ${_o.shiftMin>0?'+':''}${_o.shiftMin} Min`);
+                                            } else if (_o.action === 'manual') {
+                                                _optDetailLines.push(`[${_o.key}] Manuell loesen`);
+                                            }
+                                        }
+                                        const _wpPaxStr = (ride.passengers || 1) + ' Pax';
                                         const _msg = '🚨 *WARTEPOOL — Vorschlaege*\n\n' +
-                                            `Kunde: ${ride.customerName || '?'}\n` +
+                                            `Kunde: ${ride.customerName || '?'} (${_wpPaxStr})\n` +
                                             `Von: ${ride.pickup || '?'}\n` +
                                             `Nach: ${ride.destination || '?'}\n` +
                                             `Abholung: ${_pickupAtStr}\n` +
                                             `Konflikt: ${_reason}\n\n` +
-                                            (_options.length > 1 ? 'Bitte waehlen:' : 'Kein automatischer Loesungsweg, bitte manuell:');
+                                            (_options.length > 1 ? '*Vorschlaege:*\n' + _optDetailLines.join('\n\n') : 'Kein automatischer Loesungsweg, bitte manuell:');
                                         await sendToAllAdmins(_msg, 'wartepool-suggest', { reply_markup: { inline_keyboard: _inlineKb } });
                                         console.log(`   v6.63.298 sendToAllAdmins durch — ${_options.length} Optionen, pendingId=${_pendingId}`);
                                         // 🆕 v6.63.298: Flag erst HIER setzen, nach erfolgreichem Push

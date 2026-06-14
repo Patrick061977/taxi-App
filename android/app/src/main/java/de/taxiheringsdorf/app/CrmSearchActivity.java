@@ -3484,6 +3484,22 @@ public class CrmSearchActivity extends AppCompatActivity {
                     //   Plus km+Preis als Overlay oben links auf der Karte.
                     final double _pLat = pickupCoords[0], _pLon = pickupCoords[1];
                     final double _dLat = destCoords[0], _dLon = destCoords[1];
+                    // 🆕 v6.63.328 (Patrick 14.06.2026 09:14): Waypoints in der Live-Map
+                    //   anzeigen + in OSRM-Route einbeziehen. Frau Frick mit Stopp Kontor 1
+                    //   wurde nur als 'Bahnhof → Ahlbeck' ohne Zwischenstop dargestellt.
+                    StringBuilder _wpJsBuilder = new StringBuilder("[");
+                    StringBuilder _wpOsrmBuilder = new StringBuilder();
+                    for (int _wi = 0; _wi < waypointCoords.size(); _wi++) {
+                        double[] _wc = waypointCoords.get(_wi);
+                        if (_wc == null || _wc.length < 2) continue;
+                        if (Double.isNaN(_wc[0]) || Double.isNaN(_wc[1])) continue;
+                        if (_wpJsBuilder.length() > 1) _wpJsBuilder.append(",");
+                        _wpJsBuilder.append(String.format(Locale.US, "[%f,%f]", _wc[0], _wc[1]));
+                        _wpOsrmBuilder.append(String.format(Locale.US, ";%f,%f", _wc[1], _wc[0])); // OSRM: Lon,Lat
+                    }
+                    _wpJsBuilder.append("]");
+                    final String _wpJs = _wpJsBuilder.toString();
+                    final String _wpOsrmExtra = _wpOsrmBuilder.toString();
                     // 🆕 v6.63.242: bei Krankenfahrt statt Preis das DMRZ-Label
                     final String _preisLbl = _isKranken
                         ? "🏥 Krankenfahrt (DMRZ)"
@@ -3518,11 +3534,16 @@ public class CrmSearchActivity extends AppCompatActivity {
                         "const destIcon=L.divIcon({className:'',html:'<div style=\"background:#ef4444;color:#fff;border-radius:50%%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-weight:bold;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.4)\">Z</div>',iconSize:[28,28],iconAnchor:[14,14]});" +
                         "L.marker([pLat,pLon],{icon:pickIcon}).addTo(m);" +
                         "L.marker([dLat,dLon],{icon:destIcon}).addTo(m);" +
+                        // 🆕 v6.63.328: Waypoints als blaue 'W1/W2/...' Marker
+                        "const wps=%s;" +
+                        "wps.forEach((w,i)=>{const wIcon=L.divIcon({className:'',html:'<div style=\"background:#3b82f6;color:#fff;border-radius:50%%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-weight:bold;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.4)\">W'+(i+1)+'</div>',iconSize:[28,28],iconAnchor:[14,14]});L.marker([w[0],w[1]],{icon:wIcon}).addTo(m);});" +
                         // Fallback bounds + Luftlinie (sofort sichtbar während OSRM lädt)
-                        "let route=L.polyline([[pLat,pLon],[dLat,dLon]],{color:'#94a3b8',weight:3,opacity:0.6,dashArray:'8,8'}).addTo(m);" +
-                        "m.fitBounds([[pLat,pLon],[dLat,dLon]],{padding:[40,40]});" +
+                        "let _bounds=[[pLat,pLon]];wps.forEach(w=>_bounds.push([w[0],w[1]]));_bounds.push([dLat,dLon]);" +
+                        "let route=L.polyline(_bounds,{color:'#94a3b8',weight:3,opacity:0.6,dashArray:'8,8'}).addTo(m);" +
+                        "m.fitBounds(_bounds,{padding:[40,40]});" +
                         // Echte OSRM-Route holen + Preis basierend auf ECHTER km neu berechnen
-                        "fetch('https://router.project-osrm.org/route/v1/driving/'+pLon+','+pLat+';'+dLon+','+dLat+'?overview=full&geometries=geojson')" +
+                        // v6.63.328: Waypoints in OSRM-URL einbeziehen
+                        "fetch('https://router.project-osrm.org/route/v1/driving/'+pLon+','+pLat+'%s;'+dLon+','+dLat+'?overview=full&geometries=geojson')" +
                         ".then(r=>r.json()).then(j=>{" +
                           "if(!j.routes||!j.routes[0])return;" +
                           "const r=j.routes[0];" +
@@ -3541,7 +3562,8 @@ public class CrmSearchActivity extends AppCompatActivity {
                         _preisLbl,
                         _pLat, _pLon, _dLat, _dLon,
                         _isNight ? "true" : "false", _grund, _kmAb5, _pxNow,
-                        "'" + _tarifLbl.replace("'", "\\'") + "'");
+                        "'" + _tarifLbl.replace("'", "\\'") + "'",
+                        _wpJs, _wpOsrmExtra);
                     _liveMap.loadDataWithBaseURL("https://unpkg.com/", _html, "text/html", "UTF-8", null);
                     // Tap auf Live-Karte oeffnet Google Maps mit Route
                     _liveMap.setOnLongClickListener(_mv -> {

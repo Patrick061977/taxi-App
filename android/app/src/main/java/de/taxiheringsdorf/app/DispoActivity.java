@@ -376,7 +376,9 @@ public class DispoActivity extends AppCompatActivity {
         } else {
             vehLabel = "  · ⚠ kein Fz";
         }
-        tvCust.setText(cust + vehLabel);
+        // 🆕 v6.63.331 (Patrick 14.06.2026 10:02): Lock-Badge im Card
+        String lockBadge = r.assignmentLocked ? " 🔒" : "";
+        tvCust.setText(cust + vehLabel + lockBadge);
         tvCust.setTextColor(Color.parseColor("#F1F5F9"));
         tvCust.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
         tvCust.setTypeface(null, Typeface.BOLD);
@@ -739,6 +741,10 @@ public class DispoActivity extends AppCompatActivity {
         if (dtD instanceof Number) r.drivingTimeToDestination = ((Number) dtD).intValue();
         // v6.62.1001: Wartepool-Reason fuer Diagnose-Anzeige
         r.wartepoolReason = strOrNull(s.child("wartepoolReason").getValue());
+        // 🆕 v6.63.331: Lock-Indicator
+        Object _lockObj = s.child("assignmentLocked").getValue();
+        r.assignmentLocked = (_lockObj instanceof Boolean) && (Boolean) _lockObj;
+        r.assignmentLockedBy = strOrNull(s.child("assignmentLockedBy").getValue());
         // 🆕 v6.63.309: price fuer Stripe-Vorkasse-Vorfilling
         Object _priceRaw = s.child("price").getValue();
         if (_priceRaw instanceof Number) r.price = ((Number) _priceRaw).doubleValue();
@@ -823,6 +829,10 @@ public class DispoActivity extends AppCompatActivity {
 
         // 🆕 v6.62.1001: Wartepool-Reason-String fuer UI-Anzeige
         String wartepoolReason;
+        // 🆕 v6.63.331 (Patrick 14.06.2026 10:02 'sehe nicht ob Fahrt gelockt ist'):
+        //   Lock-Indicator im Card
+        boolean assignmentLocked;
+        String assignmentLockedBy;
 
         int statusRank() {
             switch (status == null ? "" : status) {

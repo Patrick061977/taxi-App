@@ -1241,7 +1241,36 @@ public class AdminDashboardActivity extends AppCompatActivity {
         }).start();
     }
 
+    // v6.63.333 (Patrick 14.06.2026 12:55 Carmen-Haas-Vorfall):
+    //   Doppel-Click-Schutz fuer Anfrage-Uebernahme. Carmen Haas hatte gestern
+    //   2 Rides in 9 Sek (rideId 1 → Tesla zugewiesen; rideId 2 → Wartepool weil
+    //   Self-Conflict). Patrick: 'will Fakten + nicht 30 Min auf System warten'.
+    //   Schutz: In-Flight-Flag + serverseitiger anfrage.status-Check vor Write.
+    private final java.util.Set<String> _uebernahmeInFlight = new java.util.HashSet<>();
     private void uebernehmeAnfrage(Anfrage a) {
+        if (a == null || a.id == null) return;
+        synchronized (_uebernahmeInFlight) {
+            if (_uebernahmeInFlight.contains(a.id)) {
+                Toast.makeText(this, "⏳ Uebernahme laeuft bereits — bitte warten...", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            _uebernahmeInFlight.add(a.id);
+        }
+        // Race-Check serverseitig: anfrage.status muss noch != 'bestaetigt' sein
+        db.getReference("anfragen/" + a.id + "/status").get().addOnSuccessListener(snap -> {
+            String currentStatus = snap.exists() && snap.getValue() instanceof String ? (String) snap.getValue() : null;
+            if ("bestaetigt".equalsIgnoreCase(currentStatus)) {
+                synchronized (_uebernahmeInFlight) { _uebernahmeInFlight.remove(a.id); }
+                Toast.makeText(this, "⚠️ Anfrage bereits uebernommen — kein Duplikat angelegt.", Toast.LENGTH_LONG).show();
+                return;
+            }
+            _uebernehmeAnfrageImpl(a);
+        }).addOnFailureListener(err -> {
+            synchronized (_uebernahmeInFlight) { _uebernahmeInFlight.remove(a.id); }
+            Toast.makeText(this, "❌ Pre-Check-Fehler: " + err.getMessage(), Toast.LENGTH_LONG).show();
+        });
+    }
+    private void _uebernehmeAnfrageImpl(Anfrage a) {
         try {
             DatabaseReference newRideRef = db.getReference("rides").push();
             String rideId = newRideRef.getKey();
@@ -1308,6 +1337,7 @@ public class AdminDashboardActivity extends AppCompatActivity {
             updates.put("/anfragen/" + a.id + "/uebernommenAt", now);
             updates.put("/anfragen/" + a.id + "/uebernommenBy", "native_admin");
             db.getReference().updateChildren(updates).addOnCompleteListener(task -> {
+                synchronized (_uebernahmeInFlight) { _uebernahmeInFlight.remove(a.id); }
                 if (task.isSuccessful()) {
                     Toast.makeText(this, "✅ Anfrage übernommen → Ride " + (isSofort ? "sofort" : "vorbestellt"), Toast.LENGTH_LONG).show();
                 } else {
@@ -1315,6 +1345,7 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 }
             });
         } catch (Throwable t) {
+            synchronized (_uebernahmeInFlight) { _uebernahmeInFlight.remove(a.id); }
             Toast.makeText(this, "❌ Anfrage-Übernahme-Fehler: " + t.getMessage(), Toast.LENGTH_LONG).show();
         }
     }

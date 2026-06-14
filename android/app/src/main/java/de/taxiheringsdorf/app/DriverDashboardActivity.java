@@ -76,6 +76,10 @@ public class DriverDashboardActivity extends AppCompatActivity {
     private Query ridesQuery;
     private Query todayCompletedQuery;
     private Query openRidesQuery;
+    // v6.63.334 (Patrick 14.06.2026 13:30): Wartepool fuer Fahrer sichtbar — zweiter Query
+    private Query wartepoolRidesQuery;
+    private ValueEventListener wartepoolRidesListener;
+    private List<Ride> wartepoolRides = new ArrayList<>();
     private ValueEventListener shiftListener;
     private ValueEventListener ridesListener;
     private ValueEventListener todayCompletedListener;
@@ -449,6 +453,14 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 @Override public void onCancelled(@NonNull DatabaseError error) { Log.e(TAG, "OpenRides: " + error.getMessage()); }
             };
             openRidesQuery.addValueEventListener(openRidesListener);
+
+            // v6.63.334 (Patrick 14.06.2026 13:30): Wartepool sichtbar fuer Fahrer
+            wartepoolRidesQuery = db.getReference("rides").orderByChild("status").equalTo("wartepool");
+            wartepoolRidesListener = new ValueEventListener() {
+                @Override public void onDataChange(@NonNull DataSnapshot s) { onWartepoolRidesUpdate(s); }
+                @Override public void onCancelled(@NonNull DatabaseError error) { Log.e(TAG, "WartepoolRides: " + error.getMessage()); }
+            };
+            wartepoolRidesQuery.addValueEventListener(wartepoolRidesListener);
         } catch (Throwable t) {
             Log.e(TAG, "Firebase-Setup Fehler: " + t.getMessage());
             tvVehicleInfo.setText("⚠️ Firebase-Verbindungsfehler: " + t.getMessage());
@@ -1500,6 +1512,31 @@ public class DriverDashboardActivity extends AppCompatActivity {
         renderRides();
     }
 
+    // v6.63.334 (Patrick 14.06.2026 13:30 'Wartepool muss sichtbar sein fuer Fahrer
+    //   damit sie sich rauspicken koennen'): Wartepool-Rides anzeigen, KEIN
+    //   20-Min-Future-Cutoff (Wartepool sind oft mehrstuendige Vorbestellungen).
+    //   Cutoff stattdessen: pickup-now <= 12h (24h zukuenftig zu unruhig).
+    private void onWartepoolRidesUpdate(DataSnapshot s) {
+        long now = System.currentTimeMillis();
+        long maxFuture = now + 12L * 3600L * 1000L;
+        List<Ride> pool = new ArrayList<>();
+        for (DataSnapshot child : s.getChildren()) {
+            Ride r = Ride.fromSnap(child);
+            if (r == null || r.status == null) continue;
+            String vid = child.child("vehicleId").getValue(String.class);
+            String aVid = child.child("assignedVehicle").getValue(String.class);
+            if (vid != null && !vid.isEmpty()) continue;
+            if (aVid != null && !aVid.isEmpty()) continue;
+            if (r.pickupTimestamp != null) {
+                if (r.pickupTimestamp < now - 30L * 60L * 1000L) continue; // 30 Min Vergangenheit OK
+                if (r.pickupTimestamp > maxFuture) continue;
+            }
+            pool.add(r);
+        }
+        wartepoolRides = pool;
+        renderRides();
+    }
+
     private void renderRides() {
         List<Ride> all = new ArrayList<>();
         all.addAll(myAssignedRides);
@@ -1508,6 +1545,12 @@ public class DriverDashboardActivity extends AppCompatActivity {
             boolean dup = false;
             for (Ride a : all) if (a.id != null && a.id.equals(o.id)) { dup = true; break; }
             if (!dup) all.add(o);
+        }
+        // v6.63.334: Wartepool-Rides ebenfalls anzeigen (Patrick 14.06. 13:30)
+        for (Ride w : wartepoolRides) {
+            boolean dup = false;
+            for (Ride a : all) if (a.id != null && a.id.equals(w.id)) { dup = true; break; }
+            if (!dup) all.add(w);
         }
         all.sort((a, b) -> {
             int aRank = isActiveStatus(a.status) ? 0 : (isOpenStatus(a.status) ? 2 : 1);
@@ -1668,7 +1711,8 @@ public class DriverDashboardActivity extends AppCompatActivity {
     private static boolean isOpenStatus(String s) {
         if (s == null) return false;
         String st = s.toLowerCase();
-        return st.equals("warteschlange") || st.equals("sofort") || st.equals("new");
+        // v6.63.334: wartepool ist auch ein Greif-Status (Fahrer kann rausziehen)
+        return st.equals("warteschlange") || st.equals("sofort") || st.equals("new") || st.equals("wartepool");
     }
 
     private static boolean isActiveStatus(String s) {
@@ -3594,6 +3638,8 @@ public class DriverDashboardActivity extends AppCompatActivity {
             if (ridesQuery != null && ridesListener != null) ridesQuery.removeEventListener(ridesListener);
             if (todayCompletedQuery != null && todayCompletedListener != null) todayCompletedQuery.removeEventListener(todayCompletedListener);
             if (openRidesQuery != null && openRidesListener != null) openRidesQuery.removeEventListener(openRidesListener);
+            // v6.63.334: Wartepool-Listener cleanup
+            if (wartepoolRidesQuery != null && wartepoolRidesListener != null) wartepoolRidesQuery.removeEventListener(wartepoolRidesListener);
         } catch (Throwable _t) {}
         connectFirebase();
     }
@@ -3628,6 +3674,8 @@ public class DriverDashboardActivity extends AppCompatActivity {
         if (ridesQuery != null && ridesListener != null) ridesQuery.removeEventListener(ridesListener);
         if (todayCompletedQuery != null && todayCompletedListener != null) todayCompletedQuery.removeEventListener(todayCompletedListener);
         if (openRidesQuery != null && openRidesListener != null) openRidesQuery.removeEventListener(openRidesListener);
+        // v6.63.334: Wartepool-Listener cleanup
+        if (wartepoolRidesQuery != null && wartepoolRidesListener != null) wartepoolRidesQuery.removeEventListener(wartepoolRidesListener);
     }
 
     static class Ride {
@@ -4302,8 +4350,12 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 u.put("acceptedByVehicle", myVid);
                 u.put("updatedAt", System.currentTimeMillis());
                 u.put("openRideWarned", null);
+                // v6.63.334: Wartepool-Reset wenn Fahrer aus Wartepool grabbt
+                u.put("wartepoolReason", null);
+                u.put("wartepoolAt", null);
+                u.put("wartepoolCheckResult", null);
                 db.getReference("rides/" + rideId).updateChildren(u);
-                logLifecycleTap(rideId, "✅", "Fahrer-Tap: ANGENOMMEN (aus Warteschlange)", "accepted");
+                logLifecycleTap(rideId, "✅", "Fahrer-Tap: ANGENOMMEN (aus Warteschlange/Wartepool)", "accepted");
             } catch (Throwable t) {
                 logLifecycleTap(rideId, "⚠️", "acceptRide-Crash: " + t.getMessage(), null);
             }

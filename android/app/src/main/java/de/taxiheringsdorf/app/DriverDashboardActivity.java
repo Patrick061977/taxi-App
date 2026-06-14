@@ -1566,9 +1566,12 @@ public class DriverDashboardActivity extends AppCompatActivity {
         rideAdapter.setRides(all);
         emptyState.setVisibility(all.isEmpty() ? View.VISIBLE : View.GONE);
         rvRides.setVisibility(all.isEmpty() ? View.GONE : View.VISIBLE);
-        // v6.62.369: Driver-Banner aktualisieren
+        // v6.63.339 (Patrick 14.06. 17:08 'Wartepool-Banner wird von Frei/Besetzt uebertuencht'):
+        //   Wartepool ZUERST aufrufen, FreeBusy nachher — dadurch ueberschreibt FreeBusy den
+        //   Wartepool-Banner NICHT (Wartepool returnt early wenn wartepool empty + FreeBusy
+        //   greift dann normal). Frueher umgekehrt.
         updateFreeBusyBanner(all);
-        // v6.63.336: Wartepool-Aufmerksamkeit — wenn Wartepool>0 prominenter Toast/Toast-Banner
+        // v6.63.336: Wartepool-Aufmerksamkeit
         updateWartepoolBanner();
     }
 
@@ -4400,7 +4403,10 @@ public class DriverDashboardActivity extends AppCompatActivity {
                         // 60-Min-Window-Kollision mit anderer accepted Vorbestellung
                         if (other.pickupTimestamp != null && other.pickupTimestamp > 0) {
                             long diff = Math.abs(other.pickupTimestamp - newPickupTs);
-                            if (diff < 60L * 60L * 1000L && ("accepted".equals(oSt) || "assigned".equals(oSt) || "vorbestellt".equals(oSt))) {
+                            // v6.63.339 (Patrick 14.06. 17:09 'Warum lehnt System ab wenn Danilo
+                            //   annimmt'): 60 Min war zu hart. 25 Min = realistisch nicht machbar
+                            //   (Anfahrt + kurze Fahrt + Buffer). 25-60 Min erlaubt Doppel-Fahrten.
+                            if (diff < 25L * 60L * 1000L && ("accepted".equals(oSt) || "assigned".equals(oSt) || "vorbestellt".equals(oSt))) {
                                 java.text.SimpleDateFormat _sdf = new java.text.SimpleDateFormat("HH:mm", java.util.Locale.GERMANY);
                                 _sdf.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
                                 Toast.makeText(DriverDashboardActivity.this,

@@ -18488,6 +18488,9 @@ exports.telegramWebhook = onRequest(
                 } else if (update.message.photo) {
                     // 🆕 v6.38.0: Fotos/Screenshots analysieren (Claude Vision)
                     await handlePhoto(update.message);
+                } else if (update.message.video || update.message.video_note) {
+                    // v6.63.337 (Patrick 14.06. 15:47): Videos in Bridge-Inbox forwarden
+                    await handleVideo(update.message);
                 } else if (update.message.document && isAudioDocument(update.message.document)) {
                     // 🆕 v6.14.0: Dokumente die Audio sind (WAV, M4A, OGG etc.)
                     await handleAudioFile(update.message);
@@ -35398,3 +35401,113 @@ exports.onShiftExceptionWritten = onValueWritten(
         }
     }
 );
+
+// v6.63.337 (Patrick 14.06.2026 15:41 'ich hab vergessen Quast fertigzustellen,
+//   deswegen wurde auch nicht weitergeleitet'): Auto-Complete wenn Fahrzeug an
+//   Destination steht + 5 Min vergangen.
+exports.scheduledAutoCompleteAtDestination = onSchedule(
+    {
+        schedule: 'every 2 minutes',
+        region: 'europe-west1',
+        timeoutSeconds: 60,
+        memory: '256MiB'
+    },
+    async (event) => {
+        try {
+            const NOW = Date.now();
+            const FIVE_MIN = 5 * 60 * 1000;
+            const ridesSnap = await db.ref('rides')
+                .orderByChild('pickupTimestamp')
+                .startAt(NOW - 24 * 60 * 60 * 1000)
+                .endAt(NOW + 60 * 1000)
+                .once('value');
+            if (!ridesSnap.val()) return;
+
+            const vehSnap = await db.ref('vehicles').once('value');
+            const vehs = vehSnap.val() || {};
+
+            const completes = [];
+            ridesSnap.forEach(child => {
+                const ride = child.val();
+                const rideId = child.key;
+                if (!ride || !ride.status) return;
+                const st = String(ride.status).toLowerCase();
+                if (st !== 'on_way' && st !== 'arrived') return;
+                if (!ride.assignedVehicle) return;
+                if (!ride.destinationLat || !ride.destinationLon) return;
+                const veh = vehs[ride.assignedVehicle];
+                if (!veh || !veh.lat || !veh.lon || !veh.lastUpdate) return;
+                if (veh.lastUpdate < NOW - FIVE_MIN) return;
+                const dist = haversineMeters(
+                    parseFloat(veh.lat), parseFloat(veh.lon),
+                    parseFloat(ride.destinationLat), parseFloat(ride.destinationLon)
+                );
+                if (dist > 200) return;
+                const lastChange = ride.pickedUpAt || ride.updatedAt || 0;
+                if (lastChange > NOW - FIVE_MIN) return;
+                completes.push({ rideId, ride, dist });
+            });
+
+            for (const c of completes) {
+                try {
+                    await db.ref('rides/' + c.rideId).update({
+                        status: 'completed',
+                        completedAt: NOW,
+                        completedBy: 'auto-complete-at-destination',
+                        autoCompleted: true,
+                        autoCompletedDistance: Math.round(c.dist),
+                        updatedAt: NOW
+                    });
+                    const _name = c.ride.customerName || 'Fahrt';
+                    const _veh = c.ride.assignedVehicle;
+                    await sendToAllAdmins(
+                        `✅ <b>Auto-Complete</b>\n${_name} (${_veh})\n` +
+                        `📍 ${Math.round(c.dist)}m vom Ziel, Status auto auf 'completed' gesetzt.\n\n` +
+                        `💰 Preis fuer diese Fahrt eintragen? Per Web Dispo Bearbeiten oder Native Card.`,
+                        'auto-complete-at-destination',
+                        { rideId: c.rideId }
+                    ).catch(() => {});
+                    console.log('[auto-complete] rideId', c.rideId, 'dist', Math.round(c.dist) + 'm');
+                } catch (e) {
+                    console.warn('[auto-complete] Fehler rideId ' + c.rideId, e.message);
+                }
+            }
+        } catch (e) {
+            console.error('scheduledAutoCompleteAtDestination Fehler:', e);
+            await logError('scheduledAutoCompleteAtDestination', e, { severity: 'warning' }).catch(() => {});
+        }
+    }
+);
+
+// v6.63.337: Video-Handler im Telegram-Webhook — Patrick 14.06.2026 15:47:
+//   'Videos von meinen Kollegen schicken... per Telegram, funktioniert nicht'.
+//   Bisher: webhook ignorierte update.message.video → kein Inbox-Push.
+async function handleVideo(message) {
+    try {
+        const chatId = message.from?.id || message.chat?.id;
+        if (!(await isTelegramAdmin(chatId))) return;
+        const video = message.video || message.video_note || {};
+        const fileId = video.file_id || null;
+        const caption = message.caption || '';
+        const ts = Date.now();
+        await db.ref('claudeBridge/inbox/' + ts).set({
+            type: 'video',
+            chatId,
+            ts,
+            fileId,
+            duration: video.duration || null,
+            width: video.width || null,
+            height: video.height || null,
+            caption,
+            from: message.from?.first_name || null,
+            messageId: message.message_id || null
+        });
+        await sendTelegramMessage(chatId,
+            '🎬 Video an Claude weitergeleitet (' + (video.duration ? video.duration + 's' : 'unbekannte Dauer') + ').\n' +
+            'Caption: ' + (caption || '—'),
+            { via: 'claude' }
+        ).catch(() => {});
+    } catch (e) {
+        console.warn('handleVideo Fehler:', e.message);
+    }
+}

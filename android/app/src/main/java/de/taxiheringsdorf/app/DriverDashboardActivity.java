@@ -4267,28 +4267,47 @@ public class DriverDashboardActivity extends AppCompatActivity {
     // v6.43.1: Annehmen — bei unzugewiesenen Aufträgen (warteschlange/sofort/new)
     // muss zusätzlich vehicleId + assignedBy gesetzt werden, damit die Fahrt wirklich
     // an den Fahrer geht und der Cloud-Watchdog Ruhe gibt.
+    // v6.63.332 (Patrick 14.06. 12:09 Gregoleit-Vorfall): Lock-Check vor Grab.
+    //   Wenn assignmentLocked=true UND assignedVehicle != currentVehicleId,
+    //   darf Fahrer die Fahrt NICHT grabben — sonst wird Patricks Lock ignoriert
+    //   (Gregoleit-Bug: Tesla locked, Vito grabbt trotzdem).
     private void acceptRide(String rideId) {
         if (db == null || rideId == null || currentVehicleId == null) return;
-        // 🆕 v6.62.945: Alarm sofort stoppen (Patrick 17:16 "Gebimmel geht 10-15s weiter nach Annehmen")
         try { AlertSoundService.stop(this); } catch (Throwable _ignore) {}
-        Map<String, Object> u = new HashMap<>();
-        u.put("status", "accepted");
-        u.put("vehicleId", currentVehicleId);
-        u.put("assignedVehicle", currentVehicleId);
-        // v6.62.282: assignedTo MUSS auch gesetzt werden, sonst Inkonsistenz mit vehicleId
-        // Bug-Sweep: Hotel Das Ahlbeck heute hatte vehicleId=Tesla, assignedTo=IK weil
-        // assignedTo bei nativem Grab vergessen wurde → Patrick verwirrt 'IK + Tesla beide?'
-        u.put("assignedTo", currentVehicleId);
-        u.put("assignedAt", System.currentTimeMillis());
-        u.put("assignedBy", "native_dashboard_grab");
-        u.put("acceptedAt", System.currentTimeMillis());
-        u.put("acceptedVia", "native_dashboard");
-        u.put("acceptedByVehicle", currentVehicleId);
-        u.put("updatedAt", System.currentTimeMillis());
-        u.put("openRideWarned", null);  // Watchdog reset
-        db.getReference("rides/" + rideId).updateChildren(u);
-        // v6.62.69: Tap-Audit
-        logLifecycleTap(rideId, "✅", "Fahrer-Tap: ANGENOMMEN (aus Warteschlange)", "accepted");
+        final String myVid = currentVehicleId;
+        db.getReference("rides/" + rideId).get().addOnSuccessListener(snap -> {
+            try {
+                Object _lockObj = snap.child("assignmentLocked").getValue();
+                boolean isLocked = (_lockObj instanceof Boolean) && (Boolean) _lockObj;
+                Object _avObj = snap.child("assignedVehicle").getValue();
+                String assignedVehicle = (_avObj instanceof String) ? (String) _avObj : null;
+                if (isLocked && assignedVehicle != null && !assignedVehicle.equals(myVid)) {
+                    Object _lbObj = snap.child("assignmentLockedBy").getValue();
+                    String lockedBy = (_lbObj instanceof String) ? (String) _lbObj : "unbekannt";
+                    Toast.makeText(DriverDashboardActivity.this,
+                        "🔒 Fahrt ist auf " + assignedVehicle + " gelockt (" + lockedBy + ")\nKann nicht uebernommen werden.",
+                        Toast.LENGTH_LONG).show();
+                    logLifecycleTap(rideId, "🔒", "Grab BLOCKIERT: locked auf " + assignedVehicle, null);
+                    return;
+                }
+                Map<String, Object> u = new HashMap<>();
+                u.put("status", "accepted");
+                u.put("vehicleId", myVid);
+                u.put("assignedVehicle", myVid);
+                u.put("assignedTo", myVid);
+                u.put("assignedAt", System.currentTimeMillis());
+                u.put("assignedBy", "native_dashboard_grab");
+                u.put("acceptedAt", System.currentTimeMillis());
+                u.put("acceptedVia", "native_dashboard");
+                u.put("acceptedByVehicle", myVid);
+                u.put("updatedAt", System.currentTimeMillis());
+                u.put("openRideWarned", null);
+                db.getReference("rides/" + rideId).updateChildren(u);
+                logLifecycleTap(rideId, "✅", "Fahrer-Tap: ANGENOMMEN (aus Warteschlange)", "accepted");
+            } catch (Throwable t) {
+                logLifecycleTap(rideId, "⚠️", "acceptRide-Crash: " + t.getMessage(), null);
+            }
+        });
     }
 
     private void rejectRide(String rideId) {

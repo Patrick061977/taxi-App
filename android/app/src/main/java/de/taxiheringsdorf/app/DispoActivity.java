@@ -376,8 +376,11 @@ public class DispoActivity extends AppCompatActivity {
         } else {
             vehLabel = "  · ⚠ kein Fz";
         }
-        // 🆕 v6.63.331 (Patrick 14.06.2026 10:02): Lock-Badge im Card
-        String lockBadge = r.assignmentLocked ? " 🔒" : "";
+        // 🆕 v6.63.332 (Patrick 14.06.2026 12:15 'Locked maximal 30 min vor einer Fahrt'):
+        //   Lock-Badge nur im 30-Min-Window vor Pickup anzeigen.
+        long _minToPickupLk = r.pickupTs > 0 ? (r.pickupTs - System.currentTimeMillis()) / 60000 : -9999;
+        boolean _lockActive = r.assignmentLocked && _minToPickupLk <= 30;
+        String lockBadge = _lockActive ? " 🔒" : "";
         tvCust.setText(cust + vehLabel + lockBadge);
         tvCust.setTextColor(Color.parseColor("#F1F5F9"));
         tvCust.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);

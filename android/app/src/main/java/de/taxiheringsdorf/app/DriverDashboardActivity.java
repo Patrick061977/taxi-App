@@ -1552,9 +1552,13 @@ public class DriverDashboardActivity extends AppCompatActivity {
             for (Ride a : all) if (a.id != null && a.id.equals(w.id)) { dup = true; break; }
             if (!dup) all.add(w);
         }
+        // v6.63.336 (Patrick 14.06. 14:33): Wartepool-Rides nach ganz oben sortieren
+        //   damit der Fahrer sie sofort sieht. rank=-1 (vor Active=0).
         all.sort((a, b) -> {
-            int aRank = isActiveStatus(a.status) ? 0 : (isOpenStatus(a.status) ? 2 : 1);
-            int bRank = isActiveStatus(b.status) ? 0 : (isOpenStatus(b.status) ? 2 : 1);
+            int aRank = ("wartepool".equalsIgnoreCase(a.status) ? -1 :
+                          (isActiveStatus(a.status) ? 0 : (isOpenStatus(a.status) ? 2 : 1)));
+            int bRank = ("wartepool".equalsIgnoreCase(b.status) ? -1 :
+                          (isActiveStatus(b.status) ? 0 : (isOpenStatus(b.status) ? 2 : 1)));
             if (aRank != bRank) return Integer.compare(aRank, bRank);
             return Long.compare(a.pickupTimestamp != null ? a.pickupTimestamp : 0,
                                 b.pickupTimestamp != null ? b.pickupTimestamp : 0);
@@ -1564,6 +1568,41 @@ public class DriverDashboardActivity extends AppCompatActivity {
         rvRides.setVisibility(all.isEmpty() ? View.GONE : View.VISIBLE);
         // v6.62.369: Driver-Banner aktualisieren
         updateFreeBusyBanner(all);
+        // v6.63.336: Wartepool-Aufmerksamkeit — wenn Wartepool>0 prominenter Toast/Toast-Banner
+        updateWartepoolBanner();
+    }
+
+    // v6.63.336 (Patrick 14.06. 14:33): Wartepool-Aufmerksamkeits-Banner
+    //   Patrick: 'es muesste irgendwo ein Pop-Up sein wenn Fahrten im Wartepool sind'
+    //   Lightweight ohne XML-Aenderung: nutze freebusy_banner und override wenn
+    //   wartepool>0 — der naechste updateFreeBusyBanner-Call setzt's wieder normal,
+    //   aber renderRides ruft beide auf, Wartepool gewinnt zuletzt.
+    private void updateWartepoolBanner() {
+        try {
+            if (wartepoolRides == null || wartepoolRides.isEmpty()) return;
+            android.widget.LinearLayout banner = findViewById(R.id.freebusy_banner);
+            TextView statusText = findViewById(R.id.freebusy_status);
+            TextView nextText = findViewById(R.id.freebusy_next);
+            if (banner == null || statusText == null || nextText == null) return;
+            int n = wartepoolRides.size();
+            banner.setBackgroundColor(android.graphics.Color.parseColor("#f97316"));
+            statusText.setText("🆘 " + n + " Fahrt" + (n == 1 ? "" : "en") + " im Wartepool — Tap zum Annehmen");
+            // Zeige naechste/nahste Pickup-Zeit der Wartepool-Rides
+            Ride first = wartepoolRides.get(0);
+            long nextMin = first.pickupTimestamp != null ? first.pickupTimestamp : 0L;
+            String firstCust = first.customerName != null ? first.customerName : "?";
+            for (Ride r : wartepoolRides) {
+                if (r.pickupTimestamp != null && r.pickupTimestamp < nextMin) {
+                    nextMin = r.pickupTimestamp;
+                    firstCust = r.customerName != null ? r.customerName : "?";
+                }
+            }
+            java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("HH:mm", java.util.Locale.GERMANY);
+            sdf.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
+            nextText.setText("Naechste: " + firstCust + " um " + (nextMin > 0 ? sdf.format(new java.util.Date(nextMin)) : "?"));
+            nextText.setVisibility(View.VISIBLE);
+            banner.setVisibility(View.VISIBLE);
+        } catch (Throwable _t) { /* defensive */ }
     }
 
     // 🆕 v6.62.523: Lokales Wegklicken stornierter Fahrten (Patrick: "das storniert geht nicht weg").
@@ -4337,6 +4376,41 @@ public class DriverDashboardActivity extends AppCompatActivity {
                         Toast.LENGTH_LONG).show();
                     logLifecycleTap(rideId, "🔒", "Grab BLOCKIERT: locked auf " + assignedVehicle, null);
                     return;
+                }
+                // v6.63.336 (Patrick 14.06. 14:35): Konflikt-Check vor Grab.
+                //   Wenn Fahrer schon laufende Fahrt (on_way/picked_up/arrived) hat
+                //   ODER Pickup im 60-Min-Window mit anderer accepted/assigned Ride kollidiert
+                //   → Grab blockieren + Toast.
+                Object _ptObj = snap.child("pickupTimestamp").getValue();
+                long newPickupTs = (_ptObj instanceof Number) ? ((Number) _ptObj).longValue() : 0L;
+                if (myAssignedRides != null && newPickupTs > 0) {
+                    for (Ride other : new ArrayList<>(myAssignedRides)) {
+                        if (other == null || other.id == null) continue;
+                        if (other.id.equals(rideId)) continue;
+                        String oSt = other.status == null ? "" : other.status.toLowerCase();
+                        if ("completed".equals(oSt) || "cancelled".equals(oSt) || "deleted".equals(oSt)) continue;
+                        // Aktive Fahrt → niemals 2. parallel
+                        if ("on_way".equals(oSt) || "picked_up".equals(oSt) || "arrived".equals(oSt)) {
+                            Toast.makeText(DriverDashboardActivity.this,
+                                "⚠️ Konflikt: Du bist gerade in " + (other.customerName != null ? other.customerName : "anderer Fahrt") + " ("+ oSt +").\nErst beenden, dann naechste annehmen.",
+                                Toast.LENGTH_LONG).show();
+                            logLifecycleTap(rideId, "⚠️", "Grab BLOCKIERT: aktive Fahrt " + other.id + " " + oSt, null);
+                            return;
+                        }
+                        // 60-Min-Window-Kollision mit anderer accepted Vorbestellung
+                        if (other.pickupTimestamp != null && other.pickupTimestamp > 0) {
+                            long diff = Math.abs(other.pickupTimestamp - newPickupTs);
+                            if (diff < 60L * 60L * 1000L && ("accepted".equals(oSt) || "assigned".equals(oSt) || "vorbestellt".equals(oSt))) {
+                                java.text.SimpleDateFormat _sdf = new java.text.SimpleDateFormat("HH:mm", java.util.Locale.GERMANY);
+                                _sdf.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
+                                Toast.makeText(DriverDashboardActivity.this,
+                                    "⚠️ Konflikt: Du hast bereits " + (other.customerName != null ? other.customerName : "Fahrt") + " um " + _sdf.format(new java.util.Date(other.pickupTimestamp)) + ".\nZeit-Konflikt mit dieser Fahrt.",
+                                    Toast.LENGTH_LONG).show();
+                                logLifecycleTap(rideId, "⚠️", "Grab BLOCKIERT: Zeit-Konflikt mit " + other.id, null);
+                                return;
+                            }
+                        }
+                    }
                 }
                 Map<String, Object> u = new HashMap<>();
                 u.put("status", "accepted");

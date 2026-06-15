@@ -35587,3 +35587,108 @@ async function handleVideo(message) {
         console.warn('handleVideo Fehler:', e.message);
     }
 }
+
+// v6.63.343 (Patrick 15.06.2026 06:08 'Tagebuch was lief gut/schlecht'):
+//   Daily-Report aggregiert taeglich 23:00 alle relevanten Logs:
+//   - rideStatusAudit (Status-Wechsel pro Ride)
+//   - conflictResolveLog (Phase 1 Vehicle-Replans/Time-Shifts)
+//   - optimierungsLog (Phase 2 Optimierungen)
+//   - Wartepool-Lifecycle (wann rein, wann raus)
+//   - Anomalien (autoCompleted, stuck rides)
+//
+//   Speichert /dailyReports/{YYYY-MM-DD} + Bridge-Push der Zusammenfassung.
+exports.scheduledDailyReport = onSchedule(
+    {
+        schedule: '0 23 * * *',
+        timeZone: 'Europe/Berlin',
+        region: 'europe-west1',
+        timeoutSeconds: 300,
+        memory: '512MiB'
+    },
+    async (event) => {
+        try {
+            const now = new Date();
+            const dayStart = new Date(now);
+            dayStart.setHours(0, 0, 0, 0);
+            const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000 - 1);
+            const dateKey = dayStart.toISOString().slice(0, 10);
+
+            // Rides heute (auch archiveRides falls schon archiviert)
+            const ridesSnap = await db.ref('rides')
+                .orderByChild('pickupTimestamp')
+                .startAt(dayStart.getTime())
+                .endAt(dayEnd.getTime())
+                .once('value');
+            const rides = ridesSnap.val() || {};
+
+            const stats = {
+                total: 0, completed: 0, cancelled: 0, deleted: 0,
+                wartepool: 0, vorbestellt: 0, autoCompleted: 0,
+                byVehicle: {}, bySource: {}, conflicts: []
+            };
+            for (const [rid, r] of Object.entries(rides)) {
+                if (!r) continue;
+                stats.total++;
+                const st = (r.status || '').toLowerCase();
+                if (st === 'completed') stats.completed++;
+                else if (st === 'cancelled' || st === 'storniert') stats.cancelled++;
+                else if (st === 'deleted') stats.deleted++;
+                else if (st === 'wartepool') stats.wartepool++;
+                else if (st === 'vorbestellt') stats.vorbestellt++;
+                if (r.autoCompleted) stats.autoCompleted++;
+                if (r.assignedVehicle) stats.byVehicle[r.assignedVehicle] = (stats.byVehicle[r.assignedVehicle] || 0) + 1;
+                if (r.source) stats.bySource[r.source] = (stats.bySource[r.source] || 0) + 1;
+                if (r.wartepoolReason) {
+                    stats.conflicts.push({
+                        rideId: rid, customerName: r.customerName, pickupTime: r.pickupTime,
+                        reason: r.wartepoolReason, resolved: !!r.assignedVehicle
+                    });
+                }
+            }
+
+            // Conflict-Resolve Log heute
+            const crlSnap = await db.ref('conflictResolveLog')
+                .orderByChild('ts').startAt(dayStart.getTime()).endAt(dayEnd.getTime()).once('value');
+            const conflictResolveLog = [];
+            crlSnap.forEach(c => conflictResolveLog.push(c.val()));
+
+            // Optimierungs-Log heute
+            const optSnap = await db.ref('optimierungsLog')
+                .orderByChild('timestamp').startAt(dayStart.getTime()).endAt(dayEnd.getTime()).once('value');
+            const optimierungsLog = [];
+            optSnap.forEach(o => optimierungsLog.push(o.val()));
+
+            const report = {
+                date: dateKey,
+                generatedAt: Date.now(),
+                stats,
+                conflictResolveLog: conflictResolveLog.slice(-50),
+                optimierungsLog: optimierungsLog.slice(-50),
+                summary: {
+                    abschlussQuote: stats.total > 0 ? Math.round(100 * stats.completed / stats.total) : 0,
+                    konfliktQuote: stats.total > 0 ? Math.round(100 * stats.wartepool / stats.total) : 0,
+                    cloudReplans: conflictResolveLog.length,
+                    cloudOptimizes: optimierungsLog.length
+                }
+            };
+            await db.ref('dailyReports/' + dateKey).set(report);
+
+            // Bridge-Push: kompakte Zusammenfassung
+            const _veh = Object.entries(stats.byVehicle).map(([v, n]) => `${v}: ${n}`).join(', ');
+            const _src = Object.entries(stats.bySource).map(([s, n]) => `${s}: ${n}`).join(', ');
+            const msg =
+                `📋 <b>TAGES-PROTOKOLL ${dateKey}</b>\n\n` +
+                `📊 ${stats.total} Fahrten — ${stats.completed} ✓ / ${stats.cancelled} ✗ / ${stats.wartepool} 🆘\n` +
+                `🤖 ${stats.autoCompleted} auto-complete | ${conflictResolveLog.length} cloud-replan | ${optimierungsLog.length} cloud-optimize\n\n` +
+                `🚖 Per Vehicle: ${_veh}\n` +
+                `📥 Per Quelle: ${_src}\n\n` +
+                `${stats.conflicts.length > 0 ? '⚠️ Konflikte heute:\n' + stats.conflicts.map(c => `   • ${c.pickupTime} ${c.customerName} (${c.resolved ? '✓ gelöst' : '⚠ offen'})`).join('\n') : '✅ Keine Konflikte'}\n\n` +
+                `Abschluss-Quote: ${report.summary.abschlussQuote}% | Konflikt-Quote: ${report.summary.konfliktQuote}%`;
+            await sendToAllAdmins(msg, 'daily-report').catch(() => {});
+            console.log('📋 Daily Report ' + dateKey + ' geschrieben (' + stats.total + ' rides)');
+        } catch (e) {
+            console.error('scheduledDailyReport Fehler:', e);
+            await logError('scheduledDailyReport', e, { severity: 'warning' }).catch(() => {});
+        }
+    }
+);

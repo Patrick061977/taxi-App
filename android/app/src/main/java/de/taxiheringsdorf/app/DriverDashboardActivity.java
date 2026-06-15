@@ -1683,10 +1683,9 @@ public class DriverDashboardActivity extends AppCompatActivity {
         new android.app.AlertDialog.Builder(this)
             .setView(root)
             .setPositiveButton("✅ Speichern + Suchen", (d, w) -> {
-                if (offsetMin[0] == 0) {
-                    Toast.makeText(this, "Keine Aenderung — Slider nicht bewegt", Toast.LENGTH_SHORT).show();
-                    return;
-                }
+                // v6.63.347 (Patrick 15.06. 09:03 'Slider auf Null annehmen geht nicht'):
+                //   offsetMin=0 = Patrick will Status-Reset OHNE Zeit-Aenderung.
+                //   Status auf 'new' setzen + wartepool-Felder reset → triggert Re-Assign.
                 long newTs = origTs + offsetMin[0] * 60_000L;
                 java.text.SimpleDateFormat _hm = new java.text.SimpleDateFormat("HH:mm", java.util.Locale.GERMANY);
                 _hm.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));

@@ -412,12 +412,12 @@ public class DispoActivity extends AppCompatActivity {
                 }
             }
             if (tl.length() > 0) {
-                TextView tvTime = new TextView(this);
-                tvTime.setText(tl.toString());
-                tvTime.setTextColor(Color.parseColor("#CBD5E1"));
-                tvTime.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
-                tvTime.setPadding(0, dp(2), 0, 0);
-                col.addView(tvTime);
+                TextView tvTimeline = new TextView(this);
+                tvTimeline.setText(tl.toString());
+                tvTimeline.setTextColor(Color.parseColor("#CBD5E1"));
+                tvTimeline.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
+                tvTimeline.setPadding(0, dp(2), 0, 0);
+                col.addView(tvTimeline);
             }
         } catch (Throwable _t) { /* defensive */ }
 

@@ -409,6 +409,10 @@ public class DispoActivity extends AppCompatActivity {
                     // Frei = Drop + 3 Min Buffer (Memory: optimierungBufferMin=3)
                     long frei = drop + 3 * 60_000L;
                     tl.append(" · Frei ").append(hm.format(new java.util.Date(frei)));
+                } else {
+                    // v6.63.351 (Patrick 15.06. 12:40 'es muss da stehen OSRM ausgefallen'):
+                    //   wenn duration null, explizit Hinweis statt stillem Weglassen.
+                    tl.append(" · ⚠ Fahrt-Dauer wird nachberechnet (OSRM)");
                 }
             }
             if (tl.length() > 0) {

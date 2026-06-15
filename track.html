@@ -44,10 +44,31 @@
         #info::-webkit-scrollbar { width: 6px; }
         #info::-webkit-scrollbar-thumb { background: rgba(15,23,42,0.18); border-radius: 3px; }
 
+        /* v6.63.349 (Patrick 15.06.2026 09:27 'Kunde sieht beim SMS-Track-Link
+           die grosse Karte ins Gesicht — Karte soll initial zugeklappt sein'):
+           Map initial 35vh statt 100vh. Knopf 'Karte vergroessern' expandiert. */
         #map {
             width: 100%;
-            height: 100vh;
+            height: 35vh;
             background: linear-gradient(135deg, #e0e7ff 0%, #f1f5f9 100%);
+            transition: height 0.3s ease;
+        }
+        #map.map-expanded {
+            height: 100vh;
+        }
+        #map-expand-btn {
+            position: absolute;
+            top: 8px;
+            right: 14px;
+            background: rgba(255,255,255,0.95);
+            border: none;
+            border-radius: 6px;
+            padding: 6px 12px;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            z-index: 1001;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
         }
 
         .header {
@@ -457,6 +478,21 @@
     </div>
     
     <div id="map"></div>
+    <button id="map-expand-btn" onclick="toggleMapSize()">🗺️ Karte vergrößern</button>
+    <script>
+        function toggleMapSize() {
+            const m = document.getElementById('map');
+            const btn = document.getElementById('map-expand-btn');
+            m.classList.toggle('map-expanded');
+            btn.textContent = m.classList.contains('map-expanded') ? '⬆️ Karte verkleinern' : '🗺️ Karte vergrößern';
+            // Leaflet must invalidate size when container changes
+            try { setTimeout(() => { if (window.map && window.map.invalidateSize) window.map.invalidateSize(); }, 350); } catch(e){}
+        }
+        // Expose Leaflet map globally
+        window.addEventListener('load', () => {
+            try { if (typeof map !== 'undefined') window.map = map; } catch(e){}
+        });
+    </script>
     
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>

@@ -1554,12 +1554,14 @@ public class DriverDashboardActivity extends AppCompatActivity {
             for (Ride a : all) if (a.id != null && a.id.equals(w.id)) { dup = true; break; }
             if (!dup) all.add(w);
         }
-        // v6.63.336 (Patrick 14.06. 14:33): Wartepool-Rides nach ganz oben sortieren
-        //   damit der Fahrer sie sofort sieht. rank=-1 (vor Active=0).
+        // v6.63.348 (Patrick 15.06. 09:11 'Wartepool blockiert Scroll, kann
+        //   Carmen Haas nicht mehr annehmen'): Wartepool nach UNTEN.
+        //   rank=3 (hinter open=2). Fahrer sieht eigene Fahrten oben.
+        //   Wartepool-Banner oben bleibt fuer Aufmerksamkeit.
         all.sort((a, b) -> {
-            int aRank = ("wartepool".equalsIgnoreCase(a.status) ? -1 :
+            int aRank = ("wartepool".equalsIgnoreCase(a.status) ? 3 :
                           (isActiveStatus(a.status) ? 0 : (isOpenStatus(a.status) ? 2 : 1)));
-            int bRank = ("wartepool".equalsIgnoreCase(b.status) ? -1 :
+            int bRank = ("wartepool".equalsIgnoreCase(b.status) ? 3 :
                           (isActiveStatus(b.status) ? 0 : (isOpenStatus(b.status) ? 2 : 1)));
             if (aRank != bRank) return Integer.compare(aRank, bRank);
             return Long.compare(a.pickupTimestamp != null ? a.pickupTimestamp : 0,

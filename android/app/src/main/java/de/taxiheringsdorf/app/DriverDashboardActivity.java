@@ -1605,7 +1605,104 @@ public class DriverDashboardActivity extends AppCompatActivity {
             nextText.setText("Naechste: " + firstCust + " um " + (nextMin > 0 ? sdf.format(new java.util.Date(nextMin)) : "?"));
             nextText.setVisibility(View.VISIBLE);
             banner.setVisibility(View.VISIBLE);
+            // v6.63.342 (Patrick 15.06. 06:02): Tap auf Wartepool-Banner oeffnet
+            //   Konflikt-Loesungs-Dialog mit Slider fuer Zeit-Verschiebung
+            final Ride firstFinal = first;
+            banner.setOnClickListener(v -> showWartepoolResolverDialog(firstFinal));
         } catch (Throwable _t) { /* defensive */ }
+    }
+
+    // v6.63.342 (Patrick 15.06. 06:02 'System soll Konflikte selber abarbeiten +
+    //   Slider im Native zur Loesung'): Dialog mit SeekBar für Pickup-Verschiebung.
+    //   −15 Min bis +5 Min in 1-Min-Schritten. Patrick sieht Live wie sich die Zeit
+    //   verschiebt. Nach 'Speichern': PATCH pickupTimestamp + sucht Vehicle.
+    private void showWartepoolResolverDialog(Ride ride) {
+        if (ride == null || ride.id == null || ride.pickupTimestamp == null) return;
+        final long origTs = ride.pickupTimestamp;
+        java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("EEE HH:mm", java.util.Locale.GERMANY);
+        sdf.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        int pad = (int) (getResources().getDisplayMetrics().density * 16);
+        root.setPadding(pad, pad, pad, pad);
+
+        TextView head = new TextView(this);
+        head.setText("🔧 Konflikt loesen: " + (ride.customerName != null ? ride.customerName : "?"));
+        head.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
+        head.setTypeface(null, Typeface.BOLD);
+        root.addView(head);
+
+        TextView origLbl = new TextView(this);
+        origLbl.setText("Original-Pickup: " + sdf.format(new java.util.Date(origTs)));
+        origLbl.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+        origLbl.setPadding(0, 8, 0, 8);
+        root.addView(origLbl);
+
+        if (ride.wartepoolReason != null && !ride.wartepoolReason.isEmpty()) {
+            TextView reason = new TextView(this);
+            reason.setText("⚠️ Grund: " + ride.wartepoolReason);
+            reason.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+            reason.setTextColor(Color.parseColor("#92400e"));
+            reason.setPadding(0, 0, 0, 10);
+            root.addView(reason);
+        }
+
+        TextView sliderLbl = new TextView(this);
+        sliderLbl.setText("Neue Zeit: " + sdf.format(new java.util.Date(origTs)) + " (±0 Min)");
+        sliderLbl.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
+        sliderLbl.setTypeface(null, Typeface.BOLD);
+        sliderLbl.setTextColor(Color.parseColor("#1e293b"));
+        root.addView(sliderLbl);
+
+        android.widget.SeekBar slider = new android.widget.SeekBar(this);
+        // Range −15 bis +5 = 21 Schritte. Slider 0..20, 15 = 0 Verschiebung.
+        slider.setMax(20);
+        slider.setProgress(15);
+        final int[] offsetMin = { 0 };
+        slider.setOnSeekBarChangeListener(new android.widget.SeekBar.OnSeekBarChangeListener() {
+            @Override public void onProgressChanged(android.widget.SeekBar seekBar, int progress, boolean fromUser) {
+                offsetMin[0] = progress - 15;
+                long newTs = origTs + offsetMin[0] * 60_000L;
+                String sign = offsetMin[0] > 0 ? "+" : "";
+                sliderLbl.setText("Neue Zeit: " + sdf.format(new java.util.Date(newTs)) + " (" + sign + offsetMin[0] + " Min)");
+            }
+            @Override public void onStartTrackingTouch(android.widget.SeekBar seekBar) {}
+            @Override public void onStopTrackingTouch(android.widget.SeekBar seekBar) {}
+        });
+        root.addView(slider);
+
+        TextView hint = new TextView(this);
+        hint.setText("← −15 Min  |  0  |  +5 Min →");
+        hint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
+        hint.setTextColor(Color.parseColor("#94a3b8"));
+        hint.setPadding(0, 4, 0, 0);
+        root.addView(hint);
+
+        new android.app.AlertDialog.Builder(this)
+            .setView(root)
+            .setPositiveButton("✅ Speichern + Suchen", (d, w) -> {
+                if (offsetMin[0] == 0) {
+                    Toast.makeText(this, "Keine Aenderung — Slider nicht bewegt", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                long newTs = origTs + offsetMin[0] * 60_000L;
+                java.text.SimpleDateFormat _hm = new java.text.SimpleDateFormat("HH:mm", java.util.Locale.GERMANY);
+                _hm.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
+                Map<String, Object> u = new HashMap<>();
+                u.put("pickupTimestamp", newTs);
+                u.put("pickupTime", _hm.format(new java.util.Date(newTs)));
+                u.put("updatedAt", System.currentTimeMillis());
+                u.put("status", "new"); // → triggert scheduledAutoAssign + Reject-ReAssign
+                u.put("wartepoolReason", null);
+                u.put("wartepoolAt", null);
+                u.put("replanReason", "Native-Slider Patrick: " + (offsetMin[0] > 0 ? "+" : "") + offsetMin[0] + " Min");
+                u.put("lastTimeShiftBy", "native-slider-driver");
+                db.getReference("rides/" + ride.id).updateChildren(u);
+                Toast.makeText(this, "✓ Pickup um " + offsetMin[0] + " Min verschoben — System sucht Fahrzeug…", Toast.LENGTH_LONG).show();
+                logLifecycleTap(ride.id, "🔧", "Native-Slider: " + offsetMin[0] + " Min Shift", null);
+            })
+            .setNegativeButton("Abbrechen", null)
+            .show();
     }
 
     // 🆕 v6.62.523: Lokales Wegklicken stornierter Fahrten (Patrick: "das storniert geht nicht weg").

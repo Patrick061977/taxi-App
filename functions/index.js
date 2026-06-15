@@ -24104,6 +24104,34 @@ exports.onRideCreated = onValueCreated(
 
         console.log(`📱 onRideCreated: ${rideId} — ${ride.customerName || 'Unbekannt'} — source: ${ride.source || 'browser'}`);
 
+        // v6.63.350 (Patrick 15.06. 12:31 'altbekannte Adresse, warum kein Vehicle'):
+        //   Antje Faulenbach hatte Coords aber drivingTimeToDestination=null.
+        //   Native-CRM-Suche schreibt das Feld nicht beim Anlegen.
+        //   → Cloud-Backfill via OSRM: bei pickupLat+destinationLat aber
+        //     drivingTimeToDestination=null Route berechnen + write-back.
+        try {
+            const _hasCoords = ride.pickupLat && ride.pickupLon && ride.destinationLat && ride.destinationLon;
+            const _hasDuration = ride.drivingTimeToDestination && ride.drivingTimeToDestination > 0;
+            if (_hasCoords && !_hasDuration) {
+                const _route = await calculateRoute(
+                    { lat: ride.pickupLat, lon: ride.pickupLon },
+                    { lat: ride.destinationLat, lon: ride.destinationLon }
+                );
+                if (_route && _route.duration && _route.duration > 0) {
+                    const _upd = {
+                        drivingTimeToDestination: _route.duration,
+                        backfilledDestAt: Date.now(),
+                        backfilledDestBy: 'cloud-onRideCreated-v6.63.350'
+                    };
+                    if (_route.distance) _upd.drivingDistanceToDestKm = +Number(_route.distance).toFixed(2);
+                    await db.ref('rides/' + rideId).update(_upd);
+                    console.log(`📐 v6.63.350 onRideCreated Route-Backfill: ${ride.customerName || '?'} → ${_route.duration} Min, ${_route.distance?.toFixed?.(1)} km`);
+                }
+            }
+        } catch (_durErr) {
+            console.warn('onRideCreated Duration-Backfill Fehler:', _durErr.message);
+        }
+
         // 🆕 v6.63.072 (Patrick 01.06. Bridge "Serien-Termine, nicht 20 SMS"):
         //   Wenn die Ride Teil einer Termin-Serie ist (seriesId gesetzt), wird die
         //   Customer-Bestätigung von der Native-/Web-App als EINE Sammel-SMS für

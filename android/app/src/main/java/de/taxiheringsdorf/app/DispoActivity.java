@@ -393,6 +393,34 @@ public class DispoActivity extends AppCompatActivity {
         tvRoute.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
         col.addView(tvRoute);
 
+        // v6.63.344 (Patrick 15.06. 07:29 'Fahrplan-Modus, wann welches Fahrzeug wo'):
+        //   Zeit-Detail-Zeile pro Card: Pickup-Zeit + Anfahrt + Fahrt-Dauer + Drop + Frei.
+        try {
+            java.text.SimpleDateFormat hm = new java.text.SimpleDateFormat("HH:mm", java.util.Locale.GERMANY);
+            hm.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
+            StringBuilder tl = new StringBuilder();
+            if (r.pickupTs > 0) {
+                tl.append("🕒 ").append(hm.format(new java.util.Date(r.pickupTs)));
+                if (r.drivingTimeToPickup > 0) tl.append(" · Anfahrt ").append(r.drivingTimeToPickup).append(" Min");
+                if (r.drivingTimeToDestination > 0) {
+                    tl.append(" · Fahrt ").append(r.drivingTimeToDestination).append(" Min");
+                    long drop = r.pickupTs + r.drivingTimeToDestination * 60_000L;
+                    tl.append(" · Drop ").append(hm.format(new java.util.Date(drop)));
+                    // Frei = Drop + 3 Min Buffer (Memory: optimierungBufferMin=3)
+                    long frei = drop + 3 * 60_000L;
+                    tl.append(" · Frei ").append(hm.format(new java.util.Date(frei)));
+                }
+            }
+            if (tl.length() > 0) {
+                TextView tvTime = new TextView(this);
+                tvTime.setText(tl.toString());
+                tvTime.setTextColor(Color.parseColor("#CBD5E1"));
+                tvTime.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
+                tvTime.setPadding(0, dp(2), 0, 0);
+                col.addView(tvTime);
+            }
+        } catch (Throwable _t) { /* defensive */ }
+
         // 🆕 v6.62.1001 (Patrick 28.05. 21:41): Konflikt-Diagnose direkt im Dispo-Card
         //   anzeigen wenn Fahrt im wartepool oder ohne Fahrzeug — pro Fahrzeug rechnen:
         //   im Schichtplan? frei? kollidiert?

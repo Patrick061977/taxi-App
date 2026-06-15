@@ -1,0 +1,44 @@
+[
+  {
+    "id": "spy-iron-condor",
+    "name": "SPY Iron Condor 7DTE",
+    "url": "https://optionstrat.com/build/iron-condor/SPY",
+    "maxProfit": "415",
+    "maxLoss": "85",
+    "cost": "415",
+    "breakeven": null,
+    "probProfit": null,
+    "delta": null,
+    "theta": null,
+    "fragment": "Build \nNovice\nBASIC\nLong Call\nLong Put\nINCOME\nCovered Call\nCash-Secured Put\nOTHER\nProtective Put\nIntermediate\nCREDIT SPREADS\nBull Put Spread\nBear Call Spread\nNEUTRAL\nIron Butterfly\nIron Condor\nLong Pu",
+    "screenshot": "C:\\Taxi App\\taxi-App-github\\assets\\optionstrat-snapshots\\spy-iron-condor.png"
+  },
+  {
+    "id": "iwm-iron-condor",
+    "name": "IWM Iron Condor 7DTE",
+    "url": "https://optionstrat.com/build/iron-condor/IWM",
+    "maxProfit": "351",
+    "maxLoss": "149",
+    "cost": "351",
+    "breakeven": null,
+    "probProfit": null,
+    "delta": null,
+    "theta": null,
+    "fragment": "Build \nNovice\nBASIC\nLong Call\nLong Put\nINCOME\nCovered Call\nCash-Secured Put\nOTHER\nProtective Put\nIntermediate\nCREDIT SPREADS\nBull Put Spread\nBear Call Spread\nNEUTRAL\nIron Butterfly\nIron Condor\nLong Pu",
+    "screenshot": "C:\\Taxi App\\taxi-App-github\\assets\\optionstrat-snapshots\\iwm-iron-condor.png"
+  },
+  {
+    "id": "spy-calendar-put",
+    "name": "SPY Calendar Put Spread",
+    "url": "https://optionstrat.com/build/calendar-put-spread/SPY",
+    "maxProfit": "804.86",
+    "maxLoss": "543",
+    "cost": "543",
+    "breakeven": null,
+    "probProfit": null,
+    "delta": null,
+    "theta": null,
+    "fragment": "Build \nNovice\nBASIC\nLong Call\nLong Put\nINCOME\nCovered Call\nCash-Secured Put\nOTHER\nProtective Put\nIntermediate\nCREDIT SPREADS\nBull Put Spread\nBear Call Spread\nNEUTRAL\nIron Butterfly\nIron Condor\nLong Pu",
+    "screenshot": "C:\\Taxi App\\taxi-App-github\\assets\\optionstrat-snapshots\\spy-calendar-put.png"
+  }
+]

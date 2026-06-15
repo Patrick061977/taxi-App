@@ -3820,7 +3820,7 @@ public class DriverDashboardActivity extends AppCompatActivity {
     }
 
     static class Ride {
-        String id, customerName, pickup, destination, pickupTime, status, notes;
+        String id, customerName, pickup, destination, pickupTime, status, notes, wartepoolReason;
         Double price, distance;
         // v6.62.439: actualPrice = der ECHTE kassierte Wert nach Bezahl-Dialog,
         //   price = Vorab-Schätzung (OSRM). Nach Fahrtende soll der echte Wert gewinnen.
@@ -3880,6 +3880,7 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 r.pickupTime = s.child("pickupTime").getValue(String.class);
                 r.status = s.child("status").getValue(String.class);
                 r.notes = s.child("notes").getValue(String.class);
+                r.wartepoolReason = s.child("wartepoolReason").getValue(String.class);
                 // v6.62.2: Waypoints sind Array von Objekten mit address/lat/lon
                 DataSnapshot wpSnap = s.child("waypoints");
                 if (wpSnap.exists() && wpSnap.hasChildren()) {

@@ -2084,6 +2084,12 @@ public class AdminDashboardActivity extends AppCompatActivity {
                         wpSol.append("\n👉 Karte tippen → Fahrzeug wählen / Pickup verschieben");
                         route.append(wpSol.toString());
                     } else if (r.pickupTimestamp != null) {
+                        // 🆕 v6.63.361 (Patrick 16.06. 12:53 Bridge: "wo steht dann wann der
+                        //   Tesla wieder zurück ist? Ich würde doch gerne wissen wann ist
+                        //   ungefähr der Tesla zurück. Ob das passt von der Zeit"):
+                        //   Pro Fahrzeug zeige ich jetzt die letzte Belegung VOR der
+                        //   Wartepool-Pickup-Zeit + dessen Ende → "Frei ab HH:MM (nach X)".
+                        //   Plus weiterhin Konflikt-Erkennung im ±30min-Fenster.
                         StringBuilder wpSol = new StringBuilder("\n\n💡 FAHRZEUG-LAGE:");
                         int _dur354 = (r.estimatedDuration != null && r.estimatedDuration > 0) ? r.estimatedDuration : 15;
                         long _rideStart354 = r.pickupTimestamp - 30L * 60_000L;
@@ -2096,6 +2102,9 @@ public class AdminDashboardActivity extends AppCompatActivity {
                             String _vid354 = _v354Ids[_vi354];
                             String _conflictLabel = null;
                             long _conflictTs = 0;
+                            // Plus: letzte Belegung VOR der Wartepool-Pickup-Zeit
+                            long _busyUntil = 0;
+                            String _busyByName = null;
                             for (Ride _other : _currentRides) {
                                 if (_other == null || _other.id == null || _other.id.equals(r.id)) continue;
                                 if (!_vid354.equals(_other.assignedVehicle)) continue;
@@ -2104,18 +2113,29 @@ public class AdminDashboardActivity extends AppCompatActivity {
                                 int _oDur = (_other.estimatedDuration != null && _other.estimatedDuration > 0) ? _other.estimatedDuration : 15;
                                 long _oStart = _other.pickupTimestamp;
                                 long _oEnd = _oStart + (long) _oDur * 60_000L;
+                                // Konflikt im ±30min-Fenster?
                                 if (_oStart < _rideEnd354 && _oEnd > _rideStart354) {
-                                    _conflictLabel = _other.customerName != null ? _other.customerName : "?";
-                                    _conflictTs = _oStart;
-                                    break;
+                                    if (_conflictLabel == null) {
+                                        _conflictLabel = _other.customerName != null ? _other.customerName : "?";
+                                        _conflictTs = _oStart;
+                                    }
+                                }
+                                // Vor der Wartepool-Pickup? → Frei-Ab-Kandidat
+                                if (_oEnd <= r.pickupTimestamp && _oEnd > _busyUntil) {
+                                    _busyUntil = _oEnd;
+                                    _busyByName = _other.customerName != null ? _other.customerName : "?";
                                 }
                             }
                             wpSol.append("\n");
-                            if (_conflictLabel == null) {
-                                wpSol.append("🟢 ").append(_v354Names[_vi354]).append(" frei");
-                            } else {
-                                wpSol.append("🟡 ").append(_v354Names[_vi354]).append(" — ").append(_conflictLabel)
+                            if (_conflictLabel != null) {
+                                wpSol.append("🟡 ").append(_v354Names[_vi354]).append(" — Konflikt ").append(_conflictLabel)
                                      .append(" ").append(_wpHm.format(new java.util.Date(_conflictTs)));
+                            } else if (_busyUntil > 0) {
+                                wpSol.append("🟢 ").append(_v354Names[_vi354]).append(" frei ab ")
+                                     .append(_wpHm.format(new java.util.Date(_busyUntil)))
+                                     .append(" (nach ").append(_busyByName).append(")");
+                            } else {
+                                wpSol.append("🟢 ").append(_v354Names[_vi354]).append(" frei");
                             }
                         }
                         wpSol.append("\n👉 Karte tippen → Fahrzeug wählen / Pickup verschieben");

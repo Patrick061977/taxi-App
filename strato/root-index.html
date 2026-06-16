@@ -9,8 +9,12 @@
             window.location.href = '/Taxi-App/' + qs;
         } else if (host.indexOf('taschenlokal') !== -1) {
             window.location.href = '/taschenlokal-de/';
-        } else if (host.indexOf('strandurlaub-heringsdorf') !== -1) {
+        } else if (host.indexOf('strandurlaub-heringsdorf') !== -1) { 
             window.location.href = '/strandurlaub-heringsdorf-de/';
+        } else if (host.indexOf('kein-bock-zu-laufen') !== -1 || host.indexOf('keinbockzulaufen') !== -1) {
+            // 🆕 v6.63.365 (Patrick 16.06. 14:29 Bridge): Schreibvarianten mit
+            //   Bindestrichen und ohne auf die Kein-Bock-zu-Laufen-Landingpage leiten.
+            window.location.href = '/kein-bock-zu-laufen.html' + qs;
         }
     </script>
 </head>

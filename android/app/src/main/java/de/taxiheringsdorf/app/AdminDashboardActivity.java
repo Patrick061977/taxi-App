@@ -1977,6 +1977,50 @@ public class AdminDashboardActivity extends AppCompatActivity {
                         wpDiag.append("\n🔁 Auto-Assign-Versuche: ").append(r.autoAssignAttempts).append("×");
                     }
                     route.append(wpDiag.toString());
+                    // 🆕 v6.63.354 (Patrick 16.06. 07:33 Bridge: "Ich will die perfekte Übersicht
+                    //   — warum, weshalb, wieso. Es sind 3 Fahrzeuge unterwegs und du hast
+                    //   trotzdem einen Wartepool"): pro Fahrzeug die Pickup-Fenster-Lage
+                    //   anzeigen — 🟢 frei oder 🟡 Konflikt-mit-Name+Zeit. Patrick sieht damit
+                    //   sofort welches Auto die Wartepool-Fahrt übernehmen kann ohne durch
+                    //   Time-Shift-Dialog navigieren zu müssen.
+                    if (r.pickupTimestamp != null) {
+                        StringBuilder wpSol = new StringBuilder("\n\n💡 FAHRZEUG-LAGE:");
+                        int _dur354 = (r.estimatedDuration != null && r.estimatedDuration > 0) ? r.estimatedDuration : 15;
+                        long _rideStart354 = r.pickupTimestamp - 30L * 60_000L;
+                        long _rideEnd354 = r.pickupTimestamp + (long) _dur354 * 60_000L + 30L * 60_000L;
+                        final String[] _v354Ids   = {"pw-my-222-e", "pw-ik-222", "pw-sk-222", "pw-ki-222", "pw-ym-222-e", "vg-lk-111"};
+                        final String[] _v354Names = {"Tesla MY222", "Prius IK", "Vito SK", "Toyota KI", "Tesla YM222", "Mercedes LK"};
+                        java.text.SimpleDateFormat _wpHm = new java.text.SimpleDateFormat("HH:mm", Locale.GERMANY);
+                        _wpHm.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
+                        for (int _vi354 = 0; _vi354 < _v354Ids.length; _vi354++) {
+                            String _vid354 = _v354Ids[_vi354];
+                            String _conflictLabel = null;
+                            long _conflictTs = 0;
+                            for (Ride _other : _currentRides) {
+                                if (_other == null || _other.id == null || _other.id.equals(r.id)) continue;
+                                if (!_vid354.equals(_other.assignedVehicle)) continue;
+                                if (_other.pickupTimestamp == null) continue;
+                                if (_other.status != null && ("completed".equals(_other.status) || "cancelled".equals(_other.status) || "storniert".equals(_other.status) || "rejected".equals(_other.status))) continue;
+                                int _oDur = (_other.estimatedDuration != null && _other.estimatedDuration > 0) ? _other.estimatedDuration : 15;
+                                long _oStart = _other.pickupTimestamp;
+                                long _oEnd = _oStart + (long) _oDur * 60_000L;
+                                if (_oStart < _rideEnd354 && _oEnd > _rideStart354) {
+                                    _conflictLabel = _other.customerName != null ? _other.customerName : "?";
+                                    _conflictTs = _oStart;
+                                    break;
+                                }
+                            }
+                            wpSol.append("\n");
+                            if (_conflictLabel == null) {
+                                wpSol.append("🟢 ").append(_v354Names[_vi354]).append(" frei");
+                            } else {
+                                wpSol.append("🟡 ").append(_v354Names[_vi354]).append(" — ").append(_conflictLabel)
+                                     .append(" ").append(_wpHm.format(new java.util.Date(_conflictTs)));
+                            }
+                        }
+                        wpSol.append("\n👉 Karte tippen → Fahrzeug wählen / Pickup verschieben");
+                        route.append(wpSol.toString());
+                    }
                 }
                 // 🆕 v6.63.096 (Patrick 03.06. 07:30): Krankenfahrt-Banner prominent.
                 //   Wenn paymentMethod=transportschein → grüner "🏥 KRANKENFAHRT" Banner damit

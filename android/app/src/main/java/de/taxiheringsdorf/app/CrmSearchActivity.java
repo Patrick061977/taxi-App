@@ -1597,7 +1597,24 @@ public class CrmSearchActivity extends AppCompatActivity {
                                   : (pr != null ? " · " + pr + "€" : "");
                     String shortPu = pu.length() > 30 ? pu.substring(0, 30) + "…" : pu;
                     String shortDe = de.length() > 30 ? de.substring(0, 30) + "…" : de;
-                    labels[i] = dt + " · " + statusEmoji(st) + "\n" + shortPu + " → " + shortDe + prStr;
+                    // 🆕 v6.63.358 (Patrick 16.06. 07:26 Bridge: "Übersichtskarte wo ich
+                    //   sehe was bezahlt, welche Rechnung, ob erstellt, ob SMS verschickt"):
+                    //   Pro Fahrt-Zeile Badges für Rechnungs-Status.
+                    StringBuilder _badges = new StringBuilder();
+                    String _invNumX = r.get("invoiceNumber") != null ? String.valueOf(r.get("invoiceNumber")).trim() : "";
+                    boolean _hasInvX = !_invNumX.isEmpty() && !"null".equals(_invNumX);
+                    String _payStatX = r.get("paymentStatus") != null ? String.valueOf(r.get("paymentStatus")).trim().toLowerCase() : "";
+                    Object _smsObjX = r.get("completionSmsWithInvoiceSent");
+                    boolean _smsSentX = (_smsObjX instanceof Boolean && (Boolean) _smsObjX) || (_smsObjX != null && "true".equals(String.valueOf(_smsObjX)));
+                    if (_hasInvX) {
+                        _badges.append(" 📄");
+                    } else if ("completed".equalsIgnoreCase(st) && pr instanceof Number && ((Number) pr).doubleValue() > 0) {
+                        _badges.append(" 📄❌");
+                    }
+                    if (_smsSentX) _badges.append(" 📲");
+                    if ("bezahlt".equalsIgnoreCase(_payStatX) || "paid".equalsIgnoreCase(_payStatX)) _badges.append(" 💶");
+                    else if ("offen".equalsIgnoreCase(_payStatX)) _badges.append(" ⏳");
+                    labels[i] = dt + " · " + statusEmoji(st) + _badges.toString() + "\n" + shortPu + " → " + shortDe + prStr;
                 }
 
                 new AlertDialog.Builder(this)
@@ -1742,7 +1759,21 @@ public class CrmSearchActivity extends AppCompatActivity {
             final boolean _hasPrice = pr instanceof Number && ((Number) pr).doubleValue() > 0;
             final boolean _canCreateInvoice = _isCompleted && !_hasInvoice && _hasPrice && _rideIdFinal != null;
 
-            if (_canCreateInvoice) {
+            // 🆕 v6.63.358 (Patrick 16.06. 07:26 Bridge: "SMS resend für Rechnungs-PDF"):
+            //   Wenn completed + invoice schon vorhanden + Telefon im CRM →
+            //   Re-Send-Button mit Link auf das PDF. Sonst bestehende Logik.
+            String _phoneForSms = (e.mobilePhone != null && !e.mobilePhone.trim().isEmpty()) ? e.mobilePhone.trim()
+                : (e.phone != null && !e.phone.trim().isEmpty() ? e.phone.trim() : null);
+            String _invPdfUrl = r.get("invoicePdfUrl") != null ? String.valueOf(r.get("invoicePdfUrl")) : null;
+            final String _invNumDetail = (String) r.get("invoiceNumber");
+            final String _phoneFinal = _phoneForSms;
+            final String _pdfUrlFinal = _invPdfUrl;
+            final boolean _canResendSms = _isCompleted && _hasInvoice && _phoneFinal != null && _invNumDetail != null && _pdfUrlFinal != null && !_pdfUrlFinal.isEmpty();
+
+            if (_canResendSms) {
+                _b.setPositiveButton("📲 Rechnung-SMS neu senden", (d, w) -> resendInvoiceSms(_rideIdFinal, _invNumDetail, _phoneFinal, _pdfUrlFinal));
+                _b.setNeutralButton("📅 Erneut buchen", (d, w) -> openRideAsTemplate(e, _rideIdFinal, r));
+            } else if (_canCreateInvoice) {
                 _b.setPositiveButton("🧾 Rechnung erstellen", (d, w) -> triggerRetroInvoice(_rideIdFinal, r));
                 _b.setNeutralButton("📅 Erneut buchen", (d, w) -> openRideAsTemplate(e, _rideIdFinal, r));
             } else {
@@ -1907,6 +1938,37 @@ public class CrmSearchActivity extends AppCompatActivity {
                         runOnUiThread(() -> Toast.makeText(this, "❌ Stripe-Fehler: " + _err.getMessage(), Toast.LENGTH_LONG).show());
                     }
                 }).start();
+            })
+            .setNegativeButton("Abbrechen", null)
+            .show();
+    }
+
+    // 🆕 v6.63.358 (Patrick 16.06. 07:26 Bridge "Resend-Funktion brauche ich nochmal,
+    //   dass man das per SMS schicken kann"): Rechnung-SMS für eine schon
+    //   erzeugte Rechnung erneut in die pendingSMS-Queue legen. Cloud-Function
+    //   sendet via Provider an den Kunden mit invoicePdfUrl-Link.
+    private void resendInvoiceSms(String rideId, String invoiceNumber, String phone, String pdfUrl) {
+        if (rideId == null || invoiceNumber == null || phone == null || pdfUrl == null) {
+            Toast.makeText(this, "❌ Daten fehlen für SMS-Resend", Toast.LENGTH_LONG).show();
+            return;
+        }
+        new AlertDialog.Builder(this)
+            .setTitle("📲 Rechnung-SMS senden")
+            .setMessage("SMS mit Rechnung " + invoiceNumber + " an " + phone + " senden?")
+            .setPositiveButton("Senden", (d, w) -> {
+                FirebaseDatabase db = FirebaseDatabase.getInstance(DB_INSTANCE_URL);
+                java.util.Map<String, Object> sms = new java.util.HashMap<>();
+                sms.put("phone", phone);
+                sms.put("message", "Funktaxi Heringsdorf — Ihre Rechnung " + invoiceNumber + ": " + pdfUrl);
+                sms.put("reason", "invoice-resend-from-crm");
+                sms.put("rideId", rideId);
+                sms.put("invoiceNumber", invoiceNumber);
+                sms.put("status", "pending");
+                sms.put("ts", System.currentTimeMillis());
+                sms.put("createdAt", System.currentTimeMillis());
+                db.getReference("pendingSMS").push().setValue(sms)
+                    .addOnSuccessListener(_ok -> Toast.makeText(this, "✅ SMS in Queue", Toast.LENGTH_LONG).show())
+                    .addOnFailureListener(ex -> Toast.makeText(this, "❌ Fehler: " + ex.getMessage(), Toast.LENGTH_LONG).show());
             })
             .setNegativeButton("Abbrechen", null)
             .show();

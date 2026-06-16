@@ -24898,13 +24898,18 @@ exports.onRideCreated = onValueCreated(
             console.log(`⏭️ onRideCreated: Admin-Push SKIP für ${rideId} — source=${ride.source} (manuell erstellt, kein Push noetig)`);
         }
 
-        // 🆕 v6.38.96: WhatsApp-Bestätigung an Web-Kunden
-        if (ride.source === 'web-booking' && ride.customerPhone && !_isSeriesMember) {
+        // 🆕 v6.38.96 + v6.63.368 (Patrick 16.06. 17:03 Bridge: "Bestätigungen per
+        //   WhatsApp werden immer noch nicht versendet"): WhatsApp-Bestätigung an
+        //   ALLE neuen Buchungen — nicht nur web-booking, auch native_admin_manual,
+        //   native_vorbestellung_crmsearch, bridge-anfrage etc. Skip nur bei
+        //   Series-Members + Hotel-Auftraggeber (Hotel bekommt selbst die
+        //   Bestätigung, nicht der Gast).
+        if (ride.customerPhone && !_isSeriesMember && !ride._isAuftraggeberBooking) {
             try {
                 await sendCustomerWhatsAppNotification(ride, rideId, 'booking_new');
-                console.log(`📱 WhatsApp-Bestätigung an Web-Kunden gesendet: ${ride.customerPhone}`);
+                console.log(`📱 WhatsApp-Bestätigung an Kunde gesendet: ${ride.customerPhone} (source=${ride.source})`);
             } catch (_waErr) {
-                console.warn('⚠️ WhatsApp Web-Kunden-Bestätigung Fehler:', _waErr.message);
+                console.warn('⚠️ WhatsApp Kunden-Bestätigung Fehler:', _waErr.message);
             }
         }
 

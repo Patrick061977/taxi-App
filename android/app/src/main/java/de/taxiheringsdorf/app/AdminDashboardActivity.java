@@ -2120,9 +2120,20 @@ public class AdminDashboardActivity extends AppCompatActivity {
                                         _conflictTs = _oStart;
                                     }
                                 }
+                                // 🆕 v6.63.362 (Patrick 16.06. 13:17 Bridge: "Ich bin nicht
+                                //   7:40 frei. Ich bin nicht vor 8:30 zurück. 70 Min hin + 70
+                                //   Min zurück = 140 Min. Hast du nach OSRM berechnet?"):
+                                //   Bei Dauer >30 Min Fahrt verdopple ich (Rückfahrt zur Homebase)
+                                //   — sonst Fehler 70 statt 140 Min. Heuristik bis Google Distance
+                                //   Matrix integriert ist (Memory no-umwegfaktor).
+                                long _oRideEndPlusReturn = _oEnd;
+                                if (_oDur > 30) {
+                                    // Langstrecke → Rückfahrt schätzen = nochmal estimatedDuration
+                                    _oRideEndPlusReturn = _oEnd + (long) _oDur * 60_000L;
+                                }
                                 // Vor der Wartepool-Pickup? → Frei-Ab-Kandidat
-                                if (_oEnd <= r.pickupTimestamp && _oEnd > _busyUntil) {
-                                    _busyUntil = _oEnd;
+                                if (_oRideEndPlusReturn <= r.pickupTimestamp && _oRideEndPlusReturn > _busyUntil) {
+                                    _busyUntil = _oRideEndPlusReturn;
                                     _busyByName = _other.customerName != null ? _other.customerName : "?";
                                 }
                             }

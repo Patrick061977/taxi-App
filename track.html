@@ -777,6 +777,22 @@
                 badge.id = 'ride-status-badge';
                 badge.style.display = 'inline-block';
 
+                // 🆕 v6.63.353 (Patrick 16.06. 07:19 Bridge: 'Wenn Fahrer losgefahren ist,
+                //   soll bloß zu sehen sein wo der Fahrer ist, Informationstafel geschlossen').
+                //   Sobald status ∈ {on_way, arrived, picked_up}: Info-Card automatisch
+                //   zuklappen + Karte vollbild. Buchungsdetails kommen via 📋-Edge-Tab zurück.
+                //   Nur 1x pro Session — wenn Kunde restored, bleibt restored.
+                if (!window._autoHiddenForLive && ['on_way','arrived','picked_up'].includes(r.status)) {
+                    window._autoHiddenForLive = true;
+                    try {
+                        hideInfoCard();
+                        const _m = document.getElementById('map');
+                        if (_m) _m.classList.add('map-expanded');
+                        const _expBtn = document.getElementById('map-expand-btn');
+                        if (_expBtn) _expBtn.textContent = '⬆️ Karte verkleinern';
+                    } catch (_e) {}
+                }
+
                 // 🚑 v6.62.480: Patrick (08.05. 13:13): "termin bestätigung — da wissen
                 //   wir doch heute nicht welches Auto kommt". Bei Vorbestellungen ohne
                 //   zugewiesenes Fahrzeug stand fälschlich "Warte auf GPS-Position…".

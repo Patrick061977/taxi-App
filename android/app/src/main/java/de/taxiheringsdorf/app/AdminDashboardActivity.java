@@ -2058,7 +2058,7 @@ public class AdminDashboardActivity extends AppCompatActivity {
                         }
                         if (r.lockedAt != null) {
                             SimpleDateFormat _lf = new SimpleDateFormat("HH:mm", Locale.GERMANY);
-                            _lf.setTimeZone(TimeZone.getTimeZone("Europe/Berlin"));
+                            _lf.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
                             wpDiag.append(" um ").append(_lf.format(new java.util.Date(r.lockedAt)));
                         }
                     }

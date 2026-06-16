@@ -2010,7 +2010,7 @@ public class AdminDashboardActivity extends AppCompatActivity {
                     //   mit Schicht-Status, Wochenplan, Konflikt-Details). Fallback auf eigene
                     //   Konflikt-Berechnung wenn die Cloud noch nicht gescort hat.
                     final String[] _v355Ids   = {"pw-my-222-e", "pw-ik-222", "pw-sk-222", "pw-ki-222", "pw-ym-222-e", "vg-lk-111"};
-                    final String[] _v355Names = {"Tesla MY222", "Prius IK", "Vito SK", "Toyota KI", "Tesla YM222", "Mercedes LK"};
+                    final String[] _v355Names = {"Tesla MY222", "Prius IK", "Renault SK", "Toyota KI", "Tesla YM222", "Mercedes LK"};
                     if (r.vehicleScores != null && !r.vehicleScores.isEmpty()) {
                         StringBuilder wpSol = new StringBuilder("\n\n💡 CLOUD-DIAGNOSE PRO FAHRZEUG:");
                         for (int _vi = 0; _vi < _v355Ids.length; _vi++) {
@@ -2032,7 +2032,7 @@ public class AdminDashboardActivity extends AppCompatActivity {
                         long _rideStart354 = r.pickupTimestamp - 30L * 60_000L;
                         long _rideEnd354 = r.pickupTimestamp + (long) _dur354 * 60_000L + 30L * 60_000L;
                         final String[] _v354Ids   = {"pw-my-222-e", "pw-ik-222", "pw-sk-222", "pw-ki-222", "pw-ym-222-e", "vg-lk-111"};
-                        final String[] _v354Names = {"Tesla MY222", "Prius IK", "Vito SK", "Toyota KI", "Tesla YM222", "Mercedes LK"};
+                        final String[] _v354Names = {"Tesla MY222", "Prius IK", "Renault SK", "Toyota KI", "Tesla YM222", "Mercedes LK"};
                         java.text.SimpleDateFormat _wpHm = new java.text.SimpleDateFormat("HH:mm", Locale.GERMANY);
                         _wpHm.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
                         for (int _vi354 = 0; _vi354 < _v354Ids.length; _vi354++) {

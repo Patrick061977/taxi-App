@@ -344,6 +344,52 @@ function chainLeerfahrtMin(fromLat, fromLon, toLat, toLon) {
 // OSRM-Routing-Berechnung mit 24h-Cache. Bei OSRM-Fail Fallback auf chainLeerfahrtMin.
 const _osrmCache = new Map(); // key 'lat1,lon1>lat2,lon2' (gerundet 4 Dezimalstellen) → { min, t }
 const _OSRM_CACHE_TTL_MS = 24 * 3600 * 1000;
+
+// 🆕 v6.63.363 (Patrick 16.06. 13:19 Bridge: "Warum nimmst du nicht Google-Distance?
+//   Das steht schon wieder irgendwas von OSRM."): Google Routes API (TRAFFIC_AWARE)
+//   als primäre Quelle für Anfahrt-/Routing-Zeiten im Hot-Path (autoResolveConflicts,
+//   scheduledAutoAssign). OSRM bleibt als Fallback nur wenn Google streikt.
+//   API-Key gecached um db.once-Roundtrip pro Call zu vermeiden.
+let _googleApiKeyCache = null;
+let _googleApiKeyCachedAt = 0;
+async function getGoogleApiKey() {
+    const _ageMs = Date.now() - _googleApiKeyCachedAt;
+    if (_googleApiKeyCache !== null && _ageMs < 5 * 60 * 1000) return _googleApiKeyCache;
+    try {
+        const snap = await db.ref('settings/googleMapsApiKey').once('value');
+        _googleApiKeyCache = snap.val() || null;
+        _googleApiKeyCachedAt = Date.now();
+    } catch (_) { _googleApiKeyCache = null; }
+    return _googleApiKeyCache;
+}
+
+async function googleRoutesDrivingMin(fromLat, fromLon, toLat, toLon) {
+    try {
+        const apiKey = await getGoogleApiKey();
+        if (!apiKey) return null;
+        const resp = await fetch('https://routes.googleapis.com/directions/v2:computeRoutes', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Goog-Api-Key': apiKey,
+                'X-Goog-FieldMask': 'routes.duration'
+            },
+            body: JSON.stringify({
+                origin: { location: { latLng: { latitude: fromLat, longitude: fromLon } } },
+                destination: { location: { latLng: { latitude: toLat, longitude: toLon } } },
+                travelMode: 'DRIVE',
+                routingPreference: 'TRAFFIC_AWARE'
+            }),
+            signal: AbortSignal.timeout(6000)
+        });
+        if (!resp.ok) return null;
+        const data = await resp.json();
+        const sec = parseInt(String(data?.routes?.[0]?.duration || '0').replace('s', ''));
+        if (!sec) return null;
+        return Math.max(2, Math.round(sec / 60));
+    } catch (_) { return null; }
+}
+
 async function osrmDrivingMin(fromLat, fromLon, toLat, toLon) {
     const _f1 = parseFloat(fromLat), _f2 = parseFloat(fromLon);
     const _t1 = parseFloat(toLat),   _t2 = parseFloat(toLon);
@@ -352,6 +398,12 @@ async function osrmDrivingMin(fromLat, fromLon, toLat, toLon) {
     const key = `${_f1.toFixed(4)},${_f2.toFixed(4)}>${_t1.toFixed(4)},${_t2.toFixed(4)}`;
     const cached = _osrmCache.get(key);
     if (cached && (Date.now() - cached.t) < _OSRM_CACHE_TTL_MS) return cached.min;
+    // 🆕 v6.63.363: Google Routes zuerst (TRAFFIC_AWARE), dann OSRM-Fallback
+    const _googleMin = await googleRoutesDrivingMin(_f1, _f2, _t1, _t2);
+    if (_googleMin != null) {
+        _osrmCache.set(key, { min: _googleMin, t: Date.now(), src: 'google' });
+        return _googleMin;
+    }
     try {
         const url = `https://router.project-osrm.org/route/v1/driving/${_f2},${_f1};${_t2},${_t1}?overview=false`;
         const resp = await fetch(url, { signal: AbortSignal.timeout(6000) });
@@ -360,10 +412,10 @@ async function osrmDrivingMin(fromLat, fromLon, toLat, toLon) {
         const sec = data?.routes?.[0]?.duration;
         if (typeof sec !== 'number') throw new Error('OSRM kein Route-Ergebnis');
         const min = Math.max(2, Math.round(sec / 60));
-        _osrmCache.set(key, { min, t: Date.now() });
+        _osrmCache.set(key, { min, t: Date.now(), src: 'osrm' });
         return min;
     } catch (e) {
-        console.warn('⚠️ OSRM-Routing fehlgeschlagen, Fallback Luftlinie x 1.4:', e.message);
+        console.warn('⚠️ Google+OSRM-Routing fehlgeschlagen, Fallback Luftlinie x 1.4:', e.message);
         return chainLeerfahrtMin(_f1, _f2, _t1, _t2);
     }
 }

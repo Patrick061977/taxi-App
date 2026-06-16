@@ -3281,6 +3281,11 @@ public class DriverDashboardActivity extends AppCompatActivity {
             options.add("🏨 An " + (hotelName != null ? hotelName : "Auftraggeber") + " abrechnen");
             methods.add("invoice_auftraggeber");
         }
+        // 🆕 v6.63.352 (Patrick 16.06. 07:08 Bridge: "bei Herrn Meier Überweisung
+        //   eingetragen aber Rechnung als Barrechnung erstellt"): Eigener Button
+        //   für Überweisung. Cloud-Mapping in invoice-html.js Z62-64 setzt
+        //   automatisch Footer "Zahlbar innerhalb von 14 Tagen ohne Abzug."
+        options.add("🏦 Überweisung (" + amountStr + ")");                  methods.add("ueberweisung");
         options.add("✉ Email-Rechnung");                                  methods.add("invoice_email");
         // 🆕 v6.63.078 (Patrick 01.06. Bridge "Krankenschein-Fahrten brauchen eigene
         //   Zahlart"): Transportschein für Krankenkasse-Abrechnung. Beleg verbleibt
@@ -3321,6 +3326,19 @@ public class DriverDashboardActivity extends AppCompatActivity {
                         }
                         markCompleted(r.id, "invoice_auftraggeber", amount, hotelName);
                         break;
+                    case "ueberweisung":
+                        // 🆕 v6.63.352: Überweisung — Rechnung wird mit 14-Tage-Footer
+                        //   generiert (Cloud-Mapping invoice-html.js Z62-64).
+                        //   paymentStatus=offen damit Backlog die Rechnung als offen führt
+                        //   bis Geld auf Konto eingegangen ist.
+                        if (db != null && r.id != null) {
+                            db.getReference("rides/" + r.id).child("invoiceRequested").setValue(true);
+                            db.getReference("rides/" + r.id).child("needsInvoice").setValue(true);
+                            db.getReference("rides/" + r.id).child("paymentStatus").setValue("offen");
+                        }
+                        markCompleted(r.id, "ueberweisung", amount, null);
+                        showReceiptStage(r, amount, "ueberweisung");
+                        break;
                     case "invoice_email":
                         showMailInvoiceDialog(r, amount);
                         break;
@@ -3355,6 +3373,7 @@ public class DriverDashboardActivity extends AppCompatActivity {
             case "cash":    methodLabel = "💵 Bar bezahlt"; break;
             case "izettle": methodLabel = "💳 Karte bezahlt"; break;
             case "stripe":  methodLabel = "📱 Stripe bezahlt"; break;
+            case "ueberweisung": methodLabel = "🏦 Überweisung (14 Tage)"; break;
             case "transportschein": methodLabel = "🏥 Transportschein erhalten"; break;
             default:        methodLabel = paymentMethod;
         }

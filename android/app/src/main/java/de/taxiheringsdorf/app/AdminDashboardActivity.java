@@ -1639,6 +1639,14 @@ public class AdminDashboardActivity extends AppCompatActivity {
         String reassignReason;
         Integer autoAssignAttempts;
         Long wartepoolAt;
+        // 🆕 v6.63.355 (Patrick 16.06. 07:33 Bridge "Ich will die perfekte Übersicht"):
+        //   Cloud-Function schreibt bei jedem Auto-Assign-Lauf eine Klartext-Begründung
+        //   in autoAssignLastReason ("6 Fahrzeuge gepr.: 3× Di nicht aktiv | 2× außerhalb
+        //   Schicht | 1× Zeitkonflikt: Nayef 07:30") + detaillierte vehicleScores pro
+        //   Auto. Beide Felder sollen in der Wartepool-Karte sichtbar werden damit
+        //   Patrick die echte Cloud-Diagnose sieht statt nur "auto-assign-3x-failed".
+        String autoAssignLastReason;
+        java.util.Map<String, java.util.Map<String, Object>> vehicleScores;
         // v6.62.193: Patrick (01.05.): "Zwischenstops nicht angezeigt im kalender nativ app".
         // Waypoints fuer Sammeltransfers (Vetter Touristik) — addr + Pax-Name pro Stop.
         java.util.List<String> waypointDisplay; // formatierte Anzeige-Strings ("Adresse — Pax-Name")
@@ -1729,6 +1737,23 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 if (_aaa instanceof Number) r.autoAssignAttempts = ((Number)_aaa).intValue();
                 Object _wpA = s.child("wartepoolAt").getValue();
                 if (_wpA instanceof Number) r.wartepoolAt = ((Number)_wpA).longValue();
+                // 🆕 v6.63.355: Cloud-Auto-Assign-Diagnose-Felder
+                r.autoAssignLastReason = s.child("autoAssignLastReason").getValue(String.class);
+                DataSnapshot _vsSnap = s.child("vehicleScores");
+                if (_vsSnap.exists() && _vsSnap.hasChildren()) {
+                    r.vehicleScores = new java.util.HashMap<>();
+                    for (DataSnapshot _vSnap : _vsSnap.getChildren()) {
+                        java.util.Map<String, Object> _info = new java.util.HashMap<>();
+                        _info.put("reason", _vSnap.child("reason").getValue(String.class));
+                        _info.put("status", _vSnap.child("status").getValue(String.class));
+                        _info.put("check", _vSnap.child("check").getValue(String.class));
+                        String _shiftTimes355 = _vSnap.child("shiftDetails/shiftTimes").getValue(String.class);
+                        if (_shiftTimes355 != null) _info.put("shiftTimes", _shiftTimes355);
+                        String _blkTime355 = _vSnap.child("blockingRideTime").getValue(String.class);
+                        if (_blkTime355 != null) _info.put("blockingRideTime", _blkTime355);
+                        r.vehicleScores.put(_vSnap.getKey(), _info);
+                    }
+                }
                 // Waypoints: Liste von Objekten mit address+name — analog DriverDashboard
                 DataSnapshot wpSnap = s.child("waypoints");
                 if (wpSnap.exists() && wpSnap.hasChildren()) {
@@ -1976,14 +2001,32 @@ public class AdminDashboardActivity extends AppCompatActivity {
                     if (r.autoAssignAttempts != null && r.autoAssignAttempts > 0) {
                         wpDiag.append("\n🔁 Auto-Assign-Versuche: ").append(r.autoAssignAttempts).append("×");
                     }
+                    // 🆕 v6.63.355: Cloud-Auto-Assign-Klartext-Begründung
+                    if (r.autoAssignLastReason != null && !r.autoAssignLastReason.isEmpty()) {
+                        wpDiag.append("\n📊 ").append(r.autoAssignLastReason);
+                    }
                     route.append(wpDiag.toString());
-                    // 🆕 v6.63.354 (Patrick 16.06. 07:33 Bridge: "Ich will die perfekte Übersicht
-                    //   — warum, weshalb, wieso. Es sind 3 Fahrzeuge unterwegs und du hast
-                    //   trotzdem einen Wartepool"): pro Fahrzeug die Pickup-Fenster-Lage
-                    //   anzeigen — 🟢 frei oder 🟡 Konflikt-mit-Name+Zeit. Patrick sieht damit
-                    //   sofort welches Auto die Wartepool-Fahrt übernehmen kann ohne durch
-                    //   Time-Shift-Dialog navigieren zu müssen.
-                    if (r.pickupTimestamp != null) {
+                    // 🆕 v6.63.355: Bevorzugt Cloud-vehicleScores nutzen (echte Cloud-Diagnose
+                    //   mit Schicht-Status, Wochenplan, Konflikt-Details). Fallback auf eigene
+                    //   Konflikt-Berechnung wenn die Cloud noch nicht gescort hat.
+                    final String[] _v355Ids   = {"pw-my-222-e", "pw-ik-222", "pw-sk-222", "pw-ki-222", "pw-ym-222-e", "vg-lk-111"};
+                    final String[] _v355Names = {"Tesla MY222", "Prius IK", "Vito SK", "Toyota KI", "Tesla YM222", "Mercedes LK"};
+                    if (r.vehicleScores != null && !r.vehicleScores.isEmpty()) {
+                        StringBuilder wpSol = new StringBuilder("\n\n💡 CLOUD-DIAGNOSE PRO FAHRZEUG:");
+                        for (int _vi = 0; _vi < _v355Ids.length; _vi++) {
+                            java.util.Map<String, Object> _info = r.vehicleScores.get(_v355Ids[_vi]);
+                            if (_info == null) continue;
+                            String _st = String.valueOf(_info.get("status"));
+                            String _rs = String.valueOf(_info.get("reason"));
+                            String _icon = "available".equals(_st) ? "🟢" : "❌";
+                            wpSol.append("\n").append(_icon).append(" ").append(_v355Names[_vi]);
+                            if (_rs != null && !"null".equals(_rs) && !_rs.isEmpty()) {
+                                wpSol.append(" — ").append(_rs);
+                            }
+                        }
+                        wpSol.append("\n👉 Karte tippen → Fahrzeug wählen / Pickup verschieben");
+                        route.append(wpSol.toString());
+                    } else if (r.pickupTimestamp != null) {
                         StringBuilder wpSol = new StringBuilder("\n\n💡 FAHRZEUG-LAGE:");
                         int _dur354 = (r.estimatedDuration != null && r.estimatedDuration > 0) ? r.estimatedDuration : 15;
                         long _rideStart354 = r.pickupTimestamp - 30L * 60_000L;

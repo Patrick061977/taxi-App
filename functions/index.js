@@ -19880,7 +19880,14 @@ exports.autoResolveConflicts = onSchedule(
                 !r.assignmentLocked &&
                 !['accepted', 'picked_up', 'on_way', 'completed', 'deleted', 'cancelled', 'storniert'].includes(r.status) &&
                 r.pickupTimestamp > now + vorlaufMin * 60000 &&
-                r.assignedBy !== 'cloud-auto-replan' // Phase 1 Zuweisungen NIE anfassen
+                r.assignedBy !== 'cloud-auto-replan' && // Phase 1 Zuweisungen NIE anfassen
+                // 🆕 v6.63.369 (Patrick 16.06. 19:17 Bridge: "Wartepool wird nie aufgelöst,
+                //   weil ich Sandy auf YM lege und Cloud schiebt sie zurück auf MY"):
+                //   Manuell zugewiesene Rides (native_admin_*, claude-bridge-*) NIE vom
+                //   Optimizer anfassen — sonst überschreibt Cloud die bewusste Wahl und
+                //   abhängige Wartepool-Rides können nie aufgelöst werden.
+                !String(r.assignedBy || '').startsWith('native_admin_') &&
+                !String(r.assignedBy || '').startsWith('claude-bridge-')
             );
 
             // 🔧 v6.25.4: Geocoding-Fallback — Fahrten ohne Koordinaten nachgeocoden
@@ -21758,18 +21765,22 @@ async function getCustomerChatId(ride) {
 // ═══════════════════════════════════════════════════════════════
 exports.scheduledAutoAssign = onSchedule(
     {
-        schedule: 'every 10 minutes',
+        // 🆕 v6.63.370 (Patrick 16.06. 19:17 Bridge: "Wartepool wird nie aufgelöst,
+        //   der Cron löst den Wartepool nie auf"): Frequenz 10→5 Min damit
+        //   nach manueller Vehicle-Verschiebung der Wartepool-Re-Versuch
+        //   schneller passiert. Nicht "sofort" aber max 5 Min Wartezeit.
+        schedule: 'every 5 minutes',
         region: 'europe-west1',
         timeoutSeconds: 120,
         memory: '1GiB' // 🔧 v6.38.30: 256/512MB reichte nicht für 5000+ Fahrten
     },
     async (event) => {
-        console.log('🎯 v6.38.30: scheduledAutoAssign gestartet...');
+        console.log('🎯 v6.63.370: scheduledAutoAssign gestartet...');
         // 🆕 v6.62.538: lastRun für Browser-Countdown-Anzeige
         db.ref('settings/cloudJobs/scheduledAutoAssign').set({
             lastRun: Date.now(),
-            schedule: 'every 10 minutes',
-            intervalMs: 10 * 60 * 1000
+            schedule: 'every 5 minutes',
+            intervalMs: 5 * 60 * 1000
         }).catch(() => {});
 
         // 🔧 v6.38.36: Einmalige Migration — Kalender-Export-Settings reparieren

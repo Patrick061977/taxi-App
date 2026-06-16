@@ -1928,7 +1928,25 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 t2.setTextColor(Color.parseColor("#94A3B8"));
             }
             void bind(Ride r) {
-                String when = r.pickupTime != null ? r.pickupTime : "—";
+                // 🆕 v6.63.360 (Patrick 16.06. 11:24 Bridge: "Ich sehe in der Disposition
+                //   nicht wann ein Fahrzeug eine Fahrt hat und wann die beendet ist —
+                //   wie oft soll ich dir das noch sagen"):
+                //   Pickup-Zeit + ENDE-Zeit + Dauer in der ersten Zeile sichtbar machen.
+                //   "10:45-10:55 (10min) Kramer" statt nur "10:45 Kramer"
+                String when;
+                {
+                    String _start = r.pickupTime != null ? r.pickupTime : "—";
+                    int _durMin = (r.estimatedDuration != null && r.estimatedDuration > 0) ? r.estimatedDuration : 15;
+                    if (r.pickupTimestamp != null && r.pickupTimestamp > 0) {
+                        long _endTs = r.pickupTimestamp + _durMin * 60_000L;
+                        java.text.SimpleDateFormat _hm = new java.text.SimpleDateFormat("HH:mm", Locale.GERMANY);
+                        _hm.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
+                        String _endStr = _hm.format(new java.util.Date(_endTs));
+                        when = _start + "-" + _endStr + " (" + _durMin + "min)";
+                    } else {
+                        when = _start;
+                    }
+                }
                 String statusBadge = r.status != null ? "  [" + statusEmoji(r.status) + " " + r.status + "]" : "";
                 // 🆕 v6.62.636: Fahrzeug-Badge — Patrick (12.05. 09:05): "in der
                 // Dispositionsübersicht sehe ich aber auch nicht, welches Fahrzeug jetzt

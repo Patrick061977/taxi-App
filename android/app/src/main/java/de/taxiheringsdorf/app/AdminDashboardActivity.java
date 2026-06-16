@@ -1639,6 +1639,12 @@ public class AdminDashboardActivity extends AppCompatActivity {
         String reassignReason;
         Integer autoAssignAttempts;
         Long wartepoolAt;
+        // 🆕 v6.63.359 (Patrick 16.06. 11:17 Bridge: 'Ich sehe nirgendwo ob ein
+        //   Fahrzeug gelockt ist oder nicht. In der Disposition sehe ich es nicht.'):
+        //   lockedBy + lockedAt sichtbar machen damit Patrick auf einen Blick
+        //   sieht WER eine Fahrt gelockt hat und WANN.
+        String lockedBy;
+        Long lockedAt;
         // 🆕 v6.63.355 (Patrick 16.06. 07:33 Bridge "Ich will die perfekte Übersicht"):
         //   Cloud-Function schreibt bei jedem Auto-Assign-Lauf eine Klartext-Begründung
         //   in autoAssignLastReason ("6 Fahrzeuge gepr.: 3× Di nicht aktiv | 2× außerhalb
@@ -1730,6 +1736,10 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 // v6.62.655: Lock-State lesen
                 Object _lock = s.child("assignmentLocked").getValue();
                 if (_lock instanceof Boolean) r.assignmentLocked = (Boolean) _lock;
+                // 🆕 v6.63.359: Lock-Diagnose-Felder
+                r.lockedBy = s.child("lockedBy").getValue(String.class);
+                Object _lockAt = s.child("lockedAt").getValue();
+                if (_lockAt instanceof Number) r.lockedAt = ((Number)_lockAt).longValue();
                 // v6.63.191: Wartepool-Diagnose-Felder
                 r.wartepoolReason = s.child("wartepoolReason").getValue(String.class);
                 r.reassignReason = s.child("reassignReason").getValue(String.class);
@@ -1932,6 +1942,22 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 } else {
                     vehicleBadge = "   ⚪ kein Fzg";
                 }
+                // 🆕 v6.63.359 (Patrick 16.06. 11:17 Bridge): Lock-Badge prominent in
+                //   der Dispo-Liste. assignmentLocked=true → 🔒 + lockedBy-Kurzform.
+                //   Patrick sah bisher nirgendwo wer eine Fahrt gelockt hat → Wartepool-
+                //   Ursache schwer zu finden.
+                String lockBadge = "";
+                if (Boolean.TRUE.equals(r.assignmentLocked)) {
+                    lockBadge = "  🔒";
+                    if (r.lockedBy != null && !r.lockedBy.isEmpty()) {
+                        String _short = r.lockedBy
+                            .replace("native_admin_", "")
+                            .replace("claude-bridge-", "C-")
+                            .replace("cloud-", "");
+                        lockBadge += "(" + _short + ")";
+                    }
+                }
+                vehicleBadge += lockBadge;
                 // 🆕 v6.62.199: Web-Anfrage visuell hervorheben
                 // 🆕 v6.62.668: Patrick (13.05. 10:55) "Web-Anfragen sehe ich noch nicht."
                 //   Sabine Reißer (source='web-anfrage', schon Tesla zugewiesen) war in der
@@ -2004,6 +2030,19 @@ public class AdminDashboardActivity extends AppCompatActivity {
                     // 🆕 v6.63.355: Cloud-Auto-Assign-Klartext-Begründung
                     if (r.autoAssignLastReason != null && !r.autoAssignLastReason.isEmpty()) {
                         wpDiag.append("\n📊 ").append(r.autoAssignLastReason);
+                    }
+                    // 🆕 v6.63.359: Lock-Detail wenn gelockt (sollte normalerweise nicht
+                    //   sein bei Wartepool — wenn doch: wichtige Diag-Info)
+                    if (Boolean.TRUE.equals(r.assignmentLocked)) {
+                        wpDiag.append("\n🔒 GELOCKT");
+                        if (r.lockedBy != null && !r.lockedBy.isEmpty()) {
+                            wpDiag.append(" durch ").append(r.lockedBy);
+                        }
+                        if (r.lockedAt != null) {
+                            SimpleDateFormat _lf = new SimpleDateFormat("HH:mm", Locale.GERMANY);
+                            _lf.setTimeZone(TimeZone.getTimeZone("Europe/Berlin"));
+                            wpDiag.append(" um ").append(_lf.format(new java.util.Date(r.lockedAt)));
+                        }
                     }
                     route.append(wpDiag.toString());
                     // 🆕 v6.63.355: Bevorzugt Cloud-vehicleScores nutzen (echte Cloud-Diagnose

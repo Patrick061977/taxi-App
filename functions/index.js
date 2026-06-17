@@ -18972,16 +18972,34 @@ function nextWhatsAppQuestion(fields) {
     if (!fields.datum) return `📅 An welchem Tag möchten Sie fahren?\n_Tipp: "heute", "morgen" oder "23.06."_`;
     if (!fields.uhrzeit) return `⏰ Um wieviel Uhr soll abgeholt werden?\n_Tipp: "8:30" oder "halb neun"_`;
     if (!fields.pickup) {
+        // 🆕 v6.63.394 (Patrick 17.06. 14:56 Bridge "Adresssuche bei WhatsApp wie
+        //   Stecknadel + Format Ort/PLZ/Straße/Hausnummer"): klare Format-Anleitung.
         if (fields.pickupOriginal) {
-            return `📍 Ich konnte "${fields.pickupOriginal}" nicht eindeutig finden. Bitte präzisieren:\n_Z.B. "Maxim-Gorki-Straße 37, 17424 Heringsdorf" oder "Hotel Asgard". Du kannst auch deinen Standort senden (📎 → Standort)._`;
+            return `📍 Ich konnte "${fields.pickupOriginal}" nicht eindeutig finden.\n\n` +
+                `*Bitte geben Sie die Adresse so an:*\n` +
+                `_Ort, PLZ, Straße Hausnummer_\n` +
+                `_Beispiel: "Heringsdorf, 17424, Maxim-Gorki-Straße 37"_\n\n` +
+                `📎 Oder noch einfacher: *Standort senden* (Büroklammer 📎 unten links → Standort → senden Sie Ihre Position oder eine Adresse auf der Karte)`;
         }
-        return `📍 Wo sollen wir Sie abholen?\n_Tipp: Adresse mit Straße + Hausnr + PLZ, oder Hotelname. Du kannst auch deinen Standort senden (📎 → Standort) oder ein Foto vom Hauseingang._`;
+        return `📍 *Wo sollen wir Sie abholen?*\n\n` +
+            `*3 Möglichkeiten:*\n` +
+            `1️⃣ Adresse tippen: _Ort, PLZ, Straße Hausnr_\n` +
+            `    _Beispiel: "Heringsdorf, 17424, Maxim-Gorki-Straße 37"_\n` +
+            `2️⃣ 📎 Büroklammer → *Standort* → Position auf Karte\n` +
+            `3️⃣ Hotel-/POI-Name reicht oft: "Hotel Asgard" / "Bahnhof Heringsdorf" / "Bierkutscher"`;
     }
     if (!fields.ziel) {
         if (fields.zielOriginal) {
-            return `🎯 Ich konnte "${fields.zielOriginal}" nicht eindeutig finden. Bitte präzisieren:\n_Z.B. "Bahnhof Heringsdorf" oder "Seestraße 3, 17419 Ahlbeck"._`;
+            return `🎯 Ich konnte "${fields.zielOriginal}" nicht eindeutig finden.\n\n` +
+                `*Bitte präzisieren:*\n` +
+                `_Ort, PLZ, Straße Hausnr_  z.B. "Ahlbeck, 17419, Seestraße 3"\n` +
+                `Oder POI-Name: "Bahnhof Ahlbeck" / "Klinik Heringsdorf"`;
         }
-        return `🎯 Wohin soll die Fahrt gehen?\n_Tipp: Adresse oder Ortsname. "Bahnhof Heringsdorf" reicht._`;
+        return `🎯 *Wohin soll die Fahrt gehen?*\n\n` +
+            `Adresse oder POI-Name reicht:\n` +
+            `• "Bahnhof Heringsdorf"\n` +
+            `• "Ahlbeck, 17419, Seestraße 3"\n` +
+            `• Oder 📎 Standort senden`;
     }
     if (!fields.name) return `👤 Auf welchen Namen läuft die Buchung?\n_(Vor- und Nachname für den Fahrer)_`;
     if (!fields.personen) return `👥 Wie viele Personen reisen mit?\n_Tipp: "2" — oder "3 Erwachsene + 1 Kind"_`;
@@ -19134,6 +19152,34 @@ async function handleWhatsAppIncomingMessage(msg, contact, value) {
             await logWhatsAppEvent(from, 'crm', { found: false });
             pending.crmChecked = true;
         }
+    }
+
+    // 🆕 v6.63.394: FAQ/Hilfe-Command (vor KI-Analyse)
+    if (/^(\/?hilfe|\/?faq|\/?help|\/?info|\/?anleitung)\s*$/i.test(text.trim())) {
+        const helpMsg =
+            `📚 *FUNK TAXI HERINGSDORF — BOT-HILFE*\n\n` +
+            `*Buchung in 30 Sek:*\n` +
+            `Schicken Sie z.B.: _"Morgen 8 Uhr von Hotel Asgard zum Bahnhof Heringsdorf, 2 Personen"_\n\n` +
+            `*Felder die ich brauche:*\n` +
+            `📅 Datum (heute/morgen/23.06.)\n` +
+            `⏰ Uhrzeit (8:30 / halb neun)\n` +
+            `📍 Abholort (siehe unten)\n` +
+            `🎯 Zielort\n` +
+            `👤 Name\n` +
+            `👥 Personenzahl\n` +
+            `📞 Telefon (für Rückrufe)\n\n` +
+            `*Adresse eingeben — 3 Möglichkeiten:*\n` +
+            `1️⃣ Tippen: _"Ort, PLZ, Straße Hausnr"_\n` +
+            `2️⃣ 📎 Büroklammer → *Standort* → Karte → senden\n` +
+            `3️⃣ Hotel-/POI-Name: _"Steigenberger"_, _"Bahnhof Heringsdorf"_, _"Bierkutscher"_\n\n` +
+            `*Auch möglich:*\n` +
+            `🎙️ Sprachnachricht senden — ich verstehe Deutsch\n` +
+            `📷 Foto vom Hauseingang/Schild\n\n` +
+            `*Buchung abbrechen:* Schreiben Sie _"Storno"_\n\n` +
+            `*Bei Problemen ☎️* 038378 / 22022`;
+        await sendWhatsAppMessage(toPhone, helpMsg);
+        await logWhatsAppEvent(from, 'bot', { text: helpMsg.slice(0,800), stage: 'help-shown' });
+        return;
     }
 
     // Abbruch erkennen (vor KI)

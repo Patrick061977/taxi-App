@@ -18915,11 +18915,15 @@ async function handleWhatsAppIncomingMessage(msg, contact, value) {
         } else text = caption || '[Bild]';
     } else if (messageType === 'location') {
         const loc = msg.location || {};
-        // Reverse-Geocode zu Adresse
         if (loc.latitude && loc.longitude && typeof reverseGeocode === 'function') {
             try {
-                const addr = await reverseGeocode(loc.latitude, loc.longitude);
-                text = (loc.name ? loc.name + ', ' : '') + (addr || `${loc.latitude},${loc.longitude}`);
+                const addrObj = await reverseGeocode(loc.latitude, loc.longitude);
+                // 🐛 v6.63.385 fix: reverseGeocode return ein Objekt {name,lat,lon,address}.
+                //   Vorher direkt als String concated → '[object Object]' im Text. Jetzt .name nutzen.
+                const addrStr = addrObj?.name || `${loc.latitude},${loc.longitude}`;
+                text = loc.name && !addrStr.toLowerCase().includes(loc.name.toLowerCase())
+                    ? `${loc.name}, ${addrStr}`
+                    : addrStr;
                 console.log(`📍 WA GPS-Adresse: ${text.slice(0,80)}`);
             } catch (_) { text = `[GPS ${loc.latitude},${loc.longitude}]`; }
         } else text = `[GPS ${loc.latitude},${loc.longitude}]`;

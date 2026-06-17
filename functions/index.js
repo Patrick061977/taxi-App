@@ -1003,6 +1003,26 @@ async function buildWartepoolOptions(wpRide, allRides, vehicles, shiftsData) {
 
 async function autoAssignRide(rideId, rideData) {
     console.log('🎯 v6.25.4: Cloud-AutoAssign für Fahrt:', rideId);
+    // 🆕 v6.63.377 (Patrick 17.06. 09:10 Bridge "ja" zu Komplett-Diagnose):
+    //   Helper für return-null-Trace. Jede return-null-Stelle pusht ein
+    //   debugLogs/autoassign Event mit stage-Marker damit Patrick endlich
+    //   sieht WARUM eine Ride im Wartepool bleibt (Polina/Tegge undefined).
+    const _trace377 = (stage, details) => db.ref('debugLogs/autoassign').push({
+        ts: Date.now(),
+        rideId,
+        customer: rideData?.customerName || '?',
+        pickupTime: rideData?.pickupTime || '?',
+        pickup: (rideData?.pickup || '').slice(0,60),
+        stage,
+        ...(details || {})
+    }).catch(()=>{});
+    // Entry-Trace: was reinkommt
+    _trace377('entry-v6.63.377', {
+        status: rideData?.status,
+        hasCoords: !!(rideData?.pickupCoords?.lat && rideData?.destCoords?.lat),
+        estimatedDuration: rideData?.estimatedDuration,
+        source: rideData?.source
+    });
     try {
         // 🛡️ v6.62.663: Patrick (13.05. 10:04): Watchdog hat Tesla unterwegs (status=on_way)
         // gewaltsam an Toyota Prius IK umgeleitet, weil das Fahrzeug noch in rejectedVehicles
@@ -1022,6 +1042,7 @@ async function autoAssignRide(rideId, rideData) {
                         grund: `Aktive Fahrt darf nicht ueberschrieben werden`,
                         aktuelleFahrzeug: _cur.assignedVehicleName || _cur.assignedVehicle || '?'
                     }); } catch (_) {}
+                    await _trace377('exit-protected-status', { status: _cur.status });
                     return null;
                 }
                 // 🆕 v6.63.159 (Patrick 04.06. 12:14 Tesla-Sperre): assignmentLocked
@@ -27876,6 +27897,13 @@ exports.onShiftChange = onValueUpdated(
             let removedCount = 0;
             let skippedLocked = 0;
             let skippedManual = 0;
+            // 🆕 v6.63.377 (Patrick 17.06. 10:20 Bridge "Wartepool muss immer versucht werden aufzulösen"):
+            //   Bisher nur Rides MIT assignedVehicle=vehicleId behandelt — Wartepool-Rides
+            //   ohne Fahrzeug wurden ignoriert. Janezka 14:15 blieb hängen weil pw-sk-222
+            //   Mi-Schicht morgens aktiviert wurde nach dem 1. Cron-Lauf, onShiftChange
+            //   sah sie nicht (kein assignedVehicle). Jetzt: zweite Schleife für
+            //   wartepool + unassigned-Rides am betroffenen Tag → reset und Cron nimmt neu.
+            let revivedCount = 0;
             for (const [rideId, ride] of Object.entries(rides)) {
                 if (ride.assignedVehicle !== vehicleId) continue;
                 if (['completed','cancelled','storniert','deleted','accepted','on_way','picked_up'].includes(ride.status)) continue;
@@ -27906,7 +27934,44 @@ exports.onShiftChange = onValueUpdated(
                 }
             }
 
-            console.log(`✅ onShiftChange v6.63.373: ${vehicleId} — entfernt=${removedCount}, gelockt-skip=${skippedLocked}, manuell-skip=${skippedManual}`);
+            // 🆕 v6.63.377: Zweite Schleife — Wartepool + unassigned Rides am betroffenen Tag re-evaluieren.
+            //   Logik: wenn das Fahrzeug jetzt am Pickup-Tag aktiv ist (defaultsChanged → vermutlich
+            //   neu hinzugefügt), könnten Wartepool-Rides plötzlich zuweisbar sein. Reset attempts
+            //   + status auf vorbestellt → scheduledAutoAssign nimmt sie beim nächsten 5-Min-Cron neu.
+            //   Filter: kein assignedVehicle ODER status=wartepool, pickupTs liegt in Zukunft.
+            for (const [rideId, ride] of Object.entries(rides)) {
+                if (ride.assignedVehicle && ride.status !== 'wartepool') continue;
+                if (['completed','cancelled','storniert','deleted'].includes(ride.status)) continue;
+                if (ride.assignmentLocked === true) continue;
+                const _pickupTs = ride.pickupTimestamp;
+                if (!_pickupTs || _pickupTs < _now) continue;
+                // Nur Tage prüfen wo das geänderte Fahrzeug AKTIV ist (defaults aktiv für diesen Wochentag)
+                const _pickupDateStr = new Date(_pickupTs).toLocaleDateString('sv-SE', { timeZone: 'Europe/Berlin' });
+                const _pickupTimeStr = new Date(_pickupTs).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' });
+                const _check = verifyVehicleShiftIndependent(vehicleId, shiftsData, _pickupDateStr, _pickupTimeStr);
+                if (!_check.ok) continue;
+                // Treffer: dieses Fahrzeug ist jetzt aktiv → Ride neu probieren
+                console.log(`🆕 onShiftChange v6.63.377: ${ride.customerName || '?'} ${_pickupDateStr} ${_pickupTimeStr} — ${vehicleId} jetzt verfügbar, Wartepool/unassigned reset`);
+                const _resetUpd = {
+                    autoAssignAttempts: 0,
+                    autoAssignLastFailAt: null,
+                    autoAssignLastReason: null,
+                    vehicleScores: null,
+                    vehicleScoresAt: null,
+                    wartepoolReason: null,
+                    wartepoolAt: null,
+                    wartepoolResolverPushed: null,
+                    wartepoolFreedAt: Date.now(),
+                    wartepoolFreedReason: `v6.63.377 onShiftChange: ${vehicleId} hat Schicht für ${_pickupDateStr} bekommen`,
+                    updatedAt: Date.now()
+                };
+                if (ride.status === 'wartepool') _resetUpd.status = 'vorbestellt';
+                await db.ref(`rides/${rideId}`).update(_resetUpd);
+                try { await addRideLog(rideId, '🆕', `Wartepool reset — ${vehicleId} jetzt aktiv für ${_pickupDateStr}, Cron probiert neu`, { quelle: 'v6.63.377 onShiftChange', shift: _check.reason || 'aktiv' }); } catch (_) {}
+                revivedCount++;
+            }
+
+            console.log(`✅ onShiftChange v6.63.377: ${vehicleId} — entfernt=${removedCount}, revived=${revivedCount}, gelockt-skip=${skippedLocked}, manuell-skip=${skippedManual}`);
         } catch (e) {
             console.error('onShiftChange v6.63.373 Fehler:', e.message);
         }

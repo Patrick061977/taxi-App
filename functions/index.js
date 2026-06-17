@@ -18961,12 +18961,35 @@ async function enrichAddressIfShort(addr) {
 //   Feldern bevor Confirmation. Optional — Kunde kann auch 'nein/skip/keine'
 //   antworten dann geht's direkt zur Bestätigung.
 function nextWhatsAppOptionalQuestion(fields) {
-    if (fields.bemerkungAsked) return null; // schon gefragt
-    // 🆕 v6.63.396 (Patrick 17.06. 15:08 Bridge "Hotel hupen ist aber Quatsch"):
-    //   Beispiele realistischer + klarer dass es optional ist.
-    return `💬 *Möchten Sie eine Bemerkung mitteilen?* (optional)\n` +
-        `_Z.B. "Kindersitz nötig", "Großer Koffer", "Treppe ist schwer", "Klingel funktioniert nicht"_\n\n` +
-        `Oder einfach *"nein"* antworten wenn nichts Besonderes.`;
+    if (!fields.bemerkungAsked) {
+        return `💬 *Möchten Sie eine Bemerkung mitteilen?* (optional)\n` +
+            `_Z.B. "Kindersitz nötig", "Großer Koffer", "Treppe ist schwer", "Klingel funktioniert nicht"_\n\n` +
+            `Oder einfach *"nein"* antworten wenn nichts Besonderes.`;
+    }
+    // 🆕 v6.63.400 (Patrick 17.06. 15:27-28 Bridge "Kann der Kunde das selber
+    //   wählen / Wie möchten Sie Ihre Informationen bekommen"):
+    //   Frage Benachrichtigungs-Präferenz wenn noch nicht gesetzt.
+    if (!fields.notifyAsked) {
+        return `📲 *Wie möchten Sie Bestätigungen + Status-Updates bekommen?*\n\n` +
+            `Antworten Sie eine Zahl oder die Buchstaben:\n` +
+            `*1* — Nur WhatsApp (hier)\n` +
+            `*2* — Nur SMS\n` +
+            `*3* — Nur Email\n` +
+            `*4* — WhatsApp + SMS (Standard)\n` +
+            `*5* — Alle Kanäle (WA + SMS + Email)\n\n` +
+            `_Tipp: Bei Mobilfunklöchern empfehle ich Option 4 oder 5._`;
+    }
+    return null;
+}
+
+function parseNotifyChannelChoice(text) {
+    const t = text.trim().toLowerCase();
+    if (/^1$|^nur whats|^whatsapp$|^wa$/i.test(t)) return ['whatsapp'];
+    if (/^2$|^nur sms$|^sms$/i.test(t)) return ['sms'];
+    if (/^3$|^nur email$|^email$|^mail$/i.test(t)) return ['email'];
+    if (/^4$|^whats.*sms|^wa.*sms|^standard$/i.test(t)) return ['whatsapp','sms'];
+    if (/^5$|^alle|^all|^beide.*alle$/i.test(t)) return ['whatsapp','sms','email'];
+    return null;
 }
 
 function nextWhatsAppQuestion(fields) {
@@ -19075,7 +19098,9 @@ async function saveWhatsAppAnfrage(from, fields, customerName, crmCustomerId = n
             price: fields.estimatedPrice,
             distance: fields.estimatedDistance,
             duration: fields.estimatedDuration
-        } : {})
+        } : {}),
+        // 🆕 v6.63.400: Notify-Channels-Preference mitspeichern
+        ...(fields.notifyChannels && Array.isArray(fields.notifyChannels) ? { notifyChannels: fields.notifyChannels } : {})
     };
     await anfRef.set(anfData);
     return anfId;
@@ -19157,12 +19182,20 @@ async function handleWhatsAppIncomingMessage(msg, contact, value) {
             if (crm.customer.phone) pending.fields.telefon = crm.customer.phone;
             if (crm.customer.email) pending.fields.email = crm.customer.email;
             if (crm.customer.address) pending.crmAddress = crm.customer.address;
+            // 🆕 v6.63.400 (Patrick 17.06. 15:29 Bridge "müsste separat im CRM noch
+            //   erstellt werden"): notifyChannels aus CRM laden wenn schon
+            //   gespeichert → keine Frage nötig.
+            if (crm.customer.notifyChannels && Array.isArray(crm.customer.notifyChannels)) {
+                pending.fields.notifyChannels = crm.customer.notifyChannels;
+                pending.fields.notifyAsked = true;
+            }
             pending.crmCustomerId = crm.customerId;
             pending.crmChecked = true;
             await logWhatsAppEvent(from, 'crm', {
                 found: true, customerId: crm.customerId,
                 customerName: crm.customer.name,
-                prefilled: ['name','telefon','email'].filter(f => crm.customer[f === 'telefon' ? 'phone' : f])
+                prefilled: ['name','telefon','email'].filter(f => crm.customer[f === 'telefon' ? 'phone' : f]),
+                notifyChannelsFromCrm: crm.customer.notifyChannels || null
             });
         } else {
             await logWhatsAppEvent(from, 'crm', { found: false });
@@ -19489,15 +19522,28 @@ async function handleWhatsAppIncomingMessage(msg, contact, value) {
                 console.log(`💬 v6.63.395 Bemerkung gesetzt + andere Felder geschützt: "${text.trim()}"`);
             }
             merged.bemerkungAsked = true;
-            // weiter zu Confirmation unten
+            // weiter zur nächsten Frage (notify) oder Confirmation
+        } else if (pending.stage === 'asking-notify') {
+            // 🆕 v6.63.400: Notify-Channel-Auswahl parsen
+            const choice = parseNotifyChannelChoice(text);
+            if (choice) {
+                Object.assign(merged, existingFields, { notifyChannels: choice });
+                console.log(`📲 v6.63.400 Notify-Channels: ${choice.join('+')}`);
+            } else {
+                // Unklare Antwort → Standard
+                Object.assign(merged, existingFields, { notifyChannels: ['whatsapp','sms'] });
+            }
+            merged.notifyAsked = true;
+            // weiter zu Confirmation
         } else {
-            // Erste Frage zu Bemerkung
+            // Erste/nächste Optional-Frage (Bemerkung oder Notify-Channel)
+            const nextStage = !merged.bemerkungAsked ? 'asking-bemerkung' : 'asking-notify';
             await db.ref('whatsappPending/' + from).update({
                 from, customerName, fields: merged, lastTs: ts, lastMessage: text,
-                stage: 'asking-bemerkung'
+                stage: nextStage
             });
             await sendWhatsAppMessage(toPhone, optQ);
-            await logWhatsAppEvent(from, 'bot', { text: optQ, stage: 'asking-bemerkung' });
+            await logWhatsAppEvent(from, 'bot', { text: optQ.slice(0,500), stage: nextStage });
             return;
         }
     }
@@ -19518,6 +19564,13 @@ async function handleWhatsAppIncomingMessage(msg, contact, value) {
     try {
         const anfId = await saveWhatsAppAnfrage(from, merged, customerName, pending.crmCustomerId);
         await db.ref('whatsappPending/' + from).remove();
+        // 🆕 v6.63.400: Notify-Channels in CRM speichern wenn Stammkunde + Channel gewählt
+        if (pending.crmCustomerId && merged.notifyChannels && Array.isArray(merged.notifyChannels)) {
+            try {
+                await db.ref(`customers/${pending.crmCustomerId}/notifyChannels`).set(merged.notifyChannels);
+                console.log(`📲 v6.63.400 CRM notifyChannels gespeichert für ${pending.crmCustomerId}: ${merged.notifyChannels.join('+')}`);
+            } catch (_) {}
+        }
         const confirmText =
             `✅ Vielen Dank! Ihre Anfrage:\n\n` +
             `📅 ${merged.datum || '?'} ${merged.uhrzeit || '?'}\n` +

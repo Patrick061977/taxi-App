@@ -18865,14 +18865,34 @@ function mergeBookingFields(existing, neu) {
 }
 
 function nextWhatsAppQuestion(fields) {
-    if (!fields.datum) return '📅 An welchem Tag möchten Sie fahren? (z.B. "morgen" oder "23.06.")';
-    if (!fields.uhrzeit) return '⏰ Um wieviel Uhr?';
-    if (!fields.pickup) return '📍 Wo sollen wir Sie abholen? (Adresse mit Straße + Hausnummer + Ort)';
-    if (!fields.ziel) return '🎯 Wohin soll die Fahrt gehen? (Adresse oder Ort)';
-    if (!fields.name) return '👤 Auf welchen Namen läuft die Buchung?';
-    if (!fields.personen) return '👥 Wie viele Personen reisen mit?';
-    if (!fields.telefon) return '📞 Für Rückfragen — Ihre Mobil- oder Festnetznummer?';
-    return null; // alle Pflichtfelder da
+    // 🆕 v6.63.388 (Patrick 17.06. 14:05 Bridge "wir brauchen eine strukturierte
+    //   Zusammenfassung dass die Leute alles nochmal sehen, korrigieren können,
+    //   Hilfestellung geben"): Help-Texte je Frage damit Kunde weiß was geht.
+    if (!fields.datum) return `📅 An welchem Tag möchten Sie fahren?\n_Tipp: "heute", "morgen" oder "23.06."_`;
+    if (!fields.uhrzeit) return `⏰ Um wieviel Uhr soll abgeholt werden?\n_Tipp: "8:30" oder "halb neun"_`;
+    if (!fields.pickup) return `📍 Wo sollen wir Sie abholen?\n_Tipp: Adresse mit Straße + Hausnr + PLZ, oder Hotelname. Du kannst auch deinen Standort senden (📎 → Standort) oder ein Foto vom Hauseingang._`;
+    if (!fields.ziel) return `🎯 Wohin soll die Fahrt gehen?\n_Tipp: Adresse oder Ortsname. "Bahnhof Heringsdorf" reicht._`;
+    if (!fields.name) return `👤 Auf welchen Namen läuft die Buchung?\n_(Vor- und Nachname für den Fahrer)_`;
+    if (!fields.personen) return `👥 Wie viele Personen reisen mit?\n_Tipp: "2" — oder "3 Erwachsene + 1 Kind"_`;
+    if (!fields.telefon) return `📞 Für Rückfragen — Ihre Mobil- oder Festnetznummer?\n_(Wir rufen nur an wenn nötig)_`;
+    return null; // alle Pflichtfelder da → Confirmation-Stage
+}
+
+function buildConfirmationSummary(fields, customerName) {
+    return `📋 *Bitte prüfen Sie Ihre Anfrage:*\n\n` +
+        `📅 *Datum:* ${fields.datum || '?'}\n` +
+        `⏰ *Uhrzeit:* ${fields.uhrzeit || '?'}\n` +
+        `📍 *Von:* ${fields.pickup || '?'}\n` +
+        `🎯 *Nach:* ${fields.ziel || '?'}\n` +
+        `👤 *Name:* ${fields.name || customerName || '?'}\n` +
+        `👥 *Personen:* ${fields.personen || 1}\n` +
+        `📞 *Telefon:* ${fields.telefon || '?'}\n` +
+        (fields.email ? `📧 *Email:* ${fields.email}\n` : '') +
+        (fields.rueckfahrt_uhrzeit ? `🔁 *Rückfahrt:* ${fields.rueckfahrt_uhrzeit} Uhr\n` : '') +
+        (fields.bemerkung ? `💬 *Bemerkung:* ${fields.bemerkung}\n` : '') +
+        `\n✅ Antworten Sie *'Ja'* zum Bestätigen\n` +
+        `✏️ Oder schreiben Sie *was geändert werden soll*\n` +
+        `   (z.B. 'Pickup ändern auf Bahnhof' oder '9 Uhr statt 8')`;
 }
 
 async function saveWhatsAppAnfrage(from, fields, customerName, crmCustomerId = null) {
@@ -19031,6 +19051,23 @@ async function handleWhatsAppIncomingMessage(msg, contact, value) {
         from, customerName, fields: merged, lastTs: ts, lastMessage: text
     });
 
+    // 🆕 v6.63.388: Wenn pending in 'awaiting-confirmation', verarbeite Confirm/Korrektur
+    if (pending.stage === 'awaiting-confirmation') {
+        // JA / Bestätigen
+        if (/^(ja|jaa+|jep|jepp|ok|okay|passt|stimmt|richtig|genau|bestätigt|bestaetigt|confirm)\b/i.test(text.trim())) {
+            // → Fall-through zum Save-Block (alle Felder da)
+        } else {
+            // Korrektur: KI hat schon merged. Wenn merged sich verändert hat → erneut Confirmation
+            // (analyzeWhatsAppBooking mit existingFields hat bereits Felder überschrieben)
+            await db.ref('whatsappPending/' + from).update({ stage: 'awaiting-confirmation', fields: merged, lastTs: ts, lastMessage: text });
+            const summary = buildConfirmationSummary(merged, customerName);
+            const followUp = `Ich habe Ihre Änderung übernommen.\n\n${summary}`;
+            await sendWhatsAppMessage(toPhone, followUp);
+            await logWhatsAppEvent(from, 'bot', { text: followUp.slice(0,800), stage: 'awaiting-confirmation-updated' });
+            return;
+        }
+    }
+
     // Nächste Frage oder fertig?
     const nextQ = nextWhatsAppQuestion(merged);
     if (nextQ) {
@@ -19054,9 +19091,21 @@ async function handleWhatsAppIncomingMessage(msg, contact, value) {
         await logWhatsAppEvent(from, 'bot', {
             text: fullReply,
             stage: 'asking-field',
-            missingFields: ['datum','uhrzeit','pickup','ziel','name','personen','telefon'].filter(f => !merged[f] && !merged[f === 'datum' ? 'datum' : f] && !merged[f === 'personen' ? 'personen' : f] && !merged[f === 'telefon' ? 'telefon' : f] && !(f === 'uhrzeit' && merged.uhrzeit)),
+            missingFields: ['datum','uhrzeit','pickup','ziel','name','personen','telefon'].filter(f => !merged[f]),
             currentFields: Object.keys(merged).filter(k => merged[k])
         });
+        return;
+    }
+
+    // 🆕 v6.63.388: Alle Pflichtfelder da → Confirmation-Stage (NICHT direkt speichern)
+    if (pending.stage !== 'awaiting-confirmation') {
+        await db.ref('whatsappPending/' + from).update({
+            from, customerName, fields: merged, lastTs: ts, lastMessage: text,
+            stage: 'awaiting-confirmation'
+        });
+        const summary = buildConfirmationSummary(merged, customerName);
+        await sendWhatsAppMessage(toPhone, summary);
+        await logWhatsAppEvent(from, 'bot', { text: summary.slice(0,800), stage: 'awaiting-confirmation', allFields: merged });
         return;
     }
 

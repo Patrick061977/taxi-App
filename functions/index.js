@@ -19266,8 +19266,48 @@ async function handleWhatsAppIncomingMessage(msg, contact, value) {
         if (/^(ja|jaa+|jep|jepp|ok|okay|passt|stimmt|richtig|genau|bestätigt|bestaetigt|confirm)\b/i.test(text.trim())) {
             // → Fall-through zum Save-Block (alle Felder da)
         } else {
-            // Korrektur: KI hat schon merged. Wenn merged sich verändert hat → erneut Confirmation
-            // (analyzeWhatsAppBooking mit existingFields hat bereits Felder überschrieben)
+            // 🐛 v6.63.395 BUG-FIX (Patrick 17.06. 15:04 'Ziel ändern' hatte nichts geleert):
+            //   Erkenne explizite Lösch-Wünsche ("ziel ändern", "pickup neu", "name korrigieren")
+            //   → Feld explizit löschen + Bot fragt nochmal nach.
+            const lowerText = text.toLowerCase();
+            const fieldsToReset = [];
+            const fieldMap = {
+                datum: ['datum','tag'],
+                uhrzeit: ['uhrzeit','zeit'],
+                pickup: ['pickup','abholort','abholung','start','von'],
+                ziel: ['ziel','zielort','nach','destination'],
+                name: ['name'],
+                personen: ['personen','personenzahl'],
+                telefon: ['telefon','nummer'],
+                email: ['email','e-mail'],
+                bemerkung: ['bemerkung','notiz']
+            };
+            const isChangeIntent = /(ändern|neu|korrig|falsch|nochmal|wieder|anpassen|reset)/i.test(lowerText);
+            if (isChangeIntent) {
+                for (const [field, keywords] of Object.entries(fieldMap)) {
+                    if (keywords.some(kw => lowerText.includes(kw))) {
+                        fieldsToReset.push(field);
+                    }
+                }
+            }
+            if (fieldsToReset.length > 0) {
+                console.log(`✏️ v6.63.395 Reset-Felder: ${fieldsToReset.join(',')}`);
+                for (const f of fieldsToReset) {
+                    delete merged[f];
+                    if (f === 'pickup') { delete merged.pickupLat; delete merged.pickupLon; delete merged.pickupOriginal; delete merged.pickupResolvedSource; }
+                    if (f === 'ziel') { delete merged.zielLat; delete merged.zielLon; delete merged.zielOriginal; delete merged.zielResolvedSource; }
+                    if (f === 'bemerkung') delete merged.bemerkungAsked;
+                }
+                // Stage zurück auf 'asking-field' damit Bot wieder die fehlenden Felder durchgeht
+                await db.ref('whatsappPending/' + from).update({ stage: 'asking-field', fields: merged, lastTs: ts, lastMessage: text });
+                const nextQReset = nextWhatsAppQuestion(merged);
+                if (nextQReset) {
+                    await sendWhatsAppMessage(toPhone, `OK, ich frage nochmal nach:\n\n${nextQReset}`);
+                    await logWhatsAppEvent(from, 'bot', { text: nextQReset.slice(0,500), stage: 'asking-field-after-reset', resetFields: fieldsToReset });
+                    return;
+                }
+            }
+            // Sonst: KI hat ggf. Felder geändert → erneut Confirmation
             await db.ref('whatsappPending/' + from).update({ stage: 'awaiting-confirmation', fields: merged, lastTs: ts, lastMessage: text });
             const summary = buildConfirmationSummary(merged, customerName);
             const followUp = `Ich habe Ihre Änderung übernommen.\n\n${summary}`;
@@ -19314,7 +19354,12 @@ async function handleWhatsAppIncomingMessage(msg, contact, value) {
         if (pending.stage === 'asking-bemerkung') {
             const ans = text.trim().toLowerCase();
             if (!/^(nein|keine?|nichts|skip|nope|n)$/i.test(ans)) {
-                merged.bemerkung = text.trim();
+                // 🐛 v6.63.395 BUG-FIX (Patrick 17.06. 15:04 'Hotel hupen als Zielort'):
+                //   KI hatte 'Hotel hupen' (Bemerkung-Antwort) ALSO ins ziel-Feld übernommen.
+                //   Fix: Bei asking-bemerkung KI-Resultat IGNORIEREN für andere Felder, NUR
+                //   bemerkung übernehmen, alle anderen Felder von existingFields beibehalten.
+                Object.assign(merged, existingFields, { bemerkung: text.trim() });
+                console.log(`💬 v6.63.395 Bemerkung gesetzt + andere Felder geschützt: "${text.trim()}"`);
             }
             merged.bemerkungAsked = true;
             // weiter zu Confirmation unten

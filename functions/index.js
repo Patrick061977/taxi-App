@@ -25256,6 +25256,28 @@ exports.scheduledDispatcherTips = onSchedule(
                 const pickupTimeStr = String(_berlinHr).padStart(2, '0') + ':' + String(_bd.getUTCMinutes()).padStart(2, '0');
                 const dateStr = berlinDateGlobal(r.pickupTimestamp);
 
+                // 🐛 v6.63.404 BUG-FIX (Patrick 17.06. 16:12 Bridge "Wenn ein Fahrzeug
+                //   frei ist, dann können wir das doch nehmen. Da brauchen wir nicht
+                //   fragen, ob irgendeiner noch länger machen muss"):
+                //   PRÜFE ZUERST ob ein Vehicle in Dienst zur Pickup-Zeit ist.
+                //   Wenn JA → System löst sich beim nächsten Cron automatisch → SKIP TIPP.
+                //   Nur wenn KEIN Vehicle in Dienst → Schicht-Lücke-Tipp pushen.
+                let _hasInShiftVehicle = false;
+                for (const vid of Object.keys(OFFICIAL_VEHICLES)) {
+                    const info = OFFICIAL_VEHICLES[vid];
+                    if (!info) continue;
+                    if ((info.capacity || 4) < (r.passengers || 1)) continue;
+                    if ((vehiclesData[vid] || {}).shift && vehiclesData[vid].shift.forceEnded === true) continue;
+                    if (isVehicleInShift(vid, shiftsData, dateStr, pickupTimeStr)) {
+                        _hasInShiftVehicle = true;
+                        break;
+                    }
+                }
+                if (_hasInShiftVehicle) {
+                    console.log(`⏭️ v6.63.404 Schicht-Lücke-Tipp SKIP für ${r.customerName||'?'} ${pickupTimeStr}: mindestens 1 Vehicle in Dienst — System löst sich selber.`);
+                    continue;
+                }
+
                 const matches = [];
                 for (const vid of Object.keys(OFFICIAL_VEHICLES)) {
                     const info = OFFICIAL_VEHICLES[vid];

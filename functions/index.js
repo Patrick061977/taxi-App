@@ -12352,6 +12352,76 @@ async function quickConfirmAnfrageHandler(anfrageId, withStripe, adminChatId, wi
     };
 }
 
+// 🆕 v6.63.379 (Patrick 17.06. 11:30 Bridge: "wenn eine webanfrage kam und eine email
+//   dabei ist bitte auch die email bestätigung mit anbieten solange whats app nicht
+//   funktioniert"): Buchungsbestätigung per Email an Web-Anfrage-Kunden mit Email-Feld.
+//   Wird in onRideCreated parallel zur WhatsApp-Bestätigung aufgerufen.
+async function sendBookingConfirmationEmail(ride, rideId) {
+    const toEmail = ride.customerEmail;
+    if (!toEmail || !toEmail.includes('@')) {
+        console.log('   📧 sendBookingConfirmationEmail: keine valide customerEmail');
+        return;
+    }
+    const _confSnap = await db.ref('settings/email/smtp').once('value');
+    const conf = _confSnap.val();
+    if (!conf || !conf.user || !conf.pass) {
+        console.warn('   📧 sendBookingConfirmationEmail: SMTP-Config fehlt — skip');
+        return;
+    }
+    const nodemailer = require('nodemailer');
+    const transporter = nodemailer.createTransport({
+        host: conf.host || 'smtp.gmail.com',
+        port: conf.port || 587,
+        secure: conf.secure === true,
+        auth: { user: conf.user, pass: conf.pass },
+    });
+    const pickupTs = ride.pickupTimestamp || Date.now();
+    const weekday = new Date(pickupTs).toLocaleDateString('de-DE', { weekday: 'long', timeZone: 'Europe/Berlin' });
+    const dateStr = new Date(pickupTs).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Europe/Berlin' });
+    const timeStr = new Date(pickupTs).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' });
+    const trackLink = `https://umwelt-taxi-insel-usedom.de/Taxi-App/track.html?ride=${rideId}`;
+    const fullName = (ride.guestName || ride.customerName || '').trim();
+    const lastName = fullName ? fullName.split(/\s+/).pop() : '';
+    let anrede = 'Guten Tag';
+    try {
+        if (ride.customerId) {
+            const _custSnap = await db.ref(`customers/${ride.customerId}`).once('value');
+            const _cust = _custSnap.val();
+            if (_cust && _cust.anrede) {
+                const a = String(_cust.anrede).trim();
+                if (/^herr$/i.test(a) && lastName) anrede = `Sehr geehrter Herr ${lastName}`;
+                else if (/^frau$/i.test(a) && lastName) anrede = `Sehr geehrte Frau ${lastName}`;
+            }
+        }
+    } catch (_) {}
+    const priceLine = (ride.price && Number(ride.price) > 0) ? `Preis: ${Number(ride.price).toFixed(2)} EUR\n\n` : '';
+    const personenLine = (ride.passengers && Number(ride.passengers) > 1) ? `Personen: ${ride.passengers}\n` : '';
+    const subject = `Ihre Taxi-Buchung am ${dateStr} um ${timeStr} Uhr — Funk Taxi Heringsdorf`;
+    const text =
+        anrede + ',\n\n' +
+        'vielen Dank fuer Ihre Buchung bei Funk Taxi Heringsdorf.\n\n' +
+        'Ihre Fahrt ist bestaetigt:\n' +
+        `Datum: ${weekday}, ${dateStr}\n` +
+        `Abholzeit: ${timeStr} Uhr\n` +
+        `Von: ${ride.pickup || '-'}\n` +
+        `Nach: ${ride.destination || '-'}\n` +
+        personenLine +
+        priceLine +
+        `Live-Status Ihrer Fahrt: ${trackLink}\n\n` +
+        'Bei Fragen oder Aenderungen erreichen Sie uns unter:\n' +
+        'Telefon: 038378 / 22022\n\n' +
+        'Mit freundlichen Gruessen\n' +
+        'Funk Taxi Heringsdorf\n' +
+        'www.umwelt-taxi-insel-usedom.de';
+    await transporter.sendMail({
+        from: '"Funk Taxi Heringsdorf" <' + conf.user + '>',
+        to: toEmail,
+        subject,
+        text
+    });
+    console.log(`   📧 Buchungsbestätigung Email gesendet an ${toEmail}`);
+}
+
 async function sendStripeLinkEmail(toEmail, customerName, amount, stripeUrl, date, pickup, destination) {
     const _confSnap = await db.ref('settings/email/smtp').once('value');
     const conf = _confSnap.val();
@@ -25079,6 +25149,19 @@ exports.onRideCreated = onValueCreated(
                 console.log(`📱 WhatsApp-Bestätigung an Kunde gesendet: ${ride.customerPhone} (source=${ride.source})`);
             } catch (_waErr) {
                 console.warn('⚠️ WhatsApp Kunden-Bestätigung Fehler:', _waErr.message);
+            }
+        }
+
+        // 🆕 v6.63.379 (Patrick 17.06. 11:30 Bridge: "wenn eine webanfrage kam und eine
+        //   email dabei ist bitte auch die email bestätigung mit anbieten solange whats
+        //   app nicht funktioniert"): Email-Bestätigung an Web-Anfrage-Kunden mit Email.
+        //   Parallel zu WhatsApp/SMS — Patrick will redundante Kommunikation solange
+        //   WhatsApp-Token expired (Meta Permanent-Token-Workflow läuft separat).
+        if (ride.customerEmail && !_isSeriesMember && !ride._isAuftraggeberBooking) {
+            try {
+                await sendBookingConfirmationEmail(ride, rideId);
+            } catch (_emailErr) {
+                console.warn('⚠️ Email Kunden-Bestätigung Fehler:', _emailErr.message);
             }
         }
 

@@ -18899,6 +18899,27 @@ async function resolveAddressViaPOI(addr) {
     return { name: best.poi.name, lat: best.poi.lat, lon: best.poi.lon, match: 'partial', alternatives: candidates.slice(0, 3).map(c => c.poi.name) };
 }
 
+// 🆕 v6.63.391 (Patrick 17.06. 14:34 Bridge: "Adresse punktgenau + geocodiert,
+//   keine Komplikationen"): HARD-Validation. Nach POI/Google-Lookup MUSS
+//   pickup/ziel lat+lon haben. Sonst Bot fragt explizit nach mit Hinweis.
+async function validateAddressOrAskAgain(addr, field /* 'pickup' | 'ziel' */) {
+    if (!addr) return { valid: false, addr, needsAsk: true };
+    const enriched = await enrichAddressIfShort(addr);
+    if (enriched.enriched && enriched.poi && enriched.poi.lat && enriched.poi.lon) {
+        return { valid: true, addr: enriched.value, lat: enriched.poi.lat, lon: enriched.poi.lon, source: enriched.source };
+    }
+    // Versuche direkt geocode (auch wenn bereits 'lang genug' aussieht)
+    try {
+        if (typeof geocode === 'function') {
+            const g = await geocode(addr);
+            if (g && g.lat && g.lon) {
+                return { valid: true, addr: g.display_name || addr, lat: g.lat, lon: g.lon, source: 'geocode' };
+            }
+        }
+    } catch (_) {}
+    return { valid: false, addr, needsAsk: true };
+}
+
 async function enrichAddressIfShort(addr) {
     if (!addr) return { value: addr, enriched: false };
     // Wenn schon klar (>= 15 Zeichen mit Hausnummer ODER PLZ erkennbar) → ok
@@ -18941,8 +18962,18 @@ function nextWhatsAppQuestion(fields) {
     //   Hilfestellung geben"): Help-Texte je Frage damit Kunde weiß was geht.
     if (!fields.datum) return `📅 An welchem Tag möchten Sie fahren?\n_Tipp: "heute", "morgen" oder "23.06."_`;
     if (!fields.uhrzeit) return `⏰ Um wieviel Uhr soll abgeholt werden?\n_Tipp: "8:30" oder "halb neun"_`;
-    if (!fields.pickup) return `📍 Wo sollen wir Sie abholen?\n_Tipp: Adresse mit Straße + Hausnr + PLZ, oder Hotelname. Du kannst auch deinen Standort senden (📎 → Standort) oder ein Foto vom Hauseingang._`;
-    if (!fields.ziel) return `🎯 Wohin soll die Fahrt gehen?\n_Tipp: Adresse oder Ortsname. "Bahnhof Heringsdorf" reicht._`;
+    if (!fields.pickup) {
+        if (fields.pickupOriginal) {
+            return `📍 Ich konnte "${fields.pickupOriginal}" nicht eindeutig finden. Bitte präzisieren:\n_Z.B. "Maxim-Gorki-Straße 37, 17424 Heringsdorf" oder "Hotel Asgard". Du kannst auch deinen Standort senden (📎 → Standort)._`;
+        }
+        return `📍 Wo sollen wir Sie abholen?\n_Tipp: Adresse mit Straße + Hausnr + PLZ, oder Hotelname. Du kannst auch deinen Standort senden (📎 → Standort) oder ein Foto vom Hauseingang._`;
+    }
+    if (!fields.ziel) {
+        if (fields.zielOriginal) {
+            return `🎯 Ich konnte "${fields.zielOriginal}" nicht eindeutig finden. Bitte präzisieren:\n_Z.B. "Bahnhof Heringsdorf" oder "Seestraße 3, 17419 Ahlbeck"._`;
+        }
+        return `🎯 Wohin soll die Fahrt gehen?\n_Tipp: Adresse oder Ortsname. "Bahnhof Heringsdorf" reicht._`;
+    }
     if (!fields.name) return `👤 Auf welchen Namen läuft die Buchung?\n_(Vor- und Nachname für den Fahrer)_`;
     if (!fields.personen) return `👥 Wie viele Personen reisen mit?\n_Tipp: "2" — oder "3 Erwachsene + 1 Kind"_`;
     if (!fields.telefon) return `📞 Für Rückfragen — Ihre Mobil- oder Festnetznummer?\n_(Wir rufen nur an wenn nötig)_`;
@@ -18950,11 +18981,14 @@ function nextWhatsAppQuestion(fields) {
 }
 
 function buildConfirmationSummary(fields, customerName) {
+    // 🆕 v6.63.391: Geocode-Quellen-Hinweis für Adressen ("verified" Status)
+    const pickupCheck = fields.pickupLat ? ' ✓' : '';
+    const zielCheck = fields.zielLat ? ' ✓' : '';
     return `📋 *Bitte prüfen Sie Ihre Anfrage:*\n\n` +
         `📅 *Datum:* ${fields.datum || '?'}\n` +
         `⏰ *Uhrzeit:* ${fields.uhrzeit || '?'}\n` +
-        `📍 *Von:* ${fields.pickup || '?'}\n` +
-        `🎯 *Nach:* ${fields.ziel || '?'}\n` +
+        `📍 *Von:* ${fields.pickup || '?'}${pickupCheck}\n` +
+        `🎯 *Nach:* ${fields.ziel || '?'}${zielCheck}\n` +
         `👤 *Name:* ${fields.name || customerName || '?'}\n` +
         `👥 *Personen:* ${fields.personen || 1}\n` +
         `📞 *Telefon:* ${fields.telefon || '?'}\n` +
@@ -18988,7 +19022,13 @@ async function saveWhatsAppAnfrage(from, fields, customerName, crmCustomerId = n
         createdAt: Date.now(),
         status: 'open',
         // 🆕 v6.63.384: CRM-Link wenn Stammkunde erkannt
-        ...(crmCustomerId ? { customerId: crmCustomerId, isStammkunde: true } : {})
+        ...(crmCustomerId ? { customerId: crmCustomerId, isStammkunde: true } : {}),
+        // 🆕 v6.63.391: Geocode-Koordinaten mitspeichern (Patrick 14:34: "punktgenau geocodiert")
+        ...(fields.pickupLat ? { pickupLat: fields.pickupLat, pickupLon: fields.pickupLon, pickupCoords: { lat: fields.pickupLat, lon: fields.pickupLon } } : {}),
+        ...(fields.zielLat ? { destinationLat: fields.zielLat, destinationLon: fields.zielLon, destCoords: { lat: fields.zielLat, lon: fields.zielLon } } : {}),
+        ...(fields.pickupResolvedSource ? { pickupGeocodeSource: fields.pickupResolvedSource } : {}),
+        ...(fields.zielResolvedSource ? { destGeocodeSource: fields.zielResolvedSource } : {}),
+        ...(fields.isMobilePhone ? { mobilePhoneOnly: true } : {})
     };
     await anfRef.set(anfData);
     return anfId;
@@ -19117,40 +19157,43 @@ async function handleWhatsAppIncomingMessage(msg, contact, value) {
     // Telefon aus WA-Nummer ableiten wenn nicht angegeben
     if (!merged.telefon) merged.telefon = '+' + from;
 
-    // 🆕 v6.63.389: POI-Lookup für pickup/ziel — verhindert dass 'Bierkutscher'
-    //   als 'Bansin' interpretiert wird (KI-Halluzination → POI-Korrektur).
-    if (merged.pickup) {
-        const enrichPick = await enrichAddressIfShort(merged.pickup);
-        if (enrichPick.enriched) {
-            console.log(`📍 v6.63.389 Pickup POI-Match: "${enrichPick.original}" → "${enrichPick.value}"`);
-            merged.pickup = enrichPick.value;
-            merged.pickupResolvedFromPOI = enrichPick.original;
-            await logWhatsAppEvent(from, 'system', { stage: 'poi-match-pickup', original: enrichPick.original, resolved: enrichPick.value });
-        } else if (enrichPick.needsClarification) {
-            merged.pickupNeedsClarification = true;
+    // 🆕 v6.63.391 (Patrick 17.06. 14:34: 'Adresse punktgenau geocodiert'):
+    //   HARD-Validation für pickup + ziel — beide MÜSSEN Geocode-Koords haben.
+    //   Wenn nicht: Feld löschen + Bot fragt explizit nochmal nach.
+    if (merged.pickup && !merged.pickupLat) {
+        const v = await validateAddressOrAskAgain(merged.pickup, 'pickup');
+        if (v.valid) {
+            merged.pickup = v.addr;
+            merged.pickupLat = v.lat;
+            merged.pickupLon = v.lon;
+            merged.pickupResolvedSource = v.source;
+            await logWhatsAppEvent(from, 'system', { stage: 'pickup-resolved', value: v.addr, source: v.source });
+        } else {
+            await logWhatsAppEvent(from, 'system', { stage: 'pickup-not-geocodable', original: merged.pickup });
+            merged.pickupOriginal = merged.pickup;
+            delete merged.pickup;
         }
     }
-    if (merged.ziel) {
-        const enrichDest = await enrichAddressIfShort(merged.ziel);
-        if (enrichDest.enriched) {
-            console.log(`🎯 v6.63.389 Ziel POI-Match: "${enrichDest.original}" → "${enrichDest.value}"`);
-            merged.ziel = enrichDest.value;
-            merged.zielResolvedFromPOI = enrichDest.original;
-            await logWhatsAppEvent(from, 'system', { stage: 'poi-match-ziel', original: enrichDest.original, resolved: enrichDest.value });
-        } else if (enrichDest.needsClarification) {
-            merged.zielNeedsClarification = true;
+    if (merged.ziel && !merged.zielLat) {
+        const v = await validateAddressOrAskAgain(merged.ziel, 'ziel');
+        if (v.valid) {
+            merged.ziel = v.addr;
+            merged.zielLat = v.lat;
+            merged.zielLon = v.lon;
+            merged.zielResolvedSource = v.source;
+            await logWhatsAppEvent(from, 'system', { stage: 'ziel-resolved', value: v.addr, source: v.source });
+        } else {
+            await logWhatsAppEvent(from, 'system', { stage: 'ziel-not-geocodable', original: merged.ziel });
+            merged.zielOriginal = merged.ziel;
+            delete merged.ziel;
         }
     }
-    // Wenn nach POI-Lookup pickup/ziel unklar → setze auf null um Bot-Nachfrage zu triggern
-    if (merged.pickupNeedsClarification) {
-        await logWhatsAppEvent(from, 'system', { stage: 'pickup-unclear', original: merged.pickup });
-        delete merged.pickup;
-        delete merged.pickupNeedsClarification;
-    }
-    if (merged.zielNeedsClarification) {
-        await logWhatsAppEvent(from, 'system', { stage: 'ziel-unclear', original: merged.ziel });
-        delete merged.ziel;
-        delete merged.zielNeedsClarification;
+    // 🆕 v6.63.391: Telefon-Fix — WhatsApp-Nummer ist IMMER Mobil, nicht Festnetz.
+    //   Patrick "wenn einer über WhatsApp sich anmeldet, dann macht er das nicht
+    //   über das Festnetz". Wenn merged.telefon = WA-fallback ('+' + from), markiere als mobile.
+    if (merged.telefon === '+' + from) {
+        merged.telefonSource = 'whatsapp-id';
+        merged.isMobilePhone = true;
     }
 
     // Speichere aktuellen Stand

@@ -27769,6 +27769,86 @@ exports.onRideDeleted = onValueDeleted(
     }
 );
 
+// 🆕 v6.63.373 (Patrick 16.06.2026 22:13 Bridge: "Wenn die Fahrzeuge entfernt werden,
+//   dass für den Tag alle Fahrzeuge wo die Ride zugeteilt wird gleich weggenommen werden.
+//   Dann muss das System ja automatisch neu verteilen."):
+//   Trigger auf vehicleShifts-Änderung — wenn Patrick die Mi-Schicht für ein Fahrzeug
+//   entfernt, alle bereits zugewiesenen Rides am betroffenen Tag re-validieren.
+//   Wenn das Fahrzeug die Schicht nicht mehr hat → assignedVehicle entfernen →
+//   scheduledAutoAssign weist beim nächsten 5-Min-Cron neu zu.
+//   Respektiert: assignmentLocked + native_admin_* + claude-bridge_* (manuelle Wahl bleibt).
+exports.onShiftChange = onValueUpdated(
+    {
+        ref: '/vehicleShifts/{vehicleId}',
+        region: 'europe-west1',
+        instance: 'taxi-heringsdorf-default-rtdb',
+        memory: '512MiB',
+        timeoutSeconds: 60
+    },
+    async (event) => {
+        try {
+            const vehicleId = event.params.vehicleId;
+            const before = event.data.before.val() || {};
+            const after = event.data.after.val() || {};
+
+            const _defaultsChanged = JSON.stringify(before.defaults) !== JSON.stringify(after.defaults);
+            const _defaultTimesChanged = JSON.stringify(before.defaultTimes) !== JSON.stringify(after.defaultTimes);
+            const _exceptionsChanged = JSON.stringify(before.exceptions) !== JSON.stringify(after.exceptions);
+
+            if (!_defaultsChanged && !_defaultTimesChanged && !_exceptionsChanged) return;
+
+            console.log(`🔄 onShiftChange v6.63.373: vehicleShifts/${vehicleId} geändert — Rides re-validieren`);
+
+            const _now = Date.now();
+            const _future = _now + 14 * 24 * 60 * 60 * 1000;
+
+            const [ridesSnap, shiftsSnap] = await Promise.all([
+                db.ref('rides').orderByChild('pickupTimestamp').startAt(_now).endAt(_future).once('value'),
+                db.ref('vehicleShifts').once('value')
+            ]);
+            const rides = ridesSnap.val() || {};
+            const shiftsData = shiftsSnap.val() || {};
+
+            let removedCount = 0;
+            let skippedLocked = 0;
+            let skippedManual = 0;
+            for (const [rideId, ride] of Object.entries(rides)) {
+                if (ride.assignedVehicle !== vehicleId) continue;
+                if (['completed','cancelled','storniert','deleted','accepted','on_way','picked_up'].includes(ride.status)) continue;
+                if (ride.assignmentLocked === true) { skippedLocked++; continue; }
+                const _by = String(ride.assignedBy || '');
+                if (_by.startsWith('native_admin_') || _by.startsWith('claude-bridge-')) { skippedManual++; continue; }
+
+                const _pickupTs = ride.pickupTimestamp;
+                if (!_pickupTs) continue;
+                const _pickupDateStr = new Date(_pickupTs).toLocaleDateString('sv-SE', { timeZone: 'Europe/Berlin' });
+                const _pickupTimeStr = new Date(_pickupTs).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' });
+
+                const _check = verifyVehicleShiftIndependent(vehicleId, shiftsData, _pickupDateStr, _pickupTimeStr);
+                if (!_check.ok) {
+                    console.log(`🔄 onShiftChange: ${ride.customerName || '?'} ${_pickupDateStr} ${_pickupTimeStr} — ${vehicleId} kein Dienst (${_check.reason})`);
+                    await db.ref(`rides/${rideId}`).update({
+                        assignedVehicle: null, vehicleId: null, assignedTo: null,
+                        vehicle: null, vehicleLabel: null, vehiclePlate: null,
+                        assignedVehicleName: null, assignedVehiclePlate: null,
+                        assignedBy: null, assignedAt: null,
+                        status: 'vorbestellt',
+                        reassignReason: `${vehicleId} hat Schicht für ${_pickupDateStr} ${_pickupTimeStr} verloren (v6.63.373 onShiftChange)`,
+                        reassignedAt: Date.now(),
+                        updatedAt: Date.now()
+                    });
+                    try { await addRideLog(rideId, '🔄', `Schicht entfernt: ${vehicleId} hat keinen Dienst mehr → Cloud verteilt neu`, { quelle: 'v6.63.373 onShiftChange', reason: _check.reason }); } catch (_) {}
+                    removedCount++;
+                }
+            }
+
+            console.log(`✅ onShiftChange v6.63.373: ${vehicleId} — entfernt=${removedCount}, gelockt-skip=${skippedLocked}, manuell-skip=${skippedManual}`);
+        } catch (e) {
+            console.error('onShiftChange v6.63.373 Fehler:', e.message);
+        }
+    }
+);
+
 // 🆕 v6.62.703: Driver-Session-Audit-Trail.
 // Patrick (14.05.): "wer wann welche Schicht gemacht hat — fuer Replay verlaesslich speichern".
 // Jeder Wechsel von /vehicles/{vid}/shift/status (active/ended/auto-ended/paused/...)

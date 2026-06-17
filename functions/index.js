@@ -1001,8 +1001,13 @@ async function buildWartepoolOptions(wpRide, allRides, vehicles, shiftsData) {
     return _options;
 }
 
-async function autoAssignRide(rideId, rideData) {
-    console.log('🎯 v6.25.4: Cloud-AutoAssign für Fahrt:', rideId);
+async function autoAssignRide(rideId, rideData, _excludeVehicleIds = []) {
+    console.log(`🎯 v6.25.4: Cloud-AutoAssign für Fahrt: ${rideId}${_excludeVehicleIds.length ? ' (exclude: ' + _excludeVehicleIds.join(',') + ')' : ''}`);
+    // 🛡️ v6.63.378: Recursion-Guard — Patrick will dass System nicht endlos ausschließt
+    if (_excludeVehicleIds.length > 10) {
+        console.warn(`   ⚠️ v6.63.378: Recursion-Guard erreicht (10 Vehicles excluded) — gebe auf`);
+        return null;
+    }
     // 🆕 v6.63.377 (Patrick 17.06. 09:10 Bridge "ja" zu Komplett-Diagnose):
     //   Helper für return-null-Trace. Jede return-null-Stelle pusht ein
     //   debugLogs/autoassign Event mit stage-Marker damit Patrick endlich
@@ -1216,6 +1221,13 @@ async function autoAssignRide(rideId, rideData) {
 
         for (const [vehicleId, info] of Object.entries(OFFICIAL_VEHICLES)) {
             console.log(`\n   ═══ Prüfe ${info.name} (${vehicleId}) ═══`);
+
+            // 🆕 v6.63.378: Anschluss-Ziel/Delay-Fallback hat dieses Vehicle ausgeschlossen
+            if (_excludeVehicleIds.includes(vehicleId)) {
+                console.log(`   ⏭️ v6.63.378: ${info.name} excluded (Fallback aus voherigem Aufruf)`);
+                vehicleScores[vehicleId] = { status: 'rejected', reason: 'Vorheriger Versuch fehlgeschlagen (Konflikt/Anschluss)', check: 'fallback-excluded' };
+                continue;
+            }
 
             // 🆕 v6.38.45: Fahrzeug-Level Deaktivierung prüfen
             // Admin kann in Firebase /vehicles/{id}/active = false setzen → komplett von Auto-Zuweisung ausgeschlossen
@@ -1835,6 +1847,27 @@ async function autoAssignRide(rideId, rideData) {
                                 vehicleScoresSnapshot: vehicleScores
                             });
                         } catch (_e) { console.warn('v6.63.374 debug-log Fehler:', _e.message); }
+                        // 🆕 v6.63.378 (Patrick 17.06. 10:37 Bridge "Wenn ein Fahrzeug es nicht schafft,
+                        //   muss das andere Fahrzeug genommen werden — Malus egal"): statt return null
+                        //   rekursiv mit excludeVehicleIds aufrufen damit das nächst-beste Vehicle probiert
+                        //   wird. Erst wenn ALLE Vehicles in Konflikt sind → final return null.
+                        const _otherCandidates = candidates.filter(c => c.vehicleId !== best.vehicleId && !_excludeVehicleIds.includes(c.vehicleId));
+                        if (_otherCandidates.length > 0) {
+                            console.log(`   🔄 v6.63.378 delay-Fallback: ${best.name} fail (${_delayMin}min zu spät) → probiere ${_otherCandidates.length} weitere Vehicles`);
+                            try {
+                                await db.ref('debugLogs/autoassign').push({
+                                    ts: Date.now(),
+                                    rideId,
+                                    customer: rideData.customerName || '?',
+                                    stage: 'delay-fallback-recurse-v6.63.378',
+                                    excludedVehicle: best.name,
+                                    excludedId: best.vehicleId,
+                                    delayMin: _delayMin,
+                                    remainingCandidates: _otherCandidates.length
+                                });
+                            } catch (_) {}
+                            return await autoAssignRide(rideId, rideData, [..._excludeVehicleIds, best.vehicleId]);
+                        }
                         console.log(`⚠️ Kein Fahrzeug kann rechtzeitig ankommen für Vorbestellung ${rideId}`);
                         return null;
                     } else {
@@ -1850,24 +1883,64 @@ async function autoAssignRide(rideId, rideData) {
                         const _isAnschlussZiel = _anschlussRe.test(_destOnly);
                         if (_isAnschlussZiel) {
                             console.log(`   🚫 v6.62.841: Pickup-Shift blockiert — Anschluss-ZIEL: ${rideData.destination}`);
-                            await addRideLog(rideId, '🚫', `Auto-Verschiebung blockiert — Anschluss-Ziel '${rideData.destination}', manuell entscheiden`, {
-                                grund: 'Anschluss-POI im ZIEL (Bahnhof/Flughafen/Klinik) — Zeit-Shift verbietet, sonst verpasst Kunde Zug/Flug',
+                            // 🆕 v6.63.378: best als 'anschluss-blocked' markieren bevor Fallback
+                            if (vehicleScores[best.vehicleId]) {
+                                vehicleScores[best.vehicleId].status = 'anschluss-blocked';
+                                vehicleScores[best.vehicleId].reason = `Anschluss-Ziel '${rideData.destination}' — Pickup-Shift +${_delayMin}min nicht erlaubt (Kunde verpasst Zug/Flug/Termin)`;
+                            }
+                            try {
+                                await db.ref('rides/' + rideId).update({
+                                    vehicleScores,
+                                    vehicleScoresAt: Date.now()
+                                });
+                            } catch (_) {}
+                            // 🆕 v6.63.378 (Patrick 17.06. 10:40 Bridge "Lemmel-Wartepool Quatsch"):
+                            //   Lemmel zum Bahnhof blieb 5x im Wartepool weil best Vehicle Konflikt hatte
+                            //   und Anschluss-Block return null machte ohne 2.-bestes Vehicle zu probieren.
+                            //   Fix: rekursiv mit excludeVehicleIds aufrufen.
+                            const _otherCandidates = candidates.filter(c => c.vehicleId !== best.vehicleId && !_excludeVehicleIds.includes(c.vehicleId));
+                            if (_otherCandidates.length > 0) {
+                                console.log(`   🔄 v6.63.378 anschluss-Fallback: ${best.name} blockiert → probiere ${_otherCandidates.length} weitere Vehicles`);
+                                try {
+                                    await db.ref('debugLogs/autoassign').push({
+                                        ts: Date.now(),
+                                        rideId,
+                                        customer: rideData.customerName || '?',
+                                        stage: 'anschluss-fallback-recurse-v6.63.378',
+                                        excludedVehicle: best.name,
+                                        excludedId: best.vehicleId,
+                                        anschlussZiel: rideData.destination,
+                                        delayMin: _delayMin,
+                                        remainingCandidates: _otherCandidates.length
+                                    });
+                                } catch (_) {}
+                                return await autoAssignRide(rideId, rideData, [..._excludeVehicleIds, best.vehicleId]);
+                            }
+                            // Kein Alternativ → Admin warnen + return null wie bisher
+                            await addRideLog(rideId, '🚫', `Auto-Verschiebung blockiert — Anschluss-Ziel '${rideData.destination}', kein Alternativ-Fahrzeug, manuell entscheiden`, {
+                                grund: 'Anschluss-POI im ZIEL (Bahnhof/Flughafen/Klinik) — Zeit-Shift verbietet + alle anderen Fahrzeuge bereits ausgeschlossen',
                                 vorgeschlagen: `+${_delayMin} Min auf ${best.name}`,
-                                konflikt: rideData.pickupShiftReason || `${best.name} erst ab ${_prevEndFormatted} frei`
+                                konflikt: rideData.pickupShiftReason || `${best.name} erst ab ${_prevEndFormatted} frei`,
+                                excludedVehicles: _excludeVehicleIds
                             });
                             try {
                                 if (typeof sendToAllAdmins === 'function') {
                                     await sendToAllAdmins(
-                                        `🚫 <b>KONFLIKT — Anschluss-ZIEL</b>\n\n` +
+                                        `🚫 <b>ANSCHLUSS-KONFLIKT NICHT AUFLÖSBAR</b>\n\n` +
                                         `👤 ${rideData.customerName || '?'}\n` +
                                         `📍 ${rideData.pickup || '?'}\n` +
                                         `🎯 ${rideData.destination || '?'}\n\n` +
-                                        `Auto-Verschiebung blockiert (+${_delayMin} Min wegen ${best.name} Vorfahrt).\nKunde muss Anschluss erreichen — manuell entscheiden!\n\n` +
+                                        `Alle Fahrzeuge haben Konflikt oder müssten verschoben werden.\nKunde muss Anschluss erreichen — bitte manuell entscheiden!\n\n` +
                                         `🆔 <code>${rideId}</code>`,
                                         'anschluss_konflikt'
                                     );
                                 }
                             } catch (_e) { /* ignore */ }
+                            try {
+                                await db.ref('rides/' + rideId).update({
+                                    autoAssignLastReason: `Anschluss-Ziel '${rideData.destination}' — alle ${1+_excludeVehicleIds.length} Fahrzeuge im Konflikt`
+                                });
+                            } catch (_) {}
                             return null;
                         }
 

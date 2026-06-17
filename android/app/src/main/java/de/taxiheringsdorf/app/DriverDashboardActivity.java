@@ -3315,16 +3315,10 @@ public class DriverDashboardActivity extends AppCompatActivity {
                         // → Receipt-Screen kommt von dort (renderStripeQrDialog v6.62.316)
                         break;
                     case "invoice_auftraggeber":
-                        // Auftraggeber-Rechnung: das IST die Bezahlart, automatisch invoiceRequested
-                        if (db != null && r.id != null) {
-                            db.getReference("rides/" + r.id).child("invoiceRequested").setValue(true);
-                            db.getReference("rides/" + r.id).child("needsInvoice").setValue(true);
-                            // 🆕 v6.63.046 (Patrick 30.05. 17:34): Rechnung startet im Status "offen"
-                            //   — wird in der CRM-Rechnungs-Uebersicht als ⏳ offen angezeigt.
-                            //   Bei Mail-Versand → versendet, bei Eingang → bezahlt.
-                            db.getReference("rides/" + r.id).child("paymentStatus").setValue("offen");
-                        }
-                        markCompleted(r.id, "invoice_auftraggeber", amount, hotelName);
+                        // 🆕 v6.63.407 (Patrick 17.06. 18:48-18:55 Bridge "da passiert nichts,
+                        //   da kommt keine Vorschau, die kommt nachher erst wenn ich wieder
+                        //   ins CRM gehe"): Vorschau-Dialog mit Editier-Feldern VOR markComplete.
+                        showAuftraggeberInvoicePreview(r, amount, hotelName);
                         break;
                     case "ueberweisung":
                         // 🆕 v6.63.352: Überweisung — Rechnung wird mit 14-Tage-Footer
@@ -3626,6 +3620,119 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 } catch (Throwable _t) {}
             }
         }
+    }
+
+    // 🆕 v6.63.407 (Patrick 17.06. 18:48-18:55 Bridge "da passiert nichts, da kommt
+    //   keine Vorschau, die kommt nachher erst wenn ich wieder ins CRM gehe — ist
+    //   scheiße"): VORSCHAU-Dialog mit editierbaren Feldern fuer 'Rechnung an
+    //   Auftraggeber'. Vorher sprang das System direkt zu markCompleted ohne dass
+    //   Patrick was sah. Jetzt:
+    //   - Empfaenger-Email (aus auftraggeberCustomerId.email oder Ride)
+    //   - Preis (default amount = Patricks actualPrice z.B. 10€ statt 6.60€ Schaetzung)
+    //   - Mail-Text (Template editierbar)
+    //   - 'Jetzt senden' → ride update + markCompleted + Cloud macht Rechnung+PDF+Mail
+    //   - 'Abbrechen' → Dialog schliesst, nichts passiert (Fahrt bleibt picked_up)
+    private void showAuftraggeberInvoicePreview(Ride r, double amount, String hotelName) {
+        // 1. Email aus customerId nachladen wenn vorhanden, sonst Ride-Email
+        final String _rideEmail = firstNonEmpty(r.customerEmail, r.email);
+        final String _custId = r.customerId;
+        if (_custId != null && !_custId.isEmpty() && db != null) {
+            db.getReference("customers/" + _custId + "/email").get().addOnSuccessListener(snap -> {
+                String _email = snap != null && snap.getValue() != null ? String.valueOf(snap.getValue()) : _rideEmail;
+                _renderAuftraggeberInvoicePreview(r, amount, hotelName, _email != null ? _email : "");
+            }).addOnFailureListener(_x -> _renderAuftraggeberInvoicePreview(r, amount, hotelName, _rideEmail != null ? _rideEmail : ""));
+        } else {
+            _renderAuftraggeberInvoicePreview(r, amount, hotelName, _rideEmail != null ? _rideEmail : "");
+        }
+    }
+
+    private void _renderAuftraggeberInvoicePreview(Ride r, double amount, String hotelName, String prefilledEmail) {
+        int pad = (int) (12 * getResources().getDisplayMetrics().density);
+        LinearLayout layout = new LinearLayout(this);
+        layout.setOrientation(LinearLayout.VERTICAL);
+        layout.setPadding(pad, pad, pad, pad);
+
+        TextView header = new TextView(this);
+        header.setText("Empfaenger:");
+        header.setTextColor(0xFF334155);
+        header.setTextSize(13);
+        layout.addView(header);
+
+        EditText etEmail = new EditText(this);
+        etEmail.setHint("hotel@example.com");
+        etEmail.setText(prefilledEmail);
+        etEmail.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS);
+        layout.addView(etEmail);
+
+        TextView priceLabel = new TextView(this);
+        priceLabel.setText("Betrag (EUR):");
+        priceLabel.setTextColor(0xFF334155);
+        priceLabel.setTextSize(13);
+        priceLabel.setPadding(0, pad, 0, 0);
+        layout.addView(priceLabel);
+
+        EditText etAmount = new EditText(this);
+        etAmount.setHint("10.00");
+        etAmount.setText(String.format(java.util.Locale.GERMANY, "%.2f", amount));
+        etAmount.setInputType(android.text.InputType.TYPE_CLASS_NUMBER | android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL);
+        layout.addView(etAmount);
+
+        TextView msgLabel = new TextView(this);
+        msgLabel.setText("Nachricht an " + (hotelName != null ? hotelName : "Auftraggeber") + ":");
+        msgLabel.setTextColor(0xFF334155);
+        msgLabel.setTextSize(13);
+        msgLabel.setPadding(0, pad, 0, 0);
+        layout.addView(msgLabel);
+
+        EditText etMessage = new EditText(this);
+        String defaultMsg = "Sehr geehrte Damen und Herren,\n\nanbei die Rechnung fuer die Fahrt am " +
+            new java.text.SimpleDateFormat("dd.MM.yyyy", java.util.Locale.GERMANY).format(new java.util.Date()) +
+            " (Gast: " + (r.guestName != null && !r.guestName.isEmpty() ? r.guestName : r.customerName) + ").\n\n" +
+            "Strecke: " + (r.pickup != null ? r.pickup : "?") + " → " + (r.destination != null ? r.destination : "?") + "\n\n" +
+            "Mit freundlichen Gruessen\n" +
+            "Funk Taxi Heringsdorf";
+        etMessage.setText(defaultMsg);
+        etMessage.setMinLines(4);
+        etMessage.setMaxLines(8);
+        layout.addView(etMessage);
+
+        android.widget.ScrollView scroll = new android.widget.ScrollView(this);
+        scroll.addView(layout);
+
+        new AlertDialog.Builder(this)
+            .setTitle("📄 Rechnung an " + (hotelName != null ? hotelName : "Auftraggeber"))
+            .setView(scroll)
+            .setPositiveButton("Jetzt senden", (d, w) -> {
+                String email = etEmail.getText().toString().trim();
+                if (email.isEmpty() || !email.contains("@")) {
+                    Toast.makeText(this, "⚠️ Ungueltige Email", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                double finalAmount = amount;
+                try {
+                    String amountStr = etAmount.getText().toString().trim().replace(",", ".");
+                    if (!amountStr.isEmpty()) finalAmount = Double.parseDouble(amountStr);
+                } catch (NumberFormatException nfe) { /* keep default */ }
+                String customMsg = etMessage.getText().toString().trim();
+
+                Map<String, Object> u = new HashMap<>();
+                u.put("invoiceRequested", true);
+                u.put("needsInvoice", true);
+                u.put("paymentStatus", "offen");
+                u.put("invoiceEmail", email);
+                u.put("invoiceMessage", customMsg);
+                u.put("autoSendMail", true);
+                u.put("paymentAmount", finalAmount);
+                u.put("actualPrice", finalAmount);
+                u.put("updatedAt", System.currentTimeMillis());
+                if (db != null && r.id != null) {
+                    db.getReference("rides/" + r.id).updateChildren(u);
+                }
+                markCompleted(r.id, "invoice_auftraggeber", finalAmount, hotelName);
+                Toast.makeText(this, "✅ Rechnung " + String.format(java.util.Locale.GERMANY, "%.2f", finalAmount) + " EUR beauftragt → " + email, Toast.LENGTH_LONG).show();
+            })
+            .setNegativeButton("Abbrechen", (d, w) -> { /* nichts tun, Fahrt bleibt picked_up */ })
+            .show();
     }
 
     // 🆕 v6.63.312 (Patrick 12.06. 21:41 Bridge: 'wenn die Fahrt beendet wurde, Email an

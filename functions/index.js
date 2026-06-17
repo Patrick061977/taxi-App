@@ -1738,7 +1738,34 @@ async function autoAssignRide(rideId, rideData) {
                     const _prevEndTime = new Date(_prevEndMs).toLocaleString('en-US', { timeZone: 'Europe/Berlin' });
                     const _prevEndFormatted = new Date(_prevEndTime).toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'});
 
-                    if (_delayMin > _maxVerschiebungMin) {
+                    // 🆕 v6.63.376 (Patrick 17.06. 08:45 Bridge: "Wenn das Fahrzeug
+                    //   alleine gewesen wäre, hättest du die Fahrt auch nicht bekommen?"):
+                    //   Single-Candidate-Bypass — wenn das gewählte best das EINZIGE
+                    //   verfügbare Fahrzeug ist, IMMER zuweisen, auch wenn delay >
+                    //   maxVerschiebung. Sonst landet die Ride in Wartepool obwohl
+                    //   nur 1 Auto da ist — sinnlos, Kunde wird nicht bedient.
+                    const _isSingleCandidate = candidates.length === 1;
+                    if (_delayMin > _maxVerschiebungMin && _isSingleCandidate) {
+                        console.log(`   ⚠️ v6.63.376: ${best.name} ist EINZIGES Fahrzeug — delay ${_delayMin}min ignoriert, trotzdem zuweisen`);
+                        if (vehicleScores[best.vehicleId]) {
+                            vehicleScores[best.vehicleId].forcedSingleCandidate = true;
+                            vehicleScores[best.vehicleId].forcedDelayMin = _delayMin;
+                        }
+                        try {
+                            await db.ref('debugLogs/autoassign').push({
+                                ts: Date.now(),
+                                rideId,
+                                customer: rideData.customerName || '?',
+                                pickup: rideData.pickup,
+                                stage: 'single-candidate-bypass-v6.63.376',
+                                bestVehicle: best.name,
+                                delayMin: _delayMin,
+                                maxVerschiebungMin: _maxVerschiebungMin,
+                                action: 'force-assign-despite-delay'
+                            });
+                        } catch (_e) { /* */ }
+                        // Skip delay-fail block → unten geht weiter mit Zuweisung
+                    } else if (_delayMin > _maxVerschiebungMin) {
                         // Zu großer Konflikt → Fahrzeug NICHT zuweisen
                         console.log(`   ❌ v6.25.5: ${best.name} kann nicht rechtzeitig ankommen! Vorfahrt endet ${_prevEndFormatted} + ${Math.round(_leerfahrtToNewMs/60000)} Min Leerfahrt = ${_delayMin} Min zu spät (Max: ${_maxVerschiebungMin} Min)`);
                         if (vehicleScores[best.vehicleId]) {

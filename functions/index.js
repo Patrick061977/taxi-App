@@ -18995,9 +18995,21 @@ async function handleWhatsAppIncomingMessage(msg, contact, value) {
     // Nächste Frage oder fertig?
     const nextQ = nextWhatsAppQuestion(merged);
     if (nextQ) {
-        const intro = Object.keys(existingFields).length === 0
-            ? `👋 Hallo${merged.name ? ' '+merged.name : ''}! Gerne erstelle ich eine Anfrage. Bitte beantworten Sie noch:\n\n`
-            : '';
+        // 🆕 v6.63.386 (Patrick 17.06. Bridge "der bot begrüßt aber den kunden überhaupt
+        //   nicht"): Begrüßung bei JEDER Erst-Nachricht (kein lastMessage vorhanden)
+        //   oder wenn nur Stammkunden-Pre-Fill vorhanden aber Pflichtfelder noch leer.
+        //   Anrede: bei Stammkunde mit Namen, sonst neutral.
+        const isFirstContact = !pending.lastMessage || pending.lastMessage === text;
+        const noPflichtNochDa = !merged.datum && !merged.uhrzeit && !merged.pickup && !merged.ziel;
+        let intro = '';
+        if (isFirstContact || noPflichtNochDa) {
+            const namePart = merged.name
+                ? `Sehr geehrte/r ${merged.name.split(/\s+/).pop()}`
+                : 'Hallo';
+            intro = `👋 ${namePart}, willkommen bei Funk Taxi Heringsdorf!\n\n` +
+                `Gerne erstelle ich Ihre Buchungs-Anfrage. ` +
+                (pending.crmCustomerId ? 'Ihre Stammdaten habe ich.\n\n' : 'Ich brauche dazu ein paar Angaben.\n\n');
+        }
         await sendWhatsAppMessage(toPhone, intro + nextQ);
         return;
     }

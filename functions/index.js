@@ -19026,6 +19026,9 @@ function buildConfirmationSummary(fields, customerName) {
         (fields.email ? `📧 *Email:* ${fields.email}\n` : '') +
         (fields.rueckfahrt_uhrzeit ? `🔁 *Rückfahrt:* ${fields.rueckfahrt_uhrzeit} Uhr\n` : '') +
         (fields.bemerkung ? `💬 *Bemerkung:* ${fields.bemerkung}\n` : '') +
+        // 🆕 v6.63.398: Festpreis-Schätzung wenn berechnet
+        (fields.estimatedPrice ? `💰 *Geschätzte Kosten:* ca. ${Number(fields.estimatedPrice).toFixed(2)} € ` +
+            (fields.estimatedDistance ? `(${fields.estimatedDistance} km)` : '') + `\n` : '') +
         `\n✅ Antworten Sie *'Ja'* zum Bestätigen\n` +
         `✏️ Oder schreiben Sie *was geändert werden soll*\n` +
         `   (z.B. 'Pickup ändern auf Bahnhof' oder '9 Uhr statt 8')`;
@@ -19063,7 +19066,16 @@ async function saveWhatsAppAnfrage(from, fields, customerName, crmCustomerId = n
         ...(fields.zielLat ? { destinationLat: fields.zielLat, destinationLon: fields.zielLon, destCoords: { lat: fields.zielLat, lon: fields.zielLon } } : {}),
         ...(fields.pickupResolvedSource ? { pickupGeocodeSource: fields.pickupResolvedSource } : {}),
         ...(fields.zielResolvedSource ? { destGeocodeSource: fields.zielResolvedSource } : {}),
-        ...(fields.isMobilePhone ? { mobilePhoneOnly: true } : {})
+        ...(fields.isMobilePhone ? { mobilePhoneOnly: true } : {}),
+        // 🆕 v6.63.398: Festpreis-Schätzung speichern
+        ...(fields.estimatedPrice ? {
+            estimatedPrice: fields.estimatedPrice,
+            estimatedDistance: fields.estimatedDistance,
+            estimatedDuration: fields.estimatedDuration,
+            price: fields.estimatedPrice,
+            distance: fields.estimatedDistance,
+            duration: fields.estimatedDuration
+        } : {})
     };
     await anfRef.set(anfData);
     return anfId;
@@ -19239,12 +19251,44 @@ async function handleWhatsAppIncomingMessage(msg, contact, value) {
     }
 
     // Abbruch erkennen (vor KI)
-    if (/storno|abbrech|abbruch|doch nicht|vergessen|nicht mehr|stop/i.test(text)) {
+    if (/storno|abbrech|abbruch|doch nicht|vergessen|nicht mehr|^stop$/i.test(text)) {
+        // 🆕 v6.63.398 (Patrick 17.06. 15:13 Bridge "5" — Storno NACH Bestätigung):
+        //   Wenn pending.lastAnfrageId existiert → markiere /anfragen storniert.
+        //   Plus: Suche letzte /anfragen mit whatsappFrom=from in letzten 6h die noch
+        //   nicht zu Ride wurde — auch stornieren.
+        let stornoMsg = 'OK, Anfrage abgebrochen.';
+        try {
+            // Letzte Anfrage von dieser Nummer suchen
+            const anfSnap = await db.ref('anfragen').orderByChild('whatsappFrom').equalTo(from).once('value');
+            const anfData = anfSnap.val() || {};
+            const cutoff = Date.now() - 6 * 60 * 60 * 1000;
+            let canceledCount = 0;
+            for (const [anfId, a] of Object.entries(anfData)) {
+                if (!a || a.status === 'bestaetigt' || a.status === 'storniert') continue;
+                if ((a.createdAt || 0) < cutoff) continue;
+                await db.ref('anfragen/' + anfId).update({
+                    status: 'storniert',
+                    stornoAt: Date.now(),
+                    stornoBy: 'whatsapp-bot-user'
+                });
+                canceledCount++;
+            }
+            if (canceledCount > 0) {
+                stornoMsg = `OK, ${canceledCount} Anfrage(n) storniert. Bei Fragen ☎️ 038378/22022.`;
+                await sendToAllAdmins(
+                    `🚫 <b>WhatsApp-Storno</b>\n\n` +
+                    `👤 ${customerName} +${from}\n` +
+                    `❌ ${canceledCount} offene Anfrage(n) storniert`,
+                    'wa-storno-after-confirm'
+                );
+            }
+        } catch (e) { console.warn('storno-anfragen err:', e.message); }
         await db.ref('whatsappPending/' + from).remove();
-        const abortMsg = 'OK, Anfrage abgebrochen. Wenn Sie eine neue Buchung möchten, schreiben Sie einfach.';
-        await sendWhatsAppMessage(toPhone, abortMsg);
-        await logWhatsAppEvent(from, 'bot', { text: abortMsg, reason: 'user-abort' });
-        await sendToAllAdmins(`📱 WA-Abbruch von ${customerName} (+${from})`, 'wa-abort');
+        await sendWhatsAppMessage(toPhone, stornoMsg + '\n\nWenn Sie eine neue Buchung möchten, schreiben Sie einfach.');
+        await logWhatsAppEvent(from, 'bot', { text: stornoMsg, reason: 'user-abort' });
+        if (stornoMsg === 'OK, Anfrage abgebrochen.') {
+            await sendToAllAdmins(`📱 WA-Abbruch von ${customerName} (+${from})`, 'wa-abort');
+        }
         return;
     }
 
@@ -19309,6 +19353,27 @@ async function handleWhatsAppIncomingMessage(msg, contact, value) {
     if (merged.telefon === '+' + from) {
         merged.telefonSource = 'whatsapp-id';
         merged.isMobilePhone = true;
+    }
+
+    // 🆕 v6.63.398 (Patrick 17.06. 15:13 Bridge "1,3,5" — Festpreis-Schätzung):
+    //   Wenn pickup + ziel beide Lat/Lon haben → calculateTelegramRoutePrice
+    //   für Schätzpreis. Wird in Confirmation + /anfragen mitgegeben.
+    if (merged.pickupLat && merged.zielLat && !merged.estimatedPrice) {
+        try {
+            const route = await calculateTelegramRoutePrice({
+                pickupLat: merged.pickupLat,
+                pickupLon: merged.pickupLon,
+                destinationLat: merged.zielLat,
+                destinationLon: merged.zielLon,
+                datetime: merged.datum && merged.uhrzeit ? `${merged.datum} ${merged.uhrzeit}` : null
+            });
+            if (route && route.price) {
+                merged.estimatedPrice = route.price;
+                merged.estimatedDistance = route.distance;
+                merged.estimatedDuration = route.duration;
+                console.log(`💰 v6.63.398 Festpreis berechnet: ${route.price}€ (${route.distance}km, ${route.duration}min)`);
+            }
+        } catch (e) { console.warn('Festpreis-Berechnung err:', e.message); }
     }
 
     // Speichere aktuellen Stand
@@ -24668,6 +24733,32 @@ exports.scheduledOpenAnfrageWatchdog = onSchedule(
                 } catch (e) { console.error('Reminder-Push fail:', e.message); }
             }
         } catch (e) { console.error('scheduledOpenAnfrageWatchdog Fehler:', e.message); }
+    }
+);
+
+// 🆕 v6.63.398 (Patrick 17.06. 15:13 Bridge "3" — Pending-Auto-Cleanup):
+//   /whatsappPending mit lastTs > 4h alt → löschen. Verhindert dass
+//   Konversationen unendlich im Limbo bleiben + Kunde 6 Stunden später
+//   beim 'Hallo' wundert sich dass Bot ihn schon weiter weiterleitet.
+exports.scheduledWhatsAppPendingCleanup = onSchedule(
+    { schedule: 'every 1 hours', region: 'europe-west1', timeZone: 'Europe/Berlin' },
+    async () => {
+        try {
+            const snap = await db.ref('whatsappPending').once('value');
+            const data = snap.val() || {};
+            const now = Date.now();
+            const cutoff = 4 * 60 * 60 * 1000; // 4h
+            let removed = 0;
+            for (const [from, pending] of Object.entries(data)) {
+                if (!pending) continue;
+                const last = pending.lastTs || 0;
+                if (!last || (now - last) > cutoff) {
+                    await db.ref('whatsappPending/' + from).remove();
+                    removed++;
+                }
+            }
+            if (removed > 0) console.log(`🧹 v6.63.398 WhatsApp-Pending-Cleanup: ${removed} alte pending-States gelöscht`);
+        } catch (e) { console.error('scheduledWhatsAppPendingCleanup err:', e.message); }
     }
 );
 

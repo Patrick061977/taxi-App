@@ -909,6 +909,25 @@ async function estimateNextAvailableMinutes(allRides, vehiclesData, pricingSetti
 //     fuer jede assigned Ride R in 30-Min-Naehe (gleiche Vehicles)
 //       versuche R -5 / R -10 / W +5 Min
 //   Returns: Optionen-Array [{key, label, action, shiftMin, ...}]
+// 🆕 v6.63.380 (Patrick 17.06. 11:52-11:53 Bridge: "erstelle prüfung warum
+//   fahrten im wartepool landen und nicht aufgelöst werden / du ein auge drauf
+//   selber umweisen und beobachten und dem system das beibringen"):
+//   Audit-Log Helper — pro Wartepool-Lifecycle alle Events tracken in
+//   /wartepoolAudit/{rideId}/{push} mit ts + stage + reason + suggestion.
+//   Patrick + Claude sehen Verlauf jeder hängenden Ride.
+async function wartepoolAuditPush(rideId, stage, details) {
+    if (!rideId) return;
+    try {
+        await db.ref('wartepoolAudit/' + rideId).push({
+            ts: Date.now(),
+            stage,
+            ...(details || {})
+        });
+    } catch (e) {
+        console.warn('wartepoolAuditPush err:', e.message);
+    }
+}
+
 async function buildWartepoolOptions(wpRide, allRides, vehicles, shiftsData) {
     const _options = [];
     const _key = (n) => String.fromCharCode(64 + n); // 1->A, 2->B, ...
@@ -19219,6 +19238,13 @@ exports.autoResolveConflicts = onSchedule(
                                         quelle: 'scheduledAutoAssign v6.62.716',
                                         fahrzeug: vName
                                     });
+                                    // 🆕 v6.63.380: Audit-Log Erfolg
+                                    await wartepoolAuditPush(ride.firebaseId, 'resolved-auto-cron', {
+                                        customer: ride.customerName || '?',
+                                        vehicle: vName,
+                                        vehicleId: result.vehicleId,
+                                        resolvedBy: 'scheduledAutoAssign-retry-success'
+                                    });
                                 } catch (_freeErr) {
                                     console.error('Wartepool-Aufloesungs-Fehler:', _freeErr.message);
                                 }
@@ -19245,6 +19271,25 @@ exports.autoResolveConflicts = onSchedule(
                                     _upd.wartepoolReason = ride.autoAssignLastReason || 'auto-assign-3x-failed';
                                     _upd.wartepoolAt = Date.now();
                                     _wartepoolJustEntered = true;
+                                    // 🆕 v6.63.380: Audit-Log Eintritt
+                                    await wartepoolAuditPush(ride.firebaseId, 'entry', {
+                                        customer: ride.customerName || '?',
+                                        pickupTs: ride.pickupTimestamp,
+                                        pickupTime: berlinTimeGlobal(ride.pickupTimestamp),
+                                        pickup: (ride.pickup || '').slice(0,80),
+                                        destination: (ride.destination || '').slice(0,80),
+                                        attempts: _attemptsNow,
+                                        reason: ride.autoAssignLastReason || 'auto-assign-3x-failed',
+                                        vehicleScoresSummary: Object.entries(ride.vehicleScores || {}).map(([v,s]) => `${v}=${s?.status||'?'}`)
+                                    });
+                                }
+                                // 🆕 v6.63.380: jede Retry trackeen (auch wenn schon im Wartepool)
+                                else if (ride.status === 'wartepool') {
+                                    await wartepoolAuditPush(ride.firebaseId, 'retry-fail', {
+                                        customer: ride.customerName || '?',
+                                        attempts: _attemptsNow,
+                                        reason: ride.autoAssignLastReason || 'no-reason'
+                                    });
                                 }
                                 // 🆕 v6.63.297 (Patrick 11.06. 20:04 'warte pool Konflikt loesen'):
                                 //   Resolver-Push auch fuer Rides die SCHON in wartepool sind aber

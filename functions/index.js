@@ -18805,6 +18805,28 @@ async function analyzeWhatsAppImage(mediaId) {
     }
 }
 
+// 🆕 v6.63.403 (Patrick 17.06. 16:03 Bridge: "wenn du die Stammdaten hast von
+//   den Kunden, dann kannst du doch fragen, wo soll ich sie abholen, zu Hause
+//   und die bisherigen Fahrten kannst du dir nicht auch irgendwie zeigen
+//   bei den Stammkunden, dass die Leute gar nicht mehr so viel tippen müssen"):
+//   Top-Ziele eines Stammkunden aus der Ride-Historie ermitteln.
+async function getCustomerTopDestinations(customerId, limit = 3) {
+    if (!customerId) return [];
+    try {
+        const ridesSnap = await db.ref('rides').orderByChild('customerId').equalTo(customerId).once('value');
+        const rides = ridesSnap.val() || {};
+        const counts = {};
+        for (const [, r] of Object.entries(rides)) {
+            if (!r || !r.destination) continue;
+            if (!['completed','accepted','on_way','picked_up','vorbestellt'].includes(r.status)) continue;
+            const dest = r.destination.split(',')[0].trim();
+            if (!dest) continue;
+            counts[dest] = (counts[dest] || 0) + 1;
+        }
+        return Object.entries(counts).sort((a,b) => b[1] - a[1]).slice(0, limit).map(([dest]) => dest);
+    } catch (e) { console.warn('getCustomerTopDestinations err:', e.message); return []; }
+}
+
 async function findCustomerByWhatsAppPhone(waId) {
     try {
         const cleanFrom = waId.replace(/^\+?/, '');
@@ -19024,21 +19046,30 @@ function parseNotifyChannelChoice(text) {
     return null;
 }
 
-function nextWhatsAppQuestion(fields) {
+function nextWhatsAppQuestion(fields, extra = {}) {
+    const crmAddr = extra.crmAddress || '';
+    const topDest = extra.topDestinations || [];
     // 🆕 v6.63.388 (Patrick 17.06. 14:05 Bridge "wir brauchen eine strukturierte
     //   Zusammenfassung dass die Leute alles nochmal sehen, korrigieren können,
     //   Hilfestellung geben"): Help-Texte je Frage damit Kunde weiß was geht.
     if (!fields.datum) return `📅 An welchem Tag möchten Sie fahren?\n_Tipp: "heute", "morgen" oder "23.06."_`;
     if (!fields.uhrzeit) return `⏰ Um wieviel Uhr soll abgeholt werden?\n_Tipp: "8:30" oder "halb neun"_`;
     if (!fields.pickup) {
-        // 🆕 v6.63.394 (Patrick 17.06. 14:56 Bridge "Adresssuche bei WhatsApp wie
-        //   Stecknadel + Format Ort/PLZ/Straße/Hausnummer"): klare Format-Anleitung.
         if (fields.pickupOriginal) {
             return `📍 Ich konnte "${fields.pickupOriginal}" nicht eindeutig finden.\n\n` +
                 `*Bitte geben Sie die Adresse so an:*\n` +
                 `_Ort, PLZ, Straße Hausnummer_\n` +
                 `_Beispiel: "Heringsdorf, 17424, Maxim-Gorki-Straße 37"_\n\n` +
-                `📎 Oder noch einfacher: *Standort senden* (Büroklammer 📎 unten links → Standort → senden Sie Ihre Position oder eine Adresse auf der Karte)`;
+                `📎 Oder noch einfacher: *Standort senden* (Büroklammer 📎 unten links → Standort)`;
+        }
+        // 🆕 v6.63.403: Stammkunden-Adresse als Quick-Suggest
+        if (crmAddr) {
+            return `📍 *Wo sollen wir Sie abholen?*\n\n` +
+                `🏠 *Zu Hause:* _${crmAddr}_\n` +
+                `_Antworten Sie "ja" oder "zu Hause" — oder geben Sie andere Adresse an._\n\n` +
+                `Weitere Optionen:\n` +
+                `📎 Büroklammer → Standort senden\n` +
+                `Oder Adresse tippen: _Ort, PLZ, Straße Hausnr_`;
         }
         return `📍 *Wo sollen wir Sie abholen?*\n\n` +
             `*3 Möglichkeiten:*\n` +
@@ -19053,6 +19084,13 @@ function nextWhatsAppQuestion(fields) {
                 `*Bitte präzisieren:*\n` +
                 `_Ort, PLZ, Straße Hausnr_  z.B. "Ahlbeck, 17419, Seestraße 3"\n` +
                 `Oder POI-Name: "Bahnhof Ahlbeck" / "Klinik Heringsdorf"`;
+        }
+        // 🆕 v6.63.403: Top-Ziele aus Historie als Quick-Suggest
+        if (topDest.length > 0) {
+            const list = topDest.map((d, i) => `${i+1}️⃣ ${d}`).join('\n');
+            return `🎯 *Wohin soll die Fahrt gehen?*\n\n` +
+                `*Ihre häufigsten Ziele:*\n${list}\n\n` +
+                `_Antworten Sie die Zahl oder geben Sie andere Adresse an._`;
         }
         return `🎯 *Wohin soll die Fahrt gehen?*\n\n` +
             `Adresse oder POI-Name reicht:\n` +
@@ -19214,6 +19252,10 @@ async function handleWhatsAppIncomingMessage(msg, contact, value) {
             if (crm.customer.phone) pending.fields.telefon = crm.customer.phone;
             if (crm.customer.email) pending.fields.email = crm.customer.email;
             if (crm.customer.address) pending.crmAddress = crm.customer.address;
+            // 🆕 v6.63.403: Top-3 Ziele aus Historie für Quick-Suggest
+            try {
+                pending.topDestinations = await getCustomerTopDestinations(crm.customerId, 3);
+            } catch (_) { pending.topDestinations = []; }
             // 🆕 v6.63.400 (Patrick 17.06. 15:29 Bridge "müsste separat im CRM noch
             //   erstellt werden"): notifyChannels aus CRM laden wenn schon
             //   gespeichert → keine Frage nötig.
@@ -19503,8 +19545,31 @@ async function handleWhatsAppIncomingMessage(msg, contact, value) {
         }
     }
 
+    // 🆕 v6.63.403: Quick-Antworten für Pickup/Ziel auswerten
+    //   - "ja"/"zu Hause"/"zuhause" + pickup-Frage offen + CRM-Adresse vorhanden → übernehmen
+    //   - "1"/"2"/"3" + ziel-Frage offen + topDestinations vorhanden → übernehmen
+    if (!merged.pickup && pending.crmAddress) {
+        const _t = text.trim().toLowerCase();
+        if (/^(ja|zu hause|zuhause|home|daheim|wie immer)$/i.test(_t)) {
+            merged.pickup = pending.crmAddress;
+            merged.pickupResolvedSource = 'crm-zu-hause';
+            console.log(`🏠 v6.63.403 Pickup = CRM-Adresse übernommen: ${pending.crmAddress}`);
+        }
+    }
+    if (!merged.ziel && Array.isArray(pending.topDestinations) && pending.topDestinations.length > 0) {
+        const _m = text.trim().match(/^(\d)$/);
+        if (_m) {
+            const idx = parseInt(_m[1]) - 1;
+            if (idx >= 0 && idx < pending.topDestinations.length) {
+                merged.ziel = pending.topDestinations[idx];
+                merged.zielResolvedSource = 'historie-quickreply';
+                console.log(`🎯 v6.63.403 Ziel = Top-Destination[${idx}] = ${merged.ziel}`);
+            }
+        }
+    }
+
     // Nächste Frage oder fertig?
-    const nextQ = nextWhatsAppQuestion(merged);
+    const nextQ = nextWhatsAppQuestion(merged, { crmAddress: pending.crmAddress, topDestinations: pending.topDestinations });
     if (nextQ) {
         // 🆕 v6.63.386 (Patrick 17.06. Bridge "der bot begrüßt aber den kunden überhaupt
         //   nicht"): Begrüßung bei JEDER Erst-Nachricht (kein lastMessage vorhanden)

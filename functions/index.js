@@ -18893,6 +18893,10 @@ Wichtig:
 - Ahlbeck → '17419', Bansin → '17429'
 - Bahnhöfe als 'Bahnhof Heringsdorf' / 'Bahnhof Ahlbeck' erkennen
 - 'wir sind 2/3/...' = personen
+- Eine ALLEINE stehende Zahl ("1", "2", "3") wenn andere Felder bereits gefüllt
+  sind = personen (Antwort auf 'Wie viele Personen' Frage)
+- 'einer', 'einzige Person', 'alleine' = personen=1
+- '1 Erwachsener' / '2 Erwachsene' / '3 Personen' = personen
 - intent='abbruch' bei 'storno','abbrechen','vergessen','doch nicht'
 
 ADRESS-EXTRAKTION SEHR WICHTIG:
@@ -19554,6 +19558,17 @@ async function handleWhatsAppIncomingMessage(msg, contact, value) {
             merged.pickup = pending.crmAddress;
             merged.pickupResolvedSource = 'crm-zu-hause';
             console.log(`🏠 v6.63.403 Pickup = CRM-Adresse übernommen: ${pending.crmAddress}`);
+        }
+    }
+    // 🆕 v6.63.405 (Patrick 17.06. 16:33 Bridge "bei Stammkunden eigentlich alles
+    //   soweit übernehmen wie es vorgegeben ist, eine Person Autovervollständigen"):
+    //   Bei asking-field-Stage personen-Frage → bloße Zahl 1-9 als Personen erkennen.
+    //   Fallback wenn KI nicht erkennt (was leider passiert: '1' wird übergangen).
+    if (!merged.personen && pending.stage === 'asking-field') {
+        const _m = text.trim().match(/^(\d)$/);
+        if (_m) {
+            merged.personen = parseInt(_m[1]);
+            console.log(`👥 v6.63.405 Personen direkt aus "${text}" geparst: ${merged.personen}`);
         }
     }
     if (!merged.ziel && Array.isArray(pending.topDestinations) && pending.topDestinations.length > 0) {

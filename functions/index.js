@@ -19452,9 +19452,15 @@ async function handleWhatsAppIncomingMessage(msg, contact, value) {
             const namePart = merged.name
                 ? `Sehr geehrte/r ${merged.name.split(/\s+/).pop()}`
                 : 'Hallo';
-            intro = `👋 ${namePart}, willkommen bei Funk Taxi Heringsdorf!\n\n` +
-                `Gerne erstelle ich Ihre Buchungs-Anfrage. ` +
-                (pending.crmCustomerId ? 'Ihre Stammdaten habe ich.\n\n' : 'Ich brauche dazu ein paar Angaben.\n\n');
+            // 🆕 v6.63.399 (Patrick 17.06. 15:17 Bridge "Begrüßung erweitern mit
+            //   Möglichkeiten"): Hinweis auf Bot-Funktionen direkt in Begrüßung.
+            intro = `👋 ${namePart}, willkommen bei *Funk Taxi Heringsdorf*!\n\n` +
+                `Ich kann für Sie:\n` +
+                `🚕 Taxi buchen\n` +
+                `🍽 Restaurants empfehlen — schreiben Sie _"Restaurant"_\n` +
+                `🎯 Ausflugsziele zeigen — _"Was kann ich heute machen?"_\n` +
+                `❓ Hilfe geben — _"Hilfe"_ für alle Befehle\n\n` +
+                (pending.crmCustomerId ? `Ihre Stammdaten habe ich.\n` : `Für eine Buchung brauche ich ein paar Angaben.\n`);
         }
         const fullReply = intro + nextQ;
         await sendWhatsAppMessage(toPhone, fullReply);
@@ -26286,8 +26292,14 @@ exports.onRideCreated = onValueCreated(
         //   Bestätigung, nicht der Gast).
         if (ride.customerPhone && !_isSeriesMember && !ride._isAuftraggeberBooking) {
             try {
-                await sendCustomerWhatsAppNotification(ride, rideId, 'booking_new');
-                console.log(`📱 WhatsApp-Bestätigung an Kunde gesendet: ${ride.customerPhone} (source=${ride.source})`);
+                // 🆕 v6.63.399 (Patrick 17.06. 15:16 Bridge "ich habe 2 Buchungsbestätigungen
+                //   bekommen"): Bei source='whatsapp-bot' Anfrage hat der Bot SCHON eine
+                //   erste WA-Bestätigung beim /anfragen-Eintrag gesendet ('wir bestätigen').
+                //   Jetzt onRideCreated soll andere Message senden: 'BESTÄTIGT mit Fahrzeug X'.
+                //   Type 'booking_confirmed' nutzt anderen Text als 'booking_new'.
+                const _notifType = ride.source === 'whatsapp-bot' ? 'booking_confirmed' : 'booking_new';
+                await sendCustomerWhatsAppNotification(ride, rideId, _notifType);
+                console.log(`📱 WhatsApp-Bestätigung an Kunde gesendet: ${ride.customerPhone} (source=${ride.source}, type=${_notifType})`);
             } catch (_waErr) {
                 console.warn('⚠️ WhatsApp Kunden-Bestätigung Fehler:', _waErr.message);
             }

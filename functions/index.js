@@ -1745,11 +1745,48 @@ async function autoAssignRide(rideId, rideData) {
                             vehicleScores[best.vehicleId].status = 'busy';
                             vehicleScores[best.vehicleId].busyUntil = _prevEndFormatted;
                             vehicleScores[best.vehicleId].overlapMin = _delayMin;
+                            vehicleScores[best.vehicleId].reason = `Konflikt: Vorfahrt ${_prevRide.customerName || '?'} endet ${_prevEndFormatted} + ${Math.round(_leerfahrtToNewMs/60000)}min Anfahrt = ${_delayMin}min zu spät`;
+                            vehicleScores[best.vehicleId].blockingRideCustomer = _prevRide.customerName;
+                            vehicleScores[best.vehicleId].blockingRideTime = new Date(_prevRide.pickupTimestamp).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' });
+                            vehicleScores[best.vehicleId].blockingRideDest = _prevRide.destination || '';
                         }
-                        // Ride-Scores trotzdem speichern damit die Fahrzeugauswahl sichtbar ist
-                        if (Object.keys(vehicleScores).length > 0) {
-                            await db.ref('rides/' + rideId + '/vehicleScores').set(vehicleScores);
-                        }
+                        // 🆕 v6.63.374 (Patrick 17.06. 07:38 Bridge: "Mach mal ein Log von der
+                        //   Funktion, warum das nicht funktioniert mit Rudolf"): vehicleScores
+                        //   UND autoAssignLastReason schreiben + Debug-Log mit Detail-Trace damit
+                        //   Patrick sehen kann WARUM das Fahrzeug abgelehnt wurde.
+                        const _bestReason = vehicleScores[best.vehicleId]?.reason || `${best.name} ${_delayMin}min zu spät`;
+                        const _busyDetail = `${best.name} 'busy' nach Vorfahrt ${_prevRide.customerName || '?'} (${_delayMin}min Delay > Max ${_maxVerschiebungMin}min)`;
+                        try {
+                            await db.ref('rides/' + rideId).update({
+                                vehicleScores,
+                                vehicleScoresAt: Date.now(),
+                                autoAssignLastReason: _busyDetail
+                            });
+                            await db.ref('debugLogs/autoassign').push({
+                                ts: Date.now(),
+                                rideId,
+                                customer: rideData.customerName || '?',
+                                pickup: rideData.pickup,
+                                destination: rideData.destination,
+                                pickupTime: timeStr,
+                                pickupDate: dateStr,
+                                stage: 'busy-after-delay-check',
+                                bestVehicle: best.name,
+                                bestVehicleId: best.vehicleId,
+                                prevRide: {
+                                    customer: _prevRide.customerName,
+                                    pickup: _prevRide.pickup,
+                                    destination: _prevRide.destination,
+                                    pickupTs: _prevRide.pickupTimestamp,
+                                    durMin: (_prevRide.duration || _prevRide.estimatedDuration || 20),
+                                    endFormatted: _prevEndFormatted
+                                },
+                                delayMin: _delayMin,
+                                maxVerschiebungMin: _maxVerschiebungMin,
+                                leerfahrtMin: Math.round(_leerfahrtToNewMs/60000),
+                                vehicleScoresSnapshot: vehicleScores
+                            });
+                        } catch (_e) { console.warn('v6.63.374 debug-log Fehler:', _e.message); }
                         console.log(`⚠️ Kein Fahrzeug kann rechtzeitig ankommen für Vorbestellung ${rideId}`);
                         return null;
                     } else {

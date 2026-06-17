@@ -18667,6 +18667,130 @@ async function handleLocation(message) {
 // WEBHOOK ENTRY POINT
 // ═══════════════════════════════════════════════════════════════
 
+// ═══════════════════════════════════════════════════════════════
+// 🆕 v6.63.381 (Patrick 17.06. 12:00-12:24 Bridge: "Bot interaktiv bis
+//   Buchung erledigt"): WhatsApp Cloud API Webhook
+//   Endpoint: https://europe-west1-taxi-heringsdorf.cloudfunctions.net/whatsappWebhook
+//   GET → Webhook-Verification (hub.challenge mit verifyToken aus
+//         /settings/whatsapp/verifyToken)
+//   POST → Incoming messages, parse + auto-reply + log in
+//          /whatsappPending/{wa_id}
+// ═══════════════════════════════════════════════════════════════
+async function handleWhatsAppIncomingMessage(msg, contact, value) {
+    const from = msg.from;
+    const customerName = contact.profile?.name || 'WhatsApp-Kunde';
+    const messageType = msg.type || 'unknown';
+    let text = '';
+    if (messageType === 'text') text = msg.text?.body || '';
+    else if (messageType === 'audio') text = '[Sprachnachricht]';
+    else if (messageType === 'image') text = '[Bild]';
+    else if (messageType === 'location') {
+        const loc = msg.location || {};
+        text = `[GPS ${loc.latitude},${loc.longitude}]`;
+    } else text = `[${messageType}]`;
+
+    console.log(`📱 WA eingehende Nachricht von ${customerName} (${from}): ${text.slice(0,100)}`);
+
+    const ts = Date.now();
+    try {
+        await db.ref('whatsappPending/' + from).update({
+            from,
+            customerName,
+            lastMessage: text,
+            lastMessageType: messageType,
+            lastTs: ts,
+            lastMessageId: msg.id || null
+        });
+        await db.ref('whatsappIncoming').push({
+            ts,
+            from,
+            customerName,
+            messageType,
+            text: text.slice(0, 2000),
+            raw: msg
+        });
+    } catch (e) {
+        console.warn('whatsappIncoming-Speicher Fehler:', e.message);
+    }
+
+    // Auto-Reply (Stufe 1 — Empfangs-Bestätigung)
+    const reply = `Vielen Dank für Ihre Nachricht. Wir bestätigen Ihre Anfrage zeitnah persönlich.\n\nBei Eilanfragen: 038378 / 22022\n\n— Funk Taxi Heringsdorf`;
+    const toPhone = '0' + from.replace(/^49/, '');
+    try {
+        await sendWhatsAppMessage(toPhone, reply);
+    } catch (e) {
+        console.warn('WA Auto-Reply Fehler:', e.message);
+    }
+
+    // Admin-Push via Telegram (sieht Patrick in Live-Polling)
+    try {
+        await sendToAllAdmins(
+            `📱 <b>Neue WhatsApp-Nachricht</b>\n\n` +
+            `👤 ${customerName}\n` +
+            `📞 +${from}\n\n` +
+            `💬 ${text.slice(0, 800)}\n\n` +
+            `<i>Auto-Reply gesendet. Stufe-2-Bot (KI-Konversation) folgt.</i>`,
+            'wa-incoming'
+        );
+    } catch (_) {}
+}
+
+exports.whatsappWebhook = onRequest(
+    { region: 'europe-west1', timeoutSeconds: 60, memory: '256MiB', invoker: 'public' },
+    async (req, res) => {
+        try {
+            // GET = Webhook-Verification (Meta Setup)
+            if (req.method === 'GET') {
+                const mode = req.query['hub.mode'];
+                const token = req.query['hub.verify_token'];
+                const challenge = req.query['hub.challenge'];
+                const verifyTokenSnap = await db.ref('settings/whatsapp/verifyToken').once('value');
+                const verifyToken = verifyTokenSnap.val() || 'funktaxi-claude-bridge-2026';
+                if (mode === 'subscribe' && token === verifyToken) {
+                    console.log('✅ WhatsApp Webhook verifiziert');
+                    res.status(200).send(challenge);
+                    return;
+                }
+                console.warn(`⚠️ WA Webhook Verification fehl: mode=${mode} token=${token ? 'set' : 'missing'}`);
+                res.status(403).send('Forbidden');
+                return;
+            }
+
+            // POST = Incoming Event
+            if (req.method === 'POST') {
+                const body = req.body || {};
+                if (body.object === 'whatsapp_business_account') {
+                    for (const entry of (body.entry || [])) {
+                        for (const change of (entry.changes || [])) {
+                            if (change.field === 'messages') {
+                                const value = change.value || {};
+                                const messages = value.messages || [];
+                                const contacts = value.contacts || [];
+                                for (const msg of messages) {
+                                    await handleWhatsAppIncomingMessage(msg, contacts[0] || {}, value).catch(e =>
+                                        console.error('handleWA err:', e.message));
+                                }
+                                // Status-Updates (delivered, read) ignorieren — nur loggen
+                                const statuses = value.statuses || [];
+                                if (statuses.length) {
+                                    console.log(`📊 WA Status-Updates: ${statuses.length}`);
+                                }
+                            }
+                        }
+                    }
+                }
+                res.status(200).send('OK');
+                return;
+            }
+
+            res.status(200).send('Funk Taxi WhatsApp-Webhook aktiv');
+        } catch (e) {
+            console.error('whatsappWebhook err:', e.message, e.stack);
+            res.status(200).send('OK'); // immer 200 — sonst retries Meta forever
+        }
+    }
+);
+
 exports.telegramWebhook = onRequest(
     { region: 'europe-west1', timeoutSeconds: 120, memory: '256MiB', minInstances: 1, invoker: 'public' },
     async (req, res) => {

@@ -18839,7 +18839,16 @@ Wichtig:
 - Ahlbeck → '17419', Bansin → '17429'
 - Bahnhöfe als 'Bahnhof Heringsdorf' / 'Bahnhof Ahlbeck' erkennen
 - 'wir sind 2/3/...' = personen
-- intent='abbruch' bei 'storno','abbrechen','vergessen','doch nicht'`;
+- intent='abbruch' bei 'storno','abbrechen','vergessen','doch nicht'
+
+ADRESS-EXTRAKTION SEHR WICHTIG:
+- Wenn der Nutzer einen NAMEN nennt (z.B. "Bierkutscher", "Asgard", "Maxim-Gorki"),
+  übernimm GENAU diesen Namen ins pickup/ziel-Feld — NIEMALS durch einen Ortsnamen
+  (Heringsdorf/Bansin/Ahlbeck) ERSETZEN, auch wenn du den Ort kennst.
+- NICHT halluzinieren: Wenn nur "Hauptstraße" ohne Ort gesagt wird, übernimm exakt
+  "Hauptstraße" — fehlende Daten BLEIBEN null.
+- POI-Namen (Hotels, Restaurants, Bars) wörtlich übernehmen, NICHT durch Ortsname ersetzen.
+- Wenn pickup/ziel unklar (nur 1 Wort, mehrdeutig) → besser null lassen als raten.`;
 
     try {
         const resp = await callAnthropicAPI(apiKey, 'claude-haiku-4-5-20251001', 800, [
@@ -18862,6 +18871,47 @@ function mergeBookingFields(existing, neu) {
         if (neu[k] !== null && neu[k] !== undefined && neu[k] !== '') merged[k] = neu[k];
     }
     return merged;
+}
+
+// 🆕 v6.63.389 (Patrick 17.06. 14:09 Bridge: "Bierkutscher eingegeben und er
+//   hat einfach Bansin genommen — er müsste schon GPS-Sachen Geocode"):
+//   POI-Lookup für Adressen. Sucht in /pois (Geocache) nach kurzen Pickup/Ziel-
+//   Strings und ersetzt sie durch volle Adresse wenn Match.
+async function resolveAddressViaPOI(addr) {
+    if (!addr || typeof addr !== 'string') return null;
+    const places = await getKnownPlaces();
+    if (!places || Object.keys(places).length === 0) return null;
+    const needle = addr.toLowerCase().trim();
+    // Exakter Match
+    if (places[needle]) {
+        return { name: places[needle].name, lat: places[needle].lat, lon: places[needle].lon, match: 'exact' };
+    }
+    // Teilwort-Match: POI-Name enthält Eingabe ODER Eingabe enthält POI-Name
+    const candidates = [];
+    for (const [key, poi] of Object.entries(places)) {
+        if (key.includes(needle) || needle.includes(key)) {
+            candidates.push({ poi, key, score: (needle === key ? 100 : (key.length - Math.abs(key.length - needle.length))) });
+        }
+    }
+    if (candidates.length === 0) return null;
+    candidates.sort((a, b) => b.score - a.score);
+    const best = candidates[0];
+    return { name: best.poi.name, lat: best.poi.lat, lon: best.poi.lon, match: 'partial', alternatives: candidates.slice(0, 3).map(c => c.poi.name) };
+}
+
+async function enrichAddressIfShort(addr) {
+    if (!addr) return { value: addr, enriched: false };
+    // Wenn schon klar (>= 15 Zeichen mit Hausnummer ODER PLZ erkennbar) → ok
+    const hasStreetNumber = /\d/.test(addr);
+    const hasPlz = /\b1[7-9]\d{3}\b/.test(addr);
+    if (addr.length >= 25 && hasStreetNumber) return { value: addr, enriched: false };
+    if (hasPlz && hasStreetNumber) return { value: addr, enriched: false };
+    // Versuche POI-Lookup
+    const poi = await resolveAddressViaPOI(addr);
+    if (poi) {
+        return { value: poi.name, enriched: true, poi: poi, original: addr };
+    }
+    return { value: addr, enriched: false, original: addr, needsClarification: addr.length < 12 };
 }
 
 function nextWhatsAppQuestion(fields) {
@@ -19045,6 +19095,42 @@ async function handleWhatsAppIncomingMessage(msg, contact, value) {
     const merged = mergeBookingFields(existingFields, ai.fields);
     // Telefon aus WA-Nummer ableiten wenn nicht angegeben
     if (!merged.telefon) merged.telefon = '+' + from;
+
+    // 🆕 v6.63.389: POI-Lookup für pickup/ziel — verhindert dass 'Bierkutscher'
+    //   als 'Bansin' interpretiert wird (KI-Halluzination → POI-Korrektur).
+    if (merged.pickup) {
+        const enrichPick = await enrichAddressIfShort(merged.pickup);
+        if (enrichPick.enriched) {
+            console.log(`📍 v6.63.389 Pickup POI-Match: "${enrichPick.original}" → "${enrichPick.value}"`);
+            merged.pickup = enrichPick.value;
+            merged.pickupResolvedFromPOI = enrichPick.original;
+            await logWhatsAppEvent(from, 'system', { stage: 'poi-match-pickup', original: enrichPick.original, resolved: enrichPick.value });
+        } else if (enrichPick.needsClarification) {
+            merged.pickupNeedsClarification = true;
+        }
+    }
+    if (merged.ziel) {
+        const enrichDest = await enrichAddressIfShort(merged.ziel);
+        if (enrichDest.enriched) {
+            console.log(`🎯 v6.63.389 Ziel POI-Match: "${enrichDest.original}" → "${enrichDest.value}"`);
+            merged.ziel = enrichDest.value;
+            merged.zielResolvedFromPOI = enrichDest.original;
+            await logWhatsAppEvent(from, 'system', { stage: 'poi-match-ziel', original: enrichDest.original, resolved: enrichDest.value });
+        } else if (enrichDest.needsClarification) {
+            merged.zielNeedsClarification = true;
+        }
+    }
+    // Wenn nach POI-Lookup pickup/ziel unklar → setze auf null um Bot-Nachfrage zu triggern
+    if (merged.pickupNeedsClarification) {
+        await logWhatsAppEvent(from, 'system', { stage: 'pickup-unclear', original: merged.pickup });
+        delete merged.pickup;
+        delete merged.pickupNeedsClarification;
+    }
+    if (merged.zielNeedsClarification) {
+        await logWhatsAppEvent(from, 'system', { stage: 'ziel-unclear', original: merged.ziel });
+        delete merged.ziel;
+        delete merged.zielNeedsClarification;
+    }
 
     // Speichere aktuellen Stand
     await db.ref('whatsappPending/' + from).update({

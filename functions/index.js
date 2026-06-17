@@ -18906,10 +18906,31 @@ async function enrichAddressIfShort(addr) {
     const hasPlz = /\b1[7-9]\d{3}\b/.test(addr);
     if (addr.length >= 25 && hasStreetNumber) return { value: addr, enriched: false };
     if (hasPlz && hasStreetNumber) return { value: addr, enriched: false };
-    // Versuche POI-Lookup
+    // Versuche POI-Lookup (/pois)
     const poi = await resolveAddressViaPOI(addr);
     if (poi) {
-        return { value: poi.name, enriched: true, poi: poi, original: addr };
+        return { value: poi.name, enriched: true, poi: poi, original: addr, source: 'poi' };
+    }
+    // 🆕 v6.63.390 (Patrick 17.06. 14:14 Bridge "Immer Google Places wenn Vorschläge"):
+    //   Wenn POI-Datenbank kein Match → geocode() läuft Google Places mit Heringsdorf-Bias
+    //   + cached Ergebnis automatisch in geocodeCache (lernt dazu).
+    try {
+        if (typeof geocode === 'function') {
+            const geoResult = await geocode(addr);
+            if (geoResult && geoResult.lat && geoResult.lon) {
+                const displayName = geoResult.display_name || geoResult.name || addr;
+                console.log(`🌍 v6.63.390 Google Places: "${addr}" → "${displayName}"`);
+                return {
+                    value: displayName,
+                    enriched: true,
+                    poi: { name: displayName, lat: geoResult.lat, lon: geoResult.lon, match: 'google' },
+                    original: addr,
+                    source: 'google-places'
+                };
+            }
+        }
+    } catch (e) {
+        console.warn('enrichAddress geocode err:', e.message);
     }
     return { value: addr, enriched: false, original: addr, needsClarification: addr.length < 12 };
 }

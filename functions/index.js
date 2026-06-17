@@ -18676,63 +18676,211 @@ async function handleLocation(message) {
 //   POST → Incoming messages, parse + auto-reply + log in
 //          /whatsappPending/{wa_id}
 // ═══════════════════════════════════════════════════════════════
+// 🆕 v6.63.383 (Patrick 17.06. Bridge "Bot interaktiv mit Kunden bis Buchung
+//   komplett, dann an mich"): KI-Parser für eingehende WhatsApp-Texte.
+//   Extrahiert die 7 Pflichtfelder + 4 optionale. Bei fehlenden → Bot
+//   fragt nach. Bei vollem Datensatz → /anfragen Eintrag + Admin-Push.
+async function analyzeWhatsAppBooking(text, existingPartial = {}) {
+    const apiKey = await getAnthropicApiKey();
+    if (!apiKey) {
+        console.warn('analyzeWhatsAppBooking: kein Anthropic-Key');
+        return { ok: false, reason: 'no-api-key' };
+    }
+    const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Berlin' });
+    const prompt = `Extrahiere eine Taxi-Buchung aus dem folgenden Text. Antworte AUSSCHLIESSLICH mit JSON, keine Erklärungen.
+
+Heutiges Datum: ${today}
+Bereits bekannte Felder (kombinieren mit Neu-Erkanntem): ${JSON.stringify(existingPartial)}
+
+Text: "${text}"
+
+JSON-Schema:
+{
+  "datum": "YYYY-MM-DD oder null",
+  "uhrzeit": "HH:MM oder null",
+  "pickup": "Adresse mit Hausnr und PLZ wenn möglich, oder null",
+  "ziel": "Adresse mit Hausnr und PLZ wenn möglich, oder null",
+  "name": "Vor- und Nachname oder null",
+  "personen": Zahl oder null,
+  "telefon": "+49... oder null (wenn nicht genannt, leer)",
+  "email": "name@example oder null",
+  "rueckfahrt_uhrzeit": "HH:MM oder null",
+  "bemerkung": "Sonderwünsche oder null",
+  "intent": "buchung|frage|abbruch|unklar"
+}
+
+Wichtig:
+- 'morgen' = ${new Date(Date.now()+86400000).toLocaleDateString('sv-SE',{timeZone:'Europe/Berlin'})}
+- 'übermorgen' = ${new Date(Date.now()+172800000).toLocaleDateString('sv-SE',{timeZone:'Europe/Berlin'})}
+- Heringsdorf-Adressen ohne PLZ → PLZ '17424' annehmen
+- Ahlbeck → '17419', Bansin → '17429'
+- Bahnhöfe als 'Bahnhof Heringsdorf' / 'Bahnhof Ahlbeck' erkennen
+- 'wir sind 2/3/...' = personen
+- intent='abbruch' bei 'storno','abbrechen','vergessen','doch nicht'`;
+
+    try {
+        const resp = await callAnthropicAPI(apiKey, 'claude-haiku-4-5-20251001', 800, [
+            { role: 'user', content: prompt }
+        ]);
+        const content = resp?.content?.[0]?.text || '';
+        const match = content.match(/\{[\s\S]*\}/);
+        if (!match) return { ok: false, reason: 'no-json', raw: content };
+        const parsed = JSON.parse(match[0]);
+        return { ok: true, fields: parsed };
+    } catch (e) {
+        console.error('analyzeWhatsAppBooking err:', e.message);
+        return { ok: false, reason: e.message };
+    }
+}
+
+function mergeBookingFields(existing, neu) {
+    const merged = { ...(existing || {}) };
+    for (const k of ['datum','uhrzeit','pickup','ziel','name','personen','telefon','email','rueckfahrt_uhrzeit','bemerkung']) {
+        if (neu[k] !== null && neu[k] !== undefined && neu[k] !== '') merged[k] = neu[k];
+    }
+    return merged;
+}
+
+function nextWhatsAppQuestion(fields) {
+    if (!fields.datum) return '📅 An welchem Tag möchten Sie fahren? (z.B. "morgen" oder "23.06.")';
+    if (!fields.uhrzeit) return '⏰ Um wieviel Uhr?';
+    if (!fields.pickup) return '📍 Wo sollen wir Sie abholen? (Adresse mit Straße + Hausnummer + Ort)';
+    if (!fields.ziel) return '🎯 Wohin soll die Fahrt gehen? (Adresse oder Ort)';
+    if (!fields.name) return '👤 Auf welchen Namen läuft die Buchung?';
+    if (!fields.personen) return '👥 Wie viele Personen reisen mit?';
+    if (!fields.telefon) return '📞 Für Rückfragen — Ihre Mobil- oder Festnetznummer?';
+    return null; // alle Pflichtfelder da
+}
+
+async function saveWhatsAppAnfrage(from, fields, customerName) {
+    const anfRef = db.ref('anfragen').push();
+    const anfId = anfRef.key;
+    const anfData = {
+        id: anfId,
+        source: 'whatsapp-bot',
+        whatsappFrom: from,
+        whatsappName: customerName,
+        name: fields.name || customerName,
+        date: fields.datum,
+        time: fields.uhrzeit,
+        pickup: fields.pickup,
+        destination: fields.ziel,
+        passengers: fields.personen || 1,
+        phone: fields.telefon || ('+' + from),
+        mobilePhone: fields.telefon || ('+' + from),
+        email: fields.email || '',
+        rueckfahrt: fields.rueckfahrt_uhrzeit || '',
+        notes: fields.bemerkung || '',
+        createdAt: Date.now(),
+        status: 'open'
+    };
+    await anfRef.set(anfData);
+    return anfId;
+}
+
 async function handleWhatsAppIncomingMessage(msg, contact, value) {
     const from = msg.from;
     const customerName = contact.profile?.name || 'WhatsApp-Kunde';
     const messageType = msg.type || 'unknown';
     let text = '';
     if (messageType === 'text') text = msg.text?.body || '';
-    else if (messageType === 'audio') text = '[Sprachnachricht]';
-    else if (messageType === 'image') text = '[Bild]';
+    else if (messageType === 'audio') text = '[Sprachnachricht — Transkription folgt in v6.63.384]';
+    else if (messageType === 'image') text = '[Bild — OCR folgt in v6.63.384]';
     else if (messageType === 'location') {
         const loc = msg.location || {};
         text = `[GPS ${loc.latitude},${loc.longitude}]`;
     } else text = `[${messageType}]`;
 
-    console.log(`📱 WA eingehende Nachricht von ${customerName} (${from}): ${text.slice(0,100)}`);
+    console.log(`📱 WA von ${customerName} (${from}): ${text.slice(0,100)}`);
 
     const ts = Date.now();
-    try {
-        await db.ref('whatsappPending/' + from).update({
-            from,
-            customerName,
-            lastMessage: text,
-            lastMessageType: messageType,
-            lastTs: ts,
-            lastMessageId: msg.id || null
-        });
-        await db.ref('whatsappIncoming').push({
-            ts,
-            from,
-            customerName,
-            messageType,
-            text: text.slice(0, 2000),
-            raw: msg
-        });
-    } catch (e) {
-        console.warn('whatsappIncoming-Speicher Fehler:', e.message);
-    }
-
-    // Auto-Reply (Stufe 1 — Empfangs-Bestätigung)
-    const reply = `Vielen Dank für Ihre Nachricht. Wir bestätigen Ihre Anfrage zeitnah persönlich.\n\nBei Eilanfragen: 038378 / 22022\n\n— Funk Taxi Heringsdorf`;
     const toPhone = '0' + from.replace(/^49/, '');
+
     try {
-        await sendWhatsAppMessage(toPhone, reply);
-    } catch (e) {
-        console.warn('WA Auto-Reply Fehler:', e.message);
+        await db.ref('whatsappIncoming').push({
+            ts, from, customerName, messageType, text: text.slice(0,2000), raw: msg
+        });
+    } catch (_) {}
+
+    // Pending-State laden
+    let pendingSnap, pending;
+    try {
+        pendingSnap = await db.ref('whatsappPending/' + from).once('value');
+        pending = pendingSnap.val() || {};
+    } catch (_) { pending = {}; }
+
+    // Abbruch erkennen (vor KI)
+    if (/storno|abbrech|abbruch|doch nicht|vergessen|nicht mehr|stop/i.test(text)) {
+        await db.ref('whatsappPending/' + from).remove();
+        await sendWhatsAppMessage(toPhone, 'OK, Anfrage abgebrochen. Wenn Sie eine neue Buchung möchten, schreiben Sie einfach.');
+        await sendToAllAdmins(`📱 WA-Abbruch von ${customerName} (+${from})`, 'wa-abort');
+        return;
     }
 
-    // Admin-Push via Telegram (sieht Patrick in Live-Polling)
-    try {
+    // KI-Analyse mit bestehendem Stand
+    const existingFields = pending.fields || {};
+    const ai = await analyzeWhatsAppBooking(text, existingFields);
+    if (!ai.ok) {
+        // KI failed → manuell handhaben
+        await sendWhatsAppMessage(toPhone, 'Vielen Dank für Ihre Nachricht. Wir bestätigen zeitnah persönlich.\n\nBei Eilanfragen: 038378/22022\n\n— Funk Taxi Heringsdorf');
         await sendToAllAdmins(
-            `📱 <b>Neue WhatsApp-Nachricht</b>\n\n` +
-            `👤 ${customerName}\n` +
-            `📞 +${from}\n\n` +
-            `💬 ${text.slice(0, 800)}\n\n` +
-            `<i>Auto-Reply gesendet. Stufe-2-Bot (KI-Konversation) folgt.</i>`,
-            'wa-incoming'
+            `📱 <b>WhatsApp-Nachricht (KI-Fehler ${ai.reason})</b>\n👤 ${customerName} +${from}\n💬 ${text.slice(0,500)}`,
+            'wa-ai-error'
         );
-    } catch (_) {}
+        return;
+    }
+
+    const merged = mergeBookingFields(existingFields, ai.fields);
+    // Telefon aus WA-Nummer ableiten wenn nicht angegeben
+    if (!merged.telefon) merged.telefon = '+' + from;
+
+    // Speichere aktuellen Stand
+    await db.ref('whatsappPending/' + from).update({
+        from, customerName, fields: merged, lastTs: ts, lastMessage: text
+    });
+
+    // Nächste Frage oder fertig?
+    const nextQ = nextWhatsAppQuestion(merged);
+    if (nextQ) {
+        const intro = Object.keys(existingFields).length === 0
+            ? `👋 Hallo${merged.name ? ' '+merged.name : ''}! Gerne erstelle ich eine Anfrage. Bitte beantworten Sie noch:\n\n`
+            : '';
+        await sendWhatsAppMessage(toPhone, intro + nextQ);
+        return;
+    }
+
+    // Alle Felder da → /anfragen Eintrag + Bestätigung
+    try {
+        const anfId = await saveWhatsAppAnfrage(from, merged, customerName);
+        await db.ref('whatsappPending/' + from).remove();
+        const confirmText =
+            `✅ Vielen Dank! Ihre Anfrage:\n\n` +
+            `📅 ${merged.datum || '?'} ${merged.uhrzeit || '?'}\n` +
+            `📍 ${merged.pickup || '?'}\n` +
+            `🎯 ${merged.ziel || '?'}\n` +
+            `👤 ${merged.name || customerName}\n` +
+            `👥 ${merged.personen || 1} Person(en)\n` +
+            (merged.rueckfahrt_uhrzeit ? `🔁 Rückfahrt ${merged.rueckfahrt_uhrzeit} Uhr\n` : '') +
+            `\nWir bestätigen in wenigen Minuten und melden uns mit Fahrzeug-Details.\n\n— Funk Taxi Heringsdorf`;
+        await sendWhatsAppMessage(toPhone, confirmText);
+        await sendToAllAdmins(
+            `📱 <b>NEUE WA-ANFRAGE (KI-strukturiert)</b>\n\n` +
+            `👤 ${merged.name || customerName} +${from}\n` +
+            `📅 ${merged.datum || '?'} ${merged.uhrzeit || '?'}\n` +
+            `📍 ${merged.pickup || '?'}\n` +
+            `🎯 ${merged.ziel || '?'}\n` +
+            `👥 ${merged.personen || 1} Pers.\n` +
+            (merged.rueckfahrt_uhrzeit ? `🔁 RF ${merged.rueckfahrt_uhrzeit}\n` : '') +
+            (merged.bemerkung ? `💬 ${merged.bemerkung}\n` : '') +
+            `\n🆔 anfragen/${anfId}\n` +
+            `<i>In Native-Dashboard prüfen + bestätigen → Ride.</i>`,
+            'wa-anfrage-complete'
+        );
+    } catch (e) {
+        console.error('saveWhatsAppAnfrage err:', e.message);
+        await sendWhatsAppMessage(toPhone, 'Vielen Dank! Wir bestätigen zeitnah persönlich. Bei Eilfällen 038378/22022.');
+        await sendToAllAdmins(`📱 WA-Save-Fehler ${customerName}: ${e.message}`, 'wa-save-error');
+    }
 }
 
 exports.whatsappWebhook = onRequest(

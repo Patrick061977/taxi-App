@@ -18962,7 +18962,11 @@ async function enrichAddressIfShort(addr) {
 //   antworten dann geht's direkt zur Bestätigung.
 function nextWhatsAppOptionalQuestion(fields) {
     if (fields.bemerkungAsked) return null; // schon gefragt
-    return `💬 Möchten Sie eine Bemerkung oder besondere Wünsche mitteilen?\n_Z.B. "Mit Kindersitz" oder "Bitte vor dem Hotel hupen". Oder einfach "nein" antworten._`;
+    // 🆕 v6.63.396 (Patrick 17.06. 15:08 Bridge "Hotel hupen ist aber Quatsch"):
+    //   Beispiele realistischer + klarer dass es optional ist.
+    return `💬 *Möchten Sie eine Bemerkung mitteilen?* (optional)\n` +
+        `_Z.B. "Kindersitz nötig", "Großer Koffer", "Treppe ist schwer", "Klingel funktioniert nicht"_\n\n` +
+        `Oder einfach *"nein"* antworten wenn nichts Besonderes.`;
 }
 
 function nextWhatsAppQuestion(fields) {

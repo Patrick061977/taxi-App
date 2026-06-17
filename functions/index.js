@@ -18676,6 +18676,23 @@ async function handleLocation(message) {
 //   POST → Incoming messages, parse + auto-reply + log in
 //          /whatsappPending/{wa_id}
 // ═══════════════════════════════════════════════════════════════
+// 🆕 v6.63.387 (Patrick 17.06. Bridge "Kannst du den Bot mitlocken? was
+//   der antwortet, Fragen stellt, was funktioniert/nicht"): Detail-Audit
+//   für jede WA-Interaktion. Pro Nummer: gesamter Verlauf + KI-Ergebnis
+//   pro Run + Bot-Antwort. Patrick sieht in Firebase /whatsappConversation/
+async function logWhatsAppEvent(from, role, details) {
+    if (!from) return;
+    try {
+        await db.ref('whatsappConversation/' + from).push({
+            ts: Date.now(),
+            role, // 'user' | 'bot' | 'ki' | 'crm' | 'system'
+            ...(details || {})
+        });
+    } catch (e) {
+        console.warn('logWhatsAppEvent err:', e.message);
+    }
+}
+
 // 🆕 v6.63.384 (Patrick 17.06. Bridge "baust du stufe 3"): WhatsApp Media-
 //   Download + Audio-Transkription + Image-OCR + GPS-Reverse-Geocode +
 //   Stammkunden-Erkennung per Telefonnummer.
@@ -18940,6 +18957,11 @@ async function handleWhatsAppIncomingMessage(msg, contact, value) {
         });
     } catch (_) {}
 
+    // 🆕 v6.63.387: Conversation-Log Eingang
+    await logWhatsAppEvent(from, 'user', {
+        customerName, messageType, text: text.slice(0, 1500)
+    });
+
     // Pending-State laden
     let pendingSnap, pending;
     try {
@@ -18959,13 +18981,23 @@ async function handleWhatsAppIncomingMessage(msg, contact, value) {
             if (crm.customer.address) pending.crmAddress = crm.customer.address;
             pending.crmCustomerId = crm.customerId;
             pending.crmChecked = true;
+            await logWhatsAppEvent(from, 'crm', {
+                found: true, customerId: crm.customerId,
+                customerName: crm.customer.name,
+                prefilled: ['name','telefon','email'].filter(f => crm.customer[f === 'telefon' ? 'phone' : f])
+            });
+        } else {
+            await logWhatsAppEvent(from, 'crm', { found: false });
+            pending.crmChecked = true;
         }
     }
 
     // Abbruch erkennen (vor KI)
     if (/storno|abbrech|abbruch|doch nicht|vergessen|nicht mehr|stop/i.test(text)) {
         await db.ref('whatsappPending/' + from).remove();
-        await sendWhatsAppMessage(toPhone, 'OK, Anfrage abgebrochen. Wenn Sie eine neue Buchung möchten, schreiben Sie einfach.');
+        const abortMsg = 'OK, Anfrage abgebrochen. Wenn Sie eine neue Buchung möchten, schreiben Sie einfach.';
+        await sendWhatsAppMessage(toPhone, abortMsg);
+        await logWhatsAppEvent(from, 'bot', { text: abortMsg, reason: 'user-abort' });
         await sendToAllAdmins(`📱 WA-Abbruch von ${customerName} (+${from})`, 'wa-abort');
         return;
     }
@@ -18973,9 +19005,16 @@ async function handleWhatsAppIncomingMessage(msg, contact, value) {
     // KI-Analyse mit bestehendem Stand
     const existingFields = pending.fields || {};
     const ai = await analyzeWhatsAppBooking(text, existingFields);
+    await logWhatsAppEvent(from, 'ki', {
+        ok: ai.ok,
+        reason: ai.reason || null,
+        existingFields: Object.keys(existingFields),
+        recognized: ai.ok ? Object.entries(ai.fields || {}).filter(([,v]) => v).map(([k]) => k) : []
+    });
     if (!ai.ok) {
-        // KI failed → manuell handhaben
-        await sendWhatsAppMessage(toPhone, 'Vielen Dank für Ihre Nachricht. Wir bestätigen zeitnah persönlich.\n\nBei Eilanfragen: 038378/22022\n\n— Funk Taxi Heringsdorf');
+        const errMsg = 'Vielen Dank für Ihre Nachricht. Wir bestätigen zeitnah persönlich.\n\nBei Eilanfragen: 038378/22022\n\n— Funk Taxi Heringsdorf';
+        await sendWhatsAppMessage(toPhone, errMsg);
+        await logWhatsAppEvent(from, 'bot', { text: errMsg, reason: 'ki-failed' });
         await sendToAllAdmins(
             `📱 <b>WhatsApp-Nachricht (KI-Fehler ${ai.reason})</b>\n👤 ${customerName} +${from}\n💬 ${text.slice(0,500)}`,
             'wa-ai-error'
@@ -19010,7 +19049,14 @@ async function handleWhatsAppIncomingMessage(msg, contact, value) {
                 `Gerne erstelle ich Ihre Buchungs-Anfrage. ` +
                 (pending.crmCustomerId ? 'Ihre Stammdaten habe ich.\n\n' : 'Ich brauche dazu ein paar Angaben.\n\n');
         }
-        await sendWhatsAppMessage(toPhone, intro + nextQ);
+        const fullReply = intro + nextQ;
+        await sendWhatsAppMessage(toPhone, fullReply);
+        await logWhatsAppEvent(from, 'bot', {
+            text: fullReply,
+            stage: 'asking-field',
+            missingFields: ['datum','uhrzeit','pickup','ziel','name','personen','telefon'].filter(f => !merged[f] && !merged[f === 'datum' ? 'datum' : f] && !merged[f === 'personen' ? 'personen' : f] && !merged[f === 'telefon' ? 'telefon' : f] && !(f === 'uhrzeit' && merged.uhrzeit)),
+            currentFields: Object.keys(merged).filter(k => merged[k])
+        });
         return;
     }
 
@@ -19028,6 +19074,12 @@ async function handleWhatsAppIncomingMessage(msg, contact, value) {
             (merged.rueckfahrt_uhrzeit ? `🔁 Rückfahrt ${merged.rueckfahrt_uhrzeit} Uhr\n` : '') +
             `\nWir bestätigen in wenigen Minuten und melden uns mit Fahrzeug-Details.\n\n— Funk Taxi Heringsdorf`;
         await sendWhatsAppMessage(toPhone, confirmText);
+        await logWhatsAppEvent(from, 'bot', {
+            text: confirmText.slice(0, 800),
+            stage: 'anfrage-saved',
+            anfragenId: anfId,
+            allFields: merged
+        });
         await sendToAllAdmins(
             `📱 <b>NEUE WA-ANFRAGE (KI-strukturiert)</b>\n\n` +
             `👤 ${merged.name || customerName} +${from}\n` +

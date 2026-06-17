@@ -19158,6 +19158,58 @@ async function handleWhatsAppIncomingMessage(msg, contact, value) {
         }
     }
 
+    // 🆕 v6.63.397 (Patrick 17.06. 15:11-15:12 Bridge "Restaurant empfehlen / Was
+    //   können wir heute machen / Und solche Sachen"): Concierge-Modus mit
+    //   Kategorien Restaurant / Aktivität / Sehenswürdigkeit aus /pois.
+    const isRestaurantQ = /restaurant|wo (kann )?(man )?essen|essens?tipp|gaststätte|gaststaette|kneipe|wirtschaft/i.test(text.trim());
+    const isActivityQ = /(was kann|was können|was machen|unternehmen|aktivität|aktivitaet|ausflug|seh.{0,5}würdigkeit|sehenswert|tipp.{0,3}heut|unterhaltung)/i.test(text.trim());
+    const isCafeQ = /cafe|kaffee|kuchen|bistro/i.test(text.trim());
+    if (isRestaurantQ || isActivityQ || isCafeQ) {
+        try {
+            const places = await getKnownPlaces();
+            const restaurants = [], activities = [], cafes = [];
+            for (const [, poi] of Object.entries(places || {})) {
+                const t = (poi.type || '').toLowerCase();
+                if (/cafe|bistro/i.test(t)) cafes.push(poi);
+                else if (/restaurant|gaststaette|gaststätte|imbiss|bar/i.test(t)) restaurants.push(poi);
+                else if (/strand|seebrücke|kurpark|attraktion|museum|tier|aquarium|spielplatz|sehensw/i.test(t)) activities.push(poi);
+            }
+            const pick = (arr, n=5) => arr.sort(() => Math.random() - 0.5).slice(0, Math.min(n, arr.length));
+            let recMsg = '';
+            const stage = [];
+            if (isRestaurantQ && restaurants.length) {
+                recMsg += `🍽 *Restaurant-Empfehlungen*\n` + pick(restaurants).map((p,i)=>`${i+1}. *${p.name}*`).join('\n') + '\n\n';
+                stage.push('restaurant');
+            }
+            if (isCafeQ && cafes.length) {
+                recMsg += `☕ *Cafés*\n` + pick(cafes).map((p,i)=>`${i+1}. *${p.name}*`).join('\n') + '\n\n';
+                stage.push('cafe');
+            }
+            if (isActivityQ && activities.length) {
+                recMsg += `🎯 *Aktivitäten/Sehenswertes*\n` + pick(activities).map((p,i)=>`${i+1}. *${p.name}*`).join('\n') + '\n\n';
+                stage.push('activity');
+            }
+            if (recMsg) {
+                recMsg += `🚕 Möchten Sie ein Taxi dahin?\n` +
+                    `Schreiben Sie z.B. *"Taxi zu [Name] um 19 Uhr für 2 Personen"*\n\n` +
+                    `_(Empfehlungen ohne Gewähr — bitte ggf. vorher reservieren)_`;
+                await sendWhatsAppMessage(toPhone, recMsg);
+                await logWhatsAppEvent(from, 'bot', { text: recMsg.slice(0,500), stage: 'concierge', categories: stage });
+                return;
+            }
+            // Fallback wenn nichts zu Anfrage passt
+            const fallbackMsg = `🌊 *Heute auf Usedom*\n\n` +
+                `🍽 Restaurants: Promenade Heringsdorf/Ahlbeck/Bansin → große Auswahl\n` +
+                `☕ Cafés: rund um die Seebrücken\n` +
+                `🎯 Aktivitäten: Strand, Seebrücke (3 Kaiserbäder!), Strandpromenade, Naturhafen Krummin\n` +
+                `🚂 Familien: UBB-Bäderbahn entlang der Küste\n\n` +
+                `Soll ich für Sie ein Taxi planen? Schreiben Sie *"Taxi zu [Ziel]"*.`;
+            await sendWhatsAppMessage(toPhone, fallbackMsg);
+            await logWhatsAppEvent(from, 'bot', { text: fallbackMsg.slice(0,400), stage: 'concierge-fallback' });
+            return;
+        } catch (e) { console.warn('concierge err:', e.message); }
+    }
+
     // 🆕 v6.63.394: FAQ/Hilfe-Command (vor KI-Analyse)
     if (/^(\/?hilfe|\/?faq|\/?help|\/?info|\/?anleitung)\s*$/i.test(text.trim())) {
         const helpMsg =

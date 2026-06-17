@@ -18956,6 +18956,15 @@ async function enrichAddressIfShort(addr) {
     return { value: addr, enriched: false, original: addr, needsClarification: addr.length < 12 };
 }
 
+// 🆕 v6.63.392 (Patrick 17.06. 14:49 Bridge: "Vielleicht noch ein Feld mit
+//   Bemerkungen dazu, oder Notiz"): Bemerkung-Frage nach allen Pflicht-
+//   Feldern bevor Confirmation. Optional — Kunde kann auch 'nein/skip/keine'
+//   antworten dann geht's direkt zur Bestätigung.
+function nextWhatsAppOptionalQuestion(fields) {
+    if (fields.bemerkungAsked) return null; // schon gefragt
+    return `💬 Möchten Sie eine Bemerkung oder besondere Wünsche mitteilen?\n_Z.B. "Mit Kindersitz" oder "Bitte vor dem Hotel hupen". Oder einfach "nein" antworten._`;
+}
+
 function nextWhatsAppQuestion(fields) {
     // 🆕 v6.63.388 (Patrick 17.06. 14:05 Bridge "wir brauchen eine strukturierte
     //   Zusammenfassung dass die Leute alles nochmal sehen, korrigieren können,
@@ -19245,6 +19254,30 @@ async function handleWhatsAppIncomingMessage(msg, contact, value) {
             currentFields: Object.keys(merged).filter(k => merged[k])
         });
         return;
+    }
+
+    // 🆕 v6.63.392: Optionale Bemerkungs-Frage VOR Confirmation
+    const optQ = nextWhatsAppOptionalQuestion(merged);
+    if (optQ && pending.stage !== 'awaiting-confirmation') {
+        // Wenn aktuelle Nachricht eine Antwort auf Bemerkung-Frage ist (text vorhanden)
+        // und Bemerkung-Frage schon mal gestellt → übernimm Antwort als bemerkung (außer nein/keine)
+        if (pending.stage === 'asking-bemerkung') {
+            const ans = text.trim().toLowerCase();
+            if (!/^(nein|keine?|nichts|skip|nope|n)$/i.test(ans)) {
+                merged.bemerkung = text.trim();
+            }
+            merged.bemerkungAsked = true;
+            // weiter zu Confirmation unten
+        } else {
+            // Erste Frage zu Bemerkung
+            await db.ref('whatsappPending/' + from).update({
+                from, customerName, fields: merged, lastTs: ts, lastMessage: text,
+                stage: 'asking-bemerkung'
+            });
+            await sendWhatsAppMessage(toPhone, optQ);
+            await logWhatsAppEvent(from, 'bot', { text: optQ, stage: 'asking-bemerkung' });
+            return;
+        }
     }
 
     // 🆕 v6.63.388: Alle Pflichtfelder da → Confirmation-Stage (NICHT direkt speichern)

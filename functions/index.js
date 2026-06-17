@@ -19029,7 +19029,11 @@ async function saveWhatsAppAnfrage(from, fields, customerName, crmCustomerId = n
         rueckfahrt: fields.rueckfahrt_uhrzeit || '',
         notes: fields.bemerkung || '',
         createdAt: Date.now(),
-        status: 'open',
+        // 🐛 v6.63.393 BUG-FIX (Patrick 17.06. 14:49 "Web-Anfrage kommt nicht
+        //   in der Native-App an"): Native-App AdminDashboardActivity:282
+        //   filtert /anfragen mit status='offen' (Deutsch). Bot schrieb 'open'
+        //   (Englisch) → Bot-Anfragen waren UNSICHTBAR im NEUE-ANFRAGEN-Tab.
+        status: 'offen',
         // 🆕 v6.63.384: CRM-Link wenn Stammkunde erkannt
         ...(crmCustomerId ? { customerId: crmCustomerId, isStammkunde: true } : {}),
         // 🆕 v6.63.391: Geocode-Koordinaten mitspeichern (Patrick 14:34: "punktgenau geocodiert")

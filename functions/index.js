@@ -1386,7 +1386,39 @@ async function autoAssignRide(rideId, rideData, _excludeVehicleIds = []) {
                   || (isSofort && r.status === 'assigned' && _isInLosfahrZone(r)))
             );
             if (busyRide && isSofort) {
-                // Sofortfahrt: Fahrer kann nicht parallel fahren → klares Aus
+                // 🆕 v6.63.401 (Patrick 17.06. 15:47-15:48 Bridge: "Fahrer kann Fahrten
+                //   sammeln, GPS-mäßig nah ist → Angebot bekommen, selber sortieren
+                //   ob er 2 Min länger braucht"):
+                //   Statt komplett rejecten: prüfen ob Vehicle GPS-nah und aktuelle
+                //   Fahrt fast fertig (status=picked_up = bald aussteigen).
+                //   Wenn ja → als 'soon-available' Kandidat aufnehmen mit Hinweis im Push.
+                //   Fahrer entscheidet selber per Accept/Reject.
+                const _hasRecentGps = _vData.lat && _vData.lon && _vData.timestamp && (Date.now() - _vData.timestamp) < 5*60000;
+                const _isFinishing = busyRide.status === 'picked_up'; // fährt aktuell Gast zum Ziel
+                const _veryNearGps = _hasRecentGps && rideData.pickupCoords && (() => {
+                    try {
+                        const d = distanceKm(_vData.lat, _vData.lon, rideData.pickupCoords.lat, rideData.pickupCoords.lon);
+                        return d < 5.0;
+                    } catch (_) { return false; }
+                })();
+                if (_isFinishing && _veryNearGps) {
+                    console.log(`   🤝 v6.63.401 ${info.name}: BUSY aber GPS-nah + fast fertig → biete trotzdem an, Fahrer entscheidet`);
+                    vehicleScores[vehicleId] = {
+                        status: 'soon-available',
+                        reason: `Aktuell besetzt mit ${busyRide.customerName || '?'} (${busyRide.status}) — GPS nah, biete trotzdem an`,
+                        check: 'busy-but-offered',
+                        blockingRideCustomer: busyRide.customerName,
+                        blockingRideStatus: busyRide.status,
+                        offerReason: 'driver-decides'
+                    };
+                    // Vehicle als Kandidat aufnehmen — mit Marker dass Fahrer entscheidet
+                    if (rideData.pickupCoords && rideData.pickupCoords.lat && rideData.pickupCoords.lon) {
+                        const dist = distanceKm(_vData.lat, _vData.lon, rideData.pickupCoords.lat, rideData.pickupCoords.lon);
+                        candidates.push({ vehicleId, name: info.name, distance: dist, priority: getVehiclePrio(vehicleId), telegramChatId: driver?.telegramChatId, posSource: 'GPS', soonAvailable: true });
+                        console.log(`   🤝 ${info.name}: angeboten (GPS ${dist.toFixed(1)} km, finished gleich)`);
+                    }
+                    continue;
+                }
                 console.log(`   ❌ ${info.name}: Aktuell besetzt (Sofort)`);
                 vehicleScores[vehicleId] = { status: 'busy', reason: `Aktuell besetzt: ${busyRide.customerName || '?'} (${busyRide.status})`, check: 'busy', blockingRideCustomer: busyRide.customerName, blockingRideStatus: busyRide.status };
                 continue;

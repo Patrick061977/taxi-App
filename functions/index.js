@@ -29256,7 +29256,16 @@ exports.onRideDeleted = onValueDeleted(
 //   Wenn das Fahrzeug die Schicht nicht mehr hat → assignedVehicle entfernen →
 //   scheduledAutoAssign weist beim nächsten 5-Min-Cron neu zu.
 //   Respektiert: assignmentLocked + native_admin_* + claude-bridge_* (manuelle Wahl bleibt).
-exports.onShiftChange = onValueUpdated(
+// 🐛 v6.63.402 BUG-FIX (Patrick 17.06. 15:54-15:55 Bridge: "Ich habe nur den
+//   Schichtplan verändert bis 16:30, dann gehe ich davon aus dass alles
+//   automatisch funktioniert — aber LK ist für 17:30 zu. Beachtest du den
+//   Schichtplan nicht? Eigentlich wärst du dafür verantwortlich, dass das
+//   überwacht wird"):
+//   Trigger war onValueUpdated → feuerte NICHT bei Sub-Path-Schreibung
+//   (Native-Editor schreibt /vehicleShifts/{vid}/defaults/{dow} direkt).
+//   Fix: onValueWritten (covers create+update) + Pfad bleibt {vehicleId}.
+//   Plus: nicht mehr 'gar nichts geändert' return — IMMER full re-validate.
+exports.onShiftChange = onValueWritten(
     {
         ref: '/vehicleShifts/{vehicleId}',
         region: 'europe-west1',
@@ -29267,8 +29276,8 @@ exports.onShiftChange = onValueUpdated(
     async (event) => {
         try {
             const vehicleId = event.params.vehicleId;
-            const before = event.data.before.val() || {};
-            const after = event.data.after.val() || {};
+            const before = event.data?.before?.val() || {};
+            const after = event.data?.after?.val() || {};
 
             const _defaultsChanged = JSON.stringify(before.defaults) !== JSON.stringify(after.defaults);
             const _defaultTimesChanged = JSON.stringify(before.defaultTimes) !== JSON.stringify(after.defaultTimes);

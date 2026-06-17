@@ -18676,6 +18676,112 @@ async function handleLocation(message) {
 //   POST → Incoming messages, parse + auto-reply + log in
 //          /whatsappPending/{wa_id}
 // ═══════════════════════════════════════════════════════════════
+// 🆕 v6.63.384 (Patrick 17.06. Bridge "baust du stufe 3"): WhatsApp Media-
+//   Download + Audio-Transkription + Image-OCR + GPS-Reverse-Geocode +
+//   Stammkunden-Erkennung per Telefonnummer.
+async function downloadWhatsAppMedia(mediaId) {
+    const cfg = await loadWhatsAppConfig();
+    if (!cfg.enabled || !cfg.apiToken) return null;
+    try {
+        // 1. Hole download_url
+        const metaResp = await fetch(`https://graph.facebook.com/v22.0/${mediaId}?access_token=${cfg.apiToken}`);
+        const meta = await metaResp.json();
+        if (!meta.url) return null;
+        // 2. Download Media mit Bearer-Auth
+        const fileResp = await fetch(meta.url, { headers: { Authorization: 'Bearer ' + cfg.apiToken } });
+        if (!fileResp.ok) return null;
+        const buffer = Buffer.from(await fileResp.arrayBuffer());
+        return { buffer, mimeType: meta.mime_type || 'application/octet-stream', sha256: meta.sha256 };
+    } catch (e) {
+        console.warn('downloadWhatsAppMedia err:', e.message);
+        return null;
+    }
+}
+
+async function transcribeWhatsAppAudio(mediaId, contextHint = '') {
+    const media = await downloadWhatsAppMedia(mediaId);
+    if (!media) return null;
+    const openaiKey = await getOpenAiApiKey();
+    if (!openaiKey) { console.warn('transcribeWhatsAppAudio: kein OpenAI-Key'); return null; }
+    try {
+        const boundary = '----WAAudio' + Date.now();
+        const parts = [];
+        parts.push(`--${boundary}\r\nContent-Disposition: form-data; name="model"\r\n\r\nwhisper-1`);
+        parts.push(`--${boundary}\r\nContent-Disposition: form-data; name="language"\r\n\r\nde`);
+        const prompt = (contextHint ? contextHint + '. ' : '') + (typeof HERINGSDORF_VOCAB === 'string' ? HERINGSDORF_VOCAB : '');
+        parts.push(`--${boundary}\r\nContent-Disposition: form-data; name="prompt"\r\n\r\n${prompt}`);
+        const fileExt = media.mimeType.includes('ogg') ? 'ogg' : (media.mimeType.includes('mp4') ? 'mp4' : 'audio');
+        const fileHeader = `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="wa.${fileExt}"\r\nContent-Type: ${media.mimeType}\r\n\r\n`;
+        const fileFooter = `\r\n--${boundary}--\r\n`;
+        const before = Buffer.from(parts.join('\r\n') + '\r\n' + fileHeader);
+        const after = Buffer.from(fileFooter);
+        const body = Buffer.concat([before, media.buffer, after]);
+        const resp = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+            method: 'POST',
+            headers: { Authorization: 'Bearer ' + openaiKey, 'Content-Type': `multipart/form-data; boundary=${boundary}` },
+            body
+        });
+        if (!resp.ok) { console.error('Whisper-Fehler:', resp.status); return null; }
+        const result = await resp.json();
+        const raw = (result.text || '').trim();
+        const fixed = typeof applyWhisperFixes === 'function' ? applyWhisperFixes(raw) : raw;
+        return fixed || null;
+    } catch (e) {
+        console.error('transcribeWhatsAppAudio err:', e.message);
+        return null;
+    }
+}
+
+async function analyzeWhatsAppImage(mediaId) {
+    const media = await downloadWhatsAppMedia(mediaId);
+    if (!media) return null;
+    const apiKey = await getAnthropicApiKey();
+    if (!apiKey) return null;
+    try {
+        const base64 = media.buffer.toString('base64');
+        const resp = await callAnthropicAPI(apiKey, 'claude-haiku-4-5-20251001', 800, [{
+            role: 'user',
+            content: [
+                { type: 'image', source: { type: 'base64', media_type: media.mimeType, data: base64 } },
+                { type: 'text', text: 'Auf diesem Bild ist eine Adresse oder ein Foto eines Gebäudes/Schilds. Extrahiere die Adresse (Straße + Hausnummer + PLZ + Ort) und gib sie als JSON zurück: {"adresse": "...", "ort_typ": "Hotel|Klinik|Restaurant|sonstiges"}. Wenn keine Adresse erkennbar: {"adresse": null}' }
+            ]
+        }]);
+        const txt = resp?.content?.[0]?.text || '';
+        const m = txt.match(/\{[\s\S]*\}/);
+        if (!m) return null;
+        return JSON.parse(m[0]);
+    } catch (e) {
+        console.warn('analyzeWhatsAppImage err:', e.message);
+        return null;
+    }
+}
+
+async function findCustomerByWhatsAppPhone(waId) {
+    try {
+        const cleanFrom = waId.replace(/^\+?/, '');
+        const candidates = [
+            '+' + cleanFrom,
+            '0' + cleanFrom.replace(/^49/, ''),
+            cleanFrom
+        ];
+        const snap = await db.ref('customers').once('value');
+        const all = snap.val() || {};
+        for (const [cid, cust] of Object.entries(all)) {
+            if (!cust) continue;
+            const phones = [cust.phone, cust.mobilePhone, cust.mobile, cust.phone2].filter(Boolean);
+            for (const p of phones) {
+                const cleanP = String(p).replace(/[\s\-\/\(\)]/g, '');
+                for (const cand of candidates) {
+                    if (cleanP === cand || cleanP.endsWith(cand.slice(-9))) {
+                        return { customerId: cid, customer: cust };
+                    }
+                }
+            }
+        }
+    } catch (e) { console.warn('findCustomerByWhatsAppPhone:', e.message); }
+    return null;
+}
+
 // 🆕 v6.63.383 (Patrick 17.06. Bridge "Bot interaktiv mit Kunden bis Buchung
 //   komplett, dann an mich"): KI-Parser für eingehende WhatsApp-Texte.
 //   Extrahiert die 7 Pflichtfelder + 4 optionale. Bei fehlenden → Bot
@@ -18752,7 +18858,7 @@ function nextWhatsAppQuestion(fields) {
     return null; // alle Pflichtfelder da
 }
 
-async function saveWhatsAppAnfrage(from, fields, customerName) {
+async function saveWhatsAppAnfrage(from, fields, customerName, crmCustomerId = null) {
     const anfRef = db.ref('anfragen').push();
     const anfId = anfRef.key;
     const anfData = {
@@ -18772,7 +18878,9 @@ async function saveWhatsAppAnfrage(from, fields, customerName) {
         rueckfahrt: fields.rueckfahrt_uhrzeit || '',
         notes: fields.bemerkung || '',
         createdAt: Date.now(),
-        status: 'open'
+        status: 'open',
+        // 🆕 v6.63.384: CRM-Link wenn Stammkunde erkannt
+        ...(crmCustomerId ? { customerId: crmCustomerId, isStammkunde: true } : {})
     };
     await anfRef.set(anfData);
     return anfId;
@@ -18783,12 +18891,38 @@ async function handleWhatsAppIncomingMessage(msg, contact, value) {
     const customerName = contact.profile?.name || 'WhatsApp-Kunde';
     const messageType = msg.type || 'unknown';
     let text = '';
-    if (messageType === 'text') text = msg.text?.body || '';
-    else if (messageType === 'audio') text = '[Sprachnachricht — Transkription folgt in v6.63.384]';
-    else if (messageType === 'image') text = '[Bild — OCR folgt in v6.63.384]';
-    else if (messageType === 'location') {
+    // 🆕 v6.63.384: Audio + Image + Location verarbeiten
+    if (messageType === 'text') {
+        text = msg.text?.body || '';
+    } else if (messageType === 'audio') {
+        const audioId = msg.audio?.id;
+        if (audioId) {
+            console.log(`🎙️ WA Audio empfangen ${audioId} — transkribiere...`);
+            const transcript = await transcribeWhatsAppAudio(audioId, 'Taxi-Buchungsanfrage');
+            text = transcript || '[Sprachnachricht — Transkription fehlgeschlagen]';
+            if (transcript) console.log(`🎙️ Transkript: ${transcript.slice(0,120)}`);
+        } else text = '[Sprachnachricht — keine ID]';
+    } else if (messageType === 'image') {
+        const imgId = msg.image?.id;
+        const caption = msg.image?.caption || '';
+        if (imgId) {
+            console.log(`🖼️ WA Bild empfangen ${imgId} — Vision...`);
+            const visionResult = await analyzeWhatsAppImage(imgId);
+            if (visionResult?.adresse) {
+                text = (caption ? caption + ' ' : '') + visionResult.adresse;
+                console.log(`🖼️ Bild-Adresse: ${visionResult.adresse}`);
+            } else text = caption || '[Bild ohne erkennbare Adresse]';
+        } else text = caption || '[Bild]';
+    } else if (messageType === 'location') {
         const loc = msg.location || {};
-        text = `[GPS ${loc.latitude},${loc.longitude}]`;
+        // Reverse-Geocode zu Adresse
+        if (loc.latitude && loc.longitude && typeof reverseGeocode === 'function') {
+            try {
+                const addr = await reverseGeocode(loc.latitude, loc.longitude);
+                text = (loc.name ? loc.name + ', ' : '') + (addr || `${loc.latitude},${loc.longitude}`);
+                console.log(`📍 WA GPS-Adresse: ${text.slice(0,80)}`);
+            } catch (_) { text = `[GPS ${loc.latitude},${loc.longitude}]`; }
+        } else text = `[GPS ${loc.latitude},${loc.longitude}]`;
     } else text = `[${messageType}]`;
 
     console.log(`📱 WA von ${customerName} (${from}): ${text.slice(0,100)}`);
@@ -18808,6 +18942,21 @@ async function handleWhatsAppIncomingMessage(msg, contact, value) {
         pendingSnap = await db.ref('whatsappPending/' + from).once('value');
         pending = pendingSnap.val() || {};
     } catch (_) { pending = {}; }
+
+    // 🆕 v6.63.384: Stammkunden-Erkennung beim ERSTEN Kontakt (keine pending fields)
+    if (!pending.fields && !pending.crmChecked) {
+        const crm = await findCustomerByWhatsAppPhone(from);
+        if (crm) {
+            console.log(`👤 v6.63.384 Stammkunde erkannt: ${crm.customer.name} (${crm.customerId})`);
+            pending.fields = pending.fields || {};
+            if (crm.customer.name) pending.fields.name = crm.customer.name;
+            if (crm.customer.phone) pending.fields.telefon = crm.customer.phone;
+            if (crm.customer.email) pending.fields.email = crm.customer.email;
+            if (crm.customer.address) pending.crmAddress = crm.customer.address;
+            pending.crmCustomerId = crm.customerId;
+            pending.crmChecked = true;
+        }
+    }
 
     // Abbruch erkennen (vor KI)
     if (/storno|abbrech|abbruch|doch nicht|vergessen|nicht mehr|stop/i.test(text)) {
@@ -18851,7 +19000,7 @@ async function handleWhatsAppIncomingMessage(msg, contact, value) {
 
     // Alle Felder da → /anfragen Eintrag + Bestätigung
     try {
-        const anfId = await saveWhatsAppAnfrage(from, merged, customerName);
+        const anfId = await saveWhatsAppAnfrage(from, merged, customerName, pending.crmCustomerId);
         await db.ref('whatsappPending/' + from).remove();
         const confirmText =
             `✅ Vielen Dank! Ihre Anfrage:\n\n` +

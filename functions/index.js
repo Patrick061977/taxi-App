@@ -19445,6 +19445,139 @@ exports.autoResolveConflicts = onSchedule(
                                         //   buildWartepoolOptions nutzt vehicles intern aktuell nicht — leeres Objekt reicht.
                                         const _options = await buildWartepoolOptions(ride, allRides, {}, shiftsData);
                                         console.log(`   v6.63.299 buildOptions OK: ${_options.length} Optionen`);
+
+                                        // 🆕 v6.63.382 (Patrick 17.06. 12:32 Bridge: "Wenn nur die Zeit
+                                        //   Probleme bereitet, musst du das selber korrigieren — System
+                                        //   soll selber umweisen. Wenn kein Fahrzeug, dann muss das im
+                                        //   Wartepool stehen 'kein Fahrzeug verfügbar zu der Zeit'"):
+                                        //   AUTO-EXEC für klare Optionen. Wenn nur shift-wartepool +5 Min
+                                        //   nötig (eigene Ride verschieben) → SOFORT ausführen.
+                                        //   Wenn shift-other -5/-10 Min: ausführen wenn other-Ride
+                                        //   kein Lock + kein active status (buildOptions filtert das schon).
+                                        const _autoExecOpt = (() => {
+                                            // Priorität 1: eigene Ride +5 Min später (Patrick: "+5 ist ok")
+                                            const _wpShift = _options.find(o => o.action === 'shift-wartepool' && o.shiftMin === 5);
+                                            if (_wpShift) return _wpShift;
+                                            // Priorität 2: andere Ride -5 Min früher (Patrick "5 Min früher geht immer")
+                                            const _otherShift5 = _options.find(o => o.action === 'shift-other-assign-to-wp' && o.shiftMin === -5);
+                                            if (_otherShift5) return _otherShift5;
+                                            // Priorität 3: andere Ride -10 Min (auch ok laut Patrick 10.06.)
+                                            const _otherShift10 = _options.find(o => o.action === 'shift-other-assign-to-wp' && o.shiftMin === -10);
+                                            if (_otherShift10) return _otherShift10;
+                                            return null;
+                                        })();
+
+                                        if (_autoExecOpt) {
+                                            console.log(`🤖 v6.63.382 AUTO-EXEC: ${_autoExecOpt.action} ${_autoExecOpt.shiftMin}min für ${ride.customerName}`);
+                                            try {
+                                                if (_autoExecOpt.action === 'shift-wartepool') {
+                                                    // Eigene Wartepool-Ride um +shiftMin Min verschieben + Vehicle frei probieren
+                                                    const _newTs = ride.pickupTimestamp + _autoExecOpt.shiftMin * 60000;
+                                                    const _newTimeStr = new Date(_newTs).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' });
+                                                    const _origTimeStr = new Date(ride.pickupTimestamp).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' });
+                                                    await db.ref(`rides/${ride.firebaseId}`).update({
+                                                        pickupTimestamp: _newTs,
+                                                        pickupTime: _newTimeStr,
+                                                        originalPickupTimestamp: ride.pickupTimestamp,
+                                                        pickupTimeShifted: true,
+                                                        pickupShiftReason: `Auto-Resolve +${_autoExecOpt.shiftMin} Min (v6.63.382)`,
+                                                        pickupShiftMinutes: _autoExecOpt.shiftMin,
+                                                        status: 'vorbestellt',
+                                                        autoAssignAttempts: 0,
+                                                        wartepoolReason: null,
+                                                        wartepoolAt: null,
+                                                        wartepoolFreedAt: Date.now(),
+                                                        wartepoolFreedReason: 'v6.63.382-auto-resolve-shift-self',
+                                                        updatedAt: Date.now()
+                                                    });
+                                                    await addRideLog(ride.firebaseId, '🤖', `Auto-Resolve: Pickup verschoben ${_origTimeStr} → ${_newTimeStr} (+${_autoExecOpt.shiftMin} Min)`, {
+                                                        quelle: 'v6.63.382-auto-resolve',
+                                                        action: 'shift-self'
+                                                    });
+                                                    await wartepoolAuditPush(ride.firebaseId, 'auto-resolved-shift-self', {
+                                                        customer: ride.customerName,
+                                                        from: _origTimeStr,
+                                                        to: _newTimeStr,
+                                                        shiftMin: _autoExecOpt.shiftMin
+                                                    });
+                                                    await sendToAllAdmins(
+                                                        `🤖 <b>AUTO-RESOLVE Wartepool</b>\n\n` +
+                                                        `👤 ${ride.customerName || '?'}\n` +
+                                                        `📅 ${ride.pickupTime || '?'} → <b>${_newTimeStr}</b> (+${_autoExecOpt.shiftMin} Min)\n` +
+                                                        `📍 ${ride.pickup || '?'}\n` +
+                                                        `🎯 ${ride.destination || '?'}\n\n` +
+                                                        `<i>System hat Pickup +${_autoExecOpt.shiftMin} Min verschoben damit nächster Cron zuweisen kann.</i>`,
+                                                        'wartepool-auto-resolve'
+                                                    );
+                                                    await db.ref(`rides/${ride.firebaseId}/wartepoolResolverPushed`).set(true);
+                                                    console.log(`   ✅ v6.63.382 Auto-Resolve shift-self durch — skip Vorschlags-Push`);
+                                                    continue; // skip Vorschlags-Push fuer dieses Ride
+                                                } else if (_autoExecOpt.action === 'shift-other-assign-to-wp') {
+                                                    // Other Ride um shiftMin Min früher + Vehicle an Wartepool-Ride
+                                                    const _otherSnap = await db.ref('rides/' + _autoExecOpt.otherRideId).once('value');
+                                                    const _otherRide = _otherSnap.val();
+                                                    if (_otherRide && !_otherRide.assignmentLocked && !['accepted','on_way','picked_up','completed','cancelled','deleted'].includes(_otherRide.status)) {
+                                                        const _otherNewTs = _otherRide.pickupTimestamp + _autoExecOpt.shiftMin * 60000;
+                                                        const _otherNewTimeStr = new Date(_otherNewTs).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' });
+                                                        const _otherOrigStr = new Date(_otherRide.pickupTimestamp).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' });
+                                                        // Other ride verschieben
+                                                        await db.ref('rides/' + _autoExecOpt.otherRideId).update({
+                                                            pickupTimestamp: _otherNewTs,
+                                                            pickupTime: _otherNewTimeStr,
+                                                            originalPickupTimestamp: _otherRide.pickupTimestamp,
+                                                            pickupTimeShifted: true,
+                                                            pickupShiftReason: `Auto-Resolve ${_autoExecOpt.shiftMin} Min für ${ride.customerName || 'Wartepool'} (v6.63.382)`,
+                                                            pickupShiftMinutes: _autoExecOpt.shiftMin,
+                                                            updatedAt: Date.now()
+                                                        });
+                                                        // Wartepool-Ride Vehicle zuweisen
+                                                        const _vName = (OFFICIAL_VEHICLES[_autoExecOpt.targetVehicleForWp] || {}).name || _autoExecOpt.targetVehicleForWp;
+                                                        await db.ref(`rides/${ride.firebaseId}`).update({
+                                                            assignedVehicle: _autoExecOpt.targetVehicleForWp,
+                                                            vehicleId: _autoExecOpt.targetVehicleForWp,
+                                                            assignedVehicleName: _vName,
+                                                            assignedBy: 'v6.63.382-auto-resolve',
+                                                            assignedAt: Date.now(),
+                                                            status: 'vorbestellt',
+                                                            autoAssignAttempts: 0,
+                                                            wartepoolReason: null,
+                                                            wartepoolAt: null,
+                                                            wartepoolFreedAt: Date.now(),
+                                                            wartepoolFreedReason: `v6.63.382-auto-resolve: ${_otherRide.customerName} ${_autoExecOpt.shiftMin}min frueher`,
+                                                            updatedAt: Date.now()
+                                                        });
+                                                        await addRideLog(ride.firebaseId, '🤖', `Auto-Resolve → ${_vName} (${_otherRide.customerName} ${_otherOrigStr}→${_otherNewTimeStr} ${_autoExecOpt.shiftMin}min)`, { quelle: 'v6.63.382-auto-resolve' });
+                                                        await addRideLog(_autoExecOpt.otherRideId, '🤖', `Verschoben ${_otherOrigStr} → ${_otherNewTimeStr} (${_autoExecOpt.shiftMin} Min) für Wartepool-Ride ${ride.customerName}`, { quelle: 'v6.63.382-auto-resolve' });
+                                                        await wartepoolAuditPush(ride.firebaseId, 'auto-resolved-shift-other', {
+                                                            customer: ride.customerName,
+                                                            vehicle: _vName,
+                                                            otherCustomer: _otherRide.customerName,
+                                                            otherFrom: _otherOrigStr,
+                                                            otherTo: _otherNewTimeStr,
+                                                            shiftMin: _autoExecOpt.shiftMin
+                                                        });
+                                                        await sendToAllAdmins(
+                                                            `🤖 <b>AUTO-RESOLVE Wartepool</b>\n\n` +
+                                                            `👤 ${ride.customerName || '?'} → <b>${_vName}</b>\n` +
+                                                            `📅 ${ride.pickupTime || '?'} (unverändert)\n\n` +
+                                                            `<b>Konflikt gelöst durch Verschiebung:</b>\n` +
+                                                            `${_otherRide.customerName || '?'}: ${_otherOrigStr} → ${_otherNewTimeStr} (${_autoExecOpt.shiftMin} Min auf ${_vName})\n\n` +
+                                                            `<i>${_otherRide.customerName} bekommt SMS über neue Pickup-Zeit.</i>`,
+                                                            'wartepool-auto-resolve'
+                                                        );
+                                                        await db.ref(`rides/${ride.firebaseId}/wartepoolResolverPushed`).set(true);
+                                                        console.log(`   ✅ v6.63.382 Auto-Resolve shift-other durch — skip Vorschlags-Push`);
+                                                        continue; // skip Vorschlags-Push
+                                                    } else {
+                                                        console.warn(`   ⚠️ v6.63.382 Auto-Exec shift-other ABGEBROCHEN: other-Ride hat sich geändert (lock/status)`);
+                                                    }
+                                                }
+                                            } catch (_autoExecErr) {
+                                                console.error(`❌ v6.63.382 Auto-Exec Fehler:`, _autoExecErr.message);
+                                                await wartepoolAuditPush(ride.firebaseId, 'auto-exec-failed', { reason: _autoExecErr.message });
+                                                // fall-through zu Vorschlags-Push
+                                            }
+                                        }
                                         const _pcRef = db.ref('pendingConflicts').push();
                                         const _pendingId = _pcRef.key;
                                         await _pcRef.set({

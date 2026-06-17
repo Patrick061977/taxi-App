@@ -337,8 +337,15 @@ public class AdminDashboardActivity extends AppCompatActivity {
         // Unzugewiesene Web-Bookings nach oben in eigene Sektion ziehen.
         List<Ride> webRequests = new ArrayList<>();
         List<Ride> rest = new ArrayList<>();
+        // 🆕 v6.63.375 (Patrick 17.06. 07:39 Bridge: "Nimm die Wartepool-Sachen aus der App
+        //   vorne raus, wir können sonst keine Fahrt mehr annehmen. Die schreibt sie nur
+        //   nach oben dass Wartepool eigentlich gar nicht zu sehen ist"):
+        //   Wartepool-Rides aus der Tag-Timeline rausziehen, am Ende als eigene Sektion.
+        //   Plus Banner-Tap soll dorthin scrollen.
+        List<Ride> wartepoolRides = new ArrayList<>();
         for (Ride r : list) {
             if (r.isUnclaimedWebBooking()) webRequests.add(r);
+            else if (r.status != null && "wartepool".equalsIgnoreCase(r.status)) wartepoolRides.add(r);
             else rest.add(r);
         }
         // v6.62.161: Tag-Header zwischen Fahrten einfuegen (HEUTE / MORGEN / Datum)
@@ -350,12 +357,8 @@ public class AdminDashboardActivity extends AppCompatActivity {
         //   Die getrennte Wartepool-Sektion oben (v6.62.712) ist weggefallen — der
         //   Banner v6.62.932 zeigt die Anzahl prominent, der Rest erscheint im
         //   normalen Zeitplan-Flow.
-        // Wartepool-Count nur fuer Statistik
-        int wartepoolCount = 0;
-        for (Ride r : rest) {
-            if (r.status != null && "wartepool".equalsIgnoreCase(r.status)) wartepoolCount++;
-        }
-        // rest bleibt unveraendert — wartepool-Rides werden in der Tag-Loop einsortiert
+        // 🆕 v6.63.375: Wartepool-Count aus separater Liste (rest enthält jetzt KEINE wartepool-Rides mehr)
+        int wartepoolCount = wartepoolRides.size();
 
         // 🆕 v6.62.673: OFFENE ANFRAGEN aus /anfragen — ganz oben, da sie noch nicht
         //   in /rides sind und manuell uebernommen werden muessen.
@@ -502,6 +505,16 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 lastDay = c;
             }
             sectioned.add(r);
+        }
+        // 🆕 v6.63.375 (Patrick 17.06. 07:39 Bridge): Wartepool-Rides am ENDE als eigene
+        //   Sektion. Vorne in der Tag-Timeline stehen nur normale Vorbestellungen +
+        //   completed, damit Patrick die regulären Fahrten annehmen kann ohne dass die
+        //   Wartepool-Karten die Liste verstopfen.
+        if (!wartepoolRides.isEmpty()) {
+            sectioned.add("⏸️ WARTEPOOL (" + wartepoolRides.size() + ") — manuelle Disposition");
+            // Wartepool-Rides chronologisch sortiert anhängen
+            wartepoolRides.sort(Comparator.comparingLong(r -> r.pickupTimestamp != null ? r.pickupTimestamp : Long.MAX_VALUE));
+            sectioned.addAll(wartepoolRides);
         }
         adapter.set(sectioned);
         // 🆕 v6.62.673: Queue-Count zaehlt jetzt auch offene Anfragen

@@ -20438,15 +20438,31 @@ exports.autoResolveConflicts = onSchedule(
                                         //   nötig (eigene Ride verschieben) → SOFORT ausführen.
                                         //   Wenn shift-other -5/-10 Min: ausführen wenn other-Ride
                                         //   kein Lock + kein active status (buildOptions filtert das schon).
-                                        // 🆕 v6.63.409 (Patrick 18.06. 07:11 Bridge "max 10 Min früher
-                                        //   oder 5 Min später — aber Termine NICHT ins Unendliche
-                                        //   schieben"): Auto-Resolve mit Hard-Sperre. Pro Ride MAX
-                                        //   EINMAL — wenn schon mal verschoben (pickupTimeShifted=true
-                                        //   oder originalPickupTimestamp gesetzt) → NICHT mehr touch.
-                                        //   Plus: shift-other nur -5/-10 Min (early ok), shift-self nur
-                                        //   +5 Min (Patrick-Regel max 5 später).
+                                        // 🆕 v6.63.410 (Patrick 18.06. 07:19-07:20 Bridge: "diese
+                                        //   automatische Lösung ist schon geil. Wir müssen halt nur
+                                        //   schauen, dass wir die richtige Logik verwenden. Wir müssen
+                                        //   ihm nur ein paar Regeln mitgeben"):
+                                        //   Smart-Filter VOR Auto-Shift. Skip wenn:
+                                        //   1. Distance > 5km (Pendel = vermutlich fester Termin)
+                                        //   2. flexibility = 0 (Patrick markiert das)
+                                        //   3. Notes enthalten 'pünktlich' / 'termin' / 'fix' / 'wichtig'
+                                        //   4. Customer-Flag punctualityRequired = true
+                                        //   5. Bereits 1× verschoben (v6.63.409 Sperre)
                                         const _alreadyShifted = ride.pickupTimeShifted === true || (ride.originalPickupTimestamp != null && ride.originalPickupTimestamp !== ride.pickupTimestamp);
-                                        const _autoExecOpt = _alreadyShifted ? null : (() => {
+                                        const _rideDistance = Number(ride.distance || ride.estimatedDistance || 0);
+                                        const _isLongRide = _rideDistance > 5;
+                                        const _isFlexible = ride.flexibility == null || ride.flexibility > 0;
+                                        const _notes = String(ride.notes || ride.bemerkung || ride.comment || '').toLowerCase();
+                                        const _notesPuncRule = /\b(pünktlich|puenktlich|termin|fix|wichtig|streng|nicht verschieben)\b/i.test(_notes);
+                                        let _customerPunctuality = false;
+                                        if (ride.customerId) {
+                                            try {
+                                                const _cSnap = await db.ref(`customers/${ride.customerId}/punctualityRequired`).once('value');
+                                                _customerPunctuality = _cSnap.val() === true;
+                                            } catch (_) {}
+                                        }
+                                        const _skipAutoResolve = _alreadyShifted || _isLongRide || !_isFlexible || _notesPuncRule || _customerPunctuality;
+                                        const _autoExecOpt = _skipAutoResolve ? null : (() => {
                                             const _wpShift = _options.find(o => o.action === 'shift-wartepool' && o.shiftMin === 5);
                                             if (_wpShift) return _wpShift;
                                             const _otherShift5 = _options.find(o => o.action === 'shift-other-assign-to-wp' && o.shiftMin === -5);
@@ -20455,6 +20471,9 @@ exports.autoResolveConflicts = onSchedule(
                                             if (_otherShift10) return _otherShift10;
                                             return null;
                                         })();
+                                        if (_skipAutoResolve) {
+                                            console.log(`   ⏭️ v6.63.410 Auto-Resolve SKIP für ${ride.customerName||'?'}: alreadyShifted=${_alreadyShifted} long=${_isLongRide}(${_rideDistance}km) flex=${_isFlexible} notes=${_notesPuncRule} cust=${_customerPunctuality}`);
+                                        }
 
                                         if (_autoExecOpt) {
                                             console.log(`🤖 v6.63.382 AUTO-EXEC: ${_autoExecOpt.action} ${_autoExecOpt.shiftMin}min für ${ride.customerName}`);

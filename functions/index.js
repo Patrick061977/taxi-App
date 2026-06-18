@@ -19554,7 +19554,17 @@ async function handleWhatsAppIncomingMessage(msg, contact, value) {
 
     // Speichere aktuellen Stand
     await db.ref('whatsappPending/' + from).update({
-        from, customerName, fields: merged, lastTs: ts, lastMessage: text
+        from, customerName, fields: merged, lastTs: ts, lastMessage: text,
+        // 🐛 v6.63.412 BUG-FIX (Patrick 18.06. 12:31 "diese bisherigen Ziele
+        //   nimmt er noch nicht, Quick-Button funktioniert immer noch nicht"):
+        //   crmAddress + topDestinations + crmCustomerId + crmChecked wurden im
+        //   handle-Code in lokalem pending-Object gesetzt aber NIE persistiert.
+        //   Beim nächsten Webhook-Call wurde alles neu geladen → Quick-Suggest
+        //   verlor sich. Jetzt: explizit mitspeichern damit Multi-Turn funktioniert.
+        ...(pending.crmAddress ? { crmAddress: pending.crmAddress } : {}),
+        ...(pending.topDestinations ? { topDestinations: pending.topDestinations } : {}),
+        ...(pending.crmCustomerId ? { crmCustomerId: pending.crmCustomerId } : {}),
+        ...(pending.crmChecked ? { crmChecked: true } : {})
     });
 
     // 🆕 v6.63.388: Wenn pending in 'awaiting-confirmation', verarbeite Confirm/Korrektur
@@ -19717,6 +19727,16 @@ async function handleWhatsAppIncomingMessage(msg, contact, value) {
             const nextStage = !merged.bemerkungAsked ? 'asking-bemerkung' : 'asking-notify';
             await db.ref('whatsappPending/' + from).update({
                 from, customerName, fields: merged, lastTs: ts, lastMessage: text,
+        // 🐛 v6.63.412 BUG-FIX (Patrick 18.06. 12:31 "diese bisherigen Ziele
+        //   nimmt er noch nicht, Quick-Button funktioniert immer noch nicht"):
+        //   crmAddress + topDestinations + crmCustomerId + crmChecked wurden im
+        //   handle-Code in lokalem pending-Object gesetzt aber NIE persistiert.
+        //   Beim nächsten Webhook-Call wurde alles neu geladen → Quick-Suggest
+        //   verlor sich. Jetzt: explizit mitspeichern damit Multi-Turn funktioniert.
+        ...(pending.crmAddress ? { crmAddress: pending.crmAddress } : {}),
+        ...(pending.topDestinations ? { topDestinations: pending.topDestinations } : {}),
+        ...(pending.crmCustomerId ? { crmCustomerId: pending.crmCustomerId } : {}),
+        ...(pending.crmChecked ? { crmChecked: true } : {}),
                 stage: nextStage
             });
             await sendWhatsAppMessage(toPhone, optQ);
@@ -19729,6 +19749,16 @@ async function handleWhatsAppIncomingMessage(msg, contact, value) {
     if (pending.stage !== 'awaiting-confirmation') {
         await db.ref('whatsappPending/' + from).update({
             from, customerName, fields: merged, lastTs: ts, lastMessage: text,
+        // 🐛 v6.63.412 BUG-FIX (Patrick 18.06. 12:31 "diese bisherigen Ziele
+        //   nimmt er noch nicht, Quick-Button funktioniert immer noch nicht"):
+        //   crmAddress + topDestinations + crmCustomerId + crmChecked wurden im
+        //   handle-Code in lokalem pending-Object gesetzt aber NIE persistiert.
+        //   Beim nächsten Webhook-Call wurde alles neu geladen → Quick-Suggest
+        //   verlor sich. Jetzt: explizit mitspeichern damit Multi-Turn funktioniert.
+        ...(pending.crmAddress ? { crmAddress: pending.crmAddress } : {}),
+        ...(pending.topDestinations ? { topDestinations: pending.topDestinations } : {}),
+        ...(pending.crmCustomerId ? { crmCustomerId: pending.crmCustomerId } : {}),
+        ...(pending.crmChecked ? { crmChecked: true } : {}),
             stage: 'awaiting-confirmation'
         });
         const summary = buildConfirmationSummary(merged, customerName);

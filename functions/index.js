@@ -20438,18 +20438,14 @@ exports.autoResolveConflicts = onSchedule(
                                         //   nötig (eigene Ride verschieben) → SOFORT ausführen.
                                         //   Wenn shift-other -5/-10 Min: ausführen wenn other-Ride
                                         //   kein Lock + kein active status (buildOptions filtert das schon).
-                                        const _autoExecOpt = (() => {
-                                            // Priorität 1: eigene Ride +5 Min später (Patrick: "+5 ist ok")
-                                            const _wpShift = _options.find(o => o.action === 'shift-wartepool' && o.shiftMin === 5);
-                                            if (_wpShift) return _wpShift;
-                                            // Priorität 2: andere Ride -5 Min früher (Patrick "5 Min früher geht immer")
-                                            const _otherShift5 = _options.find(o => o.action === 'shift-other-assign-to-wp' && o.shiftMin === -5);
-                                            if (_otherShift5) return _otherShift5;
-                                            // Priorität 3: andere Ride -10 Min (auch ok laut Patrick 10.06.)
-                                            const _otherShift10 = _options.find(o => o.action === 'shift-other-assign-to-wp' && o.shiftMin === -10);
-                                            if (_otherShift10) return _otherShift10;
-                                            return null;
-                                        })();
+                                        // 🐛 v6.63.408 (Patrick 18.06. 07:50 Bridge "auto resolve hat
+                                        //   automatisch umgeplant und viele termine so verschoben das
+                                        //   sie nicht mehr in der originalen position sind"):
+                                        //   AUTO-EXEC v6.63.382 hat zuviel verschoben — 5 Rides heute
+                                        //   morgen ohne dass Patrick wollte. Lösung: KEIN Auto-Shift
+                                        //   mehr — Vorschläge bleiben aber Push-only, Patrick klickt
+                                        //   selber im Telegram-Button.
+                                        const _autoExecOpt = null;
 
                                         if (_autoExecOpt) {
                                             console.log(`🤖 v6.63.382 AUTO-EXEC: ${_autoExecOpt.action} ${_autoExecOpt.shiftMin}min für ${ride.customerName}`);

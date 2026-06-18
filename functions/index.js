@@ -20556,16 +20556,17 @@ exports.autoResolveConflicts = onSchedule(
                                                 _customerPunctuality = _cSnap.val() === true;
                                             } catch (_) {}
                                         }
-                                        const _skipAutoResolve = _alreadyShifted || _isLongRide || !_isFlexible || _notesPuncRule || _customerPunctuality;
-                                        const _autoExecOpt = _skipAutoResolve ? null : (() => {
-                                            const _wpShift = _options.find(o => o.action === 'shift-wartepool' && o.shiftMin === 5);
-                                            if (_wpShift) return _wpShift;
-                                            const _otherShift5 = _options.find(o => o.action === 'shift-other-assign-to-wp' && o.shiftMin === -5);
-                                            if (_otherShift5) return _otherShift5;
-                                            const _otherShift10 = _options.find(o => o.action === 'shift-other-assign-to-wp' && o.shiftMin === -10);
-                                            if (_otherShift10) return _otherShift10;
-                                            return null;
-                                        })();
+                                        // 🚫 v6.63.415 HARTE DEAKTIVIERUNG (Patrick 18.06. 21:23 Bridge:
+                                        //   "Hast du Frau Müller wieder von alleine umgelegt? 5 Minuten?")
+                                        //   Trotz v6.63.410 Smart-Filter: Müller (4.8 km, flexibility=10,
+                                        //   ohne notes/punctuality) fiel durch ALLE 5 Sperren. Auto-Resolve
+                                        //   hat aus 21:30 → 21:35 gemacht ohne Patrick zu fragen.
+                                        //   Erkenntnis: 5km-Filter zu locker — 4.8 km ist Stadt-Fahrt aber
+                                        //   trotzdem oft ein Termin (Restaurant→Hotel-Tisch-Reservierung).
+                                        //   Lösung: KEIN automatischer Time-Shift mehr. Nur noch Vorschlags-
+                                        //   Push mit Inline-Buttons — Patrick klickt selber.
+                                        const _skipAutoResolve = true;
+                                        const _autoExecOpt = null;
                                         if (_skipAutoResolve) {
                                             console.log(`   ⏭️ v6.63.410 Auto-Resolve SKIP für ${ride.customerName||'?'}: alreadyShifted=${_alreadyShifted} long=${_isLongRide}(${_rideDistance}km) flex=${_isFlexible} notes=${_notesPuncRule} cust=${_customerPunctuality}`);
                                         }

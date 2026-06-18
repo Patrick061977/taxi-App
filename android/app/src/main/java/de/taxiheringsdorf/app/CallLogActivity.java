@@ -275,12 +275,62 @@ public class CallLogActivity extends AppCompatActivity {
         if (query == null || query.trim().isEmpty()) return;
         Toast.makeText(this, "🔍 Suche: " + query, Toast.LENGTH_SHORT).show();
         new Thread(() -> {
+            // 🆕 v6.63.413-C (Patrick 18.06. 12:58 Bridge "Dr. Darwisch wird nur
+            //   Hufelandstraße — Bot soll vollen POI-Namen behalten"): POI-Lookup
+            //   ZUERST aus /pois (Firebase) — dort liegen die manuell angelegten
+            //   POIs mit vollem Namen 'Dr. Darwisch, Hufelandstraße 1, ...'.
+            if (tryPoiLookup(query)) return;
             // STUFE 1: Places Text Search (New API) — gleicher Key wie Autocomplete
             if (tryPlacesTextSearch(query)) return;
             // STUFE 2: Nominatim (OpenStreetMap)
             runOnUiThread(() -> Toast.makeText(this, "↪ Places leer — versuche OpenStreetMap...", Toast.LENGTH_SHORT).show());
             tryNominatimSearch(query);
         }).start();
+    }
+
+    // 🆕 v6.63.413-C: POI-Lookup gegen /pois (Substring + Lowercase).
+    //   Patrick legt POIs mit komplettem Namen an (z.B. 'Dr. Darwisch, Hufelandstraße 1,
+    //   17438 Wolgast'). Vor Google Places fragen wir lokale POIs ab damit der
+    //   Name 1:1 übernommen wird ohne 'Cut'.
+    private boolean tryPoiLookup(String query) {
+        try {
+            final String needle = query.trim().toLowerCase();
+            if (needle.length() < 3) return false;
+            // Sync-Read aus Firebase über RTDB-Listener (synchron via CountDownLatch)
+            final java.util.concurrent.CountDownLatch latch = new java.util.concurrent.CountDownLatch(1);
+            final double[] resultLat = { Double.NaN };
+            final double[] resultLon = { Double.NaN };
+            final String[] resultName = { null };
+            FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("pois").addListenerForSingleValueEvent(new ValueEventListener() {
+                @Override public void onDataChange(@NonNull DataSnapshot s) {
+                    try {
+                        String bestName = null; Double bestLat = null, bestLon = null; int bestScore = 0;
+                        for (DataSnapshot c : s.getChildren()) {
+                            String name = c.child("name").getValue(String.class);
+                            Double lat = c.child("lat").getValue(Double.class);
+                            Double lon = c.child("lon").getValue(Double.class);
+                            if (name == null || lat == null || lon == null) continue;
+                            String nameLc = name.toLowerCase();
+                            int score = 0;
+                            if (nameLc.contains(needle)) score = 100 + needle.length();
+                            else if (needle.contains(nameLc) && nameLc.length() >= 4) score = 50 + nameLc.length();
+                            if (score > bestScore) { bestScore = score; bestName = name; bestLat = lat; bestLon = lon; }
+                        }
+                        if (bestScore > 0 && bestName != null) {
+                            resultName[0] = bestName; resultLat[0] = bestLat; resultLon[0] = bestLon;
+                        }
+                    } finally { latch.countDown(); }
+                }
+                @Override public void onCancelled(@NonNull DatabaseError e) { latch.countDown(); }
+            });
+            if (!latch.await(4, java.util.concurrent.TimeUnit.SECONDS)) return false;
+            if (resultName[0] == null) return false;
+            final String name = resultName[0]; final double lat = resultLat[0]; final double lon = resultLon[0];
+            runOnUiThread(() -> applyGeocodeResult(lat, lon, name, "POI-DB"));
+            return true;
+        } catch (Throwable t) {
+            return false;
+        }
     }
 
     // Stufe 1: Places Text Search via REST. Returns true wenn Treffer.
@@ -323,7 +373,30 @@ public class CallLogActivity extends AppCompatActivity {
             while (addrEnd > 0 && json.charAt(addrEnd - 1) == '\\') {
                 addrEnd = json.indexOf("\"", addrEnd + 1);
             }
-            final String display = decodeUmlaute(json.substring(addrStart, addrEnd));
+            final String formattedAddr = decodeUmlaute(json.substring(addrStart, addrEnd));
+            // 🆕 v6.63.413-B (Patrick 18.06. 12:58 Bridge "wenn ich Dr. Darwisch eingebe,
+            //   übernimmt er nur Hufelandstraße - schneidet das immer ab"):
+            //   displayName auch lesen + voranstellen wenn != formattedAddress-Anfang.
+            //   So bleibt 'Dr. Darwisch, Hufelandstraße 1, 17438 Wolgast' erhalten.
+            String displayName = null;
+            int dnIdx = json.indexOf("\"displayName\"");
+            if (dnIdx > 0) {
+                int dnText = json.indexOf("\"text\":\"", dnIdx);
+                if (dnText > 0) {
+                    int dnStart = dnText + 8;
+                    int dnEnd = json.indexOf("\"", dnStart);
+                    while (dnEnd > 0 && json.charAt(dnEnd - 1) == '\\') dnEnd = json.indexOf("\"", dnEnd + 1);
+                    if (dnEnd > 0) displayName = decodeUmlaute(json.substring(dnStart, dnEnd));
+                }
+            }
+            // Kombiniere displayName + formattedAddress wenn displayName != Anfang von formattedAddress
+            final String display;
+            if (displayName != null && !displayName.isEmpty()
+                    && !formattedAddr.toLowerCase().startsWith(displayName.toLowerCase())) {
+                display = displayName + ", " + formattedAddr;
+            } else {
+                display = formattedAddr;
+            }
             runOnUiThread(() -> {
                 applyGeocodeResult(lat, lon, display, "Google Places");
             });

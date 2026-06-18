@@ -298,6 +298,27 @@ public class CallRecordingsActivity extends AppCompatActivity {
             // v6.63.020: optionales -CW-Suffix für Call-Waiting-Aufnahmen
             Pattern fileRe = Pattern.compile("^(\\+?\\d+)-(\\d+)(?:-CW)?-(\\d+)\\.m4a$");
             long cutoff = System.currentTimeMillis() - 90L*24*3600*1000;
+            // 🆕 v6.63.414 Papierkorb-Auto-Cleanup: alle Files in _papierkorb älter als 30 Tage entfernen
+            try {
+                java.io.File trashRoot = new java.io.File(ACR_ROOT, "_papierkorb");
+                if (trashRoot.exists() && trashRoot.isDirectory()) {
+                    long trashCutoff = System.currentTimeMillis() - 30L*24*3600*1000;
+                    java.io.File[] trashFiles = trashRoot.listFiles();
+                    int cleaned = 0;
+                    if (trashFiles != null) for (java.io.File tf : trashFiles) {
+                        // Filename startet mit Timestamp z.B. '1781807402537__...'
+                        String fn = tf.getName();
+                        int sep = fn.indexOf("__");
+                        if (sep > 0) {
+                            try {
+                                long ts = Long.parseLong(fn.substring(0, sep));
+                                if (ts < trashCutoff) { if (tf.delete()) cleaned++; }
+                            } catch (Exception _ig) {}
+                        }
+                    }
+                    if (cleaned > 0) Log.i(TAG, "v6.63.414 Papierkorb-Cleanup: " + cleaned + " Dateien älter 30 Tage gelöscht");
+                }
+            } catch (Exception _e) { Log.w(TAG, "v6.63.414 Papierkorb-Cleanup Fehler: " + _e.getMessage()); }
             // walk: /ROOT/YYYY/MM/DD/+TelNr/*.m4a — beide Verzeichnisse
             java.util.List<File> allYears = new java.util.ArrayList<>();
             for (File root : roots) {
@@ -642,18 +663,48 @@ public class CallRecordingsActivity extends AppCompatActivity {
         String dt = new SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.GERMAN).format(new Date(r.timestamp));
         String name = r.customerName != null ? r.customerName : r.phone;
         new androidx.appcompat.app.AlertDialog.Builder(this)
-            .setTitle("Aufnahme löschen?")
-            .setMessage(name + "\n" + dt + "\n\nDie m4a-Datei wird vom Telefon gelöscht. Kann nicht rückgängig gemacht werden.")
-            .setPositiveButton("Löschen", (d, w) -> {
+            .setTitle("Aufnahme in Papierkorb verschieben?")
+            .setMessage(name + "\n" + dt + "\n\nDie m4a-Datei wird in den Papierkorb verschoben (/ACRCalls/_papierkorb/). Aus dem Papierkorb kannst du sie wiederherstellen oder endgültig löschen.")
+            .setPositiveButton("In Papierkorb", (d, w) -> {
                 stopPlayback();
                 boolean ok = false;
                 String errMsg = null;
                 String diag = "exists=" + r.file.exists() + " canW=" + r.file.canWrite() + " absPath=" + r.file.getAbsolutePath();
-                Log.i(TAG, "Delete-Versuch: " + diag);
-                // Try 1: direct file.delete()
+                Log.i(TAG, "Soft-Delete-Versuch: " + diag);
+                // 🆕 v6.63.414 (Patrick 18.06. 20:30 Bridge "Ja bauen"):
+                //   Soft-Delete — verschiebe in /sdcard/ACRCalls/_papierkorb/ statt hart löschen.
+                //   Dort liegt sie 30 Tage bis Auto-Cleanup, kann jederzeit wiederhergestellt werden.
+                try {
+                    java.io.File trashRoot = new java.io.File(ACR_ROOT, "_papierkorb");
+                    if (!trashRoot.exists()) trashRoot.mkdirs();
+                    // Dateiname mit Original-Pfad-Hash damit Wiederherstellung möglich
+                    String origRel = r.file.getAbsolutePath().replace(ACR_ROOT.getAbsolutePath(), "").replaceAll("[\\\\/:]+","_");
+                    java.io.File trashFile = new java.io.File(trashRoot, System.currentTimeMillis() + "__" + origRel);
+                    boolean renamed = r.file.renameTo(trashFile);
+                    Log.i(TAG, "v6.63.414 Soft-Delete rename: " + renamed + " → " + trashFile.getAbsolutePath());
+                    if (renamed) {
+                        ok = true;
+                    } else {
+                        // Fallback: copy + delete (wenn rename fehlt z.B. wegen verschiedener Mountpoints)
+                        try (java.io.InputStream in = new java.io.FileInputStream(r.file);
+                             java.io.OutputStream out = new java.io.FileOutputStream(trashFile)) {
+                            byte[] buf = new byte[8192]; int n;
+                            while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
+                        }
+                        ok = r.file.delete();
+                        if (!ok) trashFile.delete(); // Cleanup nach Fail
+                        Log.i(TAG, "v6.63.414 Soft-Delete copy+delete: " + ok);
+                    }
+                } catch (Exception e) {
+                    errMsg = "Soft-Delete: " + e.getMessage();
+                    Log.w(TAG, "v6.63.414 Soft-Delete Fehler: " + e.getMessage());
+                }
+                // Fallback auf alte Hart-Delete-Logik wenn Soft-Delete komplett fehlschlägt
+                if (!ok) {
                 try { ok = r.file.delete(); }
                 catch (Exception e) { errMsg = e.getMessage(); Log.w(TAG, "Delete-Error file.delete(): " + e.getMessage()); }
                 Log.i(TAG, "Direct delete result: " + ok);
+                }
                 // 🆕 v6.62.890 (Patrick 23.05. 09:25): 'Alle Dateien verwalten aktiv' aber Loeschen
                 //   fehlschlaegt. Auf Samsung S9+ (Android 10/11) kann file.delete() trotz
                 //   MANAGE_EXTERNAL_STORAGE fehlschlagen wenn ACR-App als Owner der Datei
@@ -714,7 +765,7 @@ public class CallRecordingsActivity extends AppCompatActivity {
                     } catch (Exception e) { Log.w(TAG, "Try 6 Fehler: " + e.getMessage()); }
                 }
                 if (ok) {
-                    Toast.makeText(this, "🗑️ Aufnahme gelöscht", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, "📦 In Papierkorb (30 Tage)", Toast.LENGTH_SHORT).show();
                     adapter.removeRecording(r);
                     int total = adapter.getItemCount();
                     header.setText(total + " Aufnahmen (letzte 90 Tage)");

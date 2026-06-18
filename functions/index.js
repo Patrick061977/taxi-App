@@ -18935,26 +18935,87 @@ function mergeBookingFields(existing, neu) {
 //   hat einfach Bansin genommen — er müsste schon GPS-Sachen Geocode"):
 //   POI-Lookup für Adressen. Sucht in /pois (Geocache) nach kurzen Pickup/Ziel-
 //   Strings und ersetzt sie durch volle Adresse wenn Match.
+// 🆕 v6.63.411 (Patrick 18.06. 12:26 Bridge: "Schulzstraße hat er nicht gefunden
+//   in Heringsdorf — Bot nicht intelligent genug"): Levenshtein-Distanz für
+//   Fuzzy-POI-Suche. 'Schultz' (mit t) findet 'Schulzen' (1 Char Unterschied).
+function levenshteinDistance(a, b) {
+    if (a === b) return 0;
+    if (!a.length) return b.length;
+    if (!b.length) return a.length;
+    const matrix = [];
+    for (let i = 0; i <= b.length; i++) matrix[i] = [i];
+    for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
+    for (let i = 1; i <= b.length; i++) {
+        for (let j = 1; j <= a.length; j++) {
+            if (b.charAt(i-1) === a.charAt(j-1)) matrix[i][j] = matrix[i-1][j-1];
+            else matrix[i][j] = Math.min(matrix[i-1][j-1] + 1, matrix[i][j-1] + 1, matrix[i-1][j] + 1);
+        }
+    }
+    return matrix[b.length][a.length];
+}
+
+function normalizeAddrToken(s) {
+    return String(s||'').toLowerCase()
+        .replace(/ß/g,'ss')
+        .replace(/ä/g,'ae').replace(/ö/g,'oe').replace(/ü/g,'ue')
+        .replace(/str\.?\b/g,'strasse')
+        .replace(/[\s\-_,;.]+/g,' ')
+        .trim();
+}
+
 async function resolveAddressViaPOI(addr) {
     if (!addr || typeof addr !== 'string') return null;
     const places = await getKnownPlaces();
     if (!places || Object.keys(places).length === 0) return null;
     const needle = addr.toLowerCase().trim();
+    const needleNorm = normalizeAddrToken(needle);
     // Exakter Match
     if (places[needle]) {
         return { name: places[needle].name, lat: places[needle].lat, lon: places[needle].lon, match: 'exact' };
     }
-    // Teilwort-Match: POI-Name enthält Eingabe ODER Eingabe enthält POI-Name
+    // Teilwort-Match
     const candidates = [];
     for (const [key, poi] of Object.entries(places)) {
-        if (key.includes(needle) || needle.includes(key)) {
-            candidates.push({ poi, key, score: (needle === key ? 100 : (key.length - Math.abs(key.length - needle.length))) });
+        const keyNorm = normalizeAddrToken(key);
+        // Substring-Match
+        if (keyNorm.includes(needleNorm) || needleNorm.includes(keyNorm)) {
+            candidates.push({ poi, key, score: 1000 + (needleNorm === keyNorm ? 100 : (key.length - Math.abs(key.length - needle.length))), match: 'substring' });
+            continue;
+        }
+        // 🆕 v6.63.411: Fuzzy-Match per Token: jedes Wort im needle gegen jedes Wort im key vergleichen
+        const needleTokens = needleNorm.split(' ').filter(t => t.length >= 4);
+        const keyTokens = keyNorm.split(' ').filter(t => t.length >= 4);
+        let bestTokenScore = 0;
+        for (const nt of needleTokens) {
+            for (const kt of keyTokens) {
+                const dist = levenshteinDistance(nt, kt);
+                const maxLen = Math.max(nt.length, kt.length);
+                const similarity = 1 - (dist / maxLen);
+                // 80%+ Ähnlichkeit oder Distance <= 2 für mind. 5-Zeichen-Wort
+                if (similarity > 0.8 || (dist <= 2 && maxLen >= 5)) {
+                    if (similarity * 100 > bestTokenScore) bestTokenScore = similarity * 100;
+                }
+            }
+        }
+        if (bestTokenScore >= 80) {
+            candidates.push({ poi, key, score: bestTokenScore, match: 'fuzzy', similarity: bestTokenScore });
         }
     }
     if (candidates.length === 0) return null;
     candidates.sort((a, b) => b.score - a.score);
     const best = candidates[0];
-    return { name: best.poi.name, lat: best.poi.lat, lon: best.poi.lon, match: 'partial', alternatives: candidates.slice(0, 3).map(c => c.poi.name) };
+    // 🆕 v6.63.411: Wenn fuzzy-Match → mehrere Alternativen zurückgeben damit Bot
+    //   den Kunden nachfragen kann statt blind zu wählen.
+    const ambiguous = candidates.length > 1 && (candidates[0].score - candidates[1].score) < 15 && best.match === 'fuzzy';
+    return {
+        name: best.poi.name,
+        lat: best.poi.lat,
+        lon: best.poi.lon,
+        match: best.match,
+        score: best.score,
+        ambiguous,
+        alternatives: candidates.slice(0, 3).map(c => ({ name: c.poi.name, lat: c.poi.lat, lon: c.poi.lon, score: c.score }))
+    };
 }
 
 // 🆕 v6.63.391 (Patrick 17.06. 14:34 Bridge: "Adresse punktgenau + geocodiert,
@@ -18988,6 +19049,10 @@ async function enrichAddressIfShort(addr) {
     // Versuche POI-Lookup (/pois)
     const poi = await resolveAddressViaPOI(addr);
     if (poi) {
+        // 🆕 v6.63.411: Bei mehrdeutigem Fuzzy-Match → needsClarification mit Alternativen
+        if (poi.ambiguous && poi.alternatives && poi.alternatives.length > 1) {
+            return { value: addr, enriched: false, original: addr, needsClarification: true, alternatives: poi.alternatives };
+        }
         return { value: poi.name, enriched: true, poi: poi, original: addr, source: 'poi' };
     }
     // 🆕 v6.63.390 (Patrick 17.06. 14:14 Bridge "Immer Google Places wenn Vorschläge"):

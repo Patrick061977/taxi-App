@@ -20438,14 +20438,23 @@ exports.autoResolveConflicts = onSchedule(
                                         //   nötig (eigene Ride verschieben) → SOFORT ausführen.
                                         //   Wenn shift-other -5/-10 Min: ausführen wenn other-Ride
                                         //   kein Lock + kein active status (buildOptions filtert das schon).
-                                        // 🐛 v6.63.408 (Patrick 18.06. 07:50 Bridge "auto resolve hat
-                                        //   automatisch umgeplant und viele termine so verschoben das
-                                        //   sie nicht mehr in der originalen position sind"):
-                                        //   AUTO-EXEC v6.63.382 hat zuviel verschoben — 5 Rides heute
-                                        //   morgen ohne dass Patrick wollte. Lösung: KEIN Auto-Shift
-                                        //   mehr — Vorschläge bleiben aber Push-only, Patrick klickt
-                                        //   selber im Telegram-Button.
-                                        const _autoExecOpt = null;
+                                        // 🆕 v6.63.409 (Patrick 18.06. 07:11 Bridge "max 10 Min früher
+                                        //   oder 5 Min später — aber Termine NICHT ins Unendliche
+                                        //   schieben"): Auto-Resolve mit Hard-Sperre. Pro Ride MAX
+                                        //   EINMAL — wenn schon mal verschoben (pickupTimeShifted=true
+                                        //   oder originalPickupTimestamp gesetzt) → NICHT mehr touch.
+                                        //   Plus: shift-other nur -5/-10 Min (early ok), shift-self nur
+                                        //   +5 Min (Patrick-Regel max 5 später).
+                                        const _alreadyShifted = ride.pickupTimeShifted === true || (ride.originalPickupTimestamp != null && ride.originalPickupTimestamp !== ride.pickupTimestamp);
+                                        const _autoExecOpt = _alreadyShifted ? null : (() => {
+                                            const _wpShift = _options.find(o => o.action === 'shift-wartepool' && o.shiftMin === 5);
+                                            if (_wpShift) return _wpShift;
+                                            const _otherShift5 = _options.find(o => o.action === 'shift-other-assign-to-wp' && o.shiftMin === -5);
+                                            if (_otherShift5) return _otherShift5;
+                                            const _otherShift10 = _options.find(o => o.action === 'shift-other-assign-to-wp' && o.shiftMin === -10);
+                                            if (_otherShift10) return _otherShift10;
+                                            return null;
+                                        })();
 
                                         if (_autoExecOpt) {
                                             console.log(`🤖 v6.63.382 AUTO-EXEC: ${_autoExecOpt.action} ${_autoExecOpt.shiftMin}min für ${ride.customerName}`);
@@ -20496,7 +20505,11 @@ exports.autoResolveConflicts = onSchedule(
                                                     // Other Ride um shiftMin Min früher + Vehicle an Wartepool-Ride
                                                     const _otherSnap = await db.ref('rides/' + _autoExecOpt.otherRideId).once('value');
                                                     const _otherRide = _otherSnap.val();
-                                                    if (_otherRide && !_otherRide.assignmentLocked && !['accepted','on_way','picked_up','completed','cancelled','deleted'].includes(_otherRide.status)) {
+                                                    // 🆕 v6.63.409: Other-Ride darf nicht schon mal verschoben sein
+                                                    const _otherAlreadyShifted = _otherRide && (_otherRide.pickupTimeShifted === true || (_otherRide.originalPickupTimestamp != null && _otherRide.originalPickupTimestamp !== _otherRide.pickupTimestamp));
+                                                    if (_otherAlreadyShifted) {
+                                                        console.log(`   ⏭️ v6.63.409 shift-other-Abbruch: ${_otherRide.customerName || '?'} wurde schon mal verschoben (1x pro Ride Limit)`);
+                                                    } else if (_otherRide && !_otherRide.assignmentLocked && !['accepted','on_way','picked_up','completed','cancelled','deleted'].includes(_otherRide.status)) {
                                                         const _otherNewTs = _otherRide.pickupTimestamp + _autoExecOpt.shiftMin * 60000;
                                                         const _otherNewTimeStr = new Date(_otherNewTs).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' });
                                                         const _otherOrigStr = new Date(_otherRide.pickupTimestamp).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' });

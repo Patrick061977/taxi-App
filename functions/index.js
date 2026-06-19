@@ -25859,6 +25859,43 @@ exports.onRideCreated = onValueCreated(
 
         console.log(`📱 onRideCreated: ${rideId} — ${ride.customerName || 'Unbekannt'} — source: ${ride.source || 'browser'}`);
 
+        // 🆕 v6.63.424 (Patrick 19.06. 15:20 + 16:31 Bridge: "die Uhrzeit entscheidet,
+        //   nicht der Status — alles >30 Min Vorlauf = Vorbestellung, alles <30 = Sofort"):
+        //   onRideCreated normalisiert ride.status nach Pickup-Zeit. User-Auswahl wird
+        //   überschrieben wenn inkonsistent. Schwelle aus settings/pricing/sofortSchwelleMin
+        //   (Default 30 Min). Sofort-Status nur wenn er nicht bereits "höher" ist (accepted/on_way/etc).
+        try {
+            const _statusLow = String(ride.status || '').toLowerCase();
+            const _normalizable = _statusLow === 'sofort' || _statusLow === 'vorbestellt' || _statusLow === 'new' || _statusLow === '';
+            if (_normalizable && ride.pickupTimestamp) {
+                let _schwelleMin = 30;
+                try {
+                    const _sSnap = await db.ref('settings/pricing/sofortSchwelleMin').once('value');
+                    const _v = Number(_sSnap.val());
+                    if (Number.isFinite(_v) && _v > 0 && _v < 240) _schwelleMin = _v;
+                } catch (_) {}
+                const _minBisPickup = (ride.pickupTimestamp - Date.now()) / 60000;
+                const _shouldBeSofort = _minBisPickup <= _schwelleMin;
+                const _shouldStatus = _shouldBeSofort ? 'sofort' : 'vorbestellt';
+                if (_statusLow !== _shouldStatus) {
+                    try {
+                        await db.ref('rides/' + rideId).update({ status: _shouldStatus, statusNormalizedBy: 'cloud-onRideCreated-v6.63.424', statusNormalizedAt: Date.now() });
+                        await addRideLog(rideId, '🔄', `Status normalisiert: ${_statusLow || '(leer)'} → ${_shouldStatus}`, {
+                            minutesUntilPickup: Math.round(_minBisPickup),
+                            schwelleMin: _schwelleMin,
+                            grund: 'Zeit-basiert (v6.63.424)'
+                        });
+                        ride.status = _shouldStatus;
+                        console.log(`🔄 v6.63.424 Status normalisiert ${rideId}: ${_statusLow} → ${_shouldStatus} (${Math.round(_minBisPickup)} Min Vorlauf, Schwelle ${_schwelleMin})`);
+                    } catch (_normErr) {
+                        console.warn('v6.63.424 Status-Normalisierung Fehler:', _normErr.message);
+                    }
+                }
+            }
+        } catch (_normCheckErr) {
+            console.warn('v6.63.424 Status-Check Fehler:', _normCheckErr.message);
+        }
+
         // v6.63.350 (Patrick 15.06. 12:31 'altbekannte Adresse, warum kein Vehicle'):
         //   Antje Faulenbach hatte Coords aber drivingTimeToDestination=null.
         //   Native-CRM-Suche schreibt das Feld nicht beim Anlegen.

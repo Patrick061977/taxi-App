@@ -2707,6 +2707,22 @@ public class CallLogActivity extends AppCompatActivity {
                 else if (ageSec < 3600) age = (ageSec / 60) + " Min";
                 else if (ageSec < 86400) age = (ageSec / 3600) + " Std";
                 else age = (ageSec / 86400) + " Tagen";
+                // 🆕 v6.63.428 (Patrick 19.06. 21:53 Bridge: "In der App Anrufliste steht
+                //   keine Uhrzeit"): vor X Std reicht nicht — bei Anrufen vor mehreren
+                //   Stunden willst du auch die echte Uhrzeit sehen. Plus Datum bei >24h.
+                java.text.SimpleDateFormat _sdfTime = new java.text.SimpleDateFormat("HH:mm", java.util.Locale.GERMANY);
+                _sdfTime.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
+                String _absTime;
+                if (ageSec < 86400) {
+                    // heute → nur HH:mm
+                    _absTime = _sdfTime.format(new java.util.Date(e.date));
+                } else {
+                    // älter → dd.MM. HH:mm
+                    java.text.SimpleDateFormat _sdfFull = new java.text.SimpleDateFormat("dd.MM. HH:mm", java.util.Locale.GERMANY);
+                    _sdfFull.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
+                    _absTime = _sdfFull.format(new java.util.Date(e.date));
+                }
+                age = _absTime + " · vor " + age;
 
                 // 🆕 v6.62.676: ACR-Aufnahme suchen (cache am CallEntry damit nicht jedes
                 //   Rebind die Filesystem-Abfrage triggert).
@@ -2757,7 +2773,8 @@ public class CallLogActivity extends AppCompatActivity {
                     }
                     itemView.setPadding(0, itemView.getPaddingTop(), itemView.getPaddingRight(), itemView.getPaddingBottom());
                 }
-                tvTime.setText("vor " + age + (e.durationSec > 0 ? " · Dauer " + e.durationSec + "s" : "") + audioHint + queueHint);
+                // v6.63.428: age enthält jetzt schon 'HH:mm · vor X Std' — kein zusätzliches 'vor' prefix
+                tvTime.setText(age + (e.durationSec > 0 ? " · Dauer " + e.durationSec + "s" : "") + audioHint + queueHint);
                 // v6.63.008 Debug: Wenn Patrick Long-Press macht UND kein ACR-File da ist,
                 //   zeigen wir Gap-Info im Toast damit erkennbar warum kein 🔗-Tag.
 

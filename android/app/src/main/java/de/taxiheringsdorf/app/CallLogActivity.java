@@ -820,7 +820,11 @@ public class CallLogActivity extends AppCompatActivity {
             //   Realer Anruf-Setup hat Provider-Latenz; bisheriger Code verwarf zudem
             //   Faelle wo Anruf B WAEHREND Anruf A reinkam (negative gap = klassische
             //   Telefon-Warteschlange — genau Patricks Use-Case).
-            final long QUEUE_CHAIN_THRESHOLD_MS = 10000L;
+            // 🆕 v6.63.427 (Patrick 19.06. 21:36 Bridge: "manchmal funktioniert es, aber
+            //   nicht immer. 2 Anrufe hintereinander werden nicht angezeigt"): 10s zu kurz,
+            //   bei 30-60s Lücke wurde Warteschlange übersehen. Auf 60s hochziehen. Realer
+            //   Use-Case: Fröhlich-Anruf 1:09 lang, danach 20-40s später kommt der zweite.
+            final long QUEUE_CHAIN_THRESHOLD_MS = 60000L;
             for (int i = 0; i < result.size() - 1; i++) {
                 CallEntry curr = result.get(i);
                 CallEntry prev = result.get(i + 1);

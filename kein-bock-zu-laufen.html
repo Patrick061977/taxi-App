@@ -1152,22 +1152,18 @@ const ANGEBOT = {
 <section class="hero">
     <div class="hero-content">
         <span class="hero-badge">Seit 1991 auf Usedom</span>
-        <!-- 🆕 v6.63.366 (Patrick 16.06. 14:35 Bridge: "Wer in Heringsdorf keinen Bock
-             zu laufen hat, der kann 22022 anrufen — Content erstellen"):
-             H1 mit der Marken-Phrase plus erkl&auml;render Body-Text fuer SEO-Ranking
-             bei Google-Suche nach "kein bock zu laufen". -->
+        <!-- 🆕 v6.63.419 (Patrick 19.06. 09:29 Bridge: "kein-bock-zu-laufen.html so
+             aussehen wie umwelt-taxi-insel-usedom.de, zu viel Schrift hier weg"):
+             Erklär-Absatz aus Hero raus, Layout an landing.html angeglichen. SEO-Phrase
+             bleibt nur in H1, Body-Content steht weiterhin in den Sektionen unten. -->
         <h1>Kein Bock zu laufen? Taxi Heringsdorf &middot; Ahlbeck &middot; Bansin</h1>
         <p class="hero-subtitle">Umwelt Taxi auf der Insel Usedom &mdash; Online buchen, Live-Tracking, Pauschalpreise nach Świnoujście</p>
-        <p style="margin:14px 0 0;font-size:15px;line-height:1.5;color:rgba(255,255,255,0.92);max-width:660px;">
-            Wer in Heringsdorf, Ahlbeck oder Bansin <strong>keinen Bock zu laufen</strong> hat &mdash;
-            wir holen Sie ab. Tag und Nacht, jeden Tag im Jahr.
-            Einfach <a href="tel:+493837822022" style="color:#fde68a;font-weight:700;text-decoration:underline;">038378&nbsp;22022</a>
-            anrufen oder unten online buchen.
-        </p>
         <div class="hero-buttons">
             <a href="tel:+493837822022" class="btn-primary">📞 Jetzt anrufen</a>
             <a href="https://wa.me/4915127585179?text=Hallo%2C%20ich%20brauche%20ein%20Taxi" target="_blank" class="btn-outline" style="border-color:#25D366;color:#25D366;">💬 WhatsApp</a>
             <a href="anfrage.html" class="btn-outline">✉️ Anfrage</a>
+            <!-- 🆕 v6.63.419: Veranstaltungs-Button konsistent zu landing.html -->
+            <a href="veranstaltungen-heringsdorf.html" class="btn-outline" style="border-color:#f59e0b;color:#f59e0b;">🎭 Veranstaltungen</a>
         </div>
         <!-- 🆕 v6.62.610: Patrick "App installieren ein bischen groesser, die Blase unten weg".
              Anker fuer prominente Install-CTA — pwa-install.js injiziert hier rein wenn der
@@ -1181,36 +1177,8 @@ const ANGEBOT = {
     </div>
 </section>
 
-<!-- ==================== KEIN-BOCK-CONTENT-SEKTION (v6.63.366) ==================== -->
-<section class="section" style="background:#fff;padding:48px 0;">
-    <div class="container" style="max-width:780px;">
-        <h2 class="section-title">Kein Bock zu laufen? Wir sind da.</h2>
-        <p class="section-subtitle">Funk Taxi Heringsdorf &mdash; Ihr zuverl&auml;ssiges Taxi auf der Insel Usedom</p>
-        <div style="font-size:16px;line-height:1.7;color:#374151;margin-top:24px;">
-            <p>
-                Manchmal hat man einfach <strong>keinen Bock zu laufen</strong>. Sei es nach einem
-                langen Spaziergang an der Strandpromenade, nach einem ausgiebigen Abendessen im
-                Restaurant oder wenn der Koffer einfach zu schwer ist. Genau dann ist
-                <strong>Funk Taxi Heringsdorf</strong> Ihr Partner: ein Anruf unter
-                <a href="tel:+493837822022"><strong>038378 22022</strong></a> und wir sind unterwegs.
-            </p>
-            <p>
-                Wir fahren Sie in Heringsdorf, Ahlbeck, Bansin, Zinnowitz, Koserow, Trassenheide,
-                &Uuml;ckeritz und überall auf der Insel Usedom &mdash; auch nach Świnouj&#347;cie
-                (Swinem&uuml;nde) mit transparenten Pauschalpreisen ab 20&nbsp;€.
-            </p>
-            <p>
-                <strong>Wer keinen Bock zu laufen hat</strong>, ruft 22022 &mdash; oder bucht
-                bequem online mit Live-Tracking, Preisrechner und SMS-Best&auml;tigung. 24/7
-                erreichbar, seit 1991 auf Usedom.
-            </p>
-            <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:24px;">
-                <a href="tel:+493837822022" class="btn-primary">📞 Jetzt 038378 22022 anrufen</a>
-                <a href="https://wa.me/4915127585179?text=Hallo%2C%20ich%20brauche%20ein%20Taxi" target="_blank" class="btn-outline" style="border-color:#25D366;color:#25D366;">💬 WhatsApp 0151 27585179</a>
-            </div>
-        </div>
-    </div>
-</section>
+<!-- v6.63.419: Extra-Content-Sektion entfernt (zu viel Schrift, redundant zur FAQ/About).
+     SEO-Phrase 'kein bock zu laufen' bleibt in H1 + Meta-Tags ausreichend. -->
 
 <!-- ==================== TRUST BAR ==================== -->
 <div class="trust-bar">
@@ -1645,6 +1613,12 @@ function showAnfrageSuccess() {
             <a href="https://funk-taxi-heringsdorf.de/datenschutz" class="footer-link" target="_blank" rel="noopener">Datenschutz</a>
             <a href="kontakt.html" class="footer-link">💬 Kontakt / Feedback</a>
         </div>
+    </div>
+    <!-- 🆕 v6.63.419: Domain-Crosslink — beide Domains verweisen aufeinander -->
+    <div class="footer-bottom" style="opacity:0.85;font-size:11px;line-height:1.6;">
+        Auch erreichbar unter
+        <a href="https://umwelt-taxi-insel-usedom.de/" style="color:#fde68a;font-weight:600;text-decoration:underline;">umwelt-taxi-insel-usedom.de</a>
+        &middot; <a href="https://funk-taxi-heringsdorf.de/" style="color:#fde68a;font-weight:600;text-decoration:underline;">funk-taxi-heringsdorf.de</a>
     </div>
     <div class="footer-bottom">
         &copy; 2026 Funk Taxi Heringsdorf &mdash; Ihr Taxi auf Usedom

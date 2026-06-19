@@ -20556,17 +20556,39 @@ exports.autoResolveConflicts = onSchedule(
                                                 _customerPunctuality = _cSnap.val() === true;
                                             } catch (_) {}
                                         }
-                                        // 🚫 v6.63.415 HARTE DEAKTIVIERUNG (Patrick 18.06. 21:23 Bridge:
-                                        //   "Hast du Frau Müller wieder von alleine umgelegt? 5 Minuten?")
-                                        //   Trotz v6.63.410 Smart-Filter: Müller (4.8 km, flexibility=10,
-                                        //   ohne notes/punctuality) fiel durch ALLE 5 Sperren. Auto-Resolve
-                                        //   hat aus 21:30 → 21:35 gemacht ohne Patrick zu fragen.
-                                        //   Erkenntnis: 5km-Filter zu locker — 4.8 km ist Stadt-Fahrt aber
-                                        //   trotzdem oft ein Termin (Restaurant→Hotel-Tisch-Reservierung).
-                                        //   Lösung: KEIN automatischer Time-Shift mehr. Nur noch Vorschlags-
-                                        //   Push mit Inline-Buttons — Patrick klickt selber.
-                                        const _skipAutoResolve = true;
-                                        const _autoExecOpt = null;
+                                        // 🆕 v6.63.416 (Patrick 18.06. 21:33 Bridge: "wenn es Sinn macht
+                                        //   mit Auto-Resolve, dann ist es ja auch in Ordnung, aber wofür"):
+                                        //   Smart-Reason-Filter — Auto-Resolve nur wenn Konflikt ein ZEIT-
+                                        //   Konflikt ist (Vorfahrt überlappt). Schicht-Lücke ist nicht durch
+                                        //   5 Min Verschieben lösbar (Müller-Fall: 5 Vehicles Do nicht aktiv).
+                                        const _reasonStr = String(ride.wartepoolReason || ride.autoAssignLastReason || '').toLowerCase();
+                                        const _isShiftIssue = /schicht|wochenplan|defaults|nicht aktiv|außerhalb|ausserhalb|kein dienst|forceended/i.test(_reasonStr);
+                                        const _isTimeConflict = /zeitkonflikt|vorfahrt|busy|delay|gerade besetzt|aktuell besetzt/i.test(_reasonStr);
+                                        const _alreadyShifted = ride.pickupTimeShifted === true || (ride.originalPickupTimestamp != null && ride.originalPickupTimestamp !== ride.pickupTimestamp);
+                                        const _rideDistance = Number(ride.distance || ride.estimatedDistance || 0);
+                                        const _isLongRide = _rideDistance > 5;
+                                        const _isFlexible = ride.flexibility == null || ride.flexibility > 0;
+                                        const _notes = String(ride.notes || ride.bemerkung || ride.comment || '').toLowerCase();
+                                        const _notesPuncRule = /\b(pünktlich|puenktlich|termin|fix|wichtig|streng|nicht verschieben)\b/i.test(_notes);
+                                        // Skip-Regeln:
+                                        // 1. Bereits einmal verschoben (kein Doppel-Shift)
+                                        // 2. Schicht-Lücke (5 Min ändert keine Schichtzeiten)
+                                        // 3. Lange Strecke (Pendel-Termin)
+                                        // 4. Notes/CRM markieren als pünktlich
+                                        // 5. Kein erkennbarer Zeitkonflikt (= nur ratet ohne Grund)
+                                        const _skipAutoResolve = _alreadyShifted || _isShiftIssue || _isLongRide || !_isFlexible || _notesPuncRule || !_isTimeConflict;
+                                        const _autoExecOpt = _skipAutoResolve ? null : (() => {
+                                            const _wpShift = _options.find(o => o.action === 'shift-wartepool' && o.shiftMin === 5);
+                                            if (_wpShift) return _wpShift;
+                                            const _otherShift5 = _options.find(o => o.action === 'shift-other-assign-to-wp' && o.shiftMin === -5);
+                                            if (_otherShift5) return _otherShift5;
+                                            const _otherShift10 = _options.find(o => o.action === 'shift-other-assign-to-wp' && o.shiftMin === -10);
+                                            if (_otherShift10) return _otherShift10;
+                                            return null;
+                                        })();
+                                        if (_skipAutoResolve) {
+                                            console.log(`   ⏭️ v6.63.416 Auto-Resolve SKIP für ${ride.customerName||'?'}: shifted=${_alreadyShifted} shiftIssue=${_isShiftIssue} long=${_isLongRide}(${_rideDistance}km) flex=${_isFlexible} notes=${_notesPuncRule} timeConflict=${_isTimeConflict}`);
+                                        }
                                         if (_skipAutoResolve) {
                                             console.log(`   ⏭️ v6.63.410 Auto-Resolve SKIP für ${ride.customerName||'?'}: alreadyShifted=${_alreadyShifted} long=${_isLongRide}(${_rideDistance}km) flex=${_isFlexible} notes=${_notesPuncRule} cust=${_customerPunctuality}`);
                                         }

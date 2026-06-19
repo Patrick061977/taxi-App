@@ -20533,22 +20533,6 @@ exports.autoResolveConflicts = onSchedule(
                                         //   nötig (eigene Ride verschieben) → SOFORT ausführen.
                                         //   Wenn shift-other -5/-10 Min: ausführen wenn other-Ride
                                         //   kein Lock + kein active status (buildOptions filtert das schon).
-                                        // 🆕 v6.63.410 (Patrick 18.06. 07:19-07:20 Bridge: "diese
-                                        //   automatische Lösung ist schon geil. Wir müssen halt nur
-                                        //   schauen, dass wir die richtige Logik verwenden. Wir müssen
-                                        //   ihm nur ein paar Regeln mitgeben"):
-                                        //   Smart-Filter VOR Auto-Shift. Skip wenn:
-                                        //   1. Distance > 5km (Pendel = vermutlich fester Termin)
-                                        //   2. flexibility = 0 (Patrick markiert das)
-                                        //   3. Notes enthalten 'pünktlich' / 'termin' / 'fix' / 'wichtig'
-                                        //   4. Customer-Flag punctualityRequired = true
-                                        //   5. Bereits 1× verschoben (v6.63.409 Sperre)
-                                        const _alreadyShifted = ride.pickupTimeShifted === true || (ride.originalPickupTimestamp != null && ride.originalPickupTimestamp !== ride.pickupTimestamp);
-                                        const _rideDistance = Number(ride.distance || ride.estimatedDistance || 0);
-                                        const _isLongRide = _rideDistance > 5;
-                                        const _isFlexible = ride.flexibility == null || ride.flexibility > 0;
-                                        const _notes = String(ride.notes || ride.bemerkung || ride.comment || '').toLowerCase();
-                                        const _notesPuncRule = /\b(pünktlich|puenktlich|termin|fix|wichtig|streng|nicht verschieben)\b/i.test(_notes);
                                         let _customerPunctuality = false;
                                         if (ride.customerId) {
                                             try {

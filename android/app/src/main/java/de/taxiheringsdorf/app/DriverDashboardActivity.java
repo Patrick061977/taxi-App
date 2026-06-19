@@ -4489,7 +4489,11 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 }
 
                 String stl = s.toLowerCase();
-                boolean canAcceptReject = stl.equals("new") || stl.equals("assigned") || stl.equals("sofort") || stl.equals("vorbestellt") || stl.equals("warteschlange");
+                // 🆕 v6.63.423 (Patrick 19.06. 14:49 Bridge: "Wartepool steht einfach da,
+                //   ich kann nicht antippen, nicht bearbeiten — die Fahrt liegt blockiert
+                //   bis Auto-Resolve. Das nervt."): wartepool jetzt auch annehmbar.
+                //   Fahrer pickt sich aus dem Wartepool raus — gleicher Flow wie 'new'.
+                boolean canAcceptReject = stl.equals("new") || stl.equals("assigned") || stl.equals("sofort") || stl.equals("vorbestellt") || stl.equals("warteschlange") || stl.equals("wartepool");
                 boolean isActive = isActiveStatus(s);
 
                 // v6.47.7: Vergangene vorbestellt/assigned-Aufträge → 'Erledigt'/'Storno' statt

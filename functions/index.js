@@ -1216,7 +1216,10 @@ async function autoAssignRide(rideId, rideData, _excludeVehicleIds = []) {
         //   Großgruppen frei bleibt.
         const _LARGE_PAX_THRESHOLD = 5;
         const _LARGE_VEHICLE_CAPACITY = 8;
-        const _activeStatusesForPaxReserve = ['new','vorbestellt','assigned','accepted','warteschlange','wartepool'];
+        // 🆕 v6.63.425 (Patrick 19.06. 16:34 Bridge "schau ob 'sofort' überall berücksichtigt wird"):
+        //   'sofort' war hier nicht drin → Sitzplatz-Reservierungs-Check übersah Sofort-Rides.
+        //   Nach v6.63.424 (Status-Normalisierung) bleibt 'sofort' u.U. länger stehen.
+        const _activeStatusesForPaxReserve = ['new','sofort','vorbestellt','assigned','accepted','warteschlange','wartepool'];
         const _largeUnassignedSameDay = allRides.filter(r => {
             if (!r || !r.pickupTimestamp) return false;
             if (r.firebaseId === rideId) return false;
@@ -5185,7 +5188,7 @@ async function checkTelegramTimeConflict(pickupTimestamp, estimatedDuration) {
         const rides = ridesSnap.val();
         if (!rides) return null; // Keine Fahrten → kein Konflikt
 
-        const activeStatuses = ['new', 'open', 'assigned', 'vorbestellt', 'picked_up', 'ongoing', 'accepted'];
+        const activeStatuses = ['new', 'open', 'sofort', 'assigned', 'vorbestellt', 'picked_up', 'ongoing', 'accepted']; // v6.63.425 'sofort' ergänzt
         const duration = estimatedDuration || 30; // Fallback: 30 Min
         const requestedEnd = pickupTimestamp + (duration * 60000);
         const bufferMs = 10 * 60000; // 10 Min Puffer zwischen Fahrten
@@ -20395,7 +20398,7 @@ exports.autoResolveConflicts = onSchedule(
                         //   Konflikt-ENTSTEHUNG. Override hier ist nur Backup.
                         for (const r of [a, b]) {
                             if (!allRides.find(x => x.firebaseId === r.firebaseId)) {
-                                if (['vorbestellt','assigned','wartepool','new'].includes(r.status) &&
+                                if (['vorbestellt','sofort','assigned','wartepool','new'].includes(r.status) && // v6.63.425 'sofort' ergänzt
                                     r.pickupTimestamp > now + 30 * 60000) {
                                     allRides.push(r);
                                     console.log(`⚠️ v6.63.275 Konflikt-Vorlauf-Override: ${r.customerName || '?'} (${new Date(r.pickupTimestamp).toLocaleString('de-DE')}) auf ${vid} in allRides aufgenommen`);
@@ -35335,7 +35338,7 @@ exports.healthCheck = onRequest(
             // 2. Aktive Fahrten
             const ridesSnap = await db.ref('rides').orderByChild('pickupTimestamp')
                 .startAt(now - 2 * 3600000).endAt(now + 24 * 3600000).once('value');
-            const activeStatuses = ['new', 'assigned', 'vorbestellt', 'accepted', 'picked_up', 'on_way'];
+            const activeStatuses = ['new', 'sofort', 'assigned', 'vorbestellt', 'accepted', 'picked_up', 'on_way']; // v6.63.425 'sofort' ergänzt
             const rides = { new: [], assigned: [], vorbestellt: [], accepted: [], running: [] };
             ridesSnap.forEach(child => {
                 const r = child.val();

@@ -3083,6 +3083,17 @@ public class DriverDashboardActivity extends AppCompatActivity {
         else if (next.equals("picked_up")) u.put("pickedUpAt", System.currentTimeMillis());
         db.getReference("rides/" + r.id).updateChildren(u);
 
+        // 🆕 v6.63.421 (Patrick 19.06. 13:02 Bridge: "wenn ich Unterwegs drücke
+        //   soll das Gewimmel auch aufhören"):
+        //   Bisher hat nur der Push-Tap (onNewIntent) cancelDepartureAlert ausgelöst.
+        //   Beim direkten Status-Tap im Dashboard blieb die Vibration weiter laufen
+        //   bis sie von alleine ausging. Jetzt: jeder Status-Wechsel (on_way oder
+        //   weiter — arrived/picked_up/completed) cancelt den Departure-Alert.
+        if (next.equals("on_way") || next.equals("arrived")
+                || next.equals("picked_up") || next.equals("completed")) {
+            try { TaxiFCMService.cancelDepartureAlert(this); } catch (Throwable _t) {}
+        }
+
         // v6.62.966 (Patrick 26.05.): Auto-Pickup nach MANUELLEM Bin-Da-Tap reparieren.
         // Bug: arrived manuell getippt → _arrivedAtLat/Lon leer → checkGpsAutoStatus
         // fiel auf pickupLat zurueck, aber das passt nicht wenn Fahrer den Punkt nicht

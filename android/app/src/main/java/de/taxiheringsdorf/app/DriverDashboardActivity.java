@@ -1520,7 +1520,11 @@ public class DriverDashboardActivity extends AppCompatActivity {
     //   Cutoff stattdessen: pickup-now <= 12h (24h zukuenftig zu unruhig).
     private void onWartepoolRidesUpdate(DataSnapshot s) {
         long now = System.currentTimeMillis();
-        long maxFuture = now + 12L * 3600L * 1000L;
+        // v6.63.429 (Patrick 19.06. 21:55 Bridge: "Warum soll ich Fahrten für morgen
+        //   annehmen"): 12h-Cutoff war zu viel — Marion 07:30 morgens 21:55 abends ist
+        //   nicht relevant für JETZT. Auf 4h reduziert — Wartepool-Banner stört nur
+        //   wenn Fahrt zeitnah ist und Patrick aktiv eingreifen soll.
+        long maxFuture = now + 4L * 3600L * 1000L;
         List<Ride> pool = new ArrayList<>();
         for (DataSnapshot child : s.getChildren()) {
             Ride r = Ride.fromSnap(child);

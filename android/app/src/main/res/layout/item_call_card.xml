@@ -32,31 +32,40 @@
             android:layout_weight="1"
             android:orientation="vertical">
 
+            <!-- v6.63.426 (Patrick 19.06. 21:20 Bridge: "ich sehe nicht was unter dem
+                 Kasten als Name steht"): Name deutlich vergrößert 15→18sp, Nummer
+                 13→14sp + helleres weiß, Zeit 11→12sp + helleres grau. Plus singleLine+
+                 ellipsize damit lange Namen nicht mehrzeilig in andere Zeilen rutschen. -->
             <TextView
                 android:id="@+id/tv_call_name"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="Name"
                 android:textColor="#F8FAFC"
-                android:textSize="15sp"
-                android:textStyle="bold" />
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:singleLine="true"
+                android:ellipsize="end" />
 
             <TextView
                 android:id="@+id/tv_call_number"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
                 android:text="+49…"
-                android:textColor="#CBD5E1"
-                android:textSize="13sp" />
+                android:textColor="#E2E8F0"
+                android:textSize="14sp"
+                android:singleLine="true"
+                android:ellipsize="end" />
 
             <TextView
                 android:id="@+id/tv_call_time"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
+                android:layout_marginTop="3dp"
                 android:text="vor X Min"
-                android:textColor="#94A3B8"
-                android:textSize="11sp" />
+                android:textColor="#B8C2D0"
+                android:textSize="12sp" />
         </LinearLayout>
 
         <TextView

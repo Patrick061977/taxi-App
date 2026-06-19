@@ -374,13 +374,20 @@ public class CallRecordingsActivity extends AppCompatActivity {
             // zeitlich nah beieinander liegen (<60 Sek Abstand), markieren als 'verpasst evt.'
             // weil ACR Phone NoAccessibility den 2. Anruf nicht zuverlässig aufnimmt während
             // der 1. läuft.
+            // v6.63.428 (Patrick 19.06. 21:50 Bridge: "Danilo 10:12 Aufnahme 5:24 lang,
+            //   bei 3:09 kam zweiter Anruf, in Detail steht 2. Nummer drunter — sollte
+            //   als parallel markiert werden"): 60 Sek-Schwelle reichte nur wenn 2.
+            //   Aufnahme PRAKTISCH gleichzeitig startete. Realer Fall: 5+ Min Aufnahme,
+            //   2. Anruf kommt mitten drin → Start-Start-Diff war 3+ Min → nicht erkannt.
+            //   Schwelle auf 600 Sek (10 Min) — deckt die typischen langen Hotel/Kunden-
+            //   Telefonate ab. False-Positives sind nur eine gelbe Markierung, kein Block.
             for (int i = 0; i < all.size(); i++) {
                 Recording cur = all.get(i);
                 for (int j = 0; j < all.size(); j++) {
                     if (i == j) continue;
                     Recording oth = all.get(j);
                     long diff = Math.abs(cur.timestamp - oth.timestamp);
-                    if (diff < 60_000) {
+                    if (diff < 600_000) {
                         cur.parallel = true;
                         // v6.63.182 (Patrick 05.06. 18:04): Partner-Info merken für UI-Anzeige
                         if (cur.parallelPartnerName == null && cur.parallelPartnerPhone == null) {

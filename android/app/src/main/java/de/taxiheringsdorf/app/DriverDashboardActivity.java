@@ -1771,7 +1771,9 @@ public class DriverDashboardActivity extends AppCompatActivity {
         root.addView(previewBody);
 
         // Single-Shot lookup vehicleScores für Konflikt-Mathe (v6.63.431)
-        final int[] mariondurMin = { (int) (ride.duration != null ? ride.duration : 5) };
+        // v6.63.441 (Hotfix): ride.duration existiert nicht — Ride-Klasse hat nur
+        //   drivingTimeToDestination. Fallback 5 Min wenn null.
+        final int[] mariondurMin = { ride.drivingTimeToDestination != null ? ride.drivingTimeToDestination : 5 };
         com.google.firebase.database.FirebaseDatabase.getInstance(DB_INSTANCE_URL)
             .getReference("rides/" + ride.id + "/vehicleScores")
             .addListenerForSingleValueEvent(new ValueEventListener() {

@@ -1471,6 +1471,7 @@ async function autoAssignRide(rideId, rideData, _excludeVehicleIds = []) {
                 const newDestLon = rideData.destCoords?.lon || rideData.destinationLon;
                 // v6.63.171: .some() → for-of mit OSRM-await fuer echte Chain-/Rueckfahrt-Berechnung
                 let _conflictRide = null;
+                let _conflictMath = null; // v6.63.431
                 let hasTimeConflict = false;
                 for (const r of allRides) {
                     if (r.firebaseId === rideId) continue;
@@ -1485,16 +1486,17 @@ async function autoAssignRide(rideId, rideData, _excludeVehicleIds = []) {
                     const rPickupLon = r.pickupCoords?.lon || r.pickupLon;
 
                     let rEnd, newEnd;
+                    let _chainMin = null; // v6.63.431: außerhalb des if-Blocks für späteres _conflictMath
                     if (rStart < newPickup) {
                         // Bestehende Fahrt r ist Vorgaenger der neuen Fahrt.
                         // r.dest → new.pickup als ECHTE Leerfahrt via OSRM.
-                        let _chainMin = await osrmDrivingMin(rDestLat, rDestLon, newPickupLat, newPickupLon);
+                        _chainMin = await osrmDrivingMin(rDestLat, rDestLon, newPickupLat, newPickupLon);
                         const _chainMs = (_chainMin !== null) ? (_chainMin * 60000) : (await calcReturnMsAsync(r));
                         rEnd = rStart + rDur + bufferMs + _chainMs;
                         newEnd = newPickup + newDur + bufferMs;
                     } else {
                         // Neue Fahrt ist Vorgaenger der bestehenden Fahrt r.
-                        let _chainMin = await osrmDrivingMin(newDestLat, newDestLon, rPickupLat, rPickupLon);
+                        _chainMin = await osrmDrivingMin(newDestLat, newDestLon, rPickupLat, rPickupLon);
                         const _chainMs = (_chainMin !== null) ? (_chainMin * 60000) : (isSofort ? 0 : (await calcReturnMsAsync(rideData)));
                         newEnd = newPickup + newDur + bufferMs + _chainMs;
                         rEnd = rStart + rDur + bufferMs;
@@ -1505,7 +1507,34 @@ async function autoAssignRide(rideId, rideData, _excludeVehicleIds = []) {
                     //   geht'). Ohne Karenz blieben knappe Anschluesse wie Marion 07:30 → Nayef
                     //   07:40 (rEnd 07:43, only 3 Min Verspaetung) in Wartepool stehen.
                     const _karenzMs = 5 * 60000;
-                    if ((newPickup + _karenzMs < rEnd) && (rStart < newEnd)) { _conflictRide = r; hasTimeConflict = true; break; }
+                    // v6.63.431 (Patrick 20.06. 06:56 Bridge: "Dann will ich aber auch sehen
+                    //   wieviel berechnet wird"): bei Konflikt die exakten Berechnungswerte
+                    //   im vehicleScores speichern, damit UI zeigen kann WARUM.
+                    if ((newPickup + _karenzMs < rEnd) && (rStart < newEnd)) {
+                        _conflictRide = r;
+                        hasTimeConflict = true;
+                        // Mathe-Detail für UI-Anzeige
+                        if (rStart < newPickup) {
+                            // r war Vorgänger: r-end → new-pickup
+                            _conflictMath = {
+                                rolle: 'r-vorgaenger',
+                                rEnd: new Date(rEnd).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' }),
+                                newPickup: new Date(newPickup).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' }),
+                                overlapMin: Math.round((rEnd - newPickup) / 60000),
+                                chainMin: Math.round(_chainMin || 0)
+                            };
+                        } else {
+                            // new war Vorgänger: new-end → r-pickup
+                            _conflictMath = {
+                                rolle: 'new-vorgaenger',
+                                newEnd: new Date(newEnd).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' }),
+                                rStart: new Date(rStart).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' }),
+                                overlapMin: Math.round((newEnd - rStart) / 60000),
+                                chainMin: Math.round(_chainMin || 0)
+                            };
+                        }
+                        break;
+                    }
                 }
                 if (hasTimeConflict) {
                     const _cTime = _conflictRide ? new Date(_conflictRide.pickupTimestamp).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' }) : '?';
@@ -1517,8 +1546,26 @@ async function autoAssignRide(rideId, rideData, _excludeVehicleIds = []) {
                         const _cEndMs = _conflictRide.pickupTimestamp + _cDur + bufferMs + _cReturnMs;
                         _cBusyUntil = new Date(_cEndMs).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' });
                     }
-                    console.log(`   ⚠️ ${info.name}: Zeitkonflikt mit ${_conflictRide?.customerName || '?'} um ${_cTime}, frei ab ${_cBusyUntil} → übersprungen`);
-                    vehicleScores[vehicleId] = { status: 'overlap-hard', reason: `Zeitkonflikt: ${_conflictRide?.customerName || '?'} um ${_cTime}`, check: 'timeconflict', blockingRideCustomer: _conflictRide?.customerName, blockingRideTime: _cTime, busyUntil: _cBusyUntil, blockingRideDest: _conflictRide?.destination || _conflictRide?.destinationAddress || '' };
+                    // v6.63.431: reason mit Mathe-Detail anreichern
+                    let _reasonExt = `Zeitkonflikt: ${_conflictRide?.customerName || '?'} um ${_cTime}`;
+                    if (_conflictMath && _conflictMath.overlapMin > 0) {
+                        if (_conflictMath.rolle === 'new-vorgaenger') {
+                            _reasonExt += ` (rechnet ${_conflictMath.newEnd} fertig, ${_conflictMath.chainMin} Min Anfahrt → ${_conflictMath.overlapMin} Min zu spät)`;
+                        } else {
+                            _reasonExt += ` (rechnet ${_conflictMath.rEnd} fertig, ${_conflictMath.chainMin} Min Anfahrt → ${_conflictMath.overlapMin} Min zu spät)`;
+                        }
+                    }
+                    console.log(`   ⚠️ ${info.name}: ${_reasonExt}, frei ab ${_cBusyUntil} → übersprungen`);
+                    vehicleScores[vehicleId] = {
+                        status: 'overlap-hard',
+                        reason: _reasonExt,
+                        check: 'timeconflict',
+                        blockingRideCustomer: _conflictRide?.customerName,
+                        blockingRideTime: _cTime,
+                        busyUntil: _cBusyUntil,
+                        blockingRideDest: _conflictRide?.destination || _conflictRide?.destinationAddress || '',
+                        conflictMath: _conflictMath || null  // v6.63.431: UI-Anzeige der Berechnung
+                    };
                     continue;
                 }
             }
@@ -1601,7 +1648,11 @@ async function autoAssignRide(rideId, rideData, _excludeVehicleIds = []) {
                     if (_reasons.length === 0) return 'Kein Fahrzeug im Schichtplan/verfügbar';
                     const _counts = {};
                     for (const r of _reasons) {
-                        const _short = r.split(' ').slice(0, 7).join(' ');
+                        // v6.63.431 (Patrick 20.06. 06:56): 7 Wörter war zu kurz —
+                        //   schnitt die Mathe-Detail-Erweiterung der Zeitkonflikt-Reason
+                        //   ab. 20 Wörter erhalten die '(rechnet 07:48 fertig, 16 Min
+                        //   Anfahrt → 3 Min zu spät)'-Info im wartepoolReason.
+                        const _short = r.split(' ').slice(0, 20).join(' ');
                         _counts[_short] = (_counts[_short] || 0) + 1;
                     }
                     const _sorted = Object.entries(_counts).sort((a, b) => b[1] - a[1]);

@@ -25282,7 +25282,9 @@ exports.scheduledWhatsAppPendingCleanup = onSchedule(
 // vehicles/{vid}/gpsHeartbeatWarnedAt, max 1 Warnung pro 15 Min.
 exports.scheduledGpsHeartbeatWatchdog = onSchedule(
     {
-        schedule: 'every 3 minutes',
+        // v6.63.443 (Patrick 20.06. 13:31 GO Phase 1): 3 → 5 Min. GPS-Heartbeat-Check
+        //   2 Min später ist harmlos. -40% Reads.
+        schedule: 'every 5 minutes',
         region: 'europe-west1',
         timeZone: 'Europe/Berlin',
         timeoutSeconds: 60,
@@ -29998,7 +30000,9 @@ exports.onFeedbackCreated = onValueCreated(
 exports.scheduledOpenRideCheck = onSchedule(
     {
         // v6.47.1: 1 → 2 Min — halbiert Cloud-Function-Aufrufe ohne Funktions-Verlust
-        schedule: 'every 2 minutes',
+        // v6.63.443 (Patrick 20.06. 13:31 GO Phase 1): 2 → 5 Min. Open-Ride-Check muss
+        //   nicht jede 2 Min laufen, 5 Min reicht völlig. -60% Reads.
+        schedule: 'every 5 minutes',
         region: 'europe-west1',
         timeoutSeconds: 60,
         memory: '256MiB'
@@ -30231,7 +30235,10 @@ exports.scheduledOpenRideCheck = onSchedule(
 // ═══════════════════════════════════════════════════════════════
 exports.scheduledDepartureAlert = onSchedule(
     {
-        schedule: 'every 1 minutes',
+        // v6.63.443 (Patrick 20.06. 13:31 GO Phase 1 Cost-Cut):
+        //   every 1 minutes → every 2 minutes. Losfahr-Push max 1 Min später,
+        //   kein UX-Problem. -50% Cron-Reads dieser Function.
+        schedule: 'every 2 minutes',
         region: 'europe-west1',
         timeoutSeconds: 60,
         memory: '256MiB'
@@ -31536,7 +31543,9 @@ exports.onInvoicePdfRegenRequested = onValueWritten(
 );
 
 exports.scheduledShiftReminder = onSchedule(
-    { schedule: 'every 5 minutes', region: 'europe-west1', timeZone: 'Europe/Berlin' },
+    // v6.63.443 (Patrick 20.06. 13:31 GO Phase 1 Cost-Cut): 5 → 10 Min.
+    //   Shift-Reminder muss nicht öfter laufen. -50% Reads.
+    { schedule: 'every 10 minutes', region: 'europe-west1', timeZone: 'Europe/Berlin' },
     async (event) => {
         try {
             const now = Date.now();
@@ -31589,7 +31598,9 @@ exports.scheduledShiftReminder = onSchedule(
 exports.scheduledShiftHeartbeatCheck = onSchedule(
     {
         // v6.47.1: 1 → 2 Min — Heartbeat-Timeout ist 10 Min, 2-Min-Intervall reicht völlig
-        schedule: 'every 2 minutes',
+        // v6.63.443 (Patrick 20.06. 13:31 GO Phase 1): 2 → 5 Min. Timeout ist 10 Min,
+        //   5-Min-Check reicht. -60% Reads.
+        schedule: 'every 5 minutes',
         region: 'europe-west1',
         timeoutSeconds: 60,
         memory: '256MiB'

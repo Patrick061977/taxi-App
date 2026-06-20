@@ -1625,11 +1625,19 @@ async function autoAssignRide(rideId, rideData, _excludeVehicleIds = []) {
                     //   Vorgaenger ist (newEnd 3 Min > rStart), griff Karenz NICHT → Marion-
                     //   Fall blockiert. Jetzt: rStart + karenzMs < newEnd statt rStart < newEnd.
                     //   Dadurch akzeptiert das System bis zu 5 Min Verspaetung zur Folgefahrt.
-                    const _karenzMs = 5 * 60000;
+                    // 🔄 v6.63.448 (Patrick 20.06. 19:29-19:30 Bridge: "10 Minuten als Toleranz
+                    //   einbauen. Außer wenn die Destination Bahnhof ist — dann max 5 Min"):
+                    //   Karenz pro Folgefahrt: Standard 10 Min, 5 Min wenn ZIEL der Folgefahrt
+                    //   ein Bahnhof/Flughafen ist (Zug nicht verpassen).
+                    //   Anwendung Brunke 21:00: 18 Min Anfahrt → 8 Min zu spät zu Gudrun Samst
+                    //   (Ziel Neue Str 3B, kein Bahnhof) → 8 < 10 → akzeptiert ✅
+                    const _isBahnhofDest = (s) => /bahnhof|flughafen|\bhbf\b/i.test(s || '');
+                    const _karenzNewAsFolge = (_isBahnhofDest(rideData.destination) ? 5 : 10) * 60000;
+                    const _karenzRAsFolge   = (_isBahnhofDest(r.destination)         ? 5 : 10) * 60000;
                     // v6.63.431 (Patrick 20.06. 06:56 Bridge: "Dann will ich aber auch sehen
                     //   wieviel berechnet wird"): bei Konflikt die exakten Berechnungswerte
                     //   im vehicleScores speichern, damit UI zeigen kann WARUM.
-                    if ((newPickup + _karenzMs < rEnd) && (rStart + _karenzMs < newEnd)) {
+                    if ((newPickup + _karenzNewAsFolge < rEnd) && (rStart + _karenzRAsFolge < newEnd)) {
                         _conflictRide = r;
                         hasTimeConflict = true;
                         // Mathe-Detail für UI-Anzeige

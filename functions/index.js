@@ -1292,6 +1292,35 @@ async function autoAssignRide(rideId, rideData, _excludeVehicleIds = []) {
                 }
             }
 
+            // 🆕 v6.63.437 (Patrick 20.06. 10:50 + 11:18 Bridge: "LK ist offline, GPS
+            //   1015 Min alt, trotzdem wurde Nicole Schindel zugewiesen — Shift status
+            //   muss berücksichtigt werden"):
+            //   Wenn Vehicle Shift heute 'ended' / 'auto-ended' UND Pickup <4h weg
+            //   → Vehicle kommt nicht mehr in Zeit. Wochenplan-Eintrag ist statisch,
+            //   aber wenn der Fahrer schon abgemeldet ist, ist die Wochenplan-Schicht
+            //   für heute beendet. Auto-Assign skipped.
+            try {
+                const _shiftStatus = _vData.shift && _vData.shift.status;
+                const _isEnded = _shiftStatus === 'ended' || _shiftStatus === 'auto-ended' || _shiftStatus === 'force-ended';
+                const _endedAt = _vData.shift && (_vData.shift.endedAt || _vData.shift.autoEndedAt);
+                const _todayBerlin = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Berlin' });
+                const _endedDateBerlin = _endedAt ? new Date(_endedAt).toLocaleDateString('sv-SE', { timeZone: 'Europe/Berlin' }) : null;
+                const _endedToday = _endedDateBerlin === _todayBerlin;
+                const _pickupSoon = rideData.pickupTimestamp && (rideData.pickupTimestamp - Date.now()) < 4 * 60 * 60 * 1000;
+
+                if (_isEnded && _endedToday && _pickupSoon) {
+                    console.log(`   ❌ ${info.name}: Schicht heute ${_shiftStatus} (${new Date(_endedAt).toLocaleTimeString('de-DE', { timeZone: 'Europe/Berlin' })}), Pickup <4h → skip`);
+                    vehicleScores[vehicleId] = {
+                        status: 'rejected',
+                        reason: `Schicht heute ${_shiftStatus} um ${new Date(_endedAt).toLocaleTimeString('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit' })} — Fahrer kommt nicht mehr in Zeit`,
+                        check: 'shift-ended-today'
+                    };
+                    continue;
+                }
+            } catch (_endedErr) {
+                console.warn('v6.63.437 Shift-Ended-Check Fehler:', _endedErr.message);
+            }
+
             // 🔧 v6.38.27: Vier-Augen-Prinzip bei Zuweisung
             const _shiftInfo = getShiftInfoDetailed(vehicleId, shiftsData, dateStr, timeStr);
             const _shiftOk = isVehicleInShift(vehicleId, shiftsData, dateStr, timeStr);

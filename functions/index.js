@@ -32217,7 +32217,17 @@ exports.scheduledLogsCleanup = onSchedule(
             // v6.63.083 (Patrick 01.06. 21:47): rideLogs ab 60 Tagen entfernen —
             //   bei abgeschlossenen Rides brauchen wir die Audit-Trail-Einträge
             //   nicht ewig. Hier liegt jetzt das Hauptvolumen durch Phase 2.
-            { path: 'rideLogs',        cutoffMs: now - 60 * day, nested: true  },
+            // v6.63.444 (Patrick 20.06. 13:44 Bridge "Datenmenge tödlich"):
+            //   60 → 14 Tage. rideLogs sind technische Audit-Trails (Status-Wechsel
+            //   etc), Patrick braucht im CRM nur die Rides selbst (archiveRides via
+            //   scheduledArchiveCompletedRides). 14 Tage reicht für nachträgliche
+            //   Diagnose. -75% rideLogs-Volumen (von 4 MB auf ~1 MB).
+            { path: 'rideLogs',        cutoffMs: now - 14 * day, nested: true  },
+            // v6.63.444: rideScoresHistory war 1.9 MB. Technische Vehicle-Bewertungs-
+            //   Snapshots pro Auto-Assign-Versuch — nach 7 Tagen irrelevant.
+            { path: 'rideScoresHistory', cutoffMs: now - 7 * day, nested: true  },
+            // v6.63.444: wartepoolAuditLog auch trimmen — nach 14 Tagen irrelevant
+            { path: 'wartepoolAuditLog', cutoffMs: now - 14 * day, nested: false },
         ];
         const BATCH = 500;
 

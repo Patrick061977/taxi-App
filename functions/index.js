@@ -1321,6 +1321,65 @@ async function autoAssignRide(rideId, rideData, _excludeVehicleIds = []) {
                 console.warn('v6.63.437 Shift-Ended-Check Fehler:', _endedErr.message);
             }
 
+            // 🆕 v6.63.439 (Patrick 20.06. 11:40 Bridge: "Rückfahrt zum Standort muss
+            //   eigentlich auch noch als Punkt mit aufgenommen werden und nicht als
+            //   freie Zeit"): RÜCKFAHRT-ZUR-BASIS BUSY-UNTIL.
+            //   Wenn die letzte Ride auf diesem Vehicle einen Long-Distance-Drop hatte
+            //   (z.B. Züssow), ist der Fahrer noch auf der Rückfahrt zur Heimbasis und
+            //   NICHT verfügbar. Aktuell sah System nur 'Anfahrt zur nächsten' — wenn
+            //   keine Folgefahrt existiert, war Vehicle scheinbar 'sofort frei nach Drop'.
+            //   Bug-Fall LK Züssow heute: 09:00 Pickup → 09:50 Drop → 50 Min Rückfahrt
+            //   nach Bahnhof Ahlbeck → erst 10:40 verfügbar, nicht 09:50.
+            try {
+                // Finde letzte aktive Ride auf diesem Vehicle (pickupTs <= now + 24h)
+                let _lastRide = null;
+                for (const r of allRides) {
+                    if (r.firebaseId === rideId) continue;
+                    if (r.assignedVehicle !== vehicleId && r.vehicleId !== vehicleId) continue;
+                    if (['cancelled','deleted','storniert'].includes(r.status)) continue;
+                    if (!r.pickupTimestamp) continue;
+                    // Nur Rides VOR newPickup
+                    if (r.pickupTimestamp >= rideData.pickupTimestamp) continue;
+                    if (!_lastRide || r.pickupTimestamp > _lastRide.pickupTimestamp) {
+                        _lastRide = r;
+                    }
+                }
+                if (_lastRide && homeCoords && homeCoords.lat && homeCoords.lon) {
+                    const _lastDestLat = _lastRide.destCoords?.lat || _lastRide.destinationLat;
+                    const _lastDestLon = _lastRide.destCoords?.lon || _lastRide.destinationLon;
+                    const _lastDurMs = ((_lastRide.duration || _lastRide.estimatedDuration || 20)) * 60000;
+                    let _lastEndMs;
+                    if (_lastRide.completedAt) {
+                        _lastEndMs = _lastRide.completedAt;
+                    } else {
+                        _lastEndMs = _lastRide.pickupTimestamp + _lastDurMs + bufferMs;
+                    }
+                    // Rückfahrt zum Standort
+                    let _returnMin = null;
+                    if (_lastDestLat && _lastDestLon) {
+                        _returnMin = await osrmDrivingMin(_lastDestLat, _lastDestLon, homeCoords.lat, homeCoords.lon);
+                    }
+                    const _returnMs = (_returnMin !== null) ? (_returnMin * 60000) : _rueckfahrtMinMs;
+                    const _busyUntil = _lastEndMs + _returnMs;
+                    if (rideData.pickupTimestamp < _busyUntil) {
+                        const _busyTimeStr = new Date(_busyUntil).toLocaleTimeString('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit' });
+                        const _lastCity = (_lastRide.destination || '').split(',').pop()?.trim() || (_lastRide.destination || '?').slice(0, 30);
+                        console.log(`   ❌ ${info.name}: noch auf Rückfahrt von ${_lastCity}, frei ab ${_busyTimeStr}`);
+                        vehicleScores[vehicleId] = {
+                            status: 'rejected',
+                            reason: `Rückfahrt von ${_lastCity} bis ${_busyTimeStr} (${_returnMin || '?'} Min)`,
+                            check: 'busy-back-to-base',
+                            busyUntil: _busyUntil,
+                            returnFromCity: _lastCity,
+                            returnMin: _returnMin
+                        };
+                        continue;
+                    }
+                }
+            } catch (_returnErr) {
+                console.warn('v6.63.439 Rückfahrt-zur-Basis-Check Fehler:', _returnErr.message);
+            }
+
             // 🔧 v6.38.27: Vier-Augen-Prinzip bei Zuweisung
             const _shiftInfo = getShiftInfoDetailed(vehicleId, shiftsData, dateStr, timeStr);
             const _shiftOk = isVehicleInShift(vehicleId, shiftsData, dateStr, timeStr);

@@ -1728,6 +1728,8 @@ public class DriverDashboardActivity extends AppCompatActivity {
         slider.setMax(20);
         slider.setProgress(15);
         final int[] offsetMin = { 0 };
+        // Default-Listener — wird vom async-vehicleScores-Lookup überschrieben
+        // falls Mathe-Daten gefunden, sonst bleibt dieser einfache aktiv.
         slider.setOnSeekBarChangeListener(new android.widget.SeekBar.OnSeekBarChangeListener() {
             @Override public void onProgressChanged(android.widget.SeekBar seekBar, int progress, boolean fromUser) {
                 offsetMin[0] = progress - 15;
@@ -1744,8 +1746,131 @@ public class DriverDashboardActivity extends AppCompatActivity {
         hint.setText("← −15 Min  |  0  |  +5 Min →");
         hint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
         hint.setTextColor(Color.parseColor("#94a3b8"));
-        hint.setPadding(0, 4, 0, 0);
+        hint.setPadding(0, 4, 0, 8);
         root.addView(hint);
+
+        // 🆕 v6.63.434 (Patrick 20.06. 07:09 Bridge: "Slider hin und her schieben, aber
+        //   ich seh gar nicht was das bewirkt, weder die Fahrt davor noch danach"):
+        //   Live-Vorschau direkt unter dem Slider. Zeigt die EINE Vehicle-Kandidat-Fahrt
+        //   die der vehicleScores als 'overlap-hard' kennzeichnete (mit Mathe-Daten
+        //   aus v6.63.431), und prüft live bei Slider-Move ob die Verschiebung den
+        //   Konflikt löst. Rein client-side — KEIN zusätzlicher DB-Read pro Move.
+        TextView previewHdr = new TextView(this);
+        previewHdr.setText("📐 Auswirkung deiner Verschiebung:");
+        previewHdr.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+        previewHdr.setTypeface(null, Typeface.BOLD);
+        previewHdr.setPadding(0, 8, 0, 4);
+        previewHdr.setTextColor(Color.parseColor("#1e293b"));
+        root.addView(previewHdr);
+
+        TextView previewBody = new TextView(this);
+        previewBody.setText("Lade Vehicle-Scores…");
+        previewBody.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+        previewBody.setPadding(0, 4, 0, 10);
+        previewBody.setTextColor(Color.parseColor("#475569"));
+        root.addView(previewBody);
+
+        // Single-Shot lookup vehicleScores für Konflikt-Mathe (v6.63.431)
+        final int[] mariondurMin = { (int) (ride.duration != null ? ride.duration : 5) };
+        com.google.firebase.database.FirebaseDatabase.getInstance(DB_INSTANCE_URL)
+            .getReference("rides/" + ride.id + "/vehicleScores")
+            .addListenerForSingleValueEvent(new ValueEventListener() {
+                @Override public void onDataChange(@NonNull DataSnapshot s) {
+                    // Suche das Vehicle mit overlap-hard + chainMin (= Anfahrt)
+                    String bestVid = null;
+                    String bestNext = null;
+                    long bestNextTs = 0;
+                    int bestChainMin = 0;
+                    for (DataSnapshot vc : s.getChildren()) {
+                        String status = vc.child("status").getValue(String.class);
+                        if (!"overlap-hard".equalsIgnoreCase(status)) continue;
+                        String nextName = vc.child("blockingRideCustomer").getValue(String.class);
+                        String nextTime = vc.child("blockingRideTime").getValue(String.class);
+                        Integer chainMin = null;
+                        if (vc.child("conflictMath").exists()) {
+                            chainMin = vc.child("conflictMath").child("chainMin").getValue(Integer.class);
+                        }
+                        if (nextName == null || nextTime == null) continue;
+                        // Parse "07:45" → Timestamp heute
+                        try {
+                            String[] hm = nextTime.split(":");
+                            int h = Integer.parseInt(hm[0]), m = Integer.parseInt(hm[1]);
+                            java.util.Calendar cal = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("Europe/Berlin"));
+                            cal.setTimeInMillis(origTs);
+                            cal.set(java.util.Calendar.HOUR_OF_DAY, h);
+                            cal.set(java.util.Calendar.MINUTE, m);
+                            cal.set(java.util.Calendar.SECOND, 0);
+                            long ts = cal.getTimeInMillis();
+                            if (bestVid == null || Math.abs(ts - origTs) < Math.abs(bestNextTs - origTs)) {
+                                bestVid = vc.getKey();
+                                bestNext = nextName;
+                                bestNextTs = ts;
+                                bestChainMin = chainMin != null ? chainMin : 12;
+                            }
+                        } catch (Throwable _ig) {}
+                    }
+                    final String fVid = bestVid;
+                    final String fNext = bestNext;
+                    final long fNextTs = bestNextTs;
+                    final int fChainMin = bestChainMin;
+
+                    Runnable recompute = () -> {
+                        long newTs = origTs + offsetMin[0] * 60_000L;
+                        // Drop-Zeit = newTs + Dauer + 2 Min Boarding/Alighting
+                        long dropTs = newTs + (mariondurMin[0] + 2) * 60_000L;
+                        // Ankunft am Nachfolger = dropTs + chainMin Anfahrt
+                        long ankunftTs = dropTs + fChainMin * 60_000L;
+                        java.text.SimpleDateFormat _hm = new java.text.SimpleDateFormat("HH:mm", java.util.Locale.GERMANY);
+                        _hm.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
+                        String _drop = _hm.format(new java.util.Date(dropTs));
+                        String _ank = _hm.format(new java.util.Date(ankunftTs));
+                        String _next = _hm.format(new java.util.Date(fNextTs));
+                        long pufferMs = fNextTs - ankunftTs;
+                        long pufferMin = pufferMs / 60_000L;
+                        String pufferIcon = pufferMin >= 1 ? "✅" : (pufferMin >= -2 ? "⚠️" : "❌");
+                        String pufferTxt = pufferMin >= 0 ? ("+" + pufferMin + " Min Puffer") : (pufferMin + " Min zu spät");
+                        String vName = fVid;
+                        if (fVid != null && fVid.contains("-")) {
+                            String[] parts = fVid.split("-");
+                            if (parts.length >= 3) vName = parts[1].toUpperCase() + parts[2];
+                        }
+                        StringBuilder sb = new StringBuilder();
+                        sb.append("🚗 ").append(vName).append(":\n");
+                        sb.append("  ").append(_hm.format(new java.util.Date(newTs))).append(" → ").append(_drop).append(" Drop\n");
+                        sb.append("  + ").append(fChainMin).append(" Min Anfahrt → ").append(_ank).append("\n");
+                        sb.append("  ").append(pufferIcon).append(" Nachfolger ").append(fNext).append(" um ").append(_next).append("\n");
+                        sb.append("  ").append(pufferTxt);
+                        previewBody.setText(sb.toString());
+                        previewBody.setTextColor(pufferMin >= 1 ? Color.parseColor("#059669") :
+                            (pufferMin >= -2 ? Color.parseColor("#d97706") : Color.parseColor("#dc2626")));
+                    };
+
+                    if (fVid == null) {
+                        previewBody.setText("Keine Konflikt-Mathe in vehicleScores — neuer Slider-Move triggert direkt 'Speichern + Suchen'.");
+                    } else {
+                        // Initial-Rechnung
+                        recompute.run();
+                        // Slider-Listener mit Live-Recompute
+                        slider.setOnSeekBarChangeListener(new android.widget.SeekBar.OnSeekBarChangeListener() {
+                            @Override public void onProgressChanged(android.widget.SeekBar seekBar, int progress, boolean fromUser) {
+                                offsetMin[0] = progress - 15;
+                                long newTs = origTs + offsetMin[0] * 60_000L;
+                                String sign = offsetMin[0] > 0 ? "+" : "";
+                                sliderLbl.setText("Neue Zeit: " + sdf.format(new java.util.Date(newTs)) + " (" + sign + offsetMin[0] + " Min)");
+                                recompute.run();
+                            }
+                            @Override public void onStartTrackingTouch(android.widget.SeekBar seekBar) {}
+                            @Override public void onStopTrackingTouch(android.widget.SeekBar seekBar) {}
+                        });
+                    }
+                }
+                @Override public void onCancelled(@NonNull DatabaseError e) {
+                    previewBody.setText("Vorschau-Lookup fehlgeschlagen.");
+                }
+            });
+
+        // (Default-Slider-Listener wurde oben gesetzt; vehicleScores-Lookup
+        // überschreibt ihn ggf. mit Live-Konflikt-Vorschau.)
 
         new android.app.AlertDialog.Builder(this)
             .setView(root)

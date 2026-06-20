@@ -387,7 +387,7 @@ public class CallRecordingsActivity extends AppCompatActivity {
                     if (i == j) continue;
                     Recording oth = all.get(j);
                     long diff = Math.abs(cur.timestamp - oth.timestamp);
-                    if (diff < 600_000) {
+                    if (diff < 180_000) {  // v6.63.440 Patrick 20.06. 11:46: 600s war zu viel — alles parallel markiert. 180s (3 Min) reicht für Anklopfen
                         cur.parallel = true;
                         // v6.63.182 (Patrick 05.06. 18:04): Partner-Info merken für UI-Anzeige
                         if (cur.parallelPartnerName == null && cur.parallelPartnerPhone == null) {

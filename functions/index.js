@@ -20950,6 +20950,43 @@ exports.autoResolveConflicts = onSchedule(
             let totalShiftFixes = 0;
             const debugPhase0Lines = []; // Debug-Sammlung für Telegram
 
+            // 🆕 v6.63.436 (Patrick 20.06. 08:59 Bridge: "Villa Neptun ist im Wartepool
+            //   obwohl ich sie auf MY gelocked habe — die andere Fahrt ist erledigt,
+            //   die muss raus aus dem Wartepool"): Phase 0 SELBSTHEILUNG.
+            //   Wenn ein Admin/Dispatcher per Native-UI eine Wartepool-Ride locked
+            //   (assignedVehicle + assignmentLocked=true), bleibt status='wartepool'
+            //   stehen weil das UI nicht status-cleart. Diese Inkonsistenz heilen
+            //   wir jetzt automatisch: Wartepool + locked + assignedVehicle →
+            //   status='vorbestellt' + wartepool-Felder löschen.
+            for (const ride of allRides) {
+                if (ride.status === 'wartepool'
+                        && ride.assignmentLocked === true
+                        && (ride.assignedVehicle || ride.vehicleId)) {
+                    try {
+                        await db.ref(`rides/${ride.firebaseId}`).update({
+                            status: 'vorbestellt',
+                            wartepoolReason: null,
+                            wartepoolAt: null,
+                            wartepoolCheckResult: null,
+                            wartepoolFreedAt: Date.now(),
+                            wartepoolFreedReason: 'v6.63.436 Selbstheilung: locked + assignedVehicle → vorbestellt',
+                            updatedAt: Date.now()
+                        });
+                        await addRideLog(ride.firebaseId, '🔧', `Wartepool aufgelöst (Selbstheilung): manueller Lock auf ${ride.assignedVehicle || ride.vehicleId} erkannt`, {
+                            quelle: 'v6.63.436',
+                            lockedBy: ride.assignmentLockedBy || '?'
+                        });
+                        // Lokal updaten für nachfolgende Phasen
+                        ride.status = 'vorbestellt';
+                        ride.wartepoolReason = null;
+                        ride.wartepoolAt = null;
+                        console.log(`🔧 v6.63.436 Wartepool→vorbestellt: ${ride.customerName || '?'} (locked auf ${ride.assignedVehicle || ride.vehicleId})`);
+                    } catch (_healErr) {
+                        console.warn('v6.63.436 Selbstheilung Fehler:', _healErr.message);
+                    }
+                }
+            }
+
             for (const ride of allRides) {
                 if (['accepted', 'picked_up', 'on_way'].includes(ride.status)) {
                     debugPhase0Lines.push(`⏭️ ${ride.customerName || '?'} — übersprungen (Status: ${ride.status})`);

@@ -37827,7 +37827,11 @@ async function handleVideo(message) {
 //   Speichert /dailyReports/{YYYY-MM-DD} + Bridge-Push der Zusammenfassung.
 exports.scheduledDailyReport = onSchedule(
     {
-        schedule: '0 23 * * *',
+        // 🆕 v6.63.449 (Patrick 20.06. 20:49 Bridge: "Tagesablauf wollte ich auch noch
+        //   haben, was im Wartepool war, warum... wann kommt das, 22 Uhr"):
+        //   Schedule von 23:00 → 22:00, Push via Claude-Bot Bridge statt sendToAllAdmins,
+        //   erweiterter Inhalt mit Umsatz/Wartepool-Verlauf/morgige Vorbestellungen.
+        schedule: '0 22 * * *',
         timeZone: 'Europe/Berlin',
         region: 'europe-west1',
         timeoutSeconds: 300,
@@ -37840,8 +37844,10 @@ exports.scheduledDailyReport = onSchedule(
             dayStart.setHours(0, 0, 0, 0);
             const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000 - 1);
             const dateKey = dayStart.toISOString().slice(0, 10);
+            const tomorrowStart = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
+            const tomorrowEnd = new Date(tomorrowStart.getTime() + 24 * 60 * 60 * 1000 - 1);
 
-            // Rides heute (auch archiveRides falls schon archiviert)
+            // Rides heute (gesamt-Tag nach pickupTimestamp)
             const ridesSnap = await db.ref('rides')
                 .orderByChild('pickupTimestamp')
                 .startAt(dayStart.getTime())
@@ -37852,7 +37858,9 @@ exports.scheduledDailyReport = onSchedule(
             const stats = {
                 total: 0, completed: 0, cancelled: 0, deleted: 0,
                 wartepool: 0, vorbestellt: 0, autoCompleted: 0,
-                byVehicle: {}, bySource: {}, conflicts: []
+                byVehicle: {}, byVehicleEur: {}, bySource: {},
+                conflicts: [], wartepoolHistory: [],
+                umsatz: 0
             };
             for (const [rid, r] of Object.entries(rides)) {
                 if (!r) continue;
@@ -37864,15 +37872,56 @@ exports.scheduledDailyReport = onSchedule(
                 else if (st === 'wartepool') stats.wartepool++;
                 else if (st === 'vorbestellt') stats.vorbestellt++;
                 if (r.autoCompleted) stats.autoCompleted++;
-                if (r.assignedVehicle) stats.byVehicle[r.assignedVehicle] = (stats.byVehicle[r.assignedVehicle] || 0) + 1;
+                if (r.assignedVehicle) {
+                    stats.byVehicle[r.assignedVehicle] = (stats.byVehicle[r.assignedVehicle] || 0) + 1;
+                    if (st === 'completed') {
+                        const _p = parseFloat(String(r.price || r.estimatedPrice || 0).replace(',', '.')) || 0;
+                        stats.byVehicleEur[r.assignedVehicle] = (stats.byVehicleEur[r.assignedVehicle] || 0) + _p;
+                        stats.umsatz += _p;
+                    }
+                }
                 if (r.source) stats.bySource[r.source] = (stats.bySource[r.source] || 0) + 1;
-                if (r.wartepoolReason) {
+                // Alle Rides die JE im Wartepool waren (auch wieder rauskamen)
+                if (r.wartepoolAt || r.wartepoolReason) {
+                    stats.wartepoolHistory.push({
+                        customerName: r.customerName,
+                        pickupTime: r.pickupTime,
+                        reason: (r.wartepoolReason || r.autoAssignLastReason || '').slice(0, 140),
+                        endStatus: st,
+                        attempts: r.autoAssignAttempts || 0,
+                        assignedVehicle: r.assignedVehicle || null
+                    });
+                }
+                if (st === 'wartepool' && r.wartepoolReason) {
                     stats.conflicts.push({
                         rideId: rid, customerName: r.customerName, pickupTime: r.pickupTime,
-                        reason: r.wartepoolReason, resolved: !!r.assignedVehicle
+                        reason: r.wartepoolReason, resolved: false
                     });
                 }
             }
+
+            // Morgen-Vorbestellungen
+            const tomSnap = await db.ref('rides')
+                .orderByChild('pickupTimestamp')
+                .startAt(tomorrowStart.getTime())
+                .endAt(tomorrowEnd.getTime())
+                .once('value');
+            const tomorrow = [];
+            tomSnap.forEach(c => {
+                const v = c.val();
+                if (!v) return;
+                if (['vorbestellt', 'assigned', 'accepted', 'wartepool', 'new'].includes((v.status || '').toLowerCase())) {
+                    tomorrow.push({
+                        pickupTimestamp: v.pickupTimestamp,
+                        customerName: v.customerName,
+                        status: v.status,
+                        assignedVehicle: v.assignedVehicle,
+                        pickup: v.pickup,
+                        destination: v.destination
+                    });
+                }
+            });
+            tomorrow.sort((a, b) => (a.pickupTimestamp || 0) - (b.pickupTimestamp || 0));
 
             // Conflict-Resolve Log heute
             const crlSnap = await db.ref('conflictResolveLog')
@@ -37896,27 +37945,174 @@ exports.scheduledDailyReport = onSchedule(
                     abschlussQuote: stats.total > 0 ? Math.round(100 * stats.completed / stats.total) : 0,
                     konfliktQuote: stats.total > 0 ? Math.round(100 * stats.wartepool / stats.total) : 0,
                     cloudReplans: conflictResolveLog.length,
-                    cloudOptimizes: optimierungsLog.length
+                    cloudOptimizes: optimierungsLog.length,
+                    umsatz: stats.umsatz
                 }
             };
             await db.ref('dailyReports/' + dateKey).set(report);
 
-            // Bridge-Push: kompakte Zusammenfassung
-            const _veh = Object.entries(stats.byVehicle).map(([v, n]) => `${v}: ${n}`).join(', ');
-            const _src = Object.entries(stats.bySource).map(([s, n]) => `${s}: ${n}`).join(', ');
+            // Bridge-Push: ausführlicher Tagesablauf an Patrick (Claude-Bot)
+            const _vehLines = Object.entries(stats.byVehicleEur)
+                .sort((a, b) => b[1] - a[1])
+                .map(([v, eur]) => `• ${v}: ${stats.byVehicle[v]} F, ${eur.toFixed(2)} €`)
+                .join('\n');
+            const _wpHist = stats.wartepoolHistory.slice(0, 8).map(w => {
+                const _resolved = w.endStatus === 'completed' ? '✅ gefahren' :
+                    w.endStatus === 'assigned' || w.endStatus === 'accepted' ? '✅ zugewiesen ' + (w.assignedVehicle || '') :
+                        w.endStatus === 'cancelled' ? '❌ abgesagt' : '⚠️ ' + w.endStatus;
+                return `• ${w.pickupTime || '?'} ${w.customerName || '?'} (${w.attempts}×) → ${_resolved}\n  ↳ ${w.reason || '-'}`;
+            }).join('\n');
+            const _tomLines = tomorrow.slice(0, 12).map(r => {
+                const _t = r.pickupTimestamp ? new Date(r.pickupTimestamp).toLocaleTimeString('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit' }) : '?';
+                return `• ${_t} ${r.customerName || '?'} | ${r.status} | ${r.assignedVehicle || '-'}`;
+            }).join('\n');
+
             const msg =
-                `📋 <b>TAGES-PROTOKOLL ${dateKey}</b>\n\n` +
-                `📊 ${stats.total} Fahrten — ${stats.completed} ✓ / ${stats.cancelled} ✗ / ${stats.wartepool} 🆘\n` +
-                `🤖 ${stats.autoCompleted} auto-complete | ${conflictResolveLog.length} cloud-replan | ${optimierungsLog.length} cloud-optimize\n\n` +
-                `🚖 Per Vehicle: ${_veh}\n` +
-                `📥 Per Quelle: ${_src}\n\n` +
-                `${stats.conflicts.length > 0 ? '⚠️ Konflikte heute:\n' + stats.conflicts.map(c => `   • ${c.pickupTime} ${c.customerName} (${c.resolved ? '✓ gelöst' : '⚠ offen'})`).join('\n') : '✅ Keine Konflikte'}\n\n` +
+                `📋 TAGESABLAUF ${dateKey}\n\n` +
+                `━━━ HEUTE ━━━\n` +
+                `${stats.total} Buchungen | ${stats.completed} ✓ | ${stats.cancelled} ✗ | ${stats.wartepool} 🆘\n` +
+                `💶 Umsatz: ${stats.umsatz.toFixed(2)} €\n` +
+                `🤖 ${stats.autoCompleted} auto-complete | ${conflictResolveLog.length} cloud-replan | ${optimierungsLog.length} optimize\n\n` +
+                `━━━ FAHRZEUGE ━━━\n${_vehLines || 'keine'}\n\n` +
+                (stats.wartepoolHistory.length > 0
+                    ? `━━━ WARTEPOOL (${stats.wartepoolHistory.length}) ━━━\n${_wpHist}\n\n`
+                    : `✅ KEIN Wartepool heute\n\n`) +
+                (tomorrow.length > 0
+                    ? `━━━ MORGEN (${tomorrow.length} Vorbestellungen) ━━━\n${_tomLines}\n\n`
+                    : '') +
                 `Abschluss-Quote: ${report.summary.abschlussQuote}% | Konflikt-Quote: ${report.summary.konfliktQuote}%`;
-            await sendToAllAdmins(msg, 'daily-report').catch(() => {});
-            console.log('📋 Daily Report ' + dateKey + ' geschrieben (' + stats.total + ' rides)');
+
+            const _bridgeTs = Date.now();
+            await db.ref('claudeBridge/outbox/' + _bridgeTs).set({
+                message: msg,
+                targetChatId: 6229490043,
+                via: 'claude',
+                ts: _bridgeTs
+            });
+            console.log('📋 Daily Report ' + dateKey + ' an Bridge gepusht (' + stats.total + ' rides, ' + stats.umsatz.toFixed(2) + ' €)');
         } catch (e) {
             console.error('scheduledDailyReport Fehler:', e);
             await logError('scheduledDailyReport', e, { severity: 'warning' }).catch(() => {});
+        }
+    }
+);
+
+// 🆕 v6.63.449 (Patrick 20.06. 19:48 Bridge: "Sobald eine Fahrt im Wartepool landet,
+//   musst du das überprüfen... auseinandernehmen und gucken warum/weshalb/wieso"):
+//   Real-Time Wartepool-Detektiv. Triggert bei Status-Wechsel auf 'wartepool', liest
+//   vehicleScores, kategorisiert das Problem und pusht strukturierten Befund an Patrick.
+exports.onRideEnteredWartepool = onValueUpdated(
+    {
+        ref: '/rides/{rideId}',
+        region: 'europe-west1',
+        instance: 'taxi-heringsdorf-default-rtdb'
+    },
+    async (event) => {
+        try {
+            const before = event.data.before.val() || {};
+            const after = event.data.after.val() || {};
+            const rideId = event.params.rideId;
+
+            // Nur beim Wechsel zu wartepool, nicht bei Folge-Updates
+            if (after.status !== 'wartepool') return;
+            if (before.status === 'wartepool') return;
+            if (after.wartepoolDetectivePushed) return;
+
+            const scores = after.vehicleScores || {};
+            const reason = after.autoAssignLastReason || after.wartepoolReason || '';
+
+            // Kategorisierung anhand vehicleScores
+            let cShift = 0, cCapacity = 0, cConflict = 0, cLive = 0, cDriverRej = 0, cOther = 0;
+            const conflictDetail = [];
+            for (const [vid, sc] of Object.entries(scores)) {
+                const check = String(sc.check || '').toLowerCase();
+                const r = String(sc.reason || '').toLowerCase();
+                if (/shift|wochenplan|außerhalb|ausserhalb|kein dienst/.test(check + ' ' + r)) cShift++;
+                else if (/capacity|kapazität|kapazitaet/.test(check + ' ' + r)) cCapacity++;
+                else if (/timeconflict|zeitkonflikt/.test(check + ' ' + r)) {
+                    cConflict++;
+                    if (sc.conflictMath) {
+                        conflictDetail.push({
+                            vehicle: vid,
+                            blocking: sc.blockingRideCustomer,
+                            blockingTime: sc.blockingRideTime,
+                            overlapMin: sc.conflictMath.overlapMin
+                        });
+                    }
+                }
+                else if (/live-shift|sofortfahrt/.test(check + ' ' + r)) cLive++;
+                else if (/driver_rejected|fahrer hat nicht/.test(check + ' ' + r)) cDriverRej++;
+                else cOther++;
+            }
+            const total = cShift + cCapacity + cConflict + cLive + cDriverRej + cOther;
+
+            let category, options = [];
+            if (total === 0) {
+                category = 'KEINE-SCORES';
+                options.push('vehicleScores fehlen — Cron neu auslösen');
+            } else if (cCapacity > 0 && cCapacity === total - cConflict - cShift) {
+                category = 'KAPAZITÄT';
+                options.push('Sammelfahrt mit 2 Fahrzeugen');
+                options.push('Kunde nach Pax-Zahl rückfragen');
+            } else if (cConflict > 0 && cShift === 0) {
+                category = 'NUR-KONFLIKT';
+                const knapp = conflictDetail.filter(c => c.overlapMin <= 10);
+                if (knapp.length > 0) {
+                    options.push(`Folgefahrt ${knapp[0].blocking} um ${knapp[0].overlapMin} Min verschieben (Karenz greift)`);
+                } else {
+                    options.push(`Folgefahrt ${conflictDetail[0]?.blocking || '?'} auf anderes Vehicle`);
+                }
+                options.push('Springer Tesla YM manuell freischalten');
+            } else if (cShift === total) {
+                category = 'SCHICHT-LOCH';
+                options.push('Welches Vehicle am nächsten an Pickup-Zeit — Schicht verlängern');
+                options.push('Springer Tesla YM manuell freischalten');
+                options.push('Kunde verschieben (5-15 Min)');
+            } else if (cConflict > 0 && cShift > 0) {
+                category = 'SCHICHT+KONFLIKT';
+                options.push('Springer YM oder Schicht verlängern');
+                if (conflictDetail.length > 0) {
+                    options.push(`Folgefahrt ${conflictDetail[0].blocking} verschieben`);
+                }
+            } else if (cLive > 0 && cLive === total) {
+                category = 'SOFORT-NIEMAND-LIVE';
+                options.push('Kunde anrufen — kein Fahrer aktuell online');
+                options.push('Fahrer per Push aktivieren');
+            } else if (cDriverRej > 0) {
+                category = 'FAHRER-ABGELEHNT';
+                options.push('Anderes Vehicle prüfen');
+                options.push('Manuell zuweisen + Fahrer anrufen');
+            } else {
+                category = 'GEMISCHT';
+                options.push('Manuelle Disposition prüfen');
+            }
+            options.push('Fahrt absagen');
+            options.push('Manuell zuweisen (deine Entscheidung)');
+
+            // Push bauen
+            const _fmt = ts => ts ? new Date(ts).toLocaleString('de-DE', { timeZone: 'Europe/Berlin', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '?';
+            const pickup = _fmt(after.pickupTimestamp);
+            const _price = after.estimatedPrice || after.price || '?';
+
+            let msg = `🚨 WARTEPOOL: ${after.customerName || '?'} ${pickup}\n`;
+            msg += `${(after.pickup || '').slice(0, 50)} → ${(after.destination || '').slice(0, 50)}\n`;
+            msg += `${after.passengers || 1} Pax | ${_price} €\n\n`;
+            msg += `Kategorie: ${category}\n`;
+            msg += `${reason.slice(0, 200)}\n\n`;
+            msg += `Optionen:\n`;
+            msg += options.map((o, i) => `[${String.fromCharCode(65 + i)}] ${o}`).join('\n');
+
+            const _bridgeTs = Date.now();
+            await db.ref('claudeBridge/outbox/' + _bridgeTs).set({
+                message: msg,
+                targetChatId: 6229490043,
+                via: 'claude',
+                ts: _bridgeTs
+            });
+            await db.ref(`rides/${rideId}/wartepoolDetectivePushed`).set(true);
+            console.log(`🚨 WP-Detective Push (${category}): ${after.customerName} ${pickup}`);
+        } catch (e) {
+            console.error('onRideEnteredWartepool Fehler:', e);
         }
     }
 );

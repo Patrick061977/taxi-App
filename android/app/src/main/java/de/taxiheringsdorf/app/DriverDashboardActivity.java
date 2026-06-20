@@ -1597,7 +1597,9 @@ public class DriverDashboardActivity extends AppCompatActivity {
             if (banner == null || statusText == null || nextText == null) return;
             int n = wartepoolRides.size();
             banner.setBackgroundColor(android.graphics.Color.parseColor("#f97316"));
-            statusText.setText("🆘 " + n + " Fahrt" + (n == 1 ? "" : "en") + " im Wartepool — Tap zum Annehmen");
+            // v6.63.430 (Patrick 20.06. 06:44): nicht 'Annehmen' — startet ungewollt
+            //   Fahrtenprozess. Wartepool ist Dispatch-Sache → Bearbeiten/Zuweisen.
+            statusText.setText("⚠️ " + n + " Fahrt" + (n == 1 ? "" : "en") + " im Wartepool — Tap zum Bearbeiten");
             // Zeige naechste/nahste Pickup-Zeit der Wartepool-Rides
             Ride first = wartepoolRides.get(0);
             long nextMin = first.pickupTimestamp != null ? first.pickupTimestamp : 0L;
@@ -4497,7 +4499,14 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 //   ich kann nicht antippen, nicht bearbeiten — die Fahrt liegt blockiert
                 //   bis Auto-Resolve. Das nervt."): wartepool jetzt auch annehmbar.
                 //   Fahrer pickt sich aus dem Wartepool raus — gleicher Flow wie 'new'.
-                boolean canAcceptReject = stl.equals("new") || stl.equals("assigned") || stl.equals("sofort") || stl.equals("vorbestellt") || stl.equals("warteschlange") || stl.equals("wartepool");
+                // 🔄 v6.63.430 (Patrick 20.06. 06:44 Bridge: "Es muss zu bearbeiten sein
+                //   aber nicht annehmen das ist Quatsch — startet schon den ganzen
+                //   Fahrtenprozess"): Annehmen-Flow für Wartepool RAUS. Wartepool-Karten
+                //   bekommen stattdessen einen 'Bearbeiten'-Button der den Wartepool-
+                //   Resolver-Dialog öffnet (Zeit verschieben, Vehicle zuweisen, etc).
+                //   So wird der Fahrer nicht in den Annehmen-Workflow gezwungen.
+                boolean isWartepool = stl.equals("wartepool");
+                boolean canAcceptReject = stl.equals("new") || stl.equals("assigned") || stl.equals("sofort") || stl.equals("vorbestellt") || stl.equals("warteschlange");
                 boolean isActive = isActiveStatus(s);
 
                 // v6.47.7: Vergangene vorbestellt/assigned-Aufträge → 'Erledigt'/'Storno' statt
@@ -4533,7 +4542,7 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 // v6.62.924: Reset btnAccept-Sichtbarkeit fuer recycelte ViewHolder
                 btnAccept.setVisibility(View.VISIBLE);
 
-                actionRow.setVisibility(canAcceptReject ? View.VISIBLE : View.GONE);
+                actionRow.setVisibility((canAcceptReject || isWartepool) ? View.VISIBLE : View.GONE);
                 activeToolbar.setVisibility(isActive ? View.VISIBLE : View.GONE);
 
                 if (canAcceptReject) {
@@ -4548,6 +4557,16 @@ public class DriverDashboardActivity extends AppCompatActivity {
                         btnReject.setOnClickListener(v -> rejectRide(r.id));
                         btnAccept.setOnClickListener(v -> acceptRide(r.id));
                     }
+                } else if (isWartepool) {
+                    // 🆕 v6.63.430: Wartepool — Bearbeiten statt Annehmen.
+                    //   Annehmen ist Quatsch weil das den ganzen Fahrtenprozess startet
+                    //   (Push-Reminder, Vibration, Status-Workflow). Wartepool ist
+                    //   eine Dispatch-Sache → Bearbeiten öffnet den Resolver-Dialog
+                    //   (Vehicle zuweisen, Zeit verschieben, Sammelfahrt etc).
+                    btnReject.setText("⏭️ Im Pool lassen");
+                    btnAccept.setText("✏️ Bearbeiten");
+                    btnReject.setOnClickListener(v -> { /* nichts — bleibt im Pool */ });
+                    btnAccept.setOnClickListener(v -> showWartepoolResolverDialog(r));
                 }
 
                 // 🆕 v6.62.924 (Patrick 25.05. 10:00): "kann ich die Fahrt auch wieder

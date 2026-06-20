@@ -154,6 +154,23 @@ public class CallRecordingsActivity extends AppCompatActivity {
         btnShowHidden.setLayoutParams(sh);
         root.addView(btnShowHidden);
 
+        // 🆕 v6.63.442 (Patrick 20.06. 12:35 Bridge: "Aus dem Papierkorb wiederherstellen
+        //   müsste es auch gehen. Dass man sich aber die Sachen auch anhören kann im
+        //   Papierkorb"): Papierkorb-Button zeigt versteckte _papierkorb-Aufnahmen
+        //   im selben RecyclerView mit Restore-Button statt Lösch-Button.
+        android.widget.Button btnTrash = new android.widget.Button(this);
+        btnTrash.setText("🗑️ Papierkorb (zum Wiederherstellen)");
+        btnTrash.setTextColor(0xFFb45309);
+        btnTrash.setOnClickListener(v -> {
+            _showTrash = !_showTrash;
+            btnTrash.setText(_showTrash ? "🔙 Zurück zu Aufnahmen" : "🗑️ Papierkorb (zum Wiederherstellen)");
+            scanRecordings();
+        });
+        LinearLayout.LayoutParams sht = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        sht.setMargins(dp(16), 0, dp(16), dp(8));
+        btnTrash.setLayoutParams(sht);
+        root.addView(btnTrash);
+
         permHint = new TextView(this);
         permHint.setPadding(dp(16), dp(16), dp(16), dp(16));
         permHint.setTextColor(0xFFef4444);
@@ -258,6 +275,8 @@ public class CallRecordingsActivity extends AppCompatActivity {
     //   die m4a-Datei aus der Liste raus (Datei bleibt im Speicher, ACR Phone verwaltet das).
     private java.util.Set<String> _hiddenRecordingPaths = new java.util.HashSet<>();
     private boolean _showHidden = false;
+    // v6.63.442 Patrick 20.06. 12:35: Papierkorb-Modus mit Restore-Button
+    private boolean _showTrash = false;
 
     private void loadHiddenSet() {
         try {
@@ -282,8 +301,123 @@ public class CallRecordingsActivity extends AppCompatActivity {
         Toast.makeText(this, "👁️ Versteckt — Datei bleibt im Speicher", Toast.LENGTH_SHORT).show();
     }
 
+    // 🆕 v6.63.442: Wiederherstellt eine m4a-Datei aus /sdcard/ACRCalls/_papierkorb/
+    //   in den Original-Pfad. Original-Pfad ist im Dateinamen als 'Timestamp__origRel'
+    //   codiert — origRel enthält alle Pfad-Tokens via '_' getrennt: '_YYYY_MM_DD_+TelNr_+TelNr-X-Y.m4a'
+    private void restoreFromTrash(Recording r) {
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Wiederherstellen?")
+            .setMessage(r.phone + "\n\nDatei wird in den Original-ACRCalls-Pfad zurückverschoben.")
+            .setPositiveButton("Wiederherstellen", (d, w) -> {
+                stopPlayback();
+                try {
+                    String fn = r.file.getName();
+                    int sep = fn.indexOf("__");
+                    if (sep <= 0) {
+                        Toast.makeText(this, "Original-Pfad nicht im Dateinamen — manuell verschieben", Toast.LENGTH_LONG).show();
+                        return;
+                    }
+                    String origRel = fn.substring(sep + 2);
+                    // origRel z.B. "_2026_06_17_+491743045755_+491743045755-0-1781705161261.m4a"
+                    // Parse: jahr=2026, monat=06, tag=17, phoneDir=+491743045755, fileName=+49...m4a
+                    String[] parts = origRel.split("_");
+                    if (parts.length < 5) {
+                        Toast.makeText(this, "Pfad-Format unbekannt", Toast.LENGTH_LONG).show();
+                        return;
+                    }
+                    // [0]="" (leading _), [1]=year, [2]=month, [3]=day, [4]=phoneDir, [5..]=fileName mit _ als Trenner
+                    String year = parts[1], month = parts[2], day = parts[3], phoneDir = parts[4];
+                    StringBuilder fname = new StringBuilder();
+                    for (int i = 5; i < parts.length; i++) {
+                        if (i > 5) fname.append("_");
+                        fname.append(parts[i]);
+                    }
+                    java.io.File targetDir = new java.io.File(ACR_ROOT, "ACRPhone/" + year + "/" + month + "/" + day + "/" + phoneDir);
+                    if (!targetDir.exists()) targetDir.mkdirs();
+                    java.io.File targetFile = new java.io.File(targetDir, fname.toString());
+                    boolean ok = r.file.renameTo(targetFile);
+                    if (!ok) {
+                        // Fallback: copy+delete
+                        try (java.io.InputStream in = new java.io.FileInputStream(r.file);
+                             java.io.OutputStream out = new java.io.FileOutputStream(targetFile)) {
+                            byte[] buf = new byte[8192]; int n;
+                            while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
+                        }
+                        ok = r.file.delete();
+                    }
+                    if (ok) {
+                        Toast.makeText(this, "✅ Wiederhergestellt: " + targetFile.getName(), Toast.LENGTH_LONG).show();
+                        if (currentDetailDialog != null) currentDetailDialog.dismiss();
+                        scanRecordings();
+                    } else {
+                        Toast.makeText(this, "❌ Wiederherstellen fehlgeschlagen", Toast.LENGTH_LONG).show();
+                    }
+                } catch (Exception e) {
+                    Toast.makeText(this, "Fehler: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                    Log.w(TAG, "v6.63.442 Restore Fehler: " + e.getMessage());
+                }
+            })
+            .setNegativeButton("Abbrechen", null)
+            .show();
+    }
+
+    // 🆕 v6.63.442: Scant /sdcard/ACRCalls/_papierkorb/ und baut Recording-Objekte
+    //   mit Original-Pfad-Info im Dateinamen (Timestamp__origRel).
+    private void scanTrashRecordings() {
+        progress.setVisibility(View.VISIBLE);
+        new Thread(() -> {
+            List<Recording> all = new ArrayList<>();
+            try {
+                java.io.File trashRoot = new java.io.File(ACR_ROOT, "_papierkorb");
+                if (trashRoot.exists() && trashRoot.isDirectory()) {
+                    java.io.File[] trashFiles = trashRoot.listFiles();
+                    if (trashFiles != null) for (java.io.File tf : trashFiles) {
+                        if (!tf.getName().endsWith(".m4a")) continue;
+                        Recording r = new Recording();
+                        r.file = tf;
+                        String fn = tf.getName();
+                        int sep = fn.indexOf("__");
+                        long ts = 0;
+                        if (sep > 0) {
+                            try { ts = Long.parseLong(fn.substring(0, sep)); } catch (Exception _ig) {}
+                            String origRel = fn.substring(sep + 2);
+                            // Phone aus Original-Pfad rauspuhlen — Format _YYYY_MM_DD_+TelNr_+TelNr-X-Y.m4a
+                            int pIdx = origRel.indexOf("+");
+                            if (pIdx >= 0) {
+                                int pEnd = origRel.indexOf("_", pIdx);
+                                if (pEnd > 0) r.phone = origRel.substring(pIdx, pEnd);
+                                else r.phone = "?";
+                            } else r.phone = "?";
+                        } else {
+                            r.phone = "?";
+                        }
+                        r.timestamp = ts > 0 ? ts : tf.lastModified();
+                        r.size = tf.length();
+                        r.direction = 0;
+                        // CRM-Match übersprungen im Trash-Modus (kein Helper im scope)
+                        all.add(r);
+                    }
+                }
+            } catch (Exception _e) { Log.w(TAG, "v6.63.442 Trash-Scan Fehler: " + _e.getMessage()); }
+            Collections.sort(all, new Comparator<Recording>() {
+                @Override public int compare(Recording a, Recording b) { return Long.compare(b.timestamp, a.timestamp); }
+            });
+            final int finalSize = all.size();
+            runOnUiThread(() -> {
+                progress.setVisibility(View.GONE);
+                header.setText("🗑️ Papierkorb: " + finalSize + " Aufnahmen — Tap zum Anhören + Wiederherstellen-Button");
+                adapter.setData(all);
+            });
+        }).start();
+    }
+
     private void scanRecordings() {
         loadHiddenSet();
+        // 🆕 v6.63.442 Papierkorb-Modus: scant /ACRCalls/_papierkorb/ statt normaler Ordner
+        if (_showTrash) {
+            scanTrashRecordings();
+            return;
+        }
         // 🆕 v6.63.015: Beide Verzeichnisse scannen (ACR + In-App-Recorder).
         java.util.List<File> roots = new java.util.ArrayList<>();
         if (ACR_ROOT.exists() && ACR_ROOT.isDirectory()) roots.add(ACR_ROOT);
@@ -612,11 +746,21 @@ public class CallRecordingsActivity extends AppCompatActivity {
 
         // v6.62.862 (Patrick 22.05. 15:32): "wie kann ich die Anrufliste löschen" — Lösch-Button
         // unten im Detail-Dialog. Mit Bestätigungs-Dialog vor dem tatsächlichen Delete.
-        android.widget.Button btnDelete = new android.widget.Button(this);
-        btnDelete.setText("🗑️ Aufnahme löschen (riskant — Samsung Owner-Lock)");
-        btnDelete.setTextColor(0xFFef4444);
-        btnDelete.setOnClickListener(v -> confirmDeleteRecording(r));
-        root.addView(btnDelete);
+        // 🆕 v6.63.442 Patrick 20.06. 12:35: Im Papierkorb-Modus wird der Lösch-Button
+        //   durch einen Wiederherstellen-Button ersetzt (gleiche Position, andere Funktion).
+        if (_showTrash) {
+            android.widget.Button btnRestore = new android.widget.Button(this);
+            btnRestore.setText("♻️ Aus Papierkorb wiederherstellen");
+            btnRestore.setTextColor(0xFF059669);
+            btnRestore.setOnClickListener(v -> restoreFromTrash(r));
+            root.addView(btnRestore);
+        } else {
+            android.widget.Button btnDelete = new android.widget.Button(this);
+            btnDelete.setText("🗑️ Aufnahme löschen (riskant — Samsung Owner-Lock)");
+            btnDelete.setTextColor(0xFFef4444);
+            btnDelete.setOnClickListener(v -> confirmDeleteRecording(r));
+            root.addView(btnDelete);
+        }
 
         currentDetailDialog = new androidx.appcompat.app.AlertDialog.Builder(this)
             .setView(root)

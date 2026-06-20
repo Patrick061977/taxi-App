@@ -1506,11 +1506,19 @@ async function autoAssignRide(rideId, rideData, _excludeVehicleIds = []) {
                     //   einbauen (Patrick-Regel '2 Min zu spaet ist egal, alles unter 5 Min
                     //   geht'). Ohne Karenz blieben knappe Anschluesse wie Marion 07:30 → Nayef
                     //   07:40 (rEnd 07:43, only 3 Min Verspaetung) in Wartepool stehen.
+                    // 🔄 v6.63.435 (Patrick 20.06. 07:30 Bridge: "Marion hängt in der Luft,
+                    //   ich bin online, einer muss doch die Fahrt machen. Das kann nicht sein
+                    //   dass die rumliegt nur weil eine andere nicht geschafft wird"):
+                    //   Karenz SYMMETRISCH machen. Bisher galt 5-Min-Toleranz nur wenn r
+                    //   Vorgaenger war (newPickup darf 5 Min vor rEnd liegen). Wenn new
+                    //   Vorgaenger ist (newEnd 3 Min > rStart), griff Karenz NICHT → Marion-
+                    //   Fall blockiert. Jetzt: rStart + karenzMs < newEnd statt rStart < newEnd.
+                    //   Dadurch akzeptiert das System bis zu 5 Min Verspaetung zur Folgefahrt.
                     const _karenzMs = 5 * 60000;
                     // v6.63.431 (Patrick 20.06. 06:56 Bridge: "Dann will ich aber auch sehen
                     //   wieviel berechnet wird"): bei Konflikt die exakten Berechnungswerte
                     //   im vehicleScores speichern, damit UI zeigen kann WARUM.
-                    if ((newPickup + _karenzMs < rEnd) && (rStart < newEnd)) {
+                    if ((newPickup + _karenzMs < rEnd) && (rStart + _karenzMs < newEnd)) {
                         _conflictRide = r;
                         hasTimeConflict = true;
                         // Mathe-Detail für UI-Anzeige

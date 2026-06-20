@@ -32228,12 +32228,24 @@ exports.scheduledLogsCleanup = onSchedule(
             { path: 'rideScoresHistory', cutoffMs: now - 7 * day, nested: true  },
             // v6.63.444: wartepoolAuditLog auch trimmen — nach 14 Tagen irrelevant
             { path: 'wartepoolAuditLog', cutoffMs: now - 14 * day, nested: false },
+            // v6.63.445 (Patrick 20.06. 14:09 Bridge Foto: 5.33 GB Storage, archiveRides
+            //   13.7 MB, routeCache 7.2 MB Top-Verbraucher): Cleanups erweitern.
+            //   archiveRides 13.7 MB — nach 90 Tagen weg (Patrick hat CRM-Daten in /customers).
+            //   routeCache 7.2 MB — OSRM/Google-Routen-Cache, 30 Tage reicht (Adressen rechnen sich neu).
+            //   geocodeCache 30 Tage.
+            //   smsQueue 1.5 MB — abgewickelte SMS älter 7 Tage löschen.
+            { path: 'archiveRides',    cutoffMs: now - 90 * day, nested: false, tsField: 'pickupTimestamp' },
+            { path: 'routeCache',      cutoffMs: now - 30 * day, nested: false, tsField: 'timestamp' },
+            { path: 'geocodeCache',    cutoffMs: now - 30 * day, nested: false, tsField: 'timestamp' },
+            { path: 'smsQueue',        cutoffMs: now - 7 * day,  nested: false, tsField: 'processedAt' },
         ];
         const BATCH = 500;
 
-        function extractTs(v) {
+        function extractTs(v, tsField) {
             if (!v || typeof v !== 'object') return 0;
-            return Number(v.ts || v.t || v.time || v.timestamp || v.createdAt || 0) || 0;
+            // v6.63.445: optional tsField (z.B. 'pickupTimestamp' für archiveRides)
+            if (tsField && v[tsField]) return Number(v[tsField]) || 0;
+            return Number(v.ts || v.t || v.time || v.timestamp || v.createdAt || v.pickupTimestamp || v.processedAt || 0) || 0;
         }
 
         for (const plan of plans) {
@@ -32250,7 +32262,7 @@ exports.scheduledLogsCleanup = onSchedule(
                         const removals = {};
                         let count = 0;
                         for (const [k, v] of Object.entries(data)) {
-                            if (extractTs(v) < plan.cutoffMs) {
+                            if (extractTs(v, plan.tsField) < plan.cutoffMs) {
                                 removals[k] = null;
                                 count++;
                                 if (count >= BATCH) {
@@ -32275,7 +32287,7 @@ exports.scheduledLogsCleanup = onSchedule(
                     let count = 0;
                     let totalRemoved = 0;
                     for (const [k, v] of Object.entries(data)) {
-                        if (extractTs(v) < plan.cutoffMs) {
+                        if (extractTs(v, plan.tsField) < plan.cutoffMs) {
                             removals[k] = null;
                             count++;
                             totalRemoved++;

@@ -1553,11 +1553,12 @@ public class DriverDashboardActivity extends AppCompatActivity {
             if (!dup) all.add(o);
         }
         // v6.63.334: Wartepool-Rides ebenfalls anzeigen (Patrick 14.06. 13:30)
-        for (Ride w : wartepoolRides) {
-            boolean dup = false;
-            for (Ride a : all) if (a.id != null && a.id.equals(w.id)) { dup = true; break; }
-            if (!dup) all.add(w);
-        }
+        // 🔄 v6.63.433 (Patrick 20.06. 07:08 Bridge: "Nimm die wartepool Fahrten vom
+        //   Hauptscreen weg das verwirrt nur die Fahrer und ich sehe nicht was passiert
+        //   bei der Änderung"): Wartepool-Rides NICHT mehr in der Fahrer-Liste.
+        //   Bleiben nur über das (immer noch vorhandene) Wartepool-Banner sichtbar,
+        //   Tap dort öffnet Resolver-Dialog für Bearbeitung.
+        //   wartepoolRides werden weiter geladen + im updateWartepoolBanner verwendet.
         // v6.63.348 (Patrick 15.06. 09:11 'Wartepool blockiert Scroll, kann
         //   Carmen Haas nicht mehr annehmen'): Wartepool nach UNTEN.
         //   rank=3 (hinter open=2). Fahrer sieht eigene Fahrten oben.
@@ -1580,7 +1581,11 @@ public class DriverDashboardActivity extends AppCompatActivity {
         //   greift dann normal). Frueher umgekehrt.
         updateFreeBusyBanner(all);
         // v6.63.336: Wartepool-Aufmerksamkeit
-        updateWartepoolBanner();
+        // v6.63.433 (Patrick 20.06. 07:08 Bridge: "Nimm die wartepool Fahrten vom
+        //   Hauptscreen weg, das verwirrt nur die Fahrer"): Wartepool-Banner deaktiviert.
+        //   Fahrer sollen Wartepool nicht sehen — ist Admin-Dispatch-Sache. Patrick als
+        //   Admin nutzt die Web-Admin-Ansicht oder den Dispo-Tab für Wartepool-Auflösung.
+        // updateWartepoolBanner();
     }
 
     // v6.63.336 (Patrick 14.06. 14:33): Wartepool-Aufmerksamkeits-Banner

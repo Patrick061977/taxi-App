@@ -398,10 +398,22 @@ async function osrmDrivingMin(fromLat, fromLon, toLat, toLon) {
     const key = `${_f1.toFixed(4)},${_f2.toFixed(4)}>${_t1.toFixed(4)},${_t2.toFixed(4)}`;
     const cached = _osrmCache.get(key);
     if (cached && (Date.now() - cached.t) < _OSRM_CACHE_TTL_MS) return cached.min;
+    // 🆕 v6.63.447: Firebase /routeCache lookup VOR jedem Google-Call
+    //   In-Memory _osrmCache überlebt nur einen Cloud-Function-Instance-Lifecycle;
+    //   /routeCache überlebt Cold-Starts → spart bei estimateVehicleLeerfahrt
+    //   und autoResolveConflicts-Crons den Großteil der Calls.
+    const _from = { lat: _f1, lon: _f2 }, _to = { lat: _t1, lon: _t2 };
+    const _fbCached = await _readRouteCache(_from, _to, [], 'driving-min', true);
+    if (_fbCached && typeof _fbCached.duration === 'number') {
+        const _min = Math.max(2, _fbCached.duration);
+        _osrmCache.set(key, { min: _min, t: Date.now(), src: 'fb-cache' });
+        return _min;
+    }
     // 🆕 v6.63.363: Google Routes zuerst (TRAFFIC_AWARE), dann OSRM-Fallback
     const _googleMin = await googleRoutesDrivingMin(_f1, _f2, _t1, _t2);
     if (_googleMin != null) {
         _osrmCache.set(key, { min: _googleMin, t: Date.now(), src: 'google' });
+        _writeRouteCache(_from, _to, [], 'driving-min', { duration: _googleMin, distance: null, source: 'google-routes-driving-min' }).catch(() => {});
         return _googleMin;
     }
     try {
@@ -413,6 +425,7 @@ async function osrmDrivingMin(fromLat, fromLon, toLat, toLon) {
         if (typeof sec !== 'number') throw new Error('OSRM kein Route-Ergebnis');
         const min = Math.max(2, Math.round(sec / 60));
         _osrmCache.set(key, { min, t: Date.now(), src: 'osrm' });
+        _writeRouteCache(_from, _to, [], 'driving-min', { duration: min, distance: null, source: 'osrm-driving-min' }).catch(() => {});
         return min;
     } catch (e) {
         console.warn('⚠️ Google+OSRM-Routing fehlgeschlagen, Fallback Luftlinie x 1.4:', e.message);
@@ -5115,6 +5128,52 @@ async function searchNominatimForTelegram(query) {
     return _combined.slice(0, 5);
 }
 
+// 🆕 v6.63.447 (Patrick 20.06. 19:00): Cloud-seitiger Route-Cache vor calculateRoute
+//   und googleRoutesDrivingMin. Vorher: 20+ Aufrufer × Cron-Frequenz × keine
+//   Wiederverwendung → Maps Platform Routes ~378 €/Monat Top-Posten. Jetzt: vor jedem
+//   Google-Call /routeCache lookup, TTL 60 Min (Stau-Aware) bzw. 30 Tage für reine
+//   Distance-Reads. Geschätzt -70 % Maps-Routes-Calls.
+const _ROUTE_CACHE_DURATION_TTL_MS = 60 * 60 * 1000;      // 60 Min: Duration (Verkehr ändert sich)
+const _ROUTE_CACHE_DISTANCE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 Tage: Distance (km ändern sich nicht)
+function _routeCacheKey(from, to, waypointCoords, mode) {
+    const _round = v => (typeof v === 'number' ? v : parseFloat(v)).toFixed(4);
+    const _f = _round(from.lat) + '_' + _round(from.lon);
+    const _t = _round(to.lat) + '_' + _round(to.lon);
+    const _wp = (waypointCoords && waypointCoords.length)
+        ? '~' + waypointCoords.map(w => _round(w.lat) + '_' + _round(w.lon)).join('~')
+        : '';
+    return (_f + _wp + '-' + _t + '-' + (mode || 'hybrid')).replace(/[.#$/[\]]/g, '_');
+}
+async function _readRouteCache(from, to, waypointCoords, mode, needFreshDuration) {
+    try {
+        const key = _routeCacheKey(from, to, waypointCoords, mode);
+        const snap = await db.ref('routeCache/' + key).once('value');
+        const v = snap.val();
+        if (!v || !v.cachedAt) return null;
+        const ageMs = Date.now() - v.cachedAt;
+        if (needFreshDuration) {
+            if (ageMs > _ROUTE_CACHE_DURATION_TTL_MS) return null;
+        } else {
+            if (ageMs > _ROUTE_CACHE_DISTANCE_TTL_MS) return null;
+        }
+        return v;
+    } catch (_) { return null; }
+}
+async function _writeRouteCache(from, to, waypointCoords, mode, result) {
+    try {
+        const key = _routeCacheKey(from, to, waypointCoords, mode);
+        await db.ref('routeCache/' + key).set({
+            distance: result.distance,
+            duration: result.duration,
+            legs: result.legs || null,
+            source: result.source,
+            mode: mode || 'hybrid',
+            cachedAt: Date.now(),
+            timestamp: Date.now() // bestehender Cleanup-Cron v6.63.445 nutzt 'timestamp'
+        });
+    } catch (e) { console.warn('routeCache write:', e.message); }
+}
+
 // 🔧 v6.33.6: Waypoints-Support für Multi-Stop-Routen
 // 🆕 v6.62.967 (Patrick 26.05.): Reihenfolge gedreht — Google Routes API (NEW)
 //   primaer mit TRAFFIC_AWARE, OSRM nur noch Notfall-Fallback wenn Google streikt.
@@ -5122,6 +5181,26 @@ async function searchNominatimForTelegram(query) {
 //   Google Routes API liefert duration MIT aktueller Verkehrslage,
 //   distanceMeters auf der Strasse (nicht Luftlinie).
 async function calculateRoute(from, to, waypointCoords = []) {
+    // routeMode für Cache-Key bestimmen (gleiche Strecke kann je nach Mode anders sein)
+    let _routeMode = 'hybrid';
+    try {
+        const _modeSnap = await db.ref('settings/dispatch/routeMode').once('value');
+        const _v = _modeSnap.val();
+        if (_v === 'fastest' || _v === 'shortest' || _v === 'hybrid') _routeMode = _v;
+    } catch(_) { /* default hybrid */ }
+
+    // 🆕 v6.63.447: Cache-Lookup VOR jedem Google-Call
+    const _cached = await _readRouteCache(from, to, waypointCoords, _routeMode, true);
+    if (_cached) {
+        console.log(`💾 routeCache HIT (${_routeMode}): ${_cached.distance} km, ${_cached.duration} min — age ${Math.round((Date.now()-_cached.cachedAt)/1000)}s`);
+        return {
+            distance: _cached.distance,
+            duration: _cached.duration,
+            legs: _cached.legs || [{ duration: _cached.duration, distance: +_cached.distance }],
+            source: (_cached.source || 'google-routes-' + _routeMode) + '-cache'
+        };
+    }
+
     // Versuch 1: Google Routes API (NEW, TRAFFIC_AWARE)
     try {
         const apiKeySnap = await db.ref('settings/googleMapsApiKey').once('value');
@@ -5130,20 +5209,6 @@ async function calculateRoute(from, to, waypointCoords = []) {
             console.warn('⚠️ Kein Google-Maps-API-Key in settings/googleMapsApiKey — Skip Google, direkt OSRM');
             throw new Error('No API key');
         }
-        // 🆕 v6.63.286 (Patrick 11.06. 14:21): Hybrid-Routen-Logik.
-        //   "Kuerzeste Strecke. Aber wenn schnellste 5+ Min schneller ist, schnellste."
-        //   Implementation: computeAlternativeRoutes=true → Google liefert 2-3 Routen,
-        //   wir vergleichen Distance+Duration und waehlen nach Patricks Regel.
-        //   settings/dispatch/routeMode steuert (default 'hybrid'):
-        //   - 'fastest':           immer schnellste (TRAFFIC_AWARE)
-        //   - 'shortest':          immer kuerzeste (Distance)
-        //   - 'hybrid' (default):  kuerzeste, ausser schnellste 5+ Min besser
-        let _routeMode = 'hybrid';
-        try {
-            const _modeSnap = await db.ref('settings/dispatch/routeMode').once('value');
-            const _v = _modeSnap.val();
-            if (_v === 'fastest' || _v === 'shortest' || _v === 'hybrid') _routeMode = _v;
-        } catch(_) { /* default hybrid */ }
         const body = {
             origin: { location: { latLng: { latitude: from.lat, longitude: from.lon } } },
             destination: { location: { latLng: { latitude: to.lat, longitude: to.lon } } },
@@ -5205,12 +5270,15 @@ async function calculateRoute(from, to, waypointCoords = []) {
             distance: +(((l.distanceMeters || 0) / 1000).toFixed(1))
         }));
         console.log(`✅ Google Routes (${_routeMode}): ${totalDistanceKm.toFixed(1)} km, ${totalDurationMin} min`);
-        return {
+        const _result = {
             distance: totalDistanceKm.toFixed(1),
             duration: totalDurationMin,
             legs: legs.length > 0 ? legs : [{ duration: totalDurationMin, distance: +totalDistanceKm.toFixed(1) }],
             source: 'google-routes-' + _routeMode
         };
+        // 🆕 v6.63.447: nach erfolgreichem Google-Call ins /routeCache schreiben
+        _writeRouteCache(from, to, waypointCoords, _routeMode, _result).catch(() => {});
+        return _result;
     } catch (e) {
         console.warn('⚠️ Google Routes fehlgeschlagen, Fallback OSRM:', e.message);
     }

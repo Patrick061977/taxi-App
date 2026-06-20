@@ -1657,6 +1657,60 @@ public class DriverDashboardActivity extends AppCompatActivity {
             root.addView(reason);
         }
 
+        // 🆕 v6.63.432 (Patrick 20.06. 07:06 Bridge: "Beim Bearbeiten der Fahrten sehe
+        //   ich gar nichts, nur den Slider, aber nicht welche Fahrt jetzt passt"):
+        //   vehicleScores pro Fahrzeug auflisten — Patrick sieht WELCHE 6 Fahrzeuge
+        //   gecheckt wurden und wer warum abgelehnt wurde. Plus Hinweis dass der
+        //   Status vom letzten Versuch ist und neue Zeit erneut geprüft werden muss.
+        try {
+            com.google.firebase.database.FirebaseDatabase.getInstance(DB_INSTANCE_URL)
+                .getReference("rides/" + ride.id + "/vehicleScores")
+                .addListenerForSingleValueEvent(new ValueEventListener() {
+                    @Override public void onDataChange(@NonNull DataSnapshot s) {
+                        if (!s.exists()) return;
+                        TextView scoresHdr = new TextView(DriverDashboardActivity.this);
+                        scoresHdr.setText("🔍 Vehicle-Check-Ergebnis (vom letzten Versuch):");
+                        scoresHdr.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+                        scoresHdr.setTypeface(null, Typeface.BOLD);
+                        scoresHdr.setPadding(0, 10, 0, 4);
+                        scoresHdr.setTextColor(Color.parseColor("#1e293b"));
+                        root.addView(scoresHdr);
+
+                        for (DataSnapshot vc : s.getChildren()) {
+                            String vid = vc.getKey();
+                            String status = vc.child("status").getValue(String.class);
+                            String reason = vc.child("reason").getValue(String.class);
+                            // Vehicle-Kurz-Name aus ID-Heuristik (z.B. pw-my-222-e → MY222)
+                            String vName = vid;
+                            if (vid != null && vid.contains("-")) {
+                                String[] parts = vid.split("-");
+                                if (parts.length >= 3) vName = parts[1].toUpperCase() + parts[2];
+                            }
+                            TextView scoreLine = new TextView(DriverDashboardActivity.this);
+                            String icon = "available".equalsIgnoreCase(status) ? "✅"
+                                : "overlap-hard".equalsIgnoreCase(status) ? "⏰"
+                                : "❌";
+                            String txt = icon + " " + vName;
+                            if (reason != null && !reason.isEmpty()) txt += "\n     " + reason;
+                            scoreLine.setText(txt);
+                            scoreLine.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
+                            scoreLine.setTextColor("available".equalsIgnoreCase(status) ?
+                                Color.parseColor("#059669") : Color.parseColor("#64748b"));
+                            scoreLine.setPadding(0, 2, 0, 2);
+                            root.addView(scoreLine);
+                        }
+
+                        TextView hintTime = new TextView(DriverDashboardActivity.this);
+                        hintTime.setText("💡 Nach Slider-Änderung 'Speichern + Suchen' triggert neue Berechnung");
+                        hintTime.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10);
+                        hintTime.setTextColor(Color.parseColor("#94a3b8"));
+                        hintTime.setPadding(0, 6, 0, 10);
+                        root.addView(hintTime);
+                    }
+                    @Override public void onCancelled(@NonNull DatabaseError e) {}
+                });
+        } catch (Throwable _t) { /* defensive */ }
+
         TextView sliderLbl = new TextView(this);
         sliderLbl.setText("Neue Zeit: " + sdf.format(new java.util.Date(origTs)) + " (±0 Min)");
         sliderLbl.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);

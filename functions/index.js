@@ -1473,6 +1473,29 @@ async function autoAssignRide(rideId, rideData, _excludeVehicleIds = []) {
 
                 // 🔧 v6.33.8: DYNAMISCHER Rückfahrt-Puffer statt pauschal 30 Min!
                 // v6.63.171 (Patrick 05.06.07:21): Rueckfahrt jetzt ueber OSRM, KEIN Cap 30 Min mehr.
+                // 🆕 v6.63.438 (Patrick 20.06. 11:29 Bridge: "GPS-Position muss berechnet
+                //   werden, oder zumindest dass die Rückfahrt auch berechnet wird"):
+                //   Live-GPS-Position des Vehicles speichern (falls <15 Min alt) für
+                //   Anfahrt-Schätzung. Reine Info im vehicleScores — kein Verhalten-Change.
+                //   So sieht Patrick im Resolver: 'MY222 Live 23 km von Pickup' statt
+                //   nur 'aus Wochenplan-Heimat berechnet'.
+                let _liveGpsDistKm = null;
+                let _liveGpsAgeMin = null;
+                try {
+                    const _vGps = _vData && (_vData.gps || _vData);
+                    const _vLat = _vGps && (_vGps.lat || _vGps.latitude);
+                    const _vLon = _vGps && (_vGps.lon || _vGps.longitude);
+                    const _vGpsTs = (_vGps && (_vGps.timestamp || _vGps.lastUpdate)) || (_vData && _vData.timestamp);
+                    const newPickupLatTmp = rideData.pickupCoords?.lat || rideData.pickupLat;
+                    const newPickupLonTmp = rideData.pickupCoords?.lon || rideData.pickupLon;
+                    if (_vLat && _vLon && _vGpsTs && newPickupLatTmp && newPickupLonTmp) {
+                        const _ageMs = Date.now() - Number(_vGpsTs);
+                        _liveGpsAgeMin = Math.round(_ageMs / 60000);
+                        if (_liveGpsAgeMin < 15) {
+                            _liveGpsDistKm = +gpsDistanceKm(_vLat, _vLon, newPickupLatTmp, newPickupLonTmp).toFixed(1);
+                        }
+                    }
+                } catch (_gpsLogErr) { /* defensive */ }
                 const homeCoords = getVehicleHomeCoords(vehicleId, shiftsData, dateStr, timeStr);
                 async function calcReturnMsAsync(ride) {
                     const destLat = ride.destCoords?.lat || ride.destinationLat;

@@ -35907,6 +35907,46 @@ exports.onSmsQueued = onValueCreated(
 
         console.log(`📲 onSmsQueued: ${smsId} — ${smsData.phone} — ${smsData.type}`);
 
+        // v6.63.466 (Patrick 21.06. 22:43 Bridge "doppelte SMS"): Universal-Dedup.
+        //   Detektiv-Sample 200 SMS / 4 Tage fand 7 echte Duplikate (Petra 19.06. mit 7 Sek
+        //   Abstand UND verschiedenen Wortlauten → zwei parallele Quellen). Vor FCM-Send:
+        //   wenn in letzten 5 Min schon ein smsQueue-Eintrag mit gleicher (rideId+type+phone)
+        //   im Status fcm_sent/sent existiert → mark als skipped, kein Send.
+        //   Nur bei rideId vorhanden — manuelle SMS ohne rideId bleiben unangefasst.
+        try {
+            if (smsData.rideId && smsData.type && smsData.phone) {
+                const _dedupSnap = await db.ref('smsQueue')
+                    .orderByChild('rideId')
+                    .equalTo(String(smsData.rideId))
+                    .once('value');
+                const _cutoff = Date.now() - 5 * 60_000;
+                let _dupKey = null;
+                _dedupSnap.forEach(child => {
+                    if (_dupKey) return; // schon gefunden
+                    if (child.key === smsId) return; // self
+                    const v = child.val() || {};
+                    if (v.phone !== smsData.phone) return;
+                    if (v.type !== smsData.type) return;
+                    if (!['fcm_sent', 'sent'].includes(v.status)) return;
+                    const _ts = v.createdAt || v.sentAt || v.ts || 0;
+                    if (_ts < _cutoff) return;
+                    _dupKey = child.key;
+                });
+                if (_dupKey) {
+                    await db.ref(`smsQueue/${smsId}`).update({
+                        status: 'skipped',
+                        skipReason: 'duplicate_within_5min_v6.63.466',
+                        duplicateOf: _dupKey,
+                        skippedAt: Date.now()
+                    });
+                    console.log(`🔁 SMS-Dedup v6.63.466: skip ${smsId} (Duplikat von ${_dupKey}) — ${smsData.phone} type=${smsData.type} rideId=${smsData.rideId}`);
+                    return;
+                }
+            }
+        } catch (_dedupErr) {
+            console.warn('SMS-Dedup-Check Fehler (sende trotzdem):', _dedupErr.message);
+        }
+
         try {
             // v6.62.49: Native-SMS-Gateway statt Macrodroid-Telegram-Trigger.
             // settings/sms/gatewayVehicleId zeigt auf das Fahrzeug-Handy mit aktiver

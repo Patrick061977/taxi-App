@@ -116,8 +116,8 @@
     },
 
     "optimierungsLog": {
-      ".read": "auth != null",
-      ".write": "auth != null",
+      ".read": "auth != null && root.child('users/' + auth.uid + '/role').val() === 'admin'",
+      ".write": "auth != null && root.child('users/' + auth.uid + '/role').val() === 'admin'",
       ".indexOn": ["timestamp"]
     },
 
@@ -148,8 +148,8 @@
     },
 
     "scripts": {
-      ".read": "auth != null",
-      ".write": "auth != null"
+      ".read": "auth != null && root.child('users/' + auth.uid + '/role').val() === 'admin'",
+      ".write": "auth != null && root.child('users/' + auth.uid + '/role').val() === 'admin'"
     },
 
     "analytics": {
@@ -163,8 +163,8 @@
     },
 
     "activity_log": {
-      ".read": "auth != null",
-      ".write": "auth != null"
+      ".read": "auth != null && root.child('users/' + auth.uid + '/role').val() === 'admin'",
+      ".write": "auth != null && root.child('users/' + auth.uid + '/role').val() === 'admin'"
     },
 
     "callHistory": {
@@ -190,7 +190,8 @@
 
     "smsQueue": {
       ".read": "auth != null",
-      ".write": "auth != null"
+      ".write": "auth != null",
+      ".indexOn": ["rideId", "createdAt"]
     },
 
     "anfragen": {

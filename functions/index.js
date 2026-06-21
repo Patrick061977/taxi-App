@@ -20712,9 +20712,18 @@ exports.autoResolveConflicts = onSchedule(
                             // onRideUpdated triggert dann Telegram-Push an Admins.
                             try {
                                 const _attemptsNow = (ride.autoAssignAttempts || 0) + 1;
+                                // 🆕 v6.63.451 (Patrick 21.06. 06:55 Bridge: "Fehler suchen warum
+                                //   fehlen die vehicle scores"): autoAssignRide schreibt
+                                //   ride.autoAssignLastReason + ride.vehicleScores LOKAL in das
+                                //   ride-Objekt, scheduledAutoAssign persistierte aber nur
+                                //   Counter+Timestamp. Folge: Winkler 35× Versuche ohne lastReason
+                                //   und ohne scores → keine Diagnose, keine WP-Detective-Optionen.
+                                //   Jetzt: alles mit-schreiben (null wenn lokal leer).
                                 const _upd = {
                                     autoAssignAttempts: _attemptsNow,
-                                    autoAssignLastFailAt: Date.now()
+                                    autoAssignLastFailAt: Date.now(),
+                                    autoAssignLastReason: ride.autoAssignLastReason || null,
+                                    vehicleScores: ride.vehicleScores || null
                                 };
                                 let _wartepoolJustEntered = false;
                                 if (_attemptsNow >= 3 && ride.status !== 'wartepool') {

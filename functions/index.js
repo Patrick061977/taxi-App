@@ -29084,11 +29084,24 @@ exports.onRideUpdated = onValueUpdated(
         try {
             // Nur aktive Buchungen
             const _aktivStati = ['vorbestellt','assigned','accepted','sofort','on_way','warteschlange'];
+            // 🆕 v6.63.457 (Patrick 21.06. 06:23 Bridge Villa-Neptun-Bug):
+            //   Wenn Status UND pickupTimestamp gleichzeitig in einem Update geändert
+            //   wurden (Beispiel: Patrick verschiebt Vorbestellung 10:50 → 11:50 UND
+            //   weist gleichzeitig Vito zu → Status vorbestellt → assigned), wurde die
+            //   ChangeSMS hier komplett SKIPPED weil der Status-Wechsel gewertet hat.
+            //   Die Standard-Status-SMS (driver_assigned) enthält aber KEINE neue
+            //   Pickup-Zeit → Kunde wusste nicht dass verschoben wurde.
+            //   Jetzt: bei Status-Wechsel TROTZDEM ChangeSMS senden, wenn pickup/dest/time
+            //   sich auch geändert haben — damit der Kunde die Zeitinfo bekommt.
+            //   Idempotenz-Hash verhindert Doppel-Send beim selben Trigger-Roundtrip.
+            const _pickupOrDestOrTimeChanged =
+                (before.pickup || '') !== (after.pickup || '') ||
+                (before.destination || '') !== (after.destination || '') ||
+                (Number(before.pickupTimestamp) || 0) !== (Number(after.pickupTimestamp) || 0);
             if (!_aktivStati.includes(newStatus)) {
                 // Skip
-            } else if (newStatus !== oldStatus) {
-                // Status hat sich geaendert — die Standard-Status-SMS (sendCustomerNotifications)
-                // greift, nicht hier. Sonst doppelte SMS.
+            } else if (newStatus !== oldStatus && !_pickupOrDestOrTimeChanged) {
+                // Status hat sich geaendert ohne pickup/dest/time-Change — Standard-Status-SMS reicht.
             } else {
                 // v6.63.057 (Patrick 31.05. 08:23): Aenderungs-SMS unterdruecken bei frischen
                 // Sofort-Buchungen — sonst feuern Cloud-Function-Recomputes (sofortVorlauf,

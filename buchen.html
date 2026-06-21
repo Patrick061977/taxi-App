@@ -1109,7 +1109,7 @@
 
                 <!-- v6.63.464 (Patrick 21.06. 20:41): Storno-Hinweis + AGB-Checkbox vor Buchung. -->
                 <div id="storno-info" style="display:none;margin-top:14px;padding:10px 12px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;font-size:12.5px;color:#166534;line-height:1.4;">
-                    🛡️ <strong>Stornierung:</strong> Bis 30 Min vor Pickup kostenfrei. Danach 4 € Anfahrt-Pauschale.<br>
+                    🛡️ <strong>Stornierung:</strong> Solange noch kein Fahrer Ihre Buchung angenommen hat → kostenfrei. Sobald ein Fahrer akzeptiert hat → 4 € Stornogebühr.<br>
                     Storno-Link kommt in der Bestätigungs-SMS — oder im <a href="kunden.html" style="color:#059669;font-weight:600;">Kundenportal</a>.
                 </div>
                 <label id="agb-checkbox-row" style="display:none;margin-top:12px;padding:10px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;font-size:13px;color:#334155;line-height:1.45;cursor:pointer;">
@@ -1391,7 +1391,7 @@
             } catch(e) { /* */ }
         });
         // 🔧 v6.39.1: Build-Timestamp für Versions-Check im System Monitor
-        const _buchenBuild = '2026-06-21 21:00 v6.63.464';
+        const _buchenBuild = '2026-06-21 21:10 v6.63.465';
         // Auto-Reload: Wenn Seite aus Cache kommt, erzwinge Neuladen
         if (window._buchenLoaded) {
             // Doppel-Load verhindern

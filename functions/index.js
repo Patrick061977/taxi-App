@@ -1035,9 +1035,27 @@ async function buildWartepoolOptions(wpRide, allRides, vehicles, shiftsData) {
 
 async function autoAssignRide(rideId, rideData, _excludeVehicleIds = []) {
     console.log(`🎯 v6.25.4: Cloud-AutoAssign für Fahrt: ${rideId}${_excludeVehicleIds.length ? ' (exclude: ' + _excludeVehicleIds.join(',') + ')' : ''}`);
+
+    // 🆕 v6.63.454 (Patrick 21.06. 09:00 Bridge: "warum funktioniert Krause nicht"):
+    //   Helper damit JEDE return-null-Stelle vor dem Z.1809-Persist trotzdem einen
+    //   sichtbaren autoAssignLastReason in die DB schreibt. Sonst sehen wir im
+    //   Wartepool-Detective + Native-Dispo NICHTS bei Krause-ähnlichen Fällen,
+    //   wo die Function vor dem Score-Persist-Block aussteigt (Safety-Check,
+    //   Locked, Route-Fail etc.).
+    const _persistEarlyReturn = async (stage, reason) => {
+        try {
+            await db.ref(`rides/${rideId}`).update({
+                autoAssignLastReason: `early-return:${stage} ${reason || ''}`.slice(0, 200),
+                autoAssignLastEarlyStage: stage,
+                autoAssignLastFailAtV454: Date.now()
+            });
+        } catch (_) { /* defensive */ }
+    };
+
     // 🛡️ v6.63.378: Recursion-Guard — Patrick will dass System nicht endlos ausschließt
     if (_excludeVehicleIds.length > 10) {
         console.warn(`   ⚠️ v6.63.378: Recursion-Guard erreicht (10 Vehicles excluded) — gebe auf`);
+        await _persistEarlyReturn('recursion-guard', `${_excludeVehicleIds.length} Vehicles excluded`);
         return null;
     }
     // 🆕 v6.63.377 (Patrick 17.06. 09:10 Bridge "ja" zu Komplett-Diagnose):
@@ -1080,6 +1098,7 @@ async function autoAssignRide(rideId, rideData, _excludeVehicleIds = []) {
                         aktuelleFahrzeug: _cur.assignedVehicleName || _cur.assignedVehicle || '?'
                     }); } catch (_) {}
                     await _trace377('exit-protected-status', { status: _cur.status });
+                    await _persistEarlyReturn('protected-status', `status='${_cur.status}'`);
                     return null;
                 }
                 // 🆕 v6.63.159 (Patrick 04.06. 12:14 Tesla-Sperre): assignmentLocked
@@ -1094,6 +1113,7 @@ async function autoAssignRide(rideId, rideData, _excludeVehicleIds = []) {
                         grund: `Admin/Disponent hat Fahrzeug fest gesperrt — kein Auto-Reassign`,
                         aktuelleFahrzeug: _cur.assignedVehicleName || _cur.assignedVehicle || _cur.vehicleId || '?'
                     }); } catch (_) {}
+                    await _persistEarlyReturn('assignment-locked', `Vehicle ${_cur.assignedVehicleName || _cur.assignedVehicle || _cur.vehicleId || '?'} gesperrt`);
                     return null;
                 }
             }
@@ -1151,16 +1171,19 @@ async function autoAssignRide(rideId, rideData, _excludeVehicleIds = []) {
                     } else {
                         console.error(`❌ autoAssignRide: Route konnte NICHT berechnet werden für ${rideId} — KEINE ZUWEISUNG!`);
                         await sendToAllAdmins(`⚠️ <b>Auto-Zuweisung FEHLGESCHLAGEN</b>\n\nFahrt ${rideId} hat keine Routendaten (Dauer/Entfernung) und OSRM-Berechnung ist fehlgeschlagen.\n\n❌ <b>Fahrt wird NICHT automatisch zugewiesen!</b>\nBitte manuell prüfen und zuweisen.`);
+                        await _persistEarlyReturn('route-fail', 'OSRM/Google liefert keine Route');
                         return null;
                     }
                 } catch (e) {
                     console.error(`❌ autoAssignRide: Route-Berechnung Fehler für ${rideId}:`, e.message);
                     await sendToAllAdmins(`⚠️ <b>Auto-Zuweisung FEHLGESCHLAGEN</b>\n\nFahrt ${rideId}: Route-Berechnung Fehler: ${e.message}\n\n❌ <b>Fahrt wird NICHT automatisch zugewiesen!</b>\nBitte manuell prüfen und zuweisen.`);
+                    await _persistEarlyReturn('route-exception', e.message);
                     return null;
                 }
             } else {
                 console.error(`❌ autoAssignRide: Fahrt ${rideId} hat KEINE Koordinaten UND keine Duration — KEINE ZUWEISUNG!`);
                 await sendToAllAdmins(`⚠️ <b>Auto-Zuweisung FEHLGESCHLAGEN</b>\n\nFahrt ${rideId} hat weder Routendaten noch Koordinaten.\n\n❌ <b>Fahrt wird NICHT automatisch zugewiesen!</b>\nBitte manuell prüfen und zuweisen.`);
+                await _persistEarlyReturn('no-coords-no-duration', 'pickupLat/destLat fehlen');
                 return null;
             }
         }
@@ -2430,6 +2453,14 @@ async function autoAssignRide(rideId, rideData, _excludeVehicleIds = []) {
         return best;
     } catch (err) {
         console.error('❌ v6.15.1: AutoAssign Fehler:', err);
+        // 🆕 v6.63.454: silent exception sichtbar machen — schreibt reason in DB
+        try {
+            await db.ref(`rides/${rideId}`).update({
+                autoAssignLastReason: `outer-catch: ${err && err.message ? err.message.slice(0, 150) : 'unknown error'}`,
+                autoAssignLastEarlyStage: 'outer-catch',
+                autoAssignLastFailAtV454: Date.now()
+            });
+        } catch (_) { /* defensive */ }
         return null;
     }
 }

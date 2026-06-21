@@ -13,7 +13,10 @@
 const { execSync } = require('child_process');
 const https = require('https');
 
-const POLL_INTERVAL_MS = 30000;  // v6.63.239: 15s → 30s, -50% Polling-Traffic
+// v6.63.462 (Patrick 21.06. 18:32 Bridge Profile-Auswertung): 30s → 60s + limitToLast 50→20
+//   → /claudeBridge/inbox lag bei ~4,3 MB/h Download. Halbierte Polling-Frequenz und 60% kleinerer
+//   Slice → -75 % auf diesem Pfad. Latency-Toleranz Patrick→Claude ist 60s OK.
+const POLL_INTERVAL_MS = 60000;
 const RTDB_HOST = 'taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.app';
 const seenKeys = new Set();
 
@@ -90,9 +93,9 @@ async function poll() {
     // Heartbeat (v6.41.92): claudeBotWebhook erkennt daraus dass Claude online ist.
     fbUpdate('claudeBridge/heartbeat', { ts: Date.now(), pid: process.pid });
 
-    // 1) Telegram-Bridge inbox — v6.63.232: limitToLast(50) statt komplette Inbox
-    // (Inbox-Read mit 4767 Einträgen zog 1.65 MB pro Poll = 396 MB/h!)
-    const root = await fbGet('claudeBridge/inbox', 'orderBy=%22%24key%22&limitToLast=50');
+    // 1) Telegram-Bridge inbox — v6.63.462: limitToLast(20) statt 50 (Profile-Auswertung 21.06.)
+    // v6.63.232: limitToLast(50) statt komplette Inbox (Inbox-Read mit 4767 Einträgen zog 1.65 MB pro Poll)
+    const root = await fbGet('claudeBridge/inbox', 'orderBy=%22%24key%22&limitToLast=20');
     if (root) {
         const keys = Object.keys(root).filter(k => root[k] && !root[k].read && !seenKeys.has(k)).sort();
         for (const k of keys) {

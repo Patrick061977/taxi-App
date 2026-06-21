@@ -1000,8 +1000,16 @@ public class CallLogActivity extends AppCompatActivity {
                 : new String[]{ "🚖 EINSTEIGER (Kunde steht am Auto)", "🚗 SOFORT-Fahrt (ich fahre hin)", "📅 Vorbestellung erstellen", "📋 CRM-Eintrag bearbeiten", "📜 Bisherige Fahrten anschauen", "Abbrechen" };
             String title = "📞 " + crm.name + " — " + e.number;
             if (crm.address != null) title += "\n📍 " + crm.address;
-            new AlertDialog.Builder(this)
-                .setTitle(title)
+            // 🆕 v6.63.458 (Patrick 21.06. 06:55 Bridge: "Anrufe aus Anrufliste abhören"):
+            //   Long-Press existiert schon, ist aber unbekannt. Jetzt: 'Aufnahme abspielen'
+            //   als NeutralButton im Action-Dialog, sichtbar nur wenn ACR-File da ist.
+            AlertDialog.Builder _builderCrm = new AlertDialog.Builder(this).setTitle(title);
+            if (e.acrFile != null) {
+                final java.io.File _audioFile = e.acrFile;
+                final String _audioLabel = crm.name + " · " + e.number;
+                _builderCrm.setNeutralButton("🎵 Aufnahme abspielen", (d, w) -> showAcrPlayerDialog(_audioFile, _audioLabel));
+            }
+            _builderCrm
                 .setItems(options, (d, which) -> {
                     if (admin) {
                         switch (which) {
@@ -1031,8 +1039,15 @@ public class CallLogActivity extends AppCompatActivity {
             String[] options = admin
                 ? new String[]{ "👤 Als CRM-Kunde anlegen", "🚗 SOFORT-Fahrt (ich fahre hin)", "📅 Vorbestellung erstellen", "Abbrechen" }
                 : new String[]{ "👤 Als CRM-Kunde anlegen", "🚖 EINSTEIGER (Kunde steht am Auto)", "🚗 SOFORT-Fahrt (ich fahre hin)", "📅 Vorbestellung erstellen", "Abbrechen" };
-            new AlertDialog.Builder(this)
-                .setTitle("❓ " + e.number + " — nicht im CRM")
+            // 🆕 v6.63.458: Aufnahme-Button auch im Nicht-CRM-Dialog
+            AlertDialog.Builder _builderNon = new AlertDialog.Builder(this)
+                .setTitle("❓ " + e.number + " — nicht im CRM");
+            if (e.acrFile != null) {
+                final java.io.File _audioFile2 = e.acrFile;
+                final String _audioLabel2 = (e.name != null && !e.name.isEmpty() ? e.name : "Unbekannt") + " · " + e.number;
+                _builderNon.setNeutralButton("🎵 Aufnahme abspielen", (d, w) -> showAcrPlayerDialog(_audioFile2, _audioLabel2));
+            }
+            _builderNon
                 .setItems(options, (d, which) -> {
                     if (admin) {
                         switch (which) {

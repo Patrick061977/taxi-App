@@ -25088,6 +25088,75 @@ exports.onAnfrageStatusChanged = onValueUpdated(
         const before = event.data.before.val();
         const after = event.data.after.val();
         if (!after) return;
+
+        // 🆕 v6.63.459 (Patrick 21.06. 06:25/07:47 Bridge: "wenn ich eine Web-Anfrage ablehne,
+        //   möchte ich dass die Kunden eine Bestätigung bekommen dass die Fahrt nicht von uns
+        //   angenommen werden kann"): Decline-Pfad zusätzlich zum Bestätigungs-Pfad.
+        //   SMS + Email automatisch bei Übergang offen → abgelehnt. Idempotenz: declineSent.
+        //   Manuelle Retro-Bedienung für Gerdesmann heute morgen war Vorlage.
+        const wasOpenForDecline = !before || before.status === 'offen' || !before.status;
+        const isDeclined = after.status === 'abgelehnt';
+        if (wasOpenForDecline && isDeclined && after.declineSent !== true) {
+            try {
+                const _smsSettingsSnapD = await db.ref('settings/sms').once('value');
+                const _smsSettingsD = _smsSettingsSnapD.val() || {};
+                if (_smsSettingsD.declineEnabled === false) {
+                    console.log(`📭 onAnfrageStatusChanged: decline-Send disabled via settings`);
+                    return;
+                }
+                const _phoneD = after.phone || after.mobilePhone || '';
+                const _emailD = after.email || '';
+                const _nameD = (after.name || '').trim();
+                const _dateD = after.date ? after.date.split('-').reverse().join('.') : '';
+                const _timeD = after.time || '';
+                const _pickupD = (after.pickup || '').replace(/, Deutschland$/, '');
+                const _destD = (after.destination || '').replace(/, Deutschland$/, '');
+                const _zeitD = (_dateD && _timeD) ? ` am ${_dateD} um ${_timeD} Uhr` : (_dateD ? ` am ${_dateD}` : '');
+                const _streckeD = (_pickupD && _destD) ? ` (${_pickupD} → ${_destD})` : '';
+                const _greeting = _nameD ? `Hallo ${_nameD}` : 'Guten Tag';
+                const _declineText = `Funk Taxi Heringsdorf: ${_greeting}, entschuldigen Sie bitte. Leider können wir Ihren Transfer${_zeitD}${_streckeD} nicht annehmen. Vielleicht klappt es ein andermal. Bei Fragen 038378 22022.`;
+                const _declineEmailBody = `Sehr geehrte/r ${_nameD || 'Damen und Herren'},\n\nentschuldigen Sie bitte. Leider können wir Ihren Transfer${_zeitD}${_streckeD} nicht annehmen.\n\nVielleicht klappt es ein andermal.\n\nBei Fragen erreichen Sie uns unter 038378 22022.\n\nMit freundlichen Grüßen\nFunk Taxi Heringsdorf`;
+                let _smsId = null, _mailId = null;
+                if (_phoneD && isMobileNumber(_phoneD)) {
+                    const _smsRef = await db.ref('smsQueue').push({
+                        phone: _phoneD,
+                        text: _declineText,
+                        anfrageId: anfrageId,
+                        category: 'anfrage-abgelehnt-auto',
+                        createdAt: Date.now(),
+                        createdBy: 'cloud-onAnfrageStatusChanged-v6.63.459-decline',
+                        channel: 'sms'
+                    });
+                    _smsId = _smsRef.key;
+                }
+                if (_emailD && _emailD.includes('@')) {
+                    const _subj = `Ihre Taxi-Anfrage${_dateD ? ' vom ' + _dateD : ''}`;
+                    const _mailRef = await db.ref('personalMailQueue').push({
+                        to: _emailD,
+                        subject: _subj,
+                        text: _declineEmailBody,
+                        status: 'approved',
+                        createdAt: Date.now(),
+                        source: 'cloud-onAnfrageStatusChanged-v6.63.459-decline',
+                        anfrageId: anfrageId
+                    });
+                    _mailId = _mailRef.key;
+                }
+                await db.ref(`anfragen/${anfrageId}`).update({
+                    declineSent: true,
+                    declineSentAt: Date.now(),
+                    declineSentBy: 'cloud-onAnfrageStatusChanged-v6.63.459-auto',
+                    declineSmsQueueId: _smsId,
+                    declineMailQueueId: _mailId,
+                    declineSentChannels: [_smsId ? 'sms' : null, _mailId ? 'email' : null].filter(Boolean)
+                });
+                console.log(`📭 v6.63.459 Decline-SMS+Email für ${anfrageId} (sms=${_smsId}, mail=${_mailId})`);
+            } catch (_declineErr) {
+                console.error('Decline-Send Fehler:', _declineErr.message);
+            }
+            return;
+        }
+
         // Nur bei Übergang offen → bestaetigt
         const wasOpen = !before || before.status === 'offen' || !before.status;
         const isConfirmed = after.status === 'bestaetigt' && after.rideId;

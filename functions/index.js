@@ -38142,6 +38142,31 @@ exports.scheduledDailyReport = onSchedule(
             const conflictResolveLog = [];
             crlSnap.forEach(c => conflictResolveLog.push(c.val()));
 
+            // 🆕 v6.63.460 (Patrick 21.06. 09:27 Bridge: "vielleicht müssen wir auch
+            //   Statistiken ausführen. Welche Anrufe hatten wir? Was hat funktioniert?
+            //   Was hat nicht funktioniert?"): Anrufe heute zählen + Buchungs-Konversion.
+            const _callStats = { total: 0, mitCrm: 0, ohneCrm: 0, mitRide: 0, callerNumbers: new Set() };
+            try {
+                const _callSnap = await db.ref('callHistory')
+                    .orderByChild('timestamp').startAt(dayStart.getTime()).endAt(dayEnd.getTime()).once('value');
+                _callSnap.forEach(c => {
+                    const _v = c.val();
+                    if (!_v) return;
+                    _callStats.total++;
+                    if (_v.customerFound) _callStats.mitCrm++; else _callStats.ohneCrm++;
+                    if (_v.caller) _callStats.callerNumbers.add(String(_v.caller).slice(-10));
+                });
+                // Check: aus Anrufen Rides angelegt?
+                for (const _rRide of Object.values(rides)) {
+                    if (!_rRide || (!_rRide.customerPhone && !_rRide.customerMobile)) continue;
+                    const _ridePhone = String(_rRide.customerPhone || _rRide.customerMobile).replace(/\D/g, '').slice(-10);
+                    if (_callStats.callerNumbers.has(_ridePhone)) _callStats.mitRide++;
+                }
+            } catch (_cErr) {
+                console.warn('callStats Fehler:', _cErr.message);
+            }
+            const _callConversion = _callStats.total > 0 ? Math.round(100 * _callStats.mitRide / _callStats.total) : 0;
+
             // Optimierungs-Log heute
             const optSnap = await db.ref('optimierungsLog')
                 .orderByChild('timestamp').startAt(dayStart.getTime()).endAt(dayEnd.getTime()).once('value');
@@ -38186,6 +38211,8 @@ exports.scheduledDailyReport = onSchedule(
                 `${stats.total} Buchungen | ${stats.completed} ✓ | ${stats.cancelled} ✗ | ${stats.wartepool} 🆘\n` +
                 `💶 Umsatz: ${stats.umsatz.toFixed(2)} €\n` +
                 `🤖 ${stats.autoCompleted} auto-complete | ${conflictResolveLog.length} cloud-replan | ${optimierungsLog.length} optimize\n\n` +
+                `━━━ ANRUFE ━━━\n` +
+                `📞 ${_callStats.total} eingehend (${_callStats.mitCrm} CRM ✓ / ${_callStats.ohneCrm} unbekannt) → ${_callStats.mitRide} Buchungen (Quote ${_callConversion}%)\n\n` +
                 `━━━ FAHRZEUGE ━━━\n${_vehLines || 'keine'}\n\n` +
                 (stats.wartepoolHistory.length > 0
                     ? `━━━ WARTEPOOL (${stats.wartepoolHistory.length}) ━━━\n${_wpHist}\n\n`

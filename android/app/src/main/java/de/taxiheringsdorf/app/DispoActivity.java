@@ -41,6 +41,14 @@ public class DispoActivity extends AppCompatActivity {
     private final Handler refreshHandler = new Handler(Looper.getMainLooper());
     private final SimpleDateFormat hhmm = new SimpleDateFormat("HH:mm", Locale.GERMAN);
 
+    // 🆕 v6.63.450 (Patrick 21.06. 06:50 Bridge: "dass du mir nicht alles anzeigst, was
+    //   das System für die Uhrzeitberechnung herannimmt"): Live-Werte aus settings/pricing
+    //   damit Anzeige NICHT mit hardcoded 3 Min Default lügt. Werden im loadAndRender
+    //   einmal pro Tick neu geladen.
+    private int _boardingMin = 0;   // Default 0 — nur settings sind Quelle der Wahrheit
+    private int _alightingMin = 0;
+    private int _optiBufferMin = 0;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -79,6 +87,20 @@ public class DispoActivity extends AppCompatActivity {
 
     private void loadAndRender() {
         FirebaseDatabase db = FirebaseDatabase.getInstance(DB_INSTANCE_URL);
+        // 🆕 v6.63.450: Buffer-Werte live aus settings/pricing — keine Defaults mehr verstecken
+        db.getReference("settings/pricing").addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override public void onDataChange(@NonNull DataSnapshot pSnap) {
+                try {
+                    Object b = pSnap.child("boardingTime").getValue();
+                    Object a = pSnap.child("alightingTime").getValue();
+                    Object o = pSnap.child("optimierungBufferMin").getValue();
+                    _boardingMin = (b instanceof Number) ? ((Number) b).intValue() : 0;
+                    _alightingMin = (a instanceof Number) ? ((Number) a).intValue() : 0;
+                    _optiBufferMin = (o instanceof Number) ? ((Number) o).intValue() : 0;
+                } catch (Throwable _t) { /* defensive — Defaults bleiben 0 */ }
+            }
+            @Override public void onCancelled(@NonNull DatabaseError e) { /* Defaults bleiben 0 */ }
+        });
         db.getReference("vehicles").addListenerForSingleValueEvent(new ValueEventListener() {
             @Override public void onDataChange(@NonNull DataSnapshot vSnap) {
                 final Map<String, VehicleInfo> vehicles = new HashMap<>();
@@ -406,9 +428,14 @@ public class DispoActivity extends AppCompatActivity {
                     tl.append(" · Fahrt ").append(r.drivingTimeToDestination).append(" Min");
                     long drop = r.pickupTs + r.drivingTimeToDestination * 60_000L;
                     tl.append(" · Drop ").append(hm.format(new java.util.Date(drop)));
-                    // Frei = Drop + 3 Min Buffer (Memory: optimierungBufferMin=3)
-                    long frei = drop + 3 * 60_000L;
-                    tl.append(" · Frei ").append(hm.format(new java.util.Date(frei)));
+                    // 🆕 v6.63.450 (Patrick 21.06. 06:50 Bridge: alles transparent): Buffer-Werte
+                    //   aus LIVE settings/pricing (boardingTime + alightingTime + optimierungBufferMin)
+                    //   statt hardcoded 3 Min. Plus Buffer-Aufschlüsselung in der Anzeige.
+                    int bufferTotal = _boardingMin + _alightingMin + _optiBufferMin;
+                    long frei = drop + bufferTotal * 60_000L;
+                    tl.append(" + ").append(bufferTotal).append("min Buffer (")
+                      .append(_boardingMin).append("+").append(_alightingMin).append("+").append(_optiBufferMin)
+                      .append(") · Frei ").append(hm.format(new java.util.Date(frei)));
                 } else {
                     // v6.63.351 (Patrick 15.06. 12:40 'es muss da stehen OSRM ausgefallen'):
                     //   wenn duration null, explizit Hinweis statt stillem Weglassen.

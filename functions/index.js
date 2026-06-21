@@ -23783,7 +23783,11 @@ exports.scheduledAutoAssign = onSchedule(
             //   Spart: ~60% der Bytes (~400 Zombies × 3 KB raus).
             const _pTSStart = now - 2 * 60 * 60 * 1000;
             const _pTSEnd = now + 24 * 60 * 60 * 1000;
-            const _RELEVANT_STATUSES = new Set(['assigned','vorbestellt','new','warteschlange']);
+            // 🆕 v6.63.452 (Patrick 21.06. 08:24 Bridge: "Krause verändert sich nicht"):
+            //   'wartepool' war NICHT in der Status-Liste — scheduledAutoAssign-Cron (alle 5 Min)
+            //   ignorierte Wartepool-Rides komplett. Krause hing 1h ohne dass die häufigere
+            //   Cron-Function sie auch nur versucht hat. Jetzt: wartepool mitnehmen.
+            const _RELEVANT_STATUSES = new Set(['assigned','vorbestellt','new','warteschlange','wartepool']);
             const [ridesWindowSnap, vehiclesSnap, shiftsSnap, settingsSnap, prioritiesSnap, prioMalusSnap, optByDaySnap] = await Promise.all([
                 db.ref('rides').orderByChild('pickupTimestamp').startAt(_pTSStart).endAt(_pTSEnd).once('value'),
                 db.ref('vehicles').once('value'),
@@ -24323,16 +24327,23 @@ exports.scheduledAutoAssign = onSchedule(
                 console.log(`🔄 ${needsReassign.length} Fahrzeug-Zuweisungen entfernt (kein Dienst)`);
                 // Rides neu laden damit die entfernten Zuweisungen berücksichtigt werden
                 allRides.length = 0;
-                const [_fAssigned, _fVorbestellt, _fNew, _fWarte] = await Promise.all([
+                // 🆕 v6.63.452 (Patrick 21.06. 08:24 Bridge: "Krause verändert sich nicht"):
+                //   Wartepool-Status WAR NICHT in der scheduledAutoAssign-Loadlist → Wartepool-Rides
+                //   wurden NIE neu versucht (Krause 21.06. 10:15, attempts steigt nur durch
+                //   autoResolveConflicts-Cron, was alle 15 Min statt 5 Min läuft). Jetzt:
+                //   wartepool mitladen damit jedes 5-Min-Tick die Rides erneut probiert.
+                const [_fAssigned, _fVorbestellt, _fNew, _fWarte, _fWartepool] = await Promise.all([
                     db.ref('rides').orderByChild('status').equalTo('assigned').once('value'),
                     db.ref('rides').orderByChild('status').equalTo('vorbestellt').once('value'),
                     db.ref('rides').orderByChild('status').equalTo('new').once('value'),
-                    db.ref('rides').orderByChild('status').equalTo('warteschlange').once('value')
+                    db.ref('rides').orderByChild('status').equalTo('warteschlange').once('value'),
+                    db.ref('rides').orderByChild('status').equalTo('wartepool').once('value')
                 ]);
                 _fAssigned.forEach(c => { allRides.push({ ...c.val(), firebaseId: c.key }); });
                 _fVorbestellt.forEach(c => { allRides.push({ ...c.val(), firebaseId: c.key }); });
                 _fNew.forEach(c => { allRides.push({ ...c.val(), firebaseId: c.key }); });
                 _fWarte.forEach(c => { allRides.push({ ...c.val(), firebaseId: c.key }); });
+                _fWartepool.forEach(c => { allRides.push({ ...c.val(), firebaseId: c.key }); });
             }
 
             // Unzugewiesene Fahrten finden

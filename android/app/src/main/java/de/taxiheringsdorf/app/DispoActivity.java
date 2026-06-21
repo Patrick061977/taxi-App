@@ -49,6 +49,12 @@ public class DispoActivity extends AppCompatActivity {
     private int _alightingMin = 0;
     private int _optiBufferMin = 0;
 
+    // 🆕 v6.63.456 (Patrick 21.06. 06:39 Bridge: "kann ich bei dispo live auch die Vorlauf
+    //   Zeit einstellen, also 12 Std oder 24"): Horizont 2/6/12/24h einstellbar.
+    //   Wert in settings/dispo/horizonHours persistiert (Default 2). Menu in Toolbar
+    //   öffnet Auswahl-Dialog.
+    private int _horizonHours = 2;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -72,6 +78,37 @@ public class DispoActivity extends AppCompatActivity {
     protected void onPause() {
         super.onPause();
         refreshHandler.removeCallbacks(refreshTick);
+    }
+
+    // 🆕 v6.63.456: Horizont-Wahl im Options-Menü oben rechts.
+    @Override
+    public boolean onCreateOptionsMenu(android.view.Menu menu) {
+        menu.add(0, 1001, 0, "Vorlauf: " + _horizonHours + "h")
+            .setShowAsAction(android.view.MenuItem.SHOW_AS_ACTION_ALWAYS);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(android.view.MenuItem item) {
+        if (item.getItemId() == 1001) {
+            new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("Vorlauf-Horizont wählen")
+                .setItems(new String[]{"2 Stunden", "6 Stunden", "12 Stunden", "24 Stunden"}, (d, w) -> {
+                    int[] _vals = {2, 6, 12, 24};
+                    int _chosen = _vals[w];
+                    FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("settings/dispo/horizonHours")
+                        .setValue(_chosen)
+                        .addOnSuccessListener(_ok -> {
+                            _horizonHours = _chosen;
+                            Toast.makeText(this, "Vorlauf: " + _chosen + "h", Toast.LENGTH_SHORT).show();
+                            invalidateOptionsMenu();
+                            loadAndRender();
+                        });
+                })
+                .show();
+            return true;
+        }
+        return super.onOptionsItemSelected(item);
     }
 
     private final Runnable refreshTick = new Runnable() {
@@ -100,6 +137,19 @@ public class DispoActivity extends AppCompatActivity {
                 } catch (Throwable _t) { /* defensive — Defaults bleiben 0 */ }
             }
             @Override public void onCancelled(@NonNull DatabaseError e) { /* Defaults bleiben 0 */ }
+        });
+        // 🆕 v6.63.456: Horizont-Wert aus settings/dispo/horizonHours
+        db.getReference("settings/dispo/horizonHours").addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override public void onDataChange(@NonNull DataSnapshot s) {
+                try {
+                    Object v = s.getValue();
+                    if (v instanceof Number) {
+                        int _h = ((Number) v).intValue();
+                        if (_h == 2 || _h == 6 || _h == 12 || _h == 24) _horizonHours = _h;
+                    }
+                } catch (Throwable _t) { /* default bleibt 2 */ }
+            }
+            @Override public void onCancelled(@NonNull DatabaseError e) { /* default bleibt 2 */ }
         });
         db.getReference("vehicles").addListenerForSingleValueEvent(new ValueEventListener() {
             @Override public void onDataChange(@NonNull DataSnapshot vSnap) {
@@ -228,7 +278,8 @@ public class DispoActivity extends AppCompatActivity {
 
     private void renderAll(Map<String, VehicleInfo> vehicles, DataSnapshot ridesSnap) {
         long now = System.currentTimeMillis();
-        long in2h = now + 2 * 3600_000L;
+        // 🆕 v6.63.456: Horizont aus _horizonHours (2/6/12/24h einstellbar via Menu)
+        long in2h = now + _horizonHours * 3600_000L;
 
         // Aktive Fahrten pro Fahrzeug zuordnen
         Map<String, RideInfo> activeByVeh = new HashMap<>();
@@ -272,7 +323,7 @@ public class DispoActivity extends AppCompatActivity {
         upcoming.sort(Comparator.comparingLong(r -> r.pickupTs));
         llUpcoming.removeAllViews();
         if (upcoming.isEmpty()) {
-            llUpcoming.addView(buildEmptyText("Keine Fahrten in den nächsten 2h"));
+            llUpcoming.addView(buildEmptyText("Keine Fahrten in den nächsten " + _horizonHours + "h"));
         } else {
             for (RideInfo r : upcoming) llUpcoming.addView(buildUpcomingCard(r, vehicles));
         }

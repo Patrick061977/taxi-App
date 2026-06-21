@@ -1062,7 +1062,19 @@ async function autoAssignRide(rideId, rideData, _excludeVehicleIds = []) {
     //   Helper für return-null-Trace. Jede return-null-Stelle pusht ein
     //   debugLogs/autoassign Event mit stage-Marker damit Patrick endlich
     //   sieht WARUM eine Ride im Wartepool bleibt (Polina/Tegge undefined).
-    const _trace377 = (stage, details) => db.ref('debugLogs/autoassign').push({
+    // v6.63.463 (Patrick 21.06. 20:22 Bridge "Funktioniert trotzdem nicht"): Hasbargen-Test
+    //   crashte mit "value argument contains undefined in property 'debugLogs.autoassign.estimatedDuration'".
+    //   Firebase RTDB lehnt undefined ab. Native-Buchungen setzen estimatedDuration nicht
+    //   (nur drivingTimeToDestination). Sanitizer entfernt undefined-Felder vor push.
+    const _sanitizeForFB = (obj) => {
+        const out = {};
+        for (const k of Object.keys(obj || {})) {
+            const v = obj[k];
+            if (v !== undefined) out[k] = v;
+        }
+        return out;
+    };
+    const _trace377 = (stage, details) => db.ref('debugLogs/autoassign').push(_sanitizeForFB({
         ts: Date.now(),
         rideId,
         customer: rideData?.customerName || '?',
@@ -1070,12 +1082,12 @@ async function autoAssignRide(rideId, rideData, _excludeVehicleIds = []) {
         pickup: (rideData?.pickup || '').slice(0,60),
         stage,
         ...(details || {})
-    }).catch(()=>{});
+    })).catch(()=>{});
     // Entry-Trace: was reinkommt
     _trace377('entry-v6.63.377', {
         status: rideData?.status,
         hasCoords: !!(rideData?.pickupCoords?.lat && rideData?.destCoords?.lat),
-        estimatedDuration: rideData?.estimatedDuration,
+        estimatedDuration: rideData?.estimatedDuration ?? null,
         source: rideData?.source
     });
     try {

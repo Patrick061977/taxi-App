@@ -815,6 +815,10 @@ public class DispoActivity extends AppCompatActivity {
             catch (Throwable __) {}
         }
         // 🆕 v6.63.024: vehicleScores + autoAssignLastReason für Konflikt-Diagnose
+        // 🆕 v6.63.455 (Patrick 21.06. 09:17 Bridge: 'ich konnte den Fehler in der Live-Dispo
+        //   nicht sehen'): vehicleScores komplett auswerten — leerfahrtMin, totalScore,
+        //   priorityPenalty, busyUntil, conflictMath, blockingRide damit Patrick im Card-
+        //   Dialog SIEHT WARUM welches Vehicle gewählt/abgelehnt wurde.
         r.autoAssignLastReason = strOrNull(s.child("autoAssignLastReason").getValue());
         java.util.Map<String, String> _scoreReasons = new java.util.LinkedHashMap<>();
         DataSnapshot _vs = s.child("vehicleScores");
@@ -823,10 +827,34 @@ public class DispoActivity extends AppCompatActivity {
                 String _vid = _vsc.getKey();
                 String _status = strOrNull(_vsc.child("status").getValue());
                 String _reason = strOrNull(_vsc.child("reason").getValue());
+                String _check = strOrNull(_vsc.child("check").getValue());
+                Object _leerfahrtRaw = _vsc.child("leerfahrtMin").getValue();
+                Object _totalScoreRaw = _vsc.child("totalScore").getValue();
+                Object _priorityPenaltyRaw = _vsc.child("priorityPenalty").getValue();
+                String _leerfahrtVon = strOrNull(_vsc.child("leerfahrtVon").getValue());
+                String _busyUntil = strOrNull(_vsc.child("busyUntil").getValue());
+                String _blockingCustomer = strOrNull(_vsc.child("blockingRideCustomer").getValue());
+                String _blockingTime = strOrNull(_vsc.child("blockingRideTime").getValue());
                 if (_vid != null) {
-                    String _line = (_status != null ? _status : "?")
-                        + (_reason != null && !_reason.isEmpty() ? ": " + _reason : "");
-                    _scoreReasons.put(_vid, _line);
+                    StringBuilder _line = new StringBuilder();
+                    _line.append(_status != null ? _status : "?");
+                    if (_totalScoreRaw instanceof Number) _line.append(" · score=").append(((Number)_totalScoreRaw).intValue());
+                    if (_leerfahrtRaw instanceof Number) {
+                        _line.append(" · ").append(((Number)_leerfahrtRaw).intValue()).append("min ");
+                        _line.append(_leerfahrtVon != null ? _leerfahrtVon : "Anfahrt");
+                    }
+                    if (_priorityPenaltyRaw instanceof Number && ((Number)_priorityPenaltyRaw).intValue() != 0) {
+                        _line.append(" · penalty ").append(((Number)_priorityPenaltyRaw).intValue());
+                    }
+                    if (_blockingCustomer != null && _blockingTime != null) {
+                        _line.append(" · blockiert von ").append(_blockingCustomer).append(" ").append(_blockingTime);
+                    } else if (_busyUntil != null) {
+                        _line.append(" · frei ab ").append(_busyUntil);
+                    }
+                    if (_reason != null && !_reason.isEmpty()) {
+                        _line.append("\n      ↳ ").append(_reason);
+                    }
+                    _scoreReasons.put(_vid, _line.toString());
                 }
             }
         }

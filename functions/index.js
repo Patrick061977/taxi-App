@@ -30541,6 +30541,15 @@ exports.scheduledDepartureAlert = onSchedule(
                     const _vid = ride.assignedVehicle || ride.vehicleId;
                     const _driveMin = (typeof ride.drivingTimeToPickup === 'number' && ride.drivingTimeToPickup > 0)
                         ? ride.drivingTimeToPickup : 10;
+                    // 🆕 v6.63.474 (Patrick 22.06. 22:00 Hasbargen-Bug 'zwei verschiedene
+                    //   Minuten-Angaben'): Bei kurzem Anfahrt (<5 Min) Akzeptanz-Alarm
+                    //   skippen — Block 2 (Departure-Alert) kommt eh nur 8 Min spaeter.
+                    //   Doppel-Push vermeiden, nur EINEN Push pro Pickup.
+                    if (_driveMin < 5) {
+                        // skippen — Akzeptanz-Alarm zu nah am Pickup, ueberlassen wir Departure
+                        updates[`rides/${rideId}/openRideWarned`] = true;
+                        return;
+                    }
                     const _arrivalAlertAt = ride.pickupTimestamp - (10 + _driveMin) * 60_000;
                     // Fenster: [arrivalAlertAt, arrivalAlertAt + 2 Min] — 2 Min Puffer
                     if (now >= _arrivalAlertAt && now <= _arrivalAlertAt + 120_000) {
@@ -30627,7 +30636,16 @@ exports.scheduledDepartureAlert = onSchedule(
                 //   nicht vorher". Vorher 15 Min Puffer (v6.62.988) → jetzt 10 Min.
                 // v6.63.188 (Patrick 06.06. 07:24): Prentel-Analyse — System ein, zwei
                 //   Minütchen zu pessimistisch. 10 → 7 Min Sicherheits-Puffer.
-                const losfahrtAt = pickupTs - driveMin * 60_000 - 7 * 60_000;
+                // 🆕 v6.63.474 (Patrick 22.06. 22:00 Hasbargen-Bug): Cap Max-Lead auf 12 Min.
+                //   Hasbargen-Vorfall: drivingTimeToPickup im Ride war veraltet (6 Min)
+                //   als Cron feuerte → Push kam 13 Min vor Pickup, obwohl Live-ETA nur
+                //   3 Min war. Cap losfahrtAt nicht weiter als 12 Min vor Pickup —
+                //   so kommt der Push nie unverhaeltnismaessig frueh, auch wenn driveMin
+                //   im Ride veraltet ist.
+                const MAX_LEAD_MS = 12 * 60_000;
+                const _earliestLosfahrtAt = pickupTs - MAX_LEAD_MS;
+                const _rawLosfahrtAt = pickupTs - driveMin * 60_000 - 7 * 60_000;
+                const losfahrtAt = Math.max(_rawLosfahrtAt, _earliestLosfahrtAt);
                 // Trigger-Fenster: zwischen losfahrtAt und losfahrtAt + 2min
                 // (2min damit wir 1-2 Ticks verpassen koennen ohne den Alert zu verlieren)
                 if (now < losfahrtAt) return;

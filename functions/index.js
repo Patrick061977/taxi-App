@@ -2038,7 +2038,23 @@ async function autoAssignRide(rideId, rideData, _excludeVehicleIds = []) {
                 const _prevRide = _prevRides[0];
                 const _prevDurMs = (_prevRide.duration || _prevRide.estimatedDuration || 20) * 60000;
                 // 🔧 v6.38.53: Rückfahrt-Puffer in prevEnd einrechnen (vorher fehlte der!)
-                const _prevReturnMs = await calcReturnMsAsync(_prevRide);
+                // 🐛 v6.63.467 (22.06.2026): calcReturnMsAsync war als async function in inneren
+                //   if-Block (Z.1612, if(rideData.pickupTimestamp)) definiert → block-scoped
+                //   → hier outside scope → ReferenceError "calcReturnMsAsync is not defined"
+                //   → outer-catch crasht autoAssignRide, vehicleScores werden NICHT persistiert
+                //   → Patrick sieht keine Scores bei Wartepool-Fahrten (Wilhelm/Schlegel 22.06.).
+                //   Fix: Rückfahrt-Berechnung inline statt Helper-Aufruf (deckt 1:1 die Logik
+                //   der inneren calcReturnMsAsync, mit best.vehicleId statt loop-vehicleId).
+                const _prevHome = getVehicleHomeCoords(best.vehicleId, shiftsData, dateStr, timeStr);
+                const _prevDestLat = _prevRide.destCoords?.lat || _prevRide.destinationLat;
+                const _prevDestLon = _prevRide.destCoords?.lon || _prevRide.destinationLon;
+                const _prevMaxMs = (pricingSettings.standortRueckkehrPufferMinuten || 30) * 60000;
+                const _prevMinMs = 5 * 60000;
+                let _prevReturnMs = _prevMaxMs;
+                if (_prevDestLat && _prevDestLon && _prevHome?.lat && _prevHome?.lon) {
+                    const _prevOsrmMin = await osrmDrivingMin(_prevDestLat, _prevDestLon, _prevHome.lat, _prevHome.lon);
+                    if (_prevOsrmMin != null) _prevReturnMs = Math.max(_prevMinMs, _prevOsrmMin * 60000);
+                }
                 const _prevEndMs = _prevRide.pickupTimestamp + _prevDurMs + _bufferMs + _prevReturnMs;
 
                 // Leerfahrt vom Ziel der Vorfahrt zum neuen Abholort berechnen

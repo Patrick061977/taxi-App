@@ -30688,6 +30688,130 @@ exports.scheduledDepartureAlert = onSchedule(
 );
 
 // ═══════════════════════════════════════════════════════════════
+// 🏁 v6.63.470 (Patrick 22.06. 19:30 Bridge: "Erinnerung wenn man
+//   sich wieder vom Ziel entfernt — das war jetzt die Heider-Fahrt,
+//   hab nicht auf fertig geklickt, Auto blieb damit besetzt").
+// Watchdog der bei status='picked_up' das Vehicle-GPS verfolgt:
+//   1. Naehert sich an Ziel (<100m)  → Marker atDestinationAt
+//   2. Entfernt sich wieder (>500m) UND atDestinationAt-Marker da
+//      → FCM-Push "Fahrt zu X beendet? Tippen zum Schliessen"
+//   3. 5 Min spaeter: zweite Erinnerung
+//   4. 10 Min nach 1. Erinnerung: auto-complete + Admin-Notiz
+// Sicherheits-Voraussetzung: GPS-Heartbeat <5 Min alt.
+// ═══════════════════════════════════════════════════════════════
+exports.scheduledAutoCompletionReminder = onSchedule(
+    {
+        schedule: 'every 1 minutes',
+        region: 'europe-west1',
+        timeoutSeconds: 60,
+        memory: '256MiB'
+    },
+    async (event) => {
+        try {
+            const now = Date.now();
+            const ridesSnap = await db.ref('rides').orderByChild('status').equalTo('picked_up').once('value');
+            if (!ridesSnap.val()) return;
+
+            const updates = {};
+            let warned = 0, autoCompleted = 0;
+
+            for (const [rideId, ride] of Object.entries(ridesSnap.val())) {
+                try {
+                    if (!ride.destinationLat || !ride.destinationLon) continue;
+                    const vehicleId = ride.assignedVehicle || ride.vehicleId;
+                    if (!vehicleId) continue;
+                    if (ride.autoCompletedAt) continue;
+
+                    const vSnap = await db.ref(`vehicles/${vehicleId}`).once('value');
+                    const v = vSnap.val();
+                    if (!v || !v.lat || !v.lon) continue;
+                    const lastUpd = v.lastUpdate || v.timestamp || 0;
+                    if (now - lastUpd > 5 * 60000) continue;  // GPS zu alt
+
+                    const destLat = parseFloat(ride.destinationLat);
+                    const destLon = parseFloat(ride.destinationLon);
+                    if (isNaN(destLat) || isNaN(destLon)) continue;
+                    const distM = gpsDistanceKm(v.lat, v.lon, destLat, destLon) * 1000;
+
+                    // Phase 1: am Ziel angekommen → Marker
+                    if (!ride.atDestinationAt && distM < 100) {
+                        updates[`rides/${rideId}/atDestinationAt`] = now;
+                        addRideLog(rideId, '🎯', 'Ziel erreicht (GPS <100m)', { distM: Math.round(distM) }).catch(()=>{});
+                        continue;
+                    }
+
+                    // Ohne Ziel-Marker keine weitere Logik
+                    if (!ride.atDestinationAt) continue;
+
+                    // Mindest-Aufenthalt 90s am Ziel (Drop-off-Zeit)
+                    if (now - ride.atDestinationAt < 90000) continue;
+
+                    // Phase 2: weit vom Ziel entfernt?
+                    if (distM < 500) continue;
+
+                    const customerName = ride.customerName || 'Kunde';
+
+                    // Phase 2a: erste Erinnerung
+                    if (!ride.autoCompletionWarnedAt) {
+                        await sendFCMToVehicle(vehicleId, {
+                            type: 'completion_reminder',
+                            rideId,
+                            customerName,
+                            title: '🏁 Fahrt beenden?',
+                            body: `Fahrt zu ${customerName} fertig? Tippen zum Schliessen.`
+                        }).catch(()=>{});
+                        updates[`rides/${rideId}/autoCompletionWarnedAt`] = now;
+                        addRideLog(rideId, '🔔', 'Auto-Fertig-Erinnerung gesendet (1. Push)', { distM: Math.round(distM) }).catch(()=>{});
+                        warned++;
+                        continue;
+                    }
+
+                    const sinceWarn = now - ride.autoCompletionWarnedAt;
+
+                    // Phase 2b: zweite Erinnerung nach 5 Min
+                    if (sinceWarn > 5 * 60000 && !ride.autoCompletionWarned2At) {
+                        await sendFCMToVehicle(vehicleId, {
+                            type: 'completion_reminder',
+                            rideId,
+                            customerName,
+                            title: `🏁 Fahrt zu ${customerName} immer noch offen`,
+                            body: 'Bitte abschliessen, sonst in 5 Min auto-beendet.'
+                        }).catch(()=>{});
+                        updates[`rides/${rideId}/autoCompletionWarned2At`] = now;
+                        addRideLog(rideId, '🔔', 'Auto-Fertig-Erinnerung 2. Push (5 Min nach 1.)', {}).catch(()=>{});
+                        warned++;
+                        continue;
+                    }
+
+                    // Phase 2c: auto-complete nach 10 Min
+                    if (sinceWarn > 10 * 60000) {
+                        updates[`rides/${rideId}/status`] = 'completed';
+                        updates[`rides/${rideId}/completedAt`] = now;
+                        updates[`rides/${rideId}/autoCompletedAt`] = now;
+                        updates[`rides/${rideId}/autoCompletedReason`] = 'GPS-Reminder 10min ignored';
+                        updates[`rides/${rideId}/updatedAt`] = now;
+                        addRideLog(rideId, '🏁', 'AUTO-COMPLETED (Reminder 10 Min ignoriert)', { distM: Math.round(distM) }).catch(()=>{});
+                        autoCompleted++;
+                        sendToAllAdmins(`🏁 Auto-completion fuer ${customerName}\nFahrt-ID: ${rideId}\nFahrer hat Reminder 10 Min ignoriert, Fahrt automatisch beendet.`).catch(()=>{});
+                    }
+                } catch (rideErr) {
+                    console.warn(`scheduledAutoCompletionReminder ride ${rideId} err:`, rideErr.message);
+                }
+            }
+
+            if (Object.keys(updates).length > 0) {
+                await db.ref().update(updates);
+            }
+            if (warned > 0 || autoCompleted > 0) {
+                console.log(`🏁 scheduledAutoCompletionReminder: ${warned} reminded, ${autoCompleted} auto-completed`);
+            }
+        } catch (e) {
+            console.error('❌ scheduledAutoCompletionReminder Fehler:', e.message);
+        }
+    }
+);
+
+// ═══════════════════════════════════════════════════════════════
 // 🚪 v6.62.893 (Patrick 23.05. 13:40): Force-Logout per Admin-Tap.
 // 'Wenn ein Fahrer vergisst sich abzumelden, was macht man da?'
 // Admin schreibt /vehicles/{id}/forceLogoutRequest = true → diese Function pusht

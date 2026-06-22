@@ -1724,6 +1724,12 @@ function showAnfrageSuccess() {
 
     async function _refreshBanner() {
         try {
+            // 🆕 v6.63.475 (Patrick 22.06. 21:51 'Banner kommt nicht immer runter'):
+            //   Sticky-Hide-Bug: bei Catch-Fall wurde style.display='none' inline gesetzt,
+            //   spaeter haben nur className-Updates gefeuert — inline-style ueberschrieb CSS.
+            //   Banner blieb dauerhaft unsichtbar. Fix: zu Beginn jedes Refresh inline-style
+            //   clearen, dann greift class wieder.
+            _bannerEl.style.display = '';
             // v6.63.326: vor jedem DB-Read auf Anonymous-Auth warten
             await _landingAuthReady;
             // Vehicles + aktive Rides parallel laden — wir muessen wissen welcher

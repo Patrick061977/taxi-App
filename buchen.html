@@ -749,7 +749,7 @@
             <!-- v6.62.912 (Patrick 24.05. 09:48): Title 'Wohin solls gehen' entfernt — Platz sparen, Inputs sprechen fuer sich. -->
             <div class="input-group">
                 <label>📍 Abholort</label>
-                <input type="text" id="b-pickup" placeholder="Abholort eintippen oder 📍-Button für Standort" autocomplete="off" style="padding-left:14px;padding-right:70px;">
+                <input type="text" id="b-pickup" placeholder="Abholort eintippen oder 📍-Button für Standort" autocomplete="off" style="padding-left:14px;padding-right:70px;" oninput="this.title=this.value">
                 <button onclick="clearAddressField('pickup')" title="Abholort löschen" style="position:absolute;right:48px;top:28px;width:28px;height:28px;padding:0;background:#f1f5f9;border:none;border-radius:50%;cursor:pointer;font-size:14px;color:#64748b;display:flex;align-items:center;justify-content:center;">✕</button>
                 <button class="gps-btn" onclick="useGPS('pickup')" title="Standort per Stecknadel setzen">📍</button>
                 <div class="autocomplete-dropdown" id="b-pickup-dropdown"></div>
@@ -757,7 +757,10 @@
                     ⚠️ Bitte einen Vorschlag aus der Liste auswählen
                 </div>
             </div>
-            <div id="b-stopp-btn-box" style="text-align:center;margin-bottom:12px;">
+            <!-- v6.63.469 (Patrick 22.06. 19:31 "Erst nach Abholort-Auswahl zeigen"):
+                 Default display:none. Wird in collapseCompletedFields auf '' gesetzt
+                 sobald pickupCoords vorhanden. Verhindert Verwirrung beim Erstbucher. -->
+            <div id="b-stopp-btn-box" style="display:none;text-align:center;margin-bottom:12px;">
                 <button onclick="showZwischenstopp()" style="padding:6px 14px;background:white;color:#f59e0b;border:2px solid #f59e0b;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">+ Zwischenstopp hinzufügen</button>
             </div>
             <div class="input-group" id="b-stopp-box" style="display:none;">
@@ -768,12 +771,13 @@
                 </div>
                 <div class="autocomplete-dropdown" id="b-stopp-dropdown" style="border-color:#f59e0b;"></div>
             </div>
-            <div id="swap-btn-box" style="text-align:center;margin:-4px 0 4px;">
+            <!-- v6.63.469: Tausch-Button auch erst nach Abholort-Auswahl. -->
+            <div id="swap-btn-box" style="display:none;text-align:center;margin:-4px 0 4px;">
                 <button onclick="swapPickupDest()" style="padding:4px 16px;background:white;color:#6b7280;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;" title="Abholort und Zielort tauschen">🔄 <span style="font-weight:500;">Tauschen</span></button>
             </div>
             <div class="input-group">
                 <label>🎯 Zielort</label>
-                <input type="text" id="b-destination" placeholder="Adresse eingeben…" autocomplete="off" style="padding-left:14px;padding-right:40px;">
+                <input type="text" id="b-destination" placeholder="Adresse eingeben…" autocomplete="off" style="padding-left:14px;padding-right:40px;" oninput="this.title=this.value">
                 <button onclick="clearAddressField('destination')" title="Zielort löschen" style="position:absolute;right:10px;top:28px;width:28px;height:28px;padding:0;background:#f1f5f9;border:none;border-radius:50%;cursor:pointer;font-size:14px;color:#64748b;display:flex;align-items:center;justify-content:center;">✕</button>
                 <div class="autocomplete-dropdown" id="b-destination-dropdown"></div>
                 <div id="dest-hint" style="display:none;font-size:12px;color:#f59e0b;margin-top:4px;padding:4px 8px;background:#fffbeb;border-radius:6px;border:1px solid #fde68a;">
@@ -1532,11 +1536,19 @@
                 if (destGroup)   destGroup.dataset.collapsed   = 'true';
                 if (stoppBtnBox) stoppBtnBox.style.display = 'none';
                 if (swapBtnBox)  swapBtnBox.style.display = 'none';
-            } else {
+            } else if (pickupCoords) {
+                // 🆕 v6.63.469: Pickup gesetzt, Dest fehlt → Zwischenstopp-Button sichtbar
                 if (pickupGroup) delete pickupGroup.dataset.collapsed;
                 if (destGroup)   delete destGroup.dataset.collapsed;
                 if (stoppBtnBox) stoppBtnBox.style.display = '';
                 if (swapBtnBox)  swapBtnBox.style.display = '';
+            } else {
+                // 🆕 v6.63.469: Pickup nicht gesetzt → Zwischenstopp + Swap VERSTECKEN
+                // (Erstbucher soll nur Abholort + Zielort sehen, nicht Zusatz-Optionen)
+                if (pickupGroup) delete pickupGroup.dataset.collapsed;
+                if (destGroup)   delete destGroup.dataset.collapsed;
+                if (stoppBtnBox) stoppBtnBox.style.display = 'none';
+                if (swapBtnBox)  swapBtnBox.style.display = 'none';
             }
         }
 

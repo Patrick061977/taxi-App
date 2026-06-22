@@ -838,46 +838,10 @@
                     </div>
                     <select id="b-hour" onchange="onDateTimeChange()" style="display:none;"></select>
                     <select id="b-minute" onchange="onDateTimeChange()" style="display:none;"></select>
-                    <!-- v6.63.335 (Patrick 14.06. 13:30 'Vorbestellung Rueckfahrt-Zeit fehlt'):
-                         Optionale Rueckfahrt-Buchung. Bei Aktivierung wird beim Submit
-                         eine 2. Ride mit getauschten Adressen + Rueck-Zeit angelegt
-                         und mit primaryRideId / returnRideId verknuepft. -->
-                    <div style="margin-top:12px;padding:10px 12px;background:#fef3c7;border:1px solid #fbbf24;border-radius:10px;">
-                        <label style="display:flex;align-items:center;gap:10px;font-weight:600;color:#92400e;cursor:pointer;">
-                            <input type="checkbox" id="b-rueckfahrt-toggle" style="width:18px;height:18px;accent-color:#f59e0b;cursor:pointer;" onchange="onRueckfahrtToggle()">
-                            <span style="font-size:18px;">🔄</span> Auch Rueckfahrt buchen
-                        </label>
-                        <div id="b-rueckfahrt-felder" style="display:none;margin-top:10px;">
-                            <label for="b-rueckfahrt-time" style="display:flex;align-items:center;gap:8px;font-weight:600;color:#374151;margin-bottom:6px;font-size:13px;">
-                                <span style="font-size:16px;">🕐</span> Rueckfahrt-Zeit (Pickup am Ziel)
-                            </label>
-                            <input type="time" id="b-rueckfahrt-time" step="60" style="width:100%;padding:12px;font-size:15px;border:2px solid #fbbf24;border-radius:10px;background:white;cursor:pointer;">
-                            <div id="b-rueckfahrt-hint" style="margin-top:6px;font-size:12px;color:#78350f;">Standard: 2 Stunden nach Hinfahrt. Anpassen wenn anders.</div>
-                        </div>
-                    </div>
+                    <!-- v6.63.472 (Patrick 22.06. 20:02 [RUECK-A]): Rueckfahrt-Buchung
+                         komplett entfernt. Rationale: nur time-Input ohne date war
+                         halbgar; alles weitere besser im Kundenportal nach Buchung. -->
                 </div>
-                <script>
-                window.onRueckfahrtToggle = function() {
-                    const cb = document.getElementById('b-rueckfahrt-toggle');
-                    const felder = document.getElementById('b-rueckfahrt-felder');
-                    const rtTime = document.getElementById('b-rueckfahrt-time');
-                    if (!cb || !felder || !rtTime) return;
-                    if (cb.checked) {
-                        felder.style.display = 'block';
-                        // Default: Hinfahrt-Zeit + 2h
-                        if (!rtTime.value) {
-                            const t = document.getElementById('b-time');
-                            if (t && t.value) {
-                                const [h, m] = t.value.split(':').map(Number);
-                                let nh = (h + 2) % 24;
-                                rtTime.value = String(nh).padStart(2, '0') + ':' + String(m).padStart(2, '0');
-                            }
-                        }
-                    } else {
-                        felder.style.display = 'none';
-                    }
-                };
-                </script>
                 <script>
                 window.updateBDateLabel = function() {
                     const inp = document.getElementById('b-date');
@@ -6043,41 +6007,8 @@
                 rideData.id = ref.key;
                 await ref.set(rideData);
 
-                // v6.63.335 (Patrick 14.06. 13:30): Optionale Rueckfahrt automatisch anlegen
-                let returnRideId = null;
-                try {
-                    const rueckCb = document.getElementById('b-rueckfahrt-toggle');
-                    const rueckTimeInp = document.getElementById('b-rueckfahrt-time');
-                    if (isVorbestellt && rueckCb && rueckCb.checked && rueckTimeInp && rueckTimeInp.value) {
-                        const bDate = document.getElementById('b-date').value;
-                        const rTimeStr = rueckTimeInp.value;
-                        const rIsoStr = bDate + 'T' + rTimeStr + ':00';
-                        const rDate = new Date(rIsoStr);
-                        if (!isNaN(rDate.getTime()) && rDate.getTime() > pickupTs) {
-                            const rideData2 = JSON.parse(JSON.stringify(rideData));
-                            delete rideData2.id;
-                            rideData2.pickup = rideData.destination;
-                            rideData2.destination = rideData.pickup;
-                            rideData2.pickupLat = rideData.destinationLat;
-                            rideData2.pickupLon = rideData.destinationLon;
-                            rideData2.destinationLat = rideData.pickupLat;
-                            rideData2.destinationLon = rideData.pickupLon;
-                            rideData2.pickupTimestamp = rDate.getTime();
-                            rideData2.pickupTime = rTimeStr;
-                            rideData2.createdAt = Date.now();
-                            rideData2.updatedAt = Date.now();
-                            rideData2.parentRideId = ref.key;
-                            rideData2.isReturnLeg = true;
-                            const ref2 = db.ref('rides').push();
-                            rideData2.id = ref2.key;
-                            await ref2.set(rideData2);
-                            returnRideId = ref2.key;
-                            // Hinfahrt auch verlinken
-                            await ref.update({ returnRideId: ref2.key });
-                            logBuchen('🔄', 'RUECKFAHRT ERSTELLT: ' + ref2.key + ' um ' + rTimeStr);
-                        }
-                    }
-                } catch (_rErr) { console.warn('Rueckfahrt-Anlage fehlgeschlagen:', _rErr); }
+                // v6.63.472 (Patrick 22.06. 20:02 [RUECK-A]): Rueckfahrt-Auto-Anlage entfernt.
+                // Rueckfahrten werden ueber das Kundenportal nach der Hinfahrt gebucht.
 
                 // 🆕 v6.41.74: Aktive Buchung in localStorage speichern damit sie bei Page-Reload
                 // NICHT verloren geht. Sonst landet Kunde wieder auf "Jetzt buchen" und bucht doppelt!

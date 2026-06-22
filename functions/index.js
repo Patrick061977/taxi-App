@@ -478,10 +478,12 @@ function verifyVehicleShiftIndependent(vehicleId, shiftsData, dateStr, timeStr) 
 }
 
 function isVehicleInShift(vehicleId, shiftsData, dateStr, timeStr) {
+    // v6.63.473 (Patrick 22.06. 21:00 Cost-Cut): Schicht-Check-Logs entfernt.
+    // Hatten ~40-60 Eintraege pro scheduledAutoAssign-Lauf = massives Logging-Volumen.
+    // Bei Bedarf temporaer via /settings/debug/shiftCheck=true einschaltbar (TODO Helper).
     const shifts = shiftsData[vehicleId];
     if (!shifts) {
         const hasAnyShifts = Object.keys(shiftsData).length > 0;
-        console.log(`   🔍 Schicht-Check ${vehicleId}: KEIN Eintrag in vehicleShifts → ${hasAnyShifts ? 'KEIN DIENST (andere haben Schichten)' : 'ERLAUBT (kein Schichtsystem)'}`);
         return !hasAnyShifts;
     }
 
@@ -490,33 +492,16 @@ function isVehicleInShift(vehicleId, shiftsData, dateStr, timeStr) {
     const dow = d.getDay();
     const dayNames = ['So','Mo','Di','Mi','Do','Fr','Sa'];
     if (shifts[dateStr] !== undefined) {
-        if (shifts[dateStr].active === false) {
-            console.log(`   🔍 Schicht-Check ${vehicleId}: Tag ${dateStr} (${dayNames[dow]}) explizit INAKTIV`);
-            return false;
-        }
-        // 🔧 v6.38.27: Datums-Eintrag OHNE Zeiten → prüfe ob defaultTimes echte Zeiten hat
+        if (shifts[dateStr].active === false) return false;
         if (!(shifts[dateStr].startTime || shifts[dateStr].endTime || (shifts[dateStr].timeRanges && shifts[dateStr].timeRanges.length > 0))) {
             const _dtEntry = (shifts.defaultTimes || {})[dow];
-            if (!_dtEntry || !(_dtEntry.startTime || (_dtEntry.timeRanges && _dtEntry.timeRanges.length > 0))) {
-                console.log(`   🔍 Schicht-Check ${vehicleId}: Datums-Eintrag ${dateStr} ohne Zeiten, keine defaultTimes → KEIN DIENST`);
-                return false;
-            }
+            if (!_dtEntry || !(_dtEntry.startTime || (_dtEntry.timeRanges && _dtEntry.timeRanges.length > 0))) return false;
         }
-        console.log(`   🔍 Schicht-Check ${vehicleId}: Tag ${dateStr} (${dayNames[dow]}) hat Eintrag (active=${shifts[dateStr].active})`);
     } else {
-        // 🔧 v6.38.24: KEIN Mo-Fr Fallback! Ohne explizite defaults → KEIN DIENST
         const defaults = shifts.defaults || {};
-        if (defaults[dow] !== true) {
-            console.log(`   🔍 Schicht-Check ${vehicleId}: ${dayNames[dow]} (dow=${dow}) nicht im Wochenplan (defaults[${dow}]=${defaults[dow]})`);
-            return false;
-        }
-        // 🔧 v6.38.27: Tag aktiv aber KEINE Schichtzeiten → KEIN DIENST
+        if (defaults[dow] !== true) return false;
         const _defTimesEntry = (shifts.defaultTimes || {})[dow];
-        if (!_defTimesEntry || !(_defTimesEntry.startTime || (_defTimesEntry.timeRanges && _defTimesEntry.timeRanges.length > 0))) {
-            console.log(`   🔍 Schicht-Check ${vehicleId}: ${dayNames[dow]} aktiv aber KEINE defaultTimes → KEIN DIENST`);
-            return false;
-        }
-        console.log(`   🔍 Schicht-Check ${vehicleId}: ${dayNames[dow]} im Wochenplan aktiv (defaults[${dow}]=true)`);
+        if (!_defTimesEntry || !(_defTimesEntry.startTime || (_defTimesEntry.timeRanges && _defTimesEntry.timeRanges.length > 0))) return false;
     }
 
     // Schichtzeiten ermitteln
@@ -559,24 +544,12 @@ function isVehicleInShift(vehicleId, shiftsData, dateStr, timeStr) {
         }
     }
 
-    // 🔧 v6.31.0: Keine Schichtzeiten = NICHT verfügbar (außer System hat gar keine Schichtpläne)
-    if (!times) {
-        console.log(`   🔍 Schicht-Check ${vehicleId}: Keine Schichtzeiten konfiguriert → KEIN DIENST`);
-        return false;
-    }
-    if (!timeStr) {
-        console.log(`   🔍 Schicht-Check ${vehicleId}: Keine Uhrzeit angegeben, Tag aktiv → IM DIENST`);
-        return true;
-    }
-
+    if (!times) return false;
+    if (!timeStr) return true;
     if (times.timeRanges && times.timeRanges.length > 1) {
-        const inRange = times.timeRanges.some(r => timeStr >= r.startTime && timeStr <= r.endTime);
-        console.log(`   🔍 Schicht-Check ${vehicleId}: ${timeStr} in Zeitblöcken ${JSON.stringify(times.timeRanges.map(r=>r.startTime+'-'+r.endTime))} → ${inRange ? 'IM DIENST' : 'KEIN DIENST'}`);
-        return inRange;
+        return times.timeRanges.some(r => timeStr >= r.startTime && timeStr <= r.endTime);
     }
-    const inRange = timeStr >= times.startTime && timeStr <= times.endTime;
-    console.log(`   🔍 Schicht-Check ${vehicleId}: ${timeStr} in ${times.startTime}-${times.endTime} → ${inRange ? 'IM DIENST' : 'KEIN DIENST'}`);
-    return inRange;
+    return timeStr >= times.startTime && timeStr <= times.endTime;
 }
 
 // 🆕 v6.63.124 (Patrick 03.06. 15:34): isVehicleInShift + Live-Override.
@@ -5208,6 +5181,13 @@ async function searchNominatimForTelegram(query) {
 //   Distance-Reads. Geschätzt -70 % Maps-Routes-Calls.
 const _ROUTE_CACHE_DURATION_TTL_MS = 60 * 60 * 1000;      // 60 Min: Duration (Verkehr ändert sich)
 const _ROUTE_CACHE_DISTANCE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 Tage: Distance (km ändern sich nicht)
+// 🆕 v6.63.473 (Patrick 22.06. 21:00 Cost-Cut): In-Memory-Layer vor DB-Read.
+//   Bei 5 Vehicles x 4 Rides x alle 5 Min = 240 DB-Reads/h auf /routeCache/.
+//   Pro Cloud-Function-Instance Map mit 90s-TTL → repeat-Reads kommen direkt aus
+//   Memory (0 ms, 0 Bytes Outbound), nur First-Lookup pro Routenpaar hits DB.
+//   Erwartete Einsparung: 90-95% der routeCache-DB-Reads.
+const _routeCacheMem = new Map();  // key → { value, expiresAt }
+const _ROUTE_CACHE_MEM_TTL_MS = 90 * 1000;
 function _routeCacheKey(from, to, waypointCoords, mode) {
     const _round = v => (typeof v === 'number' ? v : parseFloat(v)).toFixed(4);
     const _f = _round(from.lat) + '_' + _round(from.lon);
@@ -5218,8 +5198,16 @@ function _routeCacheKey(from, to, waypointCoords, mode) {
     return (_f + _wp + '-' + _t + '-' + (mode || 'hybrid')).replace(/[.#$/[\]]/g, '_');
 }
 async function _readRouteCache(from, to, waypointCoords, mode, needFreshDuration) {
+    const key = _routeCacheKey(from, to, waypointCoords, mode);
+    // 🆕 v6.63.473: In-Memory-Lookup zuerst (kein DB-Read wenn frisch in Memory).
+    const _mem = _routeCacheMem.get(key);
+    if (_mem && _mem.expiresAt > Date.now()) {
+        const ageMs = Date.now() - _mem.value.cachedAt;
+        if (needFreshDuration ? ageMs <= _ROUTE_CACHE_DURATION_TTL_MS : ageMs <= _ROUTE_CACHE_DISTANCE_TTL_MS) {
+            return _mem.value;
+        }
+    }
     try {
-        const key = _routeCacheKey(from, to, waypointCoords, mode);
         const snap = await db.ref('routeCache/' + key).once('value');
         const v = snap.val();
         if (!v || !v.cachedAt) return null;
@@ -5229,13 +5217,15 @@ async function _readRouteCache(from, to, waypointCoords, mode, needFreshDuration
         } else {
             if (ageMs > _ROUTE_CACHE_DISTANCE_TTL_MS) return null;
         }
+        // In Memory cachen fuer naechsten Aufruf
+        _routeCacheMem.set(key, { value: v, expiresAt: Date.now() + _ROUTE_CACHE_MEM_TTL_MS });
         return v;
     } catch (_) { return null; }
 }
 async function _writeRouteCache(from, to, waypointCoords, mode, result) {
     try {
         const key = _routeCacheKey(from, to, waypointCoords, mode);
-        await db.ref('routeCache/' + key).set({
+        const payload = {
             distance: result.distance,
             duration: result.duration,
             legs: result.legs || null,
@@ -5243,7 +5233,10 @@ async function _writeRouteCache(from, to, waypointCoords, mode, result) {
             mode: mode || 'hybrid',
             cachedAt: Date.now(),
             timestamp: Date.now() // bestehender Cleanup-Cron v6.63.445 nutzt 'timestamp'
-        });
+        };
+        // 🆕 v6.63.473: parallel in Memory cachen
+        _routeCacheMem.set(key, { value: payload, expiresAt: Date.now() + _ROUTE_CACHE_MEM_TTL_MS });
+        await db.ref('routeCache/' + key).set(payload);
     } catch (e) { console.warn('routeCache write:', e.message); }
 }
 
@@ -5263,9 +5256,11 @@ async function calculateRoute(from, to, waypointCoords = []) {
     } catch(_) { /* default hybrid */ }
 
     // 🆕 v6.63.447: Cache-Lookup VOR jedem Google-Call
+    // v6.63.473 (Patrick 22.06. 21:00 Cost-Cut): routeCache-HIT-Log entfernt.
+    // Bei 5 Vehicles x 4 Rides = 20 HIT-Logs pro scheduledAutoAssign-Lauf.
+    // Wertvoll fuer Debug aber teuer im Logging-Budget.
     const _cached = await _readRouteCache(from, to, waypointCoords, _routeMode, true);
     if (_cached) {
-        console.log(`💾 routeCache HIT (${_routeMode}): ${_cached.distance} km, ${_cached.duration} min — age ${Math.round((Date.now()-_cached.cachedAt)/1000)}s`);
         return {
             distance: _cached.distance,
             duration: _cached.duration,

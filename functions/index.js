@@ -23459,6 +23459,34 @@ async function estimateVehicleLeerfahrt(vehicleId, targetRide, allRides, vehicle
         return { durationMin: Math.round(destToPickupKm * 2) + _border, distKm: destToPickupKm, method: _border ? 'anschlussfahrt-luftlinie-grenze' : 'anschlussfahrt-luftlinie', isAnschlussfahrt: true, borderMin: _border };
     }
 
+    // 🆕 v6.63.478 (Patrick 23.06. 07:38 'wenn der in Greifswald frei ist, schafft er es nicht'):
+    //   Plausibilitaets-Check VOR Basis-Anfahrt-Schaetzung. Wenn das Vehicle nach vorigen
+    //   Tour zu weit weg ist (Greifswald, Swinemuende, Anklam), muss Fahrer ZUERST zur Basis
+    //   zurueck (60+ Min). Ohne diesen Check rechnete Phase 2 nur die kurze Anfahrt aus der
+    //   Basis-Position — obwohl das Vehicle real noch unterwegs ist.
+    //   Konkret YM222 23.06.: Sandy 06:00 Sellin→Greifswald (endet 07:07 in Greifswald),
+    //   Residenz 08:15 Bansin — System sagte 9 Min Anfahrt, aber YM realistisch erst
+    //   08:07 zurueck an Basis = 8 Min Rest fuer Bansin-Anfahrt. Zu knapp, klassischer Bug.
+    if (homeLat && homeLon && destLat && destLon) {
+        try {
+            const _returnRoute = await calculateRoute({ lat: destLat, lon: destLon }, { lat: homeLat, lon: homeLon });
+            if (_returnRoute && _returnRoute.duration) {
+                const _returnMin = _returnRoute.duration;
+                const _baseArrivalTs = prevEndTs + _returnMin * 60000;
+                if (_baseArrivalTs > targetRide.pickupTimestamp) {
+                    const _spaetMin = Math.round((_baseArrivalTs - targetRide.pickupTimestamp) / 60000);
+                    return {
+                        durationMin: 999,
+                        distKm: 999,
+                        method: 'prev-tour-zu-weit-zurueck',
+                        notAvailable: true,
+                        debug: `prev-Tour ${prevRide.customerName||'?'} endet ${berlinTimeGlobal(prevEndTs)}, ${_returnMin} Min Rueckweg zur Basis → erst ${berlinTimeGlobal(_baseArrivalTs)} verfuegbar, ${_spaetMin} Min zu spaet fuer Pickup ${berlinTimeGlobal(targetRide.pickupTimestamp)}`
+                    };
+                }
+            }
+        } catch(_rErr) { /* ignore — fallback auf alte Logik */ }
+    }
+
     // ✅ STANDARD: Fahrer ist an der Basis → Leerfahrt ab Schichtstandort
     if (homeLat && homeLon) {
         // v6.63.476 (Patrick 23.06. Cost-Cut): 'Leerfahrt ab Basis' war ~3-5x pro autoResolveConflicts-Lauf — weg.

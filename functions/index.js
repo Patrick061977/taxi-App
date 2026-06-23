@@ -27289,6 +27289,22 @@ exports.onRideCreated = onValueCreated(
                         await addRideLog(rideId, '🔕', `Hotel-Email skip: Versand global/customer-spezifisch deaktiviert`, {
                             hotel: _hotelName, email: _hotelEmail || 'keine'
                         });
+                        // 🆕 v6.63.477 (Patrick 23.06. 07:22 'sauberer effektiver Workflow'):
+                        //   Statt nur skip → Bridge-Push mit Deep-Link auf Compose-Modal.
+                        //   Patrick tippt einmal in Telegram → Browser oeffnet Vorschau
+                        //   direkt → 1 weiterer Tap 'Jetzt senden'. Statt 6 Klicks.
+                        if (ride.invoiceNumber && _hotelEmail) {
+                            try {
+                                const _deepLink = `https://umwelt-taxi-insel-usedom.de/Taxi-App/#invoice-send=${rideId}`;
+                                const _bridgeMsg = `📧 Rechnung ${ride.invoiceNumber} fuer ${_hotelName} bereit\n\nKunde: ${ride.customerName || '?'}\nStrecke: ${(ride.pickup||'').slice(0,40)} → ${(ride.destination||'').slice(0,40)}\nE-Mail an: ${_hotelEmail}\n\nTap zum Versenden (oeffnet Vorschau):\n${_deepLink}`;
+                                await db.ref('claudeBridge/outbox/' + Date.now()).set({
+                                    message: _bridgeMsg,
+                                    targetChatId: 6229490043,
+                                    via: 'claude',
+                                    ts: Date.now()
+                                });
+                            } catch(_pErr) { console.warn('invoice-send bridge-push:', _pErr.message); }
+                        }
                         // Skip alle weiteren Schritte fuer Hotel-Email
                         ride.customerId = ride.customerId; // no-op fuer Branch
                     } else if (!_hotelEmail) {

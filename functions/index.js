@@ -1031,6 +1031,18 @@ async function autoAssignRide(rideId, rideData, _excludeVehicleIds = []) {
         await _persistEarlyReturn('recursion-guard', `${_excludeVehicleIds.length} Vehicles excluded`);
         return null;
     }
+
+    // 🆕 v6.63.491 (Patrick 23.06. 15:51 'warum werde ich zugespammt'):
+    //   EINSTEIGER-Fahrten (vom Fahrer-Dashboard "Einsteiger" Button) haben PER DEFINITION
+    //   kein Ziel. Auto-Assign macht keinen Sinn — der Fahrer hat den Einsteiger schon
+    //   eingeladen, das Ziel wird erst waehrend der Fahrt klar. Frueher Bail-out
+    //   verhindert Watchdog-Spam ("Auto-Zuweisung FEHLGESCHLAGEN ... weder Routendaten
+    //   noch Koordinaten") bei jedem Cron-Lauf.
+    if (rideData.isInsteiger === true || rideData.source === 'native_einsteiger') {
+        console.log(`   ℹ️ v6.63.491: Einsteiger-Fahrt ${rideId} — KEIN Auto-Assign noetig (Fahrer hat schon)`);
+        await _persistEarlyReturn('einsteiger-skip', 'Einsteiger-Fahrt vom Fahrer-Dashboard');
+        return null;
+    }
     // 🆕 v6.63.377 (Patrick 17.06. 09:10 Bridge "ja" zu Komplett-Diagnose):
     //   Helper für return-null-Trace. Jede return-null-Stelle pusht ein
     //   debugLogs/autoassign Event mit stage-Marker damit Patrick endlich
@@ -1155,19 +1167,29 @@ async function autoAssignRide(rideId, rideData, _excludeVehicleIds = []) {
                         });
                     } else {
                         console.error(`❌ autoAssignRide: Route konnte NICHT berechnet werden für ${rideId} — KEINE ZUWEISUNG!`);
-                        await sendToAllAdmins(`⚠️ <b>Auto-Zuweisung FEHLGESCHLAGEN</b>\n\nFahrt ${rideId} hat keine Routendaten (Dauer/Entfernung) und OSRM-Berechnung ist fehlgeschlagen.\n\n❌ <b>Fahrt wird NICHT automatisch zugewiesen!</b>\nBitte manuell prüfen und zuweisen.`);
+                        // 🆕 v6.63.491: Throttle — nur 1x pro Stunde pro Ride pushen
+                        const _lastFail = rideData.autoAssignLastFailAtV454 || 0;
+                        if (Date.now() - _lastFail > 3600000) {
+                            await sendToAllAdmins(`⚠️ <b>Auto-Zuweisung FEHLGESCHLAGEN</b>\n\nFahrt ${rideId} hat keine Routendaten (Dauer/Entfernung) und OSRM-Berechnung ist fehlgeschlagen.\n\n❌ <b>Fahrt wird NICHT automatisch zugewiesen!</b>\nBitte manuell prüfen und zuweisen.`);
+                        }
                         await _persistEarlyReturn('route-fail', 'OSRM/Google liefert keine Route');
                         return null;
                     }
                 } catch (e) {
                     console.error(`❌ autoAssignRide: Route-Berechnung Fehler für ${rideId}:`, e.message);
-                    await sendToAllAdmins(`⚠️ <b>Auto-Zuweisung FEHLGESCHLAGEN</b>\n\nFahrt ${rideId}: Route-Berechnung Fehler: ${e.message}\n\n❌ <b>Fahrt wird NICHT automatisch zugewiesen!</b>\nBitte manuell prüfen und zuweisen.`);
+                    const _lastFail = rideData.autoAssignLastFailAtV454 || 0;
+                    if (Date.now() - _lastFail > 3600000) {
+                        await sendToAllAdmins(`⚠️ <b>Auto-Zuweisung FEHLGESCHLAGEN</b>\n\nFahrt ${rideId}: Route-Berechnung Fehler: ${e.message}\n\n❌ <b>Fahrt wird NICHT automatisch zugewiesen!</b>\nBitte manuell prüfen und zuweisen.`);
+                    }
                     await _persistEarlyReturn('route-exception', e.message);
                     return null;
                 }
             } else {
                 console.error(`❌ autoAssignRide: Fahrt ${rideId} hat KEINE Koordinaten UND keine Duration — KEINE ZUWEISUNG!`);
-                await sendToAllAdmins(`⚠️ <b>Auto-Zuweisung FEHLGESCHLAGEN</b>\n\nFahrt ${rideId} hat weder Routendaten noch Koordinaten.\n\n❌ <b>Fahrt wird NICHT automatisch zugewiesen!</b>\nBitte manuell prüfen und zuweisen.`);
+                const _lastFail = rideData.autoAssignLastFailAtV454 || 0;
+                if (Date.now() - _lastFail > 3600000) {
+                    await sendToAllAdmins(`⚠️ <b>Auto-Zuweisung FEHLGESCHLAGEN</b>\n\nFahrt ${rideId} hat weder Routendaten noch Koordinaten.\n\n❌ <b>Fahrt wird NICHT automatisch zugewiesen!</b>\nBitte manuell prüfen und zuweisen.`);
+                }
                 await _persistEarlyReturn('no-coords-no-duration', 'pickupLat/destLat fehlen');
                 return null;
             }

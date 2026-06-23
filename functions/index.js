@@ -20599,7 +20599,7 @@ exports.autoResolveConflicts = onSchedule(
             // 🔧 v6.39.5: Soft/Hard Grenzen aus Einstellungen lesen
             const overlapSoftMin = timeslotSettings.overlapToleranceSoft || 5;
             const overlapHardMin = timeslotSettings.overlapToleranceHard || 10;
-            console.log(`⚙️ Overlap-Toleranz: Soft ${overlapSoftMin} Min, Hard ${overlapHardMin} Min`);
+            // v6.63.476 (Cost-Cut): Overlap-Toleranz Statik-Log entfernt — Werte aendern sich selten, nicht jede 15-Min-Lauf loggen.
             const vorlaufMin = pricingSettings.autoOptimierungVorlaufMinuten || 60;
             // 🆕 v6.63.450: WAR der gefährlichste hidden Buffer (3+2=5 Min in autoResolveConflicts).
             //   Default 0 statt 3/2 — settings/pricing ist Quelle der Wahrheit.
@@ -21366,7 +21366,8 @@ exports.autoResolveConflicts = onSchedule(
                 } catch(e) { /* non-critical */ }
             }
 
-            console.log(`✅ Phase 0 (Schicht): ${totalShiftFixes} Korrektur(en)`);
+            // v6.63.476 (Patrick 23.06. Cost-Cut): nur loggen wenn nicht-leer.
+            if (totalShiftFixes > 0) console.log(`✅ Phase 0 (Schicht): ${totalShiftFixes} Korrektur(en)`);
 
             // 🔧 Debug: Phase 0 Ergebnisse per Telegram senden (über Firebase-Flag)
             try {
@@ -21862,7 +21863,8 @@ exports.autoResolveConflicts = onSchedule(
                 }
             }
 
-            console.log(`✅ Phase 1 (Konflikte) abgeschlossen: ${totalReplanned} Umplanung(en)`);
+            // v6.63.476 (Patrick 23.06. Cost-Cut): nur loggen wenn nicht-leer.
+            if (totalReplanned > 0) console.log(`✅ Phase 1 (Konflikte) abgeschlossen: ${totalReplanned} Umplanung(en)`);
 
             // ═══════════════════════════════════════════════════════════
             // 🚀 v6.26.0: PHASE 2 — LEERFAHRT-OPTIMIERUNG
@@ -22324,7 +22326,7 @@ exports.autoResolveConflicts = onSchedule(
             // Fixed-Rides (nicht umverteilbar): accepted/on_way/picked_up + alles
             // mit Pickup <60 Min in Zukunft (zu nah).
             // ═══════════════════════════════════════════════════════════
-            console.log('🎯 Phase 3: Prio-Time-Re-Sort gestartet...');
+            // v6.63.476 (Cost-Cut): 'Phase 3 gestartet'-Marker entfernt — wenn Phase 3 was tut, loggt die naechste Zeile.
             let prioReassignCount = 0;
             const phase3DebugLines = [];
             try {
@@ -22777,7 +22779,8 @@ exports.autoResolveConflicts = onSchedule(
                         });
                     } catch(_) {}
                 }
-                console.log(`🔄 Phase 5 abgeschlossen: ${phase5SwapCount} Swap(s)`);
+                // v6.63.476 (Patrick 23.06. Cost-Cut): nur loggen wenn nicht-leer.
+                if (phase5SwapCount > 0) console.log(`🔄 Phase 5 abgeschlossen: ${phase5SwapCount} Swap(s)`);
             } catch (p5err) {
                 console.error('❌ Phase 5 Fehler:', p5err.message, p5err.stack);
             }
@@ -23458,7 +23461,7 @@ async function estimateVehicleLeerfahrt(vehicleId, targetRide, allRides, vehicle
 
     // ✅ STANDARD: Fahrer ist an der Basis → Leerfahrt ab Schichtstandort
     if (homeLat && homeLon) {
-        console.log(`🏠 ${vehicleId}: Leerfahrt ab Basis (${Math.round(gapMinutes)} Min Pause, ${destToPickupKm.toFixed(1)} km → keine Anschlussfahrt)`);
+        // v6.63.476 (Patrick 23.06. Cost-Cut): 'Leerfahrt ab Basis' war ~3-5x pro autoResolveConflicts-Lauf — weg.
         const route = await calculateRoute({ lat: homeLat, lon: homeLon }, { lat: pickupLat, lon: pickupLon });
         // 🆕 v6.62.530: Border-Buffer
         const _border = _crossesBorder(homeLat, homeLon, pickupLat, pickupLon) ? BORDER_BUFFER_MIN : 0;

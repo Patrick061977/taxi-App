@@ -33632,9 +33632,16 @@ exports.stripeWebhook = onRequest(
                     const _rideIdFromMeta = session.metadata?.rideId;
                     if (_rideIdFromMeta) {
                         try {
+                            // 🔧 v6.63.493 (Patrick 24.06. 08:52: "Fahrer sieht es nicht
+                            //   wenn er die Fahrt annimmt"): stripePaymentStatus FEHLTE im
+                            //   _rideUpd-Block — Native-Dashboard prueft genau dieses Feld
+                            //   (DriverDashboardActivity.java Z.4678). Ohne den Wert blieb
+                            //   das BEZAHLT-Badge dauerhaft unsichtbar bei direkten
+                            //   Stripe-Rechnungs-Links (Anfrage-Pfad war OK, direkter nicht).
                             const _rideUpd = {
                                 paymentStatus: 'paid',
                                 paymentMethod: 'stripe',
+                                stripePaymentStatus: 'paid',
                                 stripePaidAt: Date.now(),
                                 stripePaidAmount: session.amount_total / 100,
                                 stripePaymentIntentId: session.payment_intent,

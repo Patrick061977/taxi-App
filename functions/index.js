@@ -24050,22 +24050,19 @@ exports.scheduledAutoAssign = onSchedule(
                     if (!/^\d{2}:\d{2}$/.test(r.pickupTime)) continue;
                     if (!/^\d{4}-\d{2}-\d{2}$/.test(r.pickupDate)) continue;
                     // Erwarteten Timestamp aus pickupDate+pickupTime in Berlin-Zeit berechnen.
-                    // Sommerzeit-sauber via Intl: wir parsen pickupDate als YYYY-MM-DD,
-                    // hängen pickupTime an und nutzen Date.parse mit explizitem Berlin-Offset
-                    // (vereinfacht: lokale Konstruktion → Date.parse, dann ist die Function-VM
-                    // selbst in UTC, also Offset 0; wir korrigieren via TZ-Strategie).
-                    // Approach: Date.UTC + Berlin-Offset (Sommer/Winter ableiten aus dem Monat).
+                    // 🔧 v6.63.467: toLocaleString-Bug behoben — in Firebase V8 liefert
+                    // toLocaleString('en-US',{hour12:false}) bei Mitternacht '24:00:00' statt '0:00:00';
+                    // new Date('6/27/2026, 24:00:00 UTC') parst dann falsch → 24h Drift.
+                    // Fix: Intl.DateTimeFormat auf Mittag UTC (nie Mitternacht → kein Bug).
                     const [_y, _mo, _da] = r.pickupDate.split('-').map(n => parseInt(n, 10));
                     const [_h, _mi] = r.pickupTime.split(':').map(n => parseInt(n, 10));
-                    // Berlin-Offset: vereinfacht über `Date.prototype.toLocaleString('en-US', { timeZone })`
-                    const _berlinProbe = new Date(Date.UTC(_y, _mo - 1, _da, _h, _mi, 0));
-                    const _utcMillis = _berlinProbe.getTime();
-                    // Offset Berlin = (Local Berlin time of _utcMillis) − UTC time. Wir nutzen
-                    // Intl.DateTimeFormat um die Berlin-Offsetin Min für _utcMillis zu kriegen.
-                    const _berlinStr = _berlinProbe.toLocaleString('en-US', { timeZone: 'Europe/Berlin', hour12: false });
-                    const _berlinAsUtc = new Date(_berlinStr + ' UTC');
-                    const _offsetMs = _utcMillis - _berlinAsUtc.getTime();
-                    const _expectedTs = _utcMillis + _offsetMs;
+                    const _noonUtc = new Date(Date.UTC(_y, _mo - 1, _da, 12, 0, 0));
+                    const _berlinNoonHour = parseInt(
+                        new Intl.DateTimeFormat('en-US', { timeZone: 'Europe/Berlin', hour: '2-digit', hour12: false }).format(_noonUtc),
+                        10
+                    );
+                    const _berlinOffsetH = _berlinNoonHour - 12; // 2 für CEST (Sommer), 1 für CET (Winter)
+                    const _expectedTs = Date.UTC(_y, _mo - 1, _da, _h - _berlinOffsetH, _mi, 0);
                     const _drift = Math.abs(r.pickupTimestamp - _expectedTs);
                     if (_drift > 5 * 60_000) {
                         const _driftMin = Math.round(_drift / 60_000);

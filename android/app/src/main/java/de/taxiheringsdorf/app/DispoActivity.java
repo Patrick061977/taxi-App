@@ -503,6 +503,51 @@ public class DispoActivity extends AppCompatActivity {
             }
         } catch (Throwable _t) { /* defensive */ }
 
+        // 🆕 v6.63.494 (Patrick 25.06. 07:32 Bridge: "ich sehe in keiner dispo
+        //   in der native app den score von den fahrzeugen live dispo wäre aber
+        //   wichtig das ich score sehe oder berechnung der zeit"):
+        //   Score-Top-3 direkt in der Dispo-Card (statt nur im Konflikt-Dialog).
+        //   Liest vehicleScoreSummary (kommt aus listenForRides v6.63.024) +
+        //   extrahiert score-Zahl + sortiert Top-3 + zeigt mit Anfahrt.
+        try {
+            if (r.vehicleScoreSummary != null && !r.vehicleScoreSummary.isEmpty()) {
+                java.util.regex.Pattern _scoreP = java.util.regex.Pattern.compile("score=(-?\\d+)");
+                java.util.regex.Pattern _anfP = java.util.regex.Pattern.compile("anfahrt=([\\d.]+)\\s*min", java.util.regex.Pattern.CASE_INSENSITIVE);
+                java.util.List<Object[]> _ranked = new java.util.ArrayList<>();
+                for (java.util.Map.Entry<String, String> e : r.vehicleScoreSummary.entrySet()) {
+                    java.util.regex.Matcher m = _scoreP.matcher(e.getValue() == null ? "" : e.getValue());
+                    int score = m.find() ? Integer.parseInt(m.group(1)) : 99999;
+                    java.util.regex.Matcher ma = _anfP.matcher(e.getValue() == null ? "" : e.getValue());
+                    String anf = ma.find() ? ma.group(1) : null;
+                    _ranked.add(new Object[]{ e.getKey(), score, anf });
+                }
+                _ranked.sort((a, b) -> Integer.compare((Integer)a[1], (Integer)b[1]));
+                StringBuilder ss = new StringBuilder("🎯 ");
+                int n = 0;
+                for (Object[] row : _ranked) {
+                    if (n >= 3) break;
+                    if (n > 0) ss.append(" · ");
+                    String vid = (String) row[0];
+                    VehicleInfo vi = vehicles.get(vid);
+                    String vname = vi != null ? vi.name : vid;
+                    int score = (Integer) row[1];
+                    String anf = (String) row[2];
+                    ss.append(vname).append(" (").append(score);
+                    if (anf != null) ss.append(", ").append(anf).append("min");
+                    ss.append(")");
+                    n++;
+                }
+                if (n > 0) {
+                    TextView tvScore = new TextView(this);
+                    tvScore.setText(ss.toString());
+                    tvScore.setTextColor(Color.parseColor("#FBBF24"));
+                    tvScore.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
+                    tvScore.setPadding(0, dp(2), 0, 0);
+                    col.addView(tvScore);
+                }
+            }
+        } catch (Throwable _t) { /* defensive */ }
+
         // 🆕 v6.62.1001 (Patrick 28.05. 21:41): Konflikt-Diagnose direkt im Dispo-Card
         //   anzeigen wenn Fahrt im wartepool oder ohne Fahrzeug — pro Fahrzeug rechnen:
         //   im Schichtplan? frei? kollidiert?

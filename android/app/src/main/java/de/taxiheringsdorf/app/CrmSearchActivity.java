@@ -3603,23 +3603,28 @@ public class CrmSearchActivity extends AppCompatActivity {
                         "let _bounds=[[pLat,pLon]];wps.forEach(w=>_bounds.push([w[0],w[1]]));_bounds.push([dLat,dLon]);" +
                         "let route=L.polyline(_bounds,{color:'#94a3b8',weight:3,opacity:0.6,dashArray:'8,8'}).addTo(m);" +
                         "m.fitBounds(_bounds,{padding:[40,40]});" +
-                        // Echte OSRM-Route holen + Preis basierend auf ECHTER km neu berechnen
-                        // v6.63.328: Waypoints in OSRM-URL einbeziehen
-                        "fetch('https://router.project-osrm.org/route/v1/driving/'+pLon+','+pLat+'%s;'+dLon+','+dLat+'?overview=full&geometries=geojson')" +
-                        ".then(r=>r.json()).then(j=>{" +
-                          "if(!j.routes||!j.routes[0])return;" +
-                          "const r=j.routes[0];" +
-                          "const kmF=r.distance/1000;" +
-                          "const min=Math.round(r.duration/60);" +
-                          "const preis=calcPreis(kmF);" +
-                          "document.getElementById('kmTxt').textContent='📏 '+kmF.toFixed(1)+' km · '+min+' Min';" +
-                          // 🆕 v6.63.242: bei Krankenfahrt prTxt nicht ueberschreiben (bleibt 🏥 Label)
+                        // v6.63.467: Dual-Engine Minimum-Distanz (Beeck-Fix: Google gab 6,42km statt 1,59km)
+                        // OSRM + Google Routes parallel, kürzere Distanz gewinnt.
+                        // Sanity-Check: Google > 3× OSRM → OSRM bevorzugt (Fußgängerzone).
+                        "const GKEY='AIzaSyCEL-wtoIrVm0-PXpILLabGQXfuFaA17lg';" +
+                        "const gInter=wps.map(w=>({location:{latLng:{latitude:w[0],longitude:w[1]}}}));" +
+                        "const gBody={origin:{location:{latLng:{latitude:pLat,longitude:pLon}}},destination:{location:{latLng:{latitude:dLat,longitude:dLon}}},travelMode:'DRIVE',routingPreference:'TRAFFIC_UNAWARE',computeAlternativeRoutes:true};" +
+                        "if(gInter.length>0)gBody.intermediates=gInter;" +
+                        "const gF=fetch('https://routes.googleapis.com/directions/v2:computeRoutes',{method:'POST',headers:{'Content-Type':'application/json','X-Goog-Api-Key':GKEY,'X-Goog-FieldMask':'routes.duration,routes.distanceMeters'},body:JSON.stringify(gBody)}).then(r=>r.json()).then(d=>{if(!d.routes||!d.routes[0])return null;const rs=d.routes.map(r=>({distance:r.distanceMeters,duration:parseInt(String(r.duration).replace(/[^0-9]/g,''),10)||0}));return rs.reduce((a,b)=>a.distance<=b.distance?a:b);}).catch(()=>null);" +
+                        "const oF=fetch('https://router.project-osrm.org/route/v1/driving/'+pLon+','+pLat+'%s;'+dLon+','+dLat+'?overview=full&geometries=geojson').then(r=>r.json()).then(d=>{if(!d.routes||!d.routes[0])return null;const r=d.routes[0];return{distance:r.distance,duration:r.duration,geometry:r.geometry};}).catch(()=>null);" +
+                        "Promise.all([gF,oF]).then(([g,o])=>{" +
+                          "let km,min,geom=o?o.geometry:null;" +
+                          "if(g&&o){const use=g.distance>o.distance*3?'o':(g.distance<=o.distance?'g':'o');km=(use==='g'?g.distance:o.distance)/1000;min=Math.round((use==='g'?g.duration:o.duration)/60);}" +
+                          "else if(g){km=g.distance/1000;min=Math.round(g.duration/60);}" +
+                          "else if(o){km=o.distance/1000;min=Math.round(o.duration/60);}" +
+                          "else{document.getElementById('kmTxt').textContent='⚠️ Route nicht verfügbar';return;}" +
+                          "const preis=calcPreis(km);" +
+                          "document.getElementById('kmTxt').textContent='📏 '+km.toFixed(1)+' km · '+min+' Min';" +
+                          // v6.63.242: bei Krankenfahrt prTxt nicht ueberschreiben
                           (_isKranken ? "" : "document.getElementById('prTxt').textContent='~'+preis.toFixed(2).replace('.',',')+' €'+tarifLbl;") +
                           "route.remove();" +
-                          "const coords=r.geometry.coordinates.map(c=>[c[1],c[0]]);" +
-                          "L.polyline(coords,{color:'#4F46E5',weight:5,opacity:0.9}).addTo(m);" +
-                          "m.fitBounds(coords,{padding:[40,40]});" +
-                        "}).catch(e=>{document.getElementById('kmTxt').textContent='⚠️ Route nicht verfügbar';});" +
+                          "if(geom){const coords=geom.coordinates.map(c=>[c[1],c[0]]);L.polyline(coords,{color:'#4F46E5',weight:5,opacity:0.9}).addTo(m);m.fitBounds(coords,{padding:[40,40]});}" +
+                        "}).catch(()=>{document.getElementById('kmTxt').textContent='⚠️ Route nicht verfügbar';});" +
                         "</script></body></html>",
                         _preisLbl,
                         _pLat, _pLon, _dLat, _dLon,

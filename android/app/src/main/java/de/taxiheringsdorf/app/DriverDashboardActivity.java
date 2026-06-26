@@ -4843,13 +4843,17 @@ public class DriverDashboardActivity extends AppCompatActivity {
                         if (other.id.equals(rideId)) continue;
                         String oSt = other.status == null ? "" : other.status.toLowerCase();
                         if ("completed".equals(oSt) || "cancelled".equals(oSt) || "deleted".equals(oSt)) continue;
-                        // Aktive Fahrt → niemals 2. parallel
+                        // Aktive Fahrt → Sofortfahrten (<30 Min) blockieren, Vorbestellungen erlauben
                         if ("on_way".equals(oSt) || "picked_up".equals(oSt) || "arrived".equals(oSt)) {
-                            Toast.makeText(DriverDashboardActivity.this,
-                                "⚠️ Konflikt: Du bist gerade in " + (other.customerName != null ? other.customerName : "anderer Fahrt") + " ("+ oSt +").\nErst beenden, dann naechste annehmen.",
-                                Toast.LENGTH_LONG).show();
-                            logLifecycleTap(rideId, "⚠️", "Grab BLOCKIERT: aktive Fahrt " + other.id + " " + oSt, null);
-                            return;
+                            boolean isFuturePreorder = newPickupTs > System.currentTimeMillis() + 30L * 60_000L;
+                            if (!isFuturePreorder) {
+                                Toast.makeText(DriverDashboardActivity.this,
+                                    "⚠️ Aktive Fahrt (" + oSt + "): " + (other.customerName != null ? other.customerName : "?") + ".\nVorbestellungen (>30 Min) kannst du trotzdem annehmen.",
+                                    Toast.LENGTH_LONG).show();
+                                logLifecycleTap(rideId, "⚠️", "Grab BLOCKIERT: aktive Fahrt " + other.id + " " + oSt + " Sofort", null);
+                                return;
+                            }
+                            // Vorbestellung weit in der Zukunft → 25-Min-Kollisions-Check unten reicht
                         }
                         // 60-Min-Window-Kollision mit anderer accepted Vorbestellung
                         if (other.pickupTimestamp != null && other.pickupTimestamp > 0) {

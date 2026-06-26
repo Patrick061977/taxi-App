@@ -5069,16 +5069,15 @@
                 let waypoints = `${pickupCoords.lon},${pickupCoords.lat}`;
                 if (stoppCoords) waypoints += `;${stoppCoords.lon},${stoppCoords.lat}`;
                 waypoints += `;${destCoords.lon},${destCoords.lat}`;
-                // 🆕 v6.63.219 (Patrick 07.06. 13:50 "fährt durch den Wald"):
-                //   OSRM (router.project-osrm.org) nimmt einen falsch in OSM getaggten
-                //   Fußweg im Heringsdorf-Zentrum als befahrbar an. Google Routes API
-                //   (TRAFFIC_AWARE) bleibt auf richtigen Straßen und liefert realistische
-                //   Distanzen. Routes API ist seit 26.05. enabled für unseren Web-Key.
-                //   Fallback bleibt OSRM falls Google-Quote überschritten oder Fehler.
+                // 🔧 v6.63.467 (Patrick 26.06.): Dual-Engine Minimum-Distanz.
+                //   Beeck-Vorfall: Google Routes gab 6,42 km für Kulmstr→Bahnhof (falsch),
+                //   OSRM 1,59 km (korrekt). Fix: beide parallel, kürzere Distanz gewinnt.
+                //   Sanity-Check: Google > 3× OSRM → OSRM bevorzugt.
                 const GOOGLE_ROUTES_KEY = 'AIzaSyCEL-wtoIrVm0-PXpILLabGQXfuFaA17lg';
                 let route = null;
                 let routeSource = 'osrm';
-                try {
+
+                const _fetchGoogle = async () => {
                     const _wpsArr = waypoints.split(';').map(p => {
                         const [lon, lat] = p.split(',').map(Number);
                         return { location: { latLng: { latitude: lat, longitude: lon } } };
@@ -5089,7 +5088,7 @@
                         origin: _origin,
                         destination: _destination,
                         travelMode: 'DRIVE',
-                        routingPreference: 'TRAFFIC_AWARE',
+                        routingPreference: 'TRAFFIC_UNAWARE',
                         polylineEncoding: 'GEO_JSON_LINESTRING',
                         computeAlternativeRoutes: true
                     };
@@ -5103,51 +5102,49 @@
                         },
                         body: JSON.stringify(_gBody)
                     });
-                    if (_gResp.ok) {
-                        const _gData = await _gResp.json();
-                        if (_gData.routes && _gData.routes[0]) {
-                            // 🔧 v6.63.219 (Patrick 07.06. 14:00 "immer vergleichen kürzeste und schnellste"):
-                            //   Aus alternatives kürzeste UND schnellste extrahieren, kürzeste
-                            //   nehmen wenn nicht mehr als 5 Min langsamer als schnellste.
-                            const _gRoutes = _gData.routes.map(r => ({
-                                distance: r.distanceMeters,
-                                duration: parseInt(String(r.duration).replace(/[^0-9]/g, ''), 10) || 0,
-                                geometry: r.polyline && r.polyline.geoJsonLinestring ? r.polyline.geoJsonLinestring : null
-                            }));
-                            let _picked = _gRoutes[0];
-                            if (_gRoutes.length > 1) {
-                                const _fastest = _gRoutes.reduce((a, b) => a.duration <= b.duration ? a : b);
-                                const _shortest = _gRoutes.reduce((a, b) => a.distance <= b.distance ? a : b);
-                                _picked = (_shortest.duration - _fastest.duration) <= 5 * 60 ? _shortest : _fastest;
-                                console.log('[Route-Pick Google] fastest', (_fastest.distance/1000).toFixed(1)+'km/'+(_fastest.duration/60).toFixed(1)+'min', 'shortest', (_shortest.distance/1000).toFixed(1)+'km/'+(_shortest.duration/60).toFixed(1)+'min', '→ gewaehlt:', (_picked.distance/1000).toFixed(1)+'km');
-                            }
-                            route = _picked;
-                            routeSource = 'google-routes';
-                            console.log('[Route] Google Routes:', (route.distance/1000).toFixed(2)+'km', (route.duration/60).toFixed(1)+'min', '('+_gRoutes.length+' alternatives)');
-                        }
-                    } else {
-                        console.warn('[Route] Google Routes HTTP', _gResp.status, '— fallback OSRM');
-                    }
-                } catch (_gErr) {
-                    console.warn('[Route] Google Routes fail:', _gErr.message, '— fallback OSRM');
-                }
-                // OSRM-Fallback
-                if (!route) {
+                    if (!_gResp.ok) throw new Error('HTTP ' + _gResp.status);
+                    const _gData = await _gResp.json();
+                    if (!_gData.routes || !_gData.routes[0]) throw new Error('kein Ergebnis');
+                    const _gRoutes = _gData.routes.map(r => ({
+                        distance: r.distanceMeters,
+                        duration: parseInt(String(r.duration).replace(/[^0-9]/g, ''), 10) || 0,
+                        geometry: r.polyline && r.polyline.geoJsonLinestring ? r.polyline.geoJsonLinestring : null
+                    }));
+                    // Immer kürzeste Distanz wählen
+                    const _shortest = _gRoutes.reduce((a, b) => a.distance <= b.distance ? a : b);
+                    if (_gRoutes.length > 1) console.log('[Route-Pick Google]', _gRoutes.length, 'Alternativen → kürzeste', (_shortest.distance/1000).toFixed(1)+'km');
+                    return _shortest;
+                };
+
+                const _fetchOsrm = async () => {
                     const resp = await fetch(`https://router.project-osrm.org/route/v1/driving/${waypoints}?overview=full&geometries=geojson&alternatives=true`);
                     const data = await resp.json();
-                    if (data.routes && data.routes[0]) {
-                        route = data.routes[0];
-                        if (data.routes.length > 1) {
-                            const fastest = data.routes.reduce((a, b) => a.duration <= b.duration ? a : b);
-                            const shortest = data.routes.reduce((a, b) => a.distance <= b.distance ? a : b);
-                            if ((shortest.duration - fastest.duration) <= 5 * 60) {
-                                route = shortest;
-                            } else {
-                                route = fastest;
-                            }
-                            console.log('[Route-Pick OSRM-FALLBACK] fastest', (fastest.distance/1000).toFixed(1)+'km/'+(fastest.duration/60).toFixed(1)+'min', 'shortest', (shortest.distance/1000).toFixed(1)+'km/'+(shortest.duration/60).toFixed(1)+'min', '→ gewaehlt:', (route.distance/1000).toFixed(1)+'km');
-                        }
+                    if (!data.routes || !data.routes[0]) throw new Error('OSRM kein Ergebnis');
+                    // Kürzeste Distanz aus Alternativen
+                    return data.routes.reduce((a, b) => a.distance <= b.distance ? a : b);
+                };
+
+                const [_gResult, _oResult] = await Promise.allSettled([
+                    _fetchGoogle().catch(e => { console.warn('[Route] Google fail:', e.message); return null; }),
+                    _fetchOsrm().catch(e => { console.warn('[Route] OSRM fail:', e.message); return null; })
+                ]);
+                const _g = _gResult.value;
+                const _o = _oResult.value;
+
+                if (_g && _o) {
+                    // Sanity-Check: Google > 3× OSRM → OSRM (Fußgängerzone o.ä.)
+                    if (_g.distance > _o.distance * 3) {
+                        console.warn('[Route] Sanity-Check FAIL: Google', (_g.distance/1000).toFixed(1)+'km > 3× OSRM', (_o.distance/1000).toFixed(1)+'km → OSRM');
+                        route = _o; routeSource = 'osrm-sanity';
+                    } else {
+                        route = _g.distance <= _o.distance ? _g : _o;
+                        routeSource = route === _g ? 'google-routes' : 'osrm-shorter';
+                        console.log('[Route] Google', (_g.distance/1000).toFixed(1)+'km vs OSRM', (_o.distance/1000).toFixed(1)+'km → ', routeSource, (route.distance/1000).toFixed(1)+'km');
                     }
+                } else if (_g) {
+                    route = _g; routeSource = 'google-routes';
+                } else if (_o) {
+                    route = _o; routeSource = 'osrm';
                 }
                 if (route) {
                     const km = (route.distance / 1000).toFixed(1);

@@ -5268,49 +5268,46 @@ async function _writeRouteCache(from, to, waypointCoords, mode, result) {
 //   Patrick: "kein Umwegfaktor, Verkehr soll automatisch beruecksichtigt werden".
 //   Google Routes API liefert duration MIT aktueller Verkehrslage,
 //   distanceMeters auf der Strasse (nicht Luftlinie).
+// 🔧 v6.63.467 (Patrick 26.06.): Dual-Engine Minimum-Distanz.
+//   Beeck-Vorfall: Google Routes gab 6,42 km für Kulmstr→Bahnhof (falsch, vermutl.
+//   Fußgängerzone-Routing), OSRM gab 1,59 km (korrekt). Fix: beide parallel anfragen,
+//   kürzere Distanz gewinnt. Wenn Google > 3× OSRM → OSRM bevorzugt (Sanity-Check).
 async function calculateRoute(from, to, waypointCoords = []) {
     // routeMode für Cache-Key bestimmen (gleiche Strecke kann je nach Mode anders sein)
-    let _routeMode = 'hybrid';
+    let _routeMode = 'shortest';
     try {
         const _modeSnap = await db.ref('settings/dispatch/routeMode').once('value');
         const _v = _modeSnap.val();
         if (_v === 'fastest' || _v === 'shortest' || _v === 'hybrid') _routeMode = _v;
-    } catch(_) { /* default hybrid */ }
+    } catch(_) { /* default shortest */ }
 
-    // 🆕 v6.63.447: Cache-Lookup VOR jedem Google-Call
-    // v6.63.473 (Patrick 22.06. 21:00 Cost-Cut): routeCache-HIT-Log entfernt.
-    // Bei 5 Vehicles x 4 Rides = 20 HIT-Logs pro scheduledAutoAssign-Lauf.
-    // Wertvoll fuer Debug aber teuer im Logging-Budget.
+    // Cache-Lookup VOR jedem API-Call
     const _cached = await _readRouteCache(from, to, waypointCoords, _routeMode, true);
     if (_cached) {
         return {
             distance: _cached.distance,
             duration: _cached.duration,
             legs: _cached.legs || [{ duration: _cached.duration, distance: +_cached.distance }],
-            source: (_cached.source || 'google-routes-' + _routeMode) + '-cache'
+            source: (_cached.source || 'shortest-dual') + '-cache'
         };
     }
 
-    // Versuch 1: Google Routes API (NEW, TRAFFIC_AWARE)
-    try {
+    // Parallel: Google Routes + OSRM gleichzeitig anfragen → kürzere Distanz gewinnt
+    const _buildGoogleResult = async () => {
         const apiKeySnap = await db.ref('settings/googleMapsApiKey').once('value');
         const apiKey = apiKeySnap.val();
-        if (!apiKey) {
-            console.warn('⚠️ Kein Google-Maps-API-Key in settings/googleMapsApiKey — Skip Google, direkt OSRM');
-            throw new Error('No API key');
-        }
+        if (!apiKey) throw new Error('No API key');
         const body = {
             origin: { location: { latLng: { latitude: from.lat, longitude: from.lon } } },
             destination: { location: { latLng: { latitude: to.lat, longitude: to.lon } } },
             travelMode: 'DRIVE',
-            routingPreference: 'TRAFFIC_AWARE',
-            computeAlternativeRoutes: (_routeMode === 'hybrid' || _routeMode === 'shortest')
+            routingPreference: 'TRAFFIC_UNAWARE',
+            computeAlternativeRoutes: true
         };
         if (waypointCoords && waypointCoords.length > 0) {
             body.intermediates = waypointCoords.map(wp => ({
                 location: { latLng: { latitude: wp.lat, longitude: wp.lon } }
             }));
-            console.log(`🛑 Multi-Stop Route mit ${waypointCoords.length} Zwischenstopps (Google Routes)`);
         }
         const resp = await fetch('https://routes.googleapis.com/directions/v2:computeRoutes', {
             method: 'POST',
@@ -5325,60 +5322,32 @@ async function calculateRoute(from, to, waypointCoords = []) {
         if (!resp.ok) throw new Error('Google Routes HTTP ' + resp.status);
         const data = await resp.json();
         if (!data.routes || !data.routes[0]) throw new Error('Google Routes kein Ergebnis');
-        // 🆕 v6.63.286: Hybrid-Auswahl wenn computeAlternativeRoutes aktiviert war
+        // Immer kürzeste Distanz aus Alternativen wählen
         const _allRoutes = data.routes.map(r => ({
             distanceM: r.distanceMeters || 0,
             durationS: parseInt(String(r.duration || '0').replace('s', '')) || 0,
-            legs: r.legs || []
+            legs: r.legs || [],
+            raw: r
         }));
-        let route;
-        if (_routeMode === 'shortest' && _allRoutes.length > 1) {
-            // Kuerzeste Distanz
-            _allRoutes.sort((a, b) => a.distanceM - b.distanceM);
-            route = data.routes[_allRoutes.findIndex(r => r.distanceM === _allRoutes[0].distanceM)];
-            console.log(`🛣️ HYBRID/SHORTEST: ${_allRoutes.length} Alternativen, gewaehlt kuerzeste`);
-        } else if (_routeMode === 'hybrid' && _allRoutes.length > 1) {
-            // Kuerzeste Distanz, aber wenn schnellste 5+ Min schneller → schnellste
-            const _sortByDist = [..._allRoutes].sort((a, b) => a.distanceM - b.distanceM);
-            const _sortByDur = [..._allRoutes].sort((a, b) => a.durationS - b.durationS);
-            const _shortest = _sortByDist[0];
-            const _fastest = _sortByDur[0];
-            const _shortestDurMin = _shortest.durationS / 60;
-            const _fastestDurMin = _fastest.durationS / 60;
-            const _chosen = (_shortestDurMin - _fastestDurMin) >= 5 ? _fastest : _shortest;
-            const _idx = _allRoutes.indexOf(_chosen);
-            route = data.routes[_idx];
-            console.log(`🛣️ HYBRID: ${_allRoutes.length} Alternativen | kuerzeste ${(_shortest.distanceM/1000).toFixed(1)}km/${Math.round(_shortestDurMin)}min | schnellste ${(_fastest.distanceM/1000).toFixed(1)}km/${Math.round(_fastestDurMin)}min | gewaehlt ${_chosen === _fastest ? 'SCHNELLSTE' : 'KUERZESTE'}`);
-        } else {
-            // 'fastest' oder nur 1 Route
-            route = data.routes[0];
-        }
-        const totalDistanceKm = (route.distanceMeters || 0) / 1000;
-        const totalDurationMin = Math.round(parseInt(String(route.duration || '0').replace('s', '')) / 60);
+        _allRoutes.sort((a, b) => a.distanceM - b.distanceM);
+        const best = _allRoutes[0];
+        const route = best.raw;
+        const totalDistanceKm = best.distanceM / 1000;
+        const totalDurationMin = Math.round(best.durationS / 60);
         const legs = (route.legs || []).map(l => ({
             duration: Math.round(parseInt(String(l.duration || '0').replace('s', '')) / 60),
             distance: +(((l.distanceMeters || 0) / 1000).toFixed(1))
         }));
-        console.log(`✅ Google Routes (${_routeMode}): ${totalDistanceKm.toFixed(1)} km, ${totalDurationMin} min`);
-        const _result = {
-            distance: totalDistanceKm.toFixed(1),
-            duration: totalDurationMin,
-            legs: legs.length > 0 ? legs : [{ duration: totalDurationMin, distance: +totalDistanceKm.toFixed(1) }],
-            source: 'google-routes-' + _routeMode
-        };
-        // 🆕 v6.63.447: nach erfolgreichem Google-Call ins /routeCache schreiben
-        _writeRouteCache(from, to, waypointCoords, _routeMode, _result).catch(() => {});
-        return _result;
-    } catch (e) {
-        console.warn('⚠️ Google Routes fehlgeschlagen, Fallback OSRM:', e.message);
-    }
+        if (_allRoutes.length > 1) {
+            console.log(`🛣️ Google Routes: ${_allRoutes.length} Alternativen, kürzeste ${totalDistanceKm.toFixed(1)}km gewählt`);
+        }
+        return { distanceKm: totalDistanceKm, durationMin: totalDurationMin, legs, source: 'google-routes-shortest' };
+    };
 
-    // Versuch 2: OSRM (Fallback wenn Google nicht antwortet)
-    try {
+    const _buildOsrmResult = async () => {
         let coordinates = `${from.lon},${from.lat}`;
         if (waypointCoords && waypointCoords.length > 0) {
             waypointCoords.forEach(wp => { coordinates += `;${wp.lon},${wp.lat}`; });
-            console.log(`🛑 Multi-Stop Route mit ${waypointCoords.length} Zwischenstopps (OSRM-Fallback)`);
         }
         coordinates += `;${to.lon},${to.lat}`;
         const resp = await fetch(`https://router.project-osrm.org/route/v1/driving/${coordinates}?overview=false`, {
@@ -5386,25 +5355,51 @@ async function calculateRoute(from, to, waypointCoords = []) {
         });
         if (!resp.ok) throw new Error('OSRM HTTP ' + resp.status);
         const data = await resp.json();
-        if (data.routes && data.routes[0]) {
-            const route = data.routes[0];
-            const legs = (route.legs || []).map(l => ({
-                duration: Math.round((l.duration || 0) / 60),
-                distance: +(((l.distance || 0) / 1000).toFixed(1))
-            }));
-            return {
-                distance: (route.distance / 1000).toFixed(1),
-                duration: Math.round(route.duration / 60),
-                legs,
-                source: 'osrm-fallback'
-            };
+        if (!data.routes || !data.routes[0]) throw new Error('OSRM kein Ergebnis');
+        const route = data.routes[0];
+        const legs = (route.legs || []).map(l => ({
+            duration: Math.round((l.duration || 0) / 60),
+            distance: +(((l.distance || 0) / 1000).toFixed(1))
+        }));
+        return { distanceKm: route.distance / 1000, durationMin: Math.round(route.duration / 60), legs, source: 'osrm' };
+    };
+
+    // Beide parallel, dann Minimum-Distanz-Entscheidung
+    const [_googleRes, _osrmRes] = await Promise.allSettled([
+        _buildGoogleResult().catch(e => { console.warn('⚠️ Google Routes:', e.message); return null; }),
+        _buildOsrmResult().catch(e => { console.warn('⚠️ OSRM:', e.message); return null; })
+    ]);
+    const _g = _googleRes.status === 'fulfilled' ? _googleRes.value : null;
+    const _o = _osrmRes.status === 'fulfilled' ? _osrmRes.value : null;
+
+    let _chosen = null;
+    if (_g && _o) {
+        // Sanity-Check: wenn Google > 3× OSRM → OSRM (Google routet falsch z.B. Fußgängerzone)
+        if (_g.distanceKm > _o.distanceKm * 3) {
+            console.log(`⚠️ Google Routes Sanity-Check FAIL: ${_g.distanceKm.toFixed(1)}km > 3× OSRM ${_o.distanceKm.toFixed(1)}km → OSRM bevorzugt`);
+            _chosen = _o;
+        } else {
+            // Normale Wahl: kürzere Distanz gewinnt
+            _chosen = (_g.distanceKm <= _o.distanceKm) ? _g : _o;
+            console.log(`✅ Routing: Google ${_g.distanceKm.toFixed(1)}km vs OSRM ${_o.distanceKm.toFixed(1)}km → ${_chosen.source} (${_chosen.distanceKm.toFixed(1)}km)`);
         }
-        throw new Error('OSRM kein Route-Ergebnis');
-    } catch (e) {
-        console.error('❌ Beide Routing-Engines down (Google + OSRM):', e.message);
+    } else if (_g) {
+        _chosen = _g;
+    } else if (_o) {
+        _chosen = _o;
+    } else {
+        console.error('❌ Beide Routing-Engines down (Google + OSRM)');
+        return null;
     }
 
-    return null;
+    const _result = {
+        distance: _chosen.distanceKm.toFixed(1),
+        duration: _chosen.durationMin,
+        legs: _chosen.legs.length > 0 ? _chosen.legs : [{ duration: _chosen.durationMin, distance: +_chosen.distanceKm.toFixed(1) }],
+        source: _chosen.source
+    };
+    _writeRouteCache(from, to, waypointCoords, _routeMode, _result).catch(() => {});
+    return _result;
 }
 
 function isFeiertag(date) {

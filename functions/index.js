@@ -5688,6 +5688,18 @@ function parseGermanDatetime(datetimeStr) {
     return result;
 }
 
+// 🔧 v6.63.467: DST-sicherer Berlin-Timestamp-Rechner.
+// Ersetzt hardcodiertes +02:00 (bricht im Winter) und +01:00 (bricht im Sommer).
+// Funktioniert für CEST (UTC+2) UND CET (UTC+1) automatisch.
+function _berlinToTs(dateStr, timeStr) {
+    const probe = new Date(dateStr + 'T12:00:00Z');
+    const berlinNoonHour = parseInt(
+        probe.toLocaleString('en-US', { timeZone: 'Europe/Berlin', hour: '2-digit', hour12: false })
+    );
+    const offsetMs = (berlinNoonHour - 12) * 3600000;
+    return new Date(dateStr + 'T' + timeStr + ':00Z').getTime() - offsetMs;
+}
+
 const TZ_BERLIN = { timeZone: 'Europe/Berlin' };
 
 // 🆕 v6.62.684: Patrick (13.05. 17:13): Korridor-Tarif fuer 3-Kaiserbaeder-Bereich.
@@ -12604,7 +12616,7 @@ async function quickConfirmAnfrageHandler(anfrageId, withStripe, adminChatId, wi
     try {
         if (anfrage.date && anfrage.time) {
             // Format date "2026-06-13", time "20:01"
-            pickupTimestamp = new Date(anfrage.date + 'T' + anfrage.time + ':00+02:00').getTime();
+            pickupTimestamp = _berlinToTs(anfrage.date, anfrage.time);
         }
     } catch (_e) {}
     if (!pickupTimestamp || isNaN(pickupTimestamp)) pickupTimestamp = Date.now() + 60 * 60 * 1000;
@@ -25013,7 +25025,7 @@ exports.onAnfrageCreated = onValueCreated(
                         let pickupTs = null;
                         try {
                             if (anfrage.date && anfrage.time) {
-                                const _berlin = new Date(`${anfrage.date}T${anfrage.time}:00+02:00`);
+                                const _berlin = { getTime: () => _berlinToTs(anfrage.date, anfrage.time) };
                                 if (!isNaN(_berlin.getTime())) pickupTs = _berlin.getTime();
                             }
                         } catch (_) {}

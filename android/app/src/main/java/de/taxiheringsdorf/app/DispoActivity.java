@@ -704,6 +704,48 @@ public class DispoActivity extends AppCompatActivity {
                     createStripeLinkFromDispoRide(rFinal);
                 });
                 _msgParent.addView(_stripeBtn);
+                // 🆕 v6.63.468: Inline-Preis-Edit direkt im Dispo-Dialog
+                android.widget.LinearLayout _priceRow = new android.widget.LinearLayout(this);
+                _priceRow.setOrientation(android.widget.LinearLayout.HORIZONTAL);
+                android.widget.LinearLayout.LayoutParams _prp = new android.widget.LinearLayout.LayoutParams(
+                    android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                    android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
+                _prp.setMargins(_pad, 0, _pad, _pad);
+                _priceRow.setLayoutParams(_prp);
+
+                android.widget.TextView _priceLbl = new android.widget.TextView(this);
+                _priceLbl.setText("💰 Preis (€): ");
+                _priceLbl.setGravity(android.view.Gravity.CENTER_VERTICAL);
+                _priceRow.addView(_priceLbl);
+
+                android.widget.EditText _priceEt = new android.widget.EditText(this);
+                _priceEt.setInputType(android.text.InputType.TYPE_CLASS_NUMBER | android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL);
+                _priceEt.setText(rFinal.price != null ? String.format(java.util.Locale.GERMAN, "%.2f", rFinal.price) : "");
+                _priceEt.setHint("0,00");
+                android.widget.LinearLayout.LayoutParams _petLP = new android.widget.LinearLayout.LayoutParams(0,
+                    android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+                _priceEt.setLayoutParams(_petLP);
+                _priceRow.addView(_priceEt);
+
+                android.widget.Button _priceSaveBtn = new android.widget.Button(this);
+                _priceSaveBtn.setText("💾");
+                _priceSaveBtn.setAllCaps(false);
+                _priceSaveBtn.setBackgroundColor(0xFF10b981);
+                _priceSaveBtn.setTextColor(android.graphics.Color.WHITE);
+                _priceSaveBtn.setOnClickListener(_v -> {
+                    String _val = _priceEt.getText().toString().replace(',', '.');
+                    try {
+                        double _newPrice = Double.parseDouble(_val);
+                        FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("rides/" + rFinal.id)
+                            .child("price").setValue(_newPrice)
+                            .addOnSuccessListener(_ok -> Toast.makeText(this, "💰 Preis gespeichert: " + _val + " €", Toast.LENGTH_SHORT).show())
+                            .addOnFailureListener(_ex -> Toast.makeText(this, "❌ " + _ex.getMessage(), Toast.LENGTH_LONG).show());
+                    } catch (NumberFormatException _nfe) {
+                        Toast.makeText(this, "❌ Ungültiger Preis", Toast.LENGTH_SHORT).show();
+                    }
+                });
+                _priceRow.addView(_priceSaveBtn);
+                _msgParent.addView(_priceRow);
             }
         } catch (Throwable _ignore) {}
     }

@@ -685,10 +685,20 @@ public class DispoActivity extends AppCompatActivity {
         //   bekommt zusaetzliches Stripe-Action via List-View, nachdem die 3 Standard-
         //   Buttons schon belegt sind.
         androidx.appcompat.app.AlertDialog _shown = dlg.show();
+        _shown.getWindow().getDecorView().post(() -> {
         try {
-            android.widget.LinearLayout _msgParent = (android.widget.LinearLayout) _shown.findViewById(android.R.id.message).getParent();
-            if (_msgParent != null) {
-                android.widget.Button _stripeBtn = new android.widget.Button(this);
+            android.view.View _msgView = _shown.findViewById(android.R.id.message);
+            if (_msgView == null) return;
+            android.view.ViewGroup _msgParent = (android.view.ViewGroup) _msgView.getParent();
+            if (_msgParent == null) return;
+            // Falls Parent ein ScrollView ist, dessen Parent nehmen (LinearLayout)
+            if (!(_msgParent instanceof android.widget.LinearLayout)) {
+                android.view.ViewParent _pp = _msgParent.getParent();
+                if (_pp instanceof android.widget.LinearLayout) _msgParent = (android.widget.LinearLayout) _pp;
+            }
+            final android.view.ViewGroup _container = _msgParent;
+            {
+                android.widget.Button _stripeBtn = new android.widget.Button(DispoActivity.this);
                 _stripeBtn.setText("💳 Vorkasse-Link erstellen");
                 _stripeBtn.setAllCaps(false);
                 _stripeBtn.setBackgroundColor(0xFF7C3AED);
@@ -703,22 +713,23 @@ public class DispoActivity extends AppCompatActivity {
                     _shown.dismiss();
                     createStripeLinkFromDispoRide(rFinal);
                 });
-                _msgParent.addView(_stripeBtn);
+                _container.addView(_stripeBtn);
                 // 🆕 v6.63.468: Inline-Preis-Edit direkt im Dispo-Dialog
-                android.widget.LinearLayout _priceRow = new android.widget.LinearLayout(this);
+                android.widget.LinearLayout _priceRow = new android.widget.LinearLayout(DispoActivity.this);
                 _priceRow.setOrientation(android.widget.LinearLayout.HORIZONTAL);
+                int _pad2 = (int)(getResources().getDisplayMetrics().density * 12);
                 android.widget.LinearLayout.LayoutParams _prp = new android.widget.LinearLayout.LayoutParams(
                     android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
                     android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
-                _prp.setMargins(_pad, 0, _pad, _pad);
+                _prp.setMargins(_pad2, 0, _pad2, _pad2);
                 _priceRow.setLayoutParams(_prp);
 
-                android.widget.TextView _priceLbl = new android.widget.TextView(this);
+                android.widget.TextView _priceLbl = new android.widget.TextView(DispoActivity.this);
                 _priceLbl.setText("💰 Preis (€): ");
                 _priceLbl.setGravity(android.view.Gravity.CENTER_VERTICAL);
                 _priceRow.addView(_priceLbl);
 
-                android.widget.EditText _priceEt = new android.widget.EditText(this);
+                android.widget.EditText _priceEt = new android.widget.EditText(DispoActivity.this);
                 _priceEt.setInputType(android.text.InputType.TYPE_CLASS_NUMBER | android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL);
                 _priceEt.setText(rFinal.price != null ? String.format(java.util.Locale.GERMAN, "%.2f", rFinal.price) : "");
                 _priceEt.setHint("0,00");
@@ -727,7 +738,7 @@ public class DispoActivity extends AppCompatActivity {
                 _priceEt.setLayoutParams(_petLP);
                 _priceRow.addView(_priceEt);
 
-                android.widget.Button _priceSaveBtn = new android.widget.Button(this);
+                android.widget.Button _priceSaveBtn = new android.widget.Button(DispoActivity.this);
                 _priceSaveBtn.setText("💾");
                 _priceSaveBtn.setAllCaps(false);
                 _priceSaveBtn.setBackgroundColor(0xFF10b981);
@@ -738,16 +749,17 @@ public class DispoActivity extends AppCompatActivity {
                         double _newPrice = Double.parseDouble(_val);
                         FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("rides/" + rFinal.id)
                             .child("price").setValue(_newPrice)
-                            .addOnSuccessListener(_ok -> Toast.makeText(this, "💰 Preis gespeichert: " + _val + " €", Toast.LENGTH_SHORT).show())
-                            .addOnFailureListener(_ex -> Toast.makeText(this, "❌ " + _ex.getMessage(), Toast.LENGTH_LONG).show());
+                            .addOnSuccessListener(_ok -> Toast.makeText(DispoActivity.this, "💰 Preis gespeichert: " + _val + " €", Toast.LENGTH_SHORT).show())
+                            .addOnFailureListener(_ex -> Toast.makeText(DispoActivity.this, "❌ " + _ex.getMessage(), Toast.LENGTH_LONG).show());
                     } catch (NumberFormatException _nfe) {
-                        Toast.makeText(this, "❌ Ungültiger Preis", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(DispoActivity.this, "❌ Ungültiger Preis", Toast.LENGTH_SHORT).show();
                     }
                 });
                 _priceRow.addView(_priceSaveBtn);
-                _msgParent.addView(_priceRow);
+                _container.addView(_priceRow);
             }
         } catch (Throwable _ignore) {}
+        }); // end post()
     }
 
     // 🆕 v6.63.309 (Patrick 12.06. Bridge): Stripe-Vorkasse-Link aus DispoActivity-Diagnose.

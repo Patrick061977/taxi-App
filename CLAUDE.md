@@ -2,6 +2,31 @@
 
 ---
 
+## 🚫 ABSOLUTES VERBOT: Bridge-Spam durch Loops (KRITISCH!)
+
+**Vorfall 26.06.2026: Loop hat 300 Telegram-Nachrichten an Patrick geschickt.**
+
+### Regeln die das verhindern:
+
+1. **Kein automatischer Bridge-Send in `/loop` oder `ScheduleWakeup`**
+   - Loops dürfen NIEMALS automatisch `bridge-direct-send.js` / Bridge-Outbox aufrufen
+   - Ergebnisse gehen in den Claude-Code-Chat, NICHT per Telegram an Patrick
+   - Ausnahme: maximal EINE einzige Abschluss-Nachricht wenn die Aufgabe abgeschlossen ist
+
+2. **ScheduleWakeup nur für passive Beobachtung**
+   - Daten lesen: ✅ erlaubt
+   - Aktionen ausführen (senden, schreiben, deployen): ❌ erst Patrick fragen
+
+3. **Jeder Loop braucht eine Exit-Condition**
+   - Maximale Nachrichten-Anzahl definieren (z.B. `maxMessages = 1`)
+   - Loop endet wenn Task fertig — kein endloser Neustart via ScheduleWakeup
+
+4. **ScheduleWakeup überlebt Session-Komprimierung**
+   - Auch nach Context-Compaction feuert ein ScheduleWakeup weiter
+   - Deshalb: bei jedem Loop-Wakeup PRÜFEN ob der ursprüngliche Task noch sinnvoll ist
+
+---
+
 ## 🚨 PFLICHT bei JEDEM Session-Start (vor inhaltlicher Arbeit!)
 
 Claude MUSS **als allererstes** bei jedem neuen Claude-Code-Start in diesem Repo das Bridge-Polling starten:

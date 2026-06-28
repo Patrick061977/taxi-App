@@ -90,10 +90,12 @@ public class ShiftForegroundService extends Service {
     // 🆕 v6.41.19: GPS
     private FusedLocationProviderClient fusedLocationClient;
     private LocationCallback locationCallback;
-    private volatile Double lastLat = null;
-    private volatile Double lastLon = null;
+    // 🆕 v6.63.500: public static für direkten Zugriff aus DriverDashboardActivity (ETA ohne Firebase-Umweg)
+    public static volatile Double lastLat = null;
+    public static volatile Double lastLon = null;
     private volatile Float lastAccuracy = null;
-    private volatile Long lastGpsTimestamp = null; // v6.62.1: für Sprung-Filter
+    // 🆕 v6.63.500: public static für direkten Zugriff aus DriverDashboardActivity
+    public static volatile Long lastGpsTimestamp = null; // v6.62.1: für Sprung-Filter
 
     // 🆕 v6.41.76: WakeLock hält CPU wach während Schicht (sonst drosselt Android bei Screen-off)
     private PowerManager.WakeLock wakeLock = null;

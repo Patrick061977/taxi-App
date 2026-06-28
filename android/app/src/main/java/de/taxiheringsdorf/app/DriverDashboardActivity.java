@@ -1264,7 +1264,20 @@ public class DriverDashboardActivity extends AppCompatActivity {
     private final Runnable etaTick = new Runnable() {
         @Override public void run() {
             try {
-                if (currentVehicleId != null && db != null) {
+                // 🆕 v6.63.500: Lokale GPS aus ShiftForegroundService bevorzugen (immer 15s frisch),
+                // kein Firebase-Round-Trip nötig. Firebase-Fallback nur wenn Service-GPS älter 30s.
+                Double _svcLat = ShiftForegroundService.lastLat;
+                Double _svcLon = ShiftForegroundService.lastLon;
+                Long _svcTs = ShiftForegroundService.lastGpsTimestamp;
+                boolean _svcFresh = _svcLat != null && _svcLon != null && _svcTs != null
+                        && (System.currentTimeMillis() - _svcTs) < 30_000L;
+                if (_svcFresh) {
+                    myCurrentLat = _svcLat;
+                    myCurrentLon = _svcLon;
+                    myCurrentLocAt = System.currentTimeMillis();
+                    recalculateETAsForActiveRides(myCurrentLat, myCurrentLon);
+                } else if (currentVehicleId != null && db != null) {
+                    // Fallback: Firebase lesen (wenn Service-GPS veraltet oder nicht verfügbar)
                     db.getReference("vehicles/" + currentVehicleId).addListenerForSingleValueEvent(new ValueEventListener() {
                         @Override public void onDataChange(@NonNull DataSnapshot s) {
                             Object lat = s.child("lat").getValue();
@@ -1273,7 +1286,6 @@ public class DriverDashboardActivity extends AppCompatActivity {
                             if (lat instanceof Number && lon instanceof Number) {
                                 long age = (ts instanceof Number) ? System.currentTimeMillis() - ((Number) ts).longValue() : 0;
                                 if (age < 5L * 60L * 1000L) {
-                                    // v6.62.965 (SPEED-B): GPS-Cache fuer displayTick-Live-Hochrechnung
                                     myCurrentLat = ((Number) lat).doubleValue();
                                     myCurrentLon = ((Number) lon).doubleValue();
                                     myCurrentLocAt = System.currentTimeMillis();
@@ -1285,7 +1297,7 @@ public class DriverDashboardActivity extends AppCompatActivity {
                     });
                 }
             } catch (Throwable _e) {}
-            etaTickHandler.postDelayed(this, 15_000L); // v6.62.318: 30s → 15s
+            etaTickHandler.postDelayed(this, 15_000L);
         }
     };
 

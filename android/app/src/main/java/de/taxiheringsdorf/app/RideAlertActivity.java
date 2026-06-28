@@ -39,6 +39,7 @@ public class RideAlertActivity extends AppCompatActivity {
         "https://taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.app";
 
     private String rideId;
+    private String vehicleId; // 🆕 v6.63.505: vehicleId aus Intent (für RideActionReceiver)
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -61,7 +62,8 @@ public class RideAlertActivity extends AppCompatActivity {
         setContentView(R.layout.activity_ride_alert);
 
         rideId = getIntent().getStringExtra("rideId");
-        Log.i(TAG, "RideAlert für rideId=" + rideId);
+        vehicleId = getIntent().getStringExtra("vehicleId"); // 🆕 v6.63.505
+        Log.i(TAG, "RideAlert für rideId=" + rideId + " vehicleId=" + vehicleId);
 
         TextView tvCustomer = findViewById(R.id.alert_customer);
         TextView tvPickup = findViewById(R.id.alert_pickup);
@@ -113,18 +115,24 @@ public class RideAlertActivity extends AppCompatActivity {
                 });
         }
 
+        // 🆕 v6.63.505 (Patrick 28.06. Bridge: "wenn man auf Annehmen klickt, wird auch
+        //   die Fahrt abgelehnt"): Bug war falsche Action-Strings + fehlende vehicleId.
+        //   Vorher: "de.taxiheringsdorf.app.ACTION_ACCEPT" → RideActionReceiver.ACTION_ACCEPT
+        //   ist "de.taxiheringsdorf.app.ACTION_ACCEPT_RIDE" → String-Mismatch → isAccept=false
+        //   → HTTP-Call sendete immer action:"reject", auch bei ANNEHMEN-Tap.
         btnAccept.setOnClickListener(v -> {
-            Log.i(TAG, "✅ ANNEHMEN tapped, rideId=" + rideId);
+            Log.i(TAG, "✅ ANNEHMEN tapped, rideId=" + rideId + " vehicleId=" + vehicleId);
             if (rideId != null) {
                 Intent action = new Intent(this, RideActionReceiver.class);
-                action.setAction("de.taxiheringsdorf.app.ACTION_ACCEPT");
-                action.putExtra("rideId", rideId);
+                action.setAction(RideActionReceiver.ACTION_ACCEPT); // fix: war "...ACTION_ACCEPT" ohne _RIDE
+                action.putExtra(RideActionReceiver.EXTRA_RIDE_ID, rideId);
+                action.putExtra(RideActionReceiver.EXTRA_VEHICLE_ID, vehicleId);
                 sendBroadcast(action);
             }
-            // App in Vordergrund bringen
             Intent home = new Intent(this, DriverDashboardActivity.class);
             home.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-            if (rideId != null) home.putExtra("rideId", rideId);
+            home.putExtra("rideId", rideId);
+            home.putExtra("openedFromAccept", true);
             startActivity(home);
             finish();
         });
@@ -133,8 +141,9 @@ public class RideAlertActivity extends AppCompatActivity {
             Log.i(TAG, "❌ ABLEHNEN tapped, rideId=" + rideId);
             if (rideId != null) {
                 Intent action = new Intent(this, RideActionReceiver.class);
-                action.setAction("de.taxiheringsdorf.app.ACTION_REJECT");
-                action.putExtra("rideId", rideId);
+                action.setAction(RideActionReceiver.ACTION_REJECT); // fix: war "...ACTION_REJECT" ohne _RIDE
+                action.putExtra(RideActionReceiver.EXTRA_RIDE_ID, rideId);
+                action.putExtra(RideActionReceiver.EXTRA_VEHICLE_ID, vehicleId);
                 sendBroadcast(action);
             }
             finish();

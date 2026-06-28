@@ -279,6 +279,7 @@ public class TaxiFCMService extends FirebaseMessagingService {
             Intent alertI = new Intent(this, RideAlertActivity.class);
             alertI.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
             alertI.putExtra("rideId", rideId);
+            alertI.putExtra("vehicleId", vehicleId); // 🆕 v6.63.505: für RideActionReceiver-Broadcast
             alertI.putExtra("title", title);
             alertI.putExtra("body", body);
             PendingIntent fullScreenIntent = PendingIntent.getActivity(

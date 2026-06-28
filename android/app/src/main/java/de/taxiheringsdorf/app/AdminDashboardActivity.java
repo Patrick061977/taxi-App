@@ -1193,8 +1193,11 @@ public class AdminDashboardActivity extends AppCompatActivity {
         btnLayout.setOrientation(android.widget.LinearLayout.VERTICAL);
         btnLayout.setPadding(btnPad, 0, btnPad, btnPad);
 
+        // 🆕 v6.63.535: Kein Chrome-Custom-Tab mehr — alles nativ.
+        // uebernehmeAnfrage() übernimmt den Ride, ruft danach showVorkasseEmailDialog()
+        // auf wenn email+price vorhanden sind (Stripe-Link + Email-Versand nativ).
         android.widget.Button btnVorschau = new android.widget.Button(this);
-        btnVorschau.setText("📬 Vorschau & " + _kanalLabel + " + Stripe senden");
+        btnVorschau.setText("✅ Übernehmen + Stripe-Link per " + _kanalLabel + " senden");
         btnVorschau.setBackgroundColor(0xFF059669);
         btnVorschau.setTextColor(0xFFFFFFFF);
         btnVorschau.setPadding(btnPad, btnPad, btnPad, btnPad);
@@ -1232,16 +1235,11 @@ public class AdminDashboardActivity extends AppCompatActivity {
 
         btnVorschau.setOnClickListener(_v -> {
             dlg.dismiss();
-            // Öffnet Chrome Custom Tab mit Web-Compose-Modal (HTML-Vorschau + Stripe)
-            String url = "https://umwelt-taxi-insel-usedom.de/index.html?anfrageCompose=" + a.id;
-            try {
-                new androidx.browser.customtabs.CustomTabsIntent.Builder()
-                    .setShowTitle(true)
-                    .build()
-                    .launchUrl(this, android.net.Uri.parse(url));
-            } catch (android.content.ActivityNotFoundException _e) {
-                startActivity(new Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url)));
-            }
+            // 🆕 v6.63.535: Vollständig nativ — kein Browser-Redirect.
+            // uebernehmeAnfrage() schreibt Ride in Firebase; onSuccess ruft
+            // showVorkasseEmailDialog() auf wenn email+price vorhanden → Stripe-Link
+            // wird erstellt + Email/WA/SMS nativ versendet.
+            uebernehmeAnfrage(a);
         });
         btnNurUebernehmen.setOnClickListener(_v -> {
             dlg.dismiss();

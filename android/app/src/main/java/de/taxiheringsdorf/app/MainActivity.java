@@ -25,10 +25,14 @@ public class MainActivity extends BridgeActivity {
         // Deployments sofort sichtbar sind (Firebase CDN cached 1h mit max-age=3600).
         // clearCache allein reicht nicht — WebView hat schon aus Cache geladen wenn
         // onCreate() fertig ist. post(reload()) läuft nach aktuellem Load-Zyklus.
+        // v6.63.513: clearCache ohne post(reload) — der Doppel-Load aus v6.63.509
+        // hat einen Race-Condition-Bug: zweite Seiten-Initialisierung setzt
+        // _apkUpdateDownloadUrl zurück, bevor der User auf "Herunterladen" tippt.
+        // clearCache allein reicht: WebView lädt beim nächsten Start frisch vom Netz.
+        // Firebase CDN-Invalidierung nach Deploy ist sofort wirksam.
         WebView wv = getBridge().getWebView();
         if (wv != null) {
             wv.clearCache(true);
-            wv.post(() -> wv.reload());
         }
     }
 }

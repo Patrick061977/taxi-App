@@ -31862,8 +31862,15 @@ async function _doRegenerateInvoicePdf(invoiceNumber) {
         || invoice.customerName === 'Kunde')) {
         fixes.customerName = _billingName;
     }
-    if (_billingAddrStr && !invoice.customerAddress) {
-        fixes.customerAddress = _billingAddrStr;
+    // v6.63.527: Fallback auf customer.address + billingAddresses[].address (altes Format)
+    //   wenn _billingAddrStr leer ist (billingAddresses hat kein strasse/plz/ort).
+    const _addrFallback = _billingAddrStr
+        || (Array.isArray(customer.billingAddresses) && customer.billingAddresses.length > 0
+            ? (customer.billingAddresses.find(b => b && b.isDefault) || customer.billingAddresses[0])?.address || ''
+            : '')
+        || customer.invoiceAddress || customer.billingAddress || customer.address || '';
+    if (_addrFallback && !invoice.customerAddress) {
+        fixes.customerAddress = _addrFallback;
     }
     if (Array.isArray(invoice.positions) && invoice.positions[0]) {
         const desc = invoice.positions[0].description || '';

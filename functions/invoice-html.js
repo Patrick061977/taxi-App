@@ -136,10 +136,16 @@ function buildInvoiceHtml({ invoiceNumber, ride, customer, settings, invoice }) 
         const _ba = c.billingAddresses.find(b => b && b.isDefault) || c.billingAddresses[0];
         if (_ba) {
             _baName = (_ba.empfaengerName || _ba.label || '').trim();
-            if (_ba.strasse) _baLines.push(_ba.strasse + (_ba.adresszusatz ? ', ' + _ba.adresszusatz : ''));
-            const _po = [_ba.plz, _ba.ort].filter(Boolean).join(' ').trim();
-            if (_po) _baLines.push(_po);
-            if (_ba.land && _ba.land.toLowerCase() !== 'deutschland') _baLines.push(_ba.land);
+            if (_ba.strasse) {
+                // Neues Format: strasse/plz/ort getrennt
+                _baLines.push(_ba.strasse + (_ba.adresszusatz ? ', ' + _ba.adresszusatz : ''));
+                const _po = [_ba.plz, _ba.ort].filter(Boolean).join(' ').trim();
+                if (_po) _baLines.push(_po);
+                if (_ba.land && _ba.land.toLowerCase() !== 'deutschland') _baLines.push(_ba.land);
+            } else if (_ba.address) {
+                // v6.63.527: Altes Format — address als ein String
+                _ba.address.split(/[,\n]/).map(l => l.trim()).filter(Boolean).forEach(l => _baLines.push(l));
+            }
         }
     }
 

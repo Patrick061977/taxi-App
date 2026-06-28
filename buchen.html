@@ -5455,6 +5455,8 @@
                         var emailMatch = _userEmail && ce && _userEmail === ce;
                         if (phoneMatch || emailMatch) {
                             found = c;
+                            // v6.63.526: CRM-Key für customerId in Ride speichern
+                            window._crmCustomerId = child.key;
                             var nameEl = document.getElementById('b-name');
                             if (nameEl && !nameEl.value && c.name) nameEl.value = c.name;
                             var phoneEl = document.getElementById('b-phone');
@@ -5463,10 +5465,14 @@
                                 phoneEl.value = String(phoneNum).replace(/^\+49\s*/, '0');
                             }
                             if (!customerPhone && phoneNum) customerPhone = phoneNum;
-                            // 🆕 v6.63.006 (Patrick 29.05. 08:17): defaultPayment aus CRM lesen
+                            // v6.63.006: defaultPayment aus CRM lesen
+                            // v6.63.526: auch autoChargeEnabled → 'stored' setzen wenn SEPA/Karte hinterlegt
                             if (c.defaultPayment) {
                                 window._customerDefaultPayment = c.defaultPayment;
                                 logBuchen('💳', 'Standard-Zahlung aus Profil: ' + c.defaultPayment);
+                            } else if (c.autoChargeEnabled === true && c.defaultPaymentMethodId) {
+                                window._customerDefaultPayment = 'stored';
+                                logBuchen('💳', 'Auto-Charge aktiv (' + (c.autoPayMethodBrand || 'stored') + ') → paymentMethod=stored');
                             }
                             // 🆕 v6.63.005 (Patrick 29.05. 08:05): CRM-Phone in localStorage
                             //   cachen UND in /users/{uid}/savedPhone für Cross-Device.
@@ -5948,6 +5954,8 @@
                 }),
                 customerName: (document.getElementById('b-name')?.value || '').trim() || 'Web-Kunde',
                 customerPhone: customerPhone,
+                // v6.63.526: customerId für Auto-Charge (autoChargeRide braucht CRM-ID)
+                ...(window._crmCustomerId && { customerId: window._crmCustomerId }),
                 passengers,
                 status: isVorbestellt ? 'vorbestellt' : 'sofort',
                 isJetzt: !isVorbestellt,

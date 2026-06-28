@@ -1200,12 +1200,49 @@ public class DriverDashboardActivity extends AppCompatActivity {
     private Runnable pauseResumeTask = null;
 
     // v6.62.86: Periodischer ETA-Trigger — alle 30s. vehicles/{id}-Listener feuert
+    // 🆕 v6.63.504 (Patrick 28.06. 08:39 Bridge: "wenn ich das nicht annehme, dann nehme
+    //   ich das nicht an. Da muss die Fahrt irgendwann verschwinden"): Annehmen-Zeitfenster.
+    //   Auto-zugewiesene Fahrten (vehicleId == mein Fahrzeug, status=assigned/vorbestellt)
+    //   verschwinden wenn der Fahrer in 90s nicht Annehmen drückt → auto-rejectRide().
+    private final java.util.Map<String, Long> acceptWindowStart = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final long ACCEPT_TIMEOUT_MS = 90_000L; // 90 Sekunden
+
     // v6.62.320: Display-Tick — rendert NUR die Adapter-Items neu (kein OSRM).
     // So zaehlt 'Losfahren in 25 Min' alle 5s sichtbar runter ohne Battery-Drain.
     private final Handler displayTickHandler = new Handler(Looper.getMainLooper());
     private final Runnable displayTick = new Runnable() {
         @Override public void run() {
             try {
+                // 🆕 v6.63.504: Annehmen-Timeout — auto-zugewiesene Fahrten ablaufen lassen
+                if (!acceptWindowStart.isEmpty()) {
+                    long _nowMs = System.currentTimeMillis();
+                    java.util.List<String> _expired = new java.util.ArrayList<>();
+                    for (java.util.Map.Entry<String, Long> _e : acceptWindowStart.entrySet()) {
+                        if (_nowMs - _e.getValue() > ACCEPT_TIMEOUT_MS) _expired.add(_e.getKey());
+                    }
+                    for (String _expiredId : _expired) {
+                        acceptWindowStart.remove(_expiredId);
+                        Ride _expiredRide = null;
+                        java.util.List<Ride> _allCheck = new java.util.ArrayList<>();
+                        if (myAssignedRides != null) _allCheck.addAll(myAssignedRides);
+                        if (openUnassignedRides != null) _allCheck.addAll(openUnassignedRides);
+                        for (Ride _rx : _allCheck) {
+                            if (_rx != null && _expiredId.equals(_rx.id)) { _expiredRide = _rx; break; }
+                        }
+                        if (_expiredRide != null) {
+                            String _st = _expiredRide.status != null ? _expiredRide.status.toLowerCase() : "";
+                            boolean _stillPending = _st.equals("new") || _st.equals("assigned")
+                                || _st.equals("vorbestellt") || _st.equals("sofort") || _st.equals("warteschlange");
+                            if (_stillPending) {
+                                final String _name = _expiredRide.customerName;
+                                rejectRide(_expiredId);
+                                runOnUiThread(() -> android.widget.Toast.makeText(DriverDashboardActivity.this,
+                                    "⏱️ " + (_name != null ? _name : "Fahrt") + " nicht angenommen → weitergegeben",
+                                    android.widget.Toast.LENGTH_LONG).show());
+                            }
+                        }
+                    }
+                }
                 // v6.62.965 (SPEED-B): Live-Hochrechnung der ETA aus aktueller GPS-Position
                 // BEVOR der Adapter neu rendert. Patrick 26.05.: 'Web fuehlt sich schneller an'
                 // → zwischen den 15s-OSRM-Calls per Delta-Haversine die km/min skalieren.
@@ -4759,6 +4796,17 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 long nowMs = System.currentTimeMillis();
                 boolean isPast = canAcceptReject && r.pickupTimestamp != null && r.pickupTimestamp < nowMs - 5L * 60L * 1000L;
 
+                // 🆕 v6.63.504: Annehmen-Timeout. Nur für auto-zugewiesene Fahrten (vehicleId
+                // = mein Fahrzeug), nicht für offene Fahrten die ich selbst annehmen will.
+                boolean _isAutoAssignedToMe = currentVehicleId != null
+                    && (currentVehicleId.equals(r.assignedVehicle) || currentVehicleId.equals(r.vehicleId))
+                    && (stl.equals("assigned") || stl.equals("vorbestellt"));
+                if (canAcceptReject && !isPast && _isAutoAssignedToMe) {
+                    acceptWindowStart.putIfAbsent(r.id, nowMs);
+                } else if (!canAcceptReject || isPast) {
+                    acceptWindowStart.remove(r.id);
+                }
+
                 // 🆕 v6.62.778 (Patrick 16.05. 12:14): "Warum muss die 30 Min vorher
                 //   auf meinem Bildschirm stehen — reicht doch wenn ich 15 Min vorher
                 //   die Fahrt zugeteilt bekomme." accepted-Vorbestellungen mit pickup
@@ -4873,6 +4921,7 @@ public class DriverDashboardActivity extends AppCompatActivity {
     //   (Gregoleit-Bug: Tesla locked, Vito grabbt trotzdem).
     private void acceptRide(String rideId) {
         if (db == null || rideId == null || currentVehicleId == null) return;
+        acceptWindowStart.remove(rideId); // v6.63.504: Timeout löschen bei explizitem Annehmen
         try { AlertSoundService.stop(this); } catch (Throwable _ignore) {}
         final String myVid = currentVehicleId;
         db.getReference("rides/" + rideId).get().addOnSuccessListener(snap -> {
@@ -4958,6 +5007,7 @@ public class DriverDashboardActivity extends AppCompatActivity {
 
     private void rejectRide(String rideId) {
         if (db == null || rideId == null) return;
+        acceptWindowStart.remove(rideId); // v6.63.504: Timeout löschen bei Ablehnen
         // 🆕 v6.62.930 (Patrick 25.05. 11:35 + 11:37): "Push verarbeitet anders als
         //   wenn ich unten ablehne. Kommt da irgendwie komischerweise immer wieder."
         //   Befund: In-App-Reject hat KEIN rejectedVehicles[]-Update gemacht →

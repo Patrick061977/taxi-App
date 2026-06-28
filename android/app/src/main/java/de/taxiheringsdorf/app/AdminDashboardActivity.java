@@ -1574,6 +1574,199 @@ public class AdminDashboardActivity extends AppCompatActivity {
         }).start();
     }
 
+    // 🆕 v6.63.534: Rechnung an Auftraggeber — PDF-Vorschau + Email-Versand nativ
+    private void showInvoiceEmailDialog(Ride r) {
+        float dp = getResources().getDisplayMetrics().density;
+        int pad = (int)(dp * 16);
+        int padSm = (int)(dp * 8);
+
+        // BottomSheetDialog für mehr Höhe (Vorschau braucht Platz)
+        com.google.android.material.bottomsheet.BottomSheetDialog sheet =
+            new com.google.android.material.bottomsheet.BottomSheetDialog(this);
+
+        android.widget.ScrollView sv = new android.widget.ScrollView(this);
+        LinearLayout layout = new LinearLayout(this);
+        layout.setOrientation(LinearLayout.VERTICAL);
+        layout.setPadding(pad, pad, pad, pad);
+        sv.addView(layout);
+
+        // Header
+        android.widget.TextView tvTitle = new android.widget.TextView(this);
+        tvTitle.setText("🧾 Rechnung " + r.invoiceNumber + " per E-Mail senden");
+        tvTitle.setTextSize(17);
+        tvTitle.setTextColor(android.graphics.Color.parseColor("#111827"));
+        tvTitle.setTypeface(null, android.graphics.Typeface.BOLD);
+        LinearLayout.LayoutParams _titleP = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        _titleP.setMargins(0, 0, 0, pad);
+        tvTitle.setLayoutParams(_titleP);
+        layout.addView(tvTitle);
+
+        // PDF-Vorschau (WebView) wenn URL vorhanden
+        if (r.invoicePdfUrl != null && !r.invoicePdfUrl.isEmpty()) {
+            android.webkit.WebView wv = new android.webkit.WebView(this);
+            wv.getSettings().setJavaScriptEnabled(false);
+            wv.getSettings().setLoadWithOverviewMode(true);
+            wv.getSettings().setUseWideViewPort(true);
+            // Google Docs PDF-Viewer für In-App-Vorschau ohne externen Reader
+            String viewerUrl = "https://docs.google.com/gview?embedded=true&url=" +
+                android.net.Uri.encode(r.invoicePdfUrl);
+            wv.loadUrl(viewerUrl);
+            LinearLayout.LayoutParams _wvP = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, (int)(dp * 380));
+            _wvP.setMargins(0, 0, 0, pad);
+            wv.setLayoutParams(_wvP);
+            layout.addView(wv);
+        } else {
+            android.widget.TextView tvNoPdf = new android.widget.TextView(this);
+            tvNoPdf.setText("ℹ️ Kein PDF verfügbar — Rechnung wird aus Firebase generiert.");
+            tvNoPdf.setTextSize(13);
+            tvNoPdf.setTextColor(android.graphics.Color.parseColor("#6b7280"));
+            LinearLayout.LayoutParams _noPdfP = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+            _noPdfP.setMargins(0, 0, 0, pad);
+            tvNoPdf.setLayoutParams(_noPdfP);
+            layout.addView(tvNoPdf);
+        }
+
+        // E-Mail-Empfänger
+        android.widget.TextView tvEmailLabel = new android.widget.TextView(this);
+        tvEmailLabel.setText("An:");
+        tvEmailLabel.setTextSize(13);
+        tvEmailLabel.setTextColor(android.graphics.Color.parseColor("#6b7280"));
+        layout.addView(tvEmailLabel);
+
+        EditText etEmail = new EditText(this);
+        etEmail.setHint("E-Mail-Adresse des Auftraggebers");
+        etEmail.setInputType(android.text.InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS);
+        // Vorausfüllen wenn vorhanden (customerEmail aus Ride, z.B. Hotel-Email)
+        if (r.customerEmail != null && r.customerEmail.contains("@")) {
+            etEmail.setText(r.customerEmail);
+        }
+        LinearLayout.LayoutParams _emailP = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        _emailP.setMargins(0, 0, 0, padSm);
+        etEmail.setLayoutParams(_emailP);
+        layout.addView(etEmail);
+
+        // Betreff
+        android.widget.TextView tvSubjectLabel = new android.widget.TextView(this);
+        tvSubjectLabel.setText("Betreff:");
+        tvSubjectLabel.setTextSize(13);
+        tvSubjectLabel.setTextColor(android.graphics.Color.parseColor("#6b7280"));
+        layout.addView(tvSubjectLabel);
+
+        EditText etSubject = new EditText(this);
+        etSubject.setHint("Betreff");
+        etSubject.setText("Rechnung " + r.invoiceNumber + " – Funk Taxi Wydra");
+        LinearLayout.LayoutParams _subjP = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        _subjP.setMargins(0, 0, 0, pad);
+        etSubject.setLayoutParams(_subjP);
+        layout.addView(etSubject);
+
+        // Senden-Button
+        com.google.android.material.button.MaterialButton btnSend =
+            new com.google.android.material.button.MaterialButton(this);
+        btnSend.setText("📧 Rechnung jetzt senden");
+        btnSend.setTextSize(16);
+        btnSend.setBackgroundColor(android.graphics.Color.parseColor("#059669"));
+        btnSend.setTextColor(android.graphics.Color.WHITE);
+        LinearLayout.LayoutParams _sendP = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        _sendP.setMargins(0, 0, 0, padSm);
+        btnSend.setLayoutParams(_sendP);
+        btnSend.setOnClickListener(_v -> {
+            String email = etEmail.getText().toString().trim();
+            if (!email.contains("@")) {
+                etEmail.setError("Ungültige E-Mail-Adresse");
+                return;
+            }
+            String subject = etSubject.getText().toString().trim();
+            sheet.dismiss();
+            _sendInvoiceEmail(r, email, subject);
+        });
+        layout.addView(btnSend);
+
+        // Abbrechen
+        com.google.android.material.button.MaterialButton btnCancel =
+            new com.google.android.material.button.MaterialButton(this);
+        btnCancel.setText("Abbrechen");
+        btnCancel.setTextSize(15);
+        btnCancel.setBackgroundColor(android.graphics.Color.parseColor("#6b7280"));
+        btnCancel.setTextColor(android.graphics.Color.WHITE);
+        btnCancel.setLayoutParams(new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+        btnCancel.setOnClickListener(_v -> sheet.dismiss());
+        layout.addView(btnCancel);
+
+        sheet.setContentView(sv);
+        // BottomSheet so hoch wie möglich aufziehen
+        sheet.setOnShowListener(d -> {
+            com.google.android.material.bottomsheet.BottomSheetBehavior<?> bsb =
+                com.google.android.material.bottomsheet.BottomSheetBehavior.from(
+                    (android.view.View) sv.getParent());
+            bsb.setState(com.google.android.material.bottomsheet.BottomSheetBehavior.STATE_EXPANDED);
+        });
+        sheet.show();
+    }
+
+    private void _sendInvoiceEmail(Ride r, String toEmail, String subject) {
+        Toast.makeText(this, "⏳ Rechnung wird gesendet...", Toast.LENGTH_SHORT).show();
+        new Thread(() -> {
+            try {
+                org.json.JSONObject body = new org.json.JSONObject();
+                body.put("invoiceNumber", r.invoiceNumber);
+                body.put("toEmail", toEmail);
+                if (r.customerName != null) body.put("toName", r.customerName);
+                if (subject != null && !subject.isEmpty()) body.put("subject", subject);
+                if (r.invoicePdfUrl != null && !r.invoicePdfUrl.isEmpty()) {
+                    body.put("pdfUrl", r.invoicePdfUrl);
+                    body.put("attachPdf", true);
+                }
+
+                java.net.URL url = new java.net.URL(
+                    "https://europe-west1-taxi-heringsdorf.cloudfunctions.net/sendInvoiceEmail");
+                java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("POST");
+                conn.setRequestProperty("Content-Type", "application/json");
+                conn.setDoOutput(true);
+                conn.setConnectTimeout(15000);
+                conn.setReadTimeout(30000);
+                conn.getOutputStream().write(body.toString().getBytes("UTF-8"));
+
+                int code = conn.getResponseCode();
+                String resp = "";
+                try {
+                    java.io.InputStream is = code < 400 ? conn.getInputStream() : conn.getErrorStream();
+                    if (is != null) {
+                        java.util.Scanner sc = new java.util.Scanner(is, "UTF-8").useDelimiter("\\A");
+                        resp = sc.hasNext() ? sc.next() : "";
+                    }
+                } catch (Exception _re) {}
+                conn.disconnect();
+
+                final boolean ok = code == 200;
+                final String _resp = resp;
+                final String _email = toEmail;
+                runOnUiThread(() -> {
+                    if (ok) {
+                        Toast.makeText(this,
+                            "✅ Rechnung " + r.invoiceNumber + " an " + _email + " gesendet!",
+                            Toast.LENGTH_LONG).show();
+                    } else {
+                        Toast.makeText(this,
+                            "❌ Fehler (" + code + "): " + _resp.substring(0, Math.min(_resp.length(), 120)),
+                            Toast.LENGTH_LONG).show();
+                    }
+                });
+            } catch (Throwable t) {
+                runOnUiThread(() -> Toast.makeText(this,
+                    "❌ Netzwerk-Fehler: " + t.getMessage(), Toast.LENGTH_LONG).show());
+            }
+        }).start();
+    }
+
     private void showNewBookingDialog() { showNewBookingDialog(null); }
     private void showNewBookingDialog(Ride preset) {
         LinearLayout layout = new LinearLayout(this);
@@ -1883,6 +2076,10 @@ public class AdminDashboardActivity extends AppCompatActivity {
         // v6.62.193: Patrick (01.05.): "Zwischenstops nicht angezeigt im kalender nativ app".
         // Waypoints fuer Sammeltransfers (Vetter Touristik) — addr + Pax-Name pro Stop.
         java.util.List<String> waypointDisplay; // formatierte Anzeige-Strings ("Adresse — Pax-Name")
+        // 🆕 v6.63.534: Rechnung-an-Auftraggeber — Email-Dialog direkt aus Native-App
+        String invoiceNumber;
+        String customerId;
+        String invoicePdfUrl;
 
         static boolean isWebSource(String s) {
             return s != null && (
@@ -1996,6 +2193,11 @@ public class AdminDashboardActivity extends AppCompatActivity {
                         r.vehicleScores.put(_vSnap.getKey(), _info);
                     }
                 }
+                // 🆕 v6.63.534: Rechnungs-Felder für Email-Dialog
+                r.invoiceNumber = s.child("invoiceNumber").getValue(String.class);
+                r.customerId = s.child("customerId").getValue(String.class);
+                r.invoicePdfUrl = s.child("invoicePdfUrl").getValue(String.class);
+                if (r.invoicePdfUrl == null) r.invoicePdfUrl = s.child("pdfUrl").getValue(String.class);
                 // Waypoints: Liste von Objekten mit address+name — analog DriverDashboard
                 DataSnapshot wpSnap = s.child("waypoints");
                 if (wpSnap.exists() && wpSnap.hasChildren()) {
@@ -2720,6 +2922,25 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 startActivity(_emailIntent);
             });
             layout.addView(btnEmailPreview);
+        }
+
+        // 🆕 v6.63.534: Rechnung an Auftraggeber/Hotel — PDF-Vorschau + Email-Compose nativ
+        if (r.invoiceNumber != null && !r.invoiceNumber.isEmpty()) {
+            com.google.android.material.button.MaterialButton btnInvoiceEmail =
+                new com.google.android.material.button.MaterialButton(this);
+            btnInvoiceEmail.setText("🧾 Rechnung an Auftraggeber senden");
+            btnInvoiceEmail.setTextSize(15);
+            btnInvoiceEmail.setBackgroundColor(android.graphics.Color.parseColor("#059669"));
+            btnInvoiceEmail.setTextColor(android.graphics.Color.WHITE);
+            LinearLayout.LayoutParams _invParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+            _invParams.setMargins(0, 0, 0, pad);
+            btnInvoiceEmail.setLayoutParams(_invParams);
+            btnInvoiceEmail.setOnClickListener(_v -> {
+                if (_dlgRef.get() != null) _dlgRef.get().dismiss();
+                showInvoiceEmailDialog(r);
+            });
+            layout.addView(btnInvoiceEmail);
         }
 
         // v6.62.638: Patrick (12.05. 13:05): "ich will Fahrt auch kopieren, Datum aendern,

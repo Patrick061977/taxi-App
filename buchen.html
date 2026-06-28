@@ -5974,7 +5974,11 @@
                     const _blob = ((pickup||'') + ' ' + (destination||'')).toLowerCase();
                     return (_blob.includes('bahnhof') || _blob.includes('flughafen') || _blob.includes('hbf') || _blob.includes('edah') || _blob.includes('airport')) ? 0 : 10;
                 })(),
-                paymentMethod: (window._customerDefaultPayment || 'cash'),
+                // v6.63.531: Web-Buchungen ohne gespeicherte Zahlungsart → 'stripe'
+                //   damit Cloud Function automatisch Stripe-Checkout-Link erstellt + SMS schickt.
+                //   'stored' bleibt für CRM-Kunden mit Auto-Charge.
+                paymentMethod: (window._customerDefaultPayment || 'stripe'),
+                ...(!window._customerDefaultPayment && { _vorkasseRequested: true }),
                 ...(window._customerDefaultPayment === 'stripe' && { _vorkasseRequested: true }),
                 ...(routeData && {
                     price: parseFloat(routeData.price),

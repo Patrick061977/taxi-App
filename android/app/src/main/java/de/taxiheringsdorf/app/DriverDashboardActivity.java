@@ -3402,6 +3402,12 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 );
                 String hotelName = (!gastZahltSelber && auftraggeberName != null && !auftraggeberName.trim().isEmpty())
                         ? auftraggeberName.trim() : null;
+                // v6.63.502: stripePaymentStatus frisch aus Firebase lesen damit
+                // showPaymentMethodStage erkennt wenn Vorkasse bereits abgeschlossen.
+                String _freshStripeStatus = s.child("stripePaymentStatus").getValue(String.class);
+                if (_freshStripeStatus != null) r.stripePaymentStatus = _freshStripeStatus;
+                String _freshPayMeth = s.child("paymentMethod").getValue(String.class);
+                if (_freshPayMeth != null) r.paymentMethod = _freshPayMeth;
                 renderPaymentDialog(r, hotelName, hasAuftraggeber);
             }
             @Override public void onCancelled(@NonNull DatabaseError e) {
@@ -3489,6 +3495,15 @@ public class DriverDashboardActivity extends AppCompatActivity {
         String amountStr = String.format(Locale.GERMANY, "%.2f €", amount);
         List<String> options = new ArrayList<>();
         List<String> methods = new ArrayList<>();
+        // 🆕 v6.63.502 (Patrick 28.06. 08:10 Bridge: "bei Götz stand Bar aber der hat
+        //   mit Stripe bezahlt" + "muss eine Option 'schon bezahlt' sein"):
+        //   Wenn Vorkasse bereits abgeschlossen → Option ganz oben anbieten.
+        boolean _alreadyPaid = "paid".equalsIgnoreCase(r.stripePaymentStatus)
+            || "vorkasse".equalsIgnoreCase(r.paymentMethod);
+        if (_alreadyPaid) {
+            options.add("✅ Schon bezahlt (Vorkasse/Stripe) — nur abschließen");
+            methods.add("vorkasse_prepaid");
+        }
         options.add("💵 Bar (" + amountStr + ")");                        methods.add("cash");
         options.add("💳 iZettle Karte (" + amountStr + ")");              methods.add("izettle");
         options.add("📱 Stripe-QR (" + amountStr + ")");                  methods.add("stripe");
@@ -3513,6 +3528,11 @@ public class DriverDashboardActivity extends AppCompatActivity {
             .setItems(options.toArray(new String[0]), (d, which) -> {
                 String m = methods.get(which);
                 switch (m) {
+                    case "vorkasse_prepaid":
+                        // v6.63.502: Vorkasse/Stripe bereits bezahlt → direkt abschließen
+                        markCompleted(r.id, "stripe", amount, "Vorab per Stripe-Vorkasse bezahlt");
+                        showReceiptStage(r, amount, "stripe");
+                        break;
                     case "cash":
                         // v6.62.316: Erst markComplete, DANN Receipt-Screen
                         markCompleted(r.id, "cash", amount, null);
@@ -4085,6 +4105,25 @@ public class DriverDashboardActivity extends AppCompatActivity {
     @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
+        setIntent(intent);
+        // 🆕 v6.63.502 (Patrick 28.06. 07:39 Bridge: "wenn ich eine Fahrt ablehne oben im
+        //   Push, wird sie immer noch angezeigt"): confirmReject-Intent kommt bei laufender
+        //   Activity via onNewIntent, NICHT onCreate — daher wurde der Ablehnen-Button nie
+        //   ausgeführt. Ride blieb "zugewiesen". Fix: gleiche Logik wie in onCreate.
+        if (intent != null && intent.getBooleanExtra("confirmReject", false)) {
+            final String _rid = intent.getStringExtra("rideId");
+            if (_rid != null) {
+                new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                    new AlertDialog.Builder(this)
+                        .setTitle("❌ Fahrt wirklich ablehnen?")
+                        .setMessage("Bist du sicher? Die Fahrt wird einem anderen Fahrer zugewiesen.\n\nWenn du sie behalten willst: Abbrechen tippen.")
+                        .setPositiveButton("Ja, ablehnen", (d, w) -> rejectRide(_rid))
+                        .setNegativeButton("Abbrechen", null)
+                        .setCancelable(true)
+                        .show();
+                }, 400);
+            }
+        }
         Log.i(TAG, "🔁 onNewIntent: Listener neu attachen (Push-Wakeup)");
         // v6.63.062 (Patrick 31.05. 18:43): Tap auf "Jetzt losfahren"-Push abbricht
         // die laufende Vibration + entfernt die Notification — Patrick hatte gemeldet
@@ -4686,10 +4725,18 @@ public class DriverDashboardActivity extends AppCompatActivity {
 
                 // 🆕 v6.63.258 (Patrick 10.06. 06:23): BEZAHLT-Badge wenn Stripe-Vorkasse done.
                 //   Fahrer sieht sofort dass Kunde schon bezahlt hat -> kein Bar/Karte mehr kassieren.
+                // 🔄 v6.63.502 (Patrick 28.06.): auch vorkasse-paymentMethod erkennen + Badge
+                //   prägnanter (größer, Dollar-Icon) — Patrick: "bezahlt müsste besser zu sehen sein"
                 if (tvPaidBadge != null) {
                     boolean _isPaid = "paid".equalsIgnoreCase(r.stripePaymentStatus)
-                        || ("stripe".equalsIgnoreCase(r.paymentMethod) && "paid".equalsIgnoreCase(r.stripePaymentStatus));
-                    tvPaidBadge.setVisibility(_isPaid ? View.VISIBLE : View.GONE);
+                        || "vorkasse".equalsIgnoreCase(r.paymentMethod);
+                    if (_isPaid) {
+                        tvPaidBadge.setText("💵 VORKASSE BEZAHLT");
+                        tvPaidBadge.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 12);
+                        tvPaidBadge.setVisibility(View.VISIBLE);
+                    } else {
+                        tvPaidBadge.setVisibility(View.GONE);
+                    }
                 }
 
                 String stl = s.toLowerCase();

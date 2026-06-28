@@ -569,6 +569,50 @@ public class AdminDashboardActivity extends AppCompatActivity {
     // Toggle bleibt zum AUSSCHALTEN bei Performance-Problemen.
     private boolean _includePast = true;
 
+    // 🆕 v6.63.501: Changelog aus Firebase settings/appChangelog laden und anzeigen
+    private void showChangelogDialog() {
+        com.google.firebase.database.FirebaseDatabase.getInstance(DB_URL_AD)
+            .getReference("settings/appChangelog")
+            .addListenerForSingleValueEvent(new com.google.firebase.database.ValueEventListener() {
+                @Override public void onDataChange(@NonNull com.google.firebase.database.DataSnapshot snap) {
+                    StringBuilder sb = new StringBuilder();
+                    try {
+                        Object entries = snap.child("entries").getValue();
+                        if (snap.child("entries").exists()) {
+                            for (com.google.firebase.database.DataSnapshot e : snap.child("entries").getChildren()) {
+                                String ver = e.child("version").getValue(String.class);
+                                String date = e.child("date").getValue(String.class);
+                                String title = e.child("title").getValue(String.class);
+                                sb.append("▶ v").append(ver != null ? ver : "?");
+                                sb.append("  (").append(date != null ? date : "?").append(")\n");
+                                sb.append("  ").append(title != null ? title : "").append("\n");
+                                for (com.google.firebase.database.DataSnapshot c : e.child("changes").getChildren()) {
+                                    String ch = c.getValue(String.class);
+                                    if (ch != null) sb.append("  • ").append(ch).append("\n");
+                                }
+                                sb.append("\n");
+                            }
+                        }
+                    } catch (Throwable _t) {
+                        sb.append("Fehler beim Laden: ").append(_t.getMessage());
+                    }
+                    if (sb.length() == 0) sb.append("Kein Changelog verfügbar.");
+                    runOnUiThread(() -> new androidx.appcompat.app.AlertDialog.Builder(AdminDashboardActivity.this)
+                        .setTitle("📋 Versions-Info (App v" + de.taxiheringsdorf.app.BuildConfig.VERSION_NAME + ")")
+                        .setMessage(sb.toString())
+                        .setPositiveButton("OK", null)
+                        .show());
+                }
+                @Override public void onCancelled(@NonNull com.google.firebase.database.DatabaseError e) {
+                    runOnUiThread(() -> new androidx.appcompat.app.AlertDialog.Builder(AdminDashboardActivity.this)
+                        .setTitle("📋 Versions-Info")
+                        .setMessage("Fehler: " + e.getMessage())
+                        .setPositiveButton("OK", null)
+                        .show());
+                }
+            });
+    }
+
     private void showMenu(View anchor) {
         PopupMenu p = new PopupMenu(this, anchor);
         p.getMenu().add(0, 3, 0, _includePast ? "📅 Nur kommende anzeigen" : "📅 +30 Tage Vergangenheit anzeigen");
@@ -580,6 +624,8 @@ public class AdminDashboardActivity extends AppCompatActivity {
         p.getMenu().add(0, 6, 0, "🚗 Fahrzeug-Status (Live)");
         // 🆕 v6.62.922 (Patrick 25.05. 09:27): Schichtplan-Editor in Native-App
         p.getMenu().add(0, 7, 0, "📅 Schichtplan-Editor");
+        // 🆕 v6.63.501: Versions-Changelog aus Firebase
+        p.getMenu().add(0, 8, 0, "📋 Was ist neu? v" + de.taxiheringsdorf.app.BuildConfig.VERSION_NAME);
         p.getMenu().add(0, 1, 0, "🚗 Zurück zu Fahrzeugauswahl");
         p.getMenu().add(0, 2, 0, "🚪 Logout");
         p.setOnMenuItemClickListener(item -> {
@@ -626,6 +672,10 @@ public class AdminDashboardActivity extends AppCompatActivity {
             if (item.getItemId() == 7) {
                 // 🆕 v6.62.922: Schichtplan-Editor (3 Tabs: Editor/Anwesenheit/Fahrer-View)
                 startActivity(new Intent(this, ShiftEditorActivity.class));
+                return true;
+            }
+            if (item.getItemId() == 8) {
+                showChangelogDialog();
                 return true;
             }
             if (item.getItemId() == 1) {

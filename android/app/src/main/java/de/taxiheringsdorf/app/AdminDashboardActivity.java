@@ -1465,7 +1465,14 @@ public class AdminDashboardActivity extends AppCompatActivity {
             db.getReference().updateChildren(updates).addOnCompleteListener(task -> {
                 synchronized (_uebernahmeInFlight) { _uebernahmeInFlight.remove(a.id); }
                 if (task.isSuccessful()) {
-                    Toast.makeText(this, "✅ Anfrage übernommen → Ride " + (isSofort ? "sofort" : "vorbestellt"), Toast.LENGTH_LONG).show();
+                    // 🆕 v6.63.533: Wenn Email vorhanden + Preis bekannt → Vorkasse-Email anbieten
+                    boolean _hasEmail = a.email != null && a.email.contains("@");
+                    boolean _hasPrice = a.price != null && !a.price.isEmpty() && !"—".equals(a.price);
+                    if (_hasEmail && _hasPrice) {
+                        runOnUiThread(() -> showVorkasseEmailDialog(rideId, a, pickupTime));
+                    } else {
+                        Toast.makeText(this, "✅ Anfrage übernommen → Ride " + (isSofort ? "sofort" : "vorbestellt"), Toast.LENGTH_LONG).show();
+                    }
                 } else {
                     Toast.makeText(this, "❌ Fehler: " + (task.getException() != null ? task.getException().getMessage() : "?"), Toast.LENGTH_LONG).show();
                 }
@@ -1474,6 +1481,97 @@ public class AdminDashboardActivity extends AppCompatActivity {
             synchronized (_uebernahmeInFlight) { _uebernahmeInFlight.remove(a.id); }
             Toast.makeText(this, "❌ Anfrage-Übernahme-Fehler: " + t.getMessage(), Toast.LENGTH_LONG).show();
         }
+    }
+
+    // 🆕 v6.63.533: Nach Übernahme — Vorkasse-Email mit Stripe-Link anbieten
+    private void showVorkasseEmailDialog(String rideId, Anfrage a, String pickupTime) {
+        float dp = getResources().getDisplayMetrics().density;
+        int pad = (int)(dp * 16);
+        LinearLayout layout = new LinearLayout(this);
+        layout.setOrientation(LinearLayout.VERTICAL);
+        layout.setPadding(pad, pad, pad, pad);
+
+        android.widget.TextView info = new android.widget.TextView(this);
+        info.setText("✅ Anfrage übernommen!\n\n💳 Stripe-Vorkasse-Link per E-Mail senden?");
+        info.setTextSize(15);
+        info.setPadding(0, 0, 0, pad);
+        layout.addView(info);
+
+        EditText etEmail = new EditText(this);
+        etEmail.setHint("E-Mail-Adresse");
+        etEmail.setText(a.email != null ? a.email : "");
+        etEmail.setInputType(android.text.InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS);
+        layout.addView(etEmail);
+
+        android.app.AlertDialog dlg = new android.app.AlertDialog.Builder(this)
+            .setTitle("📧 Vorkasse-Email")
+            .setView(layout)
+            .setPositiveButton("💳 Stripe-Link erstellen & senden", null)
+            .setNegativeButton("Überspringen", (d, w) ->
+                Toast.makeText(this, "✅ Anfrage übernommen (ohne Email)", Toast.LENGTH_SHORT).show())
+            .create();
+        dlg.setOnShowListener(d -> {
+            dlg.getButton(android.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+                String email = etEmail.getText().toString().trim();
+                if (!email.contains("@")) {
+                    etEmail.setError("Ungültige E-Mail");
+                    return;
+                }
+                dlg.dismiss();
+                _sendVorkasseEmail(rideId, email, a.name, a.price, a.pickup, a.destination, pickupTime, a.id);
+            });
+        });
+        dlg.show();
+    }
+
+    private void _sendVorkasseEmail(String rideId, String email, String name, String amount, String pickup, String destination, String pickupTime, String anfrageId) {
+        Toast.makeText(this, "⏳ Stripe-Link wird erstellt...", Toast.LENGTH_SHORT).show();
+        new Thread(() -> {
+            try {
+                org.json.JSONObject body = new org.json.JSONObject();
+                body.put("rideId", rideId != null ? rideId : "");
+                body.put("toEmail", email);
+                body.put("toName", name != null ? name : "");
+                body.put("amount", amount != null ? amount.replace("€","").replace(",",".").trim() : "0");
+                body.put("pickup", pickup != null ? pickup : "");
+                body.put("destination", destination != null ? destination : "");
+                body.put("pickupTime", pickupTime != null ? pickupTime : "");
+                if (anfrageId != null) body.put("anfrageId", anfrageId);
+
+                java.net.URL url = new java.net.URL("https://europe-west1-taxi-heringsdorf.cloudfunctions.net/sendVorkasseEmail");
+                java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("POST");
+                conn.setRequestProperty("Content-Type", "application/json");
+                conn.setDoOutput(true);
+                conn.setConnectTimeout(15000);
+                conn.setReadTimeout(30000);
+                byte[] _b = body.toString().getBytes("UTF-8");
+                conn.getOutputStream().write(_b);
+
+                int code = conn.getResponseCode();
+                String resp = "";
+                try {
+                    java.io.InputStream is = code < 400 ? conn.getInputStream() : conn.getErrorStream();
+                    if (is != null) {
+                        java.util.Scanner sc = new java.util.Scanner(is, "UTF-8").useDelimiter("\\A");
+                        resp = sc.hasNext() ? sc.next() : "";
+                    }
+                } catch (Exception _re) {}
+                conn.disconnect();
+
+                final boolean ok = code == 200;
+                final String _resp = resp;
+                runOnUiThread(() -> {
+                    if (ok) {
+                        Toast.makeText(this, "✅ Stripe-Link erstellt + E-Mail an " + email + " gesendet!", Toast.LENGTH_LONG).show();
+                    } else {
+                        Toast.makeText(this, "❌ Fehler (" + code + "): " + _resp.substring(0, Math.min(_resp.length(), 100)), Toast.LENGTH_LONG).show();
+                    }
+                });
+            } catch (Throwable t) {
+                runOnUiThread(() -> Toast.makeText(this, "❌ Netzwerk-Fehler: " + t.getMessage(), Toast.LENGTH_LONG).show());
+            }
+        }).start();
     }
 
     private void showNewBookingDialog() { showNewBookingDialog(null); }

@@ -34359,6 +34359,122 @@ exports.sendInvoiceEmail = onRequest(
 );
 
 // ═══════════════════════════════════════════════════════════════
+// 💳 VORKASSE EMAIL — v6.63.533
+// Native-App ruft das nach Anfrage-Übernahme auf.
+// Erstellt Stripe-Checkout-Session + sendet E-Mail mit Link.
+// POST: { rideId, toEmail, toName, amount, pickup, destination, pickupTime, anfrageId? }
+// ═══════════════════════════════════════════════════════════════
+
+exports.sendVorkasseEmail = onRequest(
+    { region: 'europe-west1', timeoutSeconds: 60, invoker: 'public' },
+    async (req, res) => {
+        res.set('Access-Control-Allow-Origin', '*');
+        res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+        res.set('Access-Control-Allow-Headers', 'Content-Type');
+        if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
+        if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
+        try {
+            const { rideId, toEmail, toName, amount, pickup, destination, pickupTime, anfrageId } = req.body;
+            if (!toEmail || !amount) {
+                res.status(400).json({ error: 'toEmail und amount sind erforderlich' });
+                return;
+            }
+            const amountNum = parseFloat(String(amount).replace(',','.'));
+            if (!amountNum || amountNum < 0.5) {
+                res.status(400).json({ error: 'Ungültiger Betrag' });
+                return;
+            }
+            // 1. Stripe-Checkout-Session erstellen
+            const stripe = await getStripe();
+            const _ref = rideId || ('VORKASSE-' + Date.now());
+            const session = await stripe.checkout.sessions.create({
+                mode: 'payment',
+                line_items: [{ price_data: {
+                    currency: 'eur',
+                    product_data: { name: 'Vorkasse Taxifahrt ' + (pickupTime || ''), description: 'Funk Taxi Heringsdorf · ' + (pickup || '') + ' → ' + (destination || '') },
+                    unit_amount: Math.round(amountNum * 100)
+                }, quantity: 1 }],
+                customer_email: toEmail,
+                metadata: { rideId: _ref, source: 'native-vorkasse', ...(anfrageId ? { anfrageId } : {}) },
+                success_url: 'https://taxi-heringsdorf.web.app/payment-success?ride=' + _ref,
+                cancel_url: 'https://taxi-heringsdorf.web.app/payment-cancel?ride=' + _ref,
+                locale: 'de'
+            });
+            const stripeUrl = session.url;
+            // 2. Ride in Firebase aktualisieren
+            if (rideId) {
+                try {
+                    await db.ref('rides/' + rideId).update({
+                        stripeCheckoutUrl: stripeUrl,
+                        stripeSessionId: session.id,
+                        stripePaymentStatus: 'pending',
+                        stripeAutoCreatedAt: Date.now(),
+                        paymentMethod: 'stripe',
+                        _vorkasseRequested: true,
+                        updatedAt: Date.now()
+                    });
+                } catch(_dbErr) { console.warn('sendVorkasseEmail DB-Update:', _dbErr.message); }
+            }
+            // 3. SMTP-Email senden
+            const smtpSnap = await db.ref('settings/smtp').once('value');
+            const smtp = smtpSnap.val();
+            if (!smtp || !smtp.host || !smtp.user || !smtp.pass) {
+                res.status(400).json({ error: 'SMTP nicht konfiguriert', stripeUrl });
+                return;
+            }
+            const nodemailer = require('nodemailer');
+            const transporter = nodemailer.createTransport({
+                host: smtp.host, port: parseInt(smtp.port) || 587,
+                secure: (parseInt(smtp.port) || 587) === 465,
+                auth: { user: smtp.user, pass: smtp.pass }
+            });
+            const settingsSnap = await db.ref('settings/invoice').once('value');
+            const invS = settingsSnap.val() || {};
+            const _company = invS.companyName || 'Funk Taxi Heringsdorf';
+            const _phone = invS.phone || '038378 22022';
+            const htmlBody = `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;">
+<div style="background:#1a1a2e;color:white;padding:20px;border-radius:12px 12px 0 0;text-align:center;">
+  <h1 style="margin:0;font-size:24px;">🚕 ${_company}</h1>
+  <p style="margin:8px 0 0;opacity:0.8;">Zahlungslink für Ihre Taxifahrt</p>
+</div>
+<div style="background:#f8fafc;padding:24px;border:1px solid #e2e8f0;border-top:none;">
+  <p style="color:#334155;font-size:16px;">Guten Tag${toName ? ', ' + toName : ''},</p>
+  <p style="color:#334155;">hier ist Ihr persönlicher Zahlungslink für Ihre Taxifahrt:</p>
+  <div style="background:white;border:1px solid #e2e8f0;border-radius:10px;padding:16px;margin:16px 0;">
+    ${pickup ? `<p style="margin:4px 0;color:#64748b;font-size:14px;">📍 <strong>Von:</strong> ${pickup}</p>` : ''}
+    ${destination ? `<p style="margin:4px 0;color:#64748b;font-size:14px;">🎯 <strong>Nach:</strong> ${destination}</p>` : ''}
+    ${pickupTime ? `<p style="margin:4px 0;color:#64748b;font-size:14px;">🕐 <strong>Zeit:</strong> ${pickupTime}</p>` : ''}
+    <p style="margin:12px 0 4px;font-size:20px;font-weight:bold;color:#1a1a2e;">💶 ${amountNum.toFixed(2).replace('.',',')} €</p>
+  </div>
+  <div style="text-align:center;margin:24px 0;">
+    <a href="${stripeUrl}" style="background:#059669;color:white;padding:14px 32px;border-radius:8px;text-decoration:none;font-size:16px;font-weight:bold;display:inline-block;">
+      💳 Jetzt sicher bezahlen
+    </a>
+  </div>
+  <p style="color:#94a3b8;font-size:12px;text-align:center;">Der Link ist 24 Stunden gültig. Bei Fragen: ${_phone}</p>
+</div>
+<div style="background:#1a1a2e;color:#94a3b8;padding:12px;border-radius:0 0 12px 12px;text-align:center;font-size:12px;">
+  ${_company} · ${_phone}
+</div>
+</div>`;
+            await transporter.sendMail({
+                from: `"${_company}" <${smtp.user}>`,
+                to: toEmail,
+                subject: `💳 Ihr Zahlungslink — ${amountNum.toFixed(2).replace('.',',')}€ — ${_company}`,
+                html: htmlBody
+            });
+            if (rideId) {
+                try { await addRideLog(rideId, '📧', `Vorkasse-Email mit Stripe-Link gesendet an ${toEmail}`, { stripeUrl, quelle: 'sendVorkasseEmail v6.63.533' }); } catch(_){}
+            }
+            res.json({ ok: true, stripeUrl });
+        } catch (e) {
+            console.error('sendVorkasseEmail Fehler:', e.message);
+            res.status(500).json({ error: e.message });
+        }
+    }
+);
+
+// ═══════════════════════════════════════════════════════════════
 // 📧 SMTP TEST — v6.21.0
 // Testet SMTP-Verbindung mit Test-Email
 // ═══════════════════════════════════════════════════════════════

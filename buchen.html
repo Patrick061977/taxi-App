@@ -5943,6 +5943,10 @@
 
         async function createBooking() {
             logBuchen('🚕', 'createBooking() gestartet...');
+            // v6.63.523: returnRideId war undeclared → ReferenceError in _rueckBadge-Template
+            // → Catch lief durch, Kunde sah "Fehler bei der Buchung" obwohl Ride in Firebase stand.
+            // Rückfahrt-Auto-Anlage wurde in v6.63.472 entfernt, daher immer null.
+            const returnRideId = null;
             const pickup = document.getElementById('b-pickup').value;
             const destination = document.getElementById('b-destination').value;
             const now = Date.now();

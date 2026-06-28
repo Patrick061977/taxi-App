@@ -2048,7 +2048,34 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 if (a.email != null && !a.email.isEmpty()) line2.append("\n✉ ").append(a.email);
                 if (a.notes != null && !a.notes.isEmpty()) line2.append("\n📝 ").append(a.notes);
                 t2.setText(line2.toString());
-                itemView.setOnClickListener(_v -> showAnfrageUebernehmenDialog(a));
+                // v6.63.518: Tippen → sofort Chrome Tab mit Vorschau (kein Dialog dazwischen)
+                // Long-Press → Nur Übernehmen / Ablehnen
+                itemView.setOnClickListener(_v -> {
+                    String url = "https://umwelt-taxi-insel-usedom.de/index.html?anfrageCompose=" + a.id;
+                    try {
+                        new androidx.browser.customtabs.CustomTabsIntent.Builder()
+                            .setShowTitle(true).build()
+                            .launchUrl(AdminDashboardActivity.this, android.net.Uri.parse(url));
+                    } catch (android.content.ActivityNotFoundException _e) {
+                        startActivity(new android.content.Intent(android.content.Intent.ACTION_VIEW,
+                            android.net.Uri.parse(url)));
+                    }
+                });
+                itemView.setOnLongClickListener(_v -> {
+                    new AlertDialog.Builder(AdminDashboardActivity.this)
+                        .setTitle("📥 " + (a.name != null ? a.name : "Anfrage"))
+                        .setItems(new String[]{
+                            "⚪ Nur übernehmen (kein Versand)",
+                            "❌ Ablehnen"
+                        }, (d, which) -> {
+                            if (which == 0) uebernehmeAnfrageOhneBestaetigung(a);
+                            else {
+                                db.getReference("anfragen/" + a.id + "/status").setValue("abgelehnt");
+                                Toast.makeText(AdminDashboardActivity.this, "Anfrage abgelehnt", Toast.LENGTH_SHORT).show();
+                            }
+                        }).show();
+                    return true;
+                });
             }
         }
 

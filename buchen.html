@@ -388,6 +388,12 @@
         }
         .info-footer a { color: #059669; text-decoration: none; }
         /* Status Bar */
+        /* v6.63.522: Puls-Animation für "Fahrer wird gesucht"-Status */
+        @keyframes status-pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.7; transform: scale(0.97); }
+        }
+        .status-searching { animation: status-pulse 1.8s ease-in-out infinite; }
         .status-bar {
             padding: 10px 20px;
             text-align: center;
@@ -5601,8 +5607,15 @@
                 const s = statusMap[r.status] || { emoji: '❓', text: r.status, color: '#6b7280', bg: '#f9fafb', border: '#e5e7eb' };
                 box.style.background = s.bg;
                 box.style.borderColor = s.border;
-                const emojiSpan = box.querySelector('div');
-                if (emojiSpan) emojiSpan.textContent = s.emoji;
+                // v6.63.522: Emoji-Div mit id live-status-emoji; Puls-Animation nur beim Suchen
+                const emojiEl = document.getElementById('live-status-emoji');
+                if (emojiEl) emojiEl.textContent = s.emoji;
+                const _searchingStatuses = ['new','sofort','warteschlange'];
+                if (_searchingStatuses.includes(r.status)) {
+                    box.classList.add('status-searching');
+                } else {
+                    box.classList.remove('status-searching');
+                }
                 text.textContent = s.text;
                 text.style.color = s.color;
 
@@ -5754,7 +5767,8 @@
                 if (customerPhone) {
                     const _via = _currentUser.phoneNumber ? 'Phone-Auth' : (_currentUser.email ? 'Google/Email' : 'Auth');
                     logBuchen('✅', 'Eingeloggt via ' + _via + ' — überspringe SMS (' + customerPhone + ')');
-                    // 🆕 v6.62.997: Phone-Cache fuer localStorage-Fallback (PWA-Session-Loss).
+                    // v6.63.522: Toast damit Kunde weiß, wohin SMS geht (kein Telefon-Eingabefeld sichtbar)
+                    showToast('📱 Bestätigung geht an ' + customerPhone.replace(/(\+\d{2})(\d{3})(\d{3})(\d+)/, '$1 $2 $3 $4'), 4000);
                     try {
                         localStorage.setItem('buchen-verifiedPhone', customerPhone);
                         localStorage.setItem('buchen-verifiedAt', String(Date.now()));
@@ -5788,6 +5802,8 @@
                         }
                     }
                     logBuchen('✅', 'Cached-Phone (lokal verifiziert vor ' + _ageDays.toFixed(0) + 'd) — überspringe SMS (' + customerPhone + ')');
+                    // v6.63.522: Toast damit Kunde weiß, wohin SMS geht
+                    showToast('📱 Bestätigung geht an ' + customerPhone.replace(/(\+\d{2})(\d{3})(\d{3})(\d+)/, '$1 $2 $3 $4'), 4000);
                     createBooking();
                     return;
                 }
@@ -6065,11 +6081,12 @@
                         <div>🎯 ${destination}</div>
                         <div>👥 ${passengers} Pers. ${routeData ? `· 💰 ca. ${routeData.price}€ · ${routeData.km} km` : ''}</div>
                     </div>
-                    <div id="live-status-box" style="background:${isVorbestellt ? '#eff6ff' : '#f0fdf4'};border:1px solid ${isVorbestellt ? '#93c5fd' : '#10b981'};border-radius:8px;padding:8px;text-align:center;margin-top:8px;">
-                        <div id="live-status-text" style="font-weight:700;font-size:13px;color:${isVorbestellt ? '#3b82f6' : '#059669'};">${isVorbestellt ? '📅 Vorbestellung vorgemerkt' : '⏳ Warte auf Fahrer...'}</div>
-                        <div id="live-status-detail" style="font-size:11px;color:#6b7280;margin-top:2px;"></div>
+                    <div id="live-status-box" class="${isVorbestellt ? '' : 'status-searching'}" style="background:${isVorbestellt ? '#eff6ff' : '#fefce8'};border:2px solid ${isVorbestellt ? '#93c5fd' : '#f59e0b'};border-radius:12px;padding:14px 12px;text-align:center;margin-top:10px;">
+                        <div id="live-status-emoji" style="font-size:28px;margin-bottom:4px;">${isVorbestellt ? '📅' : '🔍'}</div>
+                        <div id="live-status-text" style="font-weight:800;font-size:15px;color:${isVorbestellt ? '#3b82f6' : '#f59e0b'};">${isVorbestellt ? 'Vorbestellung vorgemerkt' : 'Fahrer wird gesucht...'}</div>
+                        <div id="live-status-detail" style="font-size:12px;color:#6b7280;margin-top:4px;"></div>
                     </div>
-                    <div style="display:flex;gap:6px;margin-top:8px;" id="success-action-buttons">
+                    <div style="display:flex;gap:6px;margin-top:10px;" id="success-action-buttons">
                         <!-- 🆕 v6.41.86: Tracking startet GRAU/DEAKTIVIERT und wird vom Status-Listener
                              aktiviert sobald Fahrer unterwegs ist. Hinweistext erklärt warum. -->
                         <a id="success-track-btn" href="${trackingUrl}" target="_blank" data-track-url="${trackingUrl}"
@@ -6104,9 +6121,29 @@
                 }
 
                 // 🔧 v6.41.87: Listener-Setup ausgelagert in setupSuccessCardListener.
-                //              Identische Status-Updates + Tracking-Aktivierung + ETA für
-                //              createBooking UND restoreActiveBooking (Page-Reload).
                 setupSuccessCardListener(ref.key, pickupCoords.lat, pickupCoords.lon);
+
+                // v6.63.522: Auto-scroll zum Status-Banner damit Kunde es sofort sieht
+                setTimeout(() => {
+                    document.getElementById('live-status-box')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }, 300);
+
+                // v6.63.522: SMS-Buchungsbestätigung an Kunden (via smsQueue → Cloud Function)
+                if (customerPhone) {
+                    try {
+                        const _ptime = isVorbestellt
+                            ? new Date(new Date(pickupTs).toLocaleString('en-US',{timeZone:'Europe/Berlin'})).toLocaleString('de-DE',{weekday:'short',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) + ' Uhr'
+                            : 'Sofort';
+                        await db.ref('smsQueue').push({
+                            phone: customerPhone,
+                            text: `✅ Buchung eingegangen!\n📍 ${pickup}\n🎯 ${destination}\n🕐 ${_ptime}\n👥 ${passengers} Person(en)\nFahrt-ID: ${ref.key.slice(-6)}\n📞 038378/22022`,
+                            type: 'booking_confirmation_web',
+                            status: 'pending',
+                            rideId: ref.key,
+                            createdAt: Date.now()
+                        });
+                    } catch (_smsErr) { console.warn('SMS-Queue-Fehler:', _smsErr.message); }
+                }
 
                 showToast('🎉 Buchung erfolgreich!');
                 logBuchen('🎉', `BUCHUNG ERSTELLT: ${pickup}${stopp ? ' → ' + stopp : ''} → ${destination} | ${passengers} Pers. | ${wannModus}`);
@@ -6434,9 +6471,10 @@
                                 <div>🎯 ${r.destination || ''}</div>
                                 <div>👥 ${r.passengers || 1} Pers. ${r.price ? '· 💰 ca. ' + r.price + '€' : ''}</div>
                             </div>
-                            <div id="live-status-box" style="background:#f0fdf4;border:1px solid #10b981;border-radius:8px;padding:8px;text-align:center;margin-top:8px;">
-                                <div id="live-status-text" style="font-weight:700;font-size:13px;color:#059669;">⏳ Status wird geladen…</div>
-                                <div id="live-status-detail" style="font-size:11px;color:#6b7280;margin-top:2px;"></div>
+                            <div id="live-status-box" class="status-searching" style="background:#fefce8;border:2px solid #f59e0b;border-radius:12px;padding:14px 12px;text-align:center;margin-top:10px;">
+                                <div id="live-status-emoji" style="font-size:28px;margin-bottom:4px;">🔍</div>
+                                <div id="live-status-text" style="font-weight:800;font-size:15px;color:#f59e0b;">Fahrer wird gesucht…</div>
+                                <div id="live-status-detail" style="font-size:12px;color:#6b7280;margin-top:4px;"></div>
                             </div>
                             <div style="display:flex;gap:6px;margin-top:8px;" id="success-action-buttons">
                                 <a id="success-track-btn" href="${trackingUrl}" target="_blank" data-track-url="${trackingUrl}"

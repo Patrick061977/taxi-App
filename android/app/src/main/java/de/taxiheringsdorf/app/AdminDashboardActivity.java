@@ -1667,6 +1667,9 @@ public class AdminDashboardActivity extends AppCompatActivity {
         String paymentStatus, paymentMethod;
         Double stripePaidAmount;
         Boolean vorkasseRequested;
+        // 🆕 v6.63.503: Felder für Edit-Dialog (fehlten bisher)
+        String guestName, notes;
+        Double price, actualPrice;
         String assignedVehicle; // v6.62.193: Patrick: "autos kann ich auch nicht zuweisen"
         String assignedVehicleName; // v6.62.636: Patrick (12.05. 09:05): "welches Fahrzeug ist vorgesehen"
         // v6.62.640: Patrick (12.05. 13:59): Lattorf-Rueckfahrt hatte keine Koords →
@@ -1753,6 +1756,11 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 if (_spa instanceof Number) r.stripePaidAmount = ((Number) _spa).doubleValue();
                 Object _vor = s.child("_vorkasseRequested").getValue();
                 if (_vor instanceof Boolean) r.vorkasseRequested = (Boolean) _vor;
+                r.guestName = s.child("guestName").getValue(String.class);
+                r.notes = s.child("notes").getValue(String.class);
+                Object _pr = s.child("actualPrice").getValue();
+                if (_pr == null) _pr = s.child("price").getValue();
+                if (_pr instanceof Number) { r.actualPrice = ((Number)_pr).doubleValue(); r.price = r.actualPrice; }
                 r.pickup = s.child("pickup").getValue(String.class);
                 r.destination = s.child("destination").getValue(String.class);
                 r.pickupTime = s.child("pickupTime").getValue(String.class);
@@ -2849,6 +2857,43 @@ public class AdminDashboardActivity extends AppCompatActivity {
             public void onNothingSelected(android.widget.AdapterView<?> parent) { }
         });
 
+        // 🆕 v6.63.503 (Patrick 28.06. Bridge: "Fahrt bearbeiten fehlt halt die Hälfte"):
+        //   Fehlende Felder: Gastname, Preis, Notizen.
+        TextView tvGuestLabel = new TextView(this);
+        tvGuestLabel.setText("👤 Gastname (optional):");
+        tvGuestLabel.setTextSize(13);
+        tvGuestLabel.setPadding(0, pad, 0, padHalf);
+        layout.addView(tvGuestLabel);
+        final EditText etGuest = new EditText(this);
+        etGuest.setHint("z.B. Herr Müller (wenn Hotel/Firma bucht)");
+        etGuest.setText(r.guestName != null ? r.guestName : "");
+        layout.addView(etGuest);
+
+        TextView tvPriceLabel = new TextView(this);
+        tvPriceLabel.setText("💰 Preis (€):");
+        tvPriceLabel.setTextSize(13);
+        tvPriceLabel.setPadding(0, pad, 0, padHalf);
+        layout.addView(tvPriceLabel);
+        final EditText etEditPrice = new EditText(this);
+        etEditPrice.setHint("Leer = auto berechnen");
+        etEditPrice.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
+        double _prefillP = (r.actualPrice != null && r.actualPrice > 0) ? r.actualPrice
+            : (r.price != null && r.price > 0 ? r.price : 0.0);
+        if (_prefillP > 0) etEditPrice.setText(String.format(Locale.GERMANY, "%.2f", _prefillP));
+        layout.addView(etEditPrice);
+
+        TextView tvNotesLabel = new TextView(this);
+        tvNotesLabel.setText("📝 Notizen:");
+        tvNotesLabel.setTextSize(13);
+        tvNotesLabel.setPadding(0, pad, 0, padHalf);
+        layout.addView(tvNotesLabel);
+        final EditText etNotes = new EditText(this);
+        etNotes.setHint("Interne Bemerkungen");
+        etNotes.setMinLines(2);
+        etNotes.setGravity(android.view.Gravity.TOP);
+        etNotes.setText(r.notes != null ? r.notes : "");
+        layout.addView(etNotes);
+
         // v6.62.365: Patrick (06.05. 14:47): "Ich sehe kein Speichern" — Edit-Dialog ist
         // zu lang, Buttons unten verschwinden vom Screen. Fix: ScrollView begrenzt sich
         // selbst auf 55% der Screen-Hoehe — Builder-Buttons (Speichern/Abbrechen/Stornieren)
@@ -2969,6 +3014,22 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 upd.put("assignedVehiclePlate", null);
                 upd.put("unassignedAt", System.currentTimeMillis());
                 upd.put("unassignedBy", "native_admin_dispo_assign");
+            }
+            // v6.63.503: neue Felder Gastname, Preis, Notizen speichern
+            String _guestVal = etGuest.getText().toString().trim();
+            upd.put("guestName", _guestVal.isEmpty() ? null : _guestVal);
+            String _notesVal = etNotes.getText().toString().trim();
+            upd.put("notes", _notesVal.isEmpty() ? null : _notesVal);
+            String _priceStr = etEditPrice.getText().toString().trim().replace(',', '.');
+            if (!_priceStr.isEmpty()) {
+                try {
+                    double _priceVal = Double.parseDouble(_priceStr);
+                    if (_priceVal > 0) {
+                        upd.put("price", _priceVal);
+                        upd.put("actualPrice", _priceVal);
+                        upd.put("priceUpdatedAt", System.currentTimeMillis());
+                    }
+                } catch (NumberFormatException _ignore) {}
             }
             upd.put("updatedAt", System.currentTimeMillis());
             upd.put("updatedBy", "native_admin_dispo_edit");

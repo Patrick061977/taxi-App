@@ -2346,19 +2346,10 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 if (a.email != null && !a.email.isEmpty()) line2.append("\n✉ ").append(a.email);
                 if (a.notes != null && !a.notes.isEmpty()) line2.append("\n📝 ").append(a.notes);
                 t2.setText(line2.toString());
-                // v6.63.518: Tippen → sofort Chrome Tab mit Vorschau (kein Dialog dazwischen)
+                // 🆕 v6.63.536: Tippen → nativer Übernahme-Dialog (kein Browser-Redirect mehr)
                 // Long-Press → Nur Übernehmen / Ablehnen
-                itemView.setOnClickListener(_v -> {
-                    String url = "https://umwelt-taxi-insel-usedom.de/index.html?anfrageCompose=" + a.id;
-                    try {
-                        new androidx.browser.customtabs.CustomTabsIntent.Builder()
-                            .setShowTitle(true).build()
-                            .launchUrl(AdminDashboardActivity.this, android.net.Uri.parse(url));
-                    } catch (android.content.ActivityNotFoundException _e) {
-                        startActivity(new android.content.Intent(android.content.Intent.ACTION_VIEW,
-                            android.net.Uri.parse(url)));
-                    }
-                });
+                itemView.setOnClickListener(_v ->
+                    showAnfrageUebernehmenDialog(a));
                 itemView.setOnLongClickListener(_v -> {
                     new AlertDialog.Builder(AdminDashboardActivity.this)
                         .setTitle("📥 " + (a.name != null ? a.name : "Anfrage"))

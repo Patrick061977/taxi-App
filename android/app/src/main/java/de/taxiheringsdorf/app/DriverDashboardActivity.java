@@ -4768,8 +4768,8 @@ public class DriverDashboardActivity extends AppCompatActivity {
                     boolean _isPaid = "paid".equalsIgnoreCase(r.stripePaymentStatus)
                         || "vorkasse".equalsIgnoreCase(r.paymentMethod);
                     if (_isPaid) {
-                        tvPaidBadge.setText("💵 VORKASSE BEZAHLT");
-                        tvPaidBadge.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 12);
+                        tvPaidBadge.setText("💵 VORAB BEZAHLT");
+                        tvPaidBadge.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 16);
                         tvPaidBadge.setVisibility(View.VISIBLE);
                     } else {
                         tvPaidBadge.setVisibility(View.GONE);

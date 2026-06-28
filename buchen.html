@@ -5605,6 +5605,7 @@
                     'assigned':    { emoji: '🚕', text: 'Fahrer zugewiesen — wartet auf Bestätigung', color: '#3b82f6', bg: '#eff6ff', border: '#93c5fd' },
                     'accepted':    { emoji: '✅', text: 'Fahrer hat angenommen — kommt zur vereinbarten Zeit', color: '#10b981', bg: '#f0fdf4', border: '#a7f3d0' },
                     'on_way':      { emoji: '🚗', text: 'Fahrer ist unterwegs zu Ihnen!', color: '#f59e0b', bg: '#fefce8', border: '#fde68a' },
+                    'arrived':     { emoji: '📍', text: 'Ihr Fahrer ist da — bitte zum Fahrzeug kommen!', color: '#10b981', bg: '#f0fdf4', border: '#a7f3d0' },
                     'picked_up':   { emoji: '🎉', text: 'Sie wurden abgeholt!', color: '#10b981', bg: '#f0fdf4', border: '#a7f3d0' },
                     'completed':   { emoji: '🏁', text: 'Fahrt abgeschlossen!', color: '#6b7280', bg: '#f9fafb', border: '#e5e7eb' },
                     'cancelled':   { emoji: '❌', text: 'Fahrt storniert', color: '#ef4444', bg: '#fef2f2', border: '#fecaca' },
@@ -5645,8 +5646,8 @@
                 const trackBtn = document.getElementById('success-track-btn');
                 const cancelBtnEl = document.getElementById('success-cancel-btn');
                 const finalStatuses = ['completed','cancelled','storniert'];
-                const trackingActiveStatuses = ['accepted','on_way','picked_up'];
-                const drivingStatuses = ['on_way','picked_up'];
+                const trackingActiveStatuses = ['accepted','on_way','arrived','picked_up'];
+                const drivingStatuses = ['on_way','arrived','picked_up'];
                 if (actionBtns && finalStatuses.includes(r.status)) {
                     actionBtns.style.display = 'none';
                     try { localStorage.removeItem('activeBooking'); } catch(e) {}

@@ -21,9 +21,14 @@ public class MainActivity extends BridgeActivity {
         // v6.41.96: FCM — Token-Abruf für Push-Notifications bei neuen Aufträgen
         registerPlugin(FCMPlugin.class);
         super.onCreate(savedInstanceState);
-        // v6.63.508: WebView-HTTP-Cache beim Start leeren → neue index.html-Deployments
-        // sind sofort sichtbar ohne 1h CDN-Cache-Wartezeit (Firebase max-age=3600).
+        // v6.63.509: WebView-Cache leeren + Reload erzwingen damit neue index.html-
+        // Deployments sofort sichtbar sind (Firebase CDN cached 1h mit max-age=3600).
+        // clearCache allein reicht nicht — WebView hat schon aus Cache geladen wenn
+        // onCreate() fertig ist. post(reload()) läuft nach aktuellem Load-Zyklus.
         WebView wv = getBridge().getWebView();
-        if (wv != null) wv.clearCache(true);
+        if (wv != null) {
+            wv.clearCache(true);
+            wv.post(() -> wv.reload());
+        }
     }
 }

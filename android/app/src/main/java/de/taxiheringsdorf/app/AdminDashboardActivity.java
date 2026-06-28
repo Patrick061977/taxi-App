@@ -1186,16 +1186,68 @@ public class AdminDashboardActivity extends AppCompatActivity {
         android.widget.ScrollView scroll = new android.widget.ScrollView(this);
         scroll.addView(tvDetails);
 
-        new AlertDialog.Builder(this)
-            .setTitle("📥 Anfrage Aktionen")
+        // v6.63.516: Vier-Button-Dialog — Custom-View erlaubt nur 3 AlertDialog-Buttons,
+        // deshalb 4. Button als eigene Zeile in der ScrollView.
+        int btnPad = (int) (getResources().getDisplayMetrics().density * 12);
+        android.widget.LinearLayout btnLayout = new android.widget.LinearLayout(this);
+        btnLayout.setOrientation(android.widget.LinearLayout.VERTICAL);
+        btnLayout.setPadding(btnPad, 0, btnPad, btnPad);
+
+        android.widget.Button btnVorschau = new android.widget.Button(this);
+        btnVorschau.setText("📬 Vorschau & " + _kanalLabel + " + Stripe senden");
+        btnVorschau.setBackgroundColor(0xFF059669);
+        btnVorschau.setTextColor(0xFFFFFFFF);
+        btnVorschau.setPadding(btnPad, btnPad, btnPad, btnPad);
+        android.widget.LinearLayout.LayoutParams lp =
+            new android.widget.LinearLayout.LayoutParams(
+                android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
+        lp.setMargins(0, btnPad, 0, btnPad / 2);
+        btnVorschau.setLayoutParams(lp);
+
+        android.widget.Button btnNurUebernehmen = new android.widget.Button(this);
+        btnNurUebernehmen.setText("⚪ Nur übernehmen (kein Versand)");
+        btnNurUebernehmen.setTextColor(0xFF374151);
+        android.widget.LinearLayout.LayoutParams lp2 =
+            new android.widget.LinearLayout.LayoutParams(
+                android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
+        lp2.setMargins(0, 0, 0, btnPad / 2);
+        btnNurUebernehmen.setLayoutParams(lp2);
+
+        btnLayout.addView(tvDetails);
+        btnLayout.addView(btnVorschau);
+        btnLayout.addView(btnNurUebernehmen);
+        scroll.removeAllViews();
+        scroll.addView(btnLayout);
+
+        androidx.appcompat.app.AlertDialog dlg = new AlertDialog.Builder(this)
+            .setTitle("📥 Anfrage — " + (a.name != null ? a.name : "?"))
             .setView(scroll)
-            .setPositiveButton("✅ Übernehmen + " + _kanalLabel + "-Bestätigung", (d, w) -> uebernehmeAnfrage(a))
-            .setNeutralButton("⚪ Nur Übernehmen", (d, w) -> uebernehmeAnfrageOhneBestaetigung(a))
             .setNegativeButton("❌ Ablehnen", (d, w) -> {
                 db.getReference("anfragen/" + a.id + "/status").setValue("abgelehnt");
                 Toast.makeText(this, "Anfrage abgelehnt", Toast.LENGTH_SHORT).show();
             })
-            .show();
+            .create();
+
+        btnVorschau.setOnClickListener(_v -> {
+            dlg.dismiss();
+            // Öffnet Chrome Custom Tab mit Web-Compose-Modal (HTML-Vorschau + Stripe)
+            String url = "https://umwelt-taxi-insel-usedom.de/index.html?anfrageCompose=" + a.id;
+            try {
+                new androidx.browser.customtabs.CustomTabsIntent.Builder()
+                    .setShowTitle(true)
+                    .build()
+                    .launchUrl(this, android.net.Uri.parse(url));
+            } catch (android.content.ActivityNotFoundException _e) {
+                startActivity(new Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url)));
+            }
+        });
+        btnNurUebernehmen.setOnClickListener(_v -> {
+            dlg.dismiss();
+            uebernehmeAnfrageOhneBestaetigung(a);
+        });
+        dlg.show();
     }
 
     // v6.63.069: Variante von uebernehmeAnfrage die confirmSkipped=true setzt,

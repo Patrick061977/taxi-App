@@ -1334,6 +1334,17 @@ public class AdminDashboardActivity extends AppCompatActivity {
         });
     }
     private void _uebernehmeAnfrageImpl(Anfrage a) {
+        // v6.63.510: Uhrzeit-Pflichtfeld — leere Uhrzeit würde isSofort=true
+        // liefern und die Fahrt mit falschem Timestamp (jetzt) anlegen.
+        if (a.time == null || a.time.trim().isEmpty()) {
+            synchronized (_uebernahmeInFlight) { _uebernahmeInFlight.remove(a.id); }
+            runOnUiThread(() -> new android.app.AlertDialog.Builder(this)
+                .setTitle("⚠️ Uhrzeit fehlt!")
+                .setMessage("Die Anfrage von " + (a.name != null ? a.name : "?") + " hat keine Uhrzeit.\n\nBitte die Uhrzeit in der Web-Verwaltung ergänzen, dann erneut übernehmen.")
+                .setPositiveButton("OK", null)
+                .show());
+            return;
+        }
         try {
             DatabaseReference newRideRef = db.getReference("rides").push();
             String rideId = newRideRef.getKey();

@@ -1221,7 +1221,7 @@ public class AdminDashboardActivity extends AppCompatActivity {
         scroll.removeAllViews();
         scroll.addView(btnLayout);
 
-        androidx.appcompat.app.AlertDialog dlg = new AlertDialog.Builder(this)
+        androidx.appcompat.app.AlertDialog dlg = new androidx.appcompat.app.AlertDialog.Builder(this)
             .setTitle("📥 Anfrage — " + (a.name != null ? a.name : "?"))
             .setView(scroll)
             .setNegativeButton("❌ Ablehnen", (d, w) -> {

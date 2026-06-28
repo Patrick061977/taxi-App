@@ -33293,6 +33293,18 @@ async function autoChargeRide(rideId, ride) {
                 paymentIntentId: pi.id,
                 quelle: 'autoChargeRide v6.63.117'
             });
+            // 🆕 v6.63.530: FCM-Push an Fahrer — Zahlung automatisch abgebucht
+            const _vehicleId = ride.assignedVehicle || ride.vehicleId;
+            if (_vehicleId) {
+                try {
+                    await sendFCMToVehicle(_vehicleId, {
+                        type: 'payment_confirmed',
+                        rideId,
+                        customerName: ride.customerName || 'Kunde',
+                        amount: amountEur.toFixed(2)
+                    });
+                } catch (_fcmErr) { console.warn('autoChargeRide FCM-Push fehlgeschlagen:', _fcmErr.message); }
+            }
             return { ok: true, paymentIntentId: pi.id };
         }
         return { ok: false, reason: 'pi not succeeded: ' + pi.status };

@@ -163,6 +163,12 @@ public class TaxiFCMService extends FirebaseMessagingService {
         } else if ("ride_cancelled".equals(type)) {
             title = "❌ Fahrt storniert";
             body = customerName + " · " + pickupTime;
+        } else if ("payment_confirmed".equals(type)) {
+            // 🆕 v6.63.530: Auto-Charge erfolgreich abgebucht — Fahrer informieren
+            String amount = data.getOrDefault("amount", "");
+            title = "💳 Zahlung eingegangen";
+            body = amount.isEmpty() ? customerName + " — automatisch abgebucht, kein Kassieren nötig"
+                                    : customerName + " — " + amount + "€ automatisch abgebucht";
         } else {
             // Fallback auf notification payload (selten genutzt)
             RemoteMessage.Notification n = remoteMessage.getNotification();

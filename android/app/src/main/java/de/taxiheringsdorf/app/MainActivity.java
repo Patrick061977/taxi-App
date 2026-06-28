@@ -1,6 +1,7 @@
 package de.taxiheringsdorf.app;
 
 import android.os.Bundle;
+import android.webkit.WebView;
 
 import com.getcapacitor.BridgeActivity;
 
@@ -20,5 +21,9 @@ public class MainActivity extends BridgeActivity {
         // v6.41.96: FCM — Token-Abruf für Push-Notifications bei neuen Aufträgen
         registerPlugin(FCMPlugin.class);
         super.onCreate(savedInstanceState);
+        // v6.63.508: WebView-HTTP-Cache beim Start leeren → neue index.html-Deployments
+        // sind sofort sichtbar ohne 1h CDN-Cache-Wartezeit (Firebase max-age=3600).
+        WebView wv = getBridge().getWebView();
+        if (wv != null) wv.clearCache(true);
     }
 }

@@ -1184,7 +1184,7 @@ public class AdminDashboardActivity extends AppCompatActivity {
         tvDetails.setTextSize(14);
         tvDetails.setPadding(pad, pad, pad, pad);
         android.widget.ScrollView scroll = new android.widget.ScrollView(this);
-        scroll.addView(tvDetails);
+        // Kein scroll.addView(tvDetails) hier — tvDetails kommt direkt in btnLayout unten
 
         // v6.63.516: Vier-Button-Dialog — Custom-View erlaubt nur 3 AlertDialog-Buttons,
         // deshalb 4. Button als eigene Zeile in der ScrollView.
@@ -1221,7 +1221,6 @@ public class AdminDashboardActivity extends AppCompatActivity {
         btnLayout.addView(tvDetails);
         btnLayout.addView(btnVorschau);
         btnLayout.addView(btnNurUebernehmen);
-        scroll.removeAllViews();
         scroll.addView(btnLayout);
 
         androidx.appcompat.app.AlertDialog dlg = new androidx.appcompat.app.AlertDialog.Builder(this)

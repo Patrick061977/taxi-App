@@ -3587,10 +3587,21 @@ public class DriverDashboardActivity extends AppCompatActivity {
                         // → Receipt-Screen kommt von dort (renderStripeQrDialog v6.62.316)
                         break;
                     case "invoice_auftraggeber":
-                        // 🆕 v6.63.407 (Patrick 17.06. 18:48-18:55 Bridge "da passiert nichts,
-                        //   da kommt keine Vorschau, die kommt nachher erst wenn ich wieder
-                        //   ins CRM gehe"): Vorschau-Dialog mit Editier-Feldern VOR markComplete.
-                        showAuftraggeberInvoicePreview(r, amount, hotelName);
+                        // v6.63.517: Fahrt abschließen + Web-Rechnungs-Modal via Chrome Tab
+                        //   öffnen — gleicher Flow wie CRM: Rechnung anzeigen →
+                        //   Auftraggeber-Tab → Email an Hotel. showAuftraggeberInvoicePreview
+                        //   wurde ersetzt weil Patrick "keine Vorschau" sah (17.06.).
+                        markCompleted(r.id, "invoice_auftraggeber", amount, hotelName);
+                        try {
+                            String _invUrl = "https://umwelt-taxi-insel-usedom.de/index.html?openInvoice=" + r.id;
+                            new androidx.browser.customtabs.CustomTabsIntent.Builder()
+                                .setShowTitle(true)
+                                .build()
+                                .launchUrl(DriverDashboardActivity.this, android.net.Uri.parse(_invUrl));
+                        } catch (android.content.ActivityNotFoundException _e2) {
+                            startActivity(new android.content.Intent(android.content.Intent.ACTION_VIEW,
+                                android.net.Uri.parse("https://umwelt-taxi-insel-usedom.de/index.html?openInvoice=" + r.id)));
+                        }
                         break;
                     case "ueberweisung":
                         // 🆕 v6.63.352: Überweisung — Rechnung wird mit 14-Tage-Footer

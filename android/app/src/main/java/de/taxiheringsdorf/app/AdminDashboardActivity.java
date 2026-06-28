@@ -2330,6 +2330,12 @@ public class AdminDashboardActivity extends AppCompatActivity {
                     if (r.stripePaidAmount != null) route.append(" — ").append(String.format(Locale.GERMANY, "%.2f €", r.stripePaidAmount));
                 } else if ("stripe".equalsIgnoreCase(r.paymentMethod) && r.vorkasseRequested != null && r.vorkasseRequested) {
                     route.append("\n💳 ⏳ Vorkasse offen (Stripe-Link verschickt)");
+                } else if ("stored".equalsIgnoreCase(r.paymentMethod)) {
+                    // 🆕 v6.63.529: SEPA-Lastschrift/Stammkunde-AutoCharge — Fahrer muss NICHT kassieren
+                    route.append("\n💳 Lastschrift — wird automatisch abgebucht, kein Kassieren nötig");
+                } else if ("stripe".equalsIgnoreCase(r.paymentMethod)) {
+                    // 🆕 v6.63.529: Stripe Auto-Charge (kein Vorkasse-Link) — wird nach Fahrt abgebucht
+                    route.append("\n💳 Stripe — wird automatisch abgebucht, kein Kassieren nötig");
                 }
                 t2.setText(route.toString());
                 // v6.62.153: Tap → Edit-Dialog (Patrick: 'will Fahrten bearbeiten aus der App')

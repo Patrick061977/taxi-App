@@ -2238,7 +2238,12 @@
                     return;
                 }
 
-                // 🔧 v6.38.54: PDF immer neu generieren (damit Kontoinhaber + aktuelle Bankdaten draufstehen)
+                // v6.63.525: Puppeteer-PDF aus Firebase Storage bevorzugen (schönes Layout).
+                // Fallback auf jsPDF nur wenn kein pdfUrl gespeichert.
+                if (inv.pdfUrl) {
+                    window.open(inv.pdfUrl, '_blank');
+                    return;
+                }
                 const ride = customerRides.find(r => r.firebaseId === rideId);
                 generateInvoicePDF(inv, ride, invoiceNumber);
 

@@ -26396,6 +26396,69 @@ exports.onRideCreated = onValueCreated(
             console.warn('v6.63.424 Status-Check Fehler:', _normCheckErr.message);
         }
 
+        // 🆕 v6.63.542: CRM-Auto-Anlage für native/web-angelegte Fahrten ohne customerId.
+        // Betrifft: CallRecordingsActivity → CrmSearchActivity, Web-Admin-Direktanlage,
+        // anfragen-uebernahme ohne CRM-Lookup — überall wo customerId fehlt aber Name+Telefon da.
+        // Gleiche Duplikat-Logik wie Telegram-Admin-Flow (Zeile 14266).
+        try {
+            const _noCustomerId = !ride.customerId || ride.customerId === '-' || ride.customerId === '';
+            if (_noCustomerId && ride.customerName && ride.customerPhone) {
+                const _crmName = (ride.customerName || '').trim();
+                const _crmPhone = (ride.customerPhone || '').trim();
+                const _phoneDigits = _crmPhone.replace(/\D/g, '');
+                const _placeholderNums = ['1701234827','1701234828','1731234827','491701234827','491701234828'];
+                if (_crmName && _phoneDigits.length >= 9 && !_placeholderNums.includes(_phoneDigits)) {
+                    const _allCust = await loadAllCustomers();
+                    const _nameLower = _crmName.toLowerCase().trim();
+                    let _nameMatch = null;
+                    const _phoneMatches = [];
+                    for (const c of _allCust) {
+                        const cNameMatch = (c.name || '').toLowerCase().trim() === _nameLower;
+                        const cPhoneDigits = (c.mobilePhone || c.phone || '').replace(/\D/g, '');
+                        const cPhone2Digits = (c.phone && c.mobilePhone) ? (c.phone || '').replace(/\D/g, '') : '';
+                        const cPhoneMatch = _phoneDigits.length > 5 && (
+                            (cPhoneDigits.length > 5 && cPhoneDigits.endsWith(_phoneDigits.slice(-9))) ||
+                            (cPhone2Digits.length > 5 && cPhone2Digits.endsWith(_phoneDigits.slice(-9)))
+                        );
+                        if (cNameMatch) { _nameMatch = c; break; }
+                        if (cPhoneMatch) _phoneMatches.push(c);
+                    }
+                    const _matchedCust = _nameMatch || (_phoneMatches.length === 1 ? _phoneMatches[0] : null);
+                    if (_matchedCust) {
+                        const _upd = { customerId: _matchedCust.customerId, updatedAt: Date.now() };
+                        if (_matchedCust.mobilePhone) _upd.customerMobile = _matchedCust.mobilePhone;
+                        await db.ref('rides/' + rideId).update(_upd);
+                        console.log(`🔗 v6.63.542 CRM-Auto-Link: ${_crmName} → ${_matchedCust.customerId}`);
+                    } else if (_phoneMatches.length === 0) {
+                        const _isMobil = isMobileNumber(_crmPhone);
+                        const _newRef = db.ref('customers').push();
+                        await _newRef.set({
+                            name: _crmName,
+                            phone: _isMobil ? '' : _crmPhone,
+                            mobilePhone: _isMobil ? _crmPhone : '',
+                            address: '',
+                            defaultPickup: ride.pickup || '',
+                            email: ride.customerEmail || '',
+                            createdAt: Date.now(),
+                            createdBy: 'onRideCreated-auto',
+                            source: 'native-auto',
+                            totalRides: 1,
+                            isVIP: false,
+                            notes: ''
+                        });
+                        const _newUpd = { customerId: _newRef.key, updatedAt: Date.now() };
+                        if (_isMobil) _newUpd.customerMobile = _crmPhone;
+                        await db.ref('rides/' + rideId).update(_newUpd);
+                        console.log(`🆕 v6.63.542 CRM-Auto-Anlage: ${_crmName} (${_newRef.key}) für Ride ${rideId}`);
+                    } else {
+                        console.log(`⚠️ v6.63.542 Übersprungen: ${_phoneMatches.length} CRM-Treffer für ${_crmPhone} — mehrdeutig`);
+                    }
+                }
+            }
+        } catch (_crmAutoErr) {
+            console.warn('v6.63.542 CRM-Auto-Anlage Fehler:', _crmAutoErr.message);
+        }
+
         // v6.63.350 (Patrick 15.06. 12:31 'altbekannte Adresse, warum kein Vehicle'):
         //   Antje Faulenbach hatte Coords aber drivingTimeToDestination=null.
         //   Native-CRM-Suche schreibt das Feld nicht beim Anlegen.

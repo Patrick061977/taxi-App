@@ -1462,19 +1462,20 @@ public class AdminDashboardActivity extends AppCompatActivity {
             db.getReference().updateChildren(updates).addOnCompleteListener(task -> {
                 synchronized (_uebernahmeInFlight) { _uebernahmeInFlight.remove(a.id); }
                 if (task.isSuccessful()) {
-                    // 🆕 v6.63.540: Nach Übernahme → EmailPreviewActivity direkt öffnen.
-                    // Patrick will das schöne Email-Vorschau-Formular mit An/Betreff/Body +
-                    // Stripe-Checkbox + Tracking-Checkbox — exakt das was er aus showEditRideDialog
-                    // kennt. Wir warten kurz bis der Ride in Firebase geschrieben ist, dann EPA.
+                    // 🆕 v6.63.543: Nach Übernahme → showEditRideDialog öffnen.
+                    // Zeigt SPEICHERN + EMAIL-BESTÄTIGUNG (MIT VORSCHAU) + KOPIEREN + RUECKFAHRT + SERIE.
+                    // Von dort taps Patrick "EMAIL-BESTÄTIGUNG" → EPA öffnet mit vollen Daten.
                     db.getReference("rides/" + rideId).addListenerForSingleValueEvent(
                         new com.google.firebase.database.ValueEventListener() {
                             @Override public void onDataChange(com.google.firebase.database.DataSnapshot snap) {
                                 if (snap.exists()) {
-                                    runOnUiThread(() -> {
-                                        Intent _epaIntent = new Intent(AdminDashboardActivity.this, EmailPreviewActivity.class);
-                                        _epaIntent.putExtra(EmailPreviewActivity.EXTRA_RIDE_ID, rideId);
-                                        startActivity(_epaIntent);
-                                    });
+                                    Ride _r = Ride.fromSnap(snap);
+                                    if (_r != null) {
+                                        runOnUiThread(() -> showEditRideDialog(_r));
+                                    } else {
+                                        runOnUiThread(() -> Toast.makeText(AdminDashboardActivity.this,
+                                            "✅ Anfrage übernommen → Ride angelegt", Toast.LENGTH_LONG).show());
+                                    }
                                 } else {
                                     runOnUiThread(() -> Toast.makeText(AdminDashboardActivity.this,
                                         "✅ Ride " + rideId + " angelegt", Toast.LENGTH_LONG).show());

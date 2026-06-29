@@ -570,6 +570,20 @@ function isVehicleAvailableForRide(vehicleId, vehiclesData, shiftsData, dateStr,
     if (!allowLiveOverride) {
         return false;
     }
+    // 🔧 v6.63.548: Live-Override NICHT fuer Fahrzeuge die einen Wochenplan-Eintrag
+    // fuer den betreffenden Tag haben aber ausserhalb des Schichtfensters liegen.
+    // Beispiel: IK hat Mo 15:30-19:30, Danilo startet Schicht um 08:36 → Live-Override
+    // wuerde IK fuer 14:05-Pickup freischalten obwohl Plan sagt erst 15:30.
+    // Wochenplan hat Vorrang vor Live-Status (Patrick 29.06.2026 Gruntz-Vorfall).
+    const _liveShifts = shiftsData[vehicleId];
+    if (_liveShifts) {
+        const _liveDow = new Date(dateStr + 'T00:00:00').getDay();
+        if ((_liveShifts.defaults || {})[_liveDow] === true) {
+            // Fahrzeug hat aktiven Wochentag im Plan aber liegt ausserhalb des Fensters
+            // → kein Live-Override, Wochenplan ist massgeblich
+            return false;
+        }
+    }
     const vData = (vehiclesData || {})[vehicleId];
     if (!vData) return false;
     if (vData.online !== true) return false;
@@ -577,7 +591,7 @@ function isVehicleAvailableForRide(vehicleId, vehiclesData, shiftsData, dateStr,
     // Nur fuer heute akzeptieren (Berlin-TZ)
     const todayBerlin = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Berlin' });
     if (dateStr !== todayBerlin) return false;
-    console.log(`   🟢 Live-Override ${vehicleId}: kein Wochenplan, aber online+active → fuer ${dateStr} ${timeStr} verfuegbar (allowLiveOverride=true)`);
+    console.log(`   🟢 Live-Override ${vehicleId}: kein Wochenplan fuer ${dateStr}, aber online+active → verfuegbar`);
     return true;
 }
 

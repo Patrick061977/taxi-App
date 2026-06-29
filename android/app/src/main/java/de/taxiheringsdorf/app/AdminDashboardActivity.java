@@ -373,6 +373,22 @@ public class AdminDashboardActivity extends AppCompatActivity {
             sectioned.addAll(webRequests);
         }
 
+        // 🆕 v6.63.558: FREIE FAHRTEN — new/sofort ohne Fahrzeug-Zuweisung (Patrick 29.06.
+        //   19:40 Bridge: "Da muss irgendwo am besten oben so ein Fahrradpool sein, wo die
+        //   offenen Fahrten drinnen stehen, wo die jetzt nicht zugeteilt wurden")
+        List<Ride> _freieRides = new ArrayList<>();
+        for (Ride _r2 : rest) {
+            if (("new".equalsIgnoreCase(_r2.status) || "sofort".equalsIgnoreCase(_r2.status))
+                    && (_r2.assignedVehicle == null || _r2.assignedVehicle.isEmpty())) {
+                _freieRides.add(_r2);
+            }
+        }
+        if (!_freieRides.isEmpty()) {
+            _freieRides.sort(Comparator.comparingLong(_r3 -> _r3.pickupTimestamp != null ? _r3.pickupTimestamp : Long.MAX_VALUE));
+            sectioned.add("🆓 FREIE FAHRTEN (" + _freieRides.size() + ") — kein Fahrer zugewiesen");
+            sectioned.addAll(_freieRides);
+        }
+
         // 🆕 v6.62.932 (Patrick 25.05. 12:29-12:30 'e' + 'dispo'): Wartepool +
         //   offene Anfragen als prominente Top-Banner — geht in der Dispo-Liste sonst unter.
         try {
@@ -1583,6 +1599,27 @@ public class AdminDashboardActivity extends AppCompatActivity {
             });
         });
         dlg.show();
+    }
+
+    // 🆕 v6.63.558: Pickup-Uhrzeit um deltaMs verschieben (Patrick 29.06. 19:39 Bridge)
+    private void _shiftPickupTime(String rideId, Long currentTs, long deltaMs,
+            java.util.concurrent.atomic.AtomicReference<AlertDialog> dlgRef) {
+        if (rideId == null || currentTs == null) return;
+        long newTs = currentTs + deltaMs;
+        java.util.Calendar _cal = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("Europe/Berlin"));
+        _cal.setTimeInMillis(newTs);
+        String newTime = String.format(java.util.Locale.GERMANY, "%02d:%02d",
+            _cal.get(java.util.Calendar.HOUR_OF_DAY), _cal.get(java.util.Calendar.MINUTE));
+        java.util.Map<String, Object> _upd = new java.util.HashMap<>();
+        _upd.put("pickupTimestamp", newTs);
+        _upd.put("pickupTime", newTime);
+        _upd.put("updatedAt", System.currentTimeMillis());
+        db.getReference("rides/" + rideId).updateChildren(_upd)
+            .addOnSuccessListener(_t -> {
+                Toast.makeText(this, "⏩ Uhrzeit → " + newTime, Toast.LENGTH_SHORT).show();
+                if (dlgRef.get() != null) dlgRef.get().dismiss();
+            })
+            .addOnFailureListener(_e -> Toast.makeText(this, "❌ Fehler: " + _e.getMessage(), Toast.LENGTH_LONG).show());
     }
 
     private void _sendVorkasseEmail(String rideId, String email, String name, String amount, String pickup, String destination, String pickupTime, String anfrageId) {
@@ -2952,6 +2989,34 @@ public class AdminDashboardActivity extends AppCompatActivity {
         _saveTopParams.setMargins(0, 0, 0, pad);
         btnSaveTop.setLayoutParams(_saveTopParams);
         layout.addView(btnSaveTop);
+
+        // 🆕 v6.63.558: +5/+10 Min Schnell-Verschieben (Patrick 29.06. 19:39 Bridge:
+        //   "wenn ich ne Fahrt angenommen hab, die schnell um 5 Minuten verschieben")
+        if (r.pickupTimestamp != null && r.pickupTimestamp > 0) {
+            LinearLayout _timeShiftRow = new LinearLayout(this);
+            _timeShiftRow.setOrientation(LinearLayout.HORIZONTAL);
+            LinearLayout.LayoutParams _tsRowParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+            _tsRowParams.setMargins(0, 0, 0, pad);
+            _timeShiftRow.setLayoutParams(_tsRowParams);
+            int _btnWeight = 1;
+            for (int _delta : new int[]{5, 10}) {
+                com.google.android.material.button.MaterialButton _btnShift =
+                    new com.google.android.material.button.MaterialButton(this);
+                _btnShift.setText("⏩ +" + _delta + " Min");
+                _btnShift.setTextSize(14);
+                _btnShift.setBackgroundColor(android.graphics.Color.parseColor("#f59e0b"));
+                _btnShift.setTextColor(android.graphics.Color.WHITE);
+                LinearLayout.LayoutParams _bsp = new LinearLayout.LayoutParams(
+                    0, LinearLayout.LayoutParams.WRAP_CONTENT, _btnWeight);
+                if (_delta == 5) _bsp.setMargins(0, 0, padHalf, 0);
+                _btnShift.setLayoutParams(_bsp);
+                final long _deltaMs = _delta * 60 * 1000L;
+                _btnShift.setOnClickListener(_v -> _shiftPickupTime(r.id, r.pickupTimestamp, _deltaMs, _dlgRef));
+                _timeShiftRow.addView(_btnShift);
+            }
+            layout.addView(_timeShiftRow);
+        }
 
         // 🆕 v6.63.090 (Patrick 02.06. 18:32): Email-Vorschau-Button als prominente Aktion direkt
         // unter Speichern. Tap → EmailPreviewActivity öffnet sich, Patrick liest durch,

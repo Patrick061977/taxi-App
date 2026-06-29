@@ -1113,16 +1113,23 @@ public class AdminDashboardActivity extends AppCompatActivity {
     }
 
     private void showRepeatPastRideDialog(Ride r) {
-        String msg = "Diese Fahrt als neue Vorbestellung anlegen?\n\n"
-            + (r.customerName != null ? r.customerName : "?") + "\n"
-            + (r.pickup != null ? r.pickup : "?") + "\n→ "
-            + (r.destination != null ? r.destination : "?")
-            + "\n\nDie polierte Vorbestellungs-Maske oeffnet sich mit Karte + Adress-Suche.";
+        // 🔧 v6.63.551: 4. Option "Preis/Notiz bearbeiten" — Patrick 29.06.:
+        //   "wenn ich eine Komplettfahrt habe, moechte ich den Preis bearbeiten koennen"
+        //   setItems statt 3-Button-Layout erlaubt unbegrenzte Optionen.
+        String header = (r.customerName != null ? r.customerName : "?")
+            + "\n" + (r.pickup != null ? r.pickup : "?") + " → " + (r.destination != null ? r.destination : "?");
         new androidx.appcompat.app.AlertDialog.Builder(this)
-            .setTitle("📅 Fahrt wiederholen")
-            .setMessage(msg)
-            .setPositiveButton("📅 Gleiche Strecke", (d, w) -> launchCrmTemplate(r, false))
-            .setNeutralButton("🔄 Rueckfahrt (getauscht)", (d, w) -> launchCrmTemplate(r, true))
+            .setTitle("Abgeschlossene Fahrt")
+            .setMessage(header)
+            .setItems(new String[]{
+                "📅 Gleiche Strecke (neue Vorbestellung)",
+                "🔄 Rueckfahrt (Adressen tauschen)",
+                "✏️ Preis / Notiz / Status bearbeiten"
+            }, (d, which) -> {
+                if (which == 0) launchCrmTemplate(r, false);
+                else if (which == 1) launchCrmTemplate(r, true);
+                else showEditRideDialog(r);
+            })
             .setNegativeButton("Abbrechen", null)
             .show();
     }

@@ -1473,30 +1473,11 @@ public class AdminDashboardActivity extends AppCompatActivity {
             db.getReference().updateChildren(updates).addOnCompleteListener(task -> {
                 synchronized (_uebernahmeInFlight) { _uebernahmeInFlight.remove(a.id); }
                 if (task.isSuccessful()) {
-                    // 🆕 v6.63.543: Nach Übernahme → showEditRideDialog öffnen.
-                    // Zeigt SPEICHERN + EMAIL-BESTÄTIGUNG (MIT VORSCHAU) + KOPIEREN + RUECKFAHRT + SERIE.
-                    // Von dort taps Patrick "EMAIL-BESTÄTIGUNG" → EPA öffnet mit vollen Daten.
-                    db.getReference("rides/" + rideId).addListenerForSingleValueEvent(
-                        new com.google.firebase.database.ValueEventListener() {
-                            @Override public void onDataChange(com.google.firebase.database.DataSnapshot snap) {
-                                if (snap.exists()) {
-                                    Ride _r = Ride.fromSnap(snap);
-                                    if (_r != null) {
-                                        runOnUiThread(() -> showEditRideDialog(_r));
-                                    } else {
-                                        runOnUiThread(() -> Toast.makeText(AdminDashboardActivity.this,
-                                            "✅ Anfrage übernommen → Ride angelegt", Toast.LENGTH_LONG).show());
-                                    }
-                                } else {
-                                    runOnUiThread(() -> Toast.makeText(AdminDashboardActivity.this,
-                                        "✅ Ride " + rideId + " angelegt", Toast.LENGTH_LONG).show());
-                                }
-                            }
-                            @Override public void onCancelled(com.google.firebase.database.DatabaseError e) {
-                                runOnUiThread(() -> Toast.makeText(AdminDashboardActivity.this,
-                                    "✅ Anfrage übernommen → Ride angelegt", Toast.LENGTH_LONG).show());
-                            }
-                        });
+                    // 🔧 v6.63.554: Vorkasse-Dialog (mit Preis-Feld) statt Edit-Dialog.
+                    // Patrick: "dieses Formular aufgerufen wird, Preis ändern + Stripe-Option".
+                    // showVorkasseEmailDialog zeigt Preis + Email + Stripe-Ja/Nein.
+                    // Für Detailbearbeitung kann Patrick danach die Fahrt in der Liste antippen.
+                    runOnUiThread(() -> showVorkasseEmailDialog(rideId, a, pickupTime));
                 } else {
                     Toast.makeText(this, "❌ Fehler: " + (task.getException() != null ? task.getException().getMessage() : "?"), Toast.LENGTH_LONG).show();
                 }
@@ -1507,7 +1488,8 @@ public class AdminDashboardActivity extends AppCompatActivity {
         }
     }
 
-    // 🆕 v6.63.533: Nach Übernahme — Vorkasse-Email mit Stripe-Link anbieten
+    // 🆕 v6.63.533: Nach Übernahme — Preis bearbeiten + optional Stripe-Link senden
+    // 🔧 v6.63.554: Preis-Feld hinzugefügt (Patrick: "irgendwo den Preis ändern können")
     private void showVorkasseEmailDialog(String rideId, Anfrage a, String pickupTime) {
         float dp = getResources().getDisplayMetrics().density;
         int pad = (int)(dp * 16);
@@ -1516,10 +1498,42 @@ public class AdminDashboardActivity extends AppCompatActivity {
         layout.setPadding(pad, pad, pad, pad);
 
         android.widget.TextView info = new android.widget.TextView(this);
-        info.setText("✅ Anfrage übernommen!\n\n💳 Stripe-Vorkasse-Link per E-Mail senden?");
-        info.setTextSize(15);
+        info.setText("✅ Anfrage übernommen!\n\n" +
+            (a.name != null ? "👤 " + a.name + "\n" : "") +
+            (a.pickup != null ? "📍 " + a.pickup + "\n🎯 " + (a.destination != null ? a.destination : "?") : ""));
+        info.setTextSize(14);
         info.setPadding(0, 0, 0, pad);
         layout.addView(info);
+
+        // Preis-Feld
+        android.widget.TextView priceLabel = new android.widget.TextView(this);
+        priceLabel.setText("💰 Preis (€):");
+        priceLabel.setTextSize(14);
+        priceLabel.setTypeface(null, android.graphics.Typeface.BOLD);
+        priceLabel.setPadding(0, 0, 0, pad / 4);
+        layout.addView(priceLabel);
+
+        EditText etPrice = new EditText(this);
+        etPrice.setHint("z.B. 25.00");
+        String _prePrice = "";
+        if (a.price != null && !a.price.isEmpty() && !"—".equals(a.price)) {
+            _prePrice = a.price.replace("€","").replace(",",".").trim();
+        }
+        etPrice.setText(_prePrice);
+        etPrice.setInputType(android.text.InputType.TYPE_CLASS_NUMBER | android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL);
+        LinearLayout.LayoutParams _priceParams = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        _priceParams.setMargins(0, 0, 0, pad);
+        etPrice.setLayoutParams(_priceParams);
+        layout.addView(etPrice);
+
+        // Email-Feld
+        android.widget.TextView emailLabel = new android.widget.TextView(this);
+        emailLabel.setText("📧 E-Mail (für Stripe-Link):");
+        emailLabel.setTextSize(14);
+        emailLabel.setTypeface(null, android.graphics.Typeface.BOLD);
+        emailLabel.setPadding(0, 0, 0, pad / 4);
+        layout.addView(emailLabel);
 
         EditText etEmail = new EditText(this);
         etEmail.setHint("E-Mail-Adresse");
@@ -1528,11 +1542,21 @@ public class AdminDashboardActivity extends AppCompatActivity {
         layout.addView(etEmail);
 
         android.app.AlertDialog dlg = new android.app.AlertDialog.Builder(this)
-            .setTitle("📧 Vorkasse-Email")
+            .setTitle("📋 Anfrage bestätigt")
             .setView(layout)
-            .setPositiveButton("💳 Stripe-Link erstellen & senden", null)
-            .setNegativeButton("Überspringen", (d, w) ->
-                Toast.makeText(this, "✅ Anfrage übernommen (ohne Email)", Toast.LENGTH_SHORT).show())
+            .setPositiveButton("💳 Mit Stripe-Link senden", null)
+            .setNegativeButton("⚪ Ohne Stripe bestätigen", (d, w) -> {
+                // Preis in Firebase speichern wenn geändert
+                String _skipPrice = etPrice.getText().toString().trim().replace(",",".");
+                try {
+                    double _pv = Double.parseDouble(_skipPrice);
+                    if (_pv > 0) {
+                        db.getReference("rides/" + rideId).updateChildren(
+                            java.util.Collections.singletonMap("price", _pv));
+                    }
+                } catch (Throwable _pe) {}
+                Toast.makeText(this, "✅ Anfrage übernommen (kein Stripe-Link)", Toast.LENGTH_SHORT).show();
+            })
             .create();
         dlg.setOnShowListener(d -> {
             dlg.getButton(android.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
@@ -1541,8 +1565,21 @@ public class AdminDashboardActivity extends AppCompatActivity {
                     etEmail.setError("Ungültige E-Mail");
                     return;
                 }
+                String _priceInput = etPrice.getText().toString().trim().replace(",",".");
+                double _updatedPrice = 0;
+                try { _updatedPrice = Double.parseDouble(_priceInput); } catch (Throwable _pe) {}
+                if (_updatedPrice < 0.5) {
+                    etPrice.setError("Preis muss > 0 sein");
+                    return;
+                }
+                // Preis in Firebase aktualisieren (falls geändert)
+                final double _finalPrice = _updatedPrice;
+                db.getReference("rides/" + rideId).updateChildren(
+                    java.util.Collections.singletonMap("price", _finalPrice));
                 dlg.dismiss();
-                _sendVorkasseEmail(rideId, email, a.name, a.price, a.pickup, a.destination, pickupTime, a.id);
+                _sendVorkasseEmail(rideId, email, a.name,
+                    String.format(java.util.Locale.US, "%.2f", _finalPrice),
+                    a.pickup, a.destination, pickupTime, a.id);
             });
         });
         dlg.show();

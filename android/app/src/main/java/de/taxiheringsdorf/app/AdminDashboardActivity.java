@@ -1462,11 +1462,16 @@ public class AdminDashboardActivity extends AppCompatActivity {
             db.getReference().updateChildren(updates).addOnCompleteListener(task -> {
                 synchronized (_uebernahmeInFlight) { _uebernahmeInFlight.remove(a.id); }
                 if (task.isSuccessful()) {
-                    // 🆕 v6.63.533: Wenn Email vorhanden + Preis bekannt → Vorkasse-Email anbieten
+                    // 🆕 v6.63.538: Nach Übernahme → EmailPreviewActivity (An/Betreff/Body+Vorschau)
+                    // wie beim Tippen auf "📧 Email-Bestätigung" in showEditRideDialog.
+                    // Wenn kein Email vorhanden → nur Toast, kein Formular.
                     boolean _hasEmail = a.email != null && a.email.contains("@");
-                    boolean _hasPrice = a.price != null && !a.price.isEmpty() && !"—".equals(a.price);
-                    if (_hasEmail && _hasPrice) {
-                        runOnUiThread(() -> showVorkasseEmailDialog(rideId, a, pickupTime));
+                    if (_hasEmail) {
+                        runOnUiThread(() -> {
+                            android.content.Intent _ei = new android.content.Intent(this, EmailPreviewActivity.class);
+                            _ei.putExtra(EmailPreviewActivity.EXTRA_RIDE_ID, rideId);
+                            startActivity(_ei);
+                        });
                     } else {
                         Toast.makeText(this, "✅ Anfrage übernommen → Ride " + (isSofort ? "sofort" : "vorbestellt"), Toast.LENGTH_LONG).show();
                     }

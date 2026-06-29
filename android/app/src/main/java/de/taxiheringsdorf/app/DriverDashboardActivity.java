@@ -4171,6 +4171,11 @@ public class DriverDashboardActivity extends AppCompatActivity {
         //   Push, wird sie immer noch angezeigt"): confirmReject-Intent kommt bei laufender
         //   Activity via onNewIntent, NICHT onCreate — daher wurde der Ablehnen-Button nie
         //   ausgeführt. Ride blieb "zugewiesen". Fix: gleiche Logik wie in onCreate.
+        // v6.63.544: openedFromAccept — Toast wenn Fahrer Auftrag annimmt (Activity bereits offen)
+        if (intent != null && intent.getBooleanExtra("openedFromAccept", false)) {
+            intent.removeExtra("openedFromAccept");
+            Toast.makeText(this, "✅ Auftrag angenommen — lade...", Toast.LENGTH_SHORT).show();
+        }
         if (intent != null && intent.getBooleanExtra("confirmReject", false)) {
             final String _rid = intent.getStringExtra("rideId");
             if (_rid != null) {
@@ -4240,20 +4245,6 @@ public class DriverDashboardActivity extends AppCompatActivity {
     protected void onPause() {
         super.onPause();
         TaxiFCMService.setForeground(false);
-    }
-
-    // 🆕 v6.63.544: Wenn DriverDashboard bereits läuft und RideActionReceiver/RideAlertActivity
-    // per FLAG_ACTIVITY_CLEAR_TOP + FLAG_ACTIVITY_REORDER_TO_FRONT die Activity nach vorne bringt,
-    // wird onNewIntent aufgerufen (NICHT onCreate). Ohne diesen Override wurde der
-    // openedFromAccept-Intent ignoriert und kein Toast gezeigt.
-    @Override
-    protected void onNewIntent(Intent intent) {
-        super.onNewIntent(intent);
-        setIntent(intent);
-        if (intent != null && intent.getBooleanExtra("openedFromAccept", false)) {
-            intent.removeExtra("openedFromAccept");
-            Toast.makeText(this, "✅ Auftrag angenommen — lade...", Toast.LENGTH_SHORT).show();
-        }
     }
 
     @Override

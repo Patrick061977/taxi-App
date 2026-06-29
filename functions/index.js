@@ -23214,7 +23214,28 @@ exports.scheduledReachabilityCheck = onSchedule(
                 const v = vehicles[vid];
                 if (!v || !v.lat || !v.lon) { skipDebug.noGps++; return; }
                 const vLastSeen = v.lastSeen || v.lastUpdate || 0;
-                if (vLastSeen && (now - vLastSeen) > STALE_GPS_MS) { skipDebug.staleGps++; return; }
+                if (vLastSeen && (now - vLastSeen) > STALE_GPS_MS) {
+                    // 🆕 v6.63.552: GPS-Offline + sofort → Neu-Assign (Fahrer hat nicht bestätigt)
+                    if (ride.status === 'sofort' && ride.assignedVehicle && !ride.assignmentLocked && !ride.acceptedAt) {
+                        const _staleVid = ride.assignedVehicle;
+                        const _staleMins = Math.round((now - vLastSeen) / 60000);
+                        const _rejArr = [...(ride.rejectedVehicles || [])];
+                        if (!_rejArr.includes(_staleVid)) _rejArr.push(_staleVid);
+                        promises.push((async () => {
+                            try {
+                                console.log(`📵 GPS-Offline Sofortfahrt ${rideId}: ${_staleVid} (${_staleMins} Min offline) → Neu-Assign`);
+                                await db.ref('rides/' + rideId).update({
+                                    status: 'new', assignedVehicle: null, vehicleId: null, vehicle: null,
+                                    assignedVehicleName: null, vehicleLabel: null,
+                                    assignedTo: null, assignedAt: null, assignedBy: null,
+                                    assignmentExpiresAt: null, rejectedVehicles: _rejArr, updatedAt: Date.now()
+                                });
+                                await autoAssignRide(rideId, { ...ride, status: 'new', assignedVehicle: null, vehicleId: null, _rejectedVehicles: _rejArr });
+                            } catch (_e) { console.warn(`GPS-Offline Re-Assign ${rideId}:`, _e.message); }
+                        })());
+                    }
+                    skipDebug.staleGps++; return;
+                }
                 // Ziel haengt vom Status ab
                 const _isToDest = ride.status === 'picked_up';
                 const tgtLatRaw = _isToDest ? (ride.destinationLat) : (ride.pickupLat);
@@ -23319,6 +23340,32 @@ exports.scheduledReachabilityCheck = onSchedule(
                         const vehicleName = v.label || vid;
                         const customerName = ride.customerName || '?';
                         const pickupAddr = ride.pickup || '?';
+
+                        // 🆕 v6.63.552: STILL UNREACHABLE → Auto-Neuzuweisung statt Wiederholungs-Spam
+                        if (!isFirstAlarm && !ride.assignmentLocked && ['sofort', 'accepted', 'vorbestellt'].includes(ride.status)) {
+                            const _rvid = ride.assignedVehicle || vid;
+                            const _rej = [...(ride.rejectedVehicles || [])];
+                            if (_rvid && !_rej.includes(_rvid)) _rej.push(_rvid);
+                            try {
+                                await db.ref('rides/' + rideId).update({
+                                    status: 'new', assignedVehicle: null, vehicleId: null, vehicle: null,
+                                    assignedVehicleName: null, vehicleLabel: null,
+                                    assignedTo: null, assignedAt: null, assignedBy: null,
+                                    assignmentExpiresAt: null, rejectedVehicles: _rej,
+                                    unreachableAlert: null, updatedAt: Date.now()
+                                });
+                                const _res = await autoAssignRide(rideId, { ...ride, status: 'new', assignedVehicle: null, vehicleId: null, _rejectedVehicles: _rej });
+                                const _reMsg = _res
+                                    ? `🔄 Auto-Neuzuweisung\n👤 ${customerName}\n${vehicleName} unerreichbar → ${_res.name}\n📍 ${pickupAddr}`
+                                    : `⚠️ Unerreichbar – kein Ersatz!\n👤 ${customerName}\n📍 ${pickupAddr}\n${vehicleName} schafft es nicht. Bitte manuell eingreifen.`;
+                                await sendToAllAdmins(_reMsg);
+                            } catch (_e) {
+                                console.warn(`Auto-Neuzuweisung ${rideId}:`, _e.message);
+                                await sendToAllAdmins(`⚠️ Re-Assign Fehler\n${customerName}\n${_e.message}`).catch(() => {});
+                            }
+                            return;
+                        }
+
                         const tag = isFirstAlarm ? '🚨 SCHAFFBARKEIT' : '🔁 STILL UNREACHABLE';
                         const msg = `${tag}\n\n${vehicleName} schafft die Pickup-Zeit nicht:\n` +
                             `👤 ${customerName}\n` +

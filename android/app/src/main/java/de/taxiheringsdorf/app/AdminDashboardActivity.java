@@ -1440,8 +1440,12 @@ public class AdminDashboardActivity extends AppCompatActivity {
                     String _priceStr = a.price.replace("€","").replace(",",".").trim();
                     double _priceVal = Double.parseDouble(_priceStr);
                     if (_priceVal > 0) {
-                        ride.put("price", String.format(Locale.GERMANY, "%.2f", _priceVal));
-                        ride.put("estimatedPrice", String.format(Locale.GERMANY, "%.2f", _priceVal));
+                        // 🔧 v6.63.550: Als Number (double) speichern, nicht als
+                        // German-Format-String "10,00" — sonst liest native fromSnap
+                        // (instanceof Number = false) und Web-App (Number("10,00")=NaN)
+                        // beide 0 statt den echten Preis.
+                        ride.put("price", _priceVal);
+                        ride.put("estimatedPrice", _priceVal);
                         ride.put("priceFromAnfrage", true);
                         ride.put("priceFromAnfrageAt", now);
                     }

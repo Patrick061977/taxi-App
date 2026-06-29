@@ -1485,7 +1485,6 @@ public class AdminDashboardActivity extends AppCompatActivity {
                                     "✅ Anfrage übernommen → Ride angelegt", Toast.LENGTH_LONG).show());
                             }
                         });
-                    }
                 } else {
                     Toast.makeText(this, "❌ Fehler: " + (task.getException() != null ? task.getException().getMessage() : "?"), Toast.LENGTH_LONG).show();
                 }

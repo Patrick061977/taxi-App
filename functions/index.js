@@ -1473,7 +1473,25 @@ async function autoAssignRide(rideId, rideData, _excludeVehicleIds = []) {
                     vehicleScores[vehicleId] = { status: 'rejected', reason: 'Sofortfahrt: Schicht nicht live aktiv', check: 'live-shift-required', shiftStatus: _vData.shift?.status || null };
                     continue;
                 }
-                console.log(`   ✅ ${info.name}: Sofortfahrt — Schicht live aktiv (Wochenplan ignoriert)`);
+                // 🔧 v6.63.549: "Nur dieser Tag"-Override gilt auch fuer Sofortfahrten.
+                // Patrick 29.06. "Nur dieser Tag wird gar nicht akzeptiert": live-aktive
+                // Fahrzeuge haben ihr Schicht-Fenster per Tag-Override eingeschraenkt →
+                // das muss auch bei Sofortfahrten respektiert werden.
+                const _todayShiftEntry = (shiftsData[vehicleId] || {})[dateStr];
+                if (_todayShiftEntry) {
+                    if (_todayShiftEntry.active === false) {
+                        console.log(`   ❌ ${info.name}: Sofortfahrt — Nur-Heute-Override: OFFLINE fuer ${dateStr}`);
+                        vehicleScores[vehicleId] = { status: 'rejected', reason: 'Nur-Heute-Override: offline', check: 'today-override-inactive' };
+                        continue;
+                    }
+                    if (!isVehicleInShift(vehicleId, shiftsData, dateStr, timeStr)) {
+                        const _tWindow = `${_todayShiftEntry.startTime || '?'}–${_todayShiftEntry.endTime || '?'}`;
+                        console.log(`   ❌ ${info.name}: Sofortfahrt — Nur-Heute-Override ${_tWindow}, ${timeStr} ausserhalb Fenster`);
+                        vehicleScores[vehicleId] = { status: 'rejected', reason: `Nur-Heute-Override: ${timeStr} ausserhalb ${_tWindow}`, check: 'today-override-time' };
+                        continue;
+                    }
+                }
+                console.log(`   ✅ ${info.name}: Sofortfahrt — Schicht live aktiv`);
             } else {
                 // Vorbestellung — Wochenplan ist PFLICHT, kein Override mehr.
                 if (!_shiftOk || !_verifyOk.ok) {

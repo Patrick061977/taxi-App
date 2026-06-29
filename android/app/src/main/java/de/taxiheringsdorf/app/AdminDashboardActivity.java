@@ -2939,6 +2939,36 @@ public class AdminDashboardActivity extends AppCompatActivity {
             layout.addView(btnEmailPreview);
         }
 
+        // 🆕 v6.63.553: Stripe-Vorkasse-Link — sichtbar wenn Preis + Email vorhanden.
+        // v6.63.543 hatte showVorkasseEmailDialog durch showEditRideDialog ersetzt (gut,
+        // aber dabei ging der Stripe-Button verloren). Fix: Button direkt hier einbauen.
+        if (r.price != null && r.price > 0
+                && r.customerEmail != null && !r.customerEmail.isEmpty() && r.customerEmail.contains("@")) {
+            com.google.android.material.button.MaterialButton btnStripe =
+                new com.google.android.material.button.MaterialButton(this);
+            btnStripe.setText("💳 Stripe-Vorkasse-Link erstellen & senden");
+            btnStripe.setTextSize(15);
+            btnStripe.setBackgroundColor(android.graphics.Color.parseColor("#7c3aed"));
+            btnStripe.setTextColor(android.graphics.Color.WHITE);
+            LinearLayout.LayoutParams _stripeParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+            _stripeParams.setMargins(0, 0, 0, pad);
+            btnStripe.setLayoutParams(_stripeParams);
+            btnStripe.setOnClickListener(_v -> {
+                if (_dlgRef.get() != null) _dlgRef.get().dismiss();
+                String _amountStr = String.format(java.util.Locale.US, "%.2f", r.price);
+                _sendVorkasseEmail(r.id,
+                    r.customerEmail,
+                    r.customerName != null ? r.customerName : "",
+                    _amountStr,
+                    r.pickup != null ? r.pickup : "",
+                    r.destination != null ? r.destination : "",
+                    r.pickupTime != null ? r.pickupTime : "",
+                    null);
+            });
+            layout.addView(btnStripe);
+        }
+
         // 🆕 v6.63.534: Rechnung an Auftraggeber/Hotel — PDF-Vorschau + Email-Compose nativ
         if (r.invoiceNumber != null && !r.invoiceNumber.isEmpty()) {
             com.google.android.material.button.MaterialButton btnInvoiceEmail =

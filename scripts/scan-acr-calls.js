@@ -30,7 +30,7 @@ const MIN_DURATION_SEC = 8;   // Anrufe < 8s = Verpasste/Falschverbindung, skip
 // als CallerName komplett vorfiltern — kein Whisper-Call, kein KI-Aufruf, keine Tokens.
 // v6.63.495 (Patrick 25.06. 09:57 'Zentrale ist Mitarbeiter, skippen'): Liste erweitert
 // + zusaetzlich CALLER_NUMBER_BLACKLIST (manche ACR-Files haben nur Nummer ohne Namen).
-const CALLER_NAME_BLACKLIST = ['zentrale', 'patrick', 'mama', 'hasi', 'danilo', 'ivo', 'olaf', 'kulpa'];
+const CALLER_NAME_BLACKLIST = ['zentrale', 'patrick', 'mama', 'hasi', 'danilo', 'ivo', 'olaf', 'kulpa', 'karl-heinz', 'karlheinz'];
 const CALLER_NUMBER_BLACKLIST = ['+491715377241']; // Zentrale-Funk
 
 function loadState() {
@@ -123,10 +123,10 @@ Antworte NUR mit gültigem JSON. Keine Erklärungen, kein Markdown.`;
 }
 
 function bridgePush(msg) {
-    try {
-        execSync(`node "${path.join(__dirname, 'bridge-direct-send.js')}" ${JSON.stringify(msg)}`, { stdio: 'pipe' });
-        return true;
-    } catch (e) { console.warn('Bridge-Push-Fehler:', e.message); return false; }
+    // 🔕 v6.63.546 (Patrick 29.06.): Bridge-Push deaktiviert — Bridge muss frei bleiben.
+    // Anruf-Vorschauen verstopfen die Bridge; Patrick will keine automatischen Push-Meldungen.
+    console.log('[ACR] Bridge-Push deaktiviert:', msg.slice(0, 80));
+    return false;
 }
 
 // 🔧 v6.63.495: Anruf-Statistik anhaengen (newline-JSON, einfach append)

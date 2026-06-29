@@ -1462,18 +1462,27 @@ public class AdminDashboardActivity extends AppCompatActivity {
             db.getReference().updateChildren(updates).addOnCompleteListener(task -> {
                 synchronized (_uebernahmeInFlight) { _uebernahmeInFlight.remove(a.id); }
                 if (task.isSuccessful()) {
-                    // 🆕 v6.63.538: Nach Übernahme → EmailPreviewActivity (An/Betreff/Body+Vorschau)
-                    // wie beim Tippen auf "📧 Email-Bestätigung" in showEditRideDialog.
-                    // Wenn kein Email vorhanden → nur Toast, kein Formular.
-                    boolean _hasEmail = a.email != null && a.email.contains("@");
-                    if (_hasEmail) {
-                        runOnUiThread(() -> {
-                            android.content.Intent _ei = new android.content.Intent(this, EmailPreviewActivity.class);
-                            _ei.putExtra(EmailPreviewActivity.EXTRA_RIDE_ID, rideId);
-                            startActivity(_ei);
+                    // 🆕 v6.63.539: Nach Übernahme → showEditRideDialog der neuen Fahrt öffnen.
+                    // Das ist exakt der gleiche Dialog den Patrick kennt (mit EMAIL-BESTÄTIGUNG Button,
+                    // Fahrzeug-Zuweisung, Preis etc.). Kein separates Email-Dialog mehr — Patrick
+                    // sieht die Fahrt, weist Fahrzeug zu, tippt dann "EMAIL-BESTÄTIGUNG" für das
+                    // schöne Email-Vorschau-Formular. Reuse bestehender Code, kein neues Ding bauen.
+                    db.getReference("rides/" + rideId).addListenerForSingleValueEvent(
+                        new com.google.firebase.database.ValueEventListener() {
+                            @Override public void onDataChange(com.google.firebase.database.DataSnapshot snap) {
+                                Ride newRide = Ride.fromSnap(snap);
+                                if (newRide != null) {
+                                    runOnUiThread(() -> showEditRideDialog(newRide));
+                                } else {
+                                    runOnUiThread(() -> Toast.makeText(AdminDashboardActivity.this,
+                                        "✅ Ride " + rideId + " angelegt", Toast.LENGTH_LONG).show());
+                                }
+                            }
+                            @Override public void onCancelled(com.google.firebase.database.DatabaseError e) {
+                                runOnUiThread(() -> Toast.makeText(AdminDashboardActivity.this,
+                                    "✅ Anfrage übernommen → Ride angelegt", Toast.LENGTH_LONG).show());
+                            }
                         });
-                    } else {
-                        Toast.makeText(this, "✅ Anfrage übernommen → Ride " + (isSofort ? "sofort" : "vorbestellt"), Toast.LENGTH_LONG).show();
                     }
                 } else {
                     Toast.makeText(this, "❌ Fehler: " + (task.getException() != null ? task.getException().getMessage() : "?"), Toast.LENGTH_LONG).show();

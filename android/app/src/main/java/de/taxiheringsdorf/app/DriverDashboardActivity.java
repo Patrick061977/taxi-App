@@ -1334,6 +1334,19 @@ public class DriverDashboardActivity extends AppCompatActivity {
                     });
                 }
             } catch (Throwable _e) {}
+            // 🆕 v6.63.545: Service-Health-Check alle 15s — wenn Schicht aktiv aber Service
+            // tot (Samsung hat ihn gekillt) → sofort neu starten. Ohne diesen Check läuft
+            // der onVehicleUpdate-Recovery nur bei Daten-Änderungen, nicht bei Service-Kill.
+            try {
+                if (shiftActive && !ShiftForegroundService.isRunning() && currentVehicleId != null) {
+                    Log.w(TAG, "🔄 etaTick: ShiftForegroundService nicht aktiv aber Schicht läuft → Neustart");
+                    Intent _svc = new Intent(DriverDashboardActivity.this, ShiftForegroundService.class);
+                    _svc.setAction(ShiftForegroundService.ACTION_START);
+                    _svc.putExtra(ShiftForegroundService.EXTRA_VEHICLE_ID, currentVehicleId);
+                    _svc.putExtra(ShiftForegroundService.EXTRA_CONTENT_TEXT, "Schicht aktiv – GPS wiederhergestellt");
+                    startForegroundService(_svc);
+                }
+            } catch (Throwable _svcErr) { Log.w(TAG, "Service-Recovery: " + _svcErr.getMessage()); }
             etaTickHandler.postDelayed(this, 15_000L);
         }
     };

@@ -76,8 +76,9 @@ public class ShiftForegroundService extends Service {
 
     private long getDynamicHeartbeatSec() {
         final String s = currentRideStatus == null ? "standby" : currentRideStatus;
-        if ("on_way".equals(s) || "picked_up".equals(s) || "arrived".equals(s)) return 15;
-        if ("accepted".equals(s) || "assigned".equals(s)) return 30;
+        // 🆕 v6.63.545: accepted auf 15s (war 30s) — Patrick: GPS wieder unregelmäßig
+        if ("on_way".equals(s) || "picked_up".equals(s) || "arrived".equals(s) || "accepted".equals(s)) return 15;
+        if ("assigned".equals(s)) return 30;
         return 60; // standby / vorbestellt / sonstige
     }
 

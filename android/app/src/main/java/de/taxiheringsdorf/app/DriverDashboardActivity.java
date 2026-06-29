@@ -4229,6 +4229,20 @@ public class DriverDashboardActivity extends AppCompatActivity {
         TaxiFCMService.setForeground(false);
     }
 
+    // 🆕 v6.63.544: Wenn DriverDashboard bereits läuft und RideActionReceiver/RideAlertActivity
+    // per FLAG_ACTIVITY_CLEAR_TOP + FLAG_ACTIVITY_REORDER_TO_FRONT die Activity nach vorne bringt,
+    // wird onNewIntent aufgerufen (NICHT onCreate). Ohne diesen Override wurde der
+    // openedFromAccept-Intent ignoriert und kein Toast gezeigt.
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        if (intent != null && intent.getBooleanExtra("openedFromAccept", false)) {
+            intent.removeExtra("openedFromAccept");
+            Toast.makeText(this, "✅ Auftrag angenommen — lade...", Toast.LENGTH_SHORT).show();
+        }
+    }
+
     @Override
     protected void onDestroy() {
         super.onDestroy();
@@ -4962,15 +4976,16 @@ public class DriverDashboardActivity extends AppCompatActivity {
                         if (other.id.equals(rideId)) continue;
                         String oSt = other.status == null ? "" : other.status.toLowerCase();
                         if ("completed".equals(oSt) || "cancelled".equals(oSt) || "deleted".equals(oSt)) continue;
-                        // Aktive Fahrt → Sofortfahrten (<30 Min) blockieren, Vorbestellungen erlauben
+                        // 🆕 v6.63.544 (Patrick 29.06.): aktive Fahrt → NUR Warnung, kein Block mehr.
+                        // System hat die Fahrt angeboten → Fahrer soll entscheiden können.
                         if ("on_way".equals(oSt) || "picked_up".equals(oSt) || "arrived".equals(oSt)) {
                             boolean isFuturePreorder = newPickupTs > System.currentTimeMillis() + 30L * 60_000L;
                             if (!isFuturePreorder) {
                                 Toast.makeText(DriverDashboardActivity.this,
-                                    "⚠️ Aktive Fahrt (" + oSt + "): " + (other.customerName != null ? other.customerName : "?") + ".\nVorbestellungen (>30 Min) kannst du trotzdem annehmen.",
+                                    "⚠️ Hinweis: du hast noch " + (other.customerName != null ? other.customerName : "eine aktive Fahrt") + " (" + oSt + ").",
                                     Toast.LENGTH_LONG).show();
-                                logLifecycleTap(rideId, "⚠️", "Grab BLOCKIERT: aktive Fahrt " + other.id + " " + oSt + " Sofort", null);
-                                return;
+                                logLifecycleTap(rideId, "⚠️", "Grab: aktive Fahrt " + other.id + " " + oSt + " — trotzdem angenommen", null);
+                                // kein return — Fahrer entscheidet selbst
                             }
                             // Vorbestellung weit in der Zukunft → 25-Min-Kollisions-Check unten reicht
                         }
@@ -4980,14 +4995,15 @@ public class DriverDashboardActivity extends AppCompatActivity {
                             // v6.63.339 (Patrick 14.06. 17:09 'Warum lehnt System ab wenn Danilo
                             //   annimmt'): 60 Min war zu hart. 25 Min = realistisch nicht machbar
                             //   (Anfahrt + kurze Fahrt + Buffer). 25-60 Min erlaubt Doppel-Fahrten.
+                            // 🆕 v6.63.544: nur Warnung, kein Block mehr
                             if (diff < 25L * 60L * 1000L && ("accepted".equals(oSt) || "assigned".equals(oSt) || "vorbestellt".equals(oSt))) {
                                 java.text.SimpleDateFormat _sdf = new java.text.SimpleDateFormat("HH:mm", java.util.Locale.GERMANY);
                                 _sdf.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
                                 Toast.makeText(DriverDashboardActivity.this,
-                                    "⚠️ Konflikt: Du hast bereits " + (other.customerName != null ? other.customerName : "Fahrt") + " um " + _sdf.format(new java.util.Date(other.pickupTimestamp)) + ".\nZeit-Konflikt mit dieser Fahrt.",
+                                    "⚠️ Hinweis: du hast bereits " + (other.customerName != null ? other.customerName : "Fahrt") + " um " + _sdf.format(new java.util.Date(other.pickupTimestamp)) + " — Zeit eng!",
                                     Toast.LENGTH_LONG).show();
-                                logLifecycleTap(rideId, "⚠️", "Grab BLOCKIERT: Zeit-Konflikt mit " + other.id, null);
-                                return;
+                                logLifecycleTap(rideId, "⚠️", "Grab: Zeit-Konflikt mit " + other.id + " — trotzdem angenommen", null);
+                                // kein return — Fahrer entscheidet selbst
                             }
                         }
                     }

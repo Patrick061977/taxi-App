@@ -1673,9 +1673,9 @@ public class AdminDashboardActivity extends AppCompatActivity {
                                 Ride r = Ride.fromSnap(c);
                                 if (r != null && _rideMatchesQuery(r, q)) _results.add(r);
                             }
-                            _results.sort((a, b) -> {
-                                long ta = a.pickupTimestamp != null ? a.pickupTimestamp : 0;
-                                long tb = b.pickupTimestamp != null ? b.pickupTimestamp : 0;
+                            java.util.Collections.sort(_results, (ra, rb) -> {
+                                long ta = ra.pickupTimestamp != null ? ra.pickupTimestamp : 0;
+                                long tb = rb.pickupTimestamp != null ? rb.pickupTimestamp : 0;
                                 return Long.compare(tb, ta);
                             });
                             runOnUiThread(() -> _showAdminSearchResultsDialog(_results, query));
@@ -1711,8 +1711,8 @@ public class AdminDashboardActivity extends AppCompatActivity {
             Toast.makeText(this, "Keine Fahrten gefunden für: " + query, Toast.LENGTH_LONG).show();
             return;
         }
-        AlertDialog.Builder b = new AlertDialog.Builder(this, R.style.Theme_MaterialComponents_Dialog_Alert);
-        b.setTitle("🔍 " + results.size() + " Ergebnis(se) — „" + query + """);
+        AlertDialog.Builder b = new AlertDialog.Builder(this);
+        b.setTitle("🔍 " + results.size() + " Ergebnis(se) — " + query);
         ScrollView sv = new ScrollView(this);
         LinearLayout ll = new LinearLayout(this);
         ll.setOrientation(LinearLayout.VERTICAL);

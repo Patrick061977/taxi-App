@@ -201,6 +201,47 @@
                 android:textSize="13sp"
                 android:textStyle="bold" />
         </LinearLayout>
+        <!-- 🆕 v6.63.561: Suchleiste (Patrick 30.06.: "oben ein Suchfeld, wo ich nach
+             Stichworten suchen kann, vergangene Fahrten raussuchen + erneut buchen") -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:paddingBottom="10dp"
+            android:gravity="center_vertical">
+
+            <EditText
+                android:id="@+id/et_admin_search"
+                android:layout_width="0dp"
+                android:layout_height="44dp"
+                android:layout_weight="1"
+                android:background="@drawable/search_field_bg"
+                android:hint="🔍 Kunde, Adresse, Stichwort suchen…"
+                android:textColorHint="#94A3B8"
+                android:textColor="#F8FAFC"
+                android:textSize="14sp"
+                android:paddingStart="14dp"
+                android:paddingEnd="14dp"
+                android:inputType="text"
+                android:imeOptions="actionSearch"
+                android:singleLine="true" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_admin_search_clear"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:layout_marginStart="8dp"
+                android:text="✕"
+                android:textSize="16sp"
+                android:textColor="#F8FAFC"
+                android:minWidth="0dp"
+                android:padding="0dp"
+                android:visibility="gone"
+                app:backgroundTint="#374151"
+                app:cornerRadius="10dp" />
+        </LinearLayout>
     </com.google.android.material.appbar.AppBarLayout>
 
     <androidx.recyclerview.widget.RecyclerView

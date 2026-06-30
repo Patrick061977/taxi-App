@@ -61,6 +61,11 @@ public class AdminDashboardActivity extends AppCompatActivity {
     private RecyclerView rv;
     private LinearLayout emptyState;
     private AdminRideAdapter adapter;
+    // 🆕 v6.63.561: Suchfeld
+    private EditText etAdminSearch;
+    private MaterialButton btnAdminSearchClear;
+    private android.os.Handler _searchHandler;
+    private Runnable _searchRunnable;
 
     private FirebaseDatabase db;
     private Query openRidesQuery;
@@ -200,6 +205,33 @@ public class AdminDashboardActivity extends AppCompatActivity {
         rv.setLayoutManager(new LinearLayoutManager(this));
         adapter = new AdminRideAdapter();
         rv.setAdapter(adapter);
+
+        // 🆕 v6.63.561: Suchfeld-Setup
+        etAdminSearch = findViewById(R.id.et_admin_search);
+        btnAdminSearchClear = findViewById(R.id.btn_admin_search_clear);
+        _searchHandler = new android.os.Handler(android.os.Looper.getMainLooper());
+        if (etAdminSearch != null) {
+            etAdminSearch.addTextChangedListener(new android.text.TextWatcher() {
+                @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+                @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
+                    if (_searchRunnable != null) _searchHandler.removeCallbacks(_searchRunnable);
+                    String q = s.toString().trim();
+                    if (btnAdminSearchClear != null)
+                        btnAdminSearchClear.setVisibility(q.isEmpty() ? View.GONE : View.VISIBLE);
+                    if (q.length() >= 2) {
+                        _searchRunnable = () -> performAdminSearch(q);
+                        _searchHandler.postDelayed(_searchRunnable, 400);
+                    }
+                }
+                @Override public void afterTextChanged(android.text.Editable s) {}
+            });
+        }
+        if (btnAdminSearchClear != null) {
+            btnAdminSearchClear.setOnClickListener(v -> {
+                if (etAdminSearch != null) etAdminSearch.setText("");
+                btnAdminSearchClear.setVisibility(View.GONE);
+            });
+        }
 
         FirebaseUser u = FirebaseAuth.getInstance().getCurrentUser();
         if (u != null) {
@@ -1620,6 +1652,189 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 if (dlgRef.get() != null) dlgRef.get().dismiss();
             })
             .addOnFailureListener(_e -> Toast.makeText(this, "❌ Fehler: " + _e.getMessage(), Toast.LENGTH_LONG).show());
+    }
+
+    // 🆕 v6.63.561: Admin-Suche — /rides + /archiveRides durchsuchen (Patrick 30.06.)
+    private void performAdminSearch(String query) {
+        String q = query.toLowerCase(Locale.GERMAN).trim();
+        if (q.isEmpty()) return;
+        Toast.makeText(this, "🔍 Suche läuft…", Toast.LENGTH_SHORT).show();
+        List<Ride> _results = new ArrayList<>();
+        db.getReference("rides").addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override public void onDataChange(@NonNull DataSnapshot s) {
+                for (DataSnapshot c : s.getChildren()) {
+                    Ride r = Ride.fromSnap(c);
+                    if (r != null && _rideMatchesQuery(r, q)) _results.add(r);
+                }
+                db.getReference("archiveRides").orderByChild("pickupTimestamp")
+                    .limitToLast(300).addListenerForSingleValueEvent(new ValueEventListener() {
+                        @Override public void onDataChange(@NonNull DataSnapshot as) {
+                            for (DataSnapshot c : as.getChildren()) {
+                                Ride r = Ride.fromSnap(c);
+                                if (r != null && _rideMatchesQuery(r, q)) _results.add(r);
+                            }
+                            _results.sort((a, b) -> {
+                                long ta = a.pickupTimestamp != null ? a.pickupTimestamp : 0;
+                                long tb = b.pickupTimestamp != null ? b.pickupTimestamp : 0;
+                                return Long.compare(tb, ta);
+                            });
+                            runOnUiThread(() -> _showAdminSearchResultsDialog(_results, query));
+                        }
+                        @Override public void onCancelled(@NonNull DatabaseError e) {
+                            runOnUiThread(() -> _showAdminSearchResultsDialog(_results, query));
+                        }
+                    });
+            }
+            @Override public void onCancelled(@NonNull DatabaseError e) {
+                Toast.makeText(AdminDashboardActivity.this, "Suche fehlgeschlagen: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            }
+        });
+    }
+
+    private boolean _rideMatchesQuery(Ride r, String q) {
+        String[] tokens = q.split("\\s+");
+        String haystack = (
+            (r.customerName != null ? r.customerName : "") + " " +
+            (r.guestName != null ? r.guestName : "") + " " +
+            (r.pickup != null ? r.pickup : "") + " " +
+            (r.destination != null ? r.destination : "") + " " +
+            (r.customerPhone != null ? r.customerPhone : "") + " " +
+            (r.notes != null ? r.notes : "") + " " +
+            (r.pickupTime != null ? r.pickupTime : "")
+        ).toLowerCase(Locale.GERMAN);
+        for (String t : tokens) { if (!haystack.contains(t)) return false; }
+        return true;
+    }
+
+    private void _showAdminSearchResultsDialog(List<Ride> results, String query) {
+        if (results.isEmpty()) {
+            Toast.makeText(this, "Keine Fahrten gefunden für: " + query, Toast.LENGTH_LONG).show();
+            return;
+        }
+        AlertDialog.Builder b = new AlertDialog.Builder(this, R.style.Theme_MaterialComponents_Dialog_Alert);
+        b.setTitle("🔍 " + results.size() + " Ergebnis(se) — „" + query + """);
+        ScrollView sv = new ScrollView(this);
+        LinearLayout ll = new LinearLayout(this);
+        ll.setOrientation(LinearLayout.VERTICAL);
+        int px8 = (int)(8 * getResources().getDisplayMetrics().density);
+        ll.setPadding(px8 * 2, px8, px8 * 2, px8);
+        sv.addView(ll);
+        SimpleDateFormat sdf = new SimpleDateFormat("EE dd.MM. HH:mm", Locale.GERMAN);
+        for (Ride r : results) {
+            LinearLayout card = new LinearLayout(this);
+            card.setOrientation(LinearLayout.VERTICAL);
+            card.setBackgroundColor(0xFF1E293B);
+            int px12 = (int)(12 * getResources().getDisplayMetrics().density);
+            card.setPadding(px12, px12, px12, px12);
+            LinearLayout.LayoutParams cp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+            cp.setMargins(0, 0, 0, px8);
+            card.setLayoutParams(cp);
+            // Name + Datum
+            TextView tvName = new TextView(this);
+            String dateStr = r.pickupTimestamp != null
+                ? sdf.format(new Date(r.pickupTimestamp))
+                : (r.pickupTime != null ? r.pickupTime : "?");
+            String nameStr = (r.customerName != null ? r.customerName : "?")
+                + (r.guestName != null && !r.guestName.isEmpty() ? " / " + r.guestName : "");
+            tvName.setText("👤 " + nameStr + "  •  " + dateStr);
+            tvName.setTextColor(0xFFF8FAFC);
+            tvName.setTextSize(13f);
+            tvName.setTypeface(null, android.graphics.Typeface.BOLD);
+            card.addView(tvName);
+            // Route
+            TextView tvRoute = new TextView(this);
+            tvRoute.setText("📍 " + (r.pickup != null ? r.pickup : "?") + "\n→ " + (r.destination != null ? r.destination : "?"));
+            tvRoute.setTextColor(0xFF94A3B8);
+            tvRoute.setTextSize(12f);
+            LinearLayout.LayoutParams rp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+            rp.setMargins(0, (int)(4 * getResources().getDisplayMetrics().density), 0, (int)(8 * getResources().getDisplayMetrics().density));
+            tvRoute.setLayoutParams(rp);
+            card.addView(tvRoute);
+            // Pax + Preis
+            StringBuilder extra = new StringBuilder();
+            if (r.passengers != null) extra.append(r.passengers).append(" Pax");
+            if (r.price != null) {
+                if (extra.length() > 0) extra.append(" • ");
+                extra.append(String.format(Locale.GERMANY, "%.0f €", r.price));
+            }
+            if (extra.length() > 0) {
+                TextView tvExtra = new TextView(this);
+                tvExtra.setText(extra.toString());
+                tvExtra.setTextColor(0xFF64748B);
+                tvExtra.setTextSize(11f);
+                card.addView(tvExtra);
+            }
+            // Erneut buchen Button
+            MaterialButton btnRebook = new MaterialButton(this);
+            btnRebook.setText("🔄 Erneut buchen");
+            btnRebook.setTextSize(12f);
+            btnRebook.setTextColor(0xFFFFFFFF);
+            try {
+                btnRebook.setBackgroundTintList(android.content.res.ColorStateList.valueOf(0xFF7C3AED));
+            } catch (Throwable _t) {}
+            LinearLayout.LayoutParams bp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+            bp.setMargins(0, (int)(8 * getResources().getDisplayMetrics().density), 0, 0);
+            btnRebook.setLayoutParams(bp);
+            final Ride rFinal = r;
+            btnRebook.setOnClickListener(v -> _rebookRide(rFinal));
+            card.addView(btnRebook);
+            ll.addView(card);
+        }
+        b.setView(sv);
+        b.setNegativeButton("Schließen", null);
+        b.show();
+    }
+
+    private void _rebookRide(Ride template) {
+        Map<String, Object> newRide = new HashMap<>();
+        newRide.put("customerName", template.customerName != null ? template.customerName : "");
+        if (template.customerPhone != null) newRide.put("customerPhone", template.customerPhone);
+        if (template.customerEmail != null) newRide.put("customerEmail", template.customerEmail);
+        if (template.customerId != null) newRide.put("customerId", template.customerId);
+        if (template.guestName != null && !template.guestName.isEmpty()) newRide.put("guestName", template.guestName);
+        newRide.put("pickup", template.pickup != null ? template.pickup : "");
+        newRide.put("destination", template.destination != null ? template.destination : "");
+        if (template.pickupLat != null) newRide.put("pickupLat", template.pickupLat);
+        if (template.pickupLon != null) newRide.put("pickupLon", template.pickupLon);
+        if (template.destinationLat != null) newRide.put("destinationLat", template.destinationLat);
+        if (template.destinationLon != null) newRide.put("destinationLon", template.destinationLon);
+        if (template.passengers != null) newRide.put("passengers", template.passengers);
+        if (template.price != null) newRide.put("price", template.price);
+        if (template.notes != null && !template.notes.isEmpty()) newRide.put("notes", template.notes);
+        newRide.put("status", "vorbestellt");
+        newRide.put("source", "native_rebook");
+        newRide.put("createdAt", System.currentTimeMillis());
+        newRide.put("updatedAt", System.currentTimeMillis());
+        DatabaseReference ref = db.getReference("rides").push();
+        String newId = ref.getKey();
+        ref.setValue(newRide)
+            .addOnSuccessListener(_t -> {
+                Ride newR = new Ride();
+                newR.id = newId;
+                newR.customerName = template.customerName;
+                newR.customerPhone = template.customerPhone;
+                newR.customerEmail = template.customerEmail;
+                newR.customerId = template.customerId;
+                newR.guestName = template.guestName;
+                newR.pickup = template.pickup;
+                newR.destination = template.destination;
+                newR.pickupLat = template.pickupLat;
+                newR.pickupLon = template.pickupLon;
+                newR.destinationLat = template.destinationLat;
+                newR.destinationLon = template.destinationLon;
+                newR.passengers = template.passengers;
+                newR.price = template.price;
+                newR.notes = template.notes;
+                newR.status = "vorbestellt";
+                runOnUiThread(() -> {
+                    Toast.makeText(this, "✅ Vorlage erstellt — Datum/Uhrzeit wählen", Toast.LENGTH_SHORT).show();
+                    showEditRideDialog(newR);
+                });
+            })
+            .addOnFailureListener(e -> Toast.makeText(this, "❌ Fehler: " + e.getMessage(), Toast.LENGTH_LONG).show());
     }
 
     private void _sendVorkasseEmail(String rideId, String email, String name, String amount, String pickup, String destination, String pickupTime, String anfrageId) {

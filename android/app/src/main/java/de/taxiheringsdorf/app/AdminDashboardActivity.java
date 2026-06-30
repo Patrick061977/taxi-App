@@ -66,6 +66,7 @@ public class AdminDashboardActivity extends AppCompatActivity {
     private MaterialButton btnAdminSearchClear;
     private android.os.Handler _searchHandler;
     private Runnable _searchRunnable;
+    private AlertDialog _currentSearchDialog;
 
     private FirebaseDatabase db;
     private Query openRidesQuery;
@@ -1796,56 +1797,62 @@ public class AdminDashboardActivity extends AppCompatActivity {
         }
         b.setView(sv);
         b.setNegativeButton("Schließen", null);
-        b.show();
+        _currentSearchDialog = b.show();
     }
 
+    // 🔧 v6.63.564: Öffnet die schöne CrmSearch-Vorbestellungsmaske statt hässlichem Edit-Dialog.
+    //   Patrick 30.06.: "Das ist die hässliche Vorbestellungsmaske."
+    //   Für Rides aus /rides → auto_template_ride_id direkt (CrmSearchActivity kennt die ID).
+    //   Für Rides aus /archiveRides → push temp-Vorlage in /rides, CrmSearch lädt sie von dort.
+    //   In CrmSearchActivity wurde _runPendingTemplateIfReady erweitert um /archiveRides als Fallback.
     private void _rebookRide(Ride template) {
-        Map<String, Object> newRide = new HashMap<>();
-        newRide.put("customerName", template.customerName != null ? template.customerName : "");
-        if (template.customerPhone != null) newRide.put("customerPhone", template.customerPhone);
-        if (template.customerEmail != null) newRide.put("customerEmail", template.customerEmail);
-        if (template.customerId != null) newRide.put("customerId", template.customerId);
-        if (template.guestName != null && !template.guestName.isEmpty()) newRide.put("guestName", template.guestName);
-        newRide.put("pickup", template.pickup != null ? template.pickup : "");
-        newRide.put("destination", template.destination != null ? template.destination : "");
-        if (template.pickupLat != null) newRide.put("pickupLat", template.pickupLat);
-        if (template.pickupLon != null) newRide.put("pickupLon", template.pickupLon);
-        if (template.destinationLat != null) newRide.put("destinationLat", template.destinationLat);
-        if (template.destinationLon != null) newRide.put("destinationLon", template.destinationLon);
-        if (template.passengers != null) newRide.put("passengers", template.passengers);
-        if (template.price != null) newRide.put("price", template.price);
-        if (template.notes != null && !template.notes.isEmpty()) newRide.put("notes", template.notes);
-        newRide.put("status", "vorbestellt");
-        newRide.put("source", "native_rebook");
-        newRide.put("createdAt", System.currentTimeMillis());
-        newRide.put("updatedAt", System.currentTimeMillis());
-        DatabaseReference ref = db.getReference("rides").push();
-        String newId = ref.getKey();
-        ref.setValue(newRide)
-            .addOnSuccessListener(_t -> {
-                Ride newR = new Ride();
-                newR.id = newId;
-                newR.customerName = template.customerName;
-                newR.customerPhone = template.customerPhone;
-                newR.customerEmail = template.customerEmail;
-                newR.customerId = template.customerId;
-                newR.guestName = template.guestName;
-                newR.pickup = template.pickup;
-                newR.destination = template.destination;
-                newR.pickupLat = template.pickupLat;
-                newR.pickupLon = template.pickupLon;
-                newR.destinationLat = template.destinationLat;
-                newR.destinationLon = template.destinationLon;
-                newR.passengers = template.passengers;
-                newR.price = template.price;
-                newR.notes = template.notes;
-                newR.status = "vorbestellt";
-                runOnUiThread(() -> {
-                    Toast.makeText(this, "✅ Vorlage erstellt — Datum/Uhrzeit wählen", Toast.LENGTH_SHORT).show();
-                    showEditRideDialog(newR);
-                });
-            })
-            .addOnFailureListener(e -> Toast.makeText(this, "❌ Fehler: " + e.getMessage(), Toast.LENGTH_LONG).show());
+        if (template == null || template.id == null) return;
+        // Dialog schließen bevor wir CrmSearchActivity starten
+        if (_currentSearchDialog != null && _currentSearchDialog.isShowing()) {
+            _currentSearchDialog.dismiss();
+            _currentSearchDialog = null;
+        }
+        // Prüfen ob Fahrt noch in /rides ist (activeRides enthält sie)
+        boolean inActiveRides = false;
+        for (Ride _cr : _currentRides) {
+            if (template.id.equals(_cr.id)) { inActiveRides = true; break; }
+        }
+        if (inActiveRides) {
+            // Direkt CrmSearchActivity mit originalem Ride-ID starten → schöne Maske
+            Intent i = new Intent(this, CrmSearchActivity.class);
+            i.putExtra("auto_template_ride_id", template.id);
+            startActivity(i);
+        } else {
+            // Archiv-Ride: Vorlage temporär in /rides pushen, damit CrmSearchActivity sie findet
+            Map<String, Object> _tmp = new HashMap<>();
+            _tmp.put("customerName", template.customerName != null ? template.customerName : "");
+            if (template.customerPhone != null) _tmp.put("customerPhone", template.customerPhone);
+            if (template.customerEmail != null) _tmp.put("customerEmail", template.customerEmail);
+            if (template.customerId != null) _tmp.put("customerId", template.customerId);
+            if (template.guestName != null) _tmp.put("guestName", template.guestName);
+            _tmp.put("pickup", template.pickup != null ? template.pickup : "");
+            _tmp.put("destination", template.destination != null ? template.destination : "");
+            if (template.pickupLat != null) _tmp.put("pickupLat", template.pickupLat);
+            if (template.pickupLon != null) _tmp.put("pickupLon", template.pickupLon);
+            if (template.destinationLat != null) _tmp.put("destinationLat", template.destinationLat);
+            if (template.destinationLon != null) _tmp.put("destinationLon", template.destinationLon);
+            if (template.passengers != null) _tmp.put("passengers", template.passengers);
+            if (template.price != null) _tmp.put("price", template.price);
+            if (template.notes != null) _tmp.put("notes", template.notes);
+            _tmp.put("status", "template_draft");
+            _tmp.put("_rebookTemplate", true);
+            _tmp.put("createdAt", System.currentTimeMillis());
+            DatabaseReference _ref = db.getReference("rides").push();
+            String _tmpId = _ref.getKey();
+            _ref.setValue(_tmp)
+                .addOnSuccessListener(_t -> {
+                    Intent i = new Intent(this, CrmSearchActivity.class);
+                    i.putExtra("auto_template_ride_id", _tmpId);
+                    startActivity(i);
+                })
+                .addOnFailureListener(_e -> Toast.makeText(this,
+                    "❌ Vorlage laden fehlgeschlagen: " + _e.getMessage(), Toast.LENGTH_LONG).show());
+        }
     }
 
     private void _sendVorkasseEmail(String rideId, String email, String name, String amount, String pickup, String destination, String pickupTime, String anfrageId) {

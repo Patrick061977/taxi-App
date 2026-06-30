@@ -618,59 +618,69 @@ public class CrmSearchActivity extends AppCompatActivity {
         FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("rides/" + _rid).get()
             .addOnCompleteListener(task -> {
                 if (!task.isSuccessful() || task.getResult() == null || !task.getResult().exists()) {
-                    Toast.makeText(this, "❌ Fahrt-Vorlage nicht gefunden", Toast.LENGTH_LONG).show();
+                    // 🆕 v6.63.564: Fallback auf /archiveRides (Rebook aus Suche/Archiv)
+                    FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("archiveRides/" + _rid).get()
+                        .addOnCompleteListener(archTask -> {
+                            boolean isTemp = false;
+                            Map<String, Object> _full = null;
+                            if (archTask.isSuccessful() && archTask.getResult() != null && archTask.getResult().exists()) {
+                                _full = (Map<String, Object>) archTask.getResult().getValue();
+                            } else {
+                                // Könnte temp_draft aus /rides sein — noch mal lesen
+                                Toast.makeText(this, "❌ Fahrt-Vorlage nicht gefunden", Toast.LENGTH_LONG).show();
+                                return;
+                            }
+                            if (_full == null) { Toast.makeText(this, "❌ Vorlage-Daten leer", Toast.LENGTH_LONG).show(); return; }
+                            _applyTemplateAndShow(_full, _rid, false, _swap);
+                        });
                     return;
                 }
                 Map<String, Object> _full = (Map<String, Object>) task.getResult().getValue();
-                if (_full == null) {
-                    Toast.makeText(this, "❌ Vorlage-Daten leer", Toast.LENGTH_LONG).show();
-                    return;
-                }
-                // Kunde aus CRM-Liste finden (per customerId), sonst temp-Entry bauen
-                String _custId = _full.get("customerId") instanceof String ? (String) _full.get("customerId") : null;
-                CrmEntry e = null;
-                if (_custId != null) {
-                    for (CrmEntry x : all) {
-                        if (_custId.equals(x.id)) { e = x; break; }
-                    }
-                }
-                if (e == null) {
-                    e = new CrmEntry();
-                    e.id = _custId; // kann null sein
-                    e.name = _full.get("customerName") instanceof String ? (String) _full.get("customerName") : null;
-                    e.phone = _full.get("customerPhone") instanceof String ? (String) _full.get("customerPhone") : null;
-                    e.mobilePhone = _full.get("customerMobile") instanceof String ? (String) _full.get("customerMobile") : null;
-                }
-                // Template-Map bauen — gleiche Strip-Logik wie openRideAsTemplate
-                Map<String, Object> _template = new HashMap<>(_full);
-                _template.remove("pickupTimestamp"); _template.remove("pickupTime");
-                _template.remove("vehicleId"); _template.remove("assignedVehicle");
-                _template.remove("assignedTo"); _template.remove("assignedAt");
-                _template.remove("assignedBy"); _template.remove("acceptedAt");
-                _template.remove("acceptedVia"); _template.remove("status");
-                _template.remove("createdAt"); _template.remove("updatedAt");
-                _template.remove("completedAt"); _template.remove("cancelledAt");
-                _template.remove("cancelReason"); _template.remove("invoiceNumber");
-                _template.remove("paymentMethod"); _template.remove("editedAt");
-                _template.remove("editedVia"); _template.remove("source");
-                // Rueckfahrt: pickup/destination + coords tauschen
-                if (_swap) {
-                    Object _p = _template.get("pickup");
-                    Object _d = _template.get("destination");
-                    _template.put("pickup", _d); _template.put("destination", _p);
-                    Object _pl = _template.get("pickupLat"); Object _pn = _template.get("pickupLon");
-                    Object _dl = _template.get("destinationLat"); Object _dn = _template.get("destinationLon");
-                    _template.put("pickupLat", _dl); _template.put("pickupLon", _dn);
-                    _template.put("destinationLat", _pl); _template.put("destinationLon", _pn);
-                    // pickupCoords / destCoords als Map ebenfalls tauschen
-                    Object _pc = _template.get("pickupCoords"); Object _dc = _template.get("destCoords");
-                    _template.put("pickupCoords", _dc); _template.put("destCoords", _pc);
-                    Toast.makeText(this, "🔄 Rueckfahrt — Abhol-/Zielort getauscht", Toast.LENGTH_SHORT).show();
-                } else {
-                    Toast.makeText(this, "📋 Vorlage geladen — waehle neuen Termin", Toast.LENGTH_SHORT).show();
-                }
-                showVorbestellungMaske(e, new ArrayList<>(), new HashMap<>(), null, _template);
+                boolean _isTemp = Boolean.TRUE.equals(_full != null ? _full.get("_rebookTemplate") : null);
+                _applyTemplateAndShow(_full, _rid, _isTemp, _swap);
             });
+    }
+
+    // 🆕 v6.63.564: Gemeinsame Logik für Template aus /rides + /archiveRides
+    private void _applyTemplateAndShow(Map<String, Object> _full, String _rid, boolean deleteAfter, boolean _swap) {
+        if (_full == null) { Toast.makeText(this, "❌ Vorlage-Daten leer", Toast.LENGTH_LONG).show(); return; }
+        if (deleteAfter) FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("rides/" + _rid).removeValue();
+        String _custId = _full.get("customerId") instanceof String ? (String) _full.get("customerId") : null;
+        CrmEntry e = null;
+        if (_custId != null) { for (CrmEntry x : all) { if (_custId.equals(x.id)) { e = x; break; } } }
+        if (e == null) {
+            e = new CrmEntry();
+            e.id = _custId;
+            e.name = _full.get("customerName") instanceof String ? (String) _full.get("customerName") : null;
+            e.phone = _full.get("customerPhone") instanceof String ? (String) _full.get("customerPhone") : null;
+            e.mobilePhone = _full.get("customerMobile") instanceof String ? (String) _full.get("customerMobile") : null;
+        }
+        Map<String, Object> _template = new HashMap<>(_full);
+        _template.remove("pickupTimestamp"); _template.remove("pickupTime");
+        _template.remove("vehicleId"); _template.remove("assignedVehicle");
+        _template.remove("assignedTo"); _template.remove("assignedAt");
+        _template.remove("assignedBy"); _template.remove("acceptedAt");
+        _template.remove("acceptedVia"); _template.remove("status");
+        _template.remove("createdAt"); _template.remove("updatedAt");
+        _template.remove("completedAt"); _template.remove("cancelledAt");
+        _template.remove("cancelReason"); _template.remove("invoiceNumber");
+        _template.remove("paymentMethod"); _template.remove("editedAt");
+        _template.remove("editedVia"); _template.remove("source");
+        _template.remove("_rebookTemplate");
+        if (_swap) {
+            Object _p = _template.get("pickup"); Object _d = _template.get("destination");
+            _template.put("pickup", _d); _template.put("destination", _p);
+            Object _pl = _template.get("pickupLat"); Object _pn = _template.get("pickupLon");
+            Object _dl = _template.get("destinationLat"); Object _dn = _template.get("destinationLon");
+            _template.put("pickupLat", _dl); _template.put("pickupLon", _dn);
+            _template.put("destinationLat", _pl); _template.put("destinationLon", _pn);
+            Object _pc = _template.get("pickupCoords"); Object _dc = _template.get("destCoords");
+            _template.put("pickupCoords", _dc); _template.put("destCoords", _pc);
+            Toast.makeText(this, "🔄 Rueckfahrt — Abhol-/Zielort getauscht", Toast.LENGTH_SHORT).show();
+        } else {
+            Toast.makeText(this, "📋 Vorlage geladen — wähle neuen Termin", Toast.LENGTH_SHORT).show();
+        }
+        showVorbestellungMaske(e, new ArrayList<>(), new HashMap<>(), null, _template);
     }
 
     // 🆕 v6.62.801 (Patrick 18.05. 11:31): CallLog 'Vorbestellung erstellen' soll EXAKT die

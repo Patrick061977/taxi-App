@@ -311,7 +311,9 @@ public class AdminDashboardActivity extends AppCompatActivity {
             // angelegt wurden fuer uebermorgen. Jetzt pickupTimestamp-Filter: 2h vor jetzt
             // bis +14 Tage, deckt aktive + alle naechste-Wochen-Vorbestellungen ab.
             // v6.62.636: _includePast → 30 Tage zurueck (Default 2h zurueck)
-            long pastHours = _includePast ? (30L * 24) : 2L;
+            // v6.63.565: 2h → 12h — Fahrten die vor >2h Pickup-Zeit noch aktiv sind
+            //   (on_way, picked_up, accepted) verschwanden aus der Dispo (Weimann-Bug 30.06.)
+            long pastHours = _includePast ? (30L * 24) : 12L;
             long since = System.currentTimeMillis() - pastHours * 60 * 60 * 1000;
             long until = System.currentTimeMillis() + 14L * 24 * 60 * 60 * 1000;
             openRidesQuery = db.getReference("rides").orderByChild("pickupTimestamp").startAt(since).endAt(until);

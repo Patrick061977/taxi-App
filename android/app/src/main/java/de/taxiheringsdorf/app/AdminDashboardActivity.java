@@ -207,23 +207,34 @@ public class AdminDashboardActivity extends AppCompatActivity {
         rv.setAdapter(adapter);
 
         // 🆕 v6.63.561: Suchfeld-Setup
+        // 🔧 v6.63.563: Suche NUR bei Enter/IME-Search oder Lupe-Button — KEIN Auto-Debounce
         etAdminSearch = findViewById(R.id.et_admin_search);
         btnAdminSearchClear = findViewById(R.id.btn_admin_search_clear);
-        _searchHandler = new android.os.Handler(android.os.Looper.getMainLooper());
         if (etAdminSearch != null) {
+            // TextWatcher: nur Clear-Button zeigen/verstecken — KEINE automatische Suche
             etAdminSearch.addTextChangedListener(new android.text.TextWatcher() {
                 @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
                 @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
-                    if (_searchRunnable != null) _searchHandler.removeCallbacks(_searchRunnable);
                     String q = s.toString().trim();
                     if (btnAdminSearchClear != null)
                         btnAdminSearchClear.setVisibility(q.isEmpty() ? View.GONE : View.VISIBLE);
-                    if (q.length() >= 2) {
-                        _searchRunnable = () -> performAdminSearch(q);
-                        _searchHandler.postDelayed(_searchRunnable, 400);
-                    }
                 }
                 @Override public void afterTextChanged(android.text.Editable s) {}
+            });
+            // Enter / Lupe-Taste auf Tastatur → Suche auslösen
+            etAdminSearch.setOnEditorActionListener((v, actionId, event) -> {
+                if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH
+                        || actionId == android.view.inputmethod.EditorInfo.IME_ACTION_DONE
+                        || (event != null && event.getKeyCode() == android.view.KeyEvent.KEYCODE_ENTER)) {
+                    String q = etAdminSearch.getText() != null ? etAdminSearch.getText().toString().trim() : "";
+                    if (q.length() >= 2) performAdminSearch(q);
+                    // Tastatur ausblenden
+                    android.view.inputmethod.InputMethodManager imm =
+                        (android.view.inputmethod.InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+                    if (imm != null) imm.hideSoftInputFromWindow(etAdminSearch.getWindowToken(), 0);
+                    return true;
+                }
+                return false;
             });
         }
         if (btnAdminSearchClear != null) {

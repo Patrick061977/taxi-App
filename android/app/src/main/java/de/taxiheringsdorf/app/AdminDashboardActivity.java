@@ -443,7 +443,14 @@ public class AdminDashboardActivity extends AppCompatActivity {
             if (_wpBanner != null && _wpText != null) {
                 if (wartepoolCount > 0) {
                     _wpText.setText("⚠️ WARTEPOOL: " + wartepoolCount + " Fahrt" + (wartepoolCount == 1 ? "" : "en") + " warten — manuelle Disposition!");
-                    _wpBanner.setVisibility(android.view.View.VISIBLE);
+                    // 🆕 v6.63.566: Wartepool-Banner ausblenden wenn Anfragen-Banner sichtbar
+                    //   (Anfragen haben höhere Priorität — beide gleichzeitig = visuelles Chaos)
+                    android.widget.LinearLayout _anfBannerCheck = findViewById(R.id.admin_anfragen_banner);
+                    if (_anfBannerCheck != null && _anfBannerCheck.getVisibility() == android.view.View.VISIBLE) {
+                        _wpBanner.setVisibility(android.view.View.GONE);
+                    } else {
+                        _wpBanner.setVisibility(android.view.View.VISIBLE);
+                    }
                     // v6.62.958: erste Wartepool-Ride in sectioned finden (inline jetzt)
                     _wpBanner.setOnClickListener(_v -> {
                         try {
@@ -2617,10 +2624,42 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 v.setPadding(24, 24, 24, 24);
                 return new AnfrageVH(v);
             }
-            View v = LayoutInflater.from(p.getContext()).inflate(android.R.layout.simple_list_item_2, p, false);
-            v.setBackgroundColor(Color.parseColor("#1E293B"));
-            v.setPadding(24, 24, 24, 24);
-            return new RideVH(v);
+            // 🆕 v6.63.566: Statt simple_list_item_2 → eigenes LinearLayout damit
+            //   Wartepool-Diagnose einklappbar (tvWpToggle + tvWpDiag als dritte Ebene)
+            android.widget.LinearLayout _rideRoot = new android.widget.LinearLayout(p.getContext());
+            _rideRoot.setOrientation(android.widget.LinearLayout.VERTICAL);
+            _rideRoot.setBackgroundColor(Color.parseColor("#1E293B"));
+            _rideRoot.setPadding(24, 24, 24, 24);
+            _rideRoot.setLayoutParams(new RecyclerView.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+            TextView _rt1 = new TextView(p.getContext());
+            _rt1.setTextSize(14);
+            _rt1.setTextColor(Color.parseColor("#F8FAFC"));
+            _rideRoot.addView(_rt1, new android.widget.LinearLayout.LayoutParams(
+                android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT));
+            TextView _rt2 = new TextView(p.getContext());
+            _rt2.setTextSize(12);
+            _rt2.setTextColor(Color.parseColor("#94A3B8"));
+            _rt2.setPadding(0, 6, 0, 0);
+            _rideRoot.addView(_rt2, new android.widget.LinearLayout.LayoutParams(
+                android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT));
+            // Toggle-Button für Wartepool-Diagnose (default GONE, nur sichtbar bei wartepool)
+            TextView _rtToggle = new TextView(p.getContext());
+            _rtToggle.setTextSize(12);
+            _rtToggle.setTextColor(Color.parseColor("#FBBF24"));
+            _rtToggle.setPadding(0, 8, 0, 4);
+            _rtToggle.setVisibility(View.GONE);
+            _rideRoot.addView(_rtToggle);
+            // Diagnose-Inhalt (default GONE, wird per Toggle ein-/ausgeklappt)
+            TextView _rtDiag = new TextView(p.getContext());
+            _rtDiag.setTextSize(11);
+            _rtDiag.setTextColor(Color.parseColor("#FCA5A5"));
+            _rtDiag.setPadding(0, 4, 0, 0);
+            _rtDiag.setVisibility(View.GONE);
+            _rideRoot.addView(_rtDiag);
+            return new RideVH(_rideRoot, _rt1, _rt2, _rtToggle, _rtDiag);
         }
         @Override public void onBindViewHolder(@NonNull RecyclerView.ViewHolder h, int pos) {
             Object item = data.get(pos);
@@ -2704,13 +2743,14 @@ public class AdminDashboardActivity extends AppCompatActivity {
         }
 
         class RideVH extends RecyclerView.ViewHolder {
-            TextView t1, t2;
-            RideVH(View v) {
+            TextView t1, t2, tvWpToggle, tvWpDiag;
+            // 🆕 v6.63.566: Konstruktor mit allen 4 TextViews (eigenes Layout statt simple_list_item_2)
+            RideVH(View v, TextView _t1, TextView _t2, TextView _toggle, TextView _diag) {
                 super(v);
-                t1 = v.findViewById(android.R.id.text1);
-                t2 = v.findViewById(android.R.id.text2);
-                t1.setTextColor(Color.parseColor("#F8FAFC"));
-                t2.setTextColor(Color.parseColor("#94A3B8"));
+                t1 = _t1;
+                t2 = _t2;
+                tvWpToggle = _toggle;
+                tvWpDiag = _diag;
             }
             void bind(Ride r) {
                 // 🆕 v6.63.360 (Patrick 16.06. 11:24 Bridge: "Ich sehe in der Disposition
@@ -2809,8 +2849,10 @@ public class AdminDashboardActivity extends AppCompatActivity {
                     route.append("\n").append(r.conflictHint).append("\n💡 Karte tippen → Pickup verschieben um Konflikt zu lösen");
                 }
                 // 🆕 v6.63.191 (Patrick 06.06. 10:17): Wartepool-Konflikt-Grund sichtbar machen
+                // 🆕 v6.63.566: Diagnose wird NICHT mehr in route angehängt, sondern in
+                //   tvWpDiag (einklappbar per Toggle-Button — default: GONE)
                 if (_isWartepool) {
-                    StringBuilder wpDiag = new StringBuilder("\n⏸️ ");
+                    StringBuilder wpDiag = new StringBuilder("⏸️ ");
                     if (r.wartepoolAt != null) {
                         java.text.SimpleDateFormat _wf = new java.text.SimpleDateFormat("HH:mm", Locale.GERMANY);
                         _wf.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
@@ -2847,35 +2889,29 @@ public class AdminDashboardActivity extends AppCompatActivity {
                             wpDiag.append(" um ").append(_lf.format(new java.util.Date(r.lockedAt)));
                         }
                     }
-                    route.append(wpDiag.toString());
                     // 🆕 v6.63.355: Bevorzugt Cloud-vehicleScores nutzen (echte Cloud-Diagnose
                     //   mit Schicht-Status, Wochenplan, Konflikt-Details). Fallback auf eigene
                     //   Konflikt-Berechnung wenn die Cloud noch nicht gescort hat.
                     final String[] _v355Ids   = {"pw-my-222-e", "pw-ik-222", "pw-sk-222", "pw-ki-222", "pw-ym-222-e", "vg-lk-111"};
                     final String[] _v355Names = {"Tesla MY222", "Prius IK", "Renault SK", "Toyota KI", "Tesla YM222", "Mercedes LK"};
                     if (r.vehicleScores != null && !r.vehicleScores.isEmpty()) {
-                        StringBuilder wpSol = new StringBuilder("\n\n💡 CLOUD-DIAGNOSE PRO FAHRZEUG:");
+                        wpDiag.append("\n\n💡 CLOUD-DIAGNOSE PRO FAHRZEUG:");
                         for (int _vi = 0; _vi < _v355Ids.length; _vi++) {
                             java.util.Map<String, Object> _info = r.vehicleScores.get(_v355Ids[_vi]);
                             if (_info == null) continue;
                             String _st = String.valueOf(_info.get("status"));
                             String _rs = String.valueOf(_info.get("reason"));
                             String _icon = "available".equals(_st) ? "🟢" : "❌";
-                            wpSol.append("\n").append(_icon).append(" ").append(_v355Names[_vi]);
+                            wpDiag.append("\n").append(_icon).append(" ").append(_v355Names[_vi]);
                             if (_rs != null && !"null".equals(_rs) && !_rs.isEmpty()) {
-                                wpSol.append(" — ").append(_rs);
+                                wpDiag.append(" — ").append(_rs);
                             }
                         }
-                        wpSol.append("\n👉 Karte tippen → Fahrzeug wählen / Pickup verschieben");
-                        route.append(wpSol.toString());
+                        wpDiag.append("\n👉 Karte tippen → Fahrzeug wählen / Pickup verschieben");
                     } else if (r.pickupTimestamp != null) {
-                        // 🆕 v6.63.361 (Patrick 16.06. 12:53 Bridge: "wo steht dann wann der
-                        //   Tesla wieder zurück ist? Ich würde doch gerne wissen wann ist
-                        //   ungefähr der Tesla zurück. Ob das passt von der Zeit"):
-                        //   Pro Fahrzeug zeige ich jetzt die letzte Belegung VOR der
-                        //   Wartepool-Pickup-Zeit + dessen Ende → "Frei ab HH:MM (nach X)".
-                        //   Plus weiterhin Konflikt-Erkennung im ±30min-Fenster.
-                        StringBuilder wpSol = new StringBuilder("\n\n💡 FAHRZEUG-LAGE:");
+                        // 🆕 v6.63.361 (Patrick 16.06. 12:53 Bridge): Pro Fahrzeug letzte
+                        //   Belegung VOR Wartepool-Pickup-Zeit + Frei-Ab. Rückfahrt-Heuristik.
+                        wpDiag.append("\n\n💡 FAHRZEUG-LAGE:");
                         int _dur354 = (r.estimatedDuration != null && r.estimatedDuration > 0) ? r.estimatedDuration : 15;
                         long _rideStart354 = r.pickupTimestamp - 30L * 60_000L;
                         long _rideEnd354 = r.pickupTimestamp + (long) _dur354 * 60_000L + 30L * 60_000L;
@@ -2887,7 +2923,6 @@ public class AdminDashboardActivity extends AppCompatActivity {
                             String _vid354 = _v354Ids[_vi354];
                             String _conflictLabel = null;
                             long _conflictTs = 0;
-                            // Plus: letzte Belegung VOR der Wartepool-Pickup-Zeit
                             long _busyUntil = 0;
                             String _busyByName = null;
                             for (Ride _other : _currentRides) {
@@ -2898,45 +2933,56 @@ public class AdminDashboardActivity extends AppCompatActivity {
                                 int _oDur = (_other.estimatedDuration != null && _other.estimatedDuration > 0) ? _other.estimatedDuration : 15;
                                 long _oStart = _other.pickupTimestamp;
                                 long _oEnd = _oStart + (long) _oDur * 60_000L;
-                                // Konflikt im ±30min-Fenster?
                                 if (_oStart < _rideEnd354 && _oEnd > _rideStart354) {
                                     if (_conflictLabel == null) {
                                         _conflictLabel = _other.customerName != null ? _other.customerName : "?";
                                         _conflictTs = _oStart;
                                     }
                                 }
-                                // 🆕 v6.63.362 (Patrick 16.06. 13:17 Bridge: "Ich bin nicht
-                                //   7:40 frei. Ich bin nicht vor 8:30 zurück. 70 Min hin + 70
-                                //   Min zurück = 140 Min. Hast du nach OSRM berechnet?"):
-                                //   Bei Dauer >30 Min Fahrt verdopple ich (Rückfahrt zur Homebase)
-                                //   — sonst Fehler 70 statt 140 Min. Heuristik bis Google Distance
-                                //   Matrix integriert ist (Memory no-umwegfaktor).
+                                // 🆕 v6.63.362: Rückfahrt-Heuristik bei Langstrecke (>30 Min)
                                 long _oRideEndPlusReturn = _oEnd;
                                 if (_oDur > 30) {
-                                    // Langstrecke → Rückfahrt schätzen = nochmal estimatedDuration
                                     _oRideEndPlusReturn = _oEnd + (long) _oDur * 60_000L;
                                 }
-                                // Vor der Wartepool-Pickup? → Frei-Ab-Kandidat
                                 if (_oRideEndPlusReturn <= r.pickupTimestamp && _oRideEndPlusReturn > _busyUntil) {
                                     _busyUntil = _oRideEndPlusReturn;
                                     _busyByName = _other.customerName != null ? _other.customerName : "?";
                                 }
                             }
-                            wpSol.append("\n");
+                            wpDiag.append("\n");
                             if (_conflictLabel != null) {
-                                wpSol.append("🟡 ").append(_v354Names[_vi354]).append(" — Konflikt ").append(_conflictLabel)
+                                wpDiag.append("🟡 ").append(_v354Names[_vi354]).append(" — Konflikt ").append(_conflictLabel)
                                      .append(" ").append(_wpHm.format(new java.util.Date(_conflictTs)));
                             } else if (_busyUntil > 0) {
-                                wpSol.append("🟢 ").append(_v354Names[_vi354]).append(" frei ab ")
+                                wpDiag.append("🟢 ").append(_v354Names[_vi354]).append(" frei ab ")
                                      .append(_wpHm.format(new java.util.Date(_busyUntil)))
                                      .append(" (nach ").append(_busyByName).append(")");
                             } else {
-                                wpSol.append("🟢 ").append(_v354Names[_vi354]).append(" frei");
+                                wpDiag.append("🟢 ").append(_v354Names[_vi354]).append(" frei");
                             }
                         }
-                        wpSol.append("\n👉 Karte tippen → Fahrzeug wählen / Pickup verschieben");
-                        route.append(wpSol.toString());
+                        wpDiag.append("\n👉 Karte tippen → Fahrzeug wählen / Pickup verschieben");
                     }
+                    // 🆕 v6.63.566: Diagnose in tvWpDiag (einklappbar), nicht mehr in route
+                    final String _wpDiagText = wpDiag.toString();
+                    tvWpDiag.setText(_wpDiagText);
+                    tvWpDiag.setVisibility(View.GONE); // default: eingeklappt
+                    tvWpToggle.setText("💡 Details");
+                    tvWpToggle.setVisibility(View.VISIBLE);
+                    tvWpToggle.setOnClickListener(_tv -> {
+                        if (tvWpDiag.getVisibility() == View.VISIBLE) {
+                            tvWpDiag.setVisibility(View.GONE);
+                            tvWpToggle.setText("💡 Details");
+                        } else {
+                            tvWpDiag.setVisibility(View.VISIBLE);
+                            tvWpToggle.setText("▲ Details");
+                        }
+                    });
+                } else {
+                    // Nicht-Wartepool: Toggle + Diagnose ausblenden
+                    tvWpToggle.setVisibility(View.GONE);
+                    tvWpToggle.setOnClickListener(null);
+                    tvWpDiag.setVisibility(View.GONE);
                 }
                 // 🆕 v6.63.096 (Patrick 03.06. 07:30): Krankenfahrt-Banner prominent.
                 //   Wenn paymentMethod=transportschein → grüner "🏥 KRANKENFAHRT" Banner damit

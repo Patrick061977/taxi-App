@@ -5395,13 +5395,25 @@ async function calculateRoute(from, to, waypointCoords = []) {
             waypointCoords.forEach(wp => { coordinates += `;${wp.lon},${wp.lat}`; });
         }
         coordinates += `;${to.lon},${to.lat}`;
-        const resp = await fetch(`https://router.project-osrm.org/route/v1/driving/${coordinates}?overview=false`, {
+        // 🔧 v6.63.578: alternatives=3 damit OSRM auch kürzere Distanz-Varianten liefert.
+        // OSRM wählt ohne alternatives immer die SCHNELLSTE Route (kann 5+ km länger sein
+        // als die kürzeste — z.B. Bansin→Flughafen: 19.6 km Waldweg vs 14.5 km via HDF).
+        // Nach dem Fetch nehmen wir die kürzeste Distanz aus den Alternativen.
+        const hasWaypoints = waypointCoords && waypointCoords.length > 0;
+        const altParam = hasWaypoints ? '' : '&alternatives=3';
+        const resp = await fetch(`https://router.project-osrm.org/route/v1/driving/${coordinates}?overview=false${altParam}`, {
             signal: AbortSignal.timeout(8000)
         });
         if (!resp.ok) throw new Error('OSRM HTTP ' + resp.status);
         const data = await resp.json();
         if (!data.routes || !data.routes[0]) throw new Error('OSRM kein Ergebnis');
-        const route = data.routes[0];
+        // Kürzeste Distanz aus allen Alternativen wählen
+        const _allOsrm = (data.routes || []).filter(r => r.distance > 0);
+        _allOsrm.sort((a, b) => a.distance - b.distance);
+        const route = _allOsrm[0];
+        if (_allOsrm.length > 1) {
+            console.log(`🛣️ OSRM: ${_allOsrm.length} Alternativen, kürzeste ${(route.distance/1000).toFixed(1)}km gewählt (längste: ${(_allOsrm[_allOsrm.length-1].distance/1000).toFixed(1)}km)`);
+        }
         const legs = (route.legs || []).map(l => ({
             duration: Math.round((l.duration || 0) / 60),
             distance: +(((l.distance || 0) / 1000).toFixed(1))

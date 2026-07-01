@@ -3372,8 +3372,8 @@ public class AdminDashboardActivity extends AppCompatActivity {
         }
 
         // 🆕 v6.63.572 (Patrick 01.07. 13:38): "Wie erstelle ich eine Quittung auf Namen des Gastes?"
-        //   Kompletzte Fahrt OHNE bestehende Rechnung → Button 'Quittung erstellen' anzeigen.
-        //   Fragt nach Gastnamen, setzt invoiceRequested=true → Cloud Function generiert PDF.
+        //   v6.63.573: + Telefon/Email-Felder → SMS/Email-Versand direkt nach Bestätigung.
+        //   Abgeschlossene Fahrt OHNE bestehende Rechnung → Button 'Quittung erstellen'.
         if ("completed".equals(r.status) && (r.invoiceNumber == null || r.invoiceNumber.isEmpty())) {
             com.google.android.material.button.MaterialButton btnQuittung =
                 new com.google.android.material.button.MaterialButton(this);
@@ -3387,27 +3387,77 @@ public class AdminDashboardActivity extends AppCompatActivity {
             btnQuittung.setLayoutParams(_qParams);
             btnQuittung.setOnClickListener(_v -> {
                 if (_dlgRef.get() != null) _dlgRef.get().dismiss();
-                // Dialog: Gastnamen eingeben/bestaetigen
+                int _p = (int) (getResources().getDisplayMetrics().density * 16);
+                LinearLayout _form = new LinearLayout(this);
+                _form.setOrientation(LinearLayout.VERTICAL);
+                _form.setPadding(_p, _p / 2, _p, _p / 2);
+                // Feld 1: Gastname
                 android.widget.EditText etName = new android.widget.EditText(this);
-                etName.setHint("Name des Gastes / Kundens");
+                etName.setHint("Name des Gastes");
                 String _prefill = r.guestName != null && !r.guestName.isEmpty()
                     ? r.guestName : (r.customerName != null ? r.customerName : "");
                 etName.setText(_prefill);
                 etName.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_FLAG_CAP_WORDS);
-                int _p = (int) (getResources().getDisplayMetrics().density * 16);
-                etName.setPadding(_p, _p / 2, _p, _p / 2);
+                _form.addView(etName);
+                // Feld 2: Mobilnummer für SMS
+                android.widget.EditText etPhone = new android.widget.EditText(this);
+                etPhone.setHint("Handy-Nr. (optional, für SMS-Versand)");
+                String _phonePrefill = r.customerMobile != null && !r.customerMobile.isEmpty()
+                    ? r.customerMobile : (r.customerPhone != null ? r.customerPhone : "");
+                etPhone.setText(_phonePrefill);
+                etPhone.setInputType(android.text.InputType.TYPE_CLASS_PHONE);
+                LinearLayout.LayoutParams _ep = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+                _ep.setMargins(0, _p / 2, 0, 0);
+                etPhone.setLayoutParams(_ep);
+                _form.addView(etPhone);
+                // Feld 3: Email
+                android.widget.EditText etEmail = new android.widget.EditText(this);
+                etEmail.setHint("Email (optional, für Email-Versand)");
+                String _emailPrefill = r.customerEmail != null ? r.customerEmail : "";
+                etEmail.setText(_emailPrefill);
+                etEmail.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS);
+                LinearLayout.LayoutParams _ee = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+                _ee.setMargins(0, _p / 2, 0, 0);
+                etEmail.setLayoutParams(_ee);
+                _form.addView(etEmail);
+
                 new androidx.appcompat.app.AlertDialog.Builder(this)
-                    .setTitle("🧾 Quittung auf wen ausstellen?")
-                    .setMessage("Name wird auf der Quittung/Rechnung gedruckt.")
-                    .setView(etName)
-                    .setPositiveButton("Quittung erstellen", (_d, _w) -> {
-                        String _name = etName.getText().toString().trim();
+                    .setTitle("🧾 Quittung erstellen")
+                    .setMessage("Name + Kontakt des Gastes. SMS/Email wird sofort verschickt.")
+                    .setView(_form)
+                    .setPositiveButton("Quittung + Versand", (_d, _w) -> {
+                        String _name  = etName.getText().toString().trim();
+                        String _phone = etPhone.getText().toString().trim();
+                        String _email = etEmail.getText().toString().trim();
                         java.util.Map<String, Object> _upd = new java.util.HashMap<>();
                         _upd.put("invoiceRequested", true);
                         _upd.put("needsInvoice", true);
-                        if (!_name.isEmpty()) _upd.put("guestName", _name);
+                        _upd.put("sendReceiptToGuest", true);
+                        if (!_name.isEmpty())  _upd.put("guestName", _name);
+                        if (!_phone.isEmpty()) _upd.put("receiptGuestPhone", _phone);
+                        if (!_email.isEmpty()) _upd.put("receiptGuestEmail", _email);
                         db.getReference("rides/" + r.id).updateChildren(_upd);
-                        Toast.makeText(this, "🧾 Quittung wird generiert — erscheint im Kundenportal", Toast.LENGTH_LONG).show();
+                        // SMS direkt in Queue schreiben (Cloud Function sendet via seven.io)
+                        if (!_phone.isEmpty()) {
+                            String _trackUrl = "https://umwelt-taxi-insel-usedom.de/Taxi-App/track.html?ride=" + r.id;
+                            String _smsText = "Guten Tag" + (_name.isEmpty() ? "" : " " + _name.split(" ")[_name.split(" ").length - 1])
+                                + ", vielen Dank fuer Ihre Fahrt mit Funk Taxi Heringsdorf!\nQuittung/Rechnung: " + _trackUrl
+                                + "\nBei Fragen: 038378 22022";
+                            java.util.Map<String, Object> _sms = new java.util.HashMap<>();
+                            _sms.put("phone", _phone);
+                            _sms.put("text", _smsText);
+                            _sms.put("rideId", r.id);
+                            _sms.put("type", "quittung_an_gast");
+                            _sms.put("status", "pending");
+                            _sms.put("createdAt", System.currentTimeMillis());
+                            db.getReference("smsQueue").push().setValue(_sms);
+                        }
+                        String _confirm = "🧾 Quittung wird generiert"
+                            + (_phone.isEmpty() ? "" : " — SMS an " + _phone)
+                            + (_email.isEmpty() ? "" : " — Email folgt nach PDF-Erstellung");
+                        Toast.makeText(this, _confirm, Toast.LENGTH_LONG).show();
                     })
                     .setNegativeButton("Abbrechen", null)
                     .show();

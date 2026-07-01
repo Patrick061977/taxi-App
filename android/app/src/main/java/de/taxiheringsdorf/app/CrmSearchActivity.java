@@ -249,7 +249,7 @@ public class CrmSearchActivity extends AppCompatActivity {
         dlgLayout.addView(scrollResults);
 
         TextView tvHint = new TextView(this);
-        tvHint.setText("ℹ️ Min. 2 Buchstaben — sucht in CRM (Name + Adresse). Kein Treffer? → 🗺️ Karte/Google.");
+        tvHint.setText("ℹ️ Ab 2 Buchst. → CRM-Treffer | Ab 3 Buchst. → Adressvorschläge (Nominatim) | 🗺️ Karte/Google für freie Auswahl");
         tvHint.setTextSize(11);
         tvHint.setTextColor(0xFF6B7280);
         tvHint.setPadding(0, dPad / 2, 0, 0);
@@ -275,10 +275,18 @@ public class CrmSearchActivity extends AppCompatActivity {
             .setNegativeButton("Abbrechen", null)
             .create();
 
+        // Nominatim-Autocomplete: Handler + Box für asynchrone Adressvorschläge
+        final android.os.Handler _nomHandler = new android.os.Handler(android.os.Looper.getMainLooper());
+        final Runnable[] _nomRunnable = { null };
+        final LinearLayout nominatimBox = new LinearLayout(this);
+        nominatimBox.setOrientation(LinearLayout.VERTICAL);
+
         final Runnable doFilter = () -> {
             String q = searchInput.getText().toString().toLowerCase().trim();
             resultsBox.removeAllViews();
+            nominatimBox.removeAllViews();
             if (q.length() < 2) return;
+            // CRM-Suche
             int hits = 0;
             for (CrmEntry e : all) {
                 if (e.address == null || e.address.isEmpty()) continue;
@@ -319,12 +327,78 @@ public class CrmSearchActivity extends AppCompatActivity {
             }
             if (hits == 0) {
                 TextView tvNone = new TextView(this);
-                tvNone.setText("Kein CRM-Treffer für „" + searchInput.getText().toString().trim() + "\". → 🗺️ Karte/Google unten nutzen.");
+                tvNone.setText("Kein CRM-Treffer für „" + searchInput.getText().toString().trim() + "".");
                 tvNone.setTextColor(0xFF9CA3AF);
                 tvNone.setTextSize(12);
                 tvNone.setPadding(dPad / 2, dPad / 2, dPad / 2, dPad / 2);
                 resultsBox.addView(tvNone);
             }
+            resultsBox.addView(nominatimBox);
+            // Nominatim-Suche (debounced 600ms, ab 3 Zeichen)
+            if (_nomRunnable[0] != null) _nomHandler.removeCallbacks(_nomRunnable[0]);
+            if (q.length() < 3) return;
+            _nomRunnable[0] = () -> {
+                try {
+                    String enc = java.net.URLEncoder.encode(searchInput.getText().toString().trim(), "UTF-8");
+                    // Suchbereich: Usedom + Umgebung (viewbox = W,N,E,S)
+                    String urlStr = "https://nominatim.openstreetmap.org/search?format=json&limit=5&addressdetails=1"
+                        + "&viewbox=13.5%2C54.5%2C14.7%2C53.8&bounded=0&countrycodes=de&q=" + enc;
+                    java.net.HttpURLConnection c = (java.net.HttpURLConnection) new java.net.URL(urlStr).openConnection();
+                    c.setRequestProperty("User-Agent", "TaxiHeringsdorf-App/6.63");
+                    c.setConnectTimeout(4000); c.setReadTimeout(4000);
+                    java.io.InputStream is = c.getInputStream();
+                    java.io.ByteArrayOutputStream bos = new java.io.ByteArrayOutputStream();
+                    byte[] buf = new byte[4096]; int n2;
+                    while ((n2 = is.read(buf)) != -1) bos.write(buf, 0, n2);
+                    org.json.JSONArray arr = new org.json.JSONArray(bos.toString("UTF-8"));
+                    runOnUiThread(() -> {
+                        nominatimBox.removeAllViews();
+                        if (arr.length() == 0) return;
+                        TextView tvSep = new TextView(this);
+                        tvSep.setText("📍 Adressvorschläge");
+                        tvSep.setTextSize(11);
+                        tvSep.setTypeface(null, android.graphics.Typeface.BOLD);
+                        tvSep.setTextColor(0xFF6B7280);
+                        tvSep.setPadding(dPad / 2, dPad, dPad / 2, dPad / 4);
+                        nominatimBox.addView(tvSep);
+                        for (int _i = 0; _i < arr.length(); _i++) {
+                            try {
+                                org.json.JSONObject r2 = arr.getJSONObject(_i);
+                                String display = r2.optString("display_name", "");
+                                // Kürzen: nur erste 2-3 Teile (Name, Straße, Stadt)
+                                String[] parts = display.split(", ");
+                                String short1 = parts.length > 0 ? parts[0] : display;
+                                String short2 = parts.length > 1 ? parts[1] : "";
+                                String short3 = parts.length > 2 ? parts[2] : "";
+                                String label = short1 + (short2.isEmpty() ? "" : ", " + short2) + (short3.isEmpty() ? "" : ", " + short3);
+                                double _lat = Double.parseDouble(r2.optString("lat", "0"));
+                                double _lon = Double.parseDouble(r2.optString("lon", "0"));
+                                final String finalLabel = label;
+                                final double fLat = _lat, fLon = _lon;
+                                Button btn2 = new Button(this);
+                                btn2.setText("📍 " + finalLabel);
+                                btn2.setAllCaps(false);
+                                btn2.setGravity(android.view.Gravity.START | android.view.Gravity.CENTER_VERTICAL);
+                                btn2.setTextSize(12);
+                                btn2.setPadding(dPad / 2, dPad / 2, dPad / 2, dPad / 2);
+                                btn2.setBackgroundColor(0xFFEFF6FF);
+                                LinearLayout.LayoutParams lp2 = new LinearLayout.LayoutParams(
+                                    LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+                                lp2.setMargins(0, 0, 0, (int)(getResources().getDisplayMetrics().density * 4));
+                                btn2.setLayoutParams(lp2);
+                                btn2.setOnClickListener(_v2 -> {
+                                    if (field != null) field.setText("📍 " + finalLabel);
+                                    if (coordsOut != null) { coordsOut[0] = fLat; coordsOut[1] = fLon; }
+                                    Toast.makeText(this, "✅ " + finalLabel, Toast.LENGTH_SHORT).show();
+                                    dlg.dismiss();
+                                });
+                                nominatimBox.addView(btn2);
+                            } catch (Exception _e2) { /* skip */ }
+                        }
+                    });
+                } catch (Exception _e) { /* Netzwerk-Fehler: kein Crash */ }
+            };
+            _nomHandler.postDelayed(_nomRunnable[0], 600);
         };
 
         searchInput.addTextChangedListener(new TextWatcher() {

@@ -1500,6 +1500,19 @@ async function autoAssignRide(rideId, rideData, _excludeVehicleIds = []) {
                     vehicleScores[vehicleId] = { status: 'rejected', reason: _verifyOk.reason || _shiftInfo.reason || 'Kein Dienst', check: 'shift', shiftDetails: _shiftInfo };
                     continue;
                 }
+                // 🔧 v6.63.568 (01.07. IK-222/MY-222-Bug): Wenn Vorbestellung HEUTE innerhalb
+                // 4h Vorlauf ist UND das Fahrzeug shift.status='auto-ended' hat (Heartbeat-Timeout),
+                // dann blockieren. Ein auto-ended Fahrzeug hat keinen aktiven Fahrer — auch wenn
+                // der Wochenplan es erlaubt. Fahrzeuge mit live-aktiver Schicht bekommen Vorrang.
+                // Hintergrund: Patrick in MY-222 eingeloggt, IK-222 per Heartbeat-Timeout auto-ended
+                // → scheduledAutoAssign weist Fahrten trotzdem IK-222 zu → Patrick sieht sie nicht.
+                const _msUntilPickup = rideData.pickupTimestamp - Date.now();
+                const _isAutoEnded = _vData.shift && _vData.shift.status === 'auto-ended';
+                if (_isAutoEnded && _msUntilPickup < 4 * 60 * 60 * 1000 && _msUntilPickup > -30 * 60 * 1000) {
+                    console.log(`   ❌ ${info.name}: Vorbestellung in <4h — shift.status=auto-ended, kein aktiver Fahrer`);
+                    vehicleScores[vehicleId] = { status: 'rejected', reason: 'Schicht auto-ended (Heartbeat-Timeout), kein Fahrer aktiv', check: 'auto-ended-near-pickup' };
+                    continue;
+                }
             }
 
             // 🆕 v6.26.0: Schichtende-Prüfung — Fahrtende darf Schicht nicht überschreiten

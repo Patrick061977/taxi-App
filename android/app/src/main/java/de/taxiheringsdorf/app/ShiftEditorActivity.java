@@ -869,9 +869,38 @@ public class ShiftEditorActivity extends AppCompatActivity {
                 FirebaseDatabase.getInstance(DB_URL)
                     .getReference("vehicleShifts/" + vs.vehicleId + "/" + dateKey)
                     .setValue(entry)
-                    .addOnSuccessListener(unused -> Toast.makeText(this,
-                        "✅ " + vs.name + ": " + _dayLabel + " (NUR HEUTE) — " + (inactive ? "OFFLINE" : startStr + "–" + endStr) + _datumWarn,
-                        Toast.LENGTH_LONG).show())
+                    .addOnSuccessListener(unused -> {
+                        Toast.makeText(this,
+                            "✅ " + vs.name + ": " + _dayLabel + " (NUR HEUTE) — " + (inactive ? "OFFLINE" : startStr + "–" + endStr) + _datumWarn,
+                            Toast.LENGTH_LONG).show();
+                        // v6.63.571: Live-Shift-Status synchronisieren — vehicleShifts allein
+                        // zeigt keine Wirkung weil Fahrer-App + Dispo vehicles/{vid}/shift.status lesen.
+                        DatabaseReference _liveRef = FirebaseDatabase.getInstance(DB_URL)
+                            .getReference("vehicles/" + vs.vehicleId + "/shift");
+                        if (inactive) {
+                            // AUS: Fahrzeug sofort offline setzen (forceEnded)
+                            Map<String, Object> _end = new HashMap<>();
+                            _end.put("status", "forceEnded");
+                            _end.put("forceEnded", true);
+                            _end.put("forceEndedAt", System.currentTimeMillis());
+                            _end.put("forceEndedBy", "shift-editor-aus");
+                            _liveRef.updateChildren(_end);
+                        } else {
+                            // NUR_DIESER_TAG: Falls auto-ended oder forceEnded → auf active zurueck
+                            _liveRef.get().addOnSuccessListener(snap -> {
+                                String cur = snap.child("status").getValue(String.class);
+                                if ("auto-ended".equals(cur) || "forceEnded".equals(cur)) {
+                                    Map<String, Object> _resume = new HashMap<>();
+                                    _resume.put("status", "active");
+                                    _resume.put("forceEnded", false);
+                                    _resume.put("resumedByAdmin", true);
+                                    _resume.put("resumedAt", System.currentTimeMillis());
+                                    _resume.put("lastHeartbeat", System.currentTimeMillis());
+                                    _liveRef.updateChildren(_resume);
+                                }
+                            });
+                        }
+                    })
                     .addOnFailureListener(e -> Toast.makeText(this,
                         "Fehler: " + e.getMessage(), Toast.LENGTH_LONG).show());
             })

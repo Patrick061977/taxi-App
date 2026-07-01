@@ -17,6 +17,15 @@ const { simpleParser } = require('C:/Taxi App/taxi-App-github/functions/node_mod
 const nodemailer = require('C:/Taxi App/taxi-App-github/functions/node_modules/nodemailer');
 const { pickDatevTarget } = require('./lib/datev-routing');
 
+// .env laden (kein dotenv-Modul verfügbar in scripts)
+const _envPath = path.join(__dirname, '..', '.env');
+if (fs.existsSync(_envPath)) {
+    fs.readFileSync(_envPath, 'utf8').split('\n').forEach(line => {
+        const [k, ...v] = line.trim().split('=');
+        if (k && v.length) process.env[k.trim()] = v.join('=').trim();
+    });
+}
+
 const STATE_FILE = path.join(__dirname, '..', '.gmx-datev-state.json');
 const ONEDRIVE_GMX_ROOT = 'C:/Users/Taxi/OneDrive/5.Buchführung/Rechnungen/_GMX-Eingang';
 // v6.63.315 (Patrick 13.06.2026): 5-Postfach-Routing — Default ist EINGANG, aber pickDatevTarget()

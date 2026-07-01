@@ -3373,11 +3373,13 @@ public class AdminDashboardActivity extends AppCompatActivity {
 
         // 🆕 v6.63.572 (Patrick 01.07. 13:38): "Wie erstelle ich eine Quittung auf Namen des Gastes?"
         //   v6.63.573: + Telefon/Email-Felder → SMS/Email-Versand direkt nach Bestätigung.
-        //   Abgeschlossene Fahrt OHNE bestehende Rechnung → Button 'Quittung erstellen'.
-        if ("completed".equals(r.status) && (r.invoiceNumber == null || r.invoiceNumber.isEmpty())) {
+        //   v6.63.576: Immer anzeigen fuer abgeschlossene Fahrten (auch wenn invoiceNumber gesetzt —
+        //   Auftraggeber-Rechnung != Gast-Quittung).
+        if ("completed".equals(r.status)) {
             com.google.android.material.button.MaterialButton btnQuittung =
                 new com.google.android.material.button.MaterialButton(this);
-            btnQuittung.setText("🧾 Quittung / Rechnung erstellen");
+            boolean _hasInvoice = r.invoiceNumber != null && !r.invoiceNumber.isEmpty();
+            btnQuittung.setText(_hasInvoice ? "🧾 Quittung an Gast senden" : "🧾 Quittung / Rechnung erstellen");
             btnQuittung.setTextSize(15);
             btnQuittung.setBackgroundColor(android.graphics.Color.parseColor("#065f46"));
             btnQuittung.setTextColor(android.graphics.Color.WHITE);

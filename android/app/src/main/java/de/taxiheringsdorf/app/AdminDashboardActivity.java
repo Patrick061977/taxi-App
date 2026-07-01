@@ -3402,8 +3402,7 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 // Feld 2: Mobilnummer für SMS
                 android.widget.EditText etPhone = new android.widget.EditText(this);
                 etPhone.setHint("Handy-Nr. (optional, für SMS-Versand)");
-                String _phonePrefill = r.customerMobile != null && !r.customerMobile.isEmpty()
-                    ? r.customerMobile : (r.customerPhone != null ? r.customerPhone : "");
+                String _phonePrefill = r.customerPhone != null ? r.customerPhone : "";
                 etPhone.setText(_phonePrefill);
                 etPhone.setInputType(android.text.InputType.TYPE_CLASS_PHONE);
                 LinearLayout.LayoutParams _ep = new LinearLayout.LayoutParams(

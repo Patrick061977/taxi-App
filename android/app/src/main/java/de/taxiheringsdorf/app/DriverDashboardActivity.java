@@ -1680,12 +1680,10 @@ public class DriverDashboardActivity extends AppCompatActivity {
             sdf.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
             String _timeStr = first.pickupTimestamp != null ? sdf.format(new java.util.Date(first.pickupTimestamp)) : "?";
             String _custStr = first.customerName != null ? first.customerName : "Kunde";
-            int _pax = first.passengers != null ? first.passengers : 0;
             // v6.63.574: Orange Info-Banner, KEIN Tap-Resolver — nur Bewusstsein schaffen
             banner.setBackgroundColor(android.graphics.Color.parseColor("#ea580c"));
             statusText.setText("⚠️ " + n + " Fahrt" + (n == 1 ? "" : "en") + " ohne Fahrer");
-            nextText.setText(_timeStr + " · " + _custStr + (_pax > 0 ? " · " + _pax + " Pax" : "")
-                + " — in Admin zuweisen");
+            nextText.setText(_timeStr + " · " + _custStr + " — in Admin zuweisen");
             nextText.setVisibility(View.VISIBLE);
             banner.setVisibility(View.VISIBLE);
             banner.setOnClickListener(null); // kein Resolver — nur Info

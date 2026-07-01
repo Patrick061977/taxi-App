@@ -327,7 +327,7 @@ public class CrmSearchActivity extends AppCompatActivity {
             }
             if (hits == 0) {
                 TextView tvNone = new TextView(this);
-                tvNone.setText("Kein CRM-Treffer für „" + searchInput.getText().toString().trim() + "".");
+                tvNone.setText("Kein CRM-Treffer fuer \"" + searchInput.getText().toString().trim() + "\".");
                 tvNone.setTextColor(0xFF9CA3AF);
                 tvNone.setTextSize(12);
                 tvNone.setPadding(dPad / 2, dPad / 2, dPad / 2, dPad / 2);

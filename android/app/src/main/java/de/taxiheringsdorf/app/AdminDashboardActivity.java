@@ -3423,9 +3423,11 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 etEmail.setLayoutParams(_ee);
                 _form.addView(etEmail);
 
-                new androidx.appcompat.app.AlertDialog.Builder(this)
+                final String _rideId = r.id;
+                final String _trackUrl = "https://umwelt-taxi-insel-usedom.de/Taxi-App/track.html?ride=" + _rideId;
+                androidx.appcompat.app.AlertDialog _quittungDlg = new androidx.appcompat.app.AlertDialog.Builder(this)
                     .setTitle("🧾 Quittung erstellen")
-                    .setMessage("Name + Kontakt des Gastes. SMS/Email wird sofort verschickt.")
+                    .setMessage("Name + Kontakt des Gastes. SMS wird sofort verschickt.\n\n'Vorschau' zeigt was der Kunde sieht.")
                     .setView(_form)
                     .setPositiveButton("Quittung + Versand", (_d, _w) -> {
                         String _name  = etName.getText().toString().trim();
@@ -3438,17 +3440,17 @@ public class AdminDashboardActivity extends AppCompatActivity {
                         if (!_name.isEmpty())  _upd.put("guestName", _name);
                         if (!_phone.isEmpty()) _upd.put("receiptGuestPhone", _phone);
                         if (!_email.isEmpty()) _upd.put("receiptGuestEmail", _email);
-                        db.getReference("rides/" + r.id).updateChildren(_upd);
+                        db.getReference("rides/" + _rideId).updateChildren(_upd);
                         // SMS direkt in Queue schreiben (Cloud Function sendet via seven.io)
                         if (!_phone.isEmpty()) {
-                            String _trackUrl = "https://umwelt-taxi-insel-usedom.de/Taxi-App/track.html?ride=" + r.id;
-                            String _smsText = "Guten Tag" + (_name.isEmpty() ? "" : " " + _name.split(" ")[_name.split(" ").length - 1])
+                            String _finalName = _name;
+                            String _smsText = "Guten Tag" + (_finalName.isEmpty() ? "" : " " + _finalName.split(" ")[_finalName.split(" ").length - 1])
                                 + ", vielen Dank fuer Ihre Fahrt mit Funk Taxi Heringsdorf!\nQuittung/Rechnung: " + _trackUrl
                                 + "\nBei Fragen: 038378 22022";
                             java.util.Map<String, Object> _sms = new java.util.HashMap<>();
                             _sms.put("phone", _phone);
                             _sms.put("text", _smsText);
-                            _sms.put("rideId", r.id);
+                            _sms.put("rideId", _rideId);
                             _sms.put("type", "quittung_an_gast");
                             _sms.put("status", "pending");
                             _sms.put("createdAt", System.currentTimeMillis());
@@ -3456,11 +3458,28 @@ public class AdminDashboardActivity extends AppCompatActivity {
                         }
                         String _confirm = "🧾 Quittung wird generiert"
                             + (_phone.isEmpty() ? "" : " — SMS an " + _phone)
-                            + (_email.isEmpty() ? "" : " — Email folgt nach PDF-Erstellung");
+                            + (_email.isEmpty() ? "" : " — Email folgt");
                         Toast.makeText(this, _confirm, Toast.LENGTH_LONG).show();
                     })
+                    .setNeutralButton("👁 Vorschau", null) // OnClick separat gesetzt damit Dialog offen bleibt
                     .setNegativeButton("Abbrechen", null)
-                    .show();
+                    .create();
+                _quittungDlg.setOnShowListener(_ds -> {
+                    // Neutral-Button oeffnet track.html ohne Dialog zu schliessen
+                    android.widget.Button _btnPrev = _quittungDlg.getButton(androidx.appcompat.app.AlertDialog.BUTTON_NEUTRAL);
+                    if (_btnPrev != null) _btnPrev.setOnClickListener(_bv -> {
+                        try {
+                            androidx.browser.customtabs.CustomTabsIntent _ct =
+                                new androidx.browser.customtabs.CustomTabsIntent.Builder()
+                                    .setShowTitle(true).build();
+                            _ct.launchUrl(this, android.net.Uri.parse(_trackUrl));
+                        } catch (Throwable _ex) {
+                            startActivity(new android.content.Intent(android.content.Intent.ACTION_VIEW,
+                                android.net.Uri.parse(_trackUrl)));
+                        }
+                    });
+                });
+                _quittungDlg.show();
             });
             layout.addView(btnQuittung);
         }

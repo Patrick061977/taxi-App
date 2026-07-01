@@ -1642,12 +1642,11 @@ public class DriverDashboardActivity extends AppCompatActivity {
         //   Wartepool-Banner NICHT (Wartepool returnt early wenn wartepool empty + FreeBusy
         //   greift dann normal). Frueher umgekehrt.
         updateFreeBusyBanner(all);
-        // v6.63.336: Wartepool-Aufmerksamkeit
-        // v6.63.433 (Patrick 20.06. 07:08 Bridge: "Nimm die wartepool Fahrten vom
-        //   Hauptscreen weg, das verwirrt nur die Fahrer"): Wartepool-Banner deaktiviert.
-        //   Fahrer sollen Wartepool nicht sehen — ist Admin-Dispatch-Sache. Patrick als
-        //   Admin nutzt die Web-Admin-Ansicht oder den Dispo-Tab für Wartepool-Auflösung.
-        // updateWartepoolBanner();
+        // v6.63.574 (Patrick 01.07. 13:44): Wartepool-Banner wieder aktiviert.
+        //   Patrick: "Die Fahrt vom Ostseeblick taucht gar nicht auf — muss da oben
+        //   erscheinen, damit ich sehe ob ich das Auto tauschen muss."
+        //   Vereinfacht: Kein Resolver-Dialog, kein 'Bearbeiten'-Button — nur Info-Banner.
+        updateWartepoolBanner();
     }
 
     // v6.63.336 (Patrick 14.06. 14:33): Wartepool-Aufmerksamkeits-Banner
@@ -1662,30 +1661,34 @@ public class DriverDashboardActivity extends AppCompatActivity {
             TextView statusText = findViewById(R.id.freebusy_status);
             TextView nextText = findViewById(R.id.freebusy_next);
             if (banner == null || statusText == null || nextText == null) return;
-            int n = wartepoolRides.size();
-            banner.setBackgroundColor(android.graphics.Color.parseColor("#f97316"));
-            // v6.63.430 (Patrick 20.06. 06:44): nicht 'Annehmen' — startet ungewollt
-            //   Fahrtenprozess. Wartepool ist Dispatch-Sache → Bearbeiten/Zuweisen.
-            statusText.setText("⚠️ " + n + " Fahrt" + (n == 1 ? "" : "en") + " im Wartepool — Tap zum Bearbeiten");
-            // Zeige naechste/nahste Pickup-Zeit der Wartepool-Rides
-            Ride first = wartepoolRides.get(0);
-            long nextMin = first.pickupTimestamp != null ? first.pickupTimestamp : 0L;
-            String firstCust = first.customerName != null ? first.customerName : "?";
+            // v6.63.574: Nur Fahrten in der Zukunft anzeigen (oder jetzt faellig)
+            long _now = System.currentTimeMillis();
+            java.util.List<Ride> _upcoming = new java.util.ArrayList<>();
             for (Ride r : wartepoolRides) {
-                if (r.pickupTimestamp != null && r.pickupTimestamp < nextMin) {
-                    nextMin = r.pickupTimestamp;
-                    firstCust = r.customerName != null ? r.customerName : "?";
-                }
+                if (r.pickupTimestamp == null || r.pickupTimestamp >= _now - 30 * 60_000L) _upcoming.add(r);
             }
+            if (_upcoming.isEmpty()) return;
+            int n = _upcoming.size();
+            // Naechste Fahrt nach Pickup-Zeit sortieren
+            _upcoming.sort((a, b) -> {
+                long ta = a.pickupTimestamp != null ? a.pickupTimestamp : Long.MAX_VALUE;
+                long tb = b.pickupTimestamp != null ? b.pickupTimestamp : Long.MAX_VALUE;
+                return Long.compare(ta, tb);
+            });
+            Ride first = _upcoming.get(0);
             java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("HH:mm", java.util.Locale.GERMANY);
             sdf.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
-            nextText.setText("Naechste: " + firstCust + " um " + (nextMin > 0 ? sdf.format(new java.util.Date(nextMin)) : "?"));
+            String _timeStr = first.pickupTimestamp != null ? sdf.format(new java.util.Date(first.pickupTimestamp)) : "?";
+            String _custStr = first.customerName != null ? first.customerName : "Kunde";
+            int _pax = first.passengers != null ? first.passengers : 0;
+            // v6.63.574: Orange Info-Banner, KEIN Tap-Resolver — nur Bewusstsein schaffen
+            banner.setBackgroundColor(android.graphics.Color.parseColor("#ea580c"));
+            statusText.setText("⚠️ " + n + " Fahrt" + (n == 1 ? "" : "en") + " ohne Fahrer");
+            nextText.setText(_timeStr + " · " + _custStr + (_pax > 0 ? " · " + _pax + " Pax" : "")
+                + " — in Admin zuweisen");
             nextText.setVisibility(View.VISIBLE);
             banner.setVisibility(View.VISIBLE);
-            // v6.63.342 (Patrick 15.06. 06:02): Tap auf Wartepool-Banner oeffnet
-            //   Konflikt-Loesungs-Dialog mit Slider fuer Zeit-Verschiebung
-            final Ride firstFinal = first;
-            banner.setOnClickListener(v -> showWartepoolResolverDialog(firstFinal));
+            banner.setOnClickListener(null); // kein Resolver — nur Info
         } catch (Throwable _t) { /* defensive */ }
     }
 

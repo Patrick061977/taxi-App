@@ -26449,6 +26449,15 @@ exports.onRideCreated = onValueCreated(
         const ride = event.data.val();
         if (!ride) return;
 
+        // 🔧 v6.63.578 (Patrick 01.07. 19:04): _rebookRide pusht temporaere Vorlage mit
+        // status='template_draft' nach /rides damit CrmSearchActivity sie laden kann.
+        // Vorher: kein Early-Exit → onRideCreated lief komplett durch → Auto-Assign löste
+        // Sofortfahrt aus. Fix: Template-Drafts sofort überspringen.
+        if (ride.status === 'template_draft' || ride._rebookTemplate === true) {
+            console.log(`🔍 onRideCreated: Skip template_draft/rebook-Vorlage ${rideId}`);
+            return;
+        }
+
         console.log(`📱 onRideCreated: ${rideId} — ${ride.customerName || 'Unbekannt'} — source: ${ride.source || 'browser'}`);
 
         // 🆕 v6.63.424 (Patrick 19.06. 15:20 + 16:31 Bridge: "die Uhrzeit entscheidet,

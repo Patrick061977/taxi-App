@@ -3371,6 +3371,50 @@ public class AdminDashboardActivity extends AppCompatActivity {
             layout.addView(btnInvoiceEmail);
         }
 
+        // 🆕 v6.63.572 (Patrick 01.07. 13:38): "Wie erstelle ich eine Quittung auf Namen des Gastes?"
+        //   Kompletzte Fahrt OHNE bestehende Rechnung → Button 'Quittung erstellen' anzeigen.
+        //   Fragt nach Gastnamen, setzt invoiceRequested=true → Cloud Function generiert PDF.
+        if ("completed".equals(r.status) && (r.invoiceNumber == null || r.invoiceNumber.isEmpty())) {
+            com.google.android.material.button.MaterialButton btnQuittung =
+                new com.google.android.material.button.MaterialButton(this);
+            btnQuittung.setText("🧾 Quittung / Rechnung erstellen");
+            btnQuittung.setTextSize(15);
+            btnQuittung.setBackgroundColor(android.graphics.Color.parseColor("#065f46"));
+            btnQuittung.setTextColor(android.graphics.Color.WHITE);
+            LinearLayout.LayoutParams _qParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+            _qParams.setMargins(0, 0, 0, pad);
+            btnQuittung.setLayoutParams(_qParams);
+            btnQuittung.setOnClickListener(_v -> {
+                if (_dlgRef.get() != null) _dlgRef.get().dismiss();
+                // Dialog: Gastnamen eingeben/bestaetigen
+                android.widget.EditText etName = new android.widget.EditText(this);
+                etName.setHint("Name des Gastes / Kundens");
+                String _prefill = r.guestName != null && !r.guestName.isEmpty()
+                    ? r.guestName : (r.customerName != null ? r.customerName : "");
+                etName.setText(_prefill);
+                etName.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_FLAG_CAP_WORDS);
+                int _p = (int) (getResources().getDisplayMetrics().density * 16);
+                etName.setPadding(_p, _p / 2, _p, _p / 2);
+                new androidx.appcompat.app.AlertDialog.Builder(this)
+                    .setTitle("🧾 Quittung auf wen ausstellen?")
+                    .setMessage("Name wird auf der Quittung/Rechnung gedruckt.")
+                    .setView(etName)
+                    .setPositiveButton("Quittung erstellen", (_d, _w) -> {
+                        String _name = etName.getText().toString().trim();
+                        java.util.Map<String, Object> _upd = new java.util.HashMap<>();
+                        _upd.put("invoiceRequested", true);
+                        _upd.put("needsInvoice", true);
+                        if (!_name.isEmpty()) _upd.put("guestName", _name);
+                        db.getReference("rides/" + r.id).updateChildren(_upd);
+                        Toast.makeText(this, "🧾 Quittung wird generiert — erscheint im Kundenportal", Toast.LENGTH_LONG).show();
+                    })
+                    .setNegativeButton("Abbrechen", null)
+                    .show();
+            });
+            layout.addView(btnQuittung);
+        }
+
         // v6.62.638: Patrick (12.05. 13:05): "ich will Fahrt auch kopieren, Datum aendern,
         // Rueckfahrt erstellen — wie in der Web-App". Zwei Buttons als Inline-Aktionen direkt
         // unter Speichern, vor den Edit-Feldern.

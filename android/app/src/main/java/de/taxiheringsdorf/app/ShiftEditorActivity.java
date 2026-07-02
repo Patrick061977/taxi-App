@@ -1417,52 +1417,45 @@ public class ShiftEditorActivity extends AppCompatActivity {
             timeText.setLayoutParams(tlp);
             card.addView(timeText);
 
-            // 🆕 v6.63.262 (Patrick 10.06. 09:43 "Standort"): Ortsteil-Label aus GPS.
-            // 🆕 v6.63.269 (Patrick 10.06. 13:13 "Standort nicht synchron mit Web-Kalender"):
-            //   Web-Editor-homeLocation = PRIO. GPS-Reverse-Lookup nur Fallback wenn
-            //   homeLocation leer ODER vom Web ueberholt (zB Fahrer fuhr schon weg).
-            //   Format: "📍 BhfAhlbeck (Live: Heringsdorf)" zeigt beides wenn divergiert.
+            // 🆕 v6.63.584: Standort = nur konfig. Warteplatz (kein GPS-Fallback — Patrick 02.07.)
+            //   Direkt antippbar → MapPicker öffnet sich sofort.
             final TextView ortText = new TextView(this);
             String _webHome = vs.homeLocations != null ? vs.homeLocations[dow] : null;
             if (_webHome != null && !_webHome.isEmpty()) {
                 ortText.setText("📍 " + _webHome);
+                ortText.setTextColor(0xFF94A3B8);
             } else {
-                ortText.setText("📍 …");
+                ortText.setText("📍 Standort wählen…");
+                ortText.setTextColor(0xFF475569);
             }
-            ortText.setTextColor(0xFF94A3B8);
             ortText.setTextSize(10);
             ortText.setMaxLines(2);
             LinearLayout.LayoutParams olp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
             olp.topMargin = (int)(2 * dp);
             ortText.setLayoutParams(olp);
-            card.addView(ortText);
-            // GPS asynchron pullen — zeigt Live-Position falls Web-Wert leer oder als Vergleich
+            // Direkt antippbar — öffnet MapPicker ohne Umweg über Zeit-Dialog
             final String _webHomeFinal = _webHome;
+            final int _cardDow = dow;
+            ortText.setClickable(true);
+            ortText.setOnClickListener(_vv -> {
+                _pendingStandortVid[0] = vs.vehicleId;
+                _pendingStandortDow[0] = _cardDow;
+                android.content.Intent _mi = new android.content.Intent(ShiftEditorActivity.this, MapPickerActivity.class);
+                if (_webHomeFinal != null) _mi.putExtra(MapPickerActivity.EXTRA_INITIAL_QUERY, _webHomeFinal);
+                mapPickerLauncherShift.launch(_mi);
+            });
+            card.addView(ortText);
+            // Fahrername asynchron nachladen (kein GPS mehr — nur Name)
             try {
-                FirebaseDatabase.getInstance(DB_URL).getReference("vehicles/" + vs.vehicleId)
+                FirebaseDatabase.getInstance(DB_URL).getReference("vehicles/" + vs.vehicleId + "/currentDriverName")
                     .addListenerForSingleValueEvent(new ValueEventListener() {
                         @Override public void onDataChange(@NonNull DataSnapshot snap) {
-                            Double _lat = null, _lon = null;
-                            Object la = snap.child("lat").getValue();
-                            Object lo = snap.child("lon").getValue();
-                            if (la instanceof Number) _lat = ((Number)la).doubleValue();
-                            if (lo instanceof Number) _lon = ((Number)lo).doubleValue();
-                            String ort = reverseLookupOrt(_lat, _lon);
-                            String driver = strOrNull(snap.child("currentDriverName").getValue());
-                            String txt;
-                            if (_webHomeFinal != null && !_webHomeFinal.isEmpty()) {
-                                // Web-Wert PRIO; Live nur als Diff anhaengen
-                                txt = "📍 " + _webHomeFinal;
-                                if (ort != null && !ort.equalsIgnoreCase(_webHomeFinal)
-                                        && !_webHomeFinal.toLowerCase().contains(ort.toLowerCase())) {
-                                    txt += "\n(Live: " + ort + ")";
-                                }
-                            } else {
-                                txt = (ort != null ? ("📍 " + ort + " (Live)") : "📍 keine Position");
+                            String driver = strOrNull(snap.getValue());
+                            if (driver != null && !driver.isEmpty()) {
+                                String cur = ortText.getText().toString();
+                                ortText.setText(cur + " · " + driver);
                             }
-                            if (driver != null && !driver.isEmpty()) txt += " · " + driver;
-                            ortText.setText(txt);
                         }
                         @Override public void onCancelled(@NonNull DatabaseError error) {}
                     });

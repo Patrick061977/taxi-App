@@ -1631,21 +1631,10 @@ public class ShiftEditorActivity extends AppCompatActivity {
                 b.setPadding(2, 6, 2, 6);
                 b.setBackgroundColor(active ? (_hasPausen ? 0xFF064E3B : 0xFF065F46) : 0xFF334155);
                 b.setTextColor(active ? (_hasPausen ? 0xFFFBBF24 : 0xFFFFFFFF) : 0xFF64748B);
-                b.setOnClickListener(v -> {
-                    boolean newActive = !vs.defaults[idx];
-                    FirebaseDatabase.getInstance(DB_URL)
-                            .getReference("vehicleShifts/" + vs.vehicleId + "/defaults/" + idx)
-                            .setValue(newActive)
-                            .addOnSuccessListener(unused -> Toast.makeText(itemView.getContext(),
-                                    vs.name + " " + DAY_LABELS[idx] + ": " + (newActive ? "AN" : "AUS"), Toast.LENGTH_SHORT).show());
-                });
-                // 🆕 v6.63.003 (Patrick 29.05. 06:40 "Nein"): Long-Press auf Wochentag-Button
-                //   öffnet Wochenplan-Zeit-Editor — damit Patrick die Wochenschicht-Zeiten
-                //   pro Tag direkt in Native editieren kann (vorher nur über Web möglich).
-                b.setOnLongClickListener(v -> {
-                    showWeekDayTimeEditDialog(vs, idx);
-                    return true;
-                });
+                // 🔧 v6.63.582: Tap öffnet direkt Edit-Dialog (Patrick: "wenn ich klicke, will ich ändern können")
+                //   Toggle AN/AUS ist im Dialog via "Tag DEAKTIVIEREN"-Button erreichbar.
+                b.setOnClickListener(v -> showWeekDayTimeEditDialog(vs, idx));
+                b.setOnLongClickListener(v -> { showWeekDayTimeEditDialog(vs, idx); return true; });
                 weekRow.addView(b);
                 if (active) summary.append(DAY_LABELS[i]).append(' ');
             }

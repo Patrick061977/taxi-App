@@ -69,11 +69,14 @@ jobs:
       - name: 🚀 Deploy zu GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
-        with:
-          timeout: 1800000
-          error_count: 10
+        # continue-on-error: GitHub Pages Queue hängt manchmal (deployment_queued Timeout).
+        # Prod-Deploys laufen über Firebase Hosting + Strato. Pages ist Backup.
+        continue-on-error: true
 
       - name: ✅ Deployment Info
         run: |
-          echo "🎉 Deployment erfolgreich!"
-          echo "URL: ${{ steps.deployment.outputs.page_url }}"
+          if [ "${{ steps.deployment.outcome }}" = "success" ]; then
+            echo "✅ GitHub Pages deployed: ${{ steps.deployment.outputs.page_url }}"
+          else
+            echo "⚠️ GitHub Pages Queue-Timeout (deploy_queued) — Prod läuft auf Firebase+Strato"
+          fi

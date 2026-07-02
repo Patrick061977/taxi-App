@@ -21304,18 +21304,22 @@ exports.autoResolveConflicts = onSchedule(
             let totalShiftFixes = 0;
             const debugPhase0Lines = []; // Debug-Sammlung für Telegram
 
-            // 🆕 v6.63.436 (Patrick 20.06. 08:59 Bridge: "Villa Neptun ist im Wartepool
-            //   obwohl ich sie auf MY gelocked habe — die andere Fahrt ist erledigt,
-            //   die muss raus aus dem Wartepool"): Phase 0 SELBSTHEILUNG.
-            //   Wenn ein Admin/Dispatcher per Native-UI eine Wartepool-Ride locked
-            //   (assignedVehicle + assignmentLocked=true), bleibt status='wartepool'
-            //   stehen weil das UI nicht status-cleart. Diese Inkonsistenz heilen
-            //   wir jetzt automatisch: Wartepool + locked + assignedVehicle →
-            //   status='vorbestellt' + wartepool-Felder löschen.
+            // 🆕 v6.63.436 (Patrick 20.06. 08:59): Phase 0 SELBSTHEILUNG.
+            // 🆕 v6.63.587 (Patrick 02.07. 19:51 "scheißegal ob Schichtplan — wenn ich
+            //   manuell zuweise und sperre, dann ist das die Schicht"): Selbstheilung
+            //   jetzt auch bei assignedBy='native_dashboard_grab'/'manual-admin'/
+            //   'claude-manual-*' — nicht nur bei explizitem assignmentLocked-Flag.
+            //   Wartepool + manuell zugewiesen → vorbestellt (Schicht-Validierung folgt skip).
             for (const ride of allRides) {
+                const _isManualAssign = ride.assignedBy && (
+                    ride.assignedBy.startsWith('claude-manual-')
+                    || ride.assignedBy === 'manual-admin'
+                    || ride.assignedBy === 'native_dashboard_grab'
+                    || ride.assignedBy === 'admin-dispo'
+                );
                 if (ride.status === 'wartepool'
-                        && ride.assignmentLocked === true
-                        && (ride.assignedVehicle || ride.vehicleId)) {
+                        && (ride.assignedVehicle || ride.vehicleId)
+                        && (ride.assignmentLocked === true || _isManualAssign)) {
                     try {
                         await db.ref(`rides/${ride.firebaseId}`).update({
                             status: 'vorbestellt',
@@ -21323,7 +21327,7 @@ exports.autoResolveConflicts = onSchedule(
                             wartepoolAt: null,
                             wartepoolCheckResult: null,
                             wartepoolFreedAt: Date.now(),
-                            wartepoolFreedReason: 'v6.63.436 Selbstheilung: locked + assignedVehicle → vorbestellt',
+                            wartepoolFreedReason: `v6.63.587 Selbstheilung: ${ride.assignmentLocked ? 'locked' : ('assignedBy=' + ride.assignedBy)} + assignedVehicle → vorbestellt`,
                             updatedAt: Date.now()
                         });
                         await addRideLog(ride.firebaseId, '🔧', `Wartepool aufgelöst (Selbstheilung): manueller Lock auf ${ride.assignedVehicle || ride.vehicleId} erkannt`, {

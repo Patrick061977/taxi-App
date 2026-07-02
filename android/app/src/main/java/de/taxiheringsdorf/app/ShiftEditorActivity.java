@@ -478,6 +478,64 @@ public class ShiftEditorActivity extends AppCompatActivity {
     }
     private static String strOrNull(Object o) { return o == null ? null : String.valueOf(o); }
 
+    // 🆕 v6.63.587: Taxistand-Picker — lädt settings/taxiStands aus Firebase und zeigt
+    //   vordefinierte Warteplätze als Schnellwahl-Liste (kein MapPicker-Umweg nötig).
+    private void showStandortPickerDialog(String vehicleId, int dow) {
+        FirebaseDatabase.getInstance(DB_URL).getReference("settings/taxiStands")
+            .addListenerForSingleValueEvent(new ValueEventListener() {
+                @Override public void onDataChange(@NonNull DataSnapshot snap) {
+                    try {
+                        List<String> names = new ArrayList<>();
+                        List<Double> lats = new ArrayList<>();
+                        List<Double> lons = new ArrayList<>();
+                        for (DataSnapshot child : snap.getChildren()) {
+                            String name = child.child("name").getValue(String.class);
+                            Double lat = child.child("lat").getValue(Double.class);
+                            Double lon = child.child("lon").getValue(Double.class);
+                            if (name != null && lat != null && lon != null) {
+                                names.add(name);
+                                lats.add(lat);
+                                lons.add(lon);
+                            }
+                        }
+                        if (names.isEmpty()) {
+                            Toast.makeText(ShiftEditorActivity.this,
+                                "Keine Taxistände in Firebase (settings/taxiStands)", Toast.LENGTH_SHORT).show();
+                            return;
+                        }
+                        new androidx.appcompat.app.AlertDialog.Builder(ShiftEditorActivity.this)
+                            .setTitle("📍 Warteplatz wählen")
+                            .setItems(names.toArray(new String[0]), (_d, idx) -> {
+                                String chosen = names.get(idx);
+                                double lat = lats.get(idx);
+                                double lon = lons.get(idx);
+                                Map<String, Object> upd = new HashMap<>();
+                                upd.put("homeLocation", chosen);
+                                Map<String, Object> coords = new HashMap<>();
+                                coords.put("lat", lat);
+                                coords.put("lon", lon);
+                                upd.put("homeCoords", coords);
+                                FirebaseDatabase.getInstance(DB_URL)
+                                    .getReference("vehicleShifts/" + vehicleId + "/defaultTimes/" + dow)
+                                    .updateChildren(upd)
+                                    .addOnSuccessListener(_ok -> Toast.makeText(ShiftEditorActivity.this,
+                                        "📍 Warteplatz: " + chosen, Toast.LENGTH_SHORT).show())
+                                    .addOnFailureListener(e -> Toast.makeText(ShiftEditorActivity.this,
+                                        "Standort-Fehler: " + e.getMessage(), Toast.LENGTH_SHORT).show());
+                            })
+                            .setNegativeButton("Abbrechen", null)
+                            .show();
+                    } catch (Throwable t) {
+                        Log.e(TAG, "showStandortPickerDialog: " + t.getMessage(), t);
+                        Toast.makeText(ShiftEditorActivity.this, "Fehler: " + t.getMessage(), Toast.LENGTH_SHORT).show();
+                    }
+                }
+                @Override public void onCancelled(@NonNull DatabaseError error) {
+                    Toast.makeText(ShiftEditorActivity.this, "Firebase-Fehler: " + error.getMessage(), Toast.LENGTH_SHORT).show();
+                }
+            });
+    }
+
     // 🆕 v6.63.581: "09:00" → "9", "09:30" → "9:30" — kompakte Darstellung für Wochentag-Buttons
     private static String shortTime(String hhmm) {
         if (hhmm == null) return "?";
@@ -827,18 +885,7 @@ public class ShiftEditorActivity extends AppCompatActivity {
         final VehicleShift _vsRef = vs;
         btnStandort.setOnClickListener(v -> {
             int _dow = selDate.get(Calendar.DAY_OF_WEEK) - 1;
-            _pendingStandortVid[0] = _vsRef.vehicleId;
-            _pendingStandortDow[0] = _dow;
-            try {
-                android.content.Intent intent = new android.content.Intent(this, MapPickerActivity.class);
-                String _curHome = (_vsRef.homeLocations != null && _vsRef.homeLocations[_dow] != null)
-                    ? _vsRef.homeLocations[_dow] : null;
-                if (_curHome != null) intent.putExtra(MapPickerActivity.EXTRA_INITIAL_QUERY, _curHome);
-                mapPickerLauncherShift.launch(intent);
-            } catch (Throwable t2) {
-                Log.e(TAG, "MapPicker launch Fehler: " + t2.getMessage(), t2);
-                Toast.makeText(this, "Standort-Picker Fehler", Toast.LENGTH_SHORT).show();
-            }
+            showStandortPickerDialog(_vsRef.vehicleId, _dow);
         });
         root.addView(btnStandort);
 
@@ -1079,13 +1126,7 @@ public class ShiftEditorActivity extends AppCompatActivity {
                         _sWkLp.bottomMargin = pad / 2;
                         _btnStandortWk.setLayoutParams(_sWkLp);
                         final String _homeLocForPicker = _homeLocTxt;
-                        _btnStandortWk.setOnClickListener(_vv -> {
-                            _pendingStandortVid[0] = vs.vehicleId;
-                            _pendingStandortDow[0] = dow;
-                            android.content.Intent _mi = new android.content.Intent(ShiftEditorActivity.this, MapPickerActivity.class);
-                            if (_homeLocForPicker != null) _mi.putExtra(MapPickerActivity.EXTRA_INITIAL_QUERY, _homeLocForPicker);
-                            mapPickerLauncherShift.launch(_mi);
-                        });
+                        _btnStandortWk.setOnClickListener(_vv -> showStandortPickerDialog(vs.vehicleId, dow));
                         root.addView(_btnStandortWk);
                     }
 
@@ -1445,17 +1486,10 @@ public class ShiftEditorActivity extends AppCompatActivity {
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
             olp.topMargin = (int)(2 * dp);
             ortText.setLayoutParams(olp);
-            // Direkt antippbar — öffnet MapPicker ohne Umweg über Zeit-Dialog
-            final String _webHomeFinal = _webHome;
+            // Direkt antippbar — öffnet Taxistand-Schnellwahl (v6.63.587)
             final int _cardDow = dow;
             ortText.setClickable(true);
-            ortText.setOnClickListener(_vv -> {
-                _pendingStandortVid[0] = vs.vehicleId;
-                _pendingStandortDow[0] = _cardDow;
-                android.content.Intent _mi = new android.content.Intent(ShiftEditorActivity.this, MapPickerActivity.class);
-                if (_webHomeFinal != null) _mi.putExtra(MapPickerActivity.EXTRA_INITIAL_QUERY, _webHomeFinal);
-                mapPickerLauncherShift.launch(_mi);
-            });
+            ortText.setOnClickListener(_vv -> showStandortPickerDialog(vs.vehicleId, _cardDow));
             card.addView(ortText);
             // Fahrername asynchron nachladen (kein GPS mehr — nur Name)
             try {

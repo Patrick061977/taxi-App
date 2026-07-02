@@ -30133,6 +30133,104 @@ exports.onShiftStatusChanged = onValueUpdated(
     }
 );
 
+// 🆕 v6.63.570: Patrick (02.07. 14:29+14:30): "Warum wird das Fahrzeug nicht sofort
+//   aus der dispo genommen so wie bei offline?" / "Wenn es zu dieser Zeit gar kein
+//   Schicht hat" — wenn Schichtplan geändert wird (vehicleShifts/{vid} Write), sofort
+//   alle Fahrten prüfen ob das Fahrzeug zur Pickup-Zeit noch im Dienst ist. Falls nicht
+//   → sofort re-assignen (wie onShiftStatusChanged bei Schicht-Ende).
+exports.onVehicleShiftPlanChanged = onValueUpdated(
+    {
+        ref: '/vehicleShifts/{vehicleId}',
+        region: 'europe-west1',
+        instance: 'taxi-heringsdorf-default-rtdb',
+        memory: '512MiB'
+    },
+    async (event) => {
+        const vid = event.params.vehicleId;
+        const newShiftData = event.data.after.val();
+        if (!newShiftData) return;
+        console.log(`📅 onVehicleShiftPlanChanged: ${vid} Schichtplan geändert — prüfe zugewiesene Fahrten`);
+        try {
+            const ridesSnap = await db.ref('rides').orderByChild('assignedVehicle').equalTo(vid).once('value');
+            const now = Date.now();
+            const REASSIGN_WINDOW_MS = 6 * 60 * 60 * 1000; // 6h
+            const affected = [];
+            const skippedLocked = [];
+            ridesSnap.forEach(c => {
+                const r = c.val();
+                if (!r) return;
+                if (!['assigned', 'vorbestellt'].includes(r.status)) return;
+                if (!r.pickupTimestamp || r.pickupTimestamp <= now) return;
+                if (r.assignmentLocked === true) {
+                    skippedLocked.push({ id: c.key, customerName: r.customerName, pickupTime: r.pickupTime });
+                    return;
+                }
+                if (r.pickupTimestamp > now + REASSIGN_WINDOW_MS) return;
+                // Pickup-Zeit für isVehicleInShift aufbereiten
+                const pickupDate = new Date(r.pickupTimestamp);
+                const dateStr = pickupDate.toLocaleDateString('de-DE', { timeZone: 'Europe/Berlin' }).split('.').reverse().join('-').replace(/(\d{4})-(\d{1,2})-(\d{1,2})/, (_, y, m, d) => `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`);
+                const timeStr = pickupDate.toLocaleTimeString('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit' });
+                // isVehicleInShift mit NEUEN Schichtdaten prüfen
+                const stillInShift = isVehicleInShift(vid, { [vid]: newShiftData }, dateStr, timeStr);
+                if (!stillInShift) {
+                    affected.push({ id: c.key, ride: r, pickupDateStr: dateStr, pickupTimeStr: timeStr });
+                }
+            });
+            if (skippedLocked.length > 0) {
+                console.log(`🔒 ${vid}: ${skippedLocked.length} gesperrte Fahrt(en) — bleiben trotz Schichtplan-Änderung zugewiesen`);
+            }
+            if (affected.length === 0) {
+                console.log(`✅ ${vid} Schichtplan-Änderung: alle Fahrten noch im neuen Schichtfenster — kein Reassign nötig`);
+                return;
+            }
+            console.log(`🔄 ${affected.length} Fahrt(en) von ${vid} außerhalb des neuen Schichtfensters → Reassign`);
+            const _vehName = (OFFICIAL_VEHICLES[vid] || {}).name || vid;
+            const reassigned = [];
+            const failed = [];
+            for (const { id, ride, pickupDateStr, pickupTimeStr } of affected) {
+                try {
+                    await db.ref('rides/' + id).update({
+                        assignedVehicle: null,
+                        vehicleId: null,
+                        assignedTo: null,
+                        vehicle: null,
+                        vehicleLabel: null,
+                        vehiclePlate: null,
+                        assignedAt: null,
+                        assignedBy: null,
+                        status: 'vorbestellt',
+                        reassignReason: `${_vehName} hat zu ${pickupTimeStr} kein Schicht mehr — Schichtplan geändert`,
+                        reassignedAt: now,
+                        updatedAt: now
+                    });
+                    await addRideLog(id, '🔄', `Fahrzeug entfernt: ${_vehName} hat zu ${pickupTimeStr} kein Schicht (Schichtplan-Änderung)`, {
+                        quelle: 'onVehicleShiftPlanChanged v6.63.570',
+                        altFahrzeug: _vehName,
+                        pickupTime: pickupTimeStr
+                    });
+                    const result = await autoAssignRide(id, { ...ride, _rejectedVehicles: [vid] });
+                    if (result && result.vehicleId) {
+                        reassigned.push({ rideId: id, customerName: ride.customerName, pickupTime: ride.pickupTime, newVehicle: result.name });
+                    } else {
+                        failed.push({ rideId: id, customerName: ride.customerName, pickupTime: ride.pickupTime });
+                    }
+                } catch (err) {
+                    console.error(`Reassign-Fehler für ${id}:`, err.message);
+                    failed.push({ rideId: id, customerName: ride.customerName, pickupTime: ride.pickupTime, error: err.message });
+                }
+            }
+            if (failed.length > 0) {
+                const msg = `🛑 <b>${_vehName} Schichtplan-Änderung</b> — ${failed.length} Fahrt(en) brauchen Hilfe:\n\n` +
+                    failed.map(f => `❌ ${f.customerName || '?'} ${f.pickupTime || ''}`).join('\n') +
+                    (reassigned.length ? `\n\n<i>(${reassigned.length} weitere wurden still umverteilt)</i>` : '');
+                await sendToAllAdmins(msg, 'shift_plan_reassign');
+            }
+        } catch (err) {
+            console.error('onVehicleShiftPlanChanged Fehler:', err.message);
+        }
+    }
+);
+
 // 🆕 v6.62.820 (Patrick 19.05. 08:48): CRM-Name-Sync zu aktiven Fahrten.
 //   Patrick: "Ich habe von einer Fahrt am Donnerstag 'Chefkoch' eingetragen,
 //   die heißen eigentlich 'The Chef's Company'. Habe jetzt im CRM geändert

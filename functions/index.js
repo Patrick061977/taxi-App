@@ -547,13 +547,14 @@ function isVehicleInShift(vehicleId, shiftsData, dateStr, timeStr) {
     if (!times) return false;
     if (!timeStr) return true;
     if (times.timeRanges && times.timeRanges.length > 1) {
-        // 🔧 v6.63.569: startTime/endTime als äußere Grenze VOR timeRanges prüfen.
-        // Schicht-Editor schreibt nur startTime/endTime wenn Zeiten geändert werden,
-        // aber timeRanges bleiben auf alten Werten → timeRanges können Zeiten außerhalb
-        // des neuen Schichtfensters enthalten. Beispiel: startTime=18:30 aber timeRanges
-        // hat 09:00-17:00 → ohne diese Prüfung würde 15:00 als "in Dienst" gelten.
+        // 🔧 v6.63.569: startTime als äußere Untergrenze VOR timeRanges prüfen.
+        // Schicht-Editor schreibt nur startTime wenn Zeiten geändert werden,
+        // aber timeRanges bleiben auf alten Werten → Beispiel: startTime=18:30 aber
+        // timeRanges hat 09:00-17:00 → 15:00 würde fälschlicherweise "in Dienst" gelten.
+        // 🔧 v6.63.572: endTime-Gate entfernt — timeRanges[] hat eigene Obergrenzen
+        // und endTime kann veraltet/inkonsistent sein wenn timeRanges direkt im Web-Editor
+        // gesetzt wurden (z.B. VGLK Fr: endTime=14:00 aber timeRanges bis 18:00).
         if (times.startTime && timeStr < times.startTime) return false;
-        if (times.endTime && timeStr > times.endTime) return false;
         return times.timeRanges.some(r => timeStr >= r.startTime && timeStr <= r.endTime);
     }
     return timeStr >= times.startTime && timeStr <= times.endTime;

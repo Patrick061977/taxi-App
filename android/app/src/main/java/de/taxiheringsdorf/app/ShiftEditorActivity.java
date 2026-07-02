@@ -999,6 +999,18 @@ public class ShiftEditorActivity extends AppCompatActivity {
                     final int[] start = parseHM(startTxt != null ? startTxt : "06:00");
                     final int[] end = parseHM(endTxt != null ? endTxt : "22:00");
 
+                    // 🆕 v6.63.580: timeRanges (Pausen) aus Firebase lesen — anzeigen, NICHT löschen
+                    java.util.List<String[]> _existingRanges = new java.util.ArrayList<>();
+                    DataSnapshot _trSnap = s.child("timeRanges");
+                    if (_trSnap.exists()) {
+                        for (DataSnapshot _rc : _trSnap.getChildren()) {
+                            String _rs = strOrNull(_rc.child("startTime").getValue());
+                            String _re = strOrNull(_rc.child("endTime").getValue());
+                            if (_rs != null && _re != null) _existingRanges.add(new String[]{_rs, _re});
+                        }
+                    }
+                    String _homeLocTxt = strOrNull(s.child("homeLocation").getValue());
+
                     android.widget.LinearLayout root = new android.widget.LinearLayout(ShiftEditorActivity.this);
                     root.setOrientation(android.widget.LinearLayout.VERTICAL);
                     int pad = (int)(16 * getResources().getDisplayMetrics().density);
@@ -1011,6 +1023,37 @@ public class ShiftEditorActivity extends AppCompatActivity {
                     hdr.setTextSize(13);
                     hdr.setPadding(0, 0, 0, pad / 2);
                     root.addView(hdr);
+
+                    // 🆕 v6.63.580: Pausen-Info anzeigen wenn timeRanges vorhanden
+                    if (_existingRanges.size() > 1) {
+                        android.widget.TextView pausenInfo = new android.widget.TextView(ShiftEditorActivity.this);
+                        StringBuilder _pb = new StringBuilder("⏸ Pausen:");
+                        for (int _pi = 0; _pi < _existingRanges.size(); _pi++) {
+                            if (_pi > 0) _pb.append("  │  ");
+                            _pb.append(_existingRanges.get(_pi)[0]).append("–").append(_existingRanges.get(_pi)[1]);
+                        }
+                        pausenInfo.setText(_pb.toString());
+                        pausenInfo.setTextColor(0xFFFBBF24);
+                        pausenInfo.setTextSize(13);
+                        pausenInfo.setTypeface(null, android.graphics.Typeface.BOLD);
+                        android.widget.LinearLayout.LayoutParams piLp = new android.widget.LinearLayout.LayoutParams(
+                            android.widget.LinearLayout.LayoutParams.MATCH_PARENT, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
+                        piLp.bottomMargin = pad / 2;
+                        pausenInfo.setLayoutParams(piLp);
+                        root.addView(pausenInfo);
+                    }
+                    // Standort anzeigen
+                    if (_homeLocTxt != null && !_homeLocTxt.isEmpty()) {
+                        android.widget.TextView locInfo = new android.widget.TextView(ShiftEditorActivity.this);
+                        locInfo.setText("📍 " + _homeLocTxt);
+                        locInfo.setTextColor(0xFF94A3B8);
+                        locInfo.setTextSize(12);
+                        android.widget.LinearLayout.LayoutParams liLp = new android.widget.LinearLayout.LayoutParams(
+                            android.widget.LinearLayout.LayoutParams.MATCH_PARENT, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
+                        liLp.bottomMargin = pad / 2;
+                        locInfo.setLayoutParams(liLp);
+                        root.addView(locInfo);
+                    }
 
                     android.widget.LinearLayout startRow = makeTimeRow(ShiftEditorActivity.this, "🟢 START:", start);
                     root.addView(startRow);
@@ -1034,8 +1077,7 @@ public class ShiftEditorActivity extends AppCompatActivity {
                             Map<String, Object> upd = new HashMap<>();
                             upd.put("startTime", startStr);
                             upd.put("endTime", endStr);
-                            // timeRanges löschen damit Split-Shifts hier nicht hängen bleiben
-                            upd.put("timeRanges", null);
+                            // 🔧 v6.63.580: timeRanges NICHT löschen — Pausen bleiben erhalten!
                             FirebaseDatabase.getInstance(DB_URL)
                                 .getReference("vehicleShifts/" + vs.vehicleId + "/defaultTimes/" + dow)
                                 .updateChildren(upd)
@@ -1550,13 +1592,17 @@ public class ShiftEditorActivity extends AppCompatActivity {
                 lp.setMarginStart(2); lp.setMarginEnd(2);
                 b.setLayoutParams(lp);
                 // DAY_LABELS[i] mit i=0..6 entspricht So..Sa (Calendar.DAY_OF_WEEK - 1)
-                b.setText(DAY_LABELS[i]);
+                // 🆕 v6.63.580: Pausen-Indikator "│" wenn timeRanges für diesen Tag
+                boolean _hasPausen = vs.defaultTimeRanges != null
+                    && vs.defaultTimeRanges[i] != null
+                    && vs.defaultTimeRanges[i].size() > 1;
+                b.setText(_hasPausen ? DAY_LABELS[i] + "\n│" : DAY_LABELS[i]);
                 b.setTextSize(11);
                 b.setMinHeight(0); b.setMinimumHeight(0);
                 b.setPadding(2, 8, 2, 8);
                 boolean active = vs.defaults[i];
-                b.setBackgroundColor(active ? 0xFF065F46 : 0xFF334155);
-                b.setTextColor(active ? 0xFFFFFFFF : 0xFF94A3B8);
+                b.setBackgroundColor(active ? (_hasPausen ? 0xFF064E3B : 0xFF065F46) : 0xFF334155);
+                b.setTextColor(active ? (_hasPausen ? 0xFFFBBF24 : 0xFFFFFFFF) : 0xFF94A3B8);
                 b.setOnClickListener(v -> {
                     boolean newActive = !vs.defaults[idx];
                     FirebaseDatabase.getInstance(DB_URL)

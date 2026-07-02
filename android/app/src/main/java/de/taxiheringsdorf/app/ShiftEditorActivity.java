@@ -1034,10 +1034,11 @@ public class ShiftEditorActivity extends AppCompatActivity {
                     hdr.setPadding(0, 0, 0, pad / 2);
                     root.addView(hdr);
 
-                    // 🆕 v6.63.580: Pausen-Info anzeigen wenn timeRanges vorhanden
+                    // 🆕 v6.63.583: Pausen-Info anzeigen + Löschen-Button
+                    final android.widget.Button[] _btnDelPausenArr = {null};
                     if (_existingRanges.size() > 1) {
                         android.widget.TextView pausenInfo = new android.widget.TextView(ShiftEditorActivity.this);
-                        StringBuilder _pb = new StringBuilder("⏸ Pausen:");
+                        StringBuilder _pb = new StringBuilder("⏸ Schichten:");
                         for (int _pi = 0; _pi < _existingRanges.size(); _pi++) {
                             if (_pi > 0) _pb.append("  │  ");
                             _pb.append(_existingRanges.get(_pi)[0]).append("–").append(_existingRanges.get(_pi)[1]);
@@ -1048,9 +1049,21 @@ public class ShiftEditorActivity extends AppCompatActivity {
                         pausenInfo.setTypeface(null, android.graphics.Typeface.BOLD);
                         android.widget.LinearLayout.LayoutParams piLp = new android.widget.LinearLayout.LayoutParams(
                             android.widget.LinearLayout.LayoutParams.MATCH_PARENT, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
-                        piLp.bottomMargin = pad / 2;
+                        piLp.bottomMargin = pad / 4;
                         pausenInfo.setLayoutParams(piLp);
                         root.addView(pausenInfo);
+
+                        android.widget.Button _btnDel = new android.widget.Button(ShiftEditorActivity.this);
+                        _btnDel.setText("🗑 Pausen löschen (→ Einfachschicht)");
+                        _btnDel.setBackgroundColor(0xFF7F1D1D);
+                        _btnDel.setTextColor(0xFFFCA5A5);
+                        _btnDel.setTextSize(12);
+                        android.widget.LinearLayout.LayoutParams _delLp = new android.widget.LinearLayout.LayoutParams(
+                            android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
+                        _delLp.bottomMargin = pad / 2;
+                        _btnDel.setLayoutParams(_delLp);
+                        root.addView(_btnDel);
+                        _btnDelPausenArr[0] = _btnDel;
                     }
                     // Standort anzeigen
                     if (_homeLocTxt != null && !_homeLocTxt.isEmpty()) {
@@ -1078,7 +1091,26 @@ public class ShiftEditorActivity extends AppCompatActivity {
                     hint.setPadding(0, pad, 0, 0);
                     root.addView(hint);
 
-                    new androidx.appcompat.app.AlertDialog.Builder(ShiftEditorActivity.this)
+                    // 🆕 v6.63.583: Dialog als Variable halten damit Löschen-Button ihn dismisst
+                    final androidx.appcompat.app.AlertDialog[] _wkDlg = {null};
+                    if (_btnDelPausenArr[0] != null) {
+                        final java.util.List<String[]> _r4d = _existingRanges;
+                        _btnDelPausenArr[0].setOnClickListener(_vv -> {
+                            String _fs = _r4d.get(0)[0];
+                            String _le = _r4d.get(_r4d.size() - 1)[1];
+                            Map<String, Object> _du = new HashMap<>();
+                            _du.put("timeRanges", null);
+                            _du.put("startTime", _fs);
+                            _du.put("endTime", _le);
+                            FirebaseDatabase.getInstance(DB_URL)
+                                .getReference("vehicleShifts/" + vs.vehicleId + "/defaultTimes/" + dow)
+                                .updateChildren(_du)
+                                .addOnSuccessListener(_ok -> Toast.makeText(ShiftEditorActivity.this,
+                                    "Pausen gelöscht — " + _fs + "–" + _le, Toast.LENGTH_SHORT).show());
+                            if (_wkDlg[0] != null) _wkDlg[0].dismiss();
+                        });
+                    }
+                    _wkDlg[0] = new androidx.appcompat.app.AlertDialog.Builder(ShiftEditorActivity.this)
                         .setTitle("📅 " + vs.name + " — " + dayNames[dow])
                         .setView(root)
                         .setPositiveButton("Speichern", (d, w) -> {
@@ -1092,7 +1124,6 @@ public class ShiftEditorActivity extends AppCompatActivity {
                                 .getReference("vehicleShifts/" + vs.vehicleId + "/defaultTimes/" + dow)
                                 .updateChildren(upd)
                                 .addOnSuccessListener(_ok -> {
-                                    // Tag im Wochenplan aktivieren (defaults[dow] = true)
                                     FirebaseDatabase.getInstance(DB_URL)
                                         .getReference("vehicleShifts/" + vs.vehicleId + "/defaults/" + dow)
                                         .setValue(true);
@@ -1110,7 +1141,8 @@ public class ShiftEditorActivity extends AppCompatActivity {
                                     vs.name + " " + dayNames[dow] + ": AUS", Toast.LENGTH_SHORT).show());
                         })
                         .setNegativeButton("Abbrechen", null)
-                        .show();
+                        .create();
+                    _wkDlg[0].show();
                 }
                 @Override
                 public void onCancelled(@NonNull DatabaseError error) {

@@ -24409,6 +24409,50 @@ exports.scheduledAutoAssign = onSchedule(
                 }
             }
 
+            // 🆕 v6.63.568: No-Response-Reassign — Jetzt-Los-Push gefeuert aber Fahrer hat
+            // nicht reagiert (kein acceptedAt/onWayAt nach min. 5 Min). Patrick 02.07.2026:
+            // "wenn er nicht annimmt, dann muss die doch weitergeleitet werden"
+            {
+                const _noResponseList = allRides.filter(r => {
+                    if (r.status !== 'assigned') return false;
+                    if (!r.openRideWarned) return false;
+                    if (r.acceptedAt || r.onWayAt) return false;
+                    if (r.assignmentLocked) return false;
+                    if (!r.pickupTimestamp) return false;
+                    if ((r.pickupTimestamp - now) < -5 * 60000) return false; // >5 Min überfällig → zu spät
+                    if ((r.pickupTimestamp - now) > 60 * 60000) return false; // noch >60 Min hin → nicht dringend
+                    // Mindest-Wartezeit: statusTransitionedAt muss min. 5 Min alt sein
+                    // (verhindert sofortigen Re-Assign in gleicher Cron-Runde wie Push)
+                    const _transAt = r.statusTransitionedAt || 0;
+                    if (!_transAt || (now - _transAt) < 5 * 60000) return false;
+                    return true;
+                });
+                if (_noResponseList.length > 0) {
+                    console.log(`🔄 v6.63.568 No-Response-Reassign: ${_noResponseList.length} Fahrt(en) ohne Fahrerannahme nach Jetzt-Los-Push`);
+                    for (const r of _noResponseList) {
+                        const _curVid = r.vehicleId || r.assignedVehicle;
+                        const _vName = (OFFICIAL_VEHICLES[_curVid] || {}).name || _curVid;
+                        console.log(`   ⏰ ${r.customerName || r.firebaseId} (${_vName}): kein acceptedAt → Re-Assign ohne ${_curVid}`);
+                        try {
+                            // Zurück auf vorbestellt + Flags leeren → autoAssignRide kann neu zuweisen
+                            await db.ref('rides/' + r.firebaseId).update({
+                                status: 'vorbestellt',
+                                openRideWarned: null,
+                                statusTransitionedAt: null,
+                                updatedAt: now
+                            });
+                            await addRideLog(r.firebaseId, '🔄', `No-Response Reassign: ${_vName} hat Jetzt-Los-Push nicht angenommen → neues Fahrzeug gesucht`, {
+                                quelle: 'scheduledAutoAssign v6.63.568',
+                                altesFahrzeug: _curVid
+                            });
+                            await autoAssignRide(r.firebaseId, { ...r, status: 'vorbestellt', openRideWarned: null }, [_curVid]);
+                        } catch (_nrErr) {
+                            console.error(`   ❌ No-Response Reassign fehlgeschlagen ${r.firebaseId}:`, _nrErr.message);
+                        }
+                    }
+                }
+            }
+
             // 🆕 v6.25.5: Zuerst: Falsch zugewiesene Fahrten korrigieren
             // Wenn eine Sofortfahrt auf ein anderes Datum verschoben wurde,
             // muss das Fahrzeug neu geprüft werden

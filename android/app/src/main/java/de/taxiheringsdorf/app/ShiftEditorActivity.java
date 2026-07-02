@@ -381,6 +381,17 @@ public class ShiftEditorActivity extends AppCompatActivity {
                                         vs.defaultTimes[dow][0] = strOrNull(dtChild.child("startTime").getValue());
                                         vs.defaultTimes[dow][1] = strOrNull(dtChild.child("endTime").getValue());
                                         vs.homeLocations[dow] = strOrNull(dtChild.child("homeLocation").getValue());
+                                        // 🆕 v6.63.572: timeRanges lesen (Pause/Split-Shift)
+                                        DataSnapshot _trSnap = dtChild.child("timeRanges");
+                                        if (_trSnap.exists() && _trSnap.getChildrenCount() > 1) {
+                                            java.util.List<String[]> _ranges = new java.util.ArrayList<>();
+                                            for (DataSnapshot _rc : _trSnap.getChildren()) {
+                                                String _rs = strOrNull(_rc.child("startTime").getValue());
+                                                String _re = strOrNull(_rc.child("endTime").getValue());
+                                                if (_rs != null && _re != null) _ranges.add(new String[]{_rs, _re});
+                                            }
+                                            if (!_ranges.isEmpty()) vs.defaultTimeRanges[dow] = _ranges;
+                                        }
                                     } catch (Throwable _ignore) { }
                                 }
                             }
@@ -1088,6 +1099,10 @@ public class ShiftEditorActivity extends AppCompatActivity {
         //   Ahlbeck / Bhf Heringsdorf etc). Patrick will diese als PRIO sehen statt
         //   nur das Live-GPS (das oft veraltet ist wenn Fahrer offline).
         String[] homeLocations = new String[7]; // null = kein Eintrag im Web
+        // 🆕 v6.63.572: timeRanges pro Wochentag (Pause/Split-Shift aus Web-Editor)
+        // Format: [dow][rangeIndex] → {"startTime": "09:00", "endTime": "12:30"}
+        @SuppressWarnings("unchecked")
+        java.util.List<String[]>[] defaultTimeRanges = new java.util.ArrayList[7];
     }
 
     /**
@@ -1218,8 +1233,21 @@ public class ShiftEditorActivity extends AppCompatActivity {
 
             // Schicht-Zeit
             TextView timeText = new TextView(this);
+            // 🆕 v6.63.572: timeRanges (Pausen) anzeigen wenn konfiguriert
             if (activeToday && startT != null && endT != null) {
-                timeText.setText(startT + "–" + endT + (vs.todayOverride ? " ⓘ" : ""));
+                java.util.List<String[]> _ranges = (!vs.todayOverride && vs.defaultTimeRanges != null)
+                    ? vs.defaultTimeRanges[dow] : null;
+                if (_ranges != null && _ranges.size() > 1) {
+                    StringBuilder _rb = new StringBuilder();
+                    for (int _ri = 0; _ri < _ranges.size(); _ri++) {
+                        if (_ri > 0) _rb.append("│");
+                        _rb.append(_ranges.get(_ri)[0]).append("–").append(_ranges.get(_ri)[1]);
+                    }
+                    timeText.setText(_rb.toString());
+                    timeText.setMaxLines(2);
+                } else {
+                    timeText.setText(startT + "–" + endT + (vs.todayOverride ? " ⓘ" : ""));
+                }
                 timeText.setTextColor(0xFF10B981);
             } else if (activeToday) {
                 // 🆕 v6.63.269 (Patrick 10.06. 13:13 Vito-Bug: defaults=true aber
@@ -1403,8 +1431,26 @@ public class ShiftEditorActivity extends AppCompatActivity {
             }
             todayBadge.setText(isActiveToday ? "HEUTE AKTIV" : "HEUTE INAKTIV");
             todayBadge.setBackgroundColor(isActiveToday ? 0xFF10B981 : 0xFFEF4444);
-            String times = (vs.todayStartTime != null ? vs.todayStartTime : "00:00") + "–" +
-                    (vs.todayEndTime != null ? vs.todayEndTime : "23:59");
+            // 🔧 v6.63.572: defaultTimes als Fallback wenn kein Today-Override
+            String _showStart = vs.todayStartTime;
+            String _showEnd = vs.todayEndTime;
+            if (_showStart == null && !vs.todayOverride && vs.defaultTimes != null && vs.defaultTimes[dow] != null) {
+                _showStart = vs.defaultTimes[dow][0];
+                _showEnd = vs.defaultTimes[dow][1];
+            }
+            // timeRanges (Pause) in Kurzform anzeigen
+            java.util.List<String[]> _bindRanges = (!vs.todayOverride && vs.defaultTimeRanges != null) ? vs.defaultTimeRanges[dow] : null;
+            String times;
+            if (_bindRanges != null && _bindRanges.size() > 1) {
+                StringBuilder _brb = new StringBuilder();
+                for (int _bri = 0; _bri < _bindRanges.size(); _bri++) {
+                    if (_bri > 0) _brb.append("│");
+                    _brb.append(_bindRanges.get(_bri)[0]).append("–").append(_bindRanges.get(_bri)[1]);
+                }
+                times = _brb.toString();
+            } else {
+                times = (_showStart != null ? _showStart : "00:00") + "–" + (_showEnd != null ? _showEnd : "23:59");
+            }
             todayTimes.setText("⏰ " + (vs.todayOverride ? times + "  (Override) — tippen zum Aendern" : times + "  — tippen zum Aendern"));
             // 🆕 v6.62.955 (Patrick 25.05. 21:28): Tap auf Zeit-Anzeige öffnet 2-stufigen Time-Picker
             todayTimes.setOnClickListener(v -> showTimeEditDialog(vs));

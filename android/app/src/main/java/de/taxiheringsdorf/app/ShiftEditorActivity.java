@@ -478,6 +478,16 @@ public class ShiftEditorActivity extends AppCompatActivity {
     }
     private static String strOrNull(Object o) { return o == null ? null : String.valueOf(o); }
 
+    // 🆕 v6.63.581: "09:00" → "9", "09:30" → "9:30" — kompakte Darstellung für Wochentag-Buttons
+    private static String shortTime(String hhmm) {
+        if (hhmm == null) return "?";
+        try {
+            int h = Integer.parseInt(hhmm.substring(0, 2));
+            String min = hhmm.length() >= 5 ? hhmm.substring(3, 5) : "00";
+            return min.equals("00") ? String.valueOf(h) : h + ":" + min;
+        } catch (Exception e) { return hhmm; }
+    }
+
     /** 🆕 v6.63.270: Mode-Pill-Buttons visuell hervorheben — aktiver in Gelb, andere grau. */
     private void updateModePills(android.widget.Button[] pills, int activeIdx) {
         int[] activeBg = { 0xFFFBBF24, 0xFF3B82F6, 0xFFEF4444 }; // WP=gelb, Override=blau, Aus=rot
@@ -1581,7 +1591,7 @@ public class ShiftEditorActivity extends AppCompatActivity {
                                 "Fehler: " + e.getMessage(), Toast.LENGTH_LONG).show());
             });
 
-            // Wochenplan-Buttons
+            // 🆕 v6.63.581: Wochenplan-Übersicht — zeigt DIREKT Schichtzeiten pro Tag
             weekRow.removeAllViews();
             StringBuilder summary = new StringBuilder();
             for (int i = 0; i < 7; i++) {
@@ -1591,18 +1601,36 @@ public class ShiftEditorActivity extends AppCompatActivity {
                         LinearLayout.LayoutParams.WRAP_CONTENT, 1);
                 lp.setMarginStart(2); lp.setMarginEnd(2);
                 b.setLayoutParams(lp);
-                // DAY_LABELS[i] mit i=0..6 entspricht So..Sa (Calendar.DAY_OF_WEEK - 1)
-                // 🆕 v6.63.580: Pausen-Indikator "│" wenn timeRanges für diesen Tag
+                boolean active = vs.defaults[i];
                 boolean _hasPausen = vs.defaultTimeRanges != null
                     && vs.defaultTimeRanges[i] != null
                     && vs.defaultTimeRanges[i].size() > 1;
-                b.setText(_hasPausen ? DAY_LABELS[i] + "\n│" : DAY_LABELS[i]);
-                b.setTextSize(11);
+                // Schichtzeit für diesen Wochentag kompakt darstellen
+                String _bTxt;
+                if (!active) {
+                    _bTxt = DAY_LABELS[i] + "\n—";
+                } else if (_hasPausen) {
+                    // Pausen: jede Range als H:mm
+                    StringBuilder _pb = new StringBuilder(DAY_LABELS[i] + "\n");
+                    java.util.List<String[]> _pr = vs.defaultTimeRanges[i];
+                    for (int _pi = 0; _pi < _pr.size(); _pi++) {
+                        if (_pi > 0) _pb.append("\n│");
+                        // kürzen: "09:00" → "9" wenn :00, sonst "9:30"
+                        _pb.append(shortTime(_pr.get(_pi)[0])).append("–").append(shortTime(_pr.get(_pi)[1]));
+                    }
+                    _bTxt = _pb.toString();
+                } else if (vs.defaultTimes != null && vs.defaultTimes[i] != null) {
+                    _bTxt = DAY_LABELS[i] + "\n"
+                        + shortTime(vs.defaultTimes[i][0]) + "–" + shortTime(vs.defaultTimes[i][1]);
+                } else {
+                    _bTxt = DAY_LABELS[i] + "\n?";
+                }
+                b.setText(_bTxt);
+                b.setTextSize(10);
                 b.setMinHeight(0); b.setMinimumHeight(0);
-                b.setPadding(2, 8, 2, 8);
-                boolean active = vs.defaults[i];
+                b.setPadding(2, 6, 2, 6);
                 b.setBackgroundColor(active ? (_hasPausen ? 0xFF064E3B : 0xFF065F46) : 0xFF334155);
-                b.setTextColor(active ? (_hasPausen ? 0xFFFBBF24 : 0xFFFFFFFF) : 0xFF94A3B8);
+                b.setTextColor(active ? (_hasPausen ? 0xFFFBBF24 : 0xFFFFFFFF) : 0xFF64748B);
                 b.setOnClickListener(v -> {
                     boolean newActive = !vs.defaults[idx];
                     FirebaseDatabase.getInstance(DB_URL)

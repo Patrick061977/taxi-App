@@ -85,6 +85,11 @@ public class ShiftEditorActivity extends AppCompatActivity {
     private DatabaseReference vehiclesRef;
     private ValueEventListener vehiclesListener;
 
+    // 🆕 v6.63.579: Standort-Edit via MapPickerActivity
+    private androidx.activity.result.ActivityResultLauncher<android.content.Intent> mapPickerLauncherShift;
+    private final String[] _pendingStandortVid = {null};
+    private final int[] _pendingStandortDow = {0};
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -132,6 +137,38 @@ public class ShiftEditorActivity extends AppCompatActivity {
                 data.add(vs);
             }
             adapter.notifyDataSetChanged();
+
+            // 🆕 v6.63.579: Standort-Picker Launcher registrieren
+            mapPickerLauncherShift = registerForActivityResult(
+                new androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult(),
+                result -> {
+                    if (result.getResultCode() == android.app.Activity.RESULT_OK
+                            && result.getData() != null && _pendingStandortVid[0] != null) {
+                        String addr = result.getData().getStringExtra(MapPickerActivity.EXTRA_RESULT_ADDR);
+                        double lat = result.getData().getDoubleExtra(MapPickerActivity.EXTRA_RESULT_LAT, 0);
+                        double lon = result.getData().getDoubleExtra(MapPickerActivity.EXTRA_RESULT_LON, 0);
+                        if (addr != null && lat != 0 && lon != 0) {
+                            int dow = _pendingStandortDow[0];
+                            String vid = _pendingStandortVid[0];
+                            Map<String, Object> upd = new HashMap<>();
+                            upd.put("homeLocation", addr);
+                            Map<String, Object> coords = new HashMap<>();
+                            coords.put("lat", lat);
+                            coords.put("lon", lon);
+                            upd.put("homeCoords", coords);
+                            FirebaseDatabase.getInstance(DB_URL)
+                                .getReference("vehicleShifts/" + vid + "/defaultTimes/" + dow)
+                                .updateChildren(upd)
+                                .addOnSuccessListener(_ok -> {
+                                    Toast.makeText(this, "📍 Standort gesetzt: " + addr, Toast.LENGTH_LONG).show();
+                                    _pendingStandortVid[0] = null;
+                                })
+                                .addOnFailureListener(e -> Toast.makeText(this,
+                                    "Standort-Fehler: " + e.getMessage(), Toast.LENGTH_SHORT).show());
+                        }
+                    }
+                }
+            );
 
             attachListener();
         } catch (Throwable t) {
@@ -768,6 +805,33 @@ public class ShiftEditorActivity extends AppCompatActivity {
                 selDate.get(Calendar.YEAR), selDate.get(Calendar.MONTH), selDate.get(Calendar.DAY_OF_MONTH));
             dpDialog.show();
         });
+        // 🆕 v6.63.579: Standort-Button — wählt homeLocation für den ausgewählten Wochentag
+        android.widget.Button btnStandort = new android.widget.Button(this);
+        btnStandort.setText("📍 Standort für diesen Tag wählen");
+        btnStandort.setTextSize(13);
+        android.widget.LinearLayout.LayoutParams sbLp = new android.widget.LinearLayout.LayoutParams(
+            android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+            android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
+        sbLp.topMargin = pad;
+        btnStandort.setLayoutParams(sbLp);
+        final VehicleShift _vsRef = vs;
+        btnStandort.setOnClickListener(v -> {
+            int _dow = selDate.get(Calendar.DAY_OF_WEEK) - 1;
+            _pendingStandortVid[0] = _vsRef.vehicleId;
+            _pendingStandortDow[0] = _dow;
+            try {
+                android.content.Intent intent = new android.content.Intent(this, MapPickerActivity.class);
+                String _curHome = (_vsRef.homeLocations != null && _vsRef.homeLocations[_dow] != null)
+                    ? _vsRef.homeLocations[_dow] : null;
+                if (_curHome != null) intent.putExtra(MapPickerActivity.EXTRA_INITIAL_QUERY, _curHome);
+                mapPickerLauncherShift.launch(intent);
+            } catch (Throwable t2) {
+                Log.e(TAG, "MapPicker launch Fehler: " + t2.getMessage(), t2);
+                Toast.makeText(this, "Standort-Picker Fehler", Toast.LENGTH_SHORT).show();
+            }
+        });
+        root.addView(btnStandort);
+
         // v6.62.999: ScrollView damit Dialog scrollbar wird wenn Spätschicht aufgeklappt
         android.widget.ScrollView scroll = new android.widget.ScrollView(this);
         scroll.addView(root);

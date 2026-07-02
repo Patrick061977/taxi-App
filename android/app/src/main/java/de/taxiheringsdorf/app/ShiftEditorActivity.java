@@ -1065,17 +1065,28 @@ public class ShiftEditorActivity extends AppCompatActivity {
                         root.addView(_btnDel);
                         _btnDelPausenArr[0] = _btnDel;
                     }
-                    // Standort anzeigen
-                    if (_homeLocTxt != null && !_homeLocTxt.isEmpty()) {
-                        android.widget.TextView locInfo = new android.widget.TextView(ShiftEditorActivity.this);
-                        locInfo.setText("📍 " + _homeLocTxt);
-                        locInfo.setTextColor(0xFF94A3B8);
-                        locInfo.setTextSize(12);
-                        android.widget.LinearLayout.LayoutParams liLp = new android.widget.LinearLayout.LayoutParams(
+                    // 🆕 v6.63.586: Standort-Button im Wochenplan-Dialog — direkt antippbar
+                    {
+                        android.widget.Button _btnStandortWk = new android.widget.Button(ShiftEditorActivity.this);
+                        _btnStandortWk.setText((_homeLocTxt != null && !_homeLocTxt.isEmpty())
+                            ? "📍 " + _homeLocTxt
+                            : "📍 Standort für alle " + dayNames[dow] + "e wählen");
+                        _btnStandortWk.setTextSize(12);
+                        _btnStandortWk.setBackgroundColor(_homeLocTxt != null && !_homeLocTxt.isEmpty() ? 0xFF1E293B : 0xFF0F3460);
+                        _btnStandortWk.setTextColor(_homeLocTxt != null && !_homeLocTxt.isEmpty() ? 0xFF94A3B8 : 0xFF7DD3FC);
+                        android.widget.LinearLayout.LayoutParams _sWkLp = new android.widget.LinearLayout.LayoutParams(
                             android.widget.LinearLayout.LayoutParams.MATCH_PARENT, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
-                        liLp.bottomMargin = pad / 2;
-                        locInfo.setLayoutParams(liLp);
-                        root.addView(locInfo);
+                        _sWkLp.bottomMargin = pad / 2;
+                        _btnStandortWk.setLayoutParams(_sWkLp);
+                        final String _homeLocForPicker = _homeLocTxt;
+                        _btnStandortWk.setOnClickListener(_vv -> {
+                            _pendingStandortVid[0] = vs.vehicleId;
+                            _pendingStandortDow[0] = dow;
+                            android.content.Intent _mi = new android.content.Intent(ShiftEditorActivity.this, MapPickerActivity.class);
+                            if (_homeLocForPicker != null) _mi.putExtra(MapPickerActivity.EXTRA_INITIAL_QUERY, _homeLocForPicker);
+                            mapPickerLauncherShift.launch(_mi);
+                        });
+                        root.addView(_btnStandortWk);
                     }
 
                     android.widget.LinearLayout startRow = makeTimeRow(ShiftEditorActivity.this, "🟢 START:", start);

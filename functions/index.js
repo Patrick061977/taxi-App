@@ -28238,6 +28238,24 @@ exports.onRideUpdated = onValueUpdated(
                     await sendToAllAdmins(`🆘 <b>WARTEPOOL + 0 FAHRER ONLINE!</b>\n\nFahrt ${after.customerName || '?'} ${after.pickup || '?'} um ${after.pickupTime || '?'} im Wartepool, SMS an Schicht-Fahrer raus.`);
                 }
             } catch (e) { console.error('Wartepool-AutoRuf:', e.message); }
+
+            // 🆕 v6.63.591: SOFORT-AUTO-ASSIGN wenn Fahrt in Wartepool landet
+            // Patrick 03.07.: "Da in die Fahrt, wenn die im Pool gesetzt wird, muss die sofort feuern."
+            // Cron laeuft alle 15 Min — zu langsam. Trigger-basiertes Sofort-Assign hier.
+            try {
+                const _wpRideSnap = await db.ref(`rides/${rideId}`).once('value');
+                const _wpRide = _wpRideSnap.val();
+                if (_wpRide && _wpRide.status === 'wartepool') {
+                    const _wpResult = await autoAssignRide(rideId, { ..._wpRide, assignedVehicle: null, vehicleId: null });
+                    if (_wpResult && _wpResult.vehicleId) {
+                        console.log(`✅ v6.63.591 Wartepool-Sofort-Assign: ${rideId} → ${_wpResult.vehicleId}`);
+                        try { await addRideLog(rideId, '✅', `v6.63.591 Wartepool-Sofort-Assign: ${_wpResult.name || _wpResult.vehicleId}`, { quelle: 'onRideUpdated wartepool', viaTrigger: true }); } catch (_) {}
+                    } else {
+                        console.log(`ℹ️ v6.63.591 Wartepool-Sofort-Assign: kein Fahrzeug verfuegbar fuer ${rideId} — Admin-Nachricht folgt`);
+                        try { await addRideLog(rideId, 'ℹ️', `v6.63.591 Wartepool-Sofort-Assign: kein Fahrzeug gefunden`, { quelle: 'onRideUpdated wartepool' }); } catch (_) {}
+                    }
+                }
+            } catch (_e) { console.error('v6.63.591 Wartepool-Sofort-Assign Fehler:', _e.message); }
         }
         // Punkt 6: Wartepool-Aufloesung — wenn Fahrt aus Wartepool wieder zugewiesen wird,
         // Customer informieren ('Vermittelt — Fahrer kommt')

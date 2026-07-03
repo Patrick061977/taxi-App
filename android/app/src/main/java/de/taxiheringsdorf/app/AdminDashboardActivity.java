@@ -1787,21 +1787,44 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 tvExtra.setTextSize(11f);
                 card.addView(tvExtra);
             }
-            // Erneut buchen Button
+            // 🆕 v6.63.589: Erneut buchen + Bearbeiten nebeneinander
+            final Ride rFinal = r;
+            LinearLayout btnRow = new LinearLayout(this);
+            btnRow.setOrientation(LinearLayout.HORIZONTAL);
+            int _dp = (int) getResources().getDisplayMetrics().density;
+            LinearLayout.LayoutParams rowLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+            rowLp.setMargins(0, 8 * _dp, 0, 0);
+            btnRow.setLayoutParams(rowLp);
+            btnRow.setWeightSum(2f);
+
             MaterialButton btnRebook = new MaterialButton(this);
             btnRebook.setText("🔄 Erneut buchen");
-            btnRebook.setTextSize(12f);
+            btnRebook.setTextSize(11f);
             btnRebook.setTextColor(0xFFFFFFFF);
-            try {
-                btnRebook.setBackgroundTintList(android.content.res.ColorStateList.valueOf(0xFF7C3AED));
-            } catch (Throwable _t) {}
-            LinearLayout.LayoutParams bp = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-            bp.setMargins(0, (int)(8 * getResources().getDisplayMetrics().density), 0, 0);
+            try { btnRebook.setBackgroundTintList(android.content.res.ColorStateList.valueOf(0xFF7C3AED)); } catch (Throwable _t) {}
+            LinearLayout.LayoutParams bp = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+            bp.setMargins(0, 0, 4 * _dp, 0);
             btnRebook.setLayoutParams(bp);
-            final Ride rFinal = r;
             btnRebook.setOnClickListener(v -> _rebookRide(rFinal));
-            card.addView(btnRebook);
+            btnRow.addView(btnRebook);
+
+            MaterialButton btnEdit = new MaterialButton(this);
+            btnEdit.setText("✏️ Bearbeiten");
+            btnEdit.setTextSize(11f);
+            btnEdit.setTextColor(0xFFFFFFFF);
+            try { btnEdit.setBackgroundTintList(android.content.res.ColorStateList.valueOf(0xFF1D4ED8)); } catch (Throwable _t) {}
+            LinearLayout.LayoutParams ep = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+            btnEdit.setLayoutParams(ep);
+            btnEdit.setOnClickListener(v -> {
+                if (_currentSearchDialog != null && _currentSearchDialog.isShowing()) {
+                    _currentSearchDialog.dismiss();
+                    _currentSearchDialog = null;
+                }
+                showEditRideDialog(rFinal);
+            });
+            btnRow.addView(btnEdit);
+            card.addView(btnRow);
             ll.addView(card);
         }
         b.setView(sv);

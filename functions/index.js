@@ -1468,10 +1468,22 @@ async function autoAssignRide(rideId, rideData, _excludeVehicleIds = []) {
             //  die Schicht beendet, Dariusz' Handy schreibt aber per Heartbeat
             //  shift.status='active' zurueck → ohne diesen Check faellt das System
             //  drauf rein. forceEnded ist das Admin-Override und MUSS ueberprueft werden.
+            // 🔧 v6.63.592 (Patrick 03.07. 19:22 "Warum Renault nicht eingeplant?"):
+            //   forceEnded blockierte Vorbestellungen für MORGEN/Zukunft — falsch!
+            //   forceEnded = "AKTUELLE Schicht ist beendet", nicht "Fahrzeug nie wieder".
+            //   Für Vorbestellungen an einem anderen Kalendertag entscheidet allein
+            //   der Wochenplan (verifyVehicleShiftIndependent). Nur für HEUTE oder
+            //   Sofortfahrten gilt forceEnded als hartes Veto.
             if (_vData.shift && _vData.shift.forceEnded === true) {
-                console.log(`   ❌ ${info.name}: Schicht von Admin forciert beendet (forceEnded=true)`);
-                vehicleScores[vehicleId] = { status: 'rejected', reason: 'Schicht durch Admin beendet (forceEnded)', check: 'forceEnded' };
-                continue;
+                const _todayBerlin = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Berlin' });
+                const _isTodayRide = dateStr === _todayBerlin;
+                if (isSofort || _isTodayRide) {
+                    console.log(`   ❌ ${info.name}: Schicht von Admin forciert beendet (forceEnded=true) — ${isSofort ? 'Sofort' : 'Heute'}`);
+                    vehicleScores[vehicleId] = { status: 'rejected', reason: 'Schicht durch Admin beendet (forceEnded)', check: 'forceEnded' };
+                    continue;
+                }
+                // Anderer Tag → forceEnded ignorieren, Wochenplan entscheidet (weiter unten)
+                console.log(`   ⚠️ v6.63.592 ${info.name}: forceEnded ignoriert für Vorbestellung am ${dateStr} (forceEnded gilt nur heute ${_todayBerlin})`);
             }
 
             if (isSofort) {

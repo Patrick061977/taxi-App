@@ -31182,35 +31182,40 @@ exports.scheduledDepartureAlert = onSchedule(
                     updates[`rides/${rideId}/departureAlertSent`] = true;
                     return;
                 }
-                // Match — Push raus + Flag
-                const payload = {
-                    type: 'departure_alert',
-                    rideId,
-                    customerName: ride.customerName || 'Kunde',
-                    pickup: ride.pickup || ride.pickupAddress || '',
-                    pickupTime: ride.pickupTime || ''
-                };
-                sendFCMToVehicle(vehicleId, payload).then(ok => {
-                    if (ok) {
-                        console.log(`🚨 Departure-Alert FCM gesendet fuer ${rideId} → ${vehicleId}`);
-                        // 🆕 v6.62.907 (Patrick 24.05. 08:43): Eigenes Lifecycle-Log-Entry damit
-                        //   Patrick im Verlauf sehen kann ob/wann der Losfahr-Push gesendet wurde.
-                        try {
-                            addRideLog(rideId, '🚨', `Losfahr-Alarm (Vibration) gesendet an ${vehicleId}`, {
-                                vehicleId, type: 'departure_alert', losfahrtAt: new Date(losfahrtAt).toISOString(),
-                                pickupAt: new Date(pickupTs).toISOString(), driveMin
-                            }).catch(()=>{});
-                        } catch(_) {}
-                    } else {
-                        console.warn(`⚠️ Departure-Alert FCM FEHLGESCHLAGEN fuer ${rideId} → ${vehicleId}`);
-                        try {
-                            addRideLog(rideId, '⚠️', `Losfahr-Alarm FCM FEHLGESCHLAGEN an ${vehicleId}`, { vehicleId, type: 'departure_alert' }).catch(()=>{});
-                        } catch(_) {}
+                // v6.63.594: Schicht-Check vor Push — kein Losfahr-Alarm wenn Fahrzeug nicht on Schicht
+                // (verhindert Push an Fahrer die nicht angemeldet sind, z.B. Patrick als Owner)
+                const _rideId2 = rideId, _vid2 = vehicleId;
+                const _los = losfahrtAt, _pts = pickupTs, _dMin = driveMin, _ride = ride;
+                arrivalAlertPromises.push((async () => {
+                    const _shiftSnap = await db.ref(`vehicles/${_vid2}/shift/status`).once('value');
+                    if (_shiftSnap.val() !== 'active') {
+                        console.log(`⏭️ Departure-Alert skip ${_rideId2}: ${_vid2} shift=${_shiftSnap.val()||'null'} — nicht on Schicht`);
+                        return; // departureAlertSent NICHT setzen → beim nächsten Tick nochmal prüfen
                     }
-                }).catch(_e => {});
-                updates[`rides/${rideId}/departureAlertSent`] = true;
-                updates[`rides/${rideId}/departureAlertSentAt`] = now;
-                alerted++;
+                    const _payload = {
+                        type: 'departure_alert', rideId: _rideId2,
+                        customerName: _ride.customerName || 'Kunde',
+                        pickup: _ride.pickup || _ride.pickupAddress || '',
+                        pickupTime: _ride.pickupTime || ''
+                    };
+                    const _ok = await sendFCMToVehicle(_vid2, _payload).catch(() => false);
+                    if (_ok) {
+                        console.log(`🚨 Departure-Alert FCM gesendet fuer ${_rideId2} → ${_vid2}`);
+                        addRideLog(_rideId2, '🚨', `Losfahr-Alarm (Vibration) gesendet an ${_vid2}`, {
+                            vehicleId: _vid2, type: 'departure_alert',
+                            losfahrtAt: new Date(_los).toISOString(),
+                            pickupAt: new Date(_pts).toISOString(), driveMin: _dMin
+                        }).catch(()=>{});
+                    } else {
+                        console.warn(`⚠️ Departure-Alert FCM FEHLGESCHLAGEN fuer ${_rideId2} → ${_vid2}`);
+                        addRideLog(_rideId2, '⚠️', `Losfahr-Alarm FCM FEHLGESCHLAGEN an ${_vid2}`, { vehicleId: _vid2, type: 'departure_alert' }).catch(()=>{});
+                    }
+                    await db.ref().update({
+                        [`rides/${_rideId2}/departureAlertSent`]: true,
+                        [`rides/${_rideId2}/departureAlertSentAt`]: Date.now()
+                    });
+                    alerted++;
+                })());
             });
 
             // v6.62.928: erst auf alle Akzeptanz-Alarm-FCMs warten, dann updates schreiben

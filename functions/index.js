@@ -2084,7 +2084,9 @@ async function autoAssignRide(rideId, rideData, _excludeVehicleIds = []) {
 
             if (_prevRides.length > 0) {
                 const _prevRide = _prevRides[0];
-                const _prevDurMs = (_prevRide.duration || _prevRide.estimatedDuration || 20) * 60000;
+                // 🔧 v6.63.590: Fallback 20→10 Min — Heringsdorf ist klein, 20 Min war zu pessimistisch
+                //   und führte zu falschen Konflikt-Shifts (Wagner 3 Min tatsächlich, 20 Min geschätzt).
+                const _prevDurMs = (_prevRide.duration || _prevRide.estimatedDuration || 10) * 60000;
                 // 🔧 v6.38.53: Rückfahrt-Puffer in prevEnd einrechnen (vorher fehlte der!)
                 // 🐛 v6.63.467 (22.06.2026): calcReturnMsAsync war als async function in inneren
                 //   if-Block (Z.1612, if(rideData.pickupTimestamp)) definiert → block-scoped
@@ -21477,6 +21479,99 @@ exports.autoResolveConflicts = onSchedule(
                     // 🔧 v6.34.0: Flag NICHT hier zurücksetzen — Phase 2 braucht ihn noch!
                 }
             } catch(e) { /* non-critical */ }
+
+            // Leerfahrt-Fallback für Phase-0b (5 Min konservativ)
+            const leerfahrtFallbackMs = 5 * 60000;
+
+            // ═══════════════════════════════════════════════════════════
+            // PHASE 0b — RÜCKSETZEN VERSCHOBENER FAHRTEN
+            // v6.63.590: Wenn der Grund für einen Zeit-Shift entfällt (Vorfahrt
+            // abgeschlossen oder storniert), Folgefahrt auf Original-Zeit zurücksetzen.
+            // ═══════════════════════════════════════════════════════════
+            {
+                let totalRestored = 0;
+                const _restoreWindow = now + 24 * 60 * 60 * 1000;
+                const _shiftedRides = allRides.filter(r =>
+                    r.originalPickupTimestamp &&
+                    r.pickupTimestamp > r.originalPickupTimestamp &&
+                    r.pickupTimestamp > now &&
+                    r.pickupTimestamp < _restoreWindow &&
+                    r.assignedVehicle &&
+                    !['accepted','picked_up','on_way','completed','cancelled','deleted','storniert'].includes(r.status) &&
+                    r.assignmentLocked !== true &&
+                    !(r.assignedBy || '').startsWith('claude-manual-') &&
+                    !(r.assignedBy || '').startsWith('manual-admin')
+                );
+                for (const ride of _shiftedRides) {
+                    try {
+                        const _origTs = ride.originalPickupTimestamp;
+                        const _rideDate = berlinDate(_origTs);
+                        // Alle anderen aktiven Fahrten auf demselben Fahrzeug am selben Tag
+                        const _sameVehicle = allActiveAssignedRides.filter(r =>
+                            r.firebaseId !== ride.firebaseId &&
+                            r.assignedVehicle === ride.assignedVehicle &&
+                            berlinDate(r.pickupTimestamp) === _rideDate
+                        );
+                        // Eigene geschätzte Dauer (für die Prüfung der Folgefahrt)
+                        const _ownDurMs = (ride.duration || ride.estimatedDuration || 10) * 60000;
+                        const _origEndMs = _origTs + _ownDurMs + bufferMs;
+                        // Konflikt-Check: gibt es eine Vorfahrt die nach _origTs endet
+                        // oder eine Folgefahrt die vor _origEndMs startet?
+                        let _hasConflict = false;
+                        for (const other of _sameVehicle) {
+                            const _otherDurMs = (other.duration || other.estimatedDuration || 10) * 60000;
+                            const _otherEndMs = other.pickupTimestamp + _otherDurMs + bufferMs;
+                            const _isBefore = other.pickupTimestamp < _origTs;
+                            const _isAfter = other.pickupTimestamp >= _origTs;
+                            if (_isBefore && _otherEndMs + leerfahrtFallbackMs > _origTs) {
+                                _hasConflict = true; break;
+                            }
+                            if (_isAfter && _origEndMs + leerfahrtFallbackMs > other.pickupTimestamp) {
+                                _hasConflict = true; break;
+                            }
+                        }
+                        if (!_hasConflict) {
+                            const _oldTime = berlinTime(ride.pickupTimestamp);
+                            const _newTime = berlinTime(_origTs);
+                            await db.ref(`rides/${ride.firebaseId}`).update({
+                                pickupTimestamp: _origTs,
+                                pickupTime: _newTime,
+                                updatedAt: Date.now(),
+                                originalPickupTimestamp: null,
+                                pickupTimeShifted: false,
+                                pickupShiftReason: null,
+                                pickupShiftMinutes: null,
+                                lastTimeShiftAt: null,
+                                lastTimeShiftBy: null,
+                                replanReason: `v6.63.590 Phase-0b: Konflikt-Grund entfallen → zurück auf Original-Zeit ${_newTime}`
+                            });
+                            await db.ref('conflictResolveLog').push({
+                                ts: Date.now(), action: 'restore-original-time',
+                                rideId: ride.firebaseId, vehicle: ride.assignedVehicle,
+                                oldTime: ride.pickupTimestamp, newTime: _origTs,
+                                customer: ride.customerName || '?'
+                            }).catch(() => {});
+                            console.log(`   ↩️ Phase-0b: ${ride.customerName || '?'} ${_oldTime} → ${_newTime} (Konflikt-Grund weg)`);
+                            const _vName = OFFICIAL_VEHICLES[ride.assignedVehicle]?.name || ride.assignedVehicle;
+                            await sendToAllAdmins(
+                                `↩️ <b>Abholzeit wiederhergestellt</b>\n\n` +
+                                `👤 ${ride.customerName || '?'}\n` +
+                                `🕐 ${_oldTime} → ${_newTime} (Original)\n` +
+                                `🚗 ${_vName}\n` +
+                                `Grund: Vorfahrt erledigt / storniert`,
+                                'optimization'
+                            ).catch(() => {});
+                            // Lokale Liste aktualisieren damit Phase 1 das nicht nochmal anfasst
+                            ride.pickupTimestamp = _origTs;
+                            ride.originalPickupTimestamp = null;
+                            totalRestored++;
+                        }
+                    } catch (_e) {
+                        console.warn(`⚠️ Phase-0b Restore-Fehler ${ride.firebaseId}:`, _e.message);
+                    }
+                }
+                if (totalRestored > 0) console.log(`✅ Phase 0b: ${totalRestored} Fahrt(en) auf Original-Zeit zurückgesetzt`);
+            }
 
             // ═══════════════════════════════════════════════════════════
             // PHASE 1 — ZEITKONFLIKT-AUFLÖSUNG (bestehend)

@@ -2770,10 +2770,12 @@ public class CallLogActivity extends AppCompatActivity {
                     //   #1E293B). setBackgroundColor wird vom cardBackgroundColor-
                     //   Attribut überlagert → Patrick sah keinen gelben Banner.
                     //   Fix: setCardBackgroundColor verwenden.
+                    // 🔧 v6.63.607: amber-100 (#FEF3C7) war zu hell — weißer Text unsichtbar.
+                    //   amber-700 (#B45309) ist dunkel genug für weißen Text (Kontrast ~4.8:1).
                     if (itemView instanceof androidx.cardview.widget.CardView) {
-                        ((androidx.cardview.widget.CardView) itemView).setCardBackgroundColor(0xFFFEF3C7);
+                        ((androidx.cardview.widget.CardView) itemView).setCardBackgroundColor(0xFFB45309);
                     } else {
-                        itemView.setBackgroundColor(0xFFFEF3C7);
+                        itemView.setBackgroundColor(0xFFB45309);
                     }
                     // Indikator links per Padding-Border-Hack
                     int leftPad = (int)(8 * itemView.getResources().getDisplayMetrics().density);

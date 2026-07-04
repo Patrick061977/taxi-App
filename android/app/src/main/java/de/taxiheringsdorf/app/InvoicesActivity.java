@@ -305,9 +305,11 @@ public class InvoicesActivity extends AppCompatActivity {
                     upd.put("updatedAt", System.currentTimeMillis());
                     // positions[0].amount = Brutto-Betrag (1-Positions-Rechnung)
                     upd.put("positions/0/amount", newGross);
+                    // v6.63.607: Web-Admin erkennt diesen Flag und regeneriert das PDF automatisch
+                    upd.put("needsPdfRegeneration", true);
                     FirebaseDatabase.getInstance(DB_URL).getReference("invoices/" + item.key)
                         .updateChildren(upd);
-                    Toast.makeText(this, "✅ Betrag aktualisiert: " + String.format(Locale.GERMANY, "%.2f €", newGross), Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, "✅ Betrag aktualisiert: " + String.format(Locale.GERMANY, "%.2f €", newGross) + "\n📄 PDF wird beim nächsten Öffnen im Web-Admin neu erstellt", Toast.LENGTH_LONG).show();
                     renderList(etSearch.getText().toString().toLowerCase(Locale.GERMANY).trim());
                 } catch (NumberFormatException e) {
                     Toast.makeText(this, "Ungültiger Betrag", Toast.LENGTH_SHORT).show();

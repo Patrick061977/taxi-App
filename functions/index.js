@@ -28400,7 +28400,14 @@ exports.onRideUpdated = onValueUpdated(
                 const minutesUntilPickup = (after.pickupTimestamp - Date.now()) / 60000;
                 const wasGpsAssigned = after.assignedBy === 'cloud-auto-assign' || after.assignedBy === 'auto-assign';
                 const isNowVorbestellung = minutesUntilPickup > 60;
-                const needsReassign_sofortToVorbestellung = wasGpsAssigned && isNowVorbestellung && before.pickupTimestamp !== after.pickupTimestamp;
+                // 🔧 v6.63.596: Phase-0b ändert pickupTimestamp VORBESTELLT→VORBESTELLT
+                //   (shift-Restore), was before.pickupTimestamp !== after.pickupTimestamp auslöst.
+                //   → onRideUpdated hat das fälschlich als Sofort→Vorbestellt interpretiert
+                //   → Fahrzeug entfernt → autoAssignRide → re-shift → Ping-Pong-Schleife.
+                //   Fix: Nur re-assign wenn before-Pickup WIRKLICH noch sofort war (<60 Min).
+                const minutesBeforePickup = (before.pickupTimestamp - Date.now()) / 60000;
+                const wasAlreadyVorbestellt = minutesBeforePickup > 60;
+                const needsReassign_sofortToVorbestellung = wasGpsAssigned && isNowVorbestellung && !wasAlreadyVorbestellt && before.pickupTimestamp !== after.pickupTimestamp;
 
                 if (needsReassign_noShift || needsReassign_sofortToVorbestellung) {
                     const oldVehicleName = (OFFICIAL_VEHICLES[newVehicle] || {}).name || after.vehicle || '?';

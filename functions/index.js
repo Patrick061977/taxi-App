@@ -1464,26 +1464,31 @@ async function autoAssignRide(rideId, rideData, _excludeVehicleIds = []) {
             const _isShiftActive = _vData.shift && _vData.shift.status === 'active';
 
             // 🆕 v6.62.897 (Patrick 23.05. 15:07): forceEnded ist HARD BLOCK.
-            // 'Warum wird der Renault Traffic immer noch zugewiesen?' Patrick hat
-            //  die Schicht beendet, Dariusz' Handy schreibt aber per Heartbeat
-            //  shift.status='active' zurueck → ohne diesen Check faellt das System
-            //  drauf rein. forceEnded ist das Admin-Override und MUSS ueberprueft werden.
-            // 🔧 v6.63.592 (Patrick 03.07. 19:22 "Warum Renault nicht eingeplant?"):
-            //   forceEnded blockierte Vorbestellungen für MORGEN/Zukunft — falsch!
-            //   forceEnded = "AKTUELLE Schicht ist beendet", nicht "Fahrzeug nie wieder".
-            //   Für Vorbestellungen an einem anderen Kalendertag entscheidet allein
-            //   der Wochenplan (verifyVehicleShiftIndependent). Nur für HEUTE oder
-            //   Sofortfahrten gilt forceEnded als hartes Veto.
+            // 🔧 v6.63.592 (Patrick 03.07. 19:22): forceEnded gilt nur HEUTE, nicht für Zukunft.
+            // 🔧 v6.63.605 (Patrick 04.07. 12:00): forceEnded gilt nur wenn es AM GLEICHEN TAG
+            //   passiert ist (forceEndedAt == heute). Ein forceEnded vom 02.07. darf den 04.07.
+            //   NICHT blockieren — der Wochenplan entscheidet für neue Tage.
+            //   forceEndedAt: 2.7.2026 08:25 blockierte Samstag 4.7.2026 → Bug.
             if (_vData.shift && _vData.shift.forceEnded === true) {
                 const _todayBerlin = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Berlin' });
-                const _isTodayRide = dateStr === _todayBerlin;
-                if (isSofort || _isTodayRide) {
-                    console.log(`   ❌ ${info.name}: Schicht von Admin forciert beendet (forceEnded=true) — ${isSofort ? 'Sofort' : 'Heute'}`);
-                    vehicleScores[vehicleId] = { status: 'rejected', reason: 'Schicht durch Admin beendet (forceEnded)', check: 'forceEnded' };
-                    continue;
+                const _feAt = _vData.shift.forceEndedAt || _vData.shift.endedAt || 0;
+                const _feDateBerlin = _feAt
+                    ? new Date(_feAt).toLocaleDateString('sv-SE', { timeZone: 'Europe/Berlin' })
+                    : _todayBerlin;
+                const _feToday = _feDateBerlin === _todayBerlin;
+                if (!_feToday) {
+                    // forceEnded von anderem Tag → ignorieren, Wochenplan entscheidet
+                    console.log(`   ⚠️ v6.63.605 ${info.name}: forceEnded vom ${_feDateBerlin} ignoriert (nicht heute ${_todayBerlin}) — Wochenplan entscheidet`);
+                } else {
+                    const _isTodayRide = dateStr === _todayBerlin;
+                    if (isSofort || _isTodayRide) {
+                        console.log(`   ❌ ${info.name}: Schicht heute force-beendet (${new Date(_feAt).toLocaleTimeString('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit' })}) — ${isSofort ? 'Sofort' : 'Heute'}`);
+                        vehicleScores[vehicleId] = { status: 'rejected', reason: 'Schicht heute durch Admin beendet (forceEnded)', check: 'forceEnded' };
+                        continue;
+                    }
+                    // Anderer Tag → forceEnded ignorieren, Wochenplan entscheidet
+                    console.log(`   ⚠️ v6.63.605 ${info.name}: forceEnded heute, aber Vorbestellung am ${dateStr} → Wochenplan entscheidet`);
                 }
-                // Anderer Tag → forceEnded ignorieren, Wochenplan entscheidet (weiter unten)
-                console.log(`   ⚠️ v6.63.592 ${info.name}: forceEnded ignoriert für Vorbestellung am ${dateStr} (forceEnded gilt nur heute ${_todayBerlin})`);
             }
 
             if (isSofort) {
@@ -24606,10 +24611,16 @@ exports.scheduledAutoAssign = onSchedule(
                     return true;
                 }
                 // 🆕 v6.62.897 (Patrick 23.05. 15:07): forceEnded auch → umplanen.
+                // 🔧 v6.63.605: nur wenn forceEnded HEUTE passiert ist (nicht Tage-alte Flags)
                 if (_vehData.shift && _vehData.shift.forceEnded === true) {
-                    const vName = (OFFICIAL_VEHICLES[vid]||{}).name || vid;
-                    console.log(`🔄 scheduledAutoAssign: ${r.customerName || r.firebaseId} — ${vName} hat shift.forceEnded → umplanen!`);
-                    return true;
+                    const _todayBerlin2 = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Berlin' });
+                    const _feAt2 = _vehData.shift.forceEndedAt || _vehData.shift.endedAt || 0;
+                    const _feDateBerlin2 = _feAt2 ? new Date(_feAt2).toLocaleDateString('sv-SE', { timeZone: 'Europe/Berlin' }) : _todayBerlin2;
+                    if (_feDateBerlin2 === _todayBerlin2) {
+                        const vName = (OFFICIAL_VEHICLES[vid]||{}).name || vid;
+                        console.log(`🔄 scheduledAutoAssign: ${r.customerName || r.firebaseId} — ${vName} hat shift.forceEnded (heute) → umplanen!`);
+                        return true;
+                    }
                 }
 
                 // 🔧 v6.38.29: Inkonsistenz-Check — wenn assignedVehicle ≠ vehicleId, BEIDE prüfen
@@ -24834,14 +24845,17 @@ exports.scheduledAutoAssign = onSchedule(
 
                 for (const [vehicleId, info] of Object.entries(OFFICIAL_VEHICLES)) {
                     if (info.capacity < passengers) continue;
-                    // 🆕 v6.62.898 (Patrick 24.05. 06:43 Recurrence): forceEnded HARD BLOCK
-                    //   im scheduledAutoAssign Candidate-Filter. Bug: v6.62.897 hatte den
-                    //   Check nur in scoreVehicle (anderer Code-Pfad), nicht in dieser Loop.
-                    //   Hofses 8.8./15.8. wurde trotz shift.forceEnded weiter pw-sk-222 zugewiesen.
+                    // 🆕 v6.62.898: forceEnded HARD BLOCK im scheduledAutoAssign Candidate-Filter.
+                    // 🔧 v6.63.605: nur wenn forceEnded HEUTE passiert ist (nicht Tage-alte Flags)
                     const _vDataForceEnded = (vehiclesData[vehicleId] || {}).shift;
                     if (_vDataForceEnded && _vDataForceEnded.forceEnded === true) {
-                        console.log(`   ❌ ${info.name}: shift.forceEnded=true (Admin-Block)`);
-                        continue;
+                        const _todayBerlin3 = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Berlin' });
+                        const _feAt3 = _vDataForceEnded.forceEndedAt || _vDataForceEnded.endedAt || 0;
+                        const _feDateBerlin3 = _feAt3 ? new Date(_feAt3).toLocaleDateString('sv-SE', { timeZone: 'Europe/Berlin' }) : _todayBerlin3;
+                        if (_feDateBerlin3 === _todayBerlin3) {
+                            console.log(`   ❌ ${info.name}: shift.forceEnded=true heute (Admin-Block)`);
+                            continue;
+                        }
                     }
                     // 🆕 v6.62.913 (Patrick 24.05. 09:53): assignmentBlacklist UND rejectedVehicles
                     //   respektieren. Patrick: 'selbst wenn ich Ablehnen druecke wird trotzdem
@@ -26174,12 +26188,21 @@ exports.scheduledDispatcherTips = onSchedule(
                 //   PRÜFE ZUERST ob ein Vehicle in Dienst zur Pickup-Zeit ist.
                 //   Wenn JA → System löst sich beim nächsten Cron automatisch → SKIP TIPP.
                 //   Nur wenn KEIN Vehicle in Dienst → Schicht-Lücke-Tipp pushen.
+                const _slTodayBerlin = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Berlin' });
+                const _isForceEndedToday = (vd) => {
+                    if (!vd || !vd.shift || vd.shift.forceEnded !== true) return false;
+                    const _fat = vd.shift.forceEndedAt || vd.shift.endedAt || 0;
+                    const _fdb = _fat ? new Date(_fat).toLocaleDateString('sv-SE', { timeZone: 'Europe/Berlin' }) : _slTodayBerlin;
+                    return _fdb === _slTodayBerlin;
+                };
+
                 let _hasInShiftVehicle = false;
                 for (const vid of Object.keys(OFFICIAL_VEHICLES)) {
                     const info = OFFICIAL_VEHICLES[vid];
                     if (!info) continue;
                     if ((info.capacity || 4) < (r.passengers || 1)) continue;
-                    if ((vehiclesData[vid] || {}).shift && vehiclesData[vid].shift.forceEnded === true) continue;
+                    // 🔧 v6.63.605: nur wenn forceEnded HEUTE ist
+                    if (_isForceEndedToday(vehiclesData[vid])) continue;
                     if (isVehicleInShift(vid, shiftsData, dateStr, pickupTimeStr)) {
                         _hasInShiftVehicle = true;
                         break;
@@ -26195,8 +26218,8 @@ exports.scheduledDispatcherTips = onSchedule(
                     const info = OFFICIAL_VEHICLES[vid];
                     if (!info) continue;
                     if ((info.capacity || 4) < (r.passengers || 1)) continue;
-                    // 🆕 v6.62.898: forceEnded HARD BLOCK
-                    if ((vehiclesData[vid] || {}).shift && vehiclesData[vid].shift.forceEnded === true) continue;
+                    // 🆕 v6.62.898 + 🔧 v6.63.605: forceEnded nur wenn heute
+                    if (_isForceEndedToday(vehiclesData[vid])) continue;
 
                     // Bereits im Dienst zur Pickup-Zeit → Schicht-Lücke trifft nicht zu (anderes Problem)
                     if (isVehicleInShift(vid, shiftsData, dateStr, pickupTimeStr)) continue;
@@ -31930,10 +31953,18 @@ exports.scheduledLateCheck = onSchedule(
                         altCheckResults.push({ vid: altVid, skipReason: 'not in shift' });
                         continue;
                     }
-                    // 🆕 v6.62.898: forceEnded HARD BLOCK (auch bei Late-Rescue)
-                    if ((vehiclesData[altVid] || {}).shift && vehiclesData[altVid].shift.forceEnded === true) {
-                        altCheckResults.push({ vid: altVid, skipReason: 'forceEnded' });
-                        continue;
+                    // 🆕 v6.62.898 + 🔧 v6.63.605: forceEnded nur wenn heute
+                    {
+                        const _vdfe = (vehiclesData[altVid] || {}).shift;
+                        if (_vdfe && _vdfe.forceEnded === true) {
+                            const _td = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Berlin' });
+                            const _fat = _vdfe.forceEndedAt || _vdfe.endedAt || 0;
+                            const _fdb = _fat ? new Date(_fat).toLocaleDateString('sv-SE', { timeZone: 'Europe/Berlin' }) : _td;
+                            if (_fdb === _td) {
+                                altCheckResults.push({ vid: altVid, skipReason: 'forceEnded-heute' });
+                                continue;
+                            }
+                        }
                     }
                     // Override IGNORIEREN — bypassEnabled=true (default)
                     // Auch laufende Fahrt blockt nicht (wenn alt-Vid gerade fährt, computeEarliestArrival

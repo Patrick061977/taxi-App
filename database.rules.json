@@ -30,7 +30,7 @@
     "invoices": {
       ".read": "auth != null && root.child('users/' + auth.uid + '/role').val() === 'admin'",
       ".write": "auth != null && root.child('users/' + auth.uid + '/role').val() === 'admin'",
-      ".indexOn": ["rideId", "createdAt", "stripePaymentStatus"]
+      ".indexOn": ["rideId", "createdAt", "invoiceDate", "stripePaymentStatus", "updatedAt"]
     },
 
     "invoiceRequests": {

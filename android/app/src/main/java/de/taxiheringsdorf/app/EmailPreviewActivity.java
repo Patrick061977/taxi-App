@@ -16,23 +16,20 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
 
-// v6.63.090 (Patrick 02.06. 18:32 "wäre nicht schlecht wenn ich nochmal Korrektur-Mail bekomme
-//   bevor versendet wird. Dass man das aufmachen kann + alles nochmal durchlesen + irgendwo
-//   einstellen mit Stripe-Code verschicken oder ohne"):
-//
-// EmailPreviewActivity öffnet sich vor dem Versand einer Auftragsbestätigung.
-// Patrick liest Empfänger/Betreff/Body, toggelt "Mit Stripe-Vorkasse-Link" + "Tracking-Link",
-// kann beliebig editieren — dann erst Klick auf "EMAIL SENDEN".
-//
-// Wird gestartet von AdminDashboardActivity (z.B. Anfrage-Übernahme-Dialog) mit EXTRA_RIDE_ID.
-// Initial werden Body+Subject aus den Ride-/Customer-Daten generiert. Bei Senden POST an
-// Cloud-Function sendRideConfirmationEmail mit dem freigegebenen Body.
+// v6.63.090 (Patrick 02.06. 18:32): Vorschau + editierbarer Email-Body vor Versand.
+// v6.63.598 (Patrick 04.07.): EXTRA_MODE="invoice" → Rechnung-an-Auftraggeber-Pfad:
+//   - Kein Stripe/Tracking-Toggle (versteckt)
+//   - Body aus Rechnungs- + Fahrtdaten
+//   - POST an sendInvoiceEmail statt sendRideConfirmationEmail
 public class EmailPreviewActivity extends AppCompatActivity {
 
     private static final String TAG = "EmailPreview";
     public static final String EXTRA_RIDE_ID = "rideId";
+    public static final String EXTRA_MODE = "mode";
+    public static final String MODE_INVOICE = "invoice";
     private static final String DB_URL = "https://taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.app";
-    private static final String ENDPOINT_URL = "https://europe-west1-taxi-heringsdorf.cloudfunctions.net/sendRideConfirmationEmail";
+    private static final String ENDPOINT_CONFIRM = "https://europe-west1-taxi-heringsdorf.cloudfunctions.net/sendRideConfirmationEmail";
+    private static final String ENDPOINT_INVOICE = "https://europe-west1-taxi-heringsdorf.cloudfunctions.net/sendInvoiceEmail";
 
     private EditText etTo, etSubject, etBody;
     private CheckBox cbStripe, cbTracking;
@@ -40,6 +37,9 @@ public class EmailPreviewActivity extends AppCompatActivity {
     private TextView tvStatus;
     private String rideId;
     private double ridePrice = 0;
+    private boolean isInvoiceMode;
+    private String invoiceNumber;
+    private String invoicePdfUrl;
 
     @Override
     protected void onCreate(Bundle s) {
@@ -55,10 +55,18 @@ public class EmailPreviewActivity extends AppCompatActivity {
         tvStatus = findViewById(R.id.tvEmailStatus);
 
         rideId = getIntent().getStringExtra(EXTRA_RIDE_ID);
+        isInvoiceMode = MODE_INVOICE.equals(getIntent().getStringExtra(EXTRA_MODE));
+
         if (rideId == null) {
             Toast.makeText(this, "Fehler: keine Ride-ID", Toast.LENGTH_LONG).show();
             finish();
             return;
+        }
+
+        if (isInvoiceMode) {
+            cbStripe.setVisibility(android.view.View.GONE);
+            cbTracking.setVisibility(android.view.View.GONE);
+            if (getSupportActionBar() != null) getSupportActionBar().setTitle("Rechnung senden");
         }
 
         btnCancel.setOnClickListener(v -> finish());
@@ -78,6 +86,7 @@ public class EmailPreviewActivity extends AppCompatActivity {
                     }
                     String email = strVal(snap.child("customerEmail").getValue());
                     String name = strVal(snap.child("customerName").getValue());
+                    String guestName = strVal(snap.child("guestName").getValue());
                     String pickup = strVal(snap.child("pickup").getValue());
                     String dest = strVal(snap.child("destination").getValue());
                     Long pickupTs = longVal(snap.child("pickupTimestamp").getValue());
@@ -85,12 +94,12 @@ public class EmailPreviewActivity extends AppCompatActivity {
                     String price = strVal(snap.child("price").getValue());
                     String vehicleName = strVal(snap.child("vehicle").getValue());
                     String vehiclePlate = strVal(snap.child("vehiclePlate").getValue());
+                    invoiceNumber = strVal(snap.child("invoiceNumber").getValue());
+                    invoicePdfUrl = strVal(snap.child("invoicePdfUrl").getValue());
                     ridePrice = parsePrice(price);
 
                     etTo.setText(email);
 
-                    // v6.63.090: Datum IMMER aus pickupTimestamp formatieren — NIE pickupTime allein
-                    // (verhindert Olaf-Bug 02.06. statt 27.06.).
                     String dateTimeStr = "—";
                     if (pickupTs != null && pickupTs > 0) {
                         SimpleDateFormat fmt = new SimpleDateFormat("EEEE, dd.MM.yyyy 'um' HH:mm 'Uhr'", Locale.GERMANY);
@@ -98,43 +107,86 @@ public class EmailPreviewActivity extends AppCompatActivity {
                         dateTimeStr = fmt.format(new Date(pickupTs));
                     }
 
-                    String subject = "Funk Taxi Heringsdorf — Auftragsbestätigung " + (pickupTs != null && pickupTs > 0
-                            ? new SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.GERMANY).format(new Date(pickupTs))
-                            : "");
-                    etSubject.setText(subject);
-
-                    StringBuilder body = new StringBuilder();
-                    body.append("Sehr geehrte Damen und Herren");
-                    if (!TextUtils.isEmpty(name)) {
-                        String[] parts = name.split("\\s+");
-                        if (parts.length > 0) body.append(" ").append(parts[parts.length - 1]);
+                    if (isInvoiceMode) {
+                        buildInvoiceBody(name, guestName, pickup, dest, dateTimeStr, price, invoiceNumber, email, pickupTs);
+                    } else {
+                        buildConfirmationBody(name, email, pickup, dest, dateTimeStr, pax, price, vehicleName, vehiclePlate, pickupTs);
                     }
-                    body.append(",\n\n");
-                    body.append("vielen Dank für Ihre Buchung bei Funk Taxi Heringsdorf. Hiermit bestätigen wir Ihre Fahrt:\n\n");
-                    body.append("Datum / Uhrzeit:  ").append(dateTimeStr).append("\n");
-                    if (!TextUtils.isEmpty(pickup)) body.append("Abholort:         ").append(pickup).append("\n");
-                    if (!TextUtils.isEmpty(dest))   body.append("Zielort:          ").append(dest).append("\n");
-                    if (pax != null && pax > 0)     body.append("Personen:         ").append(pax).append("\n");
-                    if (!TextUtils.isEmpty(vehicleName)) {
-                        body.append("Fahrzeug:         ").append(vehicleName);
-                        if (!TextUtils.isEmpty(vehiclePlate)) body.append(" (").append(vehiclePlate).append(")");
-                        body.append("\n");
-                    }
-                    if (!TextUtils.isEmpty(price)) body.append("Fahrpreis:        ").append(price).append(" €\n");
-                    body.append("\nBei Änderungswünschen oder Fragen melden Sie sich bitte unverzüglich.\n\n");
-                    body.append("Mit freundlichen Grüßen\n");
-                    body.append("Patrick Wydra\n");
-                    body.append("Funk Taxi Heringsdorf\n");
-                    body.append("Telefon: 038378 / 22022\n");
-                    body.append("E-Mail: Taxiwydra@googlemail.com");
-
-                    etBody.setText(body.toString());
-                    tvStatus.setText("✅ Daten geladen. Lies durch, ergänze ggf., dann SENDEN.");
                 }
                 @Override public void onCancelled(DatabaseError err) {
                     tvStatus.setText("⚠️ DB-Fehler: " + err.getMessage());
                 }
             });
+    }
+
+    private void buildConfirmationBody(String name, String email, String pickup, String dest,
+            String dateTimeStr, Integer pax, String price, String vehicleName, String vehiclePlate, Long pickupTs) {
+        String subject = "Funk Taxi Heringsdorf — Auftragsbestätigung " + (pickupTs != null && pickupTs > 0
+                ? new SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.GERMANY).format(new Date(pickupTs))
+                : "");
+        etSubject.setText(subject);
+
+        StringBuilder body = new StringBuilder();
+        body.append("Sehr geehrte Damen und Herren");
+        if (!TextUtils.isEmpty(name)) {
+            String[] parts = name.split("\\s+");
+            if (parts.length > 0) body.append(" ").append(parts[parts.length - 1]);
+        }
+        body.append(",\n\n");
+        body.append("vielen Dank für Ihre Buchung bei Funk Taxi Heringsdorf. Hiermit bestätigen wir Ihre Fahrt:\n\n");
+        body.append("Datum / Uhrzeit:  ").append(dateTimeStr).append("\n");
+        if (!TextUtils.isEmpty(pickup)) body.append("Abholort:         ").append(pickup).append("\n");
+        if (!TextUtils.isEmpty(dest))   body.append("Zielort:          ").append(dest).append("\n");
+        if (pax != null && pax > 0)     body.append("Personen:         ").append(pax).append("\n");
+        if (!TextUtils.isEmpty(vehicleName)) {
+            body.append("Fahrzeug:         ").append(vehicleName);
+            if (!TextUtils.isEmpty(vehiclePlate)) body.append(" (").append(vehiclePlate).append(")");
+            body.append("\n");
+        }
+        if (!TextUtils.isEmpty(price)) body.append("Fahrpreis:        ").append(price).append(" €\n");
+        body.append("\nBei Änderungswünschen oder Fragen melden Sie sich bitte unverzüglich.\n\n");
+        body.append("Mit freundlichen Grüßen\n");
+        body.append("Patrick Wydra\n");
+        body.append("Funk Taxi Heringsdorf\n");
+        body.append("Telefon: 038378 / 22022\n");
+        body.append("E-Mail: Taxiwydra@googlemail.com");
+
+        etBody.setText(body.toString());
+        tvStatus.setText("✅ Daten geladen. Lies durch, ergänze ggf., dann SENDEN.");
+    }
+
+    private void buildInvoiceBody(String name, String guestName, String pickup, String dest,
+            String dateTimeStr, String price, String invNumber, String email, Long pickupTs) {
+        String displayName = !TextUtils.isEmpty(name) ? name : "Damen und Herren";
+        String lastName = displayName;
+        String[] parts = displayName.split("\\s+");
+        if (parts.length > 0) lastName = parts[parts.length - 1];
+
+        String subject = "Rechnung " + (TextUtils.isEmpty(invNumber) ? "" : invNumber) + " – Funk Taxi Heringsdorf";
+        etSubject.setText(subject);
+
+        StringBuilder body = new StringBuilder();
+        body.append("Sehr geehrte Damen und Herren ").append(lastName).append(",\n\n");
+        body.append("vielen Dank für Ihre Buchung. Im Anhang erhalten Sie Ihre Rechnung");
+        if (!TextUtils.isEmpty(invNumber)) body.append(" Nr. ").append(invNumber);
+        body.append(" für die durchgeführte Fahrt.\n\n");
+        body.append("━━━ Fahrtendetails ━━━\n");
+        body.append("Datum:    ").append(dateTimeStr).append("\n");
+        if (!TextUtils.isEmpty(pickup)) body.append("Von:      ").append(pickup).append("\n");
+        if (!TextUtils.isEmpty(dest))   body.append("Nach:     ").append(dest).append("\n");
+        String fahrgast = !TextUtils.isEmpty(guestName) ? guestName : (!TextUtils.isEmpty(name) ? name : "");
+        if (!TextUtils.isEmpty(fahrgast)) body.append("Fahrgast: ").append(fahrgast).append("\n");
+        if (!TextUtils.isEmpty(price))  body.append("Betrag:   ").append(price).append(" €\n");
+        body.append("━━━━━━━━━━━━━━━━━━━━━\n\n");
+        body.append("Bei Fragen stehen wir Ihnen gerne zur Verfügung.\n\n");
+        body.append("Mit freundlichen Grüßen\n");
+        body.append("Patrick Wydra\n");
+        body.append("Funk Taxi Heringsdorf\n");
+        body.append("Telefon: 038378 / 22022\n");
+        body.append("E-Mail: Taxiwydra@googlemail.com");
+
+        etBody.setText(body.toString());
+        tvStatus.setText("✅ Vorschau bereit — lies durch, passe an, dann SENDEN.");
     }
 
     private void sendEmail() {
@@ -149,22 +201,32 @@ public class EmailPreviewActivity extends AppCompatActivity {
             Toast.makeText(this, "Betreff und Text dürfen nicht leer sein", Toast.LENGTH_LONG).show();
             return;
         }
-        final boolean withStripe = cbStripe.isChecked();
-        final boolean withTracking = cbTracking.isChecked();
-        if (withStripe && ridePrice < 0.5) {
-            Toast.makeText(this, "Stripe-Link nicht möglich (Preis fehlt oder < 0,50 €)", Toast.LENGTH_LONG).show();
-            return;
+
+        if (!isInvoiceMode) {
+            final boolean withStripe = cbStripe.isChecked();
+            final boolean withTracking = cbTracking.isChecked();
+            if (withStripe && ridePrice < 0.5) {
+                Toast.makeText(this, "Stripe-Link nicht möglich (Preis fehlt oder < 0,50 €)", Toast.LENGTH_LONG).show();
+                return;
+            }
+            btnSend.setEnabled(false);
+            btnSend.setText("Sende…");
+            tvStatus.setText("📤 Übertrage an Server…");
+            sendConfirmationEmail(to, subject, bodyPlain, withStripe, withTracking);
+        } else {
+            if (TextUtils.isEmpty(invoiceNumber)) {
+                Toast.makeText(this, "Keine Rechnungsnummer — Rechnung zuerst erstellen", Toast.LENGTH_LONG).show();
+                return;
+            }
+            btnSend.setEnabled(false);
+            btnSend.setText("Sende…");
+            tvStatus.setText("📤 Übertrage Rechnung an Server…");
+            sendInvoiceEmail(to, subject, bodyPlain);
         }
-        btnSend.setEnabled(false);
-        btnSend.setText("Sende…");
-        tvStatus.setText("📤 Übertrage an Server…");
+    }
 
-        // Plain-Text in einfaches HTML wandeln
-        final String htmlBody = "<html><body style=\"font-family:Arial,sans-serif;color:#333;max-width:680px;margin:0 auto;line-height:1.5;\">"
-                + "<pre style=\"font-family:Arial,sans-serif;white-space:pre-wrap;font-size:14px;\">"
-                + bodyPlain.replace("<", "&lt;").replace(">", "&gt;")
-                + "</pre></body></html>";
-
+    private void sendConfirmationEmail(String to, String subject, String bodyPlain, boolean withStripe, boolean withTracking) {
+        final String htmlBody = toHtml(bodyPlain);
         new Thread(() -> {
             try {
                 JSONObject payload = new JSONObject();
@@ -175,51 +237,86 @@ public class EmailPreviewActivity extends AppCompatActivity {
                 payload.put("textBody", bodyPlain);
                 payload.put("includeStripeLink", withStripe);
                 payload.put("includeTrackingLink", withTracking);
-
-                URL url = new URL(ENDPOINT_URL);
-                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-                conn.setRequestMethod("POST");
-                conn.setRequestProperty("Content-Type", "application/json");
-                conn.setConnectTimeout(15000);
-                conn.setReadTimeout(45000);
-                conn.setDoOutput(true);
-                try (OutputStream os = conn.getOutputStream()) {
-                    os.write(payload.toString().getBytes("UTF-8"));
-                }
-                int code = conn.getResponseCode();
-                java.io.BufferedReader br = new java.io.BufferedReader(new java.io.InputStreamReader(
-                        code >= 200 && code < 300 ? conn.getInputStream() : conn.getErrorStream(), "UTF-8"));
-                StringBuilder sb = new StringBuilder();
-                String line;
-                while ((line = br.readLine()) != null) sb.append(line);
-                br.close();
-                conn.disconnect();
-
-                final boolean ok = code >= 200 && code < 300;
-                final String resp = sb.toString();
-                runOnUiThread(() -> {
-                    if (ok) {
-                        Toast.makeText(this, "✅ Email versendet", Toast.LENGTH_LONG).show();
-                        tvStatus.setText("✅ Versendet — schließe in 2 Sek…");
-                        setResult(Activity.RESULT_OK);
-                        new android.os.Handler().postDelayed(this::finish, 1800);
-                    } else {
-                        Toast.makeText(this, "Fehler: " + resp, Toast.LENGTH_LONG).show();
-                        tvStatus.setText("⚠️ Fehler HTTP " + code + ": " + resp);
-                        btnSend.setEnabled(true);
-                        btnSend.setText("📧 EMAIL JETZT SENDEN");
-                    }
-                });
+                postAndFinish(ENDPOINT_CONFIRM, payload);
             } catch (Throwable t) {
-                Log.e(TAG, "send fail", t);
-                runOnUiThread(() -> {
-                    Toast.makeText(this, "Fehler: " + t.getMessage(), Toast.LENGTH_LONG).show();
-                    tvStatus.setText("⚠️ Verbindungs-Fehler: " + t.getMessage());
-                    btnSend.setEnabled(true);
-                    btnSend.setText("📧 EMAIL JETZT SENDEN");
-                });
+                onSendError(t.getMessage());
             }
         }).start();
+    }
+
+    private void sendInvoiceEmail(String to, String subject, String bodyPlain) {
+        final String htmlBody = toHtml(bodyPlain);
+        new Thread(() -> {
+            try {
+                JSONObject payload = new JSONObject();
+                payload.put("invoiceNumber", invoiceNumber);
+                payload.put("toEmail", to);
+                payload.put("subject", subject);
+                payload.put("htmlBody", htmlBody);
+                payload.put("textBody", bodyPlain);
+                if (!TextUtils.isEmpty(invoicePdfUrl)) {
+                    payload.put("pdfUrl", invoicePdfUrl);
+                    payload.put("attachPdf", true);
+                }
+                postAndFinish(ENDPOINT_INVOICE, payload);
+            } catch (Throwable t) {
+                onSendError(t.getMessage());
+            }
+        }).start();
+    }
+
+    private void postAndFinish(String endpointUrl, JSONObject payload) throws Exception {
+        URL url = new URL(endpointUrl);
+        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+        conn.setRequestMethod("POST");
+        conn.setRequestProperty("Content-Type", "application/json");
+        conn.setConnectTimeout(15000);
+        conn.setReadTimeout(45000);
+        conn.setDoOutput(true);
+        try (OutputStream os = conn.getOutputStream()) {
+            os.write(payload.toString().getBytes("UTF-8"));
+        }
+        int code = conn.getResponseCode();
+        java.io.BufferedReader br = new java.io.BufferedReader(new java.io.InputStreamReader(
+                code >= 200 && code < 300 ? conn.getInputStream() : conn.getErrorStream(), "UTF-8"));
+        StringBuilder sb = new StringBuilder();
+        String line;
+        while ((line = br.readLine()) != null) sb.append(line);
+        br.close();
+        conn.disconnect();
+
+        final boolean ok = code >= 200 && code < 300;
+        final String resp = sb.toString();
+        runOnUiThread(() -> {
+            if (ok) {
+                Toast.makeText(this, "✅ Email versendet", Toast.LENGTH_LONG).show();
+                tvStatus.setText("✅ Versendet — schließe in 2 Sek…");
+                setResult(Activity.RESULT_OK);
+                new android.os.Handler().postDelayed(this::finish, 1800);
+            } else {
+                Toast.makeText(this, "Fehler: " + resp, Toast.LENGTH_LONG).show();
+                tvStatus.setText("⚠️ Fehler HTTP " + code + ": " + resp);
+                btnSend.setEnabled(true);
+                btnSend.setText("📧 EMAIL JETZT SENDEN");
+            }
+        });
+    }
+
+    private void onSendError(String msg) {
+        Log.e(TAG, "send fail: " + msg);
+        runOnUiThread(() -> {
+            Toast.makeText(this, "Fehler: " + msg, Toast.LENGTH_LONG).show();
+            tvStatus.setText("⚠️ Verbindungs-Fehler: " + msg);
+            btnSend.setEnabled(true);
+            btnSend.setText("📧 EMAIL JETZT SENDEN");
+        });
+    }
+
+    private static String toHtml(String plain) {
+        return "<html><body style=\"font-family:Arial,sans-serif;color:#333;max-width:680px;margin:0 auto;line-height:1.5;\">"
+                + "<pre style=\"font-family:Arial,sans-serif;white-space:pre-wrap;font-size:14px;\">"
+                + plain.replace("<", "&lt;").replace(">", "&gt;")
+                + "</pre></body></html>";
     }
 
     private static String strVal(Object v) { return v == null ? "" : String.valueOf(v); }

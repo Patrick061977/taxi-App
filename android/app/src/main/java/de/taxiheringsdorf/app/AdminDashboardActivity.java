@@ -3389,7 +3389,11 @@ public class AdminDashboardActivity extends AppCompatActivity {
             btnInvoiceEmail.setLayoutParams(_invParams);
             btnInvoiceEmail.setOnClickListener(_v -> {
                 if (_dlgRef.get() != null) _dlgRef.get().dismiss();
-                showInvoiceEmailDialog(r);
+                // 🆕 v6.63.598: schöne Email-Vorschau statt WebView-Dialog
+                Intent _invIntent = new Intent(this, EmailPreviewActivity.class);
+                _invIntent.putExtra(EmailPreviewActivity.EXTRA_RIDE_ID, r.id);
+                _invIntent.putExtra(EmailPreviewActivity.EXTRA_MODE, EmailPreviewActivity.MODE_INVOICE);
+                startActivity(_invIntent);
             });
             layout.addView(btnInvoiceEmail);
         }

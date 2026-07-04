@@ -294,9 +294,19 @@ public class InvoicesActivity extends AppCompatActivity {
                     double newGross = Double.parseDouble(raw);
                     if (newGross <= 0) { Toast.makeText(this, "Betrag muss > 0 sein", Toast.LENGTH_SHORT).show(); return; }
                     item.gross = newGross;
-                    // Firebase updaten
+                    // Alle Summenfelder konsistent aktualisieren (positions + totals)
+                    double vatRate = 7.0; // Standard 7% MwSt für Taxifahrten
+                    double newNet = newGross / (1.0 + vatRate / 100.0);
+                    double newVat = newNet * (vatRate / 100.0);
+                    java.util.Map<String, Object> upd = new java.util.HashMap<>();
+                    upd.put("totalGross", newGross);
+                    upd.put("totalNet", newNet);
+                    upd.put("totalVat", newVat);
+                    upd.put("updatedAt", System.currentTimeMillis());
+                    // positions[0].amount = Brutto-Betrag (1-Positions-Rechnung)
+                    upd.put("positions/0/amount", newGross);
                     FirebaseDatabase.getInstance(DB_URL).getReference("invoices/" + item.key)
-                        .updateChildren(Collections.singletonMap("totalGross", newGross));
+                        .updateChildren(upd);
                     Toast.makeText(this, "✅ Betrag aktualisiert: " + String.format(Locale.GERMANY, "%.2f €", newGross), Toast.LENGTH_SHORT).show();
                     renderList(etSearch.getText().toString().toLowerCase(Locale.GERMANY).trim());
                 } catch (NumberFormatException e) {

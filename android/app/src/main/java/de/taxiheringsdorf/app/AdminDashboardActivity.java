@@ -3057,22 +3057,30 @@ public class AdminDashboardActivity extends AppCompatActivity {
         }
     }
 
-    // 🆕 v6.62.950 Smart-Scheduler: Time-Shift-Dialog
+    // v6.63.601: Time-Shift-Dialog — beide Richtungen (früher + später)
+    // Patrick 04.07.: "Ich müsste ja den Termin zurückschieben können" — Flughafen kann man nicht vorziehen
     private void showTimeShiftDialog(Ride r) {
         if (r == null || r.pickupTimestamp == null) return;
         SimpleDateFormat tf = new SimpleDateFormat("HH:mm", Locale.GERMANY);
         tf.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
         String currentTime = tf.format(new Date(r.pickupTimestamp));
         int deficit = r.conflictDeficit != null ? r.conflictDeficit : 5;
-        int suggested = Math.max(deficit + 1, 5); // mind. 1 Min mehr als Defizit, mind. 5 Min
+        int suggested = Math.max(deficit + 1, 5);
+
+        // Nachfolge-Fahrt (Vorgänger läuft über) → nach hinten schieben; Engpass → vorziehen
+        boolean isSuccessorRide = r.conflictHint != null && r.conflictHint.contains("Vorgaenger");
+
         StringBuilder msg = new StringBuilder();
         msg.append("Aktueller Pickup: ").append(currentTime).append("\n\n");
         if (r.conflictHint != null) msg.append(r.conflictHint).append("\n\n");
-        msg.append("💡 Vorschlag: ").append(suggested).append(" Min vorziehen → ");
-        msg.append(tf.format(new Date(r.pickupTimestamp - suggested * 60_000L)));
-        msg.append("\n\nWie viele Min vorziehen?");
+        if (isSuccessorRide) {
+            msg.append("💡 Vorschlag: ").append(suggested).append(" Min nach hinten → ");
+            msg.append(tf.format(new Date(r.pickupTimestamp + suggested * 60_000L)));
+        } else {
+            msg.append("💡 Vorschlag: ").append(suggested).append(" Min vorziehen → ");
+            msg.append(tf.format(new Date(r.pickupTimestamp - suggested * 60_000L)));
+        }
 
-        // Buttons: -5 / -10 / -15 / vorgeschlagen
         AlertDialog.Builder b = new AlertDialog.Builder(this)
             .setTitle("⏰ Pickup verschieben — " + (r.customerName != null ? r.customerName : "?"))
             .setMessage(msg.toString());
@@ -3081,28 +3089,45 @@ public class AdminDashboardActivity extends AppCompatActivity {
         final long _origTs = r.pickupTimestamp;
         final String _custName = r.customerName != null ? r.customerName : "Kunde";
         final String _custPhone = r.customerPhone;
-        // 🆕 v6.62.954 Phase 2A: SMS-Checkbox unter Buttons (default off)
-        java.util.function.BiConsumer<Integer, Boolean> apply = (min, sendSms) -> {
-            long newTs = _origTs - min * 60_000L;
+
+        final AlertDialog[] _dlgHolder = {null};
+
+        // Container
+        LinearLayout container = new LinearLayout(this);
+        container.setOrientation(LinearLayout.VERTICAL);
+        int pad = (int)(16 * getResources().getDisplayMetrics().density);
+        container.setPadding(pad, pad/2, pad, 0);
+
+        // SMS-Checkbox (muss vor Buttons stehen damit apply darauf zugreifen kann)
+        final android.widget.CheckBox cbSms = new android.widget.CheckBox(this);
+        cbSms.setChecked(_custPhone != null && _custPhone.length() > 4);
+        if (_custPhone == null || _custPhone.length() <= 4) cbSms.setEnabled(false);
+
+        // Shift-Helper (min > 0 = später, min < 0 = früher)
+        java.util.function.BiConsumer<Integer, Boolean> doShift = (deltaMin, sendSms) -> {
+            long newTs = _origTs + (long) deltaMin * 60_000L;
             java.util.Map<String, Object> u = new java.util.HashMap<>();
             u.put("pickupTimestamp", newTs);
             SimpleDateFormat _tf = new SimpleDateFormat("HH:mm", Locale.GERMANY);
             _tf.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
             String newTimeStr = _tf.format(new Date(newTs));
             u.put("pickupTime", newTimeStr);
-            u.put("smartScheduleShiftedMin", min);
+            u.put("smartScheduleShiftedMin", deltaMin);
             u.put("smartScheduleShiftedAt", System.currentTimeMillis());
             u.put("smartScheduleShiftedBy", "admin-time-shift");
             u.put("updatedAt", System.currentTimeMillis());
             com.google.firebase.database.FirebaseDatabase.getInstance(DB_URL_AD).getReference("rides/" + _rid).updateChildren(u)
                 .addOnSuccessListener(_ok -> {
+                    String dir = deltaMin > 0 ? "nach hinten geschoben" : "vorgezogen";
                     Toast.makeText(AdminDashboardActivity.this,
-                        "✅ Pickup um " + min + " Min vorgezogen → " + newTimeStr, Toast.LENGTH_LONG).show();
-                    // 🆕 v6.62.954: optional SMS an Kunde
+                        "✅ Pickup " + dir + " → " + newTimeStr, Toast.LENGTH_LONG).show();
                     if (sendSms && _custPhone != null && _custPhone.length() > 4) {
                         java.util.Map<String, Object> sms = new java.util.HashMap<>();
                         sms.put("phone", _custPhone);
-                        sms.put("message", "Funktaxi: Hallo " + _custName + ", Ihr Taxi kommt " + min + " Min frueher als geplant — neue Pickup-Zeit: " + newTimeStr + ".");
+                        String smsText = deltaMin > 0
+                            ? "Funktaxi: Hallo " + _custName + ", Ihr Pickup wurde auf " + newTimeStr + " Uhr verschoben."
+                            : "Funktaxi: Hallo " + _custName + ", Ihr Taxi kommt " + Math.abs(deltaMin) + " Min frueher — neue Pickup-Zeit: " + newTimeStr + ".";
+                        sms.put("message", smsText);
                         sms.put("reason", "smart-schedule-shift");
                         sms.put("rideId", _rid);
                         sms.put("ts", System.currentTimeMillis());
@@ -3113,22 +3138,73 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 .addOnFailureListener(e -> Toast.makeText(AdminDashboardActivity.this,
                     "❌ Fehler: " + e.getMessage(), Toast.LENGTH_LONG).show());
         };
-        // Container für Checkbox + Edit-Button
-        LinearLayout container = new LinearLayout(this);
-        container.setOrientation(LinearLayout.VERTICAL);
-        int pad = (int)(16 * getResources().getDisplayMetrics().density);
-        container.setPadding(pad, pad/2, pad, 0);
-        // 🆕 v6.63.088 (Patrick 02.06. 12:30 "Aber ich kann die Fahrt ja nirgendwo bearbeiten"):
-        //   Vehicle-Spinner DIREKT im Time-Shift-Dialog mit 🟢/🟡/🔴 Konflikt-Indikator.
-        //   Patrick muss NICHT mehr durch "Komplett bearbeiten" navigieren um Fahrzeug zu wechseln.
+
+        // ─── Abschnitt: Nach hinten schieben ───────────────────────────────
+        TextView tvLaterLabel = new TextView(this);
+        tvLaterLabel.setText("➡️ Nach hinten schieben (später):");
+        tvLaterLabel.setTextSize(13);
+        tvLaterLabel.setTextColor(isSuccessorRide ? 0xFF059669 : 0xFF374151);
+        tvLaterLabel.setTypeface(null, isSuccessorRide ? android.graphics.Typeface.BOLD : android.graphics.Typeface.NORMAL);
+        tvLaterLabel.setPadding(0, pad/2, 0, pad/4);
+        container.addView(tvLaterLabel);
+        LinearLayout rowLater = new LinearLayout(this);
+        rowLater.setOrientation(LinearLayout.HORIZONTAL);
+        for (int m : new int[]{5, 10, 15}) {
+            final int _m = m;
+            android.widget.Button btnL = new android.widget.Button(this);
+            btnL.setText("+" + m + " Min\n→ " + tf.format(new Date(_origTs + (long) m * 60_000L)));
+            btnL.setAllCaps(false);
+            btnL.setTextSize(11);
+            btnL.setTextColor(0xFFFFFFFF);
+            btnL.setBackgroundColor(isSuccessorRide && m == suggested ? 0xFF059669 : 0xFF0F766E);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+            lp.setMargins(0, 0, pad/4, 0);
+            btnL.setLayoutParams(lp);
+            btnL.setOnClickListener(_v -> {
+                if (_dlgHolder[0] != null) _dlgHolder[0].dismiss();
+                doShift.accept(_m, cbSms.isChecked());
+            });
+            rowLater.addView(btnL);
+        }
+        container.addView(rowLater);
+
+        // ─── Abschnitt: Vorziehen ───────────────────────────────────────────
+        TextView tvEarlierLabel = new TextView(this);
+        tvEarlierLabel.setText("⬅️ Vorziehen (früher):");
+        tvEarlierLabel.setTextSize(13);
+        tvEarlierLabel.setTextColor(!isSuccessorRide ? 0xFF7C3AED : 0xFF374151);
+        tvEarlierLabel.setTypeface(null, !isSuccessorRide ? android.graphics.Typeface.BOLD : android.graphics.Typeface.NORMAL);
+        tvEarlierLabel.setPadding(0, pad/2, 0, pad/4);
+        container.addView(tvEarlierLabel);
+        LinearLayout rowEarlier = new LinearLayout(this);
+        rowEarlier.setOrientation(LinearLayout.HORIZONTAL);
+        for (int m : new int[]{5, 10, 15}) {
+            final int _m = m;
+            android.widget.Button btnE = new android.widget.Button(this);
+            btnE.setText("−" + m + " Min\n→ " + tf.format(new Date(_origTs - (long) m * 60_000L)));
+            btnE.setAllCaps(false);
+            btnE.setTextSize(11);
+            btnE.setTextColor(0xFFFFFFFF);
+            btnE.setBackgroundColor(!isSuccessorRide && m == suggested ? 0xFF7C3AED : 0xFF6D28D9);
+            LinearLayout.LayoutParams lpE = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+            lpE.setMargins(0, 0, pad/4, 0);
+            btnE.setLayoutParams(lpE);
+            btnE.setOnClickListener(_v -> {
+                if (_dlgHolder[0] != null) _dlgHolder[0].dismiss();
+                doShift.accept(-_m, cbSms.isChecked());
+            });
+            rowEarlier.addView(btnE);
+        }
+        container.addView(rowEarlier);
+
+        // ─── Fahrzeug-Wechsel-Spinner ───────────────────────────────────────
         TextView tvVehicleLabel = new TextView(this);
         tvVehicleLabel.setText("🚗 Fahrzeug wechseln:");
         tvVehicleLabel.setTextSize(13);
-        tvVehicleLabel.setPadding(0, pad/2, 0, pad/4);
+        tvVehicleLabel.setPadding(0, pad, 0, pad/4);
         container.addView(tvVehicleLabel);
         final String[] _wpVehIds = {"", "pw-ik-222", "pw-my-222-e", "pw-ki-222", "pw-sk-222", "vg-lk-111", "pw-ym-222-e"};
         final String[] _wpVehNames = {"— Nicht zugewiesen —", "Toyota IK", "Tesla MY222", "Toyota KI", "Renault SK", "Mercedes LK", "Tesla YM222"};
-        // Konflikt-Indikator pro Vehicle berechnen (1 = OK, 2 = Konflikt mit Folgefahrt, 0 = Schicht aus)
         int[] _wpVehStatus = new int[_wpVehIds.length];
         _wpVehStatus[0] = 1;
         long _rideStart = _origTs - 5L * 60_000L;
@@ -3173,7 +3249,6 @@ public class AdminDashboardActivity extends AppCompatActivity {
         tvVehicleHint.setTextColor(0xFF64748b);
         tvVehicleHint.setPadding(0, 0, 0, pad/2);
         container.addView(tvVehicleHint);
-        // Speichern-Button für Vehicle-Wechsel
         final android.widget.Button _wpBtnVehSave = new android.widget.Button(this);
         _wpBtnVehSave.setText("💾 Fahrzeug speichern");
         _wpBtnVehSave.setAllCaps(false);
@@ -3195,19 +3270,15 @@ public class AdminDashboardActivity extends AppCompatActivity {
         _editLp.setMargins(0, 0, 0, pad/2);
         btnFullEdit.setLayoutParams(_editLp);
         container.addView(btnFullEdit);
-        final android.widget.CheckBox cbSms = new android.widget.CheckBox(this);
-        cbSms.setText("📲 SMS an " + _custName + " senden (frueher kommen)");
-        cbSms.setChecked(_custPhone != null && _custPhone.length() > 4);
-        if (_custPhone == null || _custPhone.length() <= 4) cbSms.setEnabled(false);
+
+        cbSms.setText("📲 SMS an " + _custName + " senden");
         container.addView(cbSms);
+
         b.setView(container);
-        b.setPositiveButton("💡 " + suggested + " Min vorziehen (empfohlen)", (d, w) -> apply.accept(suggested, cbSms.isChecked()));
-        b.setNeutralButton("− 5 Min", (d, w) -> apply.accept(5, cbSms.isChecked()));
         b.setNegativeButton("Abbrechen", null);
         final AlertDialog dlg = b.show();
-        // 🆕 v6.63.031: Edit-Button schließt Time-Shift-Dialog und öffnet den vollen Edit-Dialog
+        _dlgHolder[0] = dlg;
         btnFullEdit.setOnClickListener(_v -> { dlg.dismiss(); showEditRideDialog(r); });
-        // 🆕 v6.63.088: Vehicle-Save-Button: setzt assignedVehicle + vehicleId silent (ohne FCM-Push-Spam)
         _wpBtnVehSave.setOnClickListener(_v -> {
             int sel = _wpSpnVehicle.getSelectedItemPosition();
             String selVid = (sel >= 0 && sel < _wpVehIds.length) ? _wpVehIds[sel] : "";
@@ -3233,7 +3304,6 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 vu.put("acceptedByVehicle", selVid);
                 vu.put("assignmentLocked", true);
                 vu.put("silentReassign", true);
-                // status wieder auf vorbestellt heben falls wartepool
                 if (r.status != null && (r.status.equals("wartepool") || r.status.equals("warteschlange"))) {
                     vu.put("status", "vorbestellt");
                 }

@@ -62,6 +62,10 @@ public class CallRecordingsActivity extends AppCompatActivity {
     private TextView header, permHint;
     private RecAdapter adapter;
     private Map<String, String> crmByPhone = new HashMap<>();
+    // v6.63.597: Hilfe-Karte (ACR-Einrichtung) — Instance-Fields für Zugriff aus scanRecordings()
+    private LinearLayout helpCard;
+    private android.widget.Button btnHelp;
+    private boolean[] helpOpen = {false};
     // 🆕 v6.62.890 (Patrick 23.05. 09:12): Phone → customerId Mapping zusaetzlich. Wird bei
     //   'Vorbestellung erstellen' an CrmSearchActivity weitergegeben, damit dort der RICHTIGE
     //   CRM-Match-Pfad (mit Hotel/Stammkunden-Maske) greift statt der Neukunden-Fallback.
@@ -88,6 +92,64 @@ public class CallRecordingsActivity extends AppCompatActivity {
         title.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
         topBar.addView(title);
         root.addView(topBar);
+
+        // 🆕 v6.63.597: Hilfe-Karte — aufklappbar über Button, automatisch offen wenn kein Ordner
+        helpCard = new LinearLayout(this);
+        helpCard.setOrientation(LinearLayout.VERTICAL);
+        helpCard.setBackgroundColor(0xFF0f2d4a);
+        helpCard.setPadding(dp(16), dp(12), dp(16), dp(12));
+        helpCard.setVisibility(View.GONE);
+
+        TextView helpTitle = new TextView(this);
+        helpTitle.setText("📞 ACR Phone einrichten — Schritt für Schritt");
+        helpTitle.setTextColor(0xFF60a5fa);
+        helpTitle.setTextSize(14);
+        helpTitle.setTypeface(null, android.graphics.Typeface.BOLD);
+        helpCard.addView(helpTitle);
+
+        TextView helpText = new TextView(this);
+        helpText.setTextColor(0xFFcbd5e1);
+        helpText.setTextSize(13);
+        helpText.setLineSpacing(dp(2), 1f);
+        helpText.setPadding(0, dp(8), 0, dp(8));
+        helpText.setText(
+            "1️⃣  App installieren:\n" +
+            "     Play Store öffnen → suche nach\n" +
+            "     «Call Recorder – ACR Phone»\n" +
+            "     (kostenlos, von NLL Apps)\n\n" +
+            "2️⃣  ACR starten und Berechtigungen erlauben:\n" +
+            "     • Mikrofon → Zulassen\n" +
+            "     • Telefon-Anruf-Protokoll → Zulassen\n\n" +
+            "3️⃣  Aufnahme-Einstellungen (optional):\n" +
+            "     ACR → Einstellungen → Speicher\n" +
+            "     → Aufnahmeordner: Intern wählen\n" +
+            "     → Format: M4A\n\n" +
+            "4️⃣  Fertig — ab jetzt nimmt ACR alle\n" +
+            "     Anrufe automatisch auf.\n\n" +
+            "5️⃣  Aufnahmen hier abhören:\n" +
+            "     Diese Seite neu laden (raus + rein)\n" +
+            "     → Aufnahme antippen → wird abgespielt\n" +
+            "     → «📅 Vorbestellung erstellen» tipppen\n" +
+            "     → Daten werden automatisch ausgefüllt\n\n" +
+            "📁  Wo liegen die Dateien?\n" +
+            "     Interner Speicher → ACRCalls → ACRPhone"
+        );
+        helpCard.addView(helpText);
+
+        btnHelp = new android.widget.Button(this);
+        btnHelp.setText("❓ Hilfe: ACR einrichten");
+        btnHelp.setTextColor(0xFF93c5fd);
+        btnHelp.setBackgroundColor(0xFF1e3a5f);
+        btnHelp.setOnClickListener(v -> {
+            helpOpen[0] = !helpOpen[0];
+            helpCard.setVisibility(helpOpen[0] ? View.VISIBLE : View.GONE);
+            btnHelp.setText(helpOpen[0] ? "✖ Hilfe schließen" : "❓ Hilfe: ACR einrichten");
+        });
+        LinearLayout.LayoutParams helpBtnLp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        helpBtnLp.setMargins(dp(16), dp(4), dp(16), 0);
+        btnHelp.setLayoutParams(helpBtnLp);
+        root.addView(btnHelp);
+        root.addView(helpCard);
 
         header = new TextView(this);
         header.setPadding(dp(16), dp(8), dp(16), dp(8));
@@ -423,8 +485,14 @@ public class CallRecordingsActivity extends AppCompatActivity {
         if (ACR_ROOT.exists() && ACR_ROOT.isDirectory()) roots.add(ACR_ROOT);
         if (FUNKTAXI_ROOT.exists() && FUNKTAXI_ROOT.isDirectory()) roots.add(FUNKTAXI_ROOT);
         if (roots.isEmpty()) {
-            header.setText("Keine Aufnahmen-Ordner gefunden:\n" + ACR_ROOT.getAbsolutePath() + "\n" + FUNKTAXI_ROOT.getAbsolutePath());
+            header.setText("⚠️ Kein ACR-Ordner gefunden — bitte ACR Phone App installieren.\nSiehe Hilfe-Button oben.");
             progress.setVisibility(View.GONE);
+            // Hilfe automatisch aufklappen damit der Fahrer sofort sieht was zu tun ist
+            runOnUiThread(() -> {
+                helpCard.setVisibility(View.VISIBLE);
+                helpOpen[0] = true;
+                btnHelp.setText("✖ Hilfe schließen");
+            });
             return;
         }
         new Thread(() -> {

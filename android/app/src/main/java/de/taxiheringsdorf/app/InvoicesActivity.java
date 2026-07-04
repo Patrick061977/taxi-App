@@ -30,7 +30,7 @@ public class InvoicesActivity extends AppCompatActivity {
     private final List<InvItem> allItems = new ArrayList<>();
 
     private static class InvItem {
-        String key, invNr, rideId, custName, custEmail, date, pdfUrl, payStatus;
+        String key, invNr, rideId, custName, custEmail, custId, date, pdfUrl, payStatus;
         double gross;
         long sortTs;
     }
@@ -73,37 +73,35 @@ public class InvoicesActivity extends AppCompatActivity {
             renderList(filter);
         };
 
+        // v6.63.609: .get() statt addListenerForSingleValueEvent — erzwingt Server-Lese,
+        //   verhindert veraltete In-Memory-Cache-Werte (z.B. 7€ statt 10€ nach REST-Patch).
         // Query 1: nach invoiceDate (auto-erstellte Rechnungen, ISO-String sortierbar)
-        ref.orderByChild("invoiceDate").startAt("2026-01-01").limitToLast(80)
-            .addListenerForSingleValueEvent(new ValueEventListener() {
-                @Override public void onDataChange(DataSnapshot snap) {
-                    for (DataSnapshot c : snap.getChildren()) {
-                        if (!seen.contains(c.getKey())) {
-                            seen.add(c.getKey());
-                            InvItem item = parse(c);
-                            if (item != null) allItems.add(item);
-                        }
+        ref.orderByChild("invoiceDate").startAt("2026-01-01").limitToLast(80).get()
+            .addOnSuccessListener(snap -> {
+                for (DataSnapshot c : snap.getChildren()) {
+                    if (!seen.contains(c.getKey())) {
+                        seen.add(c.getKey());
+                        InvItem item = parse(c);
+                        if (item != null) allItems.add(item);
                     }
-                    runOnUiThread(checkDone);
                 }
-                @Override public void onCancelled(DatabaseError e) { runOnUiThread(checkDone); }
-            });
+                runOnUiThread(checkDone);
+            })
+            .addOnFailureListener(e -> { Log.w("InvoicesActivity", "Query1 failed: " + e.getMessage()); runOnUiThread(checkDone); });
 
         // Query 2: nach createdAt (manuell erstellte Rechnungen, Unix-Timestamp)
-        ref.orderByChild("createdAt").startAt(1.0).limitToLast(50)
-            .addListenerForSingleValueEvent(new ValueEventListener() {
-                @Override public void onDataChange(DataSnapshot snap) {
-                    for (DataSnapshot c : snap.getChildren()) {
-                        if (!seen.contains(c.getKey())) {
-                            seen.add(c.getKey());
-                            InvItem item = parse(c);
-                            if (item != null) allItems.add(item);
-                        }
+        ref.orderByChild("createdAt").startAt(1.0).limitToLast(50).get()
+            .addOnSuccessListener(snap -> {
+                for (DataSnapshot c : snap.getChildren()) {
+                    if (!seen.contains(c.getKey())) {
+                        seen.add(c.getKey());
+                        InvItem item = parse(c);
+                        if (item != null) allItems.add(item);
                     }
-                    runOnUiThread(checkDone);
                 }
-                @Override public void onCancelled(DatabaseError e) { runOnUiThread(checkDone); }
-            });
+                runOnUiThread(checkDone);
+            })
+            .addOnFailureListener(e -> { Log.w("InvoicesActivity", "Query2 failed: " + e.getMessage()); runOnUiThread(checkDone); });
     }
 
     private InvItem parse(DataSnapshot c) {
@@ -119,6 +117,7 @@ public class InvoicesActivity extends AppCompatActivity {
         item.pdfUrl   = strVal(c.child("pdfUrl").getValue());
         item.payStatus = strVal(c.child("paymentStatus").getValue());
         item.gross    = dblVal(c.child("totalGross").getValue());
+        item.custId   = strVal(c.child("customerId").getValue());
         // Sortier-Timestamp: createdAt > invoiceDate-parsed > autoCreatedAt
         long createdAt = longVal(c.child("createdAt").getValue());
         long autoCreated = longVal(c.child("autoCreatedAt").getValue());
@@ -259,32 +258,41 @@ public class InvoicesActivity extends AppCompatActivity {
 
         if (!item.rideId.isEmpty()) {
             MaterialButton btnSend = new MaterialButton(this);
-            btnSend.setText("📧");
-            btnSend.setTextSize(14); btnSend.setTextColor(Color.WHITE);
-            LinearLayout.LayoutParams sp = new LinearLayout.LayoutParams((int)(dp*52), LinearLayout.LayoutParams.WRAP_CONTENT);
+            btnSend.setText("📧 E-Mail");
+            btnSend.setTextSize(12); btnSend.setTextColor(Color.WHITE);
+            LinearLayout.LayoutParams sp = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1);
             sp.setMargins((int)(dp*6), 0, 0, 0); btnSend.setLayoutParams(sp);
             btnSend.setBackgroundColor(Color.parseColor("#059669"));
+            // v6.63.609: CRM-Email via customerId nachschlagen wenn custEmail leer
             btnSend.setOnClickListener(v -> {
                 if (dlgRef[0] != null) dlgRef[0].dismiss();
-                Intent intent = new Intent(this, EmailPreviewActivity.class);
-                intent.putExtra(EmailPreviewActivity.EXTRA_RIDE_ID, item.rideId);
-                intent.putExtra(EmailPreviewActivity.EXTRA_MODE, EmailPreviewActivity.MODE_INVOICE);
-                startActivity(intent);
+                String knownEmail = item.custEmail != null && !item.custEmail.isEmpty() ? item.custEmail : "";
+                if (knownEmail.isEmpty() && !item.custId.isEmpty()) {
+                    // Async CRM-Lookup dann starten
+                    FirebaseDatabase.getInstance(DB_URL).getReference("customers/" + item.custId + "/email").get()
+                        .addOnSuccessListener(snap -> {
+                            String crmEmail = strVal(snap.getValue());
+                            launchEmailPreview(item, crmEmail);
+                        })
+                        .addOnFailureListener(e -> launchEmailPreview(item, ""));
+                } else {
+                    launchEmailPreview(item, knownEmail);
+                }
             });
             btnRow.addView(btnSend);
         }
 
         if (!item.pdfUrl.isEmpty()) {
             MaterialButton btnPdf = new MaterialButton(this);
-            btnPdf.setText("📄");
-            btnPdf.setTextSize(14); btnPdf.setTextColor(Color.WHITE);
-            LinearLayout.LayoutParams pp = new LinearLayout.LayoutParams((int)(dp*52), LinearLayout.LayoutParams.WRAP_CONTENT);
+            btnPdf.setText("📄 PDF öffnen");
+            btnPdf.setTextSize(12); btnPdf.setTextColor(Color.WHITE);
+            LinearLayout.LayoutParams pp = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1);
             pp.setMargins((int)(dp*6), 0, 0, 0); btnPdf.setLayoutParams(pp);
             btnPdf.setBackgroundColor(Color.parseColor("#1D4ED8"));
             btnPdf.setOnClickListener(v -> {
                 if (dlgRef[0] != null) dlgRef[0].dismiss();
                 try { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(item.pdfUrl))); }
-                catch (Throwable t) { Toast.makeText(this, "Kein Browser", Toast.LENGTH_SHORT).show(); }
+                catch (Throwable t) { Toast.makeText(this, "Kein PDF-App installiert", Toast.LENGTH_SHORT).show(); }
             });
             btnRow.addView(btnPdf);
         }
@@ -296,6 +304,14 @@ public class InvoicesActivity extends AppCompatActivity {
             .create();
         dlgRef[0] = dlg;
         dlg.show();
+    }
+
+    private void launchEmailPreview(InvItem item, String prefillEmail) {
+        Intent intent = new Intent(this, EmailPreviewActivity.class);
+        intent.putExtra(EmailPreviewActivity.EXTRA_RIDE_ID, item.rideId);
+        intent.putExtra(EmailPreviewActivity.EXTRA_MODE, EmailPreviewActivity.MODE_INVOICE);
+        if (!prefillEmail.isEmpty()) intent.putExtra("prefillEmail", prefillEmail);
+        startActivity(intent);
     }
 
     private void showEditDialog(InvItem item) {
@@ -333,21 +349,28 @@ public class InvoicesActivity extends AppCompatActivity {
                     if (newGross <= 0) { Toast.makeText(this, "Betrag muss > 0 sein", Toast.LENGTH_SHORT).show(); return; }
                     item.gross = newGross;
                     // Alle Summenfelder konsistent aktualisieren (positions + totals)
-                    double vatRate = 7.0; // Standard 7% MwSt für Taxifahrten
+                    double vatRate = 7.0;
                     double newNet = newGross / (1.0 + vatRate / 100.0);
                     double newVat = newNet * (vatRate / 100.0);
                     java.util.Map<String, Object> upd = new java.util.HashMap<>();
                     upd.put("totalGross", newGross);
-                    upd.put("totalNet", newNet);
-                    upd.put("totalVat", newVat);
+                    upd.put("totalNet", Math.round(newNet * 100.0) / 100.0);
+                    upd.put("totalVat", Math.round(newVat * 100.0) / 100.0);
                     upd.put("updatedAt", System.currentTimeMillis());
-                    // positions[0].amount = Brutto-Betrag (1-Positions-Rechnung)
                     upd.put("positions/0/amount", newGross);
-                    // v6.63.607: Web-Admin erkennt diesen Flag und regeneriert das PDF automatisch
                     upd.put("needsPdfRegeneration", true);
+                    // v6.63.609: mit Erfolgs-/Fehler-Feedback (vorher silent-fail möglich)
+                    final double _savedGross = newGross;
                     FirebaseDatabase.getInstance(DB_URL).getReference("invoices/" + item.key)
-                        .updateChildren(upd);
-                    Toast.makeText(this, "✅ Betrag aktualisiert: " + String.format(Locale.GERMANY, "%.2f €", newGross) + "\n📄 PDF wird beim nächsten Öffnen im Web-Admin neu erstellt", Toast.LENGTH_LONG).show();
+                        .updateChildren(upd)
+                        .addOnSuccessListener(_ok -> {
+                            Toast.makeText(this, "✅ " + String.format(Locale.GERMANY, "%.2f €", _savedGross) + " gespeichert ✓ Firebase", Toast.LENGTH_SHORT).show();
+                        })
+                        .addOnFailureListener(_err -> {
+                            Toast.makeText(this, "⚠️ Speichern fehlgeschlagen: " + _err.getMessage(), Toast.LENGTH_LONG).show();
+                            // Lokale Änderung rückgängig damit Liste nicht lügt
+                            item.gross = 0; // wird neu geladen beim nächsten Refresh
+                        });
                     renderList(etSearch.getText().toString().toLowerCase(Locale.GERMANY).trim());
                 } catch (NumberFormatException e) {
                     Toast.makeText(this, "Ungültiger Betrag", Toast.LENGTH_SHORT).show();

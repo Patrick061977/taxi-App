@@ -98,6 +98,12 @@ public class EmailPreviewActivity extends AppCompatActivity {
                     invoicePdfUrl = strVal(snap.child("invoicePdfUrl").getValue());
                     ridePrice = parsePrice(price);
 
+                    // v6.63.609: Falls ride.customerEmail leer → Fallback auf prefillEmail-Extra
+                    //   (aus CRM-Lookup in InvoicesActivity, dort /customers/{id}/email gelesen)
+                    if (email == null || email.isEmpty()) {
+                        String prefill = getIntent().getStringExtra("prefillEmail");
+                        if (prefill != null && !prefill.isEmpty()) email = prefill;
+                    }
                     etTo.setText(email);
 
                     String dateTimeStr = "—";

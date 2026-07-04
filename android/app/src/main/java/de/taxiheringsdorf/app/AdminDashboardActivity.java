@@ -57,7 +57,7 @@ public class AdminDashboardActivity extends AppCompatActivity {
     private static final String DB_INSTANCE_URL = "https://taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.app";
 
     private TextView tvAdminEmail, tvQueueCount, tvOnlineAmpel;
-    private MaterialButton btnMenu, btnCallLog, btnNewBooking;
+    private MaterialButton btnMenu, btnCallLog, btnNewBooking, btnInvoices;
     private RecyclerView rv;
     private LinearLayout emptyState;
     private AdminRideAdapter adapter;
@@ -199,6 +199,7 @@ public class AdminDashboardActivity extends AppCompatActivity {
         } catch (Throwable t) { Log.w(TAG, "Online-Ampel-Listener: " + t.getMessage()); }
         btnMenu = findViewById(R.id.btn_admin_menu);
         btnCallLog = findViewById(R.id.btn_admin_call_log);
+        btnInvoices = findViewById(R.id.btn_admin_invoices);
         btnNewBooking = findViewById(R.id.btn_admin_new_booking);
         rv = findViewById(R.id.rv_admin_rides);
         emptyState = findViewById(R.id.admin_empty_state);
@@ -252,6 +253,7 @@ public class AdminDashboardActivity extends AppCompatActivity {
 
         btnMenu.setOnClickListener(this::showMenu);
         btnCallLog.setOnClickListener(v -> startActivity(new Intent(this, CallLogActivity.class)));
+        if (btnInvoices != null) btnInvoices.setOnClickListener(v -> startActivity(new Intent(this, InvoicesActivity.class)));
         // v6.62.749 (Patrick 15.05. 21:30): "Neue Buchung" oeffnet CrmSearchActivity
         // statt eigenem Dialog → genau gleicher Flow wie 'Neuer Kunde + Vorbestellung'.
         // User kann Kunde suchen ODER neu anlegen, dann Vorbestellungs-Maske mit

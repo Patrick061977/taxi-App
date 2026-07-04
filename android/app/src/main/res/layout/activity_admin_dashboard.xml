@@ -301,23 +301,34 @@
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_admin_call_log"
-            android:layout_width="64dp"
+            android:layout_width="56dp"
             android:layout_height="56dp"
             android:layout_marginEnd="6dp"
             android:text="📞"
-            android:textSize="22sp"
+            android:textSize="20sp"
             app:backgroundTint="#3B82F6"
+            app:cornerRadius="14dp" />
+
+        <!-- 🆕 v6.63.600: Rechnungen direkt auf Hauptscreen -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_admin_invoices"
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:layout_marginEnd="6dp"
+            android:text="🧾"
+            android:textSize="20sp"
+            app:backgroundTint="#059669"
             app:cornerRadius="14dp" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_admin_new_booking"
             android:layout_width="0dp"
             android:layout_height="56dp"
-            android:layout_marginStart="6dp"
+            android:layout_marginStart="0dp"
             android:layout_weight="1"
             android:text="🚖 Neue Buchung"
             android:textColor="#FFFFFF"
-            android:textSize="16sp"
+            android:textSize="15sp"
             android:textStyle="bold"
             app:backgroundTint="#7C3AED"
             app:cornerRadius="14dp" />

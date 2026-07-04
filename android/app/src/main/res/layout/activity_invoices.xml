@@ -38,14 +38,28 @@
 
     </LinearLayout>
 
+    <EditText
+        android:id="@+id/etInvoicesSearch"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="#1E293B"
+        android:hint="🔍 Suche (Name, Rechnungsnr.)"
+        android:textColorHint="#64748B"
+        android:textColor="#F8FAFC"
+        android:textSize="14sp"
+        android:padding="12dp"
+        android:inputType="text"
+        android:imeOptions="actionSearch"
+        android:singleLine="true" />
+
     <TextView
         android:id="@+id/tvInvoicesStatus"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:padding="12dp"
+        android:padding="10dp"
         android:text="Lade Rechnungen..."
         android:textColor="#94A3B8"
-        android:textSize="13sp" />
+        android:textSize="12sp" />
 
     <ScrollView
         android:layout_width="match_parent"

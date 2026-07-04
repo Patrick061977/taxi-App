@@ -695,6 +695,8 @@ public class AdminDashboardActivity extends AppCompatActivity {
         p.getMenu().add(0, 7, 0, "📅 Schichtplan-Editor");
         // 🆕 v6.63.501: Versions-Changelog aus Firebase
         p.getMenu().add(0, 8, 0, "📋 Was ist neu? v" + de.taxiheringsdorf.app.BuildConfig.VERSION_NAME);
+        // 🆕 v6.63.598: Rechnungen-Übersicht
+        p.getMenu().add(0, 9, 0, "🧾 Rechnungen");
         p.getMenu().add(0, 1, 0, "🚗 Zurück zu Fahrzeugauswahl");
         p.getMenu().add(0, 2, 0, "🚪 Logout");
         p.setOnMenuItemClickListener(item -> {
@@ -745,6 +747,10 @@ public class AdminDashboardActivity extends AppCompatActivity {
             }
             if (item.getItemId() == 8) {
                 showChangelogDialog();
+                return true;
+            }
+            if (item.getItemId() == 9) {
+                startActivity(new Intent(this, InvoicesActivity.class));
                 return true;
             }
             if (item.getItemId() == 1) {

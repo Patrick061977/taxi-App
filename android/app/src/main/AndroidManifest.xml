@@ -134,13 +134,19 @@
             android:launchMode="singleTask"
             android:exported="false" />
 
-        <!-- v6.63.090: EmailPreviewActivity — Vorschau-Dialog vor Email-Versand
-             (Patrick 02.06. 18:32 "Mails immer Entwurf zeigen") -->
+        <!-- v6.63.090: EmailPreviewActivity — Vorschau-Dialog vor Email-Versand -->
         <activity
             android:name=".EmailPreviewActivity"
             android:label="@string/title_activity_main"
             android:theme="@style/AppTheme.Driver"
             android:launchMode="singleTask"
+            android:exported="false" />
+
+        <!-- v6.63.598: InvoicesActivity — Rechnungen-Übersicht + Versand -->
+        <activity
+            android:name=".InvoicesActivity"
+            android:label="Rechnungen"
+            android:theme="@style/AppTheme.Driver"
             android:exported="false" />
 
         <!-- v6.62.643: DriverMapActivity — Karte mit allen Fahrer-Standorten,

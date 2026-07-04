@@ -34257,6 +34257,52 @@ exports.stripeWebhook = onRequest(
                         console.warn('⚠️ Zahlungsbestätigungs-Email fehlgeschlagen:', confErr.message);
                     }
                 }
+
+                // 🔧 v6.63.595: Vorkasse-Zahlung ohne invoiceNumber (sendVorkasseEmail-Pfad
+                //   aus der Native-App). Stripe-Session hat nur rideId in metadata, kein
+                //   invoiceNumber → der if(invoiceNumber)-Block wurde komplett übersprungen
+                //   → Ride blieb auf paymentStatus=offen trotz erfolgreicher Zahlung.
+                if (!invoiceNumber && session.metadata?.rideId && !String(session.metadata.rideId).startsWith('VORKASSE-')) {
+                    const _rideIdV = session.metadata.rideId;
+                    try {
+                        await db.ref(`rides/${_rideIdV}`).update({
+                            paymentStatus: 'paid',
+                            paymentMethod: 'stripe',
+                            stripePaymentStatus: 'paid',
+                            stripePaidAt: Date.now(),
+                            stripePaidAmount: session.amount_total / 100,
+                            stripePaymentIntentId: session.payment_intent,
+                            stripePayerName: session.customer_details?.name || null,
+                            stripePayerEmail: session.customer_details?.email || null,
+                            updatedAt: Date.now()
+                        });
+                        console.log(`✅ v6.63.595 Vorkasse Ride ${_rideIdV} → paymentStatus=paid`);
+                        try { await addRideLog(_rideIdV, '✅', `Vorkasse Stripe-Zahlung: ${(session.amount_total/100).toFixed(2)} €`, { payer: session.customer_details?.name || '?' }); } catch(_){}
+                        // FCM an Fahrer
+                        const _rSnapV = await db.ref(`rides/${_rideIdV}`).once('value');
+                        const _rDataV = _rSnapV.val();
+                        const _vidV = _rDataV?.assignedVehicle || _rDataV?.vehicleId || null;
+                        if (_vidV) {
+                            await sendFCMToVehicle(_vidV, {
+                                type: 'payment_received',
+                                rideId: _rideIdV,
+                                amount: (session.amount_total/100).toFixed(2),
+                                customerName: _rDataV?.customerName || session.customer_details?.name || '',
+                                method: 'stripe'
+                            }).catch(() => {});
+                            console.log(`📲 v6.63.595 Stripe-Payment-FCM an ${_vidV}`);
+                        }
+                        // Admin-Telegram
+                        const _amtV = (session.amount_total/100).toFixed(2);
+                        await sendToAllAdmins(`💳✅ <b>Vorkasse-Zahlung eingegangen!</b>\n\n` +
+                            `👤 <b>Kunde:</b> ${_rDataV?.customerName || session.customer_details?.name || '?'}\n` +
+                            `💰 <b>Betrag:</b> ${_amtV} €\n` +
+                            `🚕 <b>Fahrt:</b> ${_rDataV?.pickup || '?'} → ${_rDataV?.destination || '?'}\n` +
+                            `⏰ <b>Zeit:</b> ${formatBerlinTime()}`, 'payment').catch(()=>{});
+                    } catch (_vErr) {
+                        console.error(`⚠️ v6.63.595 Vorkasse Ride-Update fehlgeschlagen ${_rideIdV}:`, _vErr.message);
+                    }
+                }
             } else if (event.type === 'checkout.session.expired') {
                 const session = event.data.object;
                 const invoiceNumber = session.metadata?.invoiceNumber;

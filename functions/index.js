@@ -22463,7 +22463,8 @@ exports.autoResolveConflicts = onSchedule(
                     updatedAt: Date.now(),
                     lastOptimizedAt: Date.now(), // 🔧 v6.25.4: Cooldown gegen Duplikat-Nachrichten
                     lastOptimizedTo: bestAlt, // 🔧 v6.25.4: Merken wohin optimiert → verhindert Oszillation
-                    drivingTimeToPickup: Math.round(bestMin),
+                    // v6.63.608: 999 ist Routing-Fehler-Sentinel — nie als echte Anfahrtszeit speichern
+                    drivingTimeToPickup: Math.round(bestMin >= 999 ? 10 : bestMin),
                     vehicleScores: optimizeScores,
                     replanReason: `Smart-Routing: ${currInfo.name} (${currentKm} km, ${currentMin} Min) → ${altInfo.name} (${bestKm} km, ${bestMin} Min), ${vorteilMin} Min kürzer`
                 });
@@ -25132,7 +25133,8 @@ exports.scheduledAutoAssign = onSchedule(
                     assignedBy: 'cloud-scheduled-auto-assign',
                     updatedAt: Date.now(),
                     vehicleScores: vehicleScores,
-                    drivingTimeToPickup: bestDrivingTime
+                    // v6.63.608: 999 ist Routing-Fehler-Sentinel — nie als echte Anfahrtszeit speichern
+                    drivingTimeToPickup: bestDrivingTime >= 999 ? 10 : bestDrivingTime
                 };
                 // 🆕 v6.25.5: Verschobene Abholzeit eintragen
                 if (_shiftInfo) {

@@ -536,7 +536,8 @@ public class AdminDashboardActivity extends AppCompatActivity {
                     Ride nxt = rides.get(i + 1);
                     long curDur = cur.estimatedDuration != null && cur.estimatedDuration > 0 ? cur.estimatedDuration : 10;
                     long curEnd = cur.pickupTimestamp + curDur * 60_000;
-                    long nxtDrive = nxt.drivingTimeToPickup != null && nxt.drivingTimeToPickup > 0 ? nxt.drivingTimeToPickup : 10;
+                    // v6.63.608: drivingTimeToPickup=999 ist ein Routing-Fehler-Placeholder → Fallback 10 Min
+                    long nxtDrive = nxt.drivingTimeToPickup != null && nxt.drivingTimeToPickup > 0 && nxt.drivingTimeToPickup < 999 ? nxt.drivingTimeToPickup : 10;
                     long gapMin = (nxt.pickupTimestamp - curEnd) / 60_000;
                     long required = nxtDrive + 3;
                     if (gapMin < required) {

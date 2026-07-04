@@ -148,116 +148,154 @@ public class InvoicesActivity extends AppCompatActivity {
         }
     }
 
+    // v6.63.608: Kompakte Listenzeile — Tap öffnet Vorschau-Dialog mit Aktionen
     private void addCard(InvItem item, int pad, float dp) {
         LinearLayout card = new LinearLayout(this);
-        card.setOrientation(LinearLayout.VERTICAL);
+        card.setOrientation(LinearLayout.HORIZONTAL);
         card.setBackgroundColor(Color.parseColor("#1E293B"));
-        card.setPadding(pad, pad, pad, pad);
+        card.setPadding(pad, (int)(dp*10), pad, (int)(dp*10));
         LinearLayout.LayoutParams cp = new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        cp.setMargins(0, 0, 0, (int)(dp * 10));
+        cp.setMargins(0, 0, 0, (int)(dp * 4));
         card.setLayoutParams(cp);
+        card.setClickable(true); card.setFocusable(true);
+        card.setOnClickListener(v -> showPreviewDialog(item));
 
-        // Kopfzeile
-        LinearLayout header = new LinearLayout(this);
-        header.setOrientation(LinearLayout.HORIZONTAL);
-        header.setLayoutParams(new LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+        // Links: Nr. + Kundenname
+        LinearLayout leftCol = new LinearLayout(this);
+        leftCol.setOrientation(LinearLayout.VERTICAL);
+        leftCol.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
         TextView tvNr = new TextView(this);
-        tvNr.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
         tvNr.setText("Nr. " + item.invNr);
         tvNr.setTextColor(Color.parseColor("#F8FAFC"));
-        tvNr.setTextSize(15); tvNr.setTypeface(null, Typeface.BOLD);
-        header.addView(tvNr);
-        TextView tvDate = new TextView(this);
-        tvDate.setText(formatDate(item.date));
-        tvDate.setTextColor(Color.parseColor("#94A3B8")); tvDate.setTextSize(13);
-        header.addView(tvDate);
-        card.addView(header);
-
+        tvNr.setTextSize(14); tvNr.setTypeface(null, Typeface.BOLD);
+        leftCol.addView(tvNr);
         if (!item.custName.isEmpty()) {
             TextView tvName = new TextView(this);
             tvName.setText(item.custName);
-            tvName.setTextColor(Color.parseColor("#CBD5E1")); tvName.setTextSize(14);
-            LinearLayout.LayoutParams np = new LinearLayout.LayoutParams(
+            tvName.setTextColor(Color.parseColor("#94A3B8")); tvName.setTextSize(12);
+            leftCol.addView(tvName);
+        }
+        card.addView(leftCol);
+
+        // Rechts: Betrag + Status + Datum
+        LinearLayout rightCol = new LinearLayout(this);
+        rightCol.setOrientation(LinearLayout.VERTICAL);
+        rightCol.setGravity(android.view.Gravity.END);
+        boolean isPaid = "paid".equals(item.payStatus);
+        TextView tvAmt = new TextView(this);
+        tvAmt.setText(String.format(Locale.GERMANY, "%.2f €", item.gross));
+        tvAmt.setTextColor(isPaid ? Color.parseColor("#10B981") : Color.parseColor("#F8FAFC"));
+        tvAmt.setTextSize(15); tvAmt.setTypeface(null, Typeface.BOLD);
+        tvAmt.setGravity(android.view.Gravity.END);
+        rightCol.addView(tvAmt);
+        TextView tvStatus = new TextView(this);
+        tvStatus.setText(isPaid ? "✅" : ("offen".equalsIgnoreCase(item.payStatus) ? "⏳" : item.date.isEmpty() ? "" : formatDate(item.date)));
+        tvStatus.setTextColor(isPaid ? Color.parseColor("#10B981") : Color.parseColor("#F59E0B"));
+        tvStatus.setTextSize(11); tvStatus.setGravity(android.view.Gravity.END);
+        rightCol.addView(tvStatus);
+        card.addView(rightCol);
+
+        llList.addView(card);
+    }
+
+    // v6.63.608: Vorschau-Dialog mit vollständigen Details + Aktions-Buttons
+    private void showPreviewDialog(InvItem item) {
+        float dp = getResources().getDisplayMetrics().density;
+        int p = (int)(dp * 16);
+        LinearLayout form = new LinearLayout(this);
+        form.setOrientation(LinearLayout.VERTICAL); form.setPadding(p, p/2, p, p/2);
+
+        // Header
+        TextView tvHdr = new TextView(this);
+        tvHdr.setText("Rechnung " + item.invNr);
+        tvHdr.setTextSize(16); tvHdr.setTypeface(null, Typeface.BOLD);
+        form.addView(tvHdr);
+
+        // Details
+        String[] labels = { "Kunde:", "Datum:", "Betrag:", "Status:" };
+        boolean isPaid = "paid".equals(item.payStatus);
+        String[] values = {
+            item.custName.isEmpty() ? "—" : item.custName,
+            item.date.isEmpty() ? "—" : formatDate(item.date),
+            String.format(Locale.GERMANY, "%.2f €", item.gross),
+            isPaid ? "✅ bezahlt" : "⏳ offen"
+        };
+        for (int i = 0; i < labels.length; i++) {
+            LinearLayout row = new LinearLayout(this);
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            LinearLayout.LayoutParams rp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-            np.setMargins(0,(int)(dp*4),0,0); tvName.setLayoutParams(np);
-            card.addView(tvName);
+            rp.setMargins(0, (int)(dp*6), 0, 0); row.setLayoutParams(rp);
+            TextView lbl = new TextView(this);
+            lbl.setText(labels[i]);
+            lbl.setTextSize(13); lbl.setTextColor(Color.parseColor("#94A3B8"));
+            lbl.setLayoutParams(new LinearLayout.LayoutParams((int)(dp*70), LinearLayout.LayoutParams.WRAP_CONTENT));
+            row.addView(lbl);
+            TextView val = new TextView(this);
+            val.setText(values[i]);
+            val.setTextSize(13); val.setTextColor(Color.parseColor("#F8FAFC"));
+            if (i == 2) { val.setTypeface(null, Typeface.BOLD); val.setTextColor(Color.parseColor("#10B981")); }
+            row.addView(val);
+            form.addView(row);
         }
 
-        // Betrag + Status
-        LinearLayout amtRow = new LinearLayout(this);
-        amtRow.setOrientation(LinearLayout.HORIZONTAL);
-        LinearLayout.LayoutParams ap = new LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        ap.setMargins(0,(int)(dp*4),0,0); amtRow.setLayoutParams(ap);
-        TextView tvAmt = new TextView(this);
-        tvAmt.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
-        tvAmt.setText(String.format(Locale.GERMANY, "%.2f €", item.gross));
-        tvAmt.setTextColor(Color.parseColor("#10B981")); tvAmt.setTextSize(16);
-        tvAmt.setTypeface(null, Typeface.BOLD);
-        amtRow.addView(tvAmt);
-        boolean isPaid = "paid".equals(item.payStatus);
-        TextView tvPay = new TextView(this);
-        tvPay.setText(isPaid ? "✅ bezahlt" : "⏳ offen");
-        tvPay.setTextColor(isPaid ? Color.parseColor("#10B981") : Color.parseColor("#F59E0B"));
-        tvPay.setTextSize(13); amtRow.addView(tvPay);
-        card.addView(amtRow);
-
-        // Buttons: Bearbeiten | Senden | PDF
+        // Aktions-Buttons
         LinearLayout btnRow = new LinearLayout(this);
         btnRow.setOrientation(LinearLayout.HORIZONTAL);
         LinearLayout.LayoutParams brp = new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        brp.setMargins(0,(int)(dp*8),0,0); btnRow.setLayoutParams(brp);
+        brp.setMargins(0, (int)(dp*16), 0, 0); btnRow.setLayoutParams(brp);
 
-        // Bearbeiten
+        final AlertDialog[] dlgRef = {null};
+
         MaterialButton btnEdit = new MaterialButton(this);
-        btnEdit.setText("✏️");
-        btnEdit.setTextSize(16); btnEdit.setTextColor(Color.WHITE);
-        LinearLayout.LayoutParams ep = new LinearLayout.LayoutParams(
-            (int)(dp*48), LinearLayout.LayoutParams.WRAP_CONTENT);
-        ep.setMargins(0,0,(int)(dp*6),0); btnEdit.setLayoutParams(ep);
+        btnEdit.setText("✏️ Bearbeiten");
+        btnEdit.setTextSize(12); btnEdit.setTextColor(Color.WHITE);
+        btnEdit.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
         btnEdit.setBackgroundColor(Color.parseColor("#475569"));
-        btnEdit.setOnClickListener(v -> showEditDialog(item));
+        btnEdit.setOnClickListener(v -> { if (dlgRef[0] != null) dlgRef[0].dismiss(); showEditDialog(item); });
         btnRow.addView(btnEdit);
 
-        // Senden
-        MaterialButton btnSend = new MaterialButton(this);
-        btnSend.setText("📧 Senden");
-        btnSend.setTextSize(13); btnSend.setTextColor(Color.WHITE);
-        LinearLayout.LayoutParams sp = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1);
-        sp.setMargins(0,0,(int)(dp*6),0); btnSend.setLayoutParams(sp);
         if (!item.rideId.isEmpty()) {
+            MaterialButton btnSend = new MaterialButton(this);
+            btnSend.setText("📧");
+            btnSend.setTextSize(14); btnSend.setTextColor(Color.WHITE);
+            LinearLayout.LayoutParams sp = new LinearLayout.LayoutParams((int)(dp*52), LinearLayout.LayoutParams.WRAP_CONTENT);
+            sp.setMargins((int)(dp*6), 0, 0, 0); btnSend.setLayoutParams(sp);
             btnSend.setBackgroundColor(Color.parseColor("#059669"));
             btnSend.setOnClickListener(v -> {
+                if (dlgRef[0] != null) dlgRef[0].dismiss();
                 Intent intent = new Intent(this, EmailPreviewActivity.class);
                 intent.putExtra(EmailPreviewActivity.EXTRA_RIDE_ID, item.rideId);
                 intent.putExtra(EmailPreviewActivity.EXTRA_MODE, EmailPreviewActivity.MODE_INVOICE);
                 startActivity(intent);
             });
-        } else {
-            btnSend.setBackgroundColor(Color.parseColor("#475569")); btnSend.setEnabled(false);
+            btnRow.addView(btnSend);
         }
-        btnRow.addView(btnSend);
 
-        // PDF
-        MaterialButton btnPdf = new MaterialButton(this);
-        btnPdf.setTextSize(13); btnPdf.setTextColor(Color.WHITE);
-        btnPdf.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
         if (!item.pdfUrl.isEmpty()) {
-            btnPdf.setText("📄 PDF");
+            MaterialButton btnPdf = new MaterialButton(this);
+            btnPdf.setText("📄");
+            btnPdf.setTextSize(14); btnPdf.setTextColor(Color.WHITE);
+            LinearLayout.LayoutParams pp = new LinearLayout.LayoutParams((int)(dp*52), LinearLayout.LayoutParams.WRAP_CONTENT);
+            pp.setMargins((int)(dp*6), 0, 0, 0); btnPdf.setLayoutParams(pp);
             btnPdf.setBackgroundColor(Color.parseColor("#1D4ED8"));
             btnPdf.setOnClickListener(v -> {
+                if (dlgRef[0] != null) dlgRef[0].dismiss();
                 try { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(item.pdfUrl))); }
-                catch (Throwable t) { Toast.makeText(this, "Kein Browser: "+t.getMessage(), Toast.LENGTH_SHORT).show(); }
+                catch (Throwable t) { Toast.makeText(this, "Kein Browser", Toast.LENGTH_SHORT).show(); }
             });
-        } else {
-            btnPdf.setText("📄 —"); btnPdf.setBackgroundColor(Color.parseColor("#334155")); btnPdf.setEnabled(false);
+            btnRow.addView(btnPdf);
         }
-        btnRow.addView(btnPdf);
-        card.addView(btnRow);
-        llList.addView(card);
+        form.addView(btnRow);
+
+        AlertDialog dlg = new AlertDialog.Builder(this)
+            .setView(form)
+            .setNegativeButton("Schließen", null)
+            .create();
+        dlgRef[0] = dlg;
+        dlg.show();
     }
 
     private void showEditDialog(InvItem item) {

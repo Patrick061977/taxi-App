@@ -3206,6 +3206,9 @@ public class AdminDashboardActivity extends AppCompatActivity {
         container.addView(tvVehicleLabel);
         final String[] _wpVehIds = {"", "pw-ik-222", "pw-my-222-e", "pw-ki-222", "pw-sk-222", "vg-lk-111", "pw-ym-222-e"};
         final String[] _wpVehNames = {"— Nicht zugewiesen —", "Toyota IK", "Tesla MY222", "Toyota KI", "Renault SK", "Mercedes LK", "Tesla YM222"};
+        // v6.63.610: Kapazitäten parallel zu _wpVehIds (0 = unbegrenzt/unbekannt)
+        final int[] _wpVehCaps = {0, 4, 4, 4, 8, 8, 4};
+        final int _ridePax = r.passengers != null ? r.passengers : 1;
         int[] _wpVehStatus = new int[_wpVehIds.length];
         _wpVehStatus[0] = 1;
         long _rideStart = _origTs - 5L * 60_000L;
@@ -3229,7 +3232,10 @@ public class AdminDashboardActivity extends AppCompatActivity {
         String[] _wpVehDisplayLabels = new String[_wpVehIds.length];
         for (int i = 0; i < _wpVehIds.length; i++) {
             String icon = i == 0 ? "" : (_wpVehStatus[i] == 2 ? "🔴 " : "🟢 ");
-            _wpVehDisplayLabels[i] = icon + _wpVehNames[i];
+            // v6.63.610: Kapazitäts-Warnung wenn Fahrzeug zu klein für Personenzahl
+            boolean _capWarn = i > 0 && _wpVehCaps[i] > 0 && _ridePax > _wpVehCaps[i];
+            String _capSuffix = _capWarn ? " ⚠️ " + _wpVehCaps[i] + " Plätze / " + _ridePax + " Pax" : "";
+            _wpVehDisplayLabels[i] = icon + _wpVehNames[i] + _capSuffix;
         }
         final android.widget.Spinner _wpSpnVehicle = new android.widget.Spinner(this);
         android.widget.ArrayAdapter<String> _wpVehAdapter = new android.widget.ArrayAdapter<>(
@@ -3282,8 +3288,8 @@ public class AdminDashboardActivity extends AppCompatActivity {
         btnFullEdit.setOnClickListener(_v -> { dlg.dismiss(); showEditRideDialog(r); });
         _wpBtnVehSave.setOnClickListener(_v -> {
             int sel = _wpSpnVehicle.getSelectedItemPosition();
-            String selVid = (sel >= 0 && sel < _wpVehIds.length) ? _wpVehIds[sel] : "";
-            String selName = (sel >= 0 && sel < _wpVehNames.length) ? _wpVehNames[sel] : "";
+            final String selVid = (sel >= 0 && sel < _wpVehIds.length) ? _wpVehIds[sel] : "";
+            final String selName = (sel >= 0 && sel < _wpVehNames.length) ? _wpVehNames[sel] : "";
             java.util.Map<String, Object> vu = new java.util.HashMap<>();
             if (selVid.isEmpty()) {
                 vu.put("assignedVehicle", null);
@@ -3310,14 +3316,29 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 }
             }
             vu.put("updatedAt", System.currentTimeMillis());
-            com.google.firebase.database.FirebaseDatabase.getInstance(DB_URL_AD).getReference("rides/" + r.id).updateChildren(vu)
-                .addOnSuccessListener(_ok -> {
-                    Toast.makeText(AdminDashboardActivity.this,
-                        "✅ Fahrzeug → " + (selVid.isEmpty() ? "Nicht zugewiesen" : selName), Toast.LENGTH_LONG).show();
-                    dlg.dismiss();
-                })
-                .addOnFailureListener(e -> Toast.makeText(AdminDashboardActivity.this,
-                    "❌ Fehler: " + e.getMessage(), Toast.LENGTH_LONG).show());
+            // v6.63.610: Kapazitäts-Schutz — blockiert stilles Überbuchen
+            final java.util.Map<String, Object> _vuFinal = vu;
+            boolean _capOverflow = !selVid.isEmpty() && sel < _wpVehCaps.length && _wpVehCaps[sel] > 0 && _ridePax > _wpVehCaps[sel];
+            Runnable _doWrite = () -> {
+                com.google.firebase.database.FirebaseDatabase.getInstance(DB_URL_AD).getReference("rides/" + r.id).updateChildren(_vuFinal)
+                    .addOnSuccessListener(_ok -> {
+                        Toast.makeText(AdminDashboardActivity.this,
+                            "✅ Fahrzeug → " + (selVid.isEmpty() ? "Nicht zugewiesen" : selName), Toast.LENGTH_LONG).show();
+                        dlg.dismiss();
+                    })
+                    .addOnFailureListener(e -> Toast.makeText(AdminDashboardActivity.this,
+                        "❌ Fehler: " + e.getMessage(), Toast.LENGTH_LONG).show());
+            };
+            if (_capOverflow) {
+                new androidx.appcompat.app.AlertDialog.Builder(AdminDashboardActivity.this)
+                    .setTitle("⚠️ Kapazität überschritten!")
+                    .setMessage(selName + " hat nur " + _wpVehCaps[sel] + " Plätze.\nDiese Fahrt hat " + _ridePax + " Personen.\n\nTrotzdem zuweisen?")
+                    .setPositiveButton("Ja, trotzdem", (_dd, _ww) -> _doWrite.run())
+                    .setNegativeButton("Abbrechen", null)
+                    .show();
+            } else {
+                _doWrite.run();
+            }
         });
     }
 
@@ -3839,6 +3860,8 @@ public class AdminDashboardActivity extends AppCompatActivity {
         final String[] vehPlates = {"",
             "PW-IK 222", "PW-MY 222 E", "PW-KI 222",
             "PW-SK 222", "VG-LK 111", "PW-YM 222 E"};
+        // v6.63.610: Kapazitäten parallel zu vehIds
+        final int[] vehCaps = {0, 4, 4, 4, 8, 8, 4};
         android.widget.ArrayAdapter<String> vehAdapter = new android.widget.ArrayAdapter<>(
             this, android.R.layout.simple_spinner_item, vehLabels);
         vehAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
@@ -4058,6 +4081,14 @@ public class AdminDashboardActivity extends AppCompatActivity {
             upd.put("passengers", spnPax.getSelectedItemPosition() + 1);
             upd.put("status", statusVals[spnStatus.getSelectedItemPosition()]);
             int vIdx = spnVehicle.getSelectedItemPosition();
+            int _newPax = spnPax.getSelectedItemPosition() + 1;
+            // v6.63.610: Kapazitäts-Check — Warnung vor Zuweisung an zu kleines Fahrzeug
+            if (vIdx > 0 && vIdx < vehCaps.length && vehCaps[vIdx] > 0 && _newPax > vehCaps[vIdx]) {
+                Toast.makeText(this,
+                    "⚠️ " + vehNames[vIdx] + " hat nur " + vehCaps[vIdx] + " Plätze — Fahrt hat " + _newPax + " Personen!",
+                    Toast.LENGTH_LONG).show();
+                // Kein return — Patrick kann trotzdem manuell überschreiben (er sieht die Warnung)
+            }
             if (vIdx > 0 && vIdx < vehIds.length) {
                 String newVehId = vehIds[vIdx];
                 if (!newVehId.equals(r.assignedVehicle)) {

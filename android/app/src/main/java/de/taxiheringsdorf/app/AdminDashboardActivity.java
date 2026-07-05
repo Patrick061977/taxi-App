@@ -3422,6 +3422,41 @@ public class AdminDashboardActivity extends AppCompatActivity {
             layout.addView(_timeShiftRow);
         }
 
+        // 🆕 v6.63.622: WhatsApp-Bestätigung — sichtbar wenn Telefonnummer vorhanden
+        if (r.customerPhone != null && !r.customerPhone.isEmpty()) {
+            com.google.android.material.button.MaterialButton btnWaConfirm =
+                new com.google.android.material.button.MaterialButton(this);
+            btnWaConfirm.setText("💬 Buchungsbestätigung per WhatsApp");
+            btnWaConfirm.setTextSize(15);
+            btnWaConfirm.setBackgroundColor(android.graphics.Color.parseColor("#25d366"));
+            btnWaConfirm.setTextColor(android.graphics.Color.WHITE);
+            LinearLayout.LayoutParams _waParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+            _waParams.setMargins(0, 0, 0, pad);
+            btnWaConfirm.setLayoutParams(_waParams);
+            btnWaConfirm.setOnClickListener(_v -> {
+                String _name = r.customerName != null ? r.customerName : "Kunde";
+                String _date = r.pickupTime != null ? r.pickupTime : "";
+                String _pickup = r.pickup != null ? r.pickup : "?";
+                String _dest = r.destination != null ? r.destination : "?";
+                String _pax = r.passengers != null ? r.passengers + " Person(en)" : "1 Person";
+                String _price = (r.price != null && r.price > 0) ? String.format(java.util.Locale.GERMANY, "%.2f", r.price) + " €" : "";
+                String _msg = "Hallo " + _name + ",\n\nIhre Fahrt ist bestätigt:\n" +
+                    (_date.isEmpty() ? "" : "🕐 " + _date + "\n") +
+                    "📍 " + _pickup + "\n🎯 " + _dest + "\n" +
+                    "👥 " + _pax + "\n" +
+                    (_price.isEmpty() ? "" : "💰 " + _price + "\n") +
+                    "\nVielen Dank für Ihr Vertrauen.\nFunk Taxi Heringsdorf · 038378 / 22022";
+                String _ph = r.customerPhone.replaceAll("[\\s\\-\\/\\(\\)\\+]", "");
+                if (_ph.startsWith("0")) _ph = "49" + _ph.substring(1);
+                android.content.Intent _wi = new android.content.Intent(android.content.Intent.ACTION_VIEW);
+                _wi.setData(android.net.Uri.parse("https://wa.me/" + _ph + "?text=" + java.net.URLEncoder.encode(_msg)));
+                try { startActivity(_wi); }
+                catch (Throwable _t) { android.widget.Toast.makeText(this, "WhatsApp nicht installiert", android.widget.Toast.LENGTH_SHORT).show(); }
+            });
+            layout.addView(btnWaConfirm);
+        }
+
         // 🆕 v6.63.090 (Patrick 02.06. 18:32): Email-Vorschau-Button als prominente Aktion direkt
         // unter Speichern. Tap → EmailPreviewActivity öffnet sich, Patrick liest durch,
         // toggelt Stripe/Tracking, sendet ab. Nur sichtbar wenn customerEmail vorhanden.
@@ -3445,34 +3480,90 @@ public class AdminDashboardActivity extends AppCompatActivity {
             layout.addView(btnEmailPreview);
         }
 
-        // 🆕 v6.63.553: Stripe-Vorkasse-Link — sichtbar wenn Preis + Email vorhanden.
-        // v6.63.543 hatte showVorkasseEmailDialog durch showEditRideDialog ersetzt (gut,
-        // aber dabei ging der Stripe-Button verloren). Fix: Button direkt hier einbauen.
-        if (r.price != null && r.price > 0
-                && r.customerEmail != null && !r.customerEmail.isEmpty() && r.customerEmail.contains("@")) {
-            com.google.android.material.button.MaterialButton btnStripe =
-                new com.google.android.material.button.MaterialButton(this);
-            btnStripe.setText("💳 Stripe-Vorkasse-Link erstellen & senden");
-            btnStripe.setTextSize(15);
-            btnStripe.setBackgroundColor(android.graphics.Color.parseColor("#7c3aed"));
-            btnStripe.setTextColor(android.graphics.Color.WHITE);
-            LinearLayout.LayoutParams _stripeParams = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-            _stripeParams.setMargins(0, 0, 0, pad);
-            btnStripe.setLayoutParams(_stripeParams);
-            btnStripe.setOnClickListener(_v -> {
-                if (_dlgRef.get() != null) _dlgRef.get().dismiss();
-                String _amountStr = String.format(java.util.Locale.US, "%.2f", r.price);
-                _sendVorkasseEmail(r.id,
-                    r.customerEmail,
-                    r.customerName != null ? r.customerName : "",
-                    _amountStr,
-                    r.pickup != null ? r.pickup : "",
-                    r.destination != null ? r.destination : "",
-                    r.pickupTime != null ? r.pickupTime : "",
-                    null);
-            });
-            layout.addView(btnStripe);
+        // 🔧 v6.63.622: Stripe-Button auch bei reiner Telefonnummer (kein Email nötig)
+        {
+            boolean _hasEmail = r.customerEmail != null && !r.customerEmail.isEmpty() && r.customerEmail.contains("@");
+            boolean _hasPhone = r.customerPhone != null && !r.customerPhone.isEmpty();
+            if (r.price != null && r.price > 0 && (_hasEmail || _hasPhone)) {
+                com.google.android.material.button.MaterialButton btnStripe =
+                    new com.google.android.material.button.MaterialButton(this);
+                btnStripe.setText("💳 Stripe-Vorkasse-Link erstellen & senden");
+                btnStripe.setTextSize(15);
+                btnStripe.setBackgroundColor(android.graphics.Color.parseColor("#7c3aed"));
+                btnStripe.setTextColor(android.graphics.Color.WHITE);
+                LinearLayout.LayoutParams _stripeParams = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+                _stripeParams.setMargins(0, 0, 0, pad);
+                btnStripe.setLayoutParams(_stripeParams);
+                final boolean _fHasEmail = _hasEmail;
+                final boolean _fHasPhone = _hasPhone;
+                btnStripe.setOnClickListener(_v -> {
+                    if (_dlgRef.get() != null) _dlgRef.get().dismiss();
+                    // Stripe-Link via createStripeCheckout generieren (kein Email nötig)
+                    String _desc = (r.pickup != null ? r.pickup : "") + " → " + (r.destination != null ? r.destination : "");
+                    double _amt = r.price;
+                    String _name = r.customerName != null ? r.customerName : "Kunde";
+                    String _phone = r.customerPhone;
+                    String _email = r.customerEmail;
+                    Toast.makeText(this, "⏳ Stripe-Link wird erstellt...", Toast.LENGTH_SHORT).show();
+                    new Thread(() -> {
+                        try {
+                            org.json.JSONObject body = new org.json.JSONObject();
+                            body.put("invoiceNumber", "VKAS-" + new java.text.SimpleDateFormat("yyMMdd-HHmmss", java.util.Locale.GERMANY).format(new java.util.Date()));
+                            body.put("amount", _amt);
+                            body.put("customerName", _name);
+                            if (_fHasEmail) body.put("customerEmail", _email);
+                            body.put("description", _desc.isEmpty() ? "Vorkasse Funk Taxi Heringsdorf" : _desc);
+                            java.net.URL _url = new java.net.URL("https://europe-west1-taxi-heringsdorf.cloudfunctions.net/createStripeCheckout");
+                            java.net.HttpURLConnection conn = (java.net.HttpURLConnection) _url.openConnection();
+                            conn.setRequestMethod("POST");
+                            conn.setRequestProperty("Content-Type", "application/json; charset=utf-8");
+                            conn.setDoOutput(true);
+                            conn.setConnectTimeout(10000);
+                            conn.setReadTimeout(20000);
+                            conn.getOutputStream().write(body.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                            int _rc = conn.getResponseCode();
+                            java.io.InputStream _is = _rc < 400 ? conn.getInputStream() : conn.getErrorStream();
+                            java.util.Scanner _sc = new java.util.Scanner(_is, "UTF-8").useDelimiter("\\A");
+                            String _resp = _sc.hasNext() ? _sc.next() : "";
+                            conn.disconnect();
+                            if (_rc != 200) { runOnUiThread(() -> android.widget.Toast.makeText(this, "❌ Fehler " + _rc + ": " + _resp.substring(0, Math.min(_resp.length(), 120)), android.widget.Toast.LENGTH_LONG).show()); return; }
+                            org.json.JSONObject _json = new org.json.JSONObject(_resp);
+                            final String _checkoutUrl = _json.optString("checkoutUrl", "");
+                            if (_checkoutUrl.isEmpty()) { runOnUiThread(() -> android.widget.Toast.makeText(this, "❌ Kein Link: " + _resp, android.widget.Toast.LENGTH_LONG).show()); return; }
+                            // Clipboard
+                            runOnUiThread(() -> {
+                                android.content.ClipboardManager _cm = (android.content.ClipboardManager) getSystemService(android.content.Context.CLIPBOARD_SERVICE);
+                                _cm.setPrimaryClip(android.content.ClipData.newPlainText("Stripe", _checkoutUrl));
+                                // Dialog: WhatsApp + Email
+                                androidx.appcompat.app.AlertDialog.Builder _b = new androidx.appcompat.app.AlertDialog.Builder(this)
+                                    .setTitle("✅ Stripe-Link erstellt")
+                                    .setMessage(String.format(java.util.Locale.GERMANY, "%.2f", _amt) + " € — in Zwischenablage.\n\n" + _checkoutUrl);
+                                if (_fHasPhone) {
+                                    _b.setPositiveButton("💬 WhatsApp senden", (_d2, _w2) -> {
+                                        String _wa = "Hallo " + _name + ",\n\nIhr Zahlungslink (" + String.format(java.util.Locale.GERMANY, "%.2f", _amt) + " €):\n" + _checkoutUrl + "\n\nNach Zahlung ist Ihre Buchung bestätigt.\n\nFunk Taxi Heringsdorf";
+                                        String _ph = _phone.replaceAll("[\\s\\-\\/\\(\\)\\+]", "");
+                                        if (_ph.startsWith("0")) _ph = "49" + _ph.substring(1);
+                                        android.content.Intent _wi = new android.content.Intent(android.content.Intent.ACTION_VIEW);
+                                        _wi.setData(android.net.Uri.parse("https://wa.me/" + _ph + "?text=" + java.net.URLEncoder.encode(_wa)));
+                                        try { startActivity(_wi); } catch (Throwable _t) { android.widget.Toast.makeText(this, "WhatsApp nicht verfügbar", android.widget.Toast.LENGTH_SHORT).show(); }
+                                    });
+                                }
+                                if (_fHasEmail) {
+                                    _b.setNeutralButton("📧 Email senden", (_d2, _w2) -> {
+                                        String _amtStr = String.format(java.util.Locale.US, "%.2f", _amt);
+                                        _sendVorkasseEmail(r.id, _email, _name, _amtStr, r.pickup != null ? r.pickup : "", r.destination != null ? r.destination : "", r.pickupTime != null ? r.pickupTime : "", null);
+                                    });
+                                }
+                                _b.setNegativeButton("Schließen", null).show();
+                            });
+                        } catch (Throwable _t) {
+                            runOnUiThread(() -> android.widget.Toast.makeText(this, "❌ Fehler: " + _t.getMessage(), android.widget.Toast.LENGTH_LONG).show());
+                        }
+                    }).start();
+                });
+                layout.addView(btnStripe);
+            }
         }
 
         // 🆕 v6.63.534: Rechnung an Auftraggeber/Hotel — PDF-Vorschau + Email-Compose nativ

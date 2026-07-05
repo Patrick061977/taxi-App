@@ -82,6 +82,10 @@ public class DriverDashboardActivity extends AppCompatActivity {
     private Query wartepoolRidesQuery;
     private ValueEventListener wartepoolRidesListener;
     private List<Ride> wartepoolRides = new ArrayList<>();
+    // 🆕 v6.63.618: 'new' unzugewiesene Fahrten — fuer Banner-Anzeige
+    private Query newUnassignedRidesQuery;
+    private ValueEventListener newUnassignedRidesListener;
+    private List<Ride> newUnassignedRides = new ArrayList<>();
     private ValueEventListener shiftListener;
     private ValueEventListener ridesListener;
     private ValueEventListener todayCompletedListener;
@@ -463,6 +467,13 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 @Override public void onCancelled(@NonNull DatabaseError error) { Log.e(TAG, "WartepoolRides: " + error.getMessage()); }
             };
             wartepoolRidesQuery.addValueEventListener(wartepoolRidesListener);
+            // 🆕 v6.63.618: 'new' unzugewiesene Fahrten laden (analog zu wartepool — aber status='new')
+            newUnassignedRidesQuery = db.getReference("rides").orderByChild("status").equalTo("new");
+            newUnassignedRidesListener = new ValueEventListener() {
+                @Override public void onDataChange(@NonNull DataSnapshot s) { onNewUnassignedRidesUpdate(s); }
+                @Override public void onCancelled(@NonNull DatabaseError error) { Log.e(TAG, "NewUnassignedRides: " + error.getMessage()); }
+            };
+            newUnassignedRidesQuery.addValueEventListener(newUnassignedRidesListener);
         } catch (Throwable t) {
             Log.e(TAG, "Firebase-Setup Fehler: " + t.getMessage());
             tvVehicleInfo.setText("⚠️ Firebase-Verbindungsfehler: " + t.getMessage());
@@ -1605,6 +1616,30 @@ public class DriverDashboardActivity extends AppCompatActivity {
         renderRides();
     }
 
+    // 🆕 v6.63.618: 'new' unzugewiesene Fahrten — analog zu onWartepoolRidesUpdate
+    private void onNewUnassignedRidesUpdate(DataSnapshot s) {
+        long now = System.currentTimeMillis();
+        long maxFuture = now + 4L * 3600L * 1000L;
+        List<Ride> list = new ArrayList<>();
+        for (DataSnapshot child : s.getChildren()) {
+            Ride r = Ride.fromSnap(child);
+            if (r == null || r.status == null) continue;
+            // Nur wirklich unzugewiesene
+            String vid = child.child("vehicleId").getValue(String.class);
+            String aVid = child.child("assignedVehicle").getValue(String.class);
+            if (vid != null && !vid.isEmpty()) continue;
+            if (aVid != null && !aVid.isEmpty()) continue;
+            // Nur Fahrten in der nahen Zukunft (noch nicht 2h überfällig)
+            if (r.pickupTimestamp != null) {
+                if (r.pickupTimestamp < now - 2L * 3600L * 1000L) continue;
+                if (r.pickupTimestamp > maxFuture) continue;
+            }
+            list.add(r);
+        }
+        newUnassignedRides = list;
+        renderRides();
+    }
+
     private void renderRides() {
         List<Ride> all = new ArrayList<>();
         all.addAll(myAssignedRides);
@@ -1654,40 +1689,94 @@ public class DriverDashboardActivity extends AppCompatActivity {
     //   Lightweight ohne XML-Aenderung: nutze freebusy_banner und override wenn
     //   wartepool>0 — der naechste updateFreeBusyBanner-Call setzt's wieder normal,
     //   aber renderRides ruft beide auf, Wartepool gewinnt zuletzt.
+    // 🔧 v6.63.618: Wartepool-Banner zeigt jetzt AUCH 'new' unzugewiesene Fahrten
+    //   + Banner ist tappbar → Dialog zum Übernehmen (Patrick 05.07.: "ich muss die Fahrt
+    //   dann auch anklicken können")
     private void updateWartepoolBanner() {
         try {
-            if (wartepoolRides == null || wartepoolRides.isEmpty()) return;
             android.widget.LinearLayout banner = findViewById(R.id.freebusy_banner);
             TextView statusText = findViewById(R.id.freebusy_status);
             TextView nextText = findViewById(R.id.freebusy_next);
             if (banner == null || statusText == null || nextText == null) return;
-            // v6.63.574: Nur Fahrten in der Zukunft anzeigen (oder jetzt faellig)
             long _now = System.currentTimeMillis();
+            // Beide Listen zusammenführen
             java.util.List<Ride> _upcoming = new java.util.ArrayList<>();
-            for (Ride r : wartepoolRides) {
-                if (r.pickupTimestamp == null || r.pickupTimestamp >= _now - 30 * 60_000L) _upcoming.add(r);
+            if (wartepoolRides != null) {
+                for (Ride r : wartepoolRides) {
+                    if (r.pickupTimestamp == null || r.pickupTimestamp >= _now - 30 * 60_000L) _upcoming.add(r);
+                }
+            }
+            if (newUnassignedRides != null) {
+                for (Ride r : newUnassignedRides) {
+                    boolean dup = false;
+                    for (Ride e : _upcoming) if (e.id != null && e.id.equals(r.id)) { dup = true; break; }
+                    if (!dup) _upcoming.add(r);
+                }
             }
             if (_upcoming.isEmpty()) return;
-            int n = _upcoming.size();
-            // Naechste Fahrt nach Pickup-Zeit sortieren
             _upcoming.sort((a, b) -> {
                 long ta = a.pickupTimestamp != null ? a.pickupTimestamp : Long.MAX_VALUE;
                 long tb = b.pickupTimestamp != null ? b.pickupTimestamp : Long.MAX_VALUE;
                 return Long.compare(ta, tb);
             });
             Ride first = _upcoming.get(0);
+            int n = _upcoming.size();
             java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("HH:mm", java.util.Locale.GERMANY);
             sdf.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
             String _timeStr = first.pickupTimestamp != null ? sdf.format(new java.util.Date(first.pickupTimestamp)) : "?";
             String _custStr = first.customerName != null ? first.customerName : "Kunde";
-            // v6.63.574: Orange Info-Banner, KEIN Tap-Resolver — nur Bewusstsein schaffen
             banner.setBackgroundColor(android.graphics.Color.parseColor("#ea580c"));
-            statusText.setText("⚠️ " + n + " Fahrt" + (n == 1 ? "" : "en") + " ohne Fahrer");
-            nextText.setText(_timeStr + " · " + _custStr + " — in Admin zuweisen");
+            statusText.setText("⚠️ " + n + " Fahrt" + (n == 1 ? "" : "en") + " ohne Fahrer — Tippen zum Übernehmen");
+            nextText.setText(_timeStr + " · " + _custStr + (first.pickup != null ? " · " + first.pickup.split(",")[0] : ""));
             nextText.setVisibility(View.VISIBLE);
             banner.setVisibility(View.VISIBLE);
-            banner.setOnClickListener(null); // kein Resolver — nur Info
+            // 🆕 v6.63.618: Banner ist jetzt tappbar — zeigt Dialog mit erster Fahrt
+            final java.util.List<Ride> _finalList = _upcoming;
+            banner.setOnClickListener(v -> showUnassignedRideGrabDialog(_finalList.get(0)));
         } catch (Throwable _t) { /* defensive */ }
+    }
+
+    // 🆕 v6.63.618: Dialog zum Übernehmen einer unzugewiesenen Fahrt
+    private void showUnassignedRideGrabDialog(Ride ride) {
+        if (ride == null || ride.id == null) return;
+        java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("EE dd.MM. HH:mm", java.util.Locale.GERMANY);
+        sdf.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
+        String timeStr = ride.pickupTimestamp != null ? sdf.format(new java.util.Date(ride.pickupTimestamp)) : "?";
+        String msg = "Fahrt übernehmen?\n\n"
+            + "👤 " + (ride.customerName != null ? ride.customerName : "Unbekannt") + "\n"
+            + "⏰ " + timeStr + "\n"
+            + "📍 " + (ride.pickup != null ? ride.pickup : "?") + "\n"
+            + "🎯 " + (ride.destination != null ? ride.destination : "?") + "\n"
+            + (ride.passengers != null ? "👥 " + ride.passengers + " Person(en)\n" : "")
+            + (ride.price != null ? "💰 ca. " + ride.price + " €\n" : "");
+        new android.app.AlertDialog.Builder(this)
+            .setTitle("🚕 Fahrt ohne Fahrer")
+            .setMessage(msg)
+            .setPositiveButton("✅ Übernehmen", (d, w) -> {
+                String _myVid = myVid;
+                if (_myVid == null || _myVid.isEmpty()) {
+                    android.widget.Toast.makeText(this, "⚠️ Kein Fahrzeug zugewiesen", android.widget.Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                Map<String, Object> u = new HashMap<>();
+                u.put("status", "accepted");
+                u.put("vehicleId", _myVid);
+                u.put("assignedVehicle", _myVid);
+                u.put("assignedTo", _myVid);
+                u.put("assignedAt", System.currentTimeMillis());
+                u.put("assignedBy", "native_dashboard_grab");
+                u.put("acceptedAt", System.currentTimeMillis());
+                u.put("acceptedVia", "native_wartepool_banner");
+                u.put("acceptedByVehicle", _myVid);
+                u.put("updatedAt", System.currentTimeMillis());
+                u.put("wartepoolReason", null);
+                u.put("wartepoolAt", null);
+                db.getReference("rides/" + ride.id).updateChildren(u);
+                logLifecycleTap(ride.id, "✅", "Banner-Tap: Fahrt übernommen (wartepool/new → accepted)", "accepted");
+                android.widget.Toast.makeText(this, "✓ Fahrt übernommen!", android.widget.Toast.LENGTH_LONG).show();
+            })
+            .setNegativeButton("Abbrechen", null)
+            .show();
     }
 
     // v6.63.342 (Patrick 15.06. 06:02 'System soll Konflikte selber abarbeiten +
@@ -4229,6 +4318,8 @@ public class DriverDashboardActivity extends AppCompatActivity {
             if (openRidesQuery != null && openRidesListener != null) openRidesQuery.removeEventListener(openRidesListener);
             // v6.63.334: Wartepool-Listener cleanup
             if (wartepoolRidesQuery != null && wartepoolRidesListener != null) wartepoolRidesQuery.removeEventListener(wartepoolRidesListener);
+            // v6.63.618: NewUnassigned-Listener cleanup
+            if (newUnassignedRidesQuery != null && newUnassignedRidesListener != null) newUnassignedRidesQuery.removeEventListener(newUnassignedRidesListener);
         } catch (Throwable _t) {}
         connectFirebase();
     }
@@ -4265,6 +4356,8 @@ public class DriverDashboardActivity extends AppCompatActivity {
         if (openRidesQuery != null && openRidesListener != null) openRidesQuery.removeEventListener(openRidesListener);
         // v6.63.334: Wartepool-Listener cleanup
         if (wartepoolRidesQuery != null && wartepoolRidesListener != null) wartepoolRidesQuery.removeEventListener(wartepoolRidesListener);
+        // v6.63.618: NewUnassigned-Listener cleanup
+        if (newUnassignedRidesQuery != null && newUnassignedRidesListener != null) newUnassignedRidesQuery.removeEventListener(newUnassignedRidesListener);
     }
 
     static class Ride {

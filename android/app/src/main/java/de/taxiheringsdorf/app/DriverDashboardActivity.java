@@ -1753,7 +1753,7 @@ public class DriverDashboardActivity extends AppCompatActivity {
             .setTitle("🚕 Fahrt ohne Fahrer")
             .setMessage(msg)
             .setPositiveButton("✅ Übernehmen", (d, w) -> {
-                String _myVid = myVid;
+                String _myVid = currentVehicleId;
                 if (_myVid == null || _myVid.isEmpty()) {
                     android.widget.Toast.makeText(this, "⚠️ Kein Fahrzeug zugewiesen", android.widget.Toast.LENGTH_SHORT).show();
                     return;
@@ -4403,6 +4403,7 @@ public class DriverDashboardActivity extends AppCompatActivity {
         String stripePaymentStatus;
         // 🆕 v6.63.312: Email + customerId für 1-Klick-Mail-Vorausfuellung beim 'Email-Rechnung'-Flow
         String customerEmail, email, customerId;
+        Integer passengers; // v6.63.619: Personenzahl für Grab-Dialog
 
         static Ride fromSnap(DataSnapshot s) {
             try {
@@ -4416,6 +4417,8 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 r.customerEmail = s.child("customerEmail").getValue(String.class);
                 r.email = s.child("email").getValue(String.class);
                 r.customerId = s.child("customerId").getValue(String.class);
+                Object paxV = s.child("passengers").getValue();
+                if (paxV instanceof Number) r.passengers = ((Number) paxV).intValue();
                 r.pickup = s.child("pickup").getValue(String.class);
                 r.destination = s.child("destination").getValue(String.class);
                 r.pickupTime = s.child("pickupTime").getValue(String.class);

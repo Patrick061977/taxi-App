@@ -12838,7 +12838,8 @@ async function sendBookingConfirmationEmail(ride, rideId) {
         console.log('   📧 sendBookingConfirmationEmail: keine valide customerEmail');
         return;
     }
-    const _confSnap = await db.ref('settings/email/smtp').once('value');
+    // 🔧 v6.63.619: Falsch: settings/email/smtp — korrekter Pfad: settings/smtp (wie alle anderen SMTP-Aufrufe)
+    const _confSnap = await db.ref('settings/smtp').once('value');
     const conf = _confSnap.val();
     if (!conf || !conf.user || !conf.pass) {
         console.warn('   📧 sendBookingConfirmationEmail: SMTP-Config fehlt — skip');
@@ -12899,7 +12900,8 @@ async function sendBookingConfirmationEmail(ride, rideId) {
 }
 
 async function sendStripeLinkEmail(toEmail, customerName, amount, stripeUrl, date, pickup, destination) {
-    const _confSnap = await db.ref('settings/email/smtp').once('value');
+    // 🔧 v6.63.619: Falsch: settings/email/smtp — korrekter Pfad: settings/smtp
+    const _confSnap = await db.ref('settings/smtp').once('value');
     const conf = _confSnap.val();
     if (!conf || !conf.user || !conf.pass) throw new Error('SMTP-Konfiguration fehlt');
     const nodemailer = require('nodemailer');

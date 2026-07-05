@@ -9737,6 +9737,14 @@ async function handleAdminRideDetail(chatId, rideId) {
                 console.error('Phone parsing error:', phoneErr);
             }
         }
+        // 🆕 v6.63.620: Stripe-Link — erstellen wenn nicht vorhanden, anzeigen wenn vorhanden
+        if (isActive) {
+            if (r.stripeCheckoutUrl && r.stripePaymentStatus !== 'paid') {
+                keyboard.push([{ text: '💳 Stripe-URL anzeigen', callback_data: `adm_stripe_show_${rideId}` }]);
+            } else if (!r.stripeCheckoutUrl) {
+                keyboard.push([{ text: '💳 Stripe-Link erstellen + senden', callback_data: `adm_stripe_${rideId}` }]);
+            }
+        }
         // 🆕 v6.29.3: Fahrt kopieren — startet normalen Buchungsflow mit vorausgefüllten Daten
         keyboard.push([
             { text: '📋 Kopieren', callback_data: `adm_copy_${rideId}` }
@@ -11621,6 +11629,66 @@ async function handleMessage(message) {
             await setPending(chatId, { _adminDatePicker: true }); // Nochmal versuchen
             return;
         }
+    }
+
+    // 🆕 v6.63.620: Stripe-Link Preis-Eingabe
+    if (pending && pending._adminStripeRide && !isPendingExpired(pending)) {
+        const rideId = pending._adminStripeRide;
+        await deletePending(chatId);
+        const amount = parseFloat(text.replace(',', '.'));
+        if (isNaN(amount) || amount < 0.5) {
+            await sendTelegramMessage(chatId, '⚠️ Ungültiger Betrag. Bitte z.B. "35" oder "42.50" eingeben.');
+            return;
+        }
+        try {
+            const snap = await db.ref(`rides/${rideId}`).once('value');
+            const r = snap.val();
+            if (!r) { await sendTelegramMessage(chatId, '⚠️ Fahrt nicht gefunden.'); return; }
+            await sendTelegramMessage(chatId, `⏳ Erstelle Stripe-Link über ${amount.toFixed(2)} €…`);
+            const stripeApi = await getStripe();
+            const invoiceNumber = 'VKAS-RIDE-' + new Date().toISOString().substring(0, 10).replace(/-/g, '') + '-' + rideId.slice(-6);
+            const session = await stripeApi.checkout.sessions.create({
+                mode: 'payment',
+                line_items: [{ price_data: {
+                    currency: 'eur',
+                    product_data: { name: 'Vorkasse Taxifahrt', description: (r.pickup || '') + ' → ' + (r.destination || '') },
+                    unit_amount: Math.round(amount * 100),
+                }, quantity: 1 }],
+                metadata: { invoiceNumber, rideId, source: 'telegram-admin-manual' },
+                success_url: 'https://taxi-heringsdorf.web.app/payment-success?invoice=' + invoiceNumber,
+                cancel_url: 'https://taxi-heringsdorf.web.app/payment-cancel?invoice=' + invoiceNumber,
+                locale: 'de',
+                ...(r.email || r.customerEmail ? { customer_email: r.email || r.customerEmail } : {}),
+            });
+            const stripeUrl = session.url;
+            await db.ref(`rides/${rideId}`).update({
+                stripeCheckoutUrl: stripeUrl, stripeSessionId: session.id,
+                stripePaymentStatus: 'pending', stripeCreatedAt: Date.now(),
+                festpreisFix: amount, invoiceNumber, updatedAt: Date.now(),
+            });
+            // Versandkanäle: WhatsApp + SMS
+            const mobile = r.customerMobile || (isMobileNumber(r.customerPhone) ? r.customerPhone : '');
+            let sentVia = [];
+            if (mobile) {
+                try {
+                    const waText = `Funk Taxi Heringsdorf — Ihr Zahlungslink über ${amount.toFixed(2)} EUR:\n${stripeUrl}\n\nNach Zahlung gilt Ihre Buchung als bestätigt.`;
+                    const waId = await sendWhatsAppMessage(mobile, waText);
+                    if (waId) sentVia.push('WhatsApp');
+                } catch (_) {}
+                try {
+                    await sendSmsViaSevenIo(mobile, `Funk Taxi Heringsdorf — Vorkasse-Link ${amount.toFixed(2)} EUR: ${stripeUrl}`);
+                    sentVia.push('SMS');
+                } catch (e) { /* SMS-Fehler ignorieren wenn WA funktioniert hat */ }
+            }
+            const sentTxt = sentVia.length > 0 ? `\n📤 Gesendet via: ${sentVia.join(' + ')} an ${mobile}` : '\n⚠️ Keine Mobilnummer — Link manuell weitergeben.';
+            await sendTelegramMessage(chatId,
+                `✅ <b>Stripe-Link erstellt</b>\n\n💰 ${amount.toFixed(2)} € · ${r.customerName || 'Kunde'}\n${sentTxt}\n\n🔗 <code>${stripeUrl}</code>`,
+                { reply_markup: { inline_keyboard: [[{ text: '◀ Fahrt', callback_data: `adm_ride_${rideId}` }]] } }
+            );
+        } catch (e) {
+            await sendTelegramMessage(chatId, '⚠️ Stripe-Fehler: ' + e.message);
+        }
+        return;
     }
 
     // Admin: Freitext-Eingabe für Fahrt-Bearbeitung (z.B. "14:30" nach Zeit-Ändern)
@@ -16655,6 +16723,33 @@ async function handleCallback(callback) {
                 [{ text: '◀ Zurück zur Fahrt', callback_data: `adm_ride_${rideId}` }]
             ]}});
         } catch (e) { await sendErrorWithMenu(chatId, '⚠️ ' + e.message); }
+        return;
+    }
+    // 🆕 v6.63.620: Stripe-Link für Fahrt erstellen (Preis-Eingabe-Flow)
+    if (data.startsWith('adm_stripe_show_')) {
+        const rideId = data.replace('adm_stripe_show_', '');
+        const snap = await db.ref(`rides/${rideId}`).once('value');
+        const r = snap.val();
+        if (!r || !r.stripeCheckoutUrl) { await sendTelegramMessage(chatId, '⚠️ Kein Stripe-Link vorhanden.'); return; }
+        await sendTelegramMessage(chatId,
+            `💳 <b>Stripe-Link</b> für ${r.customerName || 'Kunde'}:\n\n<code>${r.stripeCheckoutUrl}</code>\n\nStatus: ${r.stripePaymentStatus || 'pending'}`,
+            { reply_markup: { inline_keyboard: [[{ text: '◀ Zurück', callback_data: `adm_ride_${rideId}` }]] } }
+        );
+        return;
+    }
+    if (data.startsWith('adm_stripe_') && !data.startsWith('adm_stripe_show_')) {
+        const rideId = data.replace('adm_stripe_', '');
+        const snap = await db.ref(`rides/${rideId}`).once('value');
+        const r = snap.val();
+        if (!r) { await sendTelegramMessage(chatId, '⚠️ Fahrt nicht gefunden.'); return; }
+        const suggested = r.festpreisFix || r.estimatedPrice || r.price || '';
+        await sendTelegramMessage(chatId,
+            `💳 <b>Stripe-Link erstellen</b>\n\nFahrt: ${r.customerName || 'Kunde'}\n${r.pickup || ''} → ${r.destination || ''}\n\n` +
+            (suggested ? `Geschätzter Preis: ${suggested} €\n\n` : '') +
+            `Betrag eingeben (z.B. <b>35</b> oder <b>42.50</b>):`,
+            { reply_markup: { inline_keyboard: [[{ text: '◀ Abbrechen', callback_data: `adm_ride_${rideId}` }]] } }
+        );
+        await setPending(chatId, { _adminStripeRide: rideId });
         return;
     }
     if (data.startsWith('adm_del_')) {

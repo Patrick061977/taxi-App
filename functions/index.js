@@ -33429,6 +33429,51 @@ exports.scheduledArchiveCompletedRides = onSchedule(
 );
 
 // ═══════════════════════════════════════════════════════════════
+// 🔧 v6.63.617: scheduledAutoCompleteStuckRides
+// 'new' Fahrten >2h nach Pickup-Zeit → automatisch auf 'completed'.
+// Warum: Auto-Archiv lief bisher nur fuer 'completed' Fahrten — 'new' Fahrten
+// blieben ewig haengen (Rödel, Specht, Wagner etc. 04.07. als Beispiel).
+// Patrick: "nicht canceln — immer auf komplett setzen nach zwei Stunden."
+// ═══════════════════════════════════════════════════════════════
+exports.scheduledAutoCompleteStuckRides = onSchedule(
+    {
+        schedule: 'every 30 minutes',
+        timeZone: 'Europe/Berlin',
+        region: 'europe-west1',
+        timeoutSeconds: 120,
+        memory: '256MiB'
+    },
+    async () => {
+        try {
+            const now = Date.now();
+            const cutoff = now - 2 * 60 * 60 * 1000; // 2h vor jetzt
+            const snap = await db.ref('rides').orderByChild('status').equalTo('new').once('value');
+            const data = snap.val() || {};
+            const updates = {};
+            let count = 0;
+            for (const rideId in data) {
+                const r = data[rideId];
+                if (!r || !r.pickupTimestamp) continue;
+                if (r.pickupTimestamp > cutoff) continue; // noch nicht 2h vorbei
+                if (r.assignmentLocked) continue; // manuelle Sperre respektieren
+                updates[rideId + '/status'] = 'completed';
+                updates[rideId + '/completedAt'] = now;
+                updates[rideId + '/completedBy'] = 'auto-stuck-completion';
+                updates[rideId + '/completionNote'] = 'Auto-abgeschlossen: new-Ride >2h nach Pickup-Zeit';
+                updates[rideId + '/updatedAt'] = now;
+                count++;
+            }
+            if (count > 0) {
+                await db.ref('rides').update(updates);
+                console.log(`✅ scheduledAutoCompleteStuckRides: ${count} stuck-new-Rides auf completed gesetzt`);
+            }
+        } catch (e) {
+            console.error('scheduledAutoCompleteStuckRides Fehler:', e.message);
+        }
+    }
+);
+
+// ═══════════════════════════════════════════════════════════════
 // 🧹 SMS-QUEUE-CLEANUP — v6.62.73
 // Markiert SMS-Eintraege >7 Tage alt + nicht-sent als 'expired'.
 // Verhindert dass die Queue mit Karteileichen voll laeuft.

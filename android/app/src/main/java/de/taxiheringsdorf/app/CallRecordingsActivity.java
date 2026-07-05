@@ -604,6 +604,65 @@ public class CallRecordingsActivity extends AppCompatActivity {
                     }
                 }
             }
+            // 🆕 v6.63.614: CallLog-Abgleich — findet Anklopf-Partner auch wenn ACR nur 1 Datei erstellt hat.
+            //   Android-System-CallLog enthält JEDEN Anruf. Für jede Aufnahme: welche anderen
+            //   Nummern sind im CallLog innerhalb ±3 Min des Aufnahme-Timestamps?
+            //   Das funktioniert auch ohne zweite Datei.
+            if (checkSelfPermission(Manifest.permission.READ_CALL_LOG) == PackageManager.PERMISSION_GRANTED) {
+                try {
+                    long callLogLookback = 90L * 24 * 3600 * 1000; // 90 Tage wie Aufnahmen
+                    long minTs = System.currentTimeMillis() - callLogLookback;
+                    android.database.Cursor cur = getContentResolver().query(
+                        android.provider.CallLog.Calls.CONTENT_URI,
+                        new String[]{ android.provider.CallLog.Calls.NUMBER, android.provider.CallLog.Calls.DATE },
+                        android.provider.CallLog.Calls.DATE + " >= ?",
+                        new String[]{ String.valueOf(minTs) },
+                        android.provider.CallLog.Calls.DATE + " DESC"
+                    );
+                    // CallLog-Einträge in Map: timestamp → normalisierte Nummer
+                    java.util.List<long[]> callLogTs = new java.util.ArrayList<>();
+                    java.util.List<String> callLogNums = new java.util.ArrayList<>();
+                    if (cur != null) {
+                        int colNum = cur.getColumnIndex(android.provider.CallLog.Calls.NUMBER);
+                        int colDate = cur.getColumnIndex(android.provider.CallLog.Calls.DATE);
+                        while (cur.moveToNext()) {
+                            String num = cur.getString(colNum);
+                            long date = cur.getLong(colDate);
+                            if (num == null || num.isEmpty()) continue;
+                            callLogTs.add(new long[]{ date });
+                            callLogNums.add(normalizePhone(num));
+                        }
+                        cur.close();
+                    }
+                    // Für jede Aufnahme: CallLog-Nummern innerhalb 180s suchen
+                    for (Recording r : all) {
+                        String rNorm = normalizePhone(r.phone != null ? r.phone : "");
+                        java.util.Set<String> alreadyPartner = new java.util.HashSet<>();
+                        alreadyPartner.add(rNorm);
+                        if (r.parallelPartners != null) {
+                            for (String[] pp : r.parallelPartners) if (pp[1] != null) alreadyPartner.add(normalizePhone(pp[1]));
+                        }
+                        for (int ci = 0; ci < callLogTs.size(); ci++) {
+                            long diff = Math.abs(r.timestamp - callLogTs.get(ci)[0]);
+                            if (diff > 180_000) continue;
+                            String clNum = callLogNums.get(ci);
+                            if (clNum.isEmpty() || alreadyPartner.contains(clNum)) continue;
+                            // Neue Nummer aus CallLog — Anklopf-Partner!
+                            r.parallel = true;
+                            String clName = crmByPhone.get(clNum);
+                            String clId = crmIdByPhone.get(clNum);
+                            r.parallelPartners.add(new String[]{ clName, clNum, clId });
+                            if (r.parallelPartnerPhone == null) {
+                                r.parallelPartnerName = clName;
+                                r.parallelPartnerPhone = clNum;
+                            }
+                            alreadyPartner.add(clNum);
+                        }
+                    }
+                } catch (Exception _clErr) {
+                    Log.w(TAG, "v6.63.614 CallLog-Abgleich Fehler: " + _clErr.getMessage());
+                }
+            }
             int matched = 0;
             for (Recording r : all) if (r.customerName != null) matched++;
             final int finalMatched = matched;

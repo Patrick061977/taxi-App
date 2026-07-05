@@ -28019,7 +28019,10 @@ ${ride.passengers ? `<tr><td style="padding:6px 0;color:#6b7280;">👥 Personen:
         if (!_freshRide.assignedVehicle && !_freshRide.vehicleId) {
             const _hasCoords = !!(_pLat && _dLat);
             // 🔧 v6.38.95: Vorbestellungen NICHT sofort zuweisen — erst 15 Min vorher (scheduledAutoAssign)
-            const _isVorbestellung = !isSofort;
+            // 🔧 v6.63.615: 'sofort' status aus buchen.html IMMER zuweisen, auch wenn isSofort=false
+            //   (pickup 25-60 Min weg). isSofort prüft nur <25 Min Fenster — aber buchen.html setzt
+            //   'sofort' bis 30 Min Vorlauf. Watchdog greift erst nach 5 Min; sofort hier besser.
+            const _isVorbestellung = !isSofort && _freshRide.status !== 'sofort';
             if (_hasCoords && !_isVorbestellung) {
                 try {
                     const _zuweisTyp = 'Sofortfahrt';
@@ -30923,11 +30926,15 @@ exports.scheduledOpenRideCheck = onSchedule(
                 //   "wenn ein neuer GPS-Fahrer reinkommt — versuche den mal". Watchdog
                 //   probiert ab jetzt auch Wartepool-Sofortfahrten erneut, falls inzwischen
                 //   ein Fahrzeug verfuegbar ist.
-                if (!['new','vorbestellt','warteschlange','wartepool'].includes(ride.status)) return;
+                // 🆕 v6.63.615: 'sofort' ergänzt — web-buchen.html setzt status='sofort',
+                //   Watchdog ignorierte das vorher. Antje-Fall: Fahrt blieb ohne Fahrer.
+                if (!['new','vorbestellt','warteschlange','wartepool','sofort'].includes(ride.status)) return;
                 if (!ride.pickupTimestamp) return;
                 if (ride.cloudWatchdogPaused) return; // manuell pausierbar
                 const msUntil = ride.pickupTimestamp - now;
-                if (msUntil > 25 * 60000) return; // nicht Sofortfahrt — scheduledAutoAssign macht Vorbestellungen
+                // Für 'sofort'-Rides: bis 60 Min Vorlauf (web-buchen schickt auch +30-Min-Rides mit sofort)
+                const _watchdogCutoff = ride.status === 'sofort' ? 60 * 60000 : 25 * 60000;
+                if (msUntil > _watchdogCutoff) return;
                 if (msUntil < -2 * 60 * 60000) return; // > 2h alt → ignorieren (verschollen)
                 if (ride.watchdogLastAttempt && (now - ride.watchdogLastAttempt) < 60000) return;
                 // 🛡️ v6.62.715: Patrick (14.05. 12:35): "Danilo hat angenommen aber sie ist

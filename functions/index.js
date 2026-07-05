@@ -37110,6 +37110,75 @@ exports.personalMailSender = onValueCreated(
     }
 );
 
+// 🔧 v6.63.617: personalMailSenderApproval
+// personalMailSender (onValueCreated) feuert nur wenn Entry NEU angelegt wird.
+// Mail-Vorschau-Workflow: Entry mit status='pending_approval' angelegt → Patrick
+// tippt [✅ Senden] → status UPDATE auf 'approved' → onValueCreated feuert NICHT.
+// Dieser onValueUpdated-Trigger schliesst die Luecke.
+exports.personalMailSenderApproval = onValueUpdated(
+    {
+        ref: '/personalMailQueue/{id}',
+        region: 'europe-west1',
+        instance: 'taxi-heringsdorf-default-rtdb'
+    },
+    async (event) => {
+        const id = event.params.id;
+        const after = event.data.after.val();
+        const before = event.data.before.val();
+        // Nur reagieren wenn status von pending_approval auf approved wechselt
+        if (!after || after.sent === true) return;
+        if (after.status !== 'approved') return;
+        if (before && before.status === 'approved') return; // kein Doppel-Send
+        try {
+            const smtpSnap = await db.ref('settings/smtp').once('value');
+            const c = smtpSnap.val() || {};
+            if (!c.host || !c.user || !c.pass) throw new Error('settings/smtp unvollständig');
+            const nodemailer = require('nodemailer');
+            const transport = nodemailer.createTransport({
+                host: c.host,
+                port: c.port || 587,
+                secure: (c.port || 587) === 465,
+                auth: { user: c.user, pass: c.pass }
+            });
+            const fromHeader = `"${after.fromName || c.fromName || c.user}" <${c.fromEmail || c.user}>`;
+            const info = await transport.sendMail({
+                from: fromHeader,
+                to: after.to,
+                cc: after.cc || undefined,
+                bcc: after.bcc || undefined,
+                replyTo: after.replyTo || undefined,
+                subject: after.subject || '(kein Betreff)',
+                text: after.text || after.body || '',
+                html: after.html || undefined,
+                inReplyTo: after.inReplyTo || undefined,
+                references: after.references || undefined
+            });
+            await event.data.after.ref.update({
+                status: 'sent', sent: true, sentAt: Date.now(),
+                messageId: info.messageId, smtpResponse: info.response
+            });
+            console.log(`📧 v6.63.617 Approved-Mail gesendet → ${after.to} (msgId ${info.messageId})`);
+            try {
+                await sendToAllAdmins(
+                    `📧 <b>Mail versendet</b>\n\nAn: ${after.to}\nBetreff: ${after.subject || '(kein Betreff)'}\n<code>${info.messageId}</code>`,
+                    'mail_sent'
+                );
+            } catch (_) {}
+        } catch (e) {
+            await event.data.after.ref.update({
+                status: 'failed', sent: false, failedAt: Date.now(), failReason: e.message
+            });
+            console.error(`❌ personalMailSenderApproval fail ${id}:`, e.message);
+            try {
+                await sendToAllAdmins(
+                    `❌ <b>Mail-Versand fehlgeschlagen</b>\n\nAn: ${after.to || '?'}\nBetreff: ${after.subject || '?'}\nFehler: ${e.message}`,
+                    'mail_failed'
+                );
+            } catch (_) {}
+        }
+    }
+);
+
 // IMAP-Inbox-Poller — alle 15 Min neue Mails klassifizieren + wichtige pushen
 exports.mailInboxPoller = onSchedule(
     {

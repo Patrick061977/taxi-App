@@ -1239,7 +1239,7 @@
         //   Tesla-Browser hatte gecachte alte Version, obwohl Strato die neue ausspielte.
         //   Periodischer Build-Check: alle 60s das Server-buchen.html abklopfen, wenn
         //   neuere Build-Zeit als die gerade geladene → window.location.reload(true).
-        const _CLIENT_BUILD = 'v6.63.134-2026-06-04T06:07Z';
+        const _CLIENT_BUILD = 'v6.63.617-2026-07-05T12:30Z';
         (function setupAutoReloadOnNewBuild() {
             let _serverBuildMarker = null;
             async function _check() {
@@ -1325,7 +1325,8 @@
         // 🆕 v6.63.017 (Patrick 29.05. 19:57 "Go Funnel"): Step-Funnel-Emojis ergänzt
         //   um Drop-off-Analyse zu ermöglichen. Jeder Step nur 1x pro Session damit
         //   Firebase nicht durch Spam überflutet wird.
-        const _BUCHEN_LOG_KEY_EVENTS = ['📤','🚨','❌','🚀','💳','📲','✅','🌐','📍','🎯','👥','📞','🔐','💰','🛑'];
+        // 🔧 v6.63.617: '🚕' ergänzt → createBooking()-Start + FAHRT ERSTELLT werden jetzt geloggt
+        const _BUCHEN_LOG_KEY_EVENTS = ['📤','🚨','❌','🚀','💳','📲','✅','🌐','📍','🎯','👥','📞','🔐','💰','🛑','🚕'];
         const _BUCHEN_FUNNEL_STEPS = new Set(['🌐','📍','🎯','👥','📞','📲','🔐','💰','✅','🛑']);
         const _BUCHEN_FUNNEL_SEEN = new Set();
         function logBuchen(emoji, msg, data) {
@@ -1365,7 +1366,7 @@
             } catch(e) { /* */ }
         });
         // 🔧 v6.39.1: Build-Timestamp für Versions-Check im System Monitor
-        const _buchenBuild = '2026-06-21 21:10 v6.63.465';
+        const _buchenBuild = '2026-07-05 12:30 v6.63.617';
         // Auto-Reload: Wenn Seite aus Cache kommt, erzwinge Neuladen
         if (window._buchenLoaded) {
             // Doppel-Load verhindern
@@ -6422,6 +6423,13 @@
                 if (!r) { localStorage.removeItem('activeBooking'); return; }
                 // Finaler Status? Nicht wiederherstellen.
                 if (['completed','cancelled','storniert'].includes(r.status)) {
+                    localStorage.removeItem('activeBooking');
+                    return;
+                }
+                // 🔧 v6.63.617: Vorbestellungen NICHT sperren — Kunde soll weitere Fahrten buchen können.
+                // Bug: Antje 05.07. konnte 19:45-Rückfahrt nicht buchen weil 15:20-Vorbestellung
+                // die success-card zeigte und das Buchungsformular versteckte.
+                if (r.status === 'vorbestellt' || saved.isVorbestellt) {
                     localStorage.removeItem('activeBooking');
                     return;
                 }

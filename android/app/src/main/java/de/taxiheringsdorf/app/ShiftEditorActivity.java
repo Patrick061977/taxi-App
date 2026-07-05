@@ -347,9 +347,21 @@ public class ShiftEditorActivity extends AppCompatActivity {
         public void onBindViewHolder(@NonNull VH h, int position) {
             VehicleShift vs = data.get(position);
             h.name.setText(vs.name);
+            // 🆕 v6.63.616: Datum dieser Woche berechnen → Override-Marker ↺ anzeigen
+            SimpleDateFormat _df2 = new SimpleDateFormat("yyyy-MM-dd", Locale.GERMANY);
+            Calendar _wc2 = Calendar.getInstance();
+            _wc2.set(Calendar.DAY_OF_WEEK, Calendar.SUNDAY);
+            String[] _weekDates = new String[7];
+            for (int i = 0; i < 7; i++) {
+                _weekDates[i] = _df2.format(_wc2.getTime());
+                _wc2.add(Calendar.DAY_OF_MONTH, 1);
+            }
             StringBuilder sb = new StringBuilder();
             for (int i = 0; i < 7; i++) {
-                sb.append(DAY_LABELS[i]).append(vs.defaults[i] ? " ✅  " : " ⬜  ");
+                String note = (vs.weekDateNotes != null) ? vs.weekDateNotes.get(_weekDates[i]) : null;
+                sb.append(DAY_LABELS[i]).append(vs.defaults[i] ? " ✅" : " ⬜");
+                if (note != null) sb.append("↺").append(note);
+                sb.append("  ");
             }
             int dow = todayDow();
             boolean activeToday = vs.todayOverride ? (vs.todayActive != null && vs.todayActive) : vs.defaults[dow];
@@ -405,6 +417,26 @@ public class ShiftEditorActivity extends AppCompatActivity {
                             if (vs.todayOverride && vs.todayActive == null) vs.todayActive = true;
                             vs.todayStartTime = strOrNull(todaySnap.child("startTime").getValue());
                             vs.todayEndTime = strOrNull(todaySnap.child("endTime").getValue());
+                            // 🆕 v6.63.616: Datum-Overrides dieser Woche parsen → Tab3-Anzeige
+                            vs.weekDateNotes = new java.util.HashMap<>();
+                            try {
+                                SimpleDateFormat _wdf = new SimpleDateFormat("yyyy-MM-dd", Locale.GERMANY);
+                                Calendar _wc = Calendar.getInstance();
+                                _wc.set(Calendar.DAY_OF_WEEK, Calendar.SUNDAY);
+                                for (int _wi = 0; _wi < 7; _wi++) {
+                                    String _wKey = _wdf.format(_wc.getTime());
+                                    DataSnapshot _wSnap = vSnap.child(_wKey);
+                                    if (_wSnap.exists()) {
+                                        Boolean _wAct = bool(_wSnap.child("active").getValue());
+                                        String _wS = strOrNull(_wSnap.child("startTime").getValue());
+                                        String _wE = strOrNull(_wSnap.child("endTime").getValue());
+                                        String _note = (_wAct != null && !_wAct) ? "OFFLINE"
+                                            : (_wS != null && _wE != null) ? (_wS + "–" + _wE) : "↺";
+                                        vs.weekDateNotes.put(_wKey, _note);
+                                    }
+                                    _wc.add(Calendar.DAY_OF_MONTH, 1);
+                                }
+                            } catch (Throwable _wIgnore) { }
                             // 🆕 v6.63.010: defaultTimes-Map pro Wochentag parsen
                             // 🆕 v6.63.269: homeLocation pro Wochentag aus Web-Editor uebernehmen
                             vs.defaultTimes = new String[7][2];
@@ -825,8 +857,10 @@ public class ShiftEditorActivity extends AppCompatActivity {
                         + (_cur.equals("—") ? "" : ("   (alt: " + _cur + ")"))
                         + "\n      Standort bleibt: " + (vs.homeLocations != null && vs.homeLocations[_dow] != null ? vs.homeLocations[_dow] : "—");
                 } else if (modeState[0] == 1) { // NUR DIESER TAG
+                    // 🔧 v6.63.616: "heute:" → tatsächliches Datum (war verwirrend wenn Morgen editiert)
+                    String _dayShort = new SimpleDateFormat("EE dd.MM.", Locale.GERMANY).format(selDate.getTime());
                     txt = "📌 Override für " + _dayLong + "\n"
-                        + "      heute: " + _startStr + "–" + _endStr
+                        + "      " + _dayShort + ": " + _startStr + "–" + _endStr
                         + "\n      Wochenplan bleibt unverändert (" + _cur + ")";
                 } else { // AUS
                     txt = "⚫ " + vs.name + " am " + _dayLong + " komplett OFFLINE\n"
@@ -1289,6 +1323,8 @@ public class ShiftEditorActivity extends AppCompatActivity {
         Boolean todayActive;
         String todayStartTime;
         String todayEndTime;
+        // 🆕 v6.63.616: Datum-Overrides dieser Woche → Tab3 zeigt ↺-Marker statt nur defaults[]
+        java.util.Map<String, String> weekDateNotes = new java.util.HashMap<>();
         // 🆕 v6.63.010: defaultTimes pro Wochentag laden, damit der Native-Editor
         //   den Wochenplan als Pre-Fill nutzen kann (statt todayStartTime bei
         //   beliebigem Datums-Wechsel). Format: [startTime, endTime] pro dow 0..6.

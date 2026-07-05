@@ -12718,7 +12718,8 @@ async function quickConfirmAnfrageHandler(anfrageId, withStripe, adminChatId, wi
     const customerName = anfrage.name || 'Kunde';
     const customerPhone = anfrage.phone || '';
     const customerEmail = anfrage.email || '';
-    const customerMobile = anfrage.mobilePhone || (customerPhone && customerPhone.match(/^\+49?1\d/) ? customerPhone : '');
+    // 🔧 v6.63.620: isMobileNumber() statt Inline-Regex — erkennt auch 015... ohne +49
+    const customerMobile = anfrage.mobilePhone || (isMobileNumber(customerPhone) ? customerPhone : '');
     const ride = {
         customerName,
         customerPhone,
@@ -12793,26 +12794,35 @@ async function quickConfirmAnfrageHandler(anfrageId, withStripe, adminChatId, wi
                     stripeCreatedAt: Date.now(),
                     invoiceNumber,
                 });
-                // Email + SMS senden
+                // 🔧 v6.63.620: Email + WhatsApp + SMS senden (alle Kanäle versuchen)
+                // Stripe-URL IMMER in Telegram-Antwort — damit Patrick manuell weiterleiten kann
+                stripeMsg += '\n\n🔗 ' + stripeUrl;
                 if (customerEmail) {
                     try {
                         await sendStripeLinkEmail(customerEmail, customerName, festpreisFix, stripeUrl, anfrage.date, anfrage.pickup, anfrage.destination);
-                        stripeMsg += '\n\n📧 Stripe-Link per Email an ' + customerEmail + ' gesendet.';
+                        stripeMsg += '\n\n📧 Per Email an ' + customerEmail + ' gesendet.';
                     } catch (e) {
-                        stripeMsg += '\n\n⚠️ Email-Versand fehlgeschlagen: ' + e.message;
+                        stripeMsg += '\n\n⚠️ Email-Fehler: ' + e.message;
                     }
                 }
                 if (customerMobile) {
+                    // WhatsApp versuchen (klappt nur wenn Kunde vorher mit Bot geschrieben hat)
                     try {
-                        const smsText = 'Funk Taxi Heringsdorf — Vorkasse-Link für Ihre Buchung ' + festpreisFix.toFixed(2) + ' EUR: ' + stripeUrl;
+                        const waText = 'Funk Taxi Heringsdorf — Ihr Zahlungslink über ' + festpreisFix.toFixed(2) + ' EUR:\n' + stripeUrl + '\n\nNach Zahlung gilt Ihre Buchung als bestätigt.';
+                        const waId = await sendWhatsAppMessage(customerMobile, waText);
+                        if (waId) stripeMsg += '\n💬 Per WhatsApp an ' + customerMobile + ' gesendet.';
+                    } catch (_waE) { /* silent — SMS-Fallback */ }
+                    // SMS immer zusätzlich senden
+                    try {
+                        const smsText = 'Funk Taxi Heringsdorf — Vorkasse-Link ' + festpreisFix.toFixed(2) + ' EUR: ' + stripeUrl;
                         await sendSmsViaSevenIo(customerMobile, smsText);
-                        stripeMsg += '\n📱 Stripe-Link per SMS an ' + customerMobile + ' gesendet.';
+                        stripeMsg += '\n📱 Per SMS an ' + customerMobile + ' gesendet.';
                     } catch (e) {
-                        stripeMsg += '\n⚠️ SMS-Versand fehlgeschlagen: ' + e.message;
+                        stripeMsg += '\n⚠️ SMS-Fehler: ' + e.message;
                     }
                 }
                 if (!customerEmail && !customerMobile) {
-                    stripeMsg += '\n\n⚠️ Kein Email und kein Mobiltelefon — Stripe-Link konnte nicht automatisch gesendet werden. Link manuell weitergeben:\n' + stripeUrl;
+                    stripeMsg += '\n\n⚠️ Kein Kontakt hinterlegt — Link oben manuell weiterleiten.';
                 }
             } catch (e) {
                 stripeMsg = '\n\n⚠️ Stripe-Link-Erstellung fehlgeschlagen: ' + e.message;

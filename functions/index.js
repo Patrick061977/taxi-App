@@ -29934,7 +29934,9 @@ exports.onRideUpdated = onValueUpdated(
                 await db.ref(`rides/${rideId}`).update({
                     invoiceNumber: _belegNr,
                     invoiceCreatedAt: Date.now(),
-                    invoiceCreatedBy: 'cloud-auto-v6.62.312'
+                    invoiceCreatedBy: 'cloud-auto-v6.62.312',
+                    // 🆕 v6.63.612: invoiceAmount zurückschreiben damit ride-Record mit Invoice sync bleibt
+                    invoiceAmount: _gross
                 });
                 await addRideLog(rideId, '🧾', `Rechnung automatisch erstellt: ${_belegNr}`, {
                     belegNr: _belegNr, gross: _gross, paymentMethod: after.paymentMethod
@@ -32414,7 +32416,8 @@ async function _doRegenerateInvoicePdf(invoiceNumber) {
         pdfFileName: fileName,
         pdfGeneratedAt: Date.now(),
         pdfGeneratedVia: 'cloud_function_puppeteer_v6.63.298_regenerate',
-        pdfNeedsRegeneration: false   // 🆕 Flag explizit clearen damit Trigger nicht loopt
+        needsPdfRegeneration: null,   // 🆕 v6.63.612: Flag clearen damit Trigger nicht loopt (vorher: pdfNeedsRegeneration — toter Feldname)
+        pdfNeedsRegeneration: null    // Legacy-Cleanup
     });
     if (rideId) {
         await db.ref(`rides/${rideId}`).update({
@@ -32482,7 +32485,9 @@ exports.regenerateInvoicePdf = onRequest(
 //   manchmal nicht. Switch auf onValueWritten + auch wenn before undefined ist.
 exports.onInvoicePdfRegenRequested = onValueWritten(
     {
-        ref: '/invoices/{invoiceNumber}/pdfNeedsRegeneration',
+        // 🆕 v6.63.612: needsPdfRegeneration (nicht pdfNeedsRegeneration) — das ist was
+        //   Native-App + openInvoiceModal setzen. Alter Feldname war toter Code.
+        ref: '/invoices/{invoiceNumber}/needsPdfRegeneration',
         region: 'europe-west1',
         memory: '2GiB',
         timeoutSeconds: 120

@@ -498,7 +498,10 @@ public class CallRecordingsActivity extends AppCompatActivity {
         new Thread(() -> {
             List<Recording> all = new ArrayList<>();
             // v6.63.020: optionales -CW-Suffix für Call-Waiting-Aufnahmen
-            Pattern fileRe = Pattern.compile("^(\\+?\\d+)-(\\d+)(?:-CW)?-(\\d+)\\.m4a$");
+            // v6.63.613: Regex erweitert — erkennt jetzt auch nicht-numerische Namen (Privat, Anonym,
+            //   Unbekannt) die ACR für unterdrückte/unbekannte Nummern nutzt. normalizePhone() gibt
+            //   "" zurück → kein CRM-Match, aber Aufnahme wird in Liste angezeigt.
+            Pattern fileRe = Pattern.compile("^([^\\s-][^-]*)-(\\d+)(?:-CW)?-(\\d+)\\.m4a$");
             long cutoff = System.currentTimeMillis() - 90L*24*3600*1000;
             // 🆕 v6.63.414 Papierkorb-Auto-Cleanup: alle Files in _papierkorb älter als 30 Tage entfernen
             try {

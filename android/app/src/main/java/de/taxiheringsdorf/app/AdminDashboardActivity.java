@@ -3663,7 +3663,7 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 // v6.63.627: EmailPreviewActivity öffnen (wie CRM "Rechnung anzeigen → Hotel Email senden")
                 if (_dlgRef.get() != null) _dlgRef.get().dismiss();
                 android.content.Intent _ep = new android.content.Intent(this, EmailPreviewActivity.class);
-                _ep.putExtra(EmailPreviewActivity.EXTRA_RIDE_ID, r.id != null ? r.id : r.firebaseId);
+                _ep.putExtra(EmailPreviewActivity.EXTRA_RIDE_ID, r.id);
                 _ep.putExtra(EmailPreviewActivity.EXTRA_MODE, EmailPreviewActivity.MODE_INVOICE);
                 startActivity(_ep);
             });

@@ -27636,7 +27636,10 @@ exports.onRideCreated = onValueCreated(
         //   app nicht funktioniert"): Email-Bestätigung an Web-Anfrage-Kunden mit Email.
         //   Parallel zu WhatsApp/SMS — Patrick will redundante Kommunikation solange
         //   WhatsApp-Token expired (Meta Permanent-Token-Workflow läuft separat).
-        if (ride.customerEmail && !_isSeriesMember && !ride._isAuftraggeberBooking) {
+        // 🔧 v6.63.628: Kein Auto-Email wenn Native-App den Versand via EmailPreviewActivity übernimmt.
+        //   source='anfrage-uebernahme-native' → Patrick tippt manuell auf Senden in EmailPreviewActivity.
+        const _nativeAnfrageFlow = ride.source === 'anfrage-uebernahme-native';
+        if (ride.customerEmail && !_isSeriesMember && !ride._isAuftraggeberBooking && !_nativeAnfrageFlow) {
             try {
                 await sendBookingConfirmationEmail(ride, rideId);
             } catch (_emailErr) {

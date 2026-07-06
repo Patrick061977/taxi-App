@@ -1530,11 +1530,19 @@ public class AdminDashboardActivity extends AppCompatActivity {
             db.getReference().updateChildren(updates).addOnCompleteListener(task -> {
                 synchronized (_uebernahmeInFlight) { _uebernahmeInFlight.remove(a.id); }
                 if (task.isSuccessful()) {
-                    // 🔧 v6.63.554: Vorkasse-Dialog (mit Preis-Feld) statt Edit-Dialog.
-                    // Patrick: "dieses Formular aufgerufen wird, Preis ändern + Stripe-Option".
-                    // showVorkasseEmailDialog zeigt Preis + Email + Stripe-Ja/Nein.
-                    // Für Detailbearbeitung kann Patrick danach die Fahrt in der Liste antippen.
-                    runOnUiThread(() -> showVorkasseEmailDialog(rideId, a, pickupTime));
+                    // 🆕 v6.63.624: Wenn Anfrage eine Email hat → direkt EmailPreviewActivity öffnen.
+                    // Patrick: "Email-Bestätigung mit Vorschau soll aufgehen wenn eine Emailanfrage kommt"
+                    // Enthält Stripe-Toggle + Tracking-Toggle + editierbarer Body → ein Tap, alles drin.
+                    // Ohne Email → alter Vorkasse-Dialog (Preis + Stripe).
+                    runOnUiThread(() -> {
+                        if (a.email != null && a.email.contains("@")) {
+                            android.content.Intent _ep = new android.content.Intent(this, EmailPreviewActivity.class);
+                            _ep.putExtra(EmailPreviewActivity.EXTRA_RIDE_ID, rideId);
+                            startActivity(_ep);
+                        } else {
+                            showVorkasseEmailDialog(rideId, a, pickupTime);
+                        }
+                    });
                 } else {
                     Toast.makeText(this, "❌ Fehler: " + (task.getException() != null ? task.getException().getMessage() : "?"), Toast.LENGTH_LONG).show();
                 }

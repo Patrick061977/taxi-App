@@ -688,8 +688,6 @@ public class AdminDashboardActivity extends AppCompatActivity {
     private void showMenu(View anchor) {
         PopupMenu p = new PopupMenu(this, anchor);
         p.getMenu().add(0, 3, 0, _includePast ? "📅 Nur kommende anzeigen" : "📅 +30 Tage Vergangenheit anzeigen");
-        // v6.62.750 (Patrick 15.05. 21:36): Web-Disposition mit Gantt + Drag&Drop in Chrome Custom Tab
-        p.getMenu().add(0, 4, 0, "🌐 Web-Disposition (Timeline + Drag&Drop)");
         // v6.62.828 (Patrick 22.05. 14:48): Lokale ACR-Phone Aufnahmen
         p.getMenu().add(0, 5, 0, "🎙️ Anruf-Aufnahmen");
         // 🆕 v6.62.909 (Patrick 24.05. 09:35): Live-Schichtstatus aller Fahrzeuge
@@ -712,25 +710,6 @@ public class AdminDashboardActivity extends AppCompatActivity {
                     openRidesQuery.removeEventListener(openRidesListener);
                 }
                 connectFirebase();
-                return true;
-            }
-            if (item.getItemId() == 4) {
-                // v6.62.750: Chrome Custom Tab mit Web-Disposition (Gantt+Drag&Drop)
-                try {
-                    androidx.browser.customtabs.CustomTabsIntent intent =
-                        new androidx.browser.customtabs.CustomTabsIntent.Builder()
-                            .setShowTitle(true)
-                            .build();
-                    intent.launchUrl(this, android.net.Uri.parse("https://umwelt-taxi-insel-usedom.de/index.html"));
-                } catch (Throwable t) {
-                    // Fallback Standard-Browser
-                    try {
-                        startActivity(new Intent(Intent.ACTION_VIEW,
-                            android.net.Uri.parse("https://umwelt-taxi-insel-usedom.de/index.html")));
-                    } catch (Throwable _t2) {
-                        Toast.makeText(this, "Kein Browser verfuegbar: " + t.getMessage(), Toast.LENGTH_LONG).show();
-                    }
-                }
                 return true;
             }
             if (item.getItemId() == 5) {

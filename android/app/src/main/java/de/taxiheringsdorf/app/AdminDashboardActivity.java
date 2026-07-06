@@ -1534,11 +1534,28 @@ public class AdminDashboardActivity extends AppCompatActivity {
                     // Patrick: "Email-Bestätigung mit Vorschau soll aufgehen wenn eine Emailanfrage kommt"
                     // Enthält Stripe-Toggle + Tracking-Toggle + editierbarer Body → ein Tap, alles drin.
                     // Ohne Email → alter Vorkasse-Dialog (Preis + Stripe).
+                    // 🆕 v6.63.625: Einheitlicher Workflow — Email → EmailPreviewActivity,
+                    // WhatsApp/Telefon → WhatsApp direkt mit vorausgefüllter Bestätigung.
                     runOnUiThread(() -> {
                         if (a.email != null && a.email.contains("@")) {
+                            // Email-Anfrage → EmailPreviewActivity (Stripe-Toggle, editierbar)
                             android.content.Intent _ep = new android.content.Intent(this, EmailPreviewActivity.class);
                             _ep.putExtra(EmailPreviewActivity.EXTRA_RIDE_ID, rideId);
                             startActivity(_ep);
+                        } else if (a.phone != null && !a.phone.isEmpty()) {
+                            // WhatsApp-/Telefon-Anfrage — ein Schritt:
+                            // Preis vorhanden → Stripe erstellen + WA mit Bestätigung + Link
+                            // Kein Preis → WA mit Bestätigung (ohne Link)
+                            double _priceVal = 0;
+                            try {
+                                if (a.price != null && !a.price.isEmpty() && !"—".equals(a.price))
+                                    _priceVal = Double.parseDouble(a.price.replace("€","").replace(",",".").trim());
+                            } catch (Throwable _pe) {}
+                            if (_priceVal >= 0.5) {
+                                _createStripeAndOpenWA(rideId, a, pickupTime, _priceVal);
+                            } else {
+                                _openWhatsAppBestaetigung(a, null);
+                            }
                         } else {
                             showVorkasseEmailDialog(rideId, a, pickupTime);
                         }
@@ -1551,6 +1568,83 @@ public class AdminDashboardActivity extends AppCompatActivity {
             synchronized (_uebernahmeInFlight) { _uebernahmeInFlight.remove(a.id); }
             Toast.makeText(this, "❌ Anfrage-Übernahme-Fehler: " + t.getMessage(), Toast.LENGTH_LONG).show();
         }
+    }
+
+    // v6.63.625: WhatsApp mit Bestätigungs-Text + optionalem Stripe-Link öffnen
+    private void _openWhatsAppBestaetigung(Anfrage a, String stripeUrl) {
+        String _name = a.name != null ? a.name : "Kunde";
+        String _date = (a.date != null ? a.date : "") + (a.time != null ? " um " + a.time + " Uhr" : "");
+        String _priceStr = "";
+        try {
+            if (a.price != null && !a.price.isEmpty() && !"—".equals(a.price)) {
+                double _pv = Double.parseDouble(a.price.replace("€","").replace(",",".").trim());
+                if (_pv > 0) _priceStr = "💰 " + String.format(java.util.Locale.GERMANY, "%.2f", _pv) + " €\n";
+            }
+        } catch (Throwable _pe) {}
+        String _msg = "Hallo " + _name + ",\n\nIhre Fahrt ist bestätigt ✅\n\n" +
+            (_date.isEmpty() ? "" : "🕐 " + _date + "\n") +
+            "📍 " + (a.pickup != null ? a.pickup : "?") + "\n" +
+            "🎯 " + (a.destination != null ? a.destination : "?") + "\n" +
+            "👥 " + (a.passengers != null ? a.passengers + " Person(en)" : "1 Person") + "\n" +
+            _priceStr +
+            (stripeUrl != null && !stripeUrl.isEmpty() ? "\n💳 Zahlungslink:\n" + stripeUrl + "\n" : "") +
+            "\nFunk Taxi Heringsdorf · 038378 / 22022";
+        String _ph = a.phone.replaceAll("[\\s\\-\\/\\(\\)\\+]", "");
+        if (_ph.startsWith("0")) _ph = "49" + _ph.substring(1);
+        android.content.Intent _wi = new android.content.Intent(android.content.Intent.ACTION_VIEW);
+        _wi.setData(android.net.Uri.parse("https://wa.me/" + _ph + "?text=" + java.net.URLEncoder.encode(_msg)));
+        try { startActivity(_wi); }
+        catch (Throwable _t) { Toast.makeText(this, "WhatsApp nicht installiert", Toast.LENGTH_SHORT).show(); }
+    }
+
+    // v6.63.625: Stripe-Session erstellen, dann WhatsApp öffnen (ein Schritt für den Fahrer)
+    private void _createStripeAndOpenWA(String rideId, Anfrage a, String pickupTime, double price) {
+        Toast.makeText(this, "⏳ Stripe-Link wird erstellt…", Toast.LENGTH_SHORT).show();
+        new Thread(() -> {
+            try {
+                String invNum = "VKAS-" + (rideId != null ? rideId.substring(Math.max(0, rideId.length()-6)) : "RIDE");
+                org.json.JSONObject body = new org.json.JSONObject();
+                body.put("invoiceNumber", invNum);
+                body.put("amount", String.format(java.util.Locale.US, "%.2f", price));
+                body.put("customerName", a.name != null ? a.name : "");
+                body.put("customerEmail", a.email != null ? a.email : "");
+                body.put("description", "Funk Taxi Heringsdorf — " + (a.pickup != null ? a.pickup : "") + " → " + (a.destination != null ? a.destination : ""));
+                if (a.id != null) body.put("anfrageId", a.id);
+
+                java.net.URL url = new java.net.URL("https://europe-west1-taxi-heringsdorf.cloudfunctions.net/createStripeCheckout");
+                java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("POST");
+                conn.setRequestProperty("Content-Type", "application/json");
+                conn.setDoOutput(true);
+                conn.setConnectTimeout(15000);
+                conn.setReadTimeout(30000);
+                conn.getOutputStream().write(body.toString().getBytes("UTF-8"));
+
+                int code = conn.getResponseCode();
+                String resp = "";
+                try {
+                    java.io.InputStream is = code < 400 ? conn.getInputStream() : conn.getErrorStream();
+                    if (is != null) { java.util.Scanner sc = new java.util.Scanner(is,"UTF-8").useDelimiter("\\A"); resp = sc.hasNext() ? sc.next() : ""; }
+                } catch (Exception _re) {}
+                conn.disconnect();
+
+                final String _stripeUrl = code == 200 ? new org.json.JSONObject(resp).optString("url","") : "";
+                // Stripe-URL in Firebase speichern
+                if (!_stripeUrl.isEmpty() && rideId != null) {
+                    java.util.Map<String,Object> _upd = new java.util.HashMap<>();
+                    _upd.put("stripeCheckoutUrl", _stripeUrl);
+                    _upd.put("stripePaymentStatus", "pending");
+                    _upd.put("stripeCreatedAt", System.currentTimeMillis());
+                    db.getReference("rides/" + rideId).updateChildren(_upd);
+                }
+                runOnUiThread(() -> _openWhatsAppBestaetigung(a, _stripeUrl));
+            } catch (Throwable t) {
+                runOnUiThread(() -> {
+                    Toast.makeText(this, "❌ Stripe-Fehler: " + t.getMessage(), Toast.LENGTH_LONG).show();
+                    _openWhatsAppBestaetigung(a, null); // Fallback: WA ohne Link
+                });
+            }
+        }).start();
     }
 
     // 🆕 v6.63.533: Nach Übernahme — Preis bearbeiten + optional Stripe-Link senden

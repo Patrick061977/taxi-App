@@ -3660,14 +3660,12 @@ public class AdminDashboardActivity extends AppCompatActivity {
             _invParams.setMargins(0, 0, 0, pad);
             btnInvoiceEmail.setLayoutParams(_invParams);
             btnInvoiceEmail.setOnClickListener(_v -> {
-                // v6.63.626: One-Click — direkt senden ohne Vorschau-Zwischenschritt
-                if (r.customerEmail == null || !r.customerEmail.contains("@")) {
-                    Toast.makeText(this, "❌ Keine Email-Adresse hinterlegt", Toast.LENGTH_LONG).show();
-                    return;
-                }
+                // v6.63.627: EmailPreviewActivity öffnen (wie CRM "Rechnung anzeigen → Hotel Email senden")
                 if (_dlgRef.get() != null) _dlgRef.get().dismiss();
-                String _subj = "Rechnung " + r.invoiceNumber + " — Funk Taxi Heringsdorf";
-                _sendInvoiceEmail(r, r.customerEmail, _subj);
+                android.content.Intent _ep = new android.content.Intent(this, EmailPreviewActivity.class);
+                _ep.putExtra(EmailPreviewActivity.EXTRA_RIDE_ID, r.id != null ? r.id : r.firebaseId);
+                _ep.putExtra(EmailPreviewActivity.EXTRA_MODE, EmailPreviewActivity.MODE_INVOICE);
+                startActivity(_ep);
             });
             layout.addView(btnInvoiceEmail);
         }

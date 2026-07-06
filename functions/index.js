@@ -12792,6 +12792,7 @@ async function quickConfirmAnfrageHandler(anfrageId, withStripe, adminChatId, wi
         customerName,
         customerPhone,
         customerMobile,
+        customerEmail,
         email: customerEmail,
         customerId: anfrage.customerId || null,
         pickup: anfrage.pickup || '',

@@ -2833,10 +2833,11 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 if (a.email != null && !a.email.isEmpty()) line2.append("\n✉ ").append(a.email);
                 if (a.notes != null && !a.notes.isEmpty()) line2.append("\n📝 ").append(a.notes);
                 t2.setText(line2.toString());
-                // 🆕 v6.63.536: Tippen → nativer Übernahme-Dialog (kein Browser-Redirect mehr)
-                // Long-Press → Nur Übernehmen / Ablehnen
+                // v6.63.629: Ein Tap → sofort _uebernehmeAnfrageImpl (kein Zwischendialog).
+                // Email-Anfrage → EmailPreviewActivity, WA/Tel → WhatsApp, sonst alter Dialog.
+                // Long-Press → "Nur übernehmen" / "Ablehnen" (bleibt als Sicherheitsnetz).
                 itemView.setOnClickListener(_v ->
-                    showAnfrageUebernehmenDialog(a));
+                    _uebernehmeAnfrageImpl(a));
                 itemView.setOnLongClickListener(_v -> {
                     new AlertDialog.Builder(AdminDashboardActivity.this)
                         .setTitle("📥 " + (a.name != null ? a.name : "Anfrage"))

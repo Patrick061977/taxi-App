@@ -3660,12 +3660,14 @@ public class AdminDashboardActivity extends AppCompatActivity {
             _invParams.setMargins(0, 0, 0, pad);
             btnInvoiceEmail.setLayoutParams(_invParams);
             btnInvoiceEmail.setOnClickListener(_v -> {
+                // v6.63.626: One-Click — direkt senden ohne Vorschau-Zwischenschritt
+                if (r.customerEmail == null || !r.customerEmail.contains("@")) {
+                    Toast.makeText(this, "❌ Keine Email-Adresse hinterlegt", Toast.LENGTH_LONG).show();
+                    return;
+                }
                 if (_dlgRef.get() != null) _dlgRef.get().dismiss();
-                // 🆕 v6.63.598: schöne Email-Vorschau statt WebView-Dialog
-                Intent _invIntent = new Intent(this, EmailPreviewActivity.class);
-                _invIntent.putExtra(EmailPreviewActivity.EXTRA_RIDE_ID, r.id);
-                _invIntent.putExtra(EmailPreviewActivity.EXTRA_MODE, EmailPreviewActivity.MODE_INVOICE);
-                startActivity(_invIntent);
+                String _subj = "Rechnung " + r.invoiceNumber + " — Funk Taxi Heringsdorf";
+                _sendInvoiceEmail(r, r.customerEmail, _subj);
             });
             layout.addView(btnInvoiceEmail);
         }

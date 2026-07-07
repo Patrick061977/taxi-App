@@ -31101,27 +31101,55 @@ exports.scheduledOpenRideCheck = onSchedule(
             });
 
             // 🩹 v6.40.34: STUCK-ASSIGNED-WATCHDOG
-            // Heilt Vorbestellungen die fälschlich auf 'assigned' hängen (pickup > 60min Future).
-            // onRideUpdated Instant-Heal v6.40.21 greift nur bei Änderung — diese Schleife
-            // findet auch Fahrten die ohne Änderung im falschen Zustand verharren.
-            ridesSnap.forEach(child => {
+            // v6.63.634: Sicherheitsnetz — prüft ALLE assigned-Fahrten, nicht nur >60 Min.
+            // Wenn Fahrzeug offline (kein Heartbeat <15 Min) und Pickup <30 Min → warteschlange.
+            // Wenn >60 Min und Fahrzeug offline → vorbestellt (re-assign durch scheduledAutoAssign).
+            ridesSnap.forEach(async child => {
                 const ride = child.val();
                 const rideId = child.key;
                 if (ride.status !== 'assigned') return;
                 if (!ride.pickupTimestamp) return;
                 if (ride.assignmentLocked) return;
-                if (['accepted','on_way','picked_up','completed','cancelled','storniert','deleted'].includes(ride.status)) return;
                 const msUntil = ride.pickupTimestamp - now;
-                if (msUntil <= 60 * 60000) return; // Nur > 60 Min Future
+                if (msUntil < 0) return; // bereits überfällig — separater Handler
                 const minUntil = Math.round(msUntil / 60000);
-                console.log(`🩹 Stuck-Assigned-Heal: ${rideId} → vorbestellt (${minUntil}min bis Abholung)`);
-                db.ref('rides/' + rideId).update({
-                    status: 'vorbestellt',
-                    updatedAt: Date.now(),
-                    _healedStuckAssigned: Date.now()
-                }).then(() => {
-                    addRideLog(rideId, '🩹', `Stuck-Heal: assigned → vorbestellt (${minUntil}min bis Abholung)`, { quelle: 'scheduledOpenRideCheck v6.40.34' }).catch(()=>{});
-                }).catch(e => console.error('Stuck-Heal Fehler:', e.message));
+
+                // Fahrer-Heartbeat des zugewiesenen Fahrzeugs prüfen
+                const vid = ride.assignedVehicle || ride.vehicleId;
+                let driverOffline = true;
+                if (vid) {
+                    try {
+                        const vSnap = await db.ref('vehicleShifts/' + vid).once('value');
+                        const vData = vSnap.val() || {};
+                        const hb = vData.lastHeartbeat || 0;
+                        driverOffline = (now - hb) > 15 * 60000; // >15 Min kein Heartbeat = offline
+                    } catch(e) { driverOffline = true; }
+                }
+                if (!driverOffline) return; // Fahrer aktiv — alles ok
+
+                if (minUntil <= 30) {
+                    // Pickup in <30 Min + Fahrer offline → sofort in Wartepool für alle Fahrer
+                    console.log(`🚨 v6.63.634 Safety-Net: ${rideId} (${vid}) offline, Pickup in ${minUntil}min → warteschlange`);
+                    db.ref('rides/' + rideId).update({
+                        status: 'warteschlange',
+                        assignedVehicle: null, vehicleId: null, assignedTo: null,
+                        updatedAt: Date.now(),
+                        _safetyNetAt: Date.now()
+                    }).then(() => {
+                        addRideLog(rideId, '🚨', `Safety-Net: Fahrer ${vid} offline, Pickup ${minUntil}min → warteschlange`, { quelle: 'v6.63.634' }).catch(()=>{});
+                    }).catch(e => console.error('Safety-Net Fehler:', e.message));
+                } else if (minUntil > 60) {
+                    // >60 Min → vorbestellt damit scheduledAutoAssign neu zuweist
+                    console.log(`🩹 Stuck-Assigned-Heal: ${rideId} → vorbestellt (${minUntil}min, ${vid} offline)`);
+                    db.ref('rides/' + rideId).update({
+                        status: 'vorbestellt',
+                        updatedAt: Date.now(),
+                        _healedStuckAssigned: Date.now()
+                    }).then(() => {
+                        addRideLog(rideId, '🩹', `Stuck-Heal: ${vid} offline → vorbestellt (${minUntil}min)`, { quelle: 'v6.63.634' }).catch(()=>{});
+                    }).catch(e => console.error('Stuck-Heal Fehler:', e.message));
+                }
+                // 30-60 Min: Fahrer hat noch Zeit sich einzuloggen — noch warten
             });
 
             if (warnings.length === 0) return;

@@ -1866,7 +1866,15 @@
         }
 
         // v6.63.464: AGB-Checkbox + Storno-Hinweis sichtbarkeit + Disable-Logik.
-        // Sichtbar wenn btn-book sichtbar ist. Button bleibt disabled bis Checkbox angehakt.
+        // v6.63.643: Verifizierte Rückkehrer (< 30 Tage) sehen AGB-Checkbox nicht mehr.
+        function _isVerifiedReturner() {
+            try {
+                const ts = parseInt(localStorage.getItem('buchen-verifiedAt') || '0', 10);
+                const phone = localStorage.getItem('buchen-verifiedPhone') || '';
+                return phone && (Date.now() - ts) < 30 * 24 * 3600 * 1000;
+            } catch (_) { return false; }
+        }
+
         function updateBookButtonState() {
             const btn = document.getElementById('btn-book');
             const stornoBox = document.getElementById('storno-info');
@@ -1875,16 +1883,36 @@
             if (!btn || !stornoBox || !agbRow || !cb) return;
             const btnVisible = btn.style.display !== 'none';
             stornoBox.style.display = btnVisible ? 'block' : 'none';
-            agbRow.style.display = btnVisible ? 'block' : 'none';
-            // SMS-Flow läuft? Dann nicht reinpfuschen (AGB schon bei initialer Buchung akzeptiert).
-            const smsFlowActive = document.getElementById('step-phone')?.classList.contains('revealed');
-            if (btnVisible && !smsFlowActive) {
-                if (!cb.checked && !btn.disabled) {
-                    btn.disabled = true;
-                    btn.dataset.agbDisabled = '1';
-                } else if (cb.checked && btn.dataset.agbDisabled === '1') {
+
+            const returner = _isVerifiedReturner();
+            if (returner) {
+                // Rückkehrer: AGB-Checkbox ausblenden, auto-checken, kleiner Hinweis
+                cb.checked = true;
+                agbRow.style.display = 'none';
+                let hint = document.getElementById('agb-returner-hint');
+                if (!hint) {
+                    hint = document.createElement('div');
+                    hint.id = 'agb-returner-hint';
+                    hint.style.cssText = 'font-size:11px;color:#059669;margin-top:6px;text-align:center;display:none;';
+                    hint.textContent = '✓ AGB & Datenschutz bereits akzeptiert';
+                    agbRow.insertAdjacentElement('afterend', hint);
+                }
+                hint.style.display = btnVisible ? 'block' : 'none';
+                if (btnVisible && btn.dataset.agbDisabled === '1') {
                     btn.disabled = false;
                     delete btn.dataset.agbDisabled;
+                }
+            } else {
+                agbRow.style.display = btnVisible ? 'block' : 'none';
+                const smsFlowActive = document.getElementById('step-phone')?.classList.contains('revealed');
+                if (btnVisible && !smsFlowActive) {
+                    if (!cb.checked && !btn.disabled) {
+                        btn.disabled = true;
+                        btn.dataset.agbDisabled = '1';
+                    } else if (cb.checked && btn.dataset.agbDisabled === '1') {
+                        btn.disabled = false;
+                        delete btn.dataset.agbDisabled;
+                    }
                 }
             }
         }
@@ -5785,11 +5813,19 @@
                     return;
                 }
             }
-            // v6.63.524 (Patrick 28.06.): localStorage-Bypass entfernt.
-            // SMS-Skip NUR wenn Firebase-Auth-Session aktiv (auth.currentUser != null).
-            // Nicht eingeloggte Kunden müssen IMMER SMS-Code eingeben.
             if (_isLoggedIn && customerPhone) {
                 logBuchen('✅', 'Bereits eingeloggt — überspringe SMS (' + customerPhone + ')');
+                createBooking();
+                return;
+            }
+
+            // v6.63.643: Validierte Nummer (< 30 Tage) braucht keine neue SMS — Patrick 07.07.
+            if (_isVerifiedReturner()) {
+                const _storedPhone = localStorage.getItem('buchen-verifiedPhone');
+                if (!customerPhone) customerPhone = _storedPhone;
+                logBuchen('✅', 'Rückkehrer-Bypass — überspringe SMS (' + (customerPhone || _storedPhone) + ')');
+                showToast('📱 Buchung für ' + (customerPhone || _storedPhone || '').replace(/(\+\d{2})(\d{3})(\d{3})(\d+)/, '$1 $2 $3 $4'), 4000);
+                try { localStorage.setItem('buchen-verifiedAt', String(Date.now())); } catch(_) {}
                 createBooking();
                 return;
             }

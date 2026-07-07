@@ -1532,10 +1532,17 @@ async function autoAssignRide(rideId, rideData, _excludeVehicleIds = []) {
                 // Hintergrund: Patrick in MY-222 eingeloggt, IK-222 per Heartbeat-Timeout auto-ended
                 // → scheduledAutoAssign weist Fahrten trotzdem IK-222 zu → Patrick sieht sie nicht.
                 const _msUntilPickup = rideData.pickupTimestamp - Date.now();
-                const _isAutoEnded = _vData.shift && _vData.shift.status === 'auto-ended';
-                if (_isAutoEnded && _msUntilPickup < 4 * 60 * 60 * 1000 && _msUntilPickup > -30 * 60 * 1000) {
-                    console.log(`   ❌ ${info.name}: Vorbestellung in <4h — shift.status=auto-ended, kein aktiver Fahrer`);
-                    vehicleScores[vehicleId] = { status: 'rejected', reason: 'Schicht auto-ended (Heartbeat-Timeout), kein Fahrer aktiv', check: 'auto-ended-near-pickup' };
+                // v6.63.637: 'ended' (manuell) + 'auto-ended' + 'force-ended' = kein aktiver Fahrer
+                //   vorher: nur auto-ended blockiert → ended-Schicht wurde übersehen (Santangelo-Bug 07.07.)
+                const _shiftIsInactive = _vData.shift && (
+                    _vData.shift.status === 'auto-ended' ||
+                    _vData.shift.status === 'ended' ||
+                    _vData.shift.status === 'force-ended'
+                );
+                if (_shiftIsInactive && _msUntilPickup < 4 * 60 * 60 * 1000 && _msUntilPickup > -30 * 60 * 1000) {
+                    const _sStatus = _vData.shift.status;
+                    console.log(`   ❌ ${info.name}: Vorbestellung in <4h — shift.status=${_sStatus}, kein aktiver Fahrer`);
+                    vehicleScores[vehicleId] = { status: 'rejected', reason: `Schicht ${_sStatus}, kein Fahrer aktiv`, check: 'shift-inactive-near-pickup' };
                     continue;
                 }
             }
@@ -31102,54 +31109,62 @@ exports.scheduledOpenRideCheck = onSchedule(
 
             // 🩹 v6.40.34: STUCK-ASSIGNED-WATCHDOG
             // v6.63.634: Sicherheitsnetz — prüft ALLE assigned-Fahrten, nicht nur >60 Min.
-            // Wenn Fahrzeug offline (kein Heartbeat <15 Min) und Pickup <30 Min → warteschlange.
-            // Wenn >60 Min und Fahrzeug offline → vorbestellt (re-assign durch scheduledAutoAssign).
+            // v6.63.637: + vorbestellt-Fahrten mit Fahrzeug-Zuweisung — Heartbeat-Quelle korrigiert:
+            //   vehicles/{vid}/shift/lastHeartbeat (nicht vehicleShifts/{vid}/lastHeartbeat!).
+            //   Auch shift.status='ended'/'auto-ended' gilt als offline.
             ridesSnap.forEach(async child => {
                 const ride = child.val();
                 const rideId = child.key;
-                if (ride.status !== 'assigned') return;
+                // v6.63.637: auch vorbestellt+assignedVehicle prüfen (nicht nur assigned)
+                const hasVehicle = ride.assignedVehicle || ride.vehicleId;
+                if (ride.status !== 'assigned' && !(ride.status === 'vorbestellt' && hasVehicle)) return;
                 if (!ride.pickupTimestamp) return;
                 if (ride.assignmentLocked) return;
                 const msUntil = ride.pickupTimestamp - now;
-                if (msUntil < 0) return; // bereits überfällig — separater Handler
+                if (msUntil < 0) return;
                 const minUntil = Math.round(msUntil / 60000);
 
-                // Fahrer-Heartbeat des zugewiesenen Fahrzeugs prüfen
                 const vid = ride.assignedVehicle || ride.vehicleId;
                 let driverOffline = true;
                 if (vid) {
                     try {
-                        const vSnap = await db.ref('vehicleShifts/' + vid).once('value');
+                        // v6.63.637: Heartbeat aus vehicles/{vid}/shift + vehicles/{vid}/activeDevice
+                        //   (vehicleShifts/{vid} war falsch — der Fahrer schreibt in vehicles/{vid}/shift)
+                        const vSnap = await db.ref('vehicles/' + vid).once('value');
                         const vData = vSnap.val() || {};
-                        const hb = vData.lastHeartbeat || 0;
-                        driverOffline = (now - hb) > 15 * 60000; // >15 Min kein Heartbeat = offline
+                        const shiftStatus = vData.shift && vData.shift.status;
+                        const shiftEnded = shiftStatus === 'ended' || shiftStatus === 'auto-ended' || shiftStatus === 'force-ended';
+                        const hb = (vData.shift && vData.shift.lastHeartbeat) ||
+                                   (vData.activeDevice && vData.activeDevice.lastHeartbeat) || 0;
+                        const hbOld = hb === 0 || (now - hb) > 15 * 60000;
+                        driverOffline = shiftEnded || hbOld;
                     } catch(e) { driverOffline = true; }
                 }
-                if (!driverOffline) return; // Fahrer aktiv — alles ok
+                if (!driverOffline) return;
 
                 if (minUntil <= 30) {
-                    // Pickup in <30 Min + Fahrer offline → sofort in Wartepool für alle Fahrer
-                    console.log(`🚨 v6.63.634 Safety-Net: ${rideId} (${vid}) offline, Pickup in ${minUntil}min → warteschlange`);
+                    console.log(`🚨 v6.63.637 Safety-Net: ${rideId} (${vid}) offline/ended, Pickup in ${minUntil}min → warteschlange`);
                     db.ref('rides/' + rideId).update({
                         status: 'warteschlange',
                         assignedVehicle: null, vehicleId: null, assignedTo: null,
                         updatedAt: Date.now(),
                         _safetyNetAt: Date.now()
                     }).then(() => {
-                        addRideLog(rideId, '🚨', `Safety-Net: Fahrer ${vid} offline, Pickup ${minUntil}min → warteschlange`, { quelle: 'v6.63.634' }).catch(()=>{});
+                        addRideLog(rideId, '🚨', `Safety-Net v6.63.637: Fahrer ${vid} offline/ended, Pickup ${minUntil}min → warteschlange`, { quelle: 'v6.63.637' }).catch(()=>{});
+                        sendToAllAdmins(`🚨 <b>Safety-Net:</b> Fahrt ${rideId} war ${ride.status} auf ${vid} (Schicht beendet/offline) — Pickup in ${minUntil} Min.\nJetzt im Wartepool für alle Fahrer.`).catch(()=>{});
                     }).catch(e => console.error('Safety-Net Fehler:', e.message));
                 } else if (minUntil > 60) {
-                    // >60 Min → vorbestellt damit scheduledAutoAssign neu zuweist
-                    console.log(`🩹 Stuck-Assigned-Heal: ${rideId} → vorbestellt (${minUntil}min, ${vid} offline)`);
+                    console.log(`🩹 Stuck-Heal v6.63.637: ${rideId} → vorbestellt (${minUntil}min, ${vid} offline)`);
                     db.ref('rides/' + rideId).update({
                         status: 'vorbestellt',
+                        assignedVehicle: null, vehicleId: null,
                         updatedAt: Date.now(),
                         _healedStuckAssigned: Date.now()
                     }).then(() => {
-                        addRideLog(rideId, '🩹', `Stuck-Heal: ${vid} offline → vorbestellt (${minUntil}min)`, { quelle: 'v6.63.634' }).catch(()=>{});
+                        addRideLog(rideId, '🩹', `Stuck-Heal v6.63.637: ${vid} offline/ended → vorbestellt (${minUntil}min)`, { quelle: 'v6.63.637' }).catch(()=>{});
                     }).catch(e => console.error('Stuck-Heal Fehler:', e.message));
                 }
-                // 30-60 Min: Fahrer hat noch Zeit sich einzuloggen — noch warten
+                // 30-60 Min: Fahrer hat noch Zeit sich einzuloggen — warten
             });
 
             if (warnings.length === 0) return;

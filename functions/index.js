@@ -30003,7 +30003,9 @@ exports.onRideUpdated = onValueUpdated(
                     // sonst: ride.paymentMethod beibehalten
                 }
                 const _hotelZahltBar = _effectivePaymentMethod === 'bar';
-                const _isPaidNow = (_effectivePaymentMethod === 'cash' || _effectivePaymentMethod === 'bar');
+                // 🔧 v6.63.641: Stripe-bezahlte Fahrten ebenfalls als "jetzt bezahlt" markieren
+                const _stripePaid = after.paymentMethod === 'stripe' && (after.stripePaymentStatus === 'paid' || after.paymentStatus === 'bezahlt');
+                const _isPaidNow = (_effectivePaymentMethod === 'cash' || _effectivePaymentMethod === 'bar') || _stripePaid;
 
                 const _invoiceData = {
                     invoiceNumber: _belegNr,
@@ -30037,7 +30039,7 @@ exports.onRideUpdated = onValueUpdated(
                         ? 'Betrag in bar erhalten — Quittung'
                         : (_effectivePaymentMethod === 'rechnung' || after.paymentMethod === 'invoice_auftraggeber'
                             ? 'Zahlbar innerhalb 14 Tagen ohne Abzug.'
-                            : ''),
+                            : (_stripePaid ? 'Betrag per Stripe Online-Zahlung erhalten' : '')),
                     // 🆕 v6.62.812: position.description = "Taxifahrt" (ohne Route).
                     // 🆕 v6.62.815 (Patrick 19.05. 07:33): Auto-Detect Krankenfahrt
                     //   wenn pickup ODER destination "Krankenhaus" oder "Klinik" enthaelt

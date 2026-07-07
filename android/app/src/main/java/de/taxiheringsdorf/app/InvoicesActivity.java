@@ -257,7 +257,8 @@ public class InvoicesActivity extends AppCompatActivity {
         btnEdit.setOnClickListener(v -> { if (dlgRef[0] != null) dlgRef[0].dismiss(); showEditDialog(item); });
         btnRow.addView(btnEdit);
 
-        if (!item.rideId.isEmpty()) {
+        // v6.63.635: E-Mail-Button immer anzeigen (auch ohne rideId via invoiceKey-Fallback)
+        {
             MaterialButton btnSend = new MaterialButton(this);
             btnSend.setText("📧 E-Mail");
             btnSend.setTextSize(12); btnSend.setTextColor(Color.WHITE);
@@ -269,7 +270,6 @@ public class InvoicesActivity extends AppCompatActivity {
                 if (dlgRef[0] != null) dlgRef[0].dismiss();
                 String knownEmail = item.custEmail != null && !item.custEmail.isEmpty() ? item.custEmail : "";
                 if (knownEmail.isEmpty() && !item.custId.isEmpty()) {
-                    // Async CRM-Lookup dann starten
                     FirebaseDatabase.getInstance(DB_URL).getReference("customers/" + item.custId + "/email").get()
                         .addOnSuccessListener(snap -> {
                             String crmEmail = strVal(snap.getValue());
@@ -309,7 +309,10 @@ public class InvoicesActivity extends AppCompatActivity {
 
     private void launchEmailPreview(InvItem item, String prefillEmail) {
         Intent intent = new Intent(this, EmailPreviewActivity.class);
-        intent.putExtra(EmailPreviewActivity.EXTRA_RIDE_ID, item.rideId);
+        // v6.63.635: rideId nur wenn vorhanden — sonst invoiceKey als Fallback
+        if (!item.rideId.isEmpty()) intent.putExtra(EmailPreviewActivity.EXTRA_RIDE_ID, item.rideId);
+        intent.putExtra(EmailPreviewActivity.EXTRA_INVOICE_KEY, item.key);
+        intent.putExtra("prefillPdfUrl", item.pdfUrl);
         intent.putExtra(EmailPreviewActivity.EXTRA_MODE, EmailPreviewActivity.MODE_INVOICE);
         if (!prefillEmail.isEmpty()) intent.putExtra("prefillEmail", prefillEmail);
         startActivity(intent);

@@ -1170,25 +1170,59 @@ public class AdminDashboardActivity extends AppCompatActivity {
     }
 
     private void showRepeatPastRideDialog(Ride r) {
-        // 🔧 v6.63.551: 4. Option "Preis/Notiz bearbeiten" — Patrick 29.06.:
-        //   "wenn ich eine Komplettfahrt habe, moechte ich den Preis bearbeiten koennen"
-        //   setItems statt 3-Button-Layout erlaubt unbegrenzte Optionen.
+        // v6.63.636: "📧 Rechnung an Auftraggeber" als erste Option direkt zugänglich
         String header = (r.customerName != null ? r.customerName : "?")
             + "\n" + (r.pickup != null ? r.pickup : "?") + " → " + (r.destination != null ? r.destination : "?");
         new androidx.appcompat.app.AlertDialog.Builder(this)
             .setTitle("Abgeschlossene Fahrt")
             .setMessage(header)
             .setItems(new String[]{
+                "📧 Rechnung an Auftraggeber senden",
                 "📅 Gleiche Strecke (neue Vorbestellung)",
                 "🔄 Rueckfahrt (Adressen tauschen)",
                 "✏️ Preis / Notiz / Status bearbeiten"
             }, (d, which) -> {
-                if (which == 0) launchCrmTemplate(r, false);
-                else if (which == 1) launchCrmTemplate(r, true);
+                if (which == 0) launchInvoiceEmailFromRide(r);
+                else if (which == 1) launchCrmTemplate(r, false);
+                else if (which == 2) launchCrmTemplate(r, true);
                 else showEditRideDialog(r);
             })
             .setNegativeButton("Abbrechen", null)
             .show();
+    }
+
+    // v6.63.636: Email-Vorschau für Rechnung direkt aus Fahrt öffnen
+    private void launchInvoiceEmailFromRide(Ride r) {
+        if (r.invoiceNumber == null || r.invoiceNumber.isEmpty()) {
+            new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("Keine Rechnung vorhanden")
+                .setMessage("Für diese Fahrt wurde noch keine Rechnung erstellt. Bitte zuerst unter 'Preis / Notiz / Status bearbeiten' → '🧾 Quittung / Rechnung erstellen'.")
+                .setPositiveButton("OK", null)
+                .show();
+            return;
+        }
+        String knownEmail = r.customerEmail != null ? r.customerEmail : "";
+        if (knownEmail.isEmpty() && r.customerId != null && !r.customerId.isEmpty()) {
+            com.google.firebase.database.FirebaseDatabase.getInstance(DB_URL_AD)
+                .getReference("customers/" + r.customerId + "/email").get()
+                .addOnSuccessListener(snap -> {
+                    String crmEmail = snap.getValue() instanceof String ? (String) snap.getValue() : "";
+                    runOnUiThread(() -> doLaunchInvoiceEmail(r, crmEmail));
+                })
+                .addOnFailureListener(e -> runOnUiThread(() -> doLaunchInvoiceEmail(r, "")));
+        } else {
+            doLaunchInvoiceEmail(r, knownEmail);
+        }
+    }
+
+    private void doLaunchInvoiceEmail(Ride r, String email) {
+        android.content.Intent ep = new android.content.Intent(this, EmailPreviewActivity.class);
+        if (r.id != null) ep.putExtra(EmailPreviewActivity.EXTRA_RIDE_ID, r.id);
+        ep.putExtra(EmailPreviewActivity.EXTRA_INVOICE_KEY, r.invoiceNumber);
+        if (r.invoicePdfUrl != null && !r.invoicePdfUrl.isEmpty()) ep.putExtra("prefillPdfUrl", r.invoicePdfUrl);
+        ep.putExtra(EmailPreviewActivity.EXTRA_MODE, EmailPreviewActivity.MODE_INVOICE);
+        if (!email.isEmpty()) ep.putExtra("prefillEmail", email);
+        startActivity(ep);
     }
 
     // 🆕 v6.62.679: Launch CrmSearchActivity mit Template-Extras. CrmSearchActivity laedt
@@ -3659,12 +3693,20 @@ public class AdminDashboardActivity extends AppCompatActivity {
             _invParams.setMargins(0, 0, 0, pad);
             btnInvoiceEmail.setLayoutParams(_invParams);
             btnInvoiceEmail.setOnClickListener(_v -> {
-                // v6.63.627: EmailPreviewActivity öffnen (wie CRM "Rechnung anzeigen → Hotel Email senden")
                 if (_dlgRef.get() != null) _dlgRef.get().dismiss();
-                android.content.Intent _ep = new android.content.Intent(this, EmailPreviewActivity.class);
-                _ep.putExtra(EmailPreviewActivity.EXTRA_RIDE_ID, r.id);
-                _ep.putExtra(EmailPreviewActivity.EXTRA_MODE, EmailPreviewActivity.MODE_INVOICE);
-                startActivity(_ep);
+                // v6.63.636: doLaunchInvoiceEmail nutzen (mit invoiceKey + prefillPdfUrl + CRM-Email)
+                String _knownEmail = r.customerEmail != null ? r.customerEmail : "";
+                if (_knownEmail.isEmpty() && r.customerId != null && !r.customerId.isEmpty()) {
+                    com.google.firebase.database.FirebaseDatabase.getInstance(DB_URL_AD)
+                        .getReference("customers/" + r.customerId + "/email").get()
+                        .addOnSuccessListener(_snap -> {
+                            String _ce = _snap.getValue() instanceof String ? (String) _snap.getValue() : "";
+                            runOnUiThread(() -> doLaunchInvoiceEmail(r, _ce));
+                        })
+                        .addOnFailureListener(_e -> runOnUiThread(() -> doLaunchInvoiceEmail(r, "")));
+                } else {
+                    doLaunchInvoiceEmail(r, _knownEmail);
+                }
             });
             layout.addView(btnInvoiceEmail);
         }

@@ -21564,7 +21564,9 @@ exports.autoResolveConflicts = onSchedule(
                     updatedAt: Date.now(),
                     lastOptimizedAt: Date.now(),
                     lastOptimizedTo: altVehicle,
-                    replanReason: `Schicht-Korrektur: ${currInfo.name} hat keinen Dienst am ${rideDateStr} um ${rideTimeStr}`
+                    replanReason: `Schicht-Korrektur: ${currInfo.name} hat keinen Dienst am ${rideDateStr} um ${rideTimeStr}`,
+                    // v6.63.632: Bei Fahrzeug-Wechsel Status zurücksetzen — neues Fahrzeug muss explizit annehmen
+                    ...(ride.status === 'accepted' ? { status: 'vorbestellt', acceptedAt: null, acceptedByVehicle: null } : {})
                 });
 
                 ride.assignedVehicle = altVehicle;
@@ -22093,7 +22095,9 @@ exports.autoResolveConflicts = onSchedule(
                         updatedAt: Date.now(),
                         lastOptimizedAt: Date.now(),
                         lastOptimizedTo: altVehicle,
-                        replanReason: `Zeitkonflikt: ${overlapMin} Min zu spät${leerfahrtInfo} nach ${curr.customerName || '?'} (${currTime}) auf ${vName}`
+                        replanReason: `Zeitkonflikt: ${overlapMin} Min zu spät${leerfahrtInfo} nach ${curr.customerName || '?'} (${currTime}) auf ${vName}`,
+                        // v6.63.632: Bei Fahrzeug-Wechsel Status zurücksetzen — neues Fahrzeug muss explizit annehmen
+                        ...(next.status === 'accepted' ? { status: 'vorbestellt', acceptedAt: null, acceptedByVehicle: null } : {})
                     });
 
                     // Lokales Array aktualisieren (für nächste Paare)
@@ -22574,7 +22578,9 @@ exports.autoResolveConflicts = onSchedule(
                     // v6.63.608: 999 ist Routing-Fehler-Sentinel — nie als echte Anfahrtszeit speichern
                     drivingTimeToPickup: Math.round(bestMin >= 999 ? 10 : bestMin),
                     vehicleScores: optimizeScores,
-                    replanReason: `Smart-Routing: ${currInfo.name} (${currentKm} km, ${currentMin} Min) → ${altInfo.name} (${bestKm} km, ${bestMin} Min), ${vorteilMin} Min kürzer`
+                    replanReason: `Smart-Routing: ${currInfo.name} (${currentKm} km, ${currentMin} Min) → ${altInfo.name} (${bestKm} km, ${bestMin} Min), ${vorteilMin} Min kürzer`,
+                    // v6.63.632: Bei Fahrzeug-Wechsel Status zurücksetzen — neues Fahrzeug muss explizit annehmen
+                    ...(ride.status === 'accepted' ? { status: 'vorbestellt', acceptedAt: null, acceptedByVehicle: null } : {})
                 });
 
                 // Lokales Array aktualisieren

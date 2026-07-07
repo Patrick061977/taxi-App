@@ -1201,8 +1201,34 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 .show();
             return;
         }
+        // 🆕 v6.63.639: Auftraggeber-Email bevorzugen (Hotel/Firma bucht für Gast)
+        // Reihenfolge: ride.customerEmail → CRM Auftraggeber → CRM Kunde
         String knownEmail = r.customerEmail != null ? r.customerEmail : "";
-        if (knownEmail.isEmpty() && r.customerId != null && !r.customerId.isEmpty()) {
+        boolean isAuftr = Boolean.TRUE.equals(r.isAuftraggeberBooking);
+        String auftrId = r.auftraggeberId != null ? r.auftraggeberId : "";
+        if (isAuftr && !auftrId.isEmpty()) {
+            com.google.firebase.database.FirebaseDatabase.getInstance(DB_URL_AD)
+                .getReference("customers/" + auftrId + "/email").get()
+                .addOnSuccessListener(snap -> {
+                    String auftrEmail = snap.getValue() instanceof String ? (String) snap.getValue() : "";
+                    if (!auftrEmail.isEmpty()) {
+                        runOnUiThread(() -> doLaunchInvoiceEmail(r, auftrEmail));
+                    } else if (!knownEmail.isEmpty()) {
+                        runOnUiThread(() -> doLaunchInvoiceEmail(r, knownEmail));
+                    } else if (r.customerId != null && !r.customerId.isEmpty()) {
+                        com.google.firebase.database.FirebaseDatabase.getInstance(DB_URL_AD)
+                            .getReference("customers/" + r.customerId + "/email").get()
+                            .addOnSuccessListener(s2 -> {
+                                String ce = s2.getValue() instanceof String ? (String) s2.getValue() : "";
+                                runOnUiThread(() -> doLaunchInvoiceEmail(r, ce));
+                            })
+                            .addOnFailureListener(e2 -> runOnUiThread(() -> doLaunchInvoiceEmail(r, "")));
+                    } else {
+                        runOnUiThread(() -> doLaunchInvoiceEmail(r, ""));
+                    }
+                })
+                .addOnFailureListener(e -> runOnUiThread(() -> doLaunchInvoiceEmail(r, knownEmail)));
+        } else if (knownEmail.isEmpty() && r.customerId != null && !r.customerId.isEmpty()) {
             com.google.firebase.database.FirebaseDatabase.getInstance(DB_URL_AD)
                 .getReference("customers/" + r.customerId + "/email").get()
                 .addOnSuccessListener(snap -> {
@@ -2567,6 +2593,9 @@ public class AdminDashboardActivity extends AppCompatActivity {
         String invoiceNumber;
         String customerId;
         String invoicePdfUrl;
+        // 🆕 v6.63.639: Auftraggeber-Email-Lookup (Hotel/Firma bucht für Gast)
+        String auftraggeberId;
+        Boolean isAuftraggeberBooking;
 
         static boolean isWebSource(String s) {
             return s != null && (
@@ -2685,6 +2714,10 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 r.customerId = s.child("customerId").getValue(String.class);
                 r.invoicePdfUrl = s.child("invoicePdfUrl").getValue(String.class);
                 if (r.invoicePdfUrl == null) r.invoicePdfUrl = s.child("pdfUrl").getValue(String.class);
+                // 🆕 v6.63.639: Auftraggeber-Felder
+                r.auftraggeberId = s.child("_auftraggeberId").getValue(String.class);
+                Object _isAuftr = s.child("_isAuftraggeberBooking").getValue();
+                r.isAuftraggeberBooking = _isAuftr instanceof Boolean ? (Boolean) _isAuftr : null;
                 // Waypoints: Liste von Objekten mit address+name — analog DriverDashboard
                 DataSnapshot wpSnap = s.child("waypoints");
                 if (wpSnap.exists() && wpSnap.hasChildren()) {

@@ -248,7 +248,11 @@ public class EmailPreviewActivity extends AppCompatActivity {
         body.append("E-Mail: Taxiwydra@googlemail.com");
 
         etBody.setText(body.toString());
-        tvStatus.setText("✅ Vorschau bereit — lies durch, passe an, dann SENDEN.");
+        // 🆕 v6.63.639: PDF-Status anzeigen damit klar ist ob Anhang dabei ist
+        String _pdfInfo = !TextUtils.isEmpty(invoicePdfUrl)
+            ? "📎 Rechnung " + (TextUtils.isEmpty(invNumber) ? "" : invNumber) + ".pdf wird angehängt"
+            : "⚠️ Kein PDF gefunden — Anhang fehlt. Bitte zuerst Rechnung erstellen.";
+        tvStatus.setText("✅ Vorschau bereit — lies durch, passe an, dann SENDEN.\n" + _pdfInfo);
     }
 
     private void sendEmail() {

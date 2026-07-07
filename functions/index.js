@@ -17047,10 +17047,12 @@ async function handleCallback(callback) {
                         }
                         if (customerChatId && String(customerChatId) !== String(chatId)) {
                             const vehicleName = ride.assignedVehicleName || ride.vehicle || ride.vehicleLabel || '';
+                            const _fahrername = ride.driverName || ride.currentDriverName || '';
                             const dt = new Date(ride.pickupTimestamp || Date.now());
                             const timeStr = dt.toLocaleString('de-DE', { ...TZ_BERLIN, hour: '2-digit', minute: '2-digit' });
                             await sendTelegramMessage(customerChatId,
                                 `🚗 <b>Ihr Fahrer ist unterwegs!</b>\n\n` +
+                                (_fahrername ? `👤 Fahrer: <b>${_fahrername}</b>\n` : '') +
                                 (vehicleName ? `🚕 Fahrzeug: <b>${vehicleName}</b>\n` : '') +
                                 `📍 ${ride.pickup} → ${ride.destination}\n` +
                                 `🕐 Abholung: ${timeStr} Uhr\n\n` +
@@ -28068,12 +28070,14 @@ ${ride.passengers ? `<tr><td style="padding:6px 0;color:#6b7280;">👥 Personen:
 
         // 🆕 v6.28.0: WhatsApp-Kunden-Benachrichtigung bei neuer Fahrt
         // v6.63.072: Serien-Termine — Native/Web sendet EINE Sammel-Bestätigung
-        if (!_isSeriesMember) {
+        // 🔧 v6.63.641: Sofortfahrt → keine Buchungsbestätigung (kommt sofort "Fahrer unterwegs")
+        if (!_isSeriesMember && !isSofort) {
             await sendCustomerWhatsAppNotification(ride, rideId, 'booking_new');
         }
 
         // 🆕 v6.25.5: Kunden-Bestätigung SOFORT bei Erstellung senden (nicht erst bei Update!)
-        const customerChatId = !_isSeriesMember ? await getCustomerChatId(ride) : null;
+        // 🔧 v6.63.641: Sofortfahrt → überspringen, "Fahrer unterwegs" (onRideUpdated on_way) reicht
+        const customerChatId = (!_isSeriesMember && !isSofort) ? await getCustomerChatId(ride) : null;
         if (customerChatId) {
             // 🔧 v6.36.0: Gastname hat Priorität über Hotel/CRM-Name
             const _passengerName = ride.guestName || ride.customerName;
@@ -28109,6 +28113,10 @@ ${ride.passengers ? `<tr><td style="padding:6px 0;color:#6b7280;">👥 Personen:
                 ergebnis: _custMsgResult ? 'gesendet' : 'FEHLGESCHLAGEN',
                 kunde: ride.customerName || '?'
             });
+        } else if (isSofort && !_isSeriesMember) {
+            // Sofortfahrt: Flag trotzdem setzen, damit onRideUpdated nicht nochmal sendet
+            try { await db.ref('rides/' + rideId + '/customerTelegramSent').set(true); } catch(e) {}
+            console.log('📱 Sofortfahrt: Buchungsbestätigung übersprungen — "Fahrer unterwegs" folgt');
         }
 
         // Flag setzen damit Browser nicht nochmal sendet

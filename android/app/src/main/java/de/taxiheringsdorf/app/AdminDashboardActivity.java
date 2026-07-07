@@ -3727,19 +3727,8 @@ public class AdminDashboardActivity extends AppCompatActivity {
             btnInvoiceEmail.setLayoutParams(_invParams);
             btnInvoiceEmail.setOnClickListener(_v -> {
                 if (_dlgRef.get() != null) _dlgRef.get().dismiss();
-                // v6.63.636: doLaunchInvoiceEmail nutzen (mit invoiceKey + prefillPdfUrl + CRM-Email)
-                String _knownEmail = r.customerEmail != null ? r.customerEmail : "";
-                if (_knownEmail.isEmpty() && r.customerId != null && !r.customerId.isEmpty()) {
-                    com.google.firebase.database.FirebaseDatabase.getInstance(DB_URL_AD)
-                        .getReference("customers/" + r.customerId + "/email").get()
-                        .addOnSuccessListener(_snap -> {
-                            String _ce = _snap.getValue() instanceof String ? (String) _snap.getValue() : "";
-                            runOnUiThread(() -> doLaunchInvoiceEmail(r, _ce));
-                        })
-                        .addOnFailureListener(_e -> runOnUiThread(() -> doLaunchInvoiceEmail(r, "")));
-                } else {
-                    doLaunchInvoiceEmail(r, _knownEmail);
-                }
+                // v6.63.639: launchInvoiceEmailFromRide — mit Auftraggeber-Email-Lookup
+                launchInvoiceEmailFromRide(r);
             });
             layout.addView(btnInvoiceEmail);
         }

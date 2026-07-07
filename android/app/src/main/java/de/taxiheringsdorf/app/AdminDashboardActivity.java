@@ -2887,6 +2887,14 @@ public class AdminDashboardActivity extends AppCompatActivity {
                     }
                 }
                 String statusBadge = r.status != null ? "  [" + statusEmoji(r.status) + " " + r.status + "]" : "";
+                // v6.63.630: Personenzahl-Badge (wenn >1) und kompaktes Bezahlt-Badge in Zeile 1
+                String paxBadge = (r.passengers != null && r.passengers > 1) ? "  👥" + r.passengers : "";
+                String payBadge = "";
+                if ("paid".equalsIgnoreCase(r.paymentStatus)) {
+                    payBadge = "  ✅" + (r.stripePaidAmount != null ? String.format(Locale.GERMANY, " %.0f€", r.stripePaidAmount) : "");
+                } else if ("stripe".equalsIgnoreCase(r.paymentMethod) && r.vorkasseRequested != null && r.vorkasseRequested) {
+                    payBadge = "  💳⏳";
+                }
                 // 🆕 v6.62.636: Fahrzeug-Badge — Patrick (12.05. 09:05): "in der
                 // Dispositionsübersicht sehe ich aber auch nicht, welches Fahrzeug jetzt
                 // dafür vorgesehen ist". Wenn assignedVehicle/vehicleId gesetzt → Name am
@@ -2927,25 +2935,25 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 final boolean _isSofortWarteschlange = "warteschlange".equalsIgnoreCase(r.status);
                 // 🆕 v6.62.950 Smart-Scheduler — Konflikt-Hint rendert als ⚠️-Prefix + Tap öffnet Time-Picker
                 final String conflictPrefix = r.conflictHint != null ? "⚠️ ENGPASS  " : "";
+                final String _name = (r.customerName != null ? r.customerName : "?");
                 if (_isWartepool) {
-                    itemView.setBackgroundColor(Color.parseColor("#7F1D1D")); // tiefes Rot
-                    t1.setText("⚠️ " + when + "  " + (r.customerName != null ? r.customerName : "?") + "  · WARTEPOOL" + vehicleBadge);
+                    itemView.setBackgroundColor(Color.parseColor("#7F1D1D"));
+                    t1.setText("⚠️ " + when + "  " + _name + paxBadge + payBadge + "  · WARTEPOOL" + vehicleBadge);
                 } else if (r.conflictHint != null) {
-                    itemView.setBackgroundColor(Color.parseColor("#7C2D12")); // Rot-Braun bei Konflikt
-                    t1.setText(conflictPrefix + when + "  " + (r.customerName != null ? r.customerName : "?") + statusBadge + vehicleBadge);
+                    itemView.setBackgroundColor(Color.parseColor("#7C2D12"));
+                    t1.setText(conflictPrefix + when + "  " + _name + paxBadge + payBadge + statusBadge + vehicleBadge);
                 } else if (_isSofortWarteschlange) {
-                    itemView.setBackgroundColor(Color.parseColor("#78350F")); // dunkles Bernstein
-                    t1.setText("⚡ SOFORT-WS  " + when + "  " + (r.customerName != null ? r.customerName : "?") + statusBadge + vehicleBadge);
+                    itemView.setBackgroundColor(Color.parseColor("#78350F"));
+                    t1.setText("⚡ SOFORT-WS  " + when + "  " + _name + paxBadge + payBadge + statusBadge + vehicleBadge);
                 } else if (r.isUnclaimedWebBooking()) {
-                    itemView.setBackgroundColor(Color.parseColor("#451A03")); // dunkles Orange
-                    t1.setText("🆕 WEB  " + when + "  " + (r.customerName != null ? r.customerName : "?") + statusBadge + vehicleBadge);
+                    itemView.setBackgroundColor(Color.parseColor("#451A03"));
+                    t1.setText("🆕 WEB  " + when + "  " + _name + paxBadge + payBadge + statusBadge + vehicleBadge);
                 } else if (r.isWebBookingAnySource()) {
-                    // Zugewiesene Web-Anfrage — 🌐 sichtbar machen ohne Background-Highlight
                     itemView.setBackgroundColor(Color.parseColor("#1E293B"));
-                    t1.setText("🌐 " + when + "  " + (r.customerName != null ? r.customerName : "?") + statusBadge + vehicleBadge);
+                    t1.setText("🌐 " + when + "  " + _name + paxBadge + payBadge + statusBadge + vehicleBadge);
                 } else {
                     itemView.setBackgroundColor(Color.parseColor("#1E293B"));
-                    t1.setText(when + "  " + (r.customerName != null ? r.customerName : "?") + statusBadge + vehicleBadge);
+                    t1.setText(when + "  " + _name + paxBadge + payBadge + statusBadge + vehicleBadge);
                 }
                 // v6.62.193: Waypoints zwischen Pickup und Ziel anzeigen (Patrick: 'Zwischenstops
                 // nicht angezeigt im Kalender nativ app'). Mehrzeilig — eine Zeile pro Stop mit
@@ -3104,21 +3112,11 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 if ("transportschein".equalsIgnoreCase(r.paymentMethod)) {
                     route.append("\n🏥 KRANKENFAHRT (Transportschein) — Foto am Ende, keine Rechnung");
                 }
-                // 🆕 v6.63.092 (Patrick 02.06. 20:39): Bezahlt-Badge prominent.
-                //   Wenn paymentStatus=paid + paymentMethod=stripe → grüner "✅ BEZAHLT (Stripe)" Hinweis
-                //   in der Fahrt-Beschreibung. Olaf hatte heute bezahlt aber im Native nicht sichtbar.
-                if ("paid".equalsIgnoreCase(r.paymentStatus)) {
-                    route.append("\n💚 ✅ BEZAHLT");
-                    if ("stripe".equalsIgnoreCase(r.paymentMethod)) route.append(" (Stripe)");
-                    else if (r.paymentMethod != null) route.append(" (").append(r.paymentMethod).append(")");
-                    if (r.stripePaidAmount != null) route.append(" — ").append(String.format(Locale.GERMANY, "%.2f €", r.stripePaidAmount));
-                } else if ("stripe".equalsIgnoreCase(r.paymentMethod) && r.vorkasseRequested != null && r.vorkasseRequested) {
-                    route.append("\n💳 ⏳ Vorkasse offen (Stripe-Link verschickt)");
-                } else if ("stored".equalsIgnoreCase(r.paymentMethod)) {
-                    // 🆕 v6.63.529: SEPA-Lastschrift/Stammkunde-AutoCharge — Fahrer muss NICHT kassieren
+                // v6.63.630: Bezahlt/Vorkasse-Badge jetzt in Zeile 1 (t1) als kompaktes Icon.
+                // Nur Sonderfälle die der Fahrer WISSEN muss bleiben in t2:
+                if ("stored".equalsIgnoreCase(r.paymentMethod)) {
                     route.append("\n💳 Lastschrift — wird automatisch abgebucht, kein Kassieren nötig");
-                } else if ("stripe".equalsIgnoreCase(r.paymentMethod)) {
-                    // 🆕 v6.63.529: Stripe Auto-Charge (kein Vorkasse-Link) — wird nach Fahrt abgebucht
+                } else if ("stripe".equalsIgnoreCase(r.paymentMethod) && !"paid".equalsIgnoreCase(r.paymentStatus) && (r.vorkasseRequested == null || !r.vorkasseRequested)) {
                     route.append("\n💳 Stripe — wird automatisch abgebucht, kein Kassieren nötig");
                 }
                 t2.setText(route.toString());

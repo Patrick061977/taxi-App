@@ -28327,18 +28327,23 @@ exports.onRideUpdated = onValueUpdated(
             const _wasLen = Array.isArray(before.rejectedVehicles) ? before.rejectedVehicles.length : 0;
             const _isLen = Array.isArray(after.rejectedVehicles) ? after.rejectedVehicles.length : 0;
             const _newReject = _isLen > _wasLen;
-            const _noAssign = !after.assignedVehicle && !after.vehicleId;
-            const _validStatus = !after.status || after.status === 'new' || after.status === 'warteschlange';
+            // v6.63.631: Bug-Fix — assigned vehicle bleibt nach Reject gesetzt (native_dashboard löscht es nicht).
+            // Prüfe ob das aktuell zugewiesene Fahrzeug in rejectedVehicles steht → dann ebenfalls Re-Assign.
+            const _curVehicle = after.assignedVehicle || after.vehicleId;
+            const _rejectedCurrentVehicle = _curVehicle && Array.isArray(after.rejectedVehicles) && after.rejectedVehicles.includes(_curVehicle);
+            const _noAssign = !_curVehicle || _rejectedCurrentVehicle;
+            // v6.63.631: 'accepted' ebenfalls erlauben — Fahrer kann accepted Fahrt ablehnen
+            const _validStatus = !after.status || ['new', 'vorbestellt', 'warteschlange', 'accepted'].includes(after.status);
             if (_newReject && _noAssign && _validStatus) {
-                console.log(`🔄 v6.63.241 onRideUpdated: Reject erkannt fuer ${rideId} (rejectedVehicles ${_wasLen}→${_isLen}), sofort Re-Assign...`);
+                console.log(`🔄 v6.63.631 onRideUpdated: Reject erkannt fuer ${rideId} (rejectedVehicles ${_wasLen}→${_isLen}, curVehicle=${_curVehicle}, status=${after.status}), sofort Re-Assign...`);
                 const _result = await autoAssignRide(rideId, after);
                 if (_result && _result.vehicleId) {
-                    console.log(`✅ v6.63.241 Sofort-Re-Assign: ${rideId} → ${_result.vehicleId}`);
-                    try { await addRideLog(rideId, '🔄', `v6.63.241 onRideUpdated Sofort-Re-Assign nach Reject: ${_result.name || _result.vehicleId}`, { quelle: 'onRideUpdated v6.63.241', rejectedVehicles: after.rejectedVehicles, viaTrigger: true }); } catch(_) {}
+                    console.log(`✅ v6.63.631 Sofort-Re-Assign: ${rideId} → ${_result.vehicleId}`);
+                    try { await addRideLog(rideId, '🔄', `v6.63.631 onRideUpdated Sofort-Re-Assign nach Reject: ${_result.name || _result.vehicleId}`, { quelle: 'onRideUpdated v6.63.631', rejectedVehicles: after.rejectedVehicles, viaTrigger: true }); } catch(_) {}
                     return; // weitere Logiken (Wartepool etc.) nicht ausfuehren — wir haben gerade re-assigned
                 } else {
-                    console.log(`⚠️ v6.63.241 Sofort-Re-Assign: kein anderes Fahrzeug verfuegbar fuer ${rideId}`);
-                    try { await addRideLog(rideId, '⚠️', `v6.63.241 Sofort-Re-Assign nach Reject: kein Fahrzeug verfuegbar — Cron uebernimmt`, { quelle: 'onRideUpdated v6.63.241', rejectedVehicles: after.rejectedVehicles }); } catch(_) {}
+                    console.log(`⚠️ v6.63.631 Sofort-Re-Assign: kein anderes Fahrzeug verfuegbar fuer ${rideId}`);
+                    try { await addRideLog(rideId, '⚠️', `v6.63.631 Sofort-Re-Assign nach Reject: kein Fahrzeug verfuegbar — Cron uebernimmt`, { quelle: 'onRideUpdated v6.63.631', rejectedVehicles: after.rejectedVehicles }); } catch(_) {}
                 }
             }
         } catch (_e) { console.error('v6.63.241 onRideUpdated Sofort-Re-Assign Fehler:', _e.message); }

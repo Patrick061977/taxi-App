@@ -556,6 +556,13 @@
                     <h2 style="font-size:17px;margin-bottom:4px;">🔁 Wechselschicht-Vorlagen</h2>
                     <p style="font-size:13px;color:#6b7280;">Definiere pro Mitarbeiter ein Schicht-Muster (Tage + Schicht-Typ + Anker-Datum). Das Muster wird automatisch auf einen Datums-Bereich angewendet — du musst nicht jede Woche manuell klicken.</p>
                 </div>
+                <!-- v6.63.632: Gespeicherte benannte Vorlagen -->
+                <div class="lohn-card" style="margin-bottom:14px;">
+                    <h3 style="font-size:14px;font-weight:700;margin-bottom:10px;">📋 Gespeicherte Vorlagen</h3>
+                    <div id="saved-templates-list" style="display:flex;flex-wrap:wrap;gap:8px;min-height:32px;">
+                        <span style="color:#9ca3af;font-size:13px;">Noch keine Vorlagen gespeichert.</span>
+                    </div>
+                </div>
                 <div id="vorlagen-list"></div>
             </div>
         </div>
@@ -1539,7 +1546,7 @@
 
             // Tab-spezifische Init
             if (tab === 'lohn') initLohnTab();
-            else if (tab === 'vorlagen') renderVorlagenList();
+            else if (tab === 'vorlagen') { renderVorlagenList(); loadShiftTemplates(); }
             else if (tab === 'monat') initMonthTab();
             else if (tab === 'optimizer') initOptimizerTab();
         }
@@ -2837,8 +2844,14 @@ ${rows.join('\n')}
                         </div>
                     </div>
 
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
+                        <select id="tpl-load-${s.id}" class="form-input" style="flex:1;min-width:160px;font-size:13px;" onchange="applyShiftTemplate('${s.id}', this.value)">
+                            <option value="">— Vorlage laden —</option>
+                        </select>
+                        <button class="btn" style="background:#7c3aed;color:white;white-space:nowrap;" onclick="saveAsShiftTemplate('${s.id}')">📋 Als Vorlage speichern</button>
+                    </div>
                     <div class="vorlage-actions">
-                        <button class="btn btn-primary" onclick="saveVorlage('${s.id}')">💾 Vorlage speichern</button>
+                        <button class="btn btn-primary" onclick="saveVorlage('${s.id}')">💾 Muster speichern</button>
                         <button class="btn" style="background:#059669;color:white;" onclick="applyVorlage('${s.id}')">▶ Auf Datums-Bereich anwenden</button>
                         <button class="btn" style="background:#0ea5e9;color:white;" onclick="applyVorlageJahr('${s.id}')" title="Wendet das Pattern automatisch von heute auf 12 Monate vor an (alle Schichten überschrieben)">📅 Jahresplan (12 Monate ab heute)</button>
                         <button class="btn" style="background:#fee2e2;color:#991b1b;" onclick="clearVorlageRange('${s.id}')">🗑 Range löschen</button>
@@ -2848,6 +2861,115 @@ ${rows.join('\n')}
             }).join('');
             // Mode-UI initial setzen
             for (const s of allStaff) updateVorlagenUI(s.id);
+        }
+
+        // v6.63.632: Benannte globale Schicht-Vorlagen (/shiftTemplates)
+        let _shiftTemplates = {}; // cache
+
+        async function loadShiftTemplates() {
+            const snap = await db.ref('shiftTemplates').once('value');
+            _shiftTemplates = snap.val() || {};
+            renderSavedTemplates();
+            // Dropdowns in allen Mitarbeiter-Karten befüllen
+            for (const s of allStaff) {
+                const sel = document.getElementById('tpl-load-' + s.id);
+                if (!sel) continue;
+                const prev = sel.value;
+                sel.innerHTML = '<option value="">— Vorlage laden —</option>' +
+                    Object.keys(_shiftTemplates).map(k =>
+                        `<option value="${escHtml(k)}" ${prev===k?'selected':''}>${escHtml(k)}</option>`
+                    ).join('');
+            }
+        }
+
+        function renderSavedTemplates() {
+            const el = document.getElementById('saved-templates-list');
+            if (!el) return;
+            const keys = Object.keys(_shiftTemplates);
+            if (keys.length === 0) {
+                el.innerHTML = '<span style="color:#9ca3af;font-size:13px;">Noch keine Vorlagen gespeichert.</span>';
+                return;
+            }
+            el.innerHTML = keys.map(k => `
+                <div style="display:inline-flex;align-items:center;gap:6px;background:#f3f4f6;border:1px solid #e5e7eb;border-radius:8px;padding:6px 10px;">
+                    <span style="font-size:13px;font-weight:600;">📋 ${escHtml(k)}</span>
+                    <button onclick="deleteShiftTemplate('${escHtml(k)}')" style="background:none;border:none;cursor:pointer;color:#ef4444;font-size:14px;line-height:1;" title="Vorlage löschen">✕</button>
+                </div>`).join('');
+        }
+
+        async function saveAsShiftTemplate(staffId) {
+            const name = prompt('Vorlagen-Name eingeben (z.B. "Tagschicht Standard"):');
+            if (!name || !name.trim()) return;
+            const key = name.trim();
+            const pattern = readVorlagenForm(staffId);
+            pattern.templateName = key;
+            try {
+                await db.ref('shiftTemplates/' + key).set(pattern);
+                _shiftTemplates[key] = pattern;
+                renderSavedTemplates();
+                // alle Dropdowns aktualisieren
+                for (const s of allStaff) {
+                    const sel = document.getElementById('tpl-load-' + s.id);
+                    if (!sel) continue;
+                    if (!sel.querySelector(`option[value="${key}"]`)) {
+                        sel.innerHTML += `<option value="${escHtml(key)}">${escHtml(key)}</option>`;
+                    }
+                }
+                showToast('Vorlage "' + key + '" gespeichert ✓');
+            } catch (e) { alert('Fehler: ' + e.message); }
+        }
+
+        function applyShiftTemplate(staffId, key) {
+            if (!key) return;
+            const tpl = _shiftTemplates[key];
+            if (!tpl) return;
+            const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; };
+            // Tage-Buttons
+            document.querySelectorAll(`#vorl-days-${staffId} .day-pick-btn`).forEach(btn => {
+                const d = parseInt(btn.dataset.day);
+                btn.classList.toggle('selected', (tpl.days || []).includes(d));
+            });
+            set('vorl-mode-' + staffId, tpl.mode || 'fixed-day');
+            set('vorl-anchor-' + staffId, tpl.anchorDate || '');
+            const ds = tpl.dayShift || {};
+            set('vorl-day-start-' + staffId, ds.start);
+            set('vorl-day-end-' + staffId, ds.end);
+            set('vorl-day-pstart-' + staffId, ds.pauseStart);
+            set('vorl-day-pend-' + staffId, ds.pauseEnd);
+            set('vorl-day-prestart-' + staffId, ds.preStandbyStart);
+            set('vorl-day-preend-' + staffId, ds.preStandbyEnd);
+            set('vorl-day-poststart-' + staffId, ds.postStandbyStart);
+            set('vorl-day-postend-' + staffId, ds.postStandbyEnd);
+            const ns = tpl.nightShift || {};
+            set('vorl-night-start-' + staffId, ns.start);
+            set('vorl-night-end-' + staffId, ns.end);
+            set('vorl-night-pstart-' + staffId, ns.pauseStart);
+            set('vorl-night-pend-' + staffId, ns.pauseEnd);
+            set('vorl-night-prestart-' + staffId, ns.preStandbyStart);
+            set('vorl-night-preend-' + staffId, ns.preStandbyEnd);
+            set('vorl-night-poststart-' + staffId, ns.postStandbyStart);
+            set('vorl-night-postend-' + staffId, ns.postStandbyEnd);
+            const ss = tpl.standbyShift || {};
+            set('vorl-standby-start-' + staffId, ss.start);
+            set('vorl-standby-end-' + staffId, ss.end);
+            const en = document.getElementById('vorl-enabled-' + staffId);
+            if (en) en.checked = !!tpl.enabled;
+            updateVorlagenUI(staffId);
+            showToast('Vorlage "' + key + '" geladen ✓');
+        }
+
+        async function deleteShiftTemplate(key) {
+            if (!confirm('Vorlage "' + key + '" wirklich löschen?')) return;
+            await db.ref('shiftTemplates/' + key).remove();
+            delete _shiftTemplates[key];
+            renderSavedTemplates();
+            for (const s of allStaff) {
+                const sel = document.getElementById('tpl-load-' + s.id);
+                if (!sel) continue;
+                const opt = sel.querySelector(`option[value="${key}"]`);
+                if (opt) opt.remove();
+            }
+            showToast('Vorlage gelöscht');
         }
 
         function toggleVorlagenDay(staffId, dayIdx) {

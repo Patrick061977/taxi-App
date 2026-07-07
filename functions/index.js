@@ -35021,9 +35021,19 @@ exports.sendInvoiceEmail = onRequest(
             const fromEmail = smtp.fromEmail || smtp.user;
 
             // 🆕 v6.22.0: PDF als Anhang herunterladen (wenn gewünscht)
+            // v6.63.635: pdfUrl immer aus Invoice-Record nachladen wenn nicht explizit übergeben
             let attachments = [];
-            const shouldAttachPdf = attachPdf !== false; // Standard: immer anhängen wenn pdfUrl vorhanden
-            const effectivePdfUrl = pdfUrl || (emailHTML ? null : (invoice ? invoice.pdfUrl : null));
+            const shouldAttachPdf = attachPdf !== false;
+            let effectivePdfUrl = pdfUrl;
+            if (!effectivePdfUrl && invoiceNumber) {
+                try {
+                    const _pSnap = await db.ref('invoices/' + invoiceNumber + '/pdfUrl').once('value');
+                    if (_pSnap.val()) effectivePdfUrl = _pSnap.val();
+                } catch (_pe) {}
+            }
+            if (!effectivePdfUrl && typeof invoice !== 'undefined' && invoice && invoice.pdfUrl) {
+                effectivePdfUrl = invoice.pdfUrl;
+            }
 
             if (shouldAttachPdf && effectivePdfUrl) {
                 try {

@@ -27,6 +27,7 @@ public class EmailPreviewActivity extends AppCompatActivity {
     public static final String EXTRA_RIDE_ID = "rideId";
     public static final String EXTRA_MODE = "mode";
     public static final String MODE_INVOICE = "invoice";
+    public static final String EXTRA_INVOICE_KEY = "invoiceKey";
     private static final String DB_URL = "https://taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.app";
     private static final String ENDPOINT_CONFIRM = "https://europe-west1-taxi-heringsdorf.cloudfunctions.net/sendRideConfirmationEmail";
     private static final String ENDPOINT_INVOICE = "https://europe-west1-taxi-heringsdorf.cloudfunctions.net/sendInvoiceEmail";
@@ -36,6 +37,8 @@ public class EmailPreviewActivity extends AppCompatActivity {
     private Button btnSend, btnCancel;
     private TextView tvStatus;
     private String rideId;
+    private String invoiceKey;   // Firebase-Key in /invoices (Fallback wenn kein rideId)
+    private String prefillPdfUrl; // pdfUrl direkt aus InvoicesActivity übergeben
     private double ridePrice = 0;
     private boolean isInvoiceMode;
     private String invoiceNumber;
@@ -55,10 +58,13 @@ public class EmailPreviewActivity extends AppCompatActivity {
         tvStatus = findViewById(R.id.tvEmailStatus);
 
         rideId = getIntent().getStringExtra(EXTRA_RIDE_ID);
+        invoiceKey = getIntent().getStringExtra(EXTRA_INVOICE_KEY);
+        prefillPdfUrl = getIntent().getStringExtra("prefillPdfUrl");
+        if (prefillPdfUrl == null) prefillPdfUrl = "";
         isInvoiceMode = MODE_INVOICE.equals(getIntent().getStringExtra(EXTRA_MODE));
 
-        if (rideId == null) {
-            Toast.makeText(this, "Fehler: keine Ride-ID", Toast.LENGTH_LONG).show();
+        if (rideId == null && invoiceKey == null) {
+            Toast.makeText(this, "Fehler: keine Ride-ID oder Rechnungsschlüssel", Toast.LENGTH_LONG).show();
             finish();
             return;
         }
@@ -76,11 +82,52 @@ public class EmailPreviewActivity extends AppCompatActivity {
     }
 
     private void loadRideData() {
-        tvStatus.setText("Lade Fahrt-Daten...");
+        tvStatus.setText("Lade Daten...");
+        if (rideId != null) {
+            loadFromRide();
+        } else {
+            loadFromInvoice(invoiceKey);
+        }
+    }
+
+    // v6.63.635: Direkt aus /invoices/{key} laden wenn kein rideId vorhanden
+    private void loadFromInvoice(String key) {
+        FirebaseDatabase.getInstance(DB_URL).getReference("invoices/" + key)
+            .addListenerForSingleValueEvent(new ValueEventListener() {
+                @Override public void onDataChange(DataSnapshot snap) {
+                    if (!snap.exists()) { tvStatus.setText("⚠️ Rechnung nicht gefunden"); return; }
+                    invoiceNumber = strVal(snap.child("invoiceNumber").getValue());
+                    if (invoiceNumber.isEmpty()) invoiceNumber = key;
+                    invoicePdfUrl = strVal(snap.child("pdfUrl").getValue());
+                    if (invoicePdfUrl.isEmpty() && !prefillPdfUrl.isEmpty()) invoicePdfUrl = prefillPdfUrl;
+                    String email = strVal(snap.child("customerEmail").getValue());
+                    if (email.isEmpty()) {
+                        String prefillE = getIntent().getStringExtra("prefillEmail");
+                        if (prefillE != null && !prefillE.isEmpty()) email = prefillE;
+                    }
+                    String name = strVal(snap.child("customerName").getValue());
+                    if (name.isEmpty()) name = strVal(snap.child("guestName").getValue());
+                    String guestName = strVal(snap.child("guestName").getValue());
+                    String pickup = strVal(snap.child("pickup").getValue());
+                    String dest = strVal(snap.child("destination").getValue());
+                    String price = String.format(Locale.GERMANY, "%.2f", dblVal(snap.child("totalGross").getValue()));
+                    String dateStr = strVal(snap.child("invoiceDate").getValue());
+                    String dateTimeStr = dateStr.isEmpty() ? "—" : dateStr;
+                    etTo.setText(email);
+                    buildInvoiceBody(name, guestName, pickup, dest, dateTimeStr, price, invoiceNumber, email, null);
+                }
+                @Override public void onCancelled(DatabaseError err) {
+                    tvStatus.setText("⚠️ DB-Fehler: " + err.getMessage());
+                }
+            });
+    }
+
+    private void loadFromRide() {
         FirebaseDatabase.getInstance(DB_URL).getReference("rides/" + rideId)
             .addListenerForSingleValueEvent(new ValueEventListener() {
                 @Override public void onDataChange(DataSnapshot snap) {
                     if (!snap.exists()) {
+                        if (invoiceKey != null) { loadFromInvoice(invoiceKey); return; }
                         tvStatus.setText("⚠️ Ride nicht gefunden");
                         return;
                     }
@@ -98,11 +145,13 @@ public class EmailPreviewActivity extends AppCompatActivity {
                     invoicePdfUrl = strVal(snap.child("invoicePdfUrl").getValue());
                     ridePrice = parsePrice(price);
 
-                    // v6.63.609: Falls ride.customerEmail leer → Fallback auf prefillEmail-Extra
-                    //   (aus CRM-Lookup in InvoicesActivity, dort /customers/{id}/email gelesen)
+                    // v6.63.635: prefillPdfUrl als Fallback wenn ride.invoicePdfUrl leer
+                    if (invoicePdfUrl.isEmpty() && !prefillPdfUrl.isEmpty()) invoicePdfUrl = prefillPdfUrl;
+
+                    // prefillEmail-Fallback
                     if (email == null || email.isEmpty()) {
-                        String prefill = getIntent().getStringExtra("prefillEmail");
-                        if (prefill != null && !prefill.isEmpty()) email = prefill;
+                        String prefillE = getIntent().getStringExtra("prefillEmail");
+                        if (prefillE != null && !prefillE.isEmpty()) email = prefillE;
                     }
                     etTo.setText(email);
 
@@ -114,7 +163,14 @@ public class EmailPreviewActivity extends AppCompatActivity {
                     }
 
                     if (isInvoiceMode) {
-                        buildInvoiceBody(name, guestName, pickup, dest, dateTimeStr, price, invoiceNumber, email, pickupTs);
+                        // v6.63.635: Invoice pdfUrl nachladen wenn aus Ride leer
+                        final String _email = email;
+                        if (invoicePdfUrl.isEmpty() && !invoiceNumber.isEmpty()) {
+                            FirebaseDatabase.getInstance(DB_URL)
+                                .getReference("invoices/" + invoiceNumber + "/pdfUrl").get()
+                                .addOnSuccessListener(s -> { String u = strVal(s.getValue()); if (!u.isEmpty()) invoicePdfUrl = u; });
+                        }
+                        buildInvoiceBody(name, guestName, pickup, dest, dateTimeStr, price, invoiceNumber, _email, pickupTs);
                     } else {
                         buildConfirmationBody(name, email, pickup, dest, dateTimeStr, pax, price, vehicleName, vehiclePlate, pickupTs);
                     }
@@ -326,6 +382,10 @@ public class EmailPreviewActivity extends AppCompatActivity {
     }
 
     private static String strVal(Object v) { return v == null ? "" : String.valueOf(v); }
+    private static double dblVal(Object v) {
+        if (v == null) return 0;
+        try { return v instanceof Number ? ((Number) v).doubleValue() : Double.parseDouble(String.valueOf(v)); } catch (Throwable t) { return 0; }
+    }
     private static Long longVal(Object v) {
         if (v == null) return null;
         try { return v instanceof Number ? ((Number) v).longValue() : Long.parseLong(String.valueOf(v)); } catch (Throwable t) { return null; }

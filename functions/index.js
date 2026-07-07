@@ -29095,7 +29095,11 @@ exports.onRideUpdated = onValueUpdated(
                 //   Disposition-Link. Patrick tippt → Browser-Listener (v6.62.390)
                 //   triggert openInvoiceModal+generateInvoicePDFv2 = pixel-identisches
                 //   Web-Layout.
-                if (after.needsInvoice === true && !after.invoiceNumber) {
+                // 🔧 v6.63.638: Push NUR bei Auftraggeber-Fahrten (Hotel/Firma/Klinik).
+                //   Normale Kunden-Fahrten: Auto-Rechnung + SMS-PDF-Link läuft automatisch
+                //   → kein Admin-Push nötig. (Patrick 07.07.: "Warum schickt mir Telegram
+                //   eine Rechnung wartet-Nachricht?")
+                if (after.needsInvoice === true && !after.invoiceNumber && after._isAuftraggeberBooking === true) {
                     try {
                         const _amt = parseFloat(after.actualPrice || after.price || 0);
                         const _amtStr = isNaN(_amt) ? '?' : _amt.toFixed(2).replace('.', ',') + ' €';

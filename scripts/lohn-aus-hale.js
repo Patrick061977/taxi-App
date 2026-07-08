@@ -26,7 +26,11 @@ const AG_PAUSCHALE      = AG_KV + AG_RV + AG_STEUER; // 0.30
 // Bereitschaft: Pausen > BEREITSCHAFT_GRENZE_MIN gelten als weite Bereitschaft
 // → zählen NICHT als vergütungspflichtige Arbeitszeit (nur Mindestlohn-Prüfung)
 const BEREITSCHAFT_GRENZE_MIN = 45;
-const KM_DURCHSCHNITT_KMH     = 35; // angenommene Durchschnittsgeschwindigkeit für km-Methode
+const KM_DURCHSCHNITT_KMH     = 35;
+// Lohnmodell: 40% Provision rückwärts in Stunden → × STUNDENSATZ
+// + RUFBEREITSCHAFT_SATZ für Pausen >45 Min (weite Bereitschaft)
+const STUNDENSATZ              = 13.60; // €/h — Provision ÷ Stundensatz = bezahlte Stunden
+const RUFBEREITSCHAFT_SATZ     = 2.50;  // €/h für Pausen >45 Min
 
 const ARBEITGEBER = {
     name:    'Funk Taxi Heringsdorf GbR',
@@ -208,21 +212,26 @@ function berechne(report) {
         });
 
     const gesamtSchichtMin        = tage.reduce((s, t) => s + t.schichtMin, 0);
-    const gesamtArbeitsMin        = tage.reduce((s, t) => s + t.arbeitsMin, 0);       // ohne weite Bereitschaft
     const gesamtWeiteBereitschaft = tage.reduce((s, t) => s + t.weiteBereitschaftMin, 0);
-    const gesamtKmMethodeMin      = tage.reduce((s, t) => s + t.kmMethodeMin, 0);
     const gesamtUmsatz            = summe.gesamtumsatz || tage.reduce((s, t) => s + t.umsatz, 0);
-    const bruttolohn              = round2(gesamtUmsatz * PROVISION_RATE);
 
-    // Stundenlohn nach Zeit-Methode (ohne weite Bereitschaft > 45 Min)
-    const gesamtArbeitsH   = gesamtArbeitsMin / 60;
-    const effStundenlohn   = gesamtArbeitsH > 0 ? round2(bruttolohn / gesamtArbeitsH) : 0;
-    // Stundenlohn nach Schichtzeit (inkl. aller Pausen — konservative Variante)
-    const gesamtSchichtH   = gesamtSchichtMin / 60;
-    const effStundenlohnSchicht = gesamtSchichtH > 0 ? round2(bruttolohn / gesamtSchichtH) : 0;
-    // Stundenlohn nach km-Methode
-    const gesamtKmH        = gesamtKmMethodeMin / 60;
-    const effStundenlohnKm = gesamtKmH > 0 ? round2(bruttolohn / gesamtKmH) : 0;
+    // Lohnmodell: 40% Provision → rückwärts in Stunden umrechnen
+    const provision               = round2(gesamtUmsatz * PROVISION_RATE);
+    const bezahlteStunden         = round2(provision / STUNDENSATZ);
+    const schichtStunden          = round2(gesamtSchichtMin / 60);
+    // Rufbereitschaft = Aufstockung NUR wenn Provision die Schichtzeit noch nicht abdeckt.
+    // Deckt die Provision bereits die volle Schichtzeit → Rufbereitschaft = 0.
+    const rufbereitschaftStunden  = bezahlteStunden >= schichtStunden
+        ? 0
+        : round2(schichtStunden - bezahlteStunden);
+    const rufbereitschaftLohn     = round2(rufbereitschaftStunden * RUFBEREITSCHAFT_SATZ);
+    const bruttolohn              = round2(provision + rufbereitschaftLohn);
+
+    // Mindestlohn-Check: bezahlte Stunden × Stundensatz muss ≥ Mindestlohn × Arbeitszeit
+    const gesamtArbeitsMin        = tage.reduce((s, t) => s + t.arbeitsMin, 0);
+    const gesamtArbeitsH          = gesamtArbeitsMin / 60;
+    const mindestlohnBedarf       = round2(gesamtArbeitsH * MINDESTLOHN);
+    const mindestlohnOK           = provision >= mindestlohnBedarf;
 
     const agKV      = round2(bruttolohn * AG_KV);
     const agRV      = round2(bruttolohn * AG_RV);
@@ -231,15 +240,16 @@ function berechne(report) {
 
     return {
         fahrer, zeitraum, tage,
-        gesamtSchichtMin, gesamtSchichtH,
+        gesamtSchichtMin, schichtStunden,
         gesamtArbeitsMin, gesamtArbeitsH,
-        gesamtWeiteBereitschaft, gesamtKmMethodeMin, gesamtKmH,
-        gesamtUmsatz, bruttolohn,
-        effStundenlohn,          // Basis: Arbeitszeit (ohne weite Bereitschaft) ← Empfehlung
-        effStundenlohnSchicht,   // Basis: volle Schichtzeit (konservativ)
-        effStundenlohnKm,        // Basis: km-Methode
-        mindestlohnOK: effStundenlohn >= MINDESTLOHN,
-        minijobOK:     bruttolohn <= MINIJOB_GRENZE,
+        gesamtWeiteBereitschaft,
+        gesamtUmsatz,
+        provision,            // 40% vom Umsatz
+        bezahlteStunden,      // Provision ÷ Stundensatz (Stunden-Äquivalent)
+        rufbereitschaftStunden, rufbereitschaftLohn,
+        bruttolohn,           // Provision + ggf. Aufstockung
+        mindestlohnOK, mindestlohnBedarf,
+        minijobOK: bruttolohn <= MINIJOB_GRENZE,
         agKV, agRV, agSteuer, agGesamt,
         gesamtkosten: round2(bruttolohn + agGesamt),
         leerKm:   summe.leerKm,
@@ -373,7 +383,11 @@ footer{margin-top:20px;padding-top:10px;border-top:1px solid #e2e8f0;font-size:9
   <h2>Lohnabrechnung</h2>
   <table>
     <tr class="lrow"><td>Bruttoumsatz (Fahrten)</td><td class="r">${fmt(c.gesamtUmsatz)}</td></tr>
-    <tr class="lrow"><td>× Provision 40&nbsp;%</td><td class="r">${fmt(c.bruttolohn)}</td></tr>
+    <tr class="lrow"><td>× Provision 40&nbsp;% &rarr; Std-Äquivalent: ${c.bezahlteStunden.toFixed(2).replace('.',',')} Std × ${STUNDENSATZ.toFixed(2).replace('.',',')} €/h</td><td class="r">${fmt(c.provision)}</td></tr>
+    <tr class="lrow"><td>${c.rufbereitschaftStunden > 0
+        ? `+ Aufstockung auf Schichtzeit (${fmtH(c.gesamtSchichtMin)} &minus; ${c.bezahlteStunden.toFixed(2).replace('.',',')} Std) = ${c.rufbereitschaftStunden.toFixed(2).replace('.',',')} Std × ${RUFBEREITSCHAFT_SATZ.toFixed(2).replace('.',',')} €/h`
+        : `Rufbereitschaft: entfällt (Provision deckt Schichtzeit ${fmtH(c.gesamtSchichtMin)} bereits ab)`
+    }</td><td class="r">${fmt(c.rufbereitschaftLohn)}</td></tr>
     <tr class="lsep"><td colspan="2"></td></tr>
     <tr class="lbig"><td>= BRUTTOLOHN</td><td class="r">${fmt(c.bruttolohn)}</td></tr>
     <tr class="lrow"><td class="lsub">AN-Abzüge (Minijob pauschal &mdash; Arbeitnehmer trägt nichts)</td><td class="r lsub">0,00&nbsp;€</td></tr>
@@ -391,8 +405,8 @@ footer{margin-top:20px;padding-top:10px;border-top:1px solid #e2e8f0;font-size:9
   <div class="checks">
     <div class="chk" style="background:${mlColor};border:1px solid ${mlBorder}">
       <h3 style="color:${mlHColor}">${mlIcon} Mindestlohn ${c.mindestlohnOK ? 'eingehalten' : 'UNTERSCHRITTEN'}</h3>
-      <div class="cv">${c.effStundenlohn.toFixed(2).replace('.',',')} €/h</div>
-      <div class="cs">Basis: Arbeitszeit ${fmtH(c.gesamtArbeitsMin)} (ohne Bereitschaft &gt;${BEREITSCHAFT_GRENZE_MIN} Min) &middot; gesetzl. min. ${MINDESTLOHN.toFixed(2).replace('.',',')} €/h</div>
+      <div class="cv">${STUNDENSATZ.toFixed(2).replace('.',',')} €/h</div>
+      <div class="cs">Provision ${fmt(c.provision)} &ge; Mindestlohn-Bedarf ${fmt(c.mindestlohnBedarf)} (${fmtH(c.gesamtArbeitsMin)} × ${MINDESTLOHN.toFixed(2).replace('.',',')} €/h)</div>
     </div>
     <div class="chk" style="background:${mjColor};border:1px solid ${mjBorder}">
       <h3 style="color:${mjHColor}">${mjIcon} Minijob-Grenze ${c.minijobOK ? 'OK' : 'ÜBERSCHRITTEN'}</h3>
@@ -400,12 +414,6 @@ footer{margin-top:20px;padding-top:10px;border-top:1px solid #e2e8f0;font-size:9
       <div class="cs">Grenze: ${MINIJOB_GRENZE.toFixed(2).replace('.',',')} €/Mo &middot; ${mjSub}</div>
     </div>
   </div>
-  <table style="margin-top:10px;font-size:10px;background:#f8fafc;border-radius:6px;overflow:hidden">
-    <tr><th colspan="3" style="background:#334155;text-align:left;padding:6px 8px;font-size:9px">Stundenlohn-Vergleich (3 Methoden)</th></tr>
-    <tr><td style="padding:5px 8px"><strong>1 — Arbeitszeit</strong> (Fahrzeit + Pausen &le;${BEREITSCHAFT_GRENZE_MIN} Min) &larr; Empfehlung</td><td class="c">${fmtH(c.gesamtArbeitsMin)}</td><td class="r" style="font-weight:700;color:#065f46">${c.effStundenlohn.toFixed(2).replace('.',',')} €/h</td></tr>
-    <tr><td style="padding:5px 8px">2 — Volle Schichtzeit (inkl. aller Pausen, konservativ)</td><td class="c">${fmtH(c.gesamtSchichtMin)}</td><td class="r">${c.effStundenlohnSchicht.toFixed(2).replace('.',',')} €/h</td></tr>
-    <tr><td style="padding:5px 8px">3 — km-Basis (${c.belegtKm.toFixed(1)} km &divide; ${KM_DURCHSCHNITT_KMH} km/h &Oslash;)</td><td class="c">${fmtH(c.gesamtKmMethodeMin)}</td><td class="r">${c.effStundenlohnKm.toFixed(2).replace('.',',')} €/h</td></tr>
-  </table>
 </section>
 
 <footer>
@@ -443,14 +451,20 @@ footer{margin-top:20px;padding-top:10px;border-top:1px solid #e2e8f0;font-size:9
     const calc = berechne(report);
     console.log(`   Bruttolohn (40%):  ${fmt(calc.bruttolohn)}`);
     console.log(`   Schichtzeit ges.:  ${fmtH(calc.gesamtSchichtMin)}`);
-    console.log(`   Effektiv-Stdlohn:  ${calc.effStundenlohn.toFixed(2)} €/h`);
+    console.log(`   Provision:         ${fmt(calc.provision)} (Äquivalent ${calc.bezahlteStunden.toFixed(2)} Std, Schicht ${calc.schichtStunden.toFixed(2)} Std)`);
+    const rbInfo = calc.rufbereitschaftStunden > 0
+        ? `${calc.rufbereitschaftStunden.toFixed(2)} Std × ${RUFBEREITSCHAFT_SATZ.toFixed(2)} €/h = ${fmt(calc.rufbereitschaftLohn)}`
+        : 'entfällt (Provision deckt Schichtzeit ab)';
+    console.log(`   Aufstockung:       ${rbInfo}`);
     console.log(`   Mindestlohn OK:    ${calc.mindestlohnOK ? '✅' : '⚠️  NEIN'}`);
     console.log(`   Minijob-Grenze OK: ${calc.minijobOK     ? '✅' : '⚠️  NEIN — bitte prüfen'}`);
     console.log(`   Gesamtkosten AG:   ${fmt(calc.gesamtkosten)}`);
 
     // HTML schreiben
+    const ts      = new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
     const base    = pdfIn.replace(/\.pdf$/i, '');
     const htmlOut = base + '_Lohnabrechnung.html';
+    const pdfOut  = base + `_Lohnabrechnung_${ts}.pdf`;
     fs.writeFileSync(htmlOut, generateHTML(calc), 'utf8');
     console.log('📝 HTML:', htmlOut);
 
@@ -463,7 +477,6 @@ footer{margin-top:20px;padding-top:10px;border-top:1px solid #e2e8f0;font-size:9
     const browser   = await puppeteer.launch({ executablePath: CHROME, headless: 'new' });
     const page      = await browser.newPage();
     await page.goto('file://' + htmlOut.replace(/\\/g, '/'), { waitUntil: 'load' });
-    const pdfOut = base + '_Lohnabrechnung.pdf';
     await page.pdf({ path: pdfOut, format: 'A4', printBackground: true,
         margin: { top: '8mm', right: '8mm', bottom: '8mm', left: '8mm' } });
     await browser.close();

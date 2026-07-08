@@ -1057,9 +1057,11 @@ async function buildWartepoolOptions(wpRide, allRides, vehicles, shiftsData) {
     return _options;
 }
 
-// v6.63.648: 30s In-Memory-Cache für autoAssignRide — verhindert N×3 Firebase-Reads pro Cron-Lauf
-const _aarCache = { vehicles: null, shifts: null, rides: null, ts: 0 };
+// v6.63.648: In-Memory-Cache für autoAssignRide — verhindert N×7 Firebase-Reads pro Cron-Lauf
+// v6.63.649: Settings ebenfalls gecacht (5 Min TTL — ändern sich selten)
+const _aarCache = { vehicles: null, shifts: null, rides: null, ts: 0, priorities: null, pricing: null, prioMalus: null, optByDay: null, settingsTs: 0 };
 const _AAR_CACHE_TTL = 30 * 1000;
+const _AAR_SETTINGS_TTL = 5 * 60 * 1000;
 async function autoAssignRide(rideId, rideData, _excludeVehicleIds = []) {
     console.log(`🎯 v6.25.4: Cloud-AutoAssign für Fahrt: ${rideId}${_excludeVehicleIds.length ? ' (exclude: ' + _excludeVehicleIds.join(',') + ')' : ''}`);
 
@@ -1194,18 +1196,27 @@ async function autoAssignRide(rideId, rideData, _excludeVehicleIds = []) {
         } else {
             console.log(`⚡ v6.63.648: autoAssignRide Cache-Hit (${Math.round((_now648 - _aarCache.ts)/1000)}s alt)`);
         }
-        const [prioritiesSnap, pricingSnap, prioMalusSnap, optByDaySnap] = await Promise.all([
-            db.ref('settings/vehiclePriorities').once('value'),
-            db.ref('settings/pricing').once('value'),
-            db.ref('settings/vehiclePrioMalus').once('value'),
-            db.ref('settings/optimizationByDay').once('value')
-        ]);
+        // v6.63.649: Settings-Cache (5 Min TTL)
+        const _settingsCacheHit = (_aarCache.settingsTs && (_now648 - _aarCache.settingsTs) < _AAR_SETTINGS_TTL);
+        if (!_settingsCacheHit) {
+            const [_pSnap, _prSnap, _pmSnap, _obdSnap] = await Promise.all([
+                db.ref('settings/vehiclePriorities').once('value'),
+                db.ref('settings/pricing').once('value'),
+                db.ref('settings/vehiclePrioMalus').once('value'),
+                db.ref('settings/optimizationByDay').once('value')
+            ]);
+            _aarCache.priorities = _pSnap.val() || {};
+            _aarCache.pricing = _prSnap.val() || {};
+            _aarCache.prioMalus = _pmSnap.val() || {};
+            _aarCache.optByDay = _obdSnap.val() || {};
+            _aarCache.settingsTs = _now648;
+        }
         const vehicles = _aarCache.vehicles;
         const shiftsData = _aarCache.shifts;
-        const vehiclePriorities = prioritiesSnap.val() || {};
-        const vehiclePrioMalus = prioMalusSnap.val() || {};
-        const optimizationByDay = optByDaySnap.val() || {};
-        const pricingSettings = pricingSnap.val() || {};
+        const vehiclePriorities = _aarCache.priorities;
+        const vehiclePrioMalus = _aarCache.prioMalus;
+        const optimizationByDay = _aarCache.optByDay;
+        const pricingSettings = _aarCache.pricing;
         const allRides = _aarCache.rides;
 
         // 🔧 v6.38.34: PFLICHT — Duration muss vorhanden sein! Kein Fallback auf 20 Min!

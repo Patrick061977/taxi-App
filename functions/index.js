@@ -1057,6 +1057,9 @@ async function buildWartepoolOptions(wpRide, allRides, vehicles, shiftsData) {
     return _options;
 }
 
+// v6.63.648: 30s In-Memory-Cache für autoAssignRide — verhindert N×3 Firebase-Reads pro Cron-Lauf
+const _aarCache = { vehicles: null, shifts: null, rides: null, ts: 0 };
+const _AAR_CACHE_TTL = 30 * 1000;
 async function autoAssignRide(rideId, rideData, _excludeVehicleIds = []) {
     console.log(`🎯 v6.25.4: Cloud-AutoAssign für Fahrt: ${rideId}${_excludeVehicleIds.length ? ' (exclude: ' + _excludeVehicleIds.join(',') + ')' : ''}`);
 
@@ -1170,27 +1173,40 @@ async function autoAssignRide(rideId, rideData, _excludeVehicleIds = []) {
         }
         // 🔧 v6.63.217 (Cost-Detox Phase X): rides nur Fenster -2h..+24h statt ALLES.
         //   Vorher 5-15 MB pro Call × 100ks Calls/Tag = ~16 GB/Tag Hauptkostenfresser.
-        const _rWS = Date.now() - 2 * 60 * 60 * 1000;
-        const _rWE = Date.now() + 24 * 60 * 60 * 1000;
-        const [vehiclesSnap, shiftsSnap, ridesSnap, prioritiesSnap, pricingSnap, prioMalusSnap, optByDaySnap] = await Promise.all([
-            db.ref('vehicles').once('value'),
-            db.ref('vehicleShifts').once('value'),
-            db.ref('rides').orderByChild('pickupTimestamp').startAt(_rWS).endAt(_rWE).once('value'),
+        // v6.63.648: 30s Cache — scheduledAutoAssign ruft autoAssignRide N-mal auf (1/Fahrt),
+        //   vorher N×3 Reads (vehicles+shifts+rides). Mit Cache: 3 Reads pro Cron-Lauf.
+        const _now648 = Date.now();
+        const _rWS = _now648 - 2 * 60 * 60 * 1000;
+        const _rWE = _now648 + 24 * 60 * 60 * 1000;
+        const _cacheHit = (_aarCache.ts && (_now648 - _aarCache.ts) < _AAR_CACHE_TTL);
+        if (!_cacheHit) {
+            const [_vSnap, _sSnap, _rSnap] = await Promise.all([
+                db.ref('vehicles').once('value'),
+                db.ref('vehicleShifts').once('value'),
+                db.ref('rides').orderByChild('pickupTimestamp').startAt(_rWS).endAt(_rWE).once('value')
+            ]);
+            _aarCache.vehicles = _vSnap.val() || {};
+            _aarCache.shifts = _sSnap.val() || {};
+            _aarCache.rides = [];
+            _rSnap.forEach(c => { _aarCache.rides.push({ ...c.val(), firebaseId: c.key }); });
+            _aarCache.ts = _now648;
+            console.log(`📦 v6.63.648: autoAssignRide Cache-Miss — ${_aarCache.rides.length} Rides, ${Object.keys(_aarCache.vehicles).length} Fahrzeuge geladen`);
+        } else {
+            console.log(`⚡ v6.63.648: autoAssignRide Cache-Hit (${Math.round((_now648 - _aarCache.ts)/1000)}s alt)`);
+        }
+        const [prioritiesSnap, pricingSnap, prioMalusSnap, optByDaySnap] = await Promise.all([
             db.ref('settings/vehiclePriorities').once('value'),
             db.ref('settings/pricing').once('value'),
-            db.ref('settings/vehiclePrioMalus').once('value'),  // 🆕 v6.62.518: pro-Fahrzeug Override
-            db.ref('settings/optimizationByDay').once('value')  // 🆕 v6.62.520: pro-Wochentag Override
+            db.ref('settings/vehiclePrioMalus').once('value'),
+            db.ref('settings/optimizationByDay').once('value')
         ]);
-        const vehicles = vehiclesSnap.val() || {};
-        const shiftsData = shiftsSnap.val() || {};
+        const vehicles = _aarCache.vehicles;
+        const shiftsData = _aarCache.shifts;
         const vehiclePriorities = prioritiesSnap.val() || {};
-        const vehiclePrioMalus = prioMalusSnap.val() || {};  // 🆕 v6.62.518
-        const optimizationByDay = optByDaySnap.val() || {};  // 🆕 v6.62.520
+        const vehiclePrioMalus = prioMalusSnap.val() || {};
+        const optimizationByDay = optByDaySnap.val() || {};
         const pricingSettings = pricingSnap.val() || {};
-        const allRides = [];
-        // v6.61.6: Block-Body — sonst stoppt Firebase forEach nach erstem push (push() returnt
-        // array.length=1, was Firebase als 'cancel iteration' interpretiert).
-        ridesSnap.forEach(c => { allRides.push({ ...c.val(), firebaseId: c.key }); });
+        const allRides = _aarCache.rides;
 
         // 🔧 v6.38.34: PFLICHT — Duration muss vorhanden sein! Kein Fallback auf 20 Min!
         if (!rideData.duration && !rideData.estimatedDuration) {

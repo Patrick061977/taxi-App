@@ -433,6 +433,35 @@ async function osrmDrivingMin(fromLat, fromLon, toLat, toLon) {
     }
 }
 
+// v6.63.646: ETA-Routing für scheduledReachabilityCheck — OSRM only (kein Google).
+// Grund: calculateRoute() ruft Google Routes + OSRM parallel auf. Da Fahrzeug-GPS
+// sich jede Minute ändert, gibt es keine Cache-Hits → jede Minute Google API-Call
+// pro aktiver Fahrt → bis zu 500€/Monat Hochsaison. OSRM ist kostenlos + ausreichend
+// für "Fahrer kommt in X Minuten"-Anzeige. Google Routes bleibt für Preisberechnung
+// und Konflikt-Auflösung (selten, Cache-fähig) erhalten.
+const _etaRouteMem = new Map(); // key → { duration, distance, t }
+const _ETA_ROUTE_TTL = 60 * 1000; // 60s — Fahrzeug bewegt sich, längeres Cache sinnlos
+async function _osrmEtaRoute(fromLat, fromLon, tgtLat, tgtLon) {
+    // Cache-Key: 3 Dezimalstellen (~100m Raster) — spart Calls wenn Fahrzeug kurz steht
+    const _r = v => parseFloat(v).toFixed(3);
+    const _key = `${_r(fromLat)},${_r(fromLon)}>${_r(tgtLat)},${_r(tgtLon)}`;
+    const _mem = _etaRouteMem.get(_key);
+    if (_mem && (Date.now() - _mem.t) < _ETA_ROUTE_TTL) return _mem;
+    try {
+        const url = `https://router.project-osrm.org/route/v1/driving/${fromLon},${fromLat};${tgtLon},${tgtLat}?overview=false&alternatives=2`;
+        const resp = await fetch(url, { signal: AbortSignal.timeout(6000) });
+        if (!resp.ok) return null;
+        const data = await resp.json();
+        const routes = (data.routes || []).filter(r => r.distance > 0);
+        if (!routes.length) return null;
+        routes.sort((a, b) => a.distance - b.distance);
+        const best = routes[0];
+        const result = { duration: Math.max(1, Math.round(best.duration / 60)), distance: +(best.distance / 1000).toFixed(1), t: Date.now() };
+        _etaRouteMem.set(_key, result);
+        return result;
+    } catch (_) { return null; }
+}
+
 // 🆕 v6.38.27: Unabhängige Kontroll-Prüfung — Vier-Augen-Prinzip
 // Prüft DIREKT die Rohdaten in Firebase, NICHT über isVehicleInShift()
 function verifyVehicleShiftIndependent(vehicleId, shiftsData, dateStr, timeStr) {
@@ -5351,14 +5380,21 @@ async function _writeRouteCache(from, to, waypointCoords, mode, result) {
 //   Beeck-Vorfall: Google Routes gab 6,42 km für Kulmstr→Bahnhof (falsch, vermutl.
 //   Fußgängerzone-Routing), OSRM gab 1,59 km (korrekt). Fix: beide parallel anfragen,
 //   kürzere Distanz gewinnt. Wenn Google > 3× OSRM → OSRM bevorzugt (Sanity-Check).
-async function calculateRoute(from, to, waypointCoords = []) {
-    // routeMode für Cache-Key bestimmen (gleiche Strecke kann je nach Mode anders sein)
-    let _routeMode = 'shortest';
+// v6.63.646: routeMode 5-Min-In-Memory-Cache (war: jeder calculateRoute-Call = 1 DB-Read)
+let _routeModeCache = null, _routeModeCachedAt = 0;
+async function _getRouteMode() {
+    if (_routeModeCache && (Date.now() - _routeModeCachedAt) < 5 * 60 * 1000) return _routeModeCache;
     try {
-        const _modeSnap = await db.ref('settings/dispatch/routeMode').once('value');
-        const _v = _modeSnap.val();
-        if (_v === 'fastest' || _v === 'shortest' || _v === 'hybrid') _routeMode = _v;
-    } catch(_) { /* default shortest */ }
+        const snap = await db.ref('settings/dispatch/routeMode').once('value');
+        const v = snap.val();
+        _routeModeCache = (v === 'fastest' || v === 'shortest' || v === 'hybrid') ? v : 'shortest';
+    } catch(_) { _routeModeCache = 'shortest'; }
+    _routeModeCachedAt = Date.now();
+    return _routeModeCache;
+}
+
+async function calculateRoute(from, to, waypointCoords = []) {
+    const _routeMode = await _getRouteMode();
 
     // Cache-Lookup VOR jedem API-Call
     const _cached = await _readRouteCache(from, to, waypointCoords, _routeMode, true);
@@ -23524,11 +23560,9 @@ exports.scheduledReachabilityCheck = onSchedule(
 
                 promises.push((async () => {
                     try {
-                        // v6.62.363: Route zum aktuellen Ziel (Pickup oder Destination je nach Status)
-                        const route = await calculateRoute(
-                            { lat: parseFloat(v.lat), lon: parseFloat(v.lon) },
-                            { lat: tgtLat, lon: tgtLon }
-                        );
+                        // v6.63.646: _osrmEtaRoute statt calculateRoute — kein Google API-Call
+                        // (ETA-Anzeige braucht nur OSRM, Google Routes nur für Preis/Konflikte)
+                        const route = await _osrmEtaRoute(parseFloat(v.lat), parseFloat(v.lon), tgtLat, tgtLon);
                         if (!route || route.duration == null) return;
                         // 🔧 v6.62.724 (Patrick 15.05. 08:21): "Banner wackelt 'in X Min losfahren'.
                         //   Plus 5 Min Anfahrt Heringsdorf->Ahlbeck ist zu wenig". Fix:

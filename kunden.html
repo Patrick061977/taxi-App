@@ -1833,42 +1833,72 @@
         function loadRides() {
             if (ridesListener) {
                 db.ref('rides').off('value', ridesListener);
+                ridesListener = null;
             }
 
             const phoneVariants = getPhoneVariants(verifiedPhone);
 
-            // v6.62.920 (Patrick 24.05.): limitToLast(200) statt ALL (1500+ rides). Kunden brauchen
-            // sowieso nur ihre letzten ~10-20 Fahrten — 200 ist mehr als grosszuegig und spart ~85% Bytes.
-            ridesListener = db.ref('rides').orderByChild('createdAt').limitToLast(200).on('value', snapshot => {
-                const allRides = snapshot.val() || {};
+            // v6.63.567: Kunden-spezifische Query statt globalem limitToLast(200).
+            // Globales Limit bedeutet: Fahrten von vor >200 Systemfahrten waren unsichtbar (Hasbagen-Fall).
+            // Fix: query per customerId (Echtzeit) + einmalige Phone-Query als Ergaenzung.
+
+            let ridesByCrm = {};
+            let ridesByPhone = {};
+
+            function mergeAndRender() {
+                const merged = { ...ridesByPhone, ...ridesByCrm };
                 customerRides = [];
-
-                for (const [id, ride] of Object.entries(allRides)) {
-                    // Pruefe ob Fahrt zu diesem Kunden gehoert
-                    const ridePhones = [
-                        normalizePhone(ride.customerPhone || ''),
-                        normalizePhone(ride.customerMobile || ''),
-                        normalizePhone(ride.phone || ''),
-                        normalizePhone(ride.guestPhone || '')
-                    ].filter(p => p);
-
-                    const matchByPhone = phoneVariants.some(v => ridePhones.includes(v));
-                    const matchByCRM = customerData?.id && ride.customerId === customerData.id;
-
-                    if (matchByPhone || matchByCRM) {
-                        customerRides.push({ ...ride, firebaseId: id });
-                    }
+                for (const [id, ride] of Object.entries(merged)) {
+                    customerRides.push({ ...ride, firebaseId: id });
                 }
-
-                // Sortiere nach Datum (neueste zuerst)
                 customerRides.sort((a, b) => {
                     const tA = a.pickupTimestamp || a.createdAt || 0;
                     const tB = b.pickupTimestamp || b.createdAt || 0;
                     return tB - tA;
                 });
-
                 renderRides();
-            });
+            }
+
+            // Query 1 (Echtzeit): alle Fahrten mit customerId (indexed, keine Begrenzung)
+            if (customerData?.id) {
+                ridesListener = db.ref('rides').orderByChild('customerId').equalTo(customerData.id).on('value', snap => {
+                    ridesByCrm = snap.val() || {};
+                    mergeAndRender();
+                });
+            }
+
+            // Query 2 (einmalig): Phone-basierte Fahrten (fuer aeltere Eintraege ohne customerId)
+            const mainPhone = phoneVariants[0];
+            if (mainPhone) {
+                db.ref('rides').orderByChild('customerPhone').equalTo(mainPhone).once('value', snap => {
+                    ridesByPhone = snap.val() || {};
+                    mergeAndRender();
+                });
+            }
+
+            // Fallback: kein CRM + kein Phone → letzte 200 global (sollte nicht vorkommen)
+            if (!customerData?.id && !mainPhone) {
+                ridesListener = db.ref('rides').orderByChild('createdAt').limitToLast(200).on('value', snap => {
+                    const allRides = snap.val() || {};
+                    customerRides = [];
+                    for (const [id, ride] of Object.entries(allRides)) {
+                        const ridePhones = [
+                            normalizePhone(ride.customerPhone || ''),
+                            normalizePhone(ride.customerMobile || ''),
+                            normalizePhone(ride.phone || ''),
+                        ].filter(p => p);
+                        if (phoneVariants.some(v => ridePhones.includes(v))) {
+                            customerRides.push({ ...ride, firebaseId: id });
+                        }
+                    }
+                    customerRides.sort((a, b) => {
+                        const tA = a.pickupTimestamp || a.createdAt || 0;
+                        const tB = b.pickupTimestamp || b.createdAt || 0;
+                        return tB - tA;
+                    });
+                    renderRides();
+                });
+            }
         }
 
         function renderRides() {

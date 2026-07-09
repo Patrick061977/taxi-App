@@ -21,7 +21,6 @@
     <item android:id="@+id/menu_map" android:title="🗺️ Karte (Kollegen)" />
     <!-- v6.63.182 (Patrick 05.06. 17:49 Bridge): Vorkasse-Stripe-Link aus Native versenden -->
     <item android:id="@+id/menu_preauth_link" android:title="💳 Vorkasse-Link (Stripe)" />
-    <item android:id="@+id/menu_webapp" android:title="🌐 Web-App öffnen" />
     <item android:id="@+id/menu_change_vehicle" android:title="🚗 Fahrzeug wechseln" />
     <item android:id="@+id/menu_logout" android:title="🚪 Abmelden" />
 </menu>

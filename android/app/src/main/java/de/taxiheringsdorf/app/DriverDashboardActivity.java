@@ -1047,7 +1047,6 @@ public class DriverDashboardActivity extends AppCompatActivity {
             }
             // v6.63.182 (Patrick 05.06. 17:49 Bridge): Vorkasse-Stripe-Link aus Native
             if (id == R.id.menu_preauth_link)   { showPreAuthLinkDialog(); return true; }
-            if (id == R.id.menu_webapp)         { openWebView(); return true; }
             if (id == R.id.menu_change_vehicle) {
                 getSharedPreferences("driver", MODE_PRIVATE).edit().remove("vehicleId").remove("vehicleName").apply();
                 startActivity(new Intent(this, VehiclePickerActivity.class));
@@ -2124,6 +2123,27 @@ public class DriverDashboardActivity extends AppCompatActivity {
             if (r.pickupTimestamp < nextPickup) { nextPickup = r.pickupTimestamp; nextRide = r; }
         }
         if (nextRide == null) {
+            // v6.63.662: unzugewiesene offene Fahrten im Banner anzeigen
+            List<Ride> openForBanner = new ArrayList<>();
+            if (openUnassignedRides != null) openForBanner.addAll(openUnassignedRides);
+            if (wartepoolRides != null) openForBanner.addAll(wartepoolRides);
+            if (!openForBanner.isEmpty()) {
+                openForBanner.sort((a, b) -> {
+                    long ta = a.pickupTimestamp != null ? a.pickupTimestamp : 0;
+                    long tb = b.pickupTimestamp != null ? b.pickupTimestamp : 0;
+                    return Long.compare(ta, tb);
+                });
+                Ride first = openForBanner.get(0);
+                int cnt = openForBanner.size();
+                String cust = (first.customerName != null && !first.customerName.isEmpty()) ? first.customerName : "Kunde";
+                String pAddr = first.pickup != null ? first.pickup : "?";
+                banner.setBackgroundColor(android.graphics.Color.parseColor("#f59e0b"));
+                statusText.setText("⚠️ " + cnt + " Fahrt" + (cnt > 1 ? "en" : "") + " ohne Fahrer — " + cust);
+                nextText.setText("📍 " + pAddr);
+                nextText.setVisibility(View.VISIBLE);
+                banner.setVisibility(View.VISIBLE);
+                return;
+            }
             // Kein Termin in Sicht — Fahrer komplett frei
             banner.setBackgroundColor(android.graphics.Color.parseColor("#059669"));
             statusText.setText("🟢 Frei für Sofort-Anfragen — keine Vorbestellung in Sicht");

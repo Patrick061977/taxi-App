@@ -25573,6 +25573,60 @@ exports.onAnfrageCreated = onValueCreated(
             console.error('onAnfrageCreated Auto-CRM-Fehler:', e.message);
         }
 
+        // v6.63.644 (Patrick 09.07.2026): Sofort-Eingangsbestätigung an Kunden — verhindert Duplikat-Anfragen.
+        // WhatsApp-Anfragen → WhatsApp-Reply. Email-Anfragen → personalMailQueue.
+        try {
+            if (!anfrage.autoConfirmSent) {
+                const _cName = anfrage.name || '';
+                const _greet = _cName ? `Hallo ${_cName.split(' ')[0]},\n\n` : '';
+                const _dateStr = anfrage.type === 'berlin-shuttle'
+                    ? `${anfrage.dateHin || '?'} (Hin) / ${anfrage.dateReturn || '?'} (Rück)`
+                    : `${anfrage.date || '?'} um ${anfrage.time || '?'} Uhr`;
+                const _confirmText = _greet +
+                    `✅ Vielen Dank für Ihre Anfrage bei Funk Taxi Heringsdorf!\n\n` +
+                    `📍 Von: ${anfrage.pickup || '?'}\n` +
+                    `🎯 Nach: ${anfrage.destination || '?'}\n` +
+                    `📅 ${_dateStr}\n\n` +
+                    `Wir haben Ihre Anfrage erhalten und melden uns schnellstmöglich zurück.\n\n` +
+                    `📞 038378 / 22022\n` +
+                    `🚕 Funk Taxi Heringsdorf`;
+                const _phone = anfrage.phone || anfrage.mobilePhone || '';
+                const _email = anfrage.email || '';
+                let _confirmSent = false;
+                let _confirmChannel = '';
+                // WhatsApp-Anfrage → direkt per WhatsApp antworten
+                if (anfrage.channel === 'whatsapp' && _phone) {
+                    const _waOk = await sendWhatsAppMessage(_phone, _confirmText);
+                    if (_waOk) { _confirmSent = true; _confirmChannel = 'whatsapp'; }
+                }
+                // Email-Anfrage (oder WhatsApp mit Email als Fallback wenn WA scheitert)
+                if (!_confirmSent && _email && _email.includes('@')) {
+                    await db.ref('personalMailQueue').push({
+                        to: _email,
+                        subject: `Ihre Taxi-Anfrage${anfrage.date ? ' für den ' + anfrage.date : ''} — Eingang bestätigt`,
+                        text: _confirmText,
+                        status: 'approved',
+                        createdAt: Date.now(),
+                        source: 'cloud-onAnfrageCreated-autoConfirm-v6.63.644',
+                        anfrageId: anfrageId
+                    });
+                    _confirmSent = true; _confirmChannel = 'email';
+                }
+                if (_confirmSent) {
+                    await db.ref(`anfragen/${anfrageId}`).update({
+                        autoConfirmSent: true,
+                        autoConfirmSentAt: Date.now(),
+                        autoConfirmChannel: _confirmChannel
+                    });
+                    console.log(`✅ v6.63.644 Auto-Eingangsbestätigung (${_confirmChannel}) an ${_phone || _email} für ${anfrageId}`);
+                } else {
+                    console.log(`📭 v6.63.644 Auto-Eingangsbestätigung: kein WA+kein Email für ${anfrageId} (phone=${_phone}, email=${_email})`);
+                }
+            }
+        } catch (_confirmErr) {
+            console.error('onAnfrageCreated Auto-Confirm-Fehler:', _confirmErr.message);
+        }
+
         // 🆕 v6.63.070 (Patrick 01.06. Bridge): Telegram-Bot-Nachricht für die neue
         //   Anfrage. Vorher war das ein zweiter exports.onAnfrageCreated-Block
         //   weiter unten (Line ~30105), der den ersten in der exports-Map

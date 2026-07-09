@@ -1590,34 +1590,51 @@ public class AdminDashboardActivity extends AppCompatActivity {
             db.getReference().updateChildren(updates).addOnCompleteListener(task -> {
                 synchronized (_uebernahmeInFlight) { _uebernahmeInFlight.remove(a.id); }
                 if (task.isSuccessful()) {
-                    // 🆕 v6.63.624: Wenn Anfrage eine Email hat → direkt EmailPreviewActivity öffnen.
-                    // Patrick: "Email-Bestätigung mit Vorschau soll aufgehen wenn eine Emailanfrage kommt"
-                    // Enthält Stripe-Toggle + Tracking-Toggle + editierbarer Body → ein Tap, alles drin.
-                    // Ohne Email → alter Vorkasse-Dialog (Preis + Stripe).
-                    // 🆕 v6.63.625: Einheitlicher Workflow — Email → EmailPreviewActivity,
-                    // WhatsApp/Telefon → WhatsApp direkt mit vorausgefüllter Bestätigung.
                     runOnUiThread(() -> {
-                        if (a.email != null && a.email.contains("@")) {
-                            // Email-Anfrage → EmailPreviewActivity (Stripe-Toggle, editierbar)
-                            android.content.Intent _ep = new android.content.Intent(this, EmailPreviewActivity.class);
-                            _ep.putExtra(EmailPreviewActivity.EXTRA_RIDE_ID, rideId);
-                            startActivity(_ep);
-                        } else if (a.phone != null && !a.phone.isEmpty()) {
-                            // WhatsApp-/Telefon-Anfrage — ein Schritt:
-                            // Preis vorhanden → Stripe erstellen + WA mit Bestätigung + Link
-                            // Kein Preis → WA mit Bestätigung (ohne Link)
-                            double _priceVal = 0;
-                            try {
-                                if (a.price != null && !a.price.isEmpty() && !"—".equals(a.price))
-                                    _priceVal = Double.parseDouble(a.price.replace("€","").replace(",",".").trim());
-                            } catch (Throwable _pe) {}
-                            if (_priceVal >= 0.5) {
-                                _createStripeAndOpenWA(rideId, a, pickupTime, _priceVal);
+                        // 🆕 v6.63.666 (Patrick 09.07.: "muss in der Anfrage ausführbar sein"):
+                        //   Rückfahrt-Erkennung aus Notizen — wenn "Rückfahrt" + Datum + Uhrzeit
+                        //   in Notes → Dialog anbieten bevor Email/WA-Flow startet.
+                        final Runnable _continueFlow = () -> {
+                            if (a.email != null && a.email.contains("@")) {
+                                android.content.Intent _ep = new android.content.Intent(this, EmailPreviewActivity.class);
+                                _ep.putExtra(EmailPreviewActivity.EXTRA_RIDE_ID, rideId);
+                                startActivity(_ep);
+                            } else if (a.phone != null && !a.phone.isEmpty()) {
+                                double _priceVal2 = 0;
+                                try {
+                                    if (a.price != null && !a.price.isEmpty() && !"—".equals(a.price))
+                                        _priceVal2 = Double.parseDouble(a.price.replace("€","").replace(",",".").trim());
+                                } catch (Throwable _pe) {}
+                                if (_priceVal2 >= 0.5) {
+                                    _createStripeAndOpenWA(rideId, a, pickupTime, _priceVal2);
+                                } else {
+                                    _openWhatsAppBestaetigung(a, null);
+                                }
                             } else {
-                                _openWhatsAppBestaetigung(a, null);
+                                showVorkasseEmailDialog(rideId, a, pickupTime);
                             }
+                        };
+                        RueckfahrtHint _rfHint = _detectRueckfahrt(a.notes);
+                        if (_rfHint != null) {
+                            String _pickup40 = a.destination != null ? (a.destination.length() > 45 ? a.destination.substring(0, 45) + "…" : a.destination) : "?";
+                            String _dest40  = a.pickup != null    ? (a.pickup.length()    > 45 ? a.pickup.substring(0, 45)    + "…" : a.pickup)    : "?";
+                            new AlertDialog.Builder(AdminDashboardActivity.this)
+                                .setTitle("📅 Rückfahrt erkannt")
+                                .setMessage("In den Notizen steht:\n\n"
+                                    + "📅 " + _rfHint.dateStr + " um " + _rfHint.timeStr + " Uhr\n"
+                                    + "📍 " + _pickup40 + "\n"
+                                    + "🎯 " + _dest40 + "\n"
+                                    + "👤 " + (a.passengers != null ? a.passengers : 1) + " Pax\n\n"
+                                    + "Jetzt als separate Fahrt anlegen?")
+                                .setPositiveButton("✅ Ja, anlegen", (d2, w2) -> {
+                                    _createRueckfahrtRide(a, rideId, _rfHint);
+                                    _continueFlow.run();
+                                })
+                                .setNegativeButton("Nein", (d2, w2) -> _continueFlow.run())
+                                .setCancelable(false)
+                                .show();
                         } else {
-                            showVorkasseEmailDialog(rideId, a, pickupTime);
+                            _continueFlow.run();
                         }
                     });
                 } else {
@@ -4413,5 +4430,80 @@ public class AdminDashboardActivity extends AppCompatActivity {
             .create();
         _dlgRef.set(dlg);
         dlg.show();
+    }
+
+    // ── v6.63.666: Rückfahrt-Erkennung aus Notizen ──────────────────────────
+    static class RueckfahrtHint {
+        String dateStr; // z.B. "25.07"
+        String timeStr; // z.B. "14:30"
+    }
+
+    private RueckfahrtHint _detectRueckfahrt(String notes) {
+        if (notes == null) return null;
+        String lower = notes.toLowerCase();
+        if (!lower.contains("rückfahrt") && !lower.contains("ruckfahrt") && !lower.contains("rückweg")) return null;
+        // Suche Datum+Uhrzeit ab dem Schlüsselwort
+        int idx = lower.indexOf("rück");
+        if (idx < 0) idx = 0;
+        String sub = notes.substring(idx);
+        java.util.regex.Pattern p = java.util.regex.Pattern.compile(
+            "(?:am\\s+)?(\\d{1,2}\\.\\d{1,2}\\.?)\\s+(?:um\\s+)?(\\d{1,2}[.:]\\d{2})",
+            java.util.regex.Pattern.CASE_INSENSITIVE);
+        java.util.regex.Matcher m = p.matcher(sub);
+        if (!m.find()) return null;
+        RueckfahrtHint hint = new RueckfahrtHint();
+        hint.dateStr = m.group(1).replaceAll("\\.$", "");
+        hint.timeStr = m.group(2).replace(".", ":");
+        return hint;
+    }
+
+    private void _createRueckfahrtRide(Anfrage a, String hinfahrtRideId, RueckfahrtHint hint) {
+        // Datum aus hint parsen (DD.MM oder DD.MM.YYYY)
+        try {
+            String[] dateParts = hint.dateStr.split("\\.");
+            int day   = Integer.parseInt(dateParts[0]);
+            int month = Integer.parseInt(dateParts[1]) - 1; // Calendar: 0-basiert
+            int year  = dateParts.length >= 3 && dateParts[2].length() == 4
+                        ? Integer.parseInt(dateParts[2])
+                        : java.util.Calendar.getInstance().get(java.util.Calendar.YEAR);
+            String[] timeParts = hint.timeStr.split(":");
+            int hour = Integer.parseInt(timeParts[0]);
+            int min  = Integer.parseInt(timeParts[1]);
+            java.util.Calendar cal = java.util.Calendar.getInstance();
+            cal.set(year, month, day, hour, min, 0);
+            cal.set(java.util.Calendar.MILLISECOND, 0);
+            long pickupTs = cal.getTimeInMillis();
+            // Rückfahrt = Ziel → Pickup vertauscht
+            String rfPickup = a.destination != null ? a.destination : "";
+            String rfDest   = a.pickup    != null ? a.pickup    : "";
+            String timeStr  = String.format(java.util.Locale.GERMANY, "%02d:%02d", hour, min);
+            String dateStr  = String.format(java.util.Locale.GERMANY, "%02d.%02d.%04d", day, month + 1, year);
+            String newKey = FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("rides").push().getKey();
+            if (newKey == null) return;
+            Map<String, Object> ride = new HashMap<>();
+            ride.put("status",            "vorbestellt");
+            ride.put("pickup",            rfPickup);
+            ride.put("destination",       rfDest);
+            ride.put("pickupTime",        timeStr);
+            ride.put("pickupDate",        dateStr);
+            ride.put("pickupTimestamp",   pickupTs);
+            ride.put("passengers",        a.passengers != null ? a.passengers : 1);
+            ride.put("customerName",      a.name);
+            ride.put("customerPhone",     a.phone != null ? a.phone : "");
+            ride.put("notes",             "Rückfahrt zu Anfrage " + (hinfahrtRideId != null ? hinfahrtRideId : ""));
+            ride.put("createdAt",         System.currentTimeMillis());
+            ride.put("updatedAt",         System.currentTimeMillis());
+            ride.put("source",            "native_admin_rueckfahrt");
+            ride.put("linkedHinfahrtId",  hinfahrtRideId);
+            FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("rides/" + newKey)
+                .setValue(ride)
+                .addOnSuccessListener(_v -> runOnUiThread(() ->
+                    Toast.makeText(this, "✅ Rückfahrt angelegt: " + dateStr + " " + timeStr, Toast.LENGTH_LONG).show()))
+                .addOnFailureListener(ex -> runOnUiThread(() ->
+                    Toast.makeText(this, "Fehler Rückfahrt: " + ex.getMessage(), Toast.LENGTH_LONG).show()));
+        } catch (Exception e) {
+            Log.e("AdminDash", "_createRueckfahrtRide: " + e.getMessage(), e);
+            Toast.makeText(this, "Fehler beim Parsen des Rückfahrt-Datums", Toast.LENGTH_SHORT).show();
+        }
     }
 }

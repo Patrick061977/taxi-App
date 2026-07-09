@@ -6,6 +6,65 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [6.63.669] - 2026-07-09
+
+### ✨ Native Fahrer-App: Erledigt-Button in Disposition
+
+- **AdminDashboardActivity**: Blauer Button `✅ FAHRT ABSCHLIESSEN` direkt oben im Edit-Dialog für Fahrten mit Status `accepted`, `picked_up`, `on_way`
+- Ein Tap + kurze Bestätigung → Status wird `completed`, `completedAt` + `completedBy` gesetzt
+- Kein Scrollen zum Status-Spinner mehr nötig
+
+---
+
+## [6.63.668] - 2026-07-09
+
+### ✨ Native Fahrer-App: Rückfahrt direkt in Anfrage-Karte auswählbar
+
+- **AdminDashboardActivity — AnfrageVH**: Wenn Notizen "Rückfahrt" oder "Rückweg" + Datum + Uhrzeit enthalten, erscheint ein gelber Badge `📅 Rückfahrt erkannt: 25.07 14:30 Uhr → tippen zum Übernehmen`
+- Tap auf Anfrage-Karte öffnet Dialog mit Hin- und Rückfahrt im Vergleich
+- **3 Optionen**: "Beide übernehmen" (beide Fahrten gleichzeitig anlegen) / "Nur Hinfahrt" / Abbrechen
+- Eigenes LinearLayout-Card-Layout (statt simple_list_item_2) für AnfrageVH
+
+---
+
+## [6.63.667] - 2026-07-09
+
+### ✨ Native Fahrer-App: Rückfahrt-Button in Anfrage-Karte (Zwischenschritt)
+
+- Übergangsversion — ersetzt durch v6.63.668
+
+---
+
+## [6.63.666] - 2026-07-09
+
+### ✨ Native Fahrer-App: Rückfahrt-Erkennung bei Anfrage-Übernahme
+
+- **AdminDashboardActivity**: `_detectRueckfahrt(notes)` erkennt Datum + Uhrzeit nach "Rückfahrt/Rückweg" in Notizen via Regex
+- Nach Anfrage-Übernahme erscheint AlertDialog wenn Rückfahrt erkannt — Optionen: anlegen / überspringen
+- `_createRueckfahrtRide()` legt Fahrt mit vertauschten Adressen + `linkedHinfahrtId` in Firebase an
+
+---
+
+## [6.63.665] - 2026-07-09
+
+### ✨ Native Fahrer-App: Notizen in Disposition-Karten sichtbar
+
+- **AdminDashboardActivity — RideVH**: Notizen (`r.notes`) werden als `📝 ...` unter Route-Zeile angezeigt
+- Kindersitz, Rollstuhl, etc. jetzt direkt in der Disposition-Liste sichtbar (nicht mehr nur per Tap in Edit-Dialog)
+
+---
+
+## [6.63.664] - 2026-07-09
+
+### ✨ Native Fahrer-App: Notizen + Personenzahl in Dispo-Live-Karten
+
+- **DispoActivity**: `RideInfo` bekommt Felder `notes` und `passengers`
+- `parseRide()` liest beide Felder aus Firebase
+- `buildUpcomingCard()` + `buildVehicleCard()`: zeigt `👤 X Pax` (grau) und `📝 Notiz` (gelb) in den Karten
+- `showRideDiagnosisDialog()`: Pax + Notizen im Detail-Dialog sichtbar
+
+---
+
 ## [6.25.3] - 2026-03-15
 
 ### 🐛 Fix: Falscher Konflikt-Alarm + Adress-Erkennung

@@ -2816,10 +2816,41 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 return new HeaderVH(v);
             }
             if (t == TYPE_ANFRAGE) {
-                View v = LayoutInflater.from(p.getContext()).inflate(android.R.layout.simple_list_item_2, p, false);
-                v.setBackgroundColor(Color.parseColor("#7C2D12")); // dunkles Orange — Anfragen sind dringlich
-                v.setPadding(24, 24, 24, 24);
-                return new AnfrageVH(v);
+                // 🆕 v6.63.667: eigenes Layout (statt simple_list_item_2) damit Rückfahrt-Button rein kann
+                android.widget.LinearLayout _aRoot = new android.widget.LinearLayout(p.getContext());
+                _aRoot.setOrientation(android.widget.LinearLayout.VERTICAL);
+                _aRoot.setBackgroundColor(Color.parseColor("#7C2D12"));
+                _aRoot.setPadding(24, 24, 24, 24);
+                _aRoot.setLayoutParams(new RecyclerView.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+                TextView _at1 = new TextView(p.getContext());
+                _at1.setTextSize(14);
+                _at1.setTextColor(Color.parseColor("#FED7AA"));
+                _aRoot.addView(_at1, new android.widget.LinearLayout.LayoutParams(
+                    android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                    android.widget.LinearLayout.LayoutParams.WRAP_CONTENT));
+                TextView _at2 = new TextView(p.getContext());
+                _at2.setTextSize(12);
+                _at2.setTextColor(Color.parseColor("#FBA74D"));
+                _at2.setPadding(0, 6, 0, 0);
+                _aRoot.addView(_at2, new android.widget.LinearLayout.LayoutParams(
+                    android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                    android.widget.LinearLayout.LayoutParams.WRAP_CONTENT));
+                // Rückfahrt-Button (default GONE, nur wenn Notizen Rückfahrt enthalten)
+                com.google.android.material.button.MaterialButton _aBtn =
+                    new com.google.android.material.button.MaterialButton(p.getContext());
+                _aBtn.setTextSize(12);
+                _aBtn.setBackgroundColor(Color.parseColor("#FBBF24"));
+                _aBtn.setTextColor(Color.parseColor("#1C1917"));
+                android.widget.LinearLayout.LayoutParams _aBtnLp =
+                    new android.widget.LinearLayout.LayoutParams(
+                        android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
+                        android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
+                _aBtnLp.topMargin = 14;
+                _aBtn.setLayoutParams(_aBtnLp);
+                _aBtn.setVisibility(View.GONE);
+                _aRoot.addView(_aBtn);
+                return new AnfrageVH(_aRoot, _at1, _at2, _aBtn);
             }
             // 🆕 v6.63.566: Statt simple_list_item_2 → eigenes LinearLayout damit
             //   Wartepool-Diagnose einklappbar (tvWpToggle + tvWpDiag als dritte Ebene)
@@ -2891,15 +2922,16 @@ public class AdminDashboardActivity extends AppCompatActivity {
         }
 
         // 🆕 v6.62.673: AnfrageVH — zeigt eine /anfragen-Anfrage im selben Layout wie Ride
-        //   aber mit dunkel-orangem Hintergrund + 📥-Prefix. Tap oeffnet Uebernahme-Dialog.
+        //   v6.63.667: eigenes Layout mit Rückfahrt-Button direkt in der Karte
         class AnfrageVH extends RecyclerView.ViewHolder {
             TextView t1, t2;
-            AnfrageVH(View v) {
+            com.google.android.material.button.MaterialButton btnRueckfahrt;
+            AnfrageVH(View v, TextView _t1, TextView _t2,
+                      com.google.android.material.button.MaterialButton _btn) {
                 super(v);
-                t1 = v.findViewById(android.R.id.text1);
-                t2 = v.findViewById(android.R.id.text2);
-                t1.setTextColor(Color.parseColor("#FED7AA"));
-                t2.setTextColor(Color.parseColor("#FBA74D"));
+                t1 = _t1;
+                t2 = _t2;
+                btnRueckfahrt = _btn;
             }
             void bind(Anfrage a) {
                 StringBuilder line1 = new StringBuilder();
@@ -2917,9 +2949,30 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 if (a.email != null && !a.email.isEmpty()) line2.append("\n✉ ").append(a.email);
                 if (a.notes != null && !a.notes.isEmpty()) line2.append("\n📝 ").append(a.notes);
                 t2.setText(line2.toString());
-                // v6.63.629: Ein Tap → sofort _uebernehmeAnfrageImpl (kein Zwischendialog).
-                // Email-Anfrage → EmailPreviewActivity, WA/Tel → WhatsApp, sonst alter Dialog.
-                // Long-Press → "Nur übernehmen" / "Ablehnen" (bleibt als Sicherheitsnetz).
+                // 🆕 v6.63.667: Rückfahrt-Button — direkt in Karte sichtbar wenn Notizen "Rückfahrt" enthalten
+                RueckfahrtHint _rfHint = _detectRueckfahrt(a.notes);
+                if (_rfHint != null) {
+                    btnRueckfahrt.setText("📅 Rückfahrt " + _rfHint.dateStr + " " + _rfHint.timeStr + " → anlegen");
+                    btnRueckfahrt.setVisibility(View.VISIBLE);
+                    btnRueckfahrt.setOnClickListener(_bv -> {
+                        String _rf40pick = a.destination != null ? (a.destination.length() > 40 ? a.destination.substring(0,40)+"…" : a.destination) : "?";
+                        String _rf40dest = a.pickup    != null ? (a.pickup.length()    > 40 ? a.pickup.substring(0,40)+"…"    : a.pickup)    : "?";
+                        new AlertDialog.Builder(AdminDashboardActivity.this)
+                            .setTitle("📅 Rückfahrt anlegen")
+                            .setMessage("Datum: " + _rfHint.dateStr + " um " + _rfHint.timeStr + " Uhr\n\n"
+                                + "📍 " + _rf40pick + "\n🎯 " + _rf40dest + "\n"
+                                + "👤 " + (a.passengers != null ? a.passengers : 1) + " Pax\n\n"
+                                + "Als separate Fahrt anlegen?")
+                            .setPositiveButton("✅ Ja, anlegen", (d2, w2) ->
+                                _createRueckfahrtRide(a, null, _rfHint))
+                            .setNegativeButton("Abbrechen", null)
+                            .show();
+                    });
+                } else {
+                    btnRueckfahrt.setVisibility(View.GONE);
+                    btnRueckfahrt.setOnClickListener(null);
+                }
+                // Ein Tap auf Karte → Übernahme. Long-Press → Optionen.
                 itemView.setOnClickListener(_v ->
                     _uebernehmeAnfrageImpl(a));
                 itemView.setOnLongClickListener(_v -> {

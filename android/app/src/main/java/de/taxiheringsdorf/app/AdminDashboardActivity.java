@@ -3186,6 +3186,10 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 } else if ("stripe".equalsIgnoreCase(r.paymentMethod) && !"paid".equalsIgnoreCase(r.paymentStatus) && (r.vorkasseRequested == null || !r.vorkasseRequested)) {
                     route.append("\n💳 Stripe — wird automatisch abgebucht, kein Kassieren nötig");
                 }
+                // 🆕 v6.63.665: Notizen in Disposition-Karte anzeigen (Patrick: "Kindersitz sehe ich nicht")
+                if (r.notes != null && !r.notes.isEmpty()) {
+                    route.append("\n📝 ").append(r.notes);
+                }
                 t2.setText(route.toString());
                 // v6.62.153: Tap → Edit-Dialog (Patrick: 'will Fahrten bearbeiten aus der App')
                 // v6.62.636: Bei abgeschlossenen Vergangenheits-Fahrten → Wiederhol-Dialog

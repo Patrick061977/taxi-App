@@ -2836,21 +2836,21 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 _aRoot.addView(_at2, new android.widget.LinearLayout.LayoutParams(
                     android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
                     android.widget.LinearLayout.LayoutParams.WRAP_CONTENT));
-                // Rückfahrt-Button (default GONE, nur wenn Notizen Rückfahrt enthalten)
-                com.google.android.material.button.MaterialButton _aBtn =
-                    new com.google.android.material.button.MaterialButton(p.getContext());
-                _aBtn.setTextSize(12);
-                _aBtn.setBackgroundColor(Color.parseColor("#FBBF24"));
-                _aBtn.setTextColor(Color.parseColor("#1C1917"));
-                android.widget.LinearLayout.LayoutParams _aBtnLp =
+                // Rückfahrt-Badge (default GONE, zeigt erkannte Rückfahrt-Info)
+                TextView _aRf = new TextView(p.getContext());
+                _aRf.setTextSize(12);
+                _aRf.setTextColor(Color.parseColor("#FDE68A"));
+                _aRf.setBackgroundColor(Color.parseColor("#92400E"));
+                _aRf.setPadding(12, 6, 12, 6);
+                android.widget.LinearLayout.LayoutParams _aRfLp =
                     new android.widget.LinearLayout.LayoutParams(
-                        android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
+                        android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
                         android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
-                _aBtnLp.topMargin = 14;
-                _aBtn.setLayoutParams(_aBtnLp);
-                _aBtn.setVisibility(View.GONE);
-                _aRoot.addView(_aBtn);
-                return new AnfrageVH(_aRoot, _at1, _at2, _aBtn);
+                _aRfLp.topMargin = 10;
+                _aRf.setLayoutParams(_aRfLp);
+                _aRf.setVisibility(View.GONE);
+                _aRoot.addView(_aRf);
+                return new AnfrageVH(_aRoot, _at1, _at2, _aRf);
             }
             // 🆕 v6.63.566: Statt simple_list_item_2 → eigenes LinearLayout damit
             //   Wartepool-Diagnose einklappbar (tvWpToggle + tvWpDiag als dritte Ebene)
@@ -2922,16 +2922,14 @@ public class AdminDashboardActivity extends AppCompatActivity {
         }
 
         // 🆕 v6.62.673: AnfrageVH — zeigt eine /anfragen-Anfrage im selben Layout wie Ride
-        //   v6.63.667: eigenes Layout mit Rückfahrt-Button direkt in der Karte
+        //   v6.63.668: Rückfahrt-Badge in Karte + Tap-Dialog "Beide / Nur Hinfahrt / Abbrechen"
         class AnfrageVH extends RecyclerView.ViewHolder {
-            TextView t1, t2;
-            com.google.android.material.button.MaterialButton btnRueckfahrt;
-            AnfrageVH(View v, TextView _t1, TextView _t2,
-                      com.google.android.material.button.MaterialButton _btn) {
+            TextView t1, t2, tvRueckfahrt;
+            AnfrageVH(View v, TextView _t1, TextView _t2, TextView _rf) {
                 super(v);
                 t1 = _t1;
                 t2 = _t2;
-                btnRueckfahrt = _btn;
+                tvRueckfahrt = _rf;
             }
             void bind(Anfrage a) {
                 StringBuilder line1 = new StringBuilder();
@@ -2949,32 +2947,36 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 if (a.email != null && !a.email.isEmpty()) line2.append("\n✉ ").append(a.email);
                 if (a.notes != null && !a.notes.isEmpty()) line2.append("\n📝 ").append(a.notes);
                 t2.setText(line2.toString());
-                // 🆕 v6.63.667: Rückfahrt-Button — direkt in Karte sichtbar wenn Notizen "Rückfahrt" enthalten
+                // 🆕 v6.63.668: Rückfahrt-Badge + Tap öffnet Auswahl-Dialog
                 RueckfahrtHint _rfHint = _detectRueckfahrt(a.notes);
                 if (_rfHint != null) {
-                    btnRueckfahrt.setText("📅 Rückfahrt " + _rfHint.dateStr + " " + _rfHint.timeStr + " → anlegen");
-                    btnRueckfahrt.setVisibility(View.VISIBLE);
-                    btnRueckfahrt.setOnClickListener(_bv -> {
-                        String _rf40pick = a.destination != null ? (a.destination.length() > 40 ? a.destination.substring(0,40)+"…" : a.destination) : "?";
-                        String _rf40dest = a.pickup    != null ? (a.pickup.length()    > 40 ? a.pickup.substring(0,40)+"…"    : a.pickup)    : "?";
+                    tvRueckfahrt.setText("📅 Rückfahrt erkannt: " + _rfHint.dateStr + " " + _rfHint.timeStr
+                        + " Uhr  →  tippen zum Übernehmen");
+                    tvRueckfahrt.setVisibility(View.VISIBLE);
+                    itemView.setOnClickListener(_v -> {
+                        String _h40pick = a.pickup      != null ? (a.pickup.length()      > 40 ? a.pickup.substring(0,40)+"…"      : a.pickup)      : "?";
+                        String _h40dest = a.destination != null ? (a.destination.length() > 40 ? a.destination.substring(0,40)+"…" : a.destination) : "?";
+                        int _pax = a.passengers != null ? a.passengers : 1;
                         new AlertDialog.Builder(AdminDashboardActivity.this)
-                            .setTitle("📅 Rückfahrt anlegen")
-                            .setMessage("Datum: " + _rfHint.dateStr + " um " + _rfHint.timeStr + " Uhr\n\n"
-                                + "📍 " + _rf40pick + "\n🎯 " + _rf40dest + "\n"
-                                + "👤 " + (a.passengers != null ? a.passengers : 1) + " Pax\n\n"
-                                + "Als separate Fahrt anlegen?")
-                            .setPositiveButton("✅ Ja, anlegen", (d2, w2) ->
-                                _createRueckfahrtRide(a, null, _rfHint))
+                            .setTitle("📥 " + (a.name != null ? a.name : "Anfrage") + " — was übernehmen?")
+                            .setMessage(
+                                "🚕 Hinfahrt:\n  " + a.date + " " + a.time + "\n  📍 " + _h40pick + "\n  🎯 " + _h40dest
+                                + "\n\n📅 Rückfahrt:\n  " + _rfHint.dateStr + " " + _rfHint.timeStr
+                                + "\n  📍 " + _h40dest + "\n  🎯 " + _h40pick
+                                + "\n\n👤 " + _pax + " Pax")
+                            .setPositiveButton("✅ Beide übernehmen", (d2, w2) -> {
+                                _createRueckfahrtRide(a, null, _rfHint);
+                                _uebernehmeAnfrageImpl(a);
+                            })
+                            .setNeutralButton("🚕 Nur Hinfahrt", (d2, w2) ->
+                                _uebernehmeAnfrageImpl(a))
                             .setNegativeButton("Abbrechen", null)
                             .show();
                     });
                 } else {
-                    btnRueckfahrt.setVisibility(View.GONE);
-                    btnRueckfahrt.setOnClickListener(null);
+                    tvRueckfahrt.setVisibility(View.GONE);
+                    itemView.setOnClickListener(_v -> _uebernehmeAnfrageImpl(a));
                 }
-                // Ein Tap auf Karte → Übernahme. Long-Press → Optionen.
-                itemView.setOnClickListener(_v ->
-                    _uebernehmeAnfrageImpl(a));
                 itemView.setOnLongClickListener(_v -> {
                     new AlertDialog.Builder(AdminDashboardActivity.this)
                         .setTitle("📥 " + (a.name != null ? a.name : "Anfrage"))

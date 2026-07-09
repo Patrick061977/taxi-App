@@ -1844,11 +1844,10 @@
 
             let ridesByCrm = {};
             let ridesByPhone = {};
-            let archiveByCrm = {};
-            let archiveByPhone = {};
+            let archiveAll = {};
 
             function mergeAndRender() {
-                const merged = { ...ridesByPhone, ...ridesByCrm, ...archiveByPhone, ...archiveByCrm };
+                const merged = { ...ridesByPhone, ...ridesByCrm, ...archiveAll };
                 customerRides = [];
                 for (const [id, ride] of Object.entries(merged)) {
                     customerRides.push({ ...ride, firebaseId: id });
@@ -1878,20 +1877,34 @@
                 });
             }
 
-            // Query 3 (einmalig): Archivierte Fahrten per customerId
-            if (customerData?.id) {
-                db.ref('archiveRides').orderByChild('customerId').equalTo(customerData.id).once('value', snap => {
-                    archiveByCrm = snap.val() || {};
-                    mergeAndRender();
-                });
-            }
-
-            // Query 4 (einmalig): Archivierte Fahrten per Phone (aeltere ohne customerId)
-            if (mainPhone) {
-                db.ref('archiveRides').orderByChild('customerPhone').equalTo(mainPhone).once('value', snap => {
-                    archiveByPhone = snap.val() || {};
-                    mergeAndRender();
-                });
+            // Query 3+4 (einmalig): Archivierte Fahrten — alle Phone-Varianten + customerId parallel.
+            // Hinweis: /customers ist nur fuer admin/fahrer lesbar → customerData kann null sein.
+            // Deshalb IMMER alle phoneVariants durchsuchen, nicht nur mainPhone.
+            // phoneVariants enthaelt z.B. ['491621867461', '+491621867461', '01621867461', '00491621867461']
+            // → findet Fahrten unabhaengig davon wie die Nummer gespeichert wurde.
+            {
+                const archiveQueries = [];
+                if (customerData?.id) {
+                    archiveQueries.push(
+                        db.ref('archiveRides').orderByChild('customerId').equalTo(customerData.id).once('value')
+                    );
+                }
+                for (const variant of phoneVariants) {
+                    archiveQueries.push(
+                        db.ref('archiveRides').orderByChild('customerPhone').equalTo(variant).once('value')
+                    );
+                    archiveQueries.push(
+                        db.ref('archiveRides').orderByChild('customerMobile').equalTo(variant).once('value')
+                    );
+                }
+                if (archiveQueries.length > 0) {
+                    Promise.all(archiveQueries).then(snaps => {
+                        for (const snap of snaps) {
+                            Object.assign(archiveAll, snap.val() || {});
+                        }
+                        mergeAndRender();
+                    }).catch(e => console.warn('archiveRides query:', e));
+                }
             }
 
             // Fallback: kein CRM + kein Phone → letzte 200 global (sollte nicht vorkommen)

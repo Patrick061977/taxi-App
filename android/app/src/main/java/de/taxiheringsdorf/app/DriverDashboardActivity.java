@@ -4888,6 +4888,14 @@ public class DriverDashboardActivity extends AppCompatActivity {
                     displayPrice != null ? String.format(Locale.GERMANY, "%.2f", displayPrice) : "--",
                     priceLabel,
                     r.distance != null ? String.format(Locale.GERMANY, "%.1f", r.distance) : "--");
+                // v6.63.663: Personenanzahl in Fahrt-Karte anzeigen (Patrick: Fahrer soll das auch sehen)
+                if (r.passengers != null && r.passengers > 1) {
+                    pd += " · 👥 " + r.passengers + " Pers.";
+                }
+                // Notizen anzeigen wenn vorhanden
+                if (r.notes != null && !r.notes.trim().isEmpty()) {
+                    pd += "\n📝 " + r.notes.trim();
+                }
                 tvPriceDist.setText(pd);
                 String s = r.status != null ? r.status : "?";
                 String badge; int bgColor;

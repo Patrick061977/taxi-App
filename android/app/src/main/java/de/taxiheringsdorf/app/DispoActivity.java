@@ -394,6 +394,23 @@ public class DispoActivity extends AppCompatActivity {
             line2.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
             line2.setPadding(0, dp(2), 0, 0);
             card.addView(line2);
+            // 🆕 v6.63.645: Personen-Anzahl + Notizen
+            if (ride.passengers != null && ride.passengers > 0) {
+                TextView linePax = new TextView(this);
+                linePax.setText("👤 " + ride.passengers + " Pax");
+                linePax.setTextColor(Color.parseColor("#CBD5E1"));
+                linePax.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+                linePax.setPadding(0, dp(2), 0, 0);
+                card.addView(linePax);
+            }
+            if (ride.notes != null && !ride.notes.isEmpty()) {
+                TextView lineNotes = new TextView(this);
+                lineNotes.setText("📝 " + ride.notes);
+                lineNotes.setTextColor(Color.parseColor("#FCD34D"));
+                lineNotes.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+                lineNotes.setPadding(0, dp(2), 0, 0);
+                card.addView(lineNotes);
+            }
         } else if (v.lastHeartbeat != null) {
             long ageMin = (System.currentTimeMillis() - v.lastHeartbeat) / 60_000L;
             TextView line1 = new TextView(this);
@@ -465,6 +482,21 @@ public class DispoActivity extends AppCompatActivity {
         tvRoute.setTextColor(Color.parseColor("#94A3B8"));
         tvRoute.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
         col.addView(tvRoute);
+        // 🆕 v6.63.645: Personen-Anzahl + Notizen in kommender Fahrt-Card
+        if (r.passengers != null && r.passengers > 0) {
+            TextView tvPax = new TextView(this);
+            tvPax.setText("👤 " + r.passengers + " Pax");
+            tvPax.setTextColor(Color.parseColor("#CBD5E1"));
+            tvPax.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
+            col.addView(tvPax);
+        }
+        if (r.notes != null && !r.notes.isEmpty()) {
+            TextView tvNotes = new TextView(this);
+            tvNotes.setText("📝 " + r.notes);
+            tvNotes.setTextColor(Color.parseColor("#FCD34D"));
+            tvNotes.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
+            col.addView(tvNotes);
+        }
 
         // v6.63.344 (Patrick 15.06. 07:29 'Fahrplan-Modus, wann welches Fahrzeug wo'):
         //   Zeit-Detail-Zeile pro Card: Pickup-Zeit + Anfahrt + Fahrt-Dauer + Drop + Frei.
@@ -611,7 +643,10 @@ public class DispoActivity extends AppCompatActivity {
         body.append("📋 ").append(r.customerName != null ? r.customerName : "?").append("\n");
         body.append("⏰ ").append(hhmm.format(new Date(r.pickupTs))).append("\n");
         body.append("📍 ").append(r.pickup != null ? r.pickup : "?").append("\n");
-        body.append("🎯 ").append(r.destination != null ? r.destination : "?").append("\n\n");
+        body.append("🎯 ").append(r.destination != null ? r.destination : "?").append("\n");
+        if (r.passengers != null && r.passengers > 0) body.append("👤 ").append(r.passengers).append(" Pax\n");
+        if (r.notes != null && !r.notes.isEmpty()) body.append("📝 ").append(r.notes).append("\n");
+        body.append("\n");
         body.append("🚗 Fahrzeug-Status für ").append(dateStr).append(" ").append(timeStr).append(":\n");
         for (VehicleInfo v : vehicles.values()) {
             boolean inS = isVehicleInShift(v.id, dateStr, timeStr);
@@ -964,6 +999,10 @@ public class DispoActivity extends AppCompatActivity {
             try { r.price = Double.parseDouble(String.valueOf(_priceRaw).replace(',', '.')); }
             catch (Throwable __) {}
         }
+        // 🆕 v6.63.645: Notizen + Personenzahl anzeigen
+        r.notes = strOrNull(s.child("notes").getValue());
+        Object _paxRaw = s.child("passengers").getValue();
+        if (_paxRaw instanceof Number) r.passengers = ((Number) _paxRaw).intValue();
         // 🆕 v6.63.024: vehicleScores + autoAssignLastReason für Konflikt-Diagnose
         // 🆕 v6.63.455 (Patrick 21.06. 09:17 Bridge: 'ich konnte den Fehler in der Live-Dispo
         //   nicht sehen'): vehicleScores komplett auswerten — leerfahrtMin, totalScore,
@@ -1053,6 +1092,9 @@ public class DispoActivity extends AppCompatActivity {
         java.util.Map<String, String> vehicleScoreSummary;
         // 🆕 v6.63.309 (Stripe-Vorkasse aus DispoActivity)
         Double price;
+        // 🆕 v6.63.645
+        String notes;
+        Integer passengers;
 
         boolean isActive() {
             return "assigned".equals(status) || "accepted".equals(status)

@@ -1844,9 +1844,11 @@
 
             let ridesByCrm = {};
             let ridesByPhone = {};
+            let archiveByCrm = {};
+            let archiveByPhone = {};
 
             function mergeAndRender() {
-                const merged = { ...ridesByPhone, ...ridesByCrm };
+                const merged = { ...ridesByPhone, ...ridesByCrm, ...archiveByPhone, ...archiveByCrm };
                 customerRides = [];
                 for (const [id, ride] of Object.entries(merged)) {
                     customerRides.push({ ...ride, firebaseId: id });
@@ -1872,6 +1874,22 @@
             if (mainPhone) {
                 db.ref('rides').orderByChild('customerPhone').equalTo(mainPhone).once('value', snap => {
                     ridesByPhone = snap.val() || {};
+                    mergeAndRender();
+                });
+            }
+
+            // Query 3 (einmalig): Archivierte Fahrten per customerId
+            if (customerData?.id) {
+                db.ref('archiveRides').orderByChild('customerId').equalTo(customerData.id).once('value', snap => {
+                    archiveByCrm = snap.val() || {};
+                    mergeAndRender();
+                });
+            }
+
+            // Query 4 (einmalig): Archivierte Fahrten per Phone (aeltere ohne customerId)
+            if (mainPhone) {
+                db.ref('archiveRides').orderByChild('customerPhone').equalTo(mainPhone).once('value', snap => {
+                    archiveByPhone = snap.val() || {};
                     mergeAndRender();
                 });
             }

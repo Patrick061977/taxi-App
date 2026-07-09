@@ -615,17 +615,29 @@
                 let rideSnap;
                 try { rideSnap = await db.ref('rides').child(rideId).once('value'); }
                 catch (e) { _diagSetStep('FEHLER /rides Read: ' + (e.code||'')+' '+(e.message||e)); throw e; }
-                const ride = rideSnap.val();
-                if (!ride) { _diagSetStep('Fahrt nicht gefunden in /rides/' + rideId.slice(0,10)); showError('❌ Fahrt nicht gefunden'); return; }
-                _diagSetStep('Step 4/4: Ride OK — ' + (ride.customerName||'?') + ' status=' + (ride.status||'?'));
-                vehicleId = ride.vehicleId || ride.assignedVehicle;
+                let _initRide = rideSnap.val();
+                // Fallback: Fahrt koennte im Archiv liegen (Archiv-Cron verschiebt completed/cancelled nach /archiveRides)
+                if (!_initRide) {
+                    _diagSetStep('Nicht in /rides — suche in /archiveRides...');
+                    try {
+                        const archSnap = await db.ref('archiveRides').child(rideId).once('value');
+                        _initRide = archSnap.val();
+                    } catch(e) { /* ignore */ }
+                }
+                if (!_initRide) { _diagSetStep('Fahrt nicht gefunden in /rides oder /archiveRides'); showError('❌ Fahrt nicht gefunden'); return; }
+                _diagSetStep('Step 4/4: Ride OK — ' + (_initRide.customerName||'?') + ' status=' + (_initRide.status||'?'));
+                vehicleId = _initRide.vehicleId || _initRide.assignedVehicle;
             }
 
             console.log('📍 Tracking aktiv:', { rideId, vehicleId });
 
-            // Fahrt-Daten laden
-            const rideSnap = await db.ref('rides').child(rideId).once('value');
-            const ride = rideSnap.val();
+            // Fahrt-Daten laden — zuerst /rides, Fallback auf /archiveRides
+            let rideSnap = await db.ref('rides').child(rideId).once('value');
+            let ride = rideSnap.val();
+            if (!ride) {
+                const archSnap = await db.ref('archiveRides').child(rideId).once('value');
+                ride = archSnap.val();
+            }
             
             // 🆕 v5.90.53: STATUS-CHECK - Ist Fahrt beendet?
             // 🔧 v6.62.140: Patrick: 'Card ist gar nicht mehr verfuegbar wenn die Fahrt
@@ -743,7 +755,7 @@
             // tot beim Parsen → Track-Page bleibt im 'Lädt Fahrzeug-Informationen'-Initialstate.
             // Patrick: 'heute wird gar nichts angezeigt'.
             db.ref('rides').child(rideId).on('value', async (snap) => {
-                const r = snap.val();
+                const r = snap.val() || ride; // Fallback: archivierte Fahrt bereits in 'ride' geladen
                 if (!r) return;
                 // v6.62.134: aktueller Ride-State global verfuegbar fuer downloadIcs()
                 window._currentRide = { id: rideId, data: r };

@@ -3617,6 +3617,43 @@ public class AdminDashboardActivity extends AppCompatActivity {
         btnSaveTop.setLayoutParams(_saveTopParams);
         layout.addView(btnSaveTop);
 
+        // 🆕 v6.63.669: ERLEDIGT-Button — prominente Schnell-Aktion für aktive Fahrten
+        //   Patrick: "vergangene fahrten nicht als erledigt klicken" — Spinner ist zu versteckt
+        if ("accepted".equals(r.status) || "picked_up".equals(r.status) || "on_way".equals(r.status)) {
+            com.google.android.material.button.MaterialButton btnDone =
+                new com.google.android.material.button.MaterialButton(this);
+            btnDone.setText("✅ FAHRT ABSCHLIESSEN (Erledigt)");
+            btnDone.setTextSize(16);
+            btnDone.setBackgroundColor(android.graphics.Color.parseColor("#1d4ed8"));
+            btnDone.setTextColor(android.graphics.Color.WHITE);
+            LinearLayout.LayoutParams _doneParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+            _doneParams.setMargins(0, 0, 0, pad);
+            btnDone.setLayoutParams(_doneParams);
+            btnDone.setOnClickListener(_v -> {
+                new AlertDialog.Builder(this)
+                    .setTitle("✅ Fahrt abschließen")
+                    .setMessage((r.customerName != null ? r.customerName : "Fahrt") + " als erledigt markieren?")
+                    .setPositiveButton("Ja, erledigt", (_d, _w) -> {
+                        java.util.Map<String, Object> upd = new java.util.HashMap<>();
+                        upd.put("status", "completed");
+                        upd.put("completedAt", System.currentTimeMillis());
+                        upd.put("completedBy", "native_admin_dispo");
+                        upd.put("updatedAt", System.currentTimeMillis());
+                        FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("rides/" + r.id)
+                            .updateChildren(upd)
+                            .addOnSuccessListener(_ok -> {
+                                Toast.makeText(this, "✅ " + (r.customerName != null ? r.customerName : "Fahrt") + " abgeschlossen", Toast.LENGTH_SHORT).show();
+                                if (_dlgRef.get() != null) _dlgRef.get().dismiss();
+                            })
+                            .addOnFailureListener(_ex -> Toast.makeText(this, "Fehler: " + _ex.getMessage(), Toast.LENGTH_LONG).show());
+                    })
+                    .setNegativeButton("Abbrechen", null)
+                    .show();
+            });
+            layout.addView(btnDone);
+        }
+
         // 🆕 v6.63.558: +5/+10 Min Schnell-Verschieben (Patrick 29.06. 19:39 Bridge:
         //   "wenn ich ne Fahrt angenommen hab, die schnell um 5 Minuten verschieben")
         if (r.pickupTimestamp != null && r.pickupTimestamp > 0) {

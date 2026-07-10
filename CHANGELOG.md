@@ -6,6 +6,39 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [6.63.671] - 2026-07-10
+
+### 🐛 Native Fahrer-App: Vorkasse-Rechnung sagte "Bar erhalten" (G)
+
+- **DriverDashboardActivity — showPaymentMethodStage**: Erkennung der Vorkasse-Absicht erweitert
+- Bisher (v6.63.502) nur wenn `stripePaymentStatus='paid'` ODER `paymentMethod='vorkasse'`
+- Vorkasse-Fahrten aus Cloud-Auto-Flow (v6.63.263) haben `paymentMethod='stripe'` + `stripeCheckoutUrl` — Webhook kann verspätet sein → Option erschien nicht → Fahrer wählte Bar → Rechnung "Bar erhalten"
+- **Neu**: `_prepaidContext` prüft zusätzlich `paymentMethod='stripe'` OR `stripeCheckoutUrl` gesetzt → Option "Vorkasse bezahlt (Kunde hat Link/Terminal genutzt)" → `markCompleted(stripe)` → Rechnung "Bezahlt per Stripe (online)"
+- Ride-Model um `stripeCheckoutUrl` erweitert (frisch aus Firebase gelesen)
+
+### 🐛 Native Admin-Dispo: Neue Sektion "VORGESEHEN — nicht bestätigt" (F)
+
+- **AdminDashboardActivity — rebuildAdapterList**: neue oberste Sektion 🕐 vor der Tag-Timeline
+- Filter: `status='assigned'` + `acceptedAt=null` + (`assignedAt` > 5 Min alt ODER `pickupTimestamp` < 30 Min entfernt/überfällig)
+- Deckt Fälle ab wo Cloud-Auto-Optimize Fahrten an offline-Fahrer verteilt (Koch-Fall 10.07.: assignedAt=06:39, Fahrer Danilo Schicht seit 07.07. ended, Pickup 10:00 verstrichen — Fahrt bisher unsichtbar)
+- Vorgesehen-Rides werden aus `rest` entfernt damit sie nicht doppelt in der Tag-Timeline erscheinen
+- Ride-Model um `assignedAt` + `acceptedAt` erweitert
+- Terminologie: 'assigned + acceptedAt=null' = VORGESEHEN · 'assigned + acceptedAt≠null' = wirklich zugewiesen (Patrick 10.07. 11:09 Bridge)
+
+---
+
+## [6.63.670] - 2026-07-10
+
+### 🐛 Native Fahrer-App: Anfrage-Karte Ablehnen wieder erreichbar (A)
+
+- **AdminDashboardActivity — AnfrageVH**: seit v6.63.629 löste Tap direkt `_uebernehmeAnfrageImpl(a)` aus, Ablehnen war nur per LongPress erreichbar (versteckt)
+- Patrick 10.07. 07:08: *"Web-Anfragen kann ich ja gar nicht mehr ablehnen"*
+- **Ohne Rückfahrt-Hinweis**: Tap öffnet AlertDialog mit ✅ Übernehmen + bestätigen / ⚪ Nur übernehmen (kein Versand) / ❌ Ablehnen
+- **Mit Rückfahrt-Hinweis**: Abbrechen-Slot wird zu ❌ Ablehnen (Abbrechen weiter via Back-Taste)
+- LongPress-Menü bleibt als Power-User-Fallback
+
+---
+
 ## [6.63.669] - 2026-07-09
 
 ### ✨ Native Fahrer-App: Erledigt-Button in Disposition

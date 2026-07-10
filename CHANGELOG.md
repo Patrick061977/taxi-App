@@ -6,6 +6,21 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [6.63.679] - 2026-07-10
+
+### 🐛 Native Dispo: Engpass-Schwelle 5 Min statt jede Minute (O)
+
+Patrick 10.07. 16:28 Bridge: *'Zwei Minuten ist Quatsch als Engpass. Alles bis 5 Min ist mir egal.'*
+
+**Änderung `AdminDashboardActivity` Konflikt-Detection (~Z577):**
+- Bisher: jedes deficit > 0 Min → `⚠️ Engpass`-Badge
+- Neu: `deficit <= 5 Min` → keine Anzeige (Karenz) — außer nächste Fahrt geht zum Bahnhof
+- `deficit 6-10 Min` → `⚠️ Engpass`
+- `deficit > 10 Min` → `🚨 Kollision`
+- Bahnhof-Sonderregel bleibt: nächste Fahrt zum Bahnhof zeigt Engpass auch bei <5 Min (Zug verpasst = Kunde weg)
+
+---
+
 ## [6.63.678] - 2026-07-10
 
 ### 🐛 Native Dispo: Wartepool-Diagnose sichtbar + Rides bleiben in Timeline

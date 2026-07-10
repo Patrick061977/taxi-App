@@ -576,14 +576,19 @@ public class AdminDashboardActivity extends AppCompatActivity {
                     long required = nxtDrive + 3;
                     if (gapMin < required) {
                         long deficit = required - gapMin;
-                        // 🆕 v6.62.954 Phase 2A: Bahnhof-Priorität HIGH (Verspätung = Zug verpasst)
+                        // v6.63.679 (Patrick 10.07. 16:28 Bridge: "zwei Minuten ist Quatsch als
+                        //   Engpass, alles bis 5 Min ist mir egal"): Engpass-Schwelle 5 Min.
+                        //   Ausnahme: Bahnhofs-Fahrten (nächste Fahrt) — dort ist auch 3 Min
+                        //   kritisch weil Zug weg = Kunde verpasst Anschluss. Bahnhof bleibt HIGH.
                         boolean curIsBahnhof = cur.destination != null && cur.destination.toLowerCase().contains("bahnhof");
                         boolean nxtIsBahnhof = nxt.destination != null && nxt.destination.toLowerCase().contains("bahnhof");
+                        if (deficit <= 5 && !nxtIsBahnhof) continue; // Karenz: bis 5 Min egal (aber nicht wenn nächste Fahrt zum Bahnhof geht)
                         String curPrio = curIsBahnhof ? " 🚆HIGH" : "";
                         String nxtPrio = nxtIsBahnhof ? " 🚆HIGH" : "";
                         // Wenn next.Bahnhof HIGH und cur.normal: cur soll vorgezogen werden (kann nicht zu spät an Bahnhof kommen)
                         // Wenn cur.Bahnhof HIGH: nxt verschieben oder Re-Assign
-                        cur.conflictHint = "⚠️ Engpass" + curPrio + ": nächste Fahrt (" + (nxt.customerName != null ? nxt.customerName : "?") + nxtPrio + " " +
+                        String _severity = deficit > 10 ? "🚨 Kollision" : "⚠️ Engpass";
+                        cur.conflictHint = _severity + curPrio + ": nächste Fahrt (" + (nxt.customerName != null ? nxt.customerName : "?") + nxtPrio + " " +
                             new SimpleDateFormat("HH:mm", Locale.GERMANY).format(new Date(nxt.pickupTimestamp)) + ") in " + gapMin + " Min, " + nxtDrive + " Min Anfahrt — " + deficit + " Min zu spät";
                         cur.conflictDeficit = (int) deficit;
                         cur.conflictNextRideId = nxt.id;

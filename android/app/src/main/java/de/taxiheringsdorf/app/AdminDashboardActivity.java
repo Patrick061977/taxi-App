@@ -464,6 +464,13 @@ public class AdminDashboardActivity extends AppCompatActivity {
             rest.removeAll(_vorgesehenRides);
         }
 
+        // v6.63.678 (Patrick 10.07. 16:05 Bridge "der wartepool wird oben angezeigt und
+        //   aus der Disposition verschwindet das ist unübersichtlich"):
+        //   Wartepool-Rides bleiben in der Tag-Timeline INLINE sichtbar (Zeit-Kontext),
+        //   MIT expanded Diagnose per Default (v6.63.678 Fix Z3297).
+        //   Wir wollen NICHT eine separate obere Sektion die die Rides dupliziert.
+        rest.addAll(wartepoolRides);
+
         // 🆕 v6.62.932 (Patrick 25.05. 12:29-12:30 'e' + 'dispo'): Wartepool +
         //   offene Anfragen als prominente Top-Banner — geht in der Dispo-Liste sonst unter.
         try {
@@ -609,12 +616,9 @@ public class AdminDashboardActivity extends AppCompatActivity {
         //   Sektion. Vorne in der Tag-Timeline stehen nur normale Vorbestellungen +
         //   completed, damit Patrick die regulären Fahrten annehmen kann ohne dass die
         //   Wartepool-Karten die Liste verstopfen.
-        if (!wartepoolRides.isEmpty()) {
-            sectioned.add("⏸️ WARTEPOOL (" + wartepoolRides.size() + ") — manuelle Disposition");
-            // Wartepool-Rides chronologisch sortiert anhängen
-            wartepoolRides.sort(Comparator.comparingLong(r -> r.pickupTimestamp != null ? r.pickupTimestamp : Long.MAX_VALUE));
-            sectioned.addAll(wartepoolRides);
-        }
+        // v6.63.678 (Patrick 10.07. 16:04 Bridge "das habe ich nirgends gesehen"):
+        //   Wartepool wird jetzt OBEN direkt nach VORGESEHEN gezeigt (siehe oben).
+        //   Untere Sektion entfernt — sonst tauchen die Rides doppelt auf.
         adapter.set(sectioned);
         // 🆕 v6.62.673: Queue-Count zaehlt jetzt auch offene Anfragen
         int totalCount = list.size() + _currentOffeneAnfragen.size();
@@ -3294,8 +3298,12 @@ public class AdminDashboardActivity extends AppCompatActivity {
                     // 🆕 v6.63.566: Diagnose in tvWpDiag (einklappbar), nicht mehr in route
                     final String _wpDiagText = wpDiag.toString();
                     tvWpDiag.setText(_wpDiagText);
-                    tvWpDiag.setVisibility(View.GONE); // default: eingeklappt
-                    tvWpToggle.setText("💡 Details");
+                    // v6.63.678 (Patrick 10.07. 16:04 Bridge: "es zeigt aber auch keinen Grund
+                    //   an"): Wartepool-Diagnose per Default AUFGEKLAPPT statt versteckt.
+                    //   Der '💡 Details'-Button-Trick war zu subtil — Patrick sah nur "kein
+                    //   Fahrzeug" ohne Ahnung warum.
+                    tvWpDiag.setVisibility(View.VISIBLE);
+                    tvWpToggle.setText("▲ Details");
                     tvWpToggle.setVisibility(View.VISIBLE);
                     tvWpToggle.setOnClickListener(_tv -> {
                         if (tvWpDiag.getVisibility() == View.VISIBLE) {

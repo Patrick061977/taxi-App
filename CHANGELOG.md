@@ -6,6 +6,24 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [6.63.678] - 2026-07-10
+
+### 🐛 Native Dispo: Wartepool-Diagnose sichtbar + Rides bleiben in Timeline
+
+Patrick 10.07. 16:04-16:05 Bridge:
+*'es zeigt aber auch keinen Grund an'* + *'das habe ich nirgends gesehen'* + *'weil der wartepool oben angezeigt wird und aus der Disposition verschwindet das ist unübersichtlich'*.
+
+**Fix 1 — Details per Default aufgeklappt (Z3297):**
+- Bisher war Wartepool-Diagnose (`autoAssignLastReason`, `wartepoolReason`, `vehicleScores`) hinter '💡 Details'-Toggle versteckt (default GONE)
+- Neu: default VISIBLE. Toggle zeigt '▲ Details' um zuzuklappen.
+
+**Fix 2 — Wartepool-Rides bleiben in Tag-Timeline (Z396):**
+- v6.63.375 hatte Wartepool aus rest entfernt und am ENDE als eigene Sektion angezeigt
+- Patrick heute: aus Timeline verschwinden ist unübersichtlich — er will die Fahrt bei ihrer Uhrzeit sehen
+- Neu: Wartepool-Rides bleiben in Tag-Timeline INLINE. Der obere Wartepool-Banner-Count bleibt als visuelle Sofort-Info.
+
+---
+
 ## [6.63.677] - 2026-07-10
 
 ### 🐛 Cloud autoAssignRide: 'ended' Schicht wieder ins 4h-Fenster (I-Korrektur)

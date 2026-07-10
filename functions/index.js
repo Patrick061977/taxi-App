@@ -1587,18 +1587,24 @@ async function autoAssignRide(rideId, rideData, _excludeVehicleIds = []) {
                 // der Wochenplan es erlaubt. Fahrzeuge mit live-aktiver Schicht bekommen Vorrang.
                 // Hintergrund: Patrick in MY-222 eingeloggt, IK-222 per Heartbeat-Timeout auto-ended
                 // → scheduledAutoAssign weist Fahrten trotzdem IK-222 zu → Patrick sieht sie nicht.
+                //
+                // 🆕 v6.63.672 (Patrick 10.07. 11:27 Koch-Fall): Manuelles 'ended' + 'force-ended'
+                // wird HART geblockt, egal wie weit weg der Pickup ist. Koch wurde heute 06:39 an
+                // Danilos vg-lk-111 auto-assigned obwohl der seit 07.07. 18:28 (63h) ended. Grund:
+                // damaliger msUntilPickup war ~7h → außerhalb des 4h-Fensters → Check inaktiv.
+                // 'auto-ended' bleibt beim 4h-Fenster (App-Restart kann Schicht reaktivieren).
                 const _msUntilPickup = rideData.pickupTimestamp - Date.now();
-                // v6.63.637: 'ended' (manuell) + 'auto-ended' + 'force-ended' = kein aktiver Fahrer
-                //   vorher: nur auto-ended blockiert → ended-Schicht wurde übersehen (Santangelo-Bug 07.07.)
-                const _shiftIsInactive = _vData.shift && (
-                    _vData.shift.status === 'auto-ended' ||
-                    _vData.shift.status === 'ended' ||
-                    _vData.shift.status === 'force-ended'
-                );
-                if (_shiftIsInactive && _msUntilPickup < 4 * 60 * 60 * 1000 && _msUntilPickup > -30 * 60 * 1000) {
-                    const _sStatus = _vData.shift.status;
-                    console.log(`   ❌ ${info.name}: Vorbestellung in <4h — shift.status=${_sStatus}, kein aktiver Fahrer`);
-                    vehicleScores[vehicleId] = { status: 'rejected', reason: `Schicht ${_sStatus}, kein Fahrer aktiv`, check: 'shift-inactive-near-pickup' };
+                const _shiftStatus = _vData.shift && _vData.shift.status;
+                const _hardEnded = _shiftStatus === 'ended' || _shiftStatus === 'force-ended';
+                const _autoEnded = _shiftStatus === 'auto-ended';
+                if (_hardEnded) {
+                    console.log(`   ❌ ${info.name}: Schicht '${_shiftStatus}' — hart blockiert (v6.63.672 Koch-Fix)`);
+                    vehicleScores[vehicleId] = { status: 'rejected', reason: `Schicht ${_shiftStatus}, kein Fahrer aktiv`, check: 'shift-hard-ended' };
+                    continue;
+                }
+                if (_autoEnded && _msUntilPickup < 4 * 60 * 60 * 1000 && _msUntilPickup > -30 * 60 * 1000) {
+                    console.log(`   ❌ ${info.name}: Vorbestellung in <4h — shift.status=auto-ended, kein aktiver Fahrer`);
+                    vehicleScores[vehicleId] = { status: 'rejected', reason: `Schicht auto-ended, kein Fahrer aktiv`, check: 'shift-auto-ended-near-pickup' };
                     continue;
                 }
             }
@@ -31250,8 +31256,14 @@ exports.scheduledOpenRideCheck = onSchedule(
                 if (!ride.pickupTimestamp) return;
                 if (ride.assignmentLocked) return;
                 const msUntil = ride.pickupTimestamp - now;
-                if (msUntil < 0) return;
+                // 🆕 v6.63.672 (Patrick 10.07. 11:27 Koch-Fall): auch bereits überfällige
+                // Fahrten (msUntil < 0) prüfen. Vorher wurden Fahrten die im aktuellen Zyklus
+                // gerade überfällig geworden waren mit acceptedAt=null unsichtbar hängen gelassen.
+                // Skip nur wenn schon mehr als 60 Min überfällig — dann greift STALE-CLEANUP.
+                if (msUntil < -60 * 60000) return;
                 const minUntil = Math.round(msUntil / 60000);
+                // v6.63.672: acceptedAt=null bedeutet Fahrer hat NIE bestätigt — behandeln wie offline
+                const _neverAccepted = !ride.acceptedAt;
 
                 const vid = ride.assignedVehicle || ride.vehicleId;
                 let driverOffline = true;
@@ -31269,6 +31281,14 @@ exports.scheduledOpenRideCheck = onSchedule(
                         driverOffline = shiftEnded || hbOld;
                     } catch(e) { driverOffline = true; }
                 }
+                // v6.63.672: acceptedAt=null + Pickup steht bevor/überfällig + zugewiesen seit >5 Min
+                // ist ein starkes Signal dass Fahrer die Fahrt nicht mitbekommen hat — auch wenn
+                // Heartbeat noch OK ist. Behandeln wie offline damit Safety-Net greift.
+                // Nur triggern wenn Pickup kritisch nah (<=30 Min) — bei weit weg Vorbestellungen
+                // hat der Fahrer noch Zeit zu bestätigen (kein hektisches Reassign).
+                const _assignedTooLong = ride.assignedAt && (now - ride.assignedAt) > 5 * 60000;
+                const _pickupCritical = minUntil <= 30;
+                if (_neverAccepted && _pickupCritical && _assignedTooLong) driverOffline = true;
                 if (!driverOffline) return;
 
                 if (minUntil <= 30) {

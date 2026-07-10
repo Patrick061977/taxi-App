@@ -6,6 +6,24 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [6.63.672] - 2026-07-10
+
+### 🐛 Cloud-Backend: Phase-0 Hard-Block + Non-Accept-Reassign (I)
+
+Patrick 10.07. 11:27 Bridge: *"aber wenn der Fahrer nicht annimmt oder akzeptiert, dann muss das ja auch irgendwie weitergegeben werden an die Fahrer die Online sind"*.
+
+**Ursache Koch-Fall (10.07. 06:39):** cloud-auto-optimize wies Fahrt (Pickup 10:00) an vg-lk-111 (Danilo) zu — trotz Schicht seit 07.07. 18:28 ended (63 Std offline). Grund: der v6.63.568-Schicht-Inaktiv-Check war nur aktiv bei Pickup <4h — beim Assign-Zeitpunkt lag Pickup weiter weg. Watchdog griff später auch nicht (msUntil<0 skip). Fahrt blieb unsichtbar.
+
+**Fix `autoAssignRide` (functions/index.js ~Z1584):**
+- `shift.status='ended'` und `'force-ended'` werden jetzt HART geblockt, egal wie weit weg der Pickup
+- `shift.status='auto-ended'` bleibt beim 4h-Fenster (App-Restart kann Schicht reaktivieren)
+
+**Fix STUCK-ASSIGNED-WATCHDOG (functions/index.js ~Z31258):**
+- msUntil<0-Guard aufgeweicht: prüft jetzt auch überfällige Fahrten bis 60 Min zurück
+- `acceptedAt=null` + Pickup kritisch (<=30 Min) + assignedAt>5 Min alt → als offline behandeln → Safety-Net triggert → warteschlange
+
+---
+
 ## [6.63.671] - 2026-07-10
 
 ### 🐛 Native Fahrer-App: Vorkasse-Rechnung sagte "Bar erhalten" (G)

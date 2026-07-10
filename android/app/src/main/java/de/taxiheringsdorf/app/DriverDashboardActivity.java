@@ -3568,6 +3568,9 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 if (_freshStripeStatus != null) r.stripePaymentStatus = _freshStripeStatus;
                 String _freshPayMeth = s.child("paymentMethod").getValue(String.class);
                 if (_freshPayMeth != null) r.paymentMethod = _freshPayMeth;
+                // v6.63.671: stripeCheckoutUrl frisch — Vorkasse-Erkennung braucht das
+                String _freshStripeUrl = s.child("stripeCheckoutUrl").getValue(String.class);
+                if (_freshStripeUrl != null) r.stripeCheckoutUrl = _freshStripeUrl;
                 renderPaymentDialog(r, hotelName, hasAuftraggeber);
             }
             @Override public void onCancelled(@NonNull DatabaseError e) {
@@ -3658,10 +3661,24 @@ public class DriverDashboardActivity extends AppCompatActivity {
         // 🆕 v6.63.502 (Patrick 28.06. 08:10 Bridge: "bei Götz stand Bar aber der hat
         //   mit Stripe bezahlt" + "muss eine Option 'schon bezahlt' sein"):
         //   Wenn Vorkasse bereits abgeschlossen → Option ganz oben anbieten.
+        // v6.63.671 (Patrick 10.07. 08:21 Bridge "Rechnung zeigt Bar obwohl Vorkasse"):
+        //   Erkennung erweitert. Vorkasse-Fahrten aus Cloud-Auto-Flow (v6.63.263) haben
+        //   paymentMethod='stripe' und stripeCheckoutUrl gesetzt — der Stripe-Webhook
+        //   der stripePaymentStatus='paid' setzt, kann verspätet kommen. Ohne diesen
+        //   Fix erschien die 'Schon bezahlt'-Option nicht und der Fahrer wählte notgedrungen
+        //   Bar → Rechnung sagte "Bar erhalten" statt "Bezahlt per Stripe".
         boolean _alreadyPaid = "paid".equalsIgnoreCase(r.stripePaymentStatus)
             || "vorkasse".equalsIgnoreCase(r.paymentMethod);
+        boolean _prepaidContext = _alreadyPaid
+            || "stripe".equalsIgnoreCase(r.paymentMethod)
+            || (r.stripeCheckoutUrl != null && !r.stripeCheckoutUrl.isEmpty());
         if (_alreadyPaid) {
             options.add("✅ Schon bezahlt (Vorkasse/Stripe) — nur abschließen");
+            methods.add("vorkasse_prepaid");
+        } else if (_prepaidContext) {
+            // Vorkasse-Link vorhanden, Bezahl-Status noch nicht bestätigt (pending) —
+            // Kunde hat vermutlich schon bezahlt, Webhook lahmt oder wurde nicht gepingt.
+            options.add("✅ Vorkasse bezahlt (Kunde hat Link/Terminal genutzt)");
             methods.add("vorkasse_prepaid");
         }
         options.add("💵 Bar (" + amountStr + ")");                        methods.add("cash");
@@ -4421,6 +4438,11 @@ public class DriverDashboardActivity extends AppCompatActivity {
         //   paymentMethod='stripe'|'vorkasse'|'bar', stripePaymentStatus='pending'|'paid'.
         String paymentMethod;
         String stripePaymentStatus;
+        // v6.63.671 (Patrick 10.07. 08:21+09:02 Bridge "auf der Rechnung bei Vorkasse immer noch Bar steht"):
+        //   Vorkasse-Fahrten aus dem Cloud-Auto-Flow (v6.63.263) haben paymentMethod='stripe'
+        //   und stripeCheckoutUrl gesetzt — der Webhook kann verspätet kommen. Native erkennt
+        //   damit die Vorkasse-Absicht auch VOR Bezahl-Bestätigung.
+        String stripeCheckoutUrl;
         // 🆕 v6.63.312: Email + customerId für 1-Klick-Mail-Vorausfuellung beim 'Email-Rechnung'-Flow
         String customerEmail, email, customerId;
         Integer passengers; // v6.63.619: Personenzahl für Grab-Dialog
@@ -4433,6 +4455,7 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 r.guestName = s.child("guestName").getValue(String.class);
                 r.paymentMethod = s.child("paymentMethod").getValue(String.class);
                 r.stripePaymentStatus = s.child("stripePaymentStatus").getValue(String.class);
+                r.stripeCheckoutUrl = s.child("stripeCheckoutUrl").getValue(String.class); // v6.63.671
                 // 🆕 v6.63.312
                 r.customerEmail = s.child("customerEmail").getValue(String.class);
                 r.email = s.child("email").getValue(String.class);

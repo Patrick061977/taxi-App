@@ -51,14 +51,16 @@ public class ShiftEditorActivity extends AppCompatActivity {
 
     // OFFICIAL_VEHICLES — analog zu functions/index.js. In-Memory weil sich das selten aendert.
     private static final Map<String, String> OFFICIAL_VEHICLES = new LinkedHashMap<String, String>() {{
+        // v6.63.674 (Patrick 10.07. 13:49 Bridge): alte Fahrzeuge raus aus Schicht-Editor.
+        // pw-sj-222 (VW Caravelle alt) + sbg-v-104 (Sprinter/Mazda) sind nur noch für
+        // Buchhaltung/TÜV-Historie in Firebase, nicht mehr im aktiven Betrieb.
+        // ovp-ii-600 + ovp-ik-222 waren hier eh nie in der Native-Liste.
         put("pw-my-222-e", "Tesla Model Y (PW-MY 222 E)");
         put("pw-ym-222-e", "Tesla Model Y (PW-YM 222 E)");
         put("pw-sk-222", "Renault Traffic 8 Pax (PW-SK 222)");
-        put("pw-sj-222", "Mercedes Vito 8 Pax (PW-SJ 222)");
         put("pw-ki-222", "Toyota Prius KI (PW-KI 222)");
         put("pw-ik-222", "Toyota Prius IK (PW-IK 222)");
         put("vg-lk-111", "Mercedes Vito LK (VG-LK 111)");
-        put("sbg-v-104", "Sprinter (SBG-V 104)");
     }};
 
     private FrameLayout content;
@@ -631,10 +633,22 @@ public class ShiftEditorActivity extends AppCompatActivity {
         //   falls vorhanden, statt vs.todayStartTime (= HEUTIGER Tag, falsch wenn
         //   Datum vorher umgeschaltet wurde). Fallback bleibt todayStartTime.
         final int _initDow = selDate.get(Calendar.DAY_OF_WEEK) - 1;
-        final String _dtStart = (vs.defaultTimes != null && vs.defaultTimes[_initDow] != null) ? vs.defaultTimes[_initDow][0] : null;
-        final String _dtEnd = (vs.defaultTimes != null && vs.defaultTimes[_initDow] != null) ? vs.defaultTimes[_initDow][1] : null;
-        final int[] startHM = parseHM(_dtStart != null ? _dtStart : (vs.todayStartTime != null ? vs.todayStartTime : "06:00"));
-        final int[] endHM = parseHM(_dtEnd != null ? _dtEnd : (vs.todayEndTime != null ? vs.todayEndTime : "22:00"));
+        // v6.63.674 (Patrick 10.07. 13:58 Bridge: "Override steht bis 14 Uhr,
+        //   wenn ich drauf drücke steht wieder bis 16:30 Uhr"):
+        //   Wenn HEUTE bereits ein Override existiert (todayOverride=true), dessen
+        //   Zeiten für Pre-Fill nutzen — sonst werden die Wochenplan-Zeiten geladen
+        //   und der User denkt sein Override sei weg (obwohl er in Firebase steht).
+        final String _dtStart;
+        final String _dtEnd;
+        if (vs.todayOverride && vs.todayStartTime != null && vs.todayEndTime != null) {
+            _dtStart = vs.todayStartTime;
+            _dtEnd = vs.todayEndTime;
+        } else {
+            _dtStart = (vs.defaultTimes != null && vs.defaultTimes[_initDow] != null) ? vs.defaultTimes[_initDow][0] : null;
+            _dtEnd = (vs.defaultTimes != null && vs.defaultTimes[_initDow] != null) ? vs.defaultTimes[_initDow][1] : null;
+        }
+        final int[] startHM = parseHM(_dtStart != null ? _dtStart : "06:00");
+        final int[] endHM = parseHM(_dtEnd != null ? _dtEnd : "22:00");
 
         // 🆕 v6.62.956 (Patrick 25.05. 21:38 'kann End-Zeit nicht einstellen, mach kleiner'):
         //   Statt riesigen TimePickern (Clock-Mode) machen wir simple HH:MM-Inputs mit Stepper-Buttons.
@@ -764,7 +778,11 @@ public class ShiftEditorActivity extends AppCompatActivity {
         //   Statt 2 verwirrender Checkboxen (cbAllSame + cbInactive) jetzt 3 klare
         //   Pill-Buttons als Mode-Switcher. Eine Auswahl, klar getrennt.
         //   modeState: 0=WOCHENPLAN, 1=NUR_HEUTE, 2=AUS
-        final int[] modeState = { 0 };
+        // v6.63.674 (Patrick 10.07. 13:58 Bridge): Default auf NUR_HEUTE gedreht.
+        // Vorher war WOCHENPLAN Default → jede Zeit-Änderung überschrieb versehentlich
+        // den Wochenplan. Patrick: "wenn ich nur einzelne Tage verändern will, wird's kompliziert".
+        // Jetzt: Einzeltag ist Default (safer). Wer den Wochenplan ändern will, tippt bewusst 📅.
+        final int[] modeState = { 1 };
         android.widget.TextView modeLabel = new android.widget.TextView(this);
         modeLabel.setText("📋 Was tun?");
         modeLabel.setTextSize(13);
@@ -799,7 +817,7 @@ public class ShiftEditorActivity extends AppCompatActivity {
             pillRow.addView(b);
         }
         root.addView(pillRow);
-        updateModePills(pills, 0);
+        updateModePills(pills, 1); // v6.63.674: Default NUR_HEUTE — Pill mit selektiver Highlight
 
         android.widget.TextView modeHint = new android.widget.TextView(this);
         modeHint.setText("📅 = ab kommender Woche jeden " + dayNames[selDate.get(Calendar.DAY_OF_WEEK) - 1] + " · 📌 = nur dieses Datum · ⚫ = Fahrzeug heute offline");

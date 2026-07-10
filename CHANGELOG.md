@@ -6,6 +6,29 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [6.63.674] - 2026-07-10
+
+### 🐛 Native Schicht-Editor: 3 UX-Fixes + alte Fahrzeuge raus (L + M)
+
+Patrick 10.07. 13:49-13:58 Bridge zu Einzeltag-Override:
+*"Ich wollte heute PWMY222 nur bis 14 Uhr laufen lassen. Override steht bis 14 Uhr, aber wenn ich drauf drücke steht wieder bis 16:30 Uhr."*
+
+**Fix 1 — Default-Mode NUR_HEUTE statt WOCHENPLAN** (~Z767, ~Z802):
+- 3-Pill-UI (v6.63.270) hatte 📅 Wochenplan als Default. Jede Zeit-Änderung überschrieb versehentlich den Wochenplan.
+- Jetzt: 📌 NUR HEUTE ist Default. Wer Wochenplan ändern will, tippt bewusst 📅.
+
+**Fix 2 — Edit-Dialog lädt Override-Zeiten statt Wochenplan** (~Z634):
+- Bisher zeigte Pre-Fill immer `defaultTimes[dow]` (Wochenplan-Zeiten). Bestehende Overrides waren beim Wieder-Öffnen unsichtbar → User dachte Override sei weg.
+- Neu: wenn `vs.todayOverride=true` → `vs.todayStartTime/todayEndTime` (aktuelle Override-Zeiten) im Dialog vorbelegen.
+
+**Fix 3 — Alte Fahrzeuge aus Schicht-Editor** (Z53-62):
+- pw-sj-222 (VW Caravelle alt) + sbg-v-104 (Sprinter/Mazda) aus `OFFICIAL_VEHICLES` entfernt
+- ovp-ii-600 + ovp-ik-222 waren hier eh nie in der Native-Liste
+- In Firebase bleiben die Datensätze für Buchhaltung/TÜV-Historie
+- Web-App hat sie bereits als `dmsOnly=true` markiert (v6.62.424)
+
+---
+
 ## [6.63.672] - 2026-07-10
 
 ### 🐛 Cloud-Backend: Phase-0 Hard-Block + Non-Accept-Reassign (I)

@@ -437,6 +437,33 @@ public class AdminDashboardActivity extends AppCompatActivity {
             sectioned.addAll(_freieRides);
         }
 
+        // 🆕 v6.63.671 (Patrick 10.07. 11:09 Bridge "Koch war nirgendwo — Fahrt hängt tot",
+        //   "assigned ist nur wenn der Fahrer wirklich bestätigt"):
+        //   Fahrten die formal zugewiesen sind, aber der Fahrer hat NIE bestätigt (acceptedAt=null).
+        //   Diese fallen sonst durchs Netz: nicht im Wartepool (formal zugewiesen), nicht im
+        //   Freie-Fahrten-Block (hat ja ein Fahrzeug), und der Stuck-Watchdog greift nur bei
+        //   Pickup > jetzt (msUntil > 0). Der Koch-Fall (Pickup 10:00, jetzt 10:10, assigned
+        //   an offline-Fahrer seit 06:39) blieb komplett unsichtbar.
+        //
+        //   Kriterium: status='assigned' + acceptedAt=null + (assignedAt älter als 5 Min ODER
+        //     Pickup weniger als 30 Min entfernt/überfällig).
+        List<Ride> _vorgesehenRides = new ArrayList<>();
+        long _nowMs = System.currentTimeMillis();
+        for (Ride _rv : rest) {
+            if (!"assigned".equalsIgnoreCase(_rv.status)) continue;
+            if (_rv.acceptedAt != null) continue; // schon bestätigt → normale Fahrzeug-Kette
+            boolean _oldAssign = _rv.assignedAt != null && (_nowMs - _rv.assignedAt) > 5 * 60_000L;
+            boolean _pickupClose = _rv.pickupTimestamp != null && (_rv.pickupTimestamp - _nowMs) < 30 * 60_000L;
+            if (_oldAssign || _pickupClose) _vorgesehenRides.add(_rv);
+        }
+        if (!_vorgesehenRides.isEmpty()) {
+            _vorgesehenRides.sort(Comparator.comparingLong(_r4 -> _r4.pickupTimestamp != null ? _r4.pickupTimestamp : Long.MAX_VALUE));
+            sectioned.add("🕐 VORGESEHEN — nicht bestätigt (" + _vorgesehenRides.size() + ") — Fahrer hat NICHT angenommen");
+            sectioned.addAll(_vorgesehenRides);
+            // Aus rest entfernen damit sie nicht auch in der Tag-Timeline nochmal auftauchen
+            rest.removeAll(_vorgesehenRides);
+        }
+
         // 🆕 v6.62.932 (Patrick 25.05. 12:29-12:30 'e' + 'dispo'): Wartepool +
         //   offene Anfragen als prominente Top-Banner — geht in der Dispo-Liste sonst unter.
         try {
@@ -2556,6 +2583,13 @@ public class AdminDashboardActivity extends AppCompatActivity {
         Double price, actualPrice;
         String assignedVehicle; // v6.62.193: Patrick: "autos kann ich auch nicht zuweisen"
         String assignedVehicleName; // v6.62.636: Patrick (12.05. 09:05): "welches Fahrzeug ist vorgesehen"
+        // v6.63.671 (Patrick 10.07. 11:09 Bridge: "Assigned ist nur wenn der Fahrer wirklich
+        //   bestätigt hat. Wenn nicht, ist es nur VORGESEHEN"): Wir brauchen acceptedAt +
+        //   assignedAt um die zwei Zustände in der Dispo klar zu unterscheiden.
+        //   Koch-Fall 10.07.: assignedAt=06:39 aber acceptedAt=null bei Pickup 10:00 —
+        //   Watchdog griff nicht weil msUntil<0, Banner zeigte nichts.
+        Long assignedAt;
+        Long acceptedAt;
         // v6.62.640: Patrick (12.05. 13:59): Lattorf-Rueckfahrt hatte keine Koords →
         // Daten-Inkonsistenz-Warning. Koords muessen mit gespeichert + getauscht werden.
         Double pickupLat, pickupLon, destinationLat, destinationLon;
@@ -2670,6 +2704,11 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 if (_drv instanceof Number) r.drivingTimeToPickup = ((Number) _drv).intValue();
                 r.assignedVehicle = s.child("assignedVehicle").getValue(String.class);
                 if (r.assignedVehicle == null) r.assignedVehicle = s.child("vehicleId").getValue(String.class);
+                // v6.63.671: assignedAt/acceptedAt für "vorgesehen vs. bestätigt"
+                Object _aat = s.child("assignedAt").getValue();
+                if (_aat instanceof Number) r.assignedAt = ((Number)_aat).longValue();
+                Object _cat = s.child("acceptedAt").getValue();
+                if (_cat instanceof Number) r.acceptedAt = ((Number)_cat).longValue();
                 r.assignedVehicleName = s.child("assignedVehicleName").getValue(String.class);
                 if (r.assignedVehicleName == null) r.assignedVehicleName = s.child("vehicleName").getValue(String.class);
                 if (r.assignedVehicleName == null) r.assignedVehicleName = s.child("vehicle").getValue(String.class);

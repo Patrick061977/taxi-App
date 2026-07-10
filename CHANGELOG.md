@@ -6,6 +6,22 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [6.63.675] - 2026-07-10
+
+### 🐛 Native Admin: Rechnung-an-Auftraggeber-Dialog zeigt Klartext-Betrag (N)
+
+Patrick 10.07. 14:45 Bridge: *"Rechnung an Auftraggeber senden zeigt 0 Euro. Warum wird die Web-App geöffnet?"*
+
+**Ursache:** `showInvoiceEmailDialog` (v6.63.534) lud das Rechnungs-PDF via `docs.google.com/gview` WebView. Das wirkte als würde eine Web-App geöffnet — und wenn der Viewer langsam lud oder Patrick nicht scrollte, sah er keinen Betrag → 0-Euro-Eindruck. Das PDF war tatsächlich korrekt (10,00 EUR bei Ostseeblick-Fahrt 20-26-1369, geprüft via pdftotext).
+
+**Fix:**
+- PDF-WebView-Vorschau entfernt (kein `docs.google.com` mehr, kein Web-App-Eindruck)
+- Klartext-Zusammenfassung direkt im Dialog: Rechnungsbetrag, Datum, Kunde/Gast, Pickup, Ziel, PDF-Anhang-Hinweis
+- Wenn kein `invoicePdfUrl` gesetzt: Warnung "PDF-Anhang FEHLT" statt stillschweigendes Weiterlaufen
+- Empfänger, Betreff, Send/Cancel-Buttons unverändert (Cloud-Function `sendInvoiceEmail` bekommt PDF-URL als Attachment)
+
+---
+
 ## [6.63.674] - 2026-07-10
 
 ### 🐛 Native Schicht-Editor: 3 UX-Fixes + alte Fahrzeuge raus (L + M)

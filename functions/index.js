@@ -31256,11 +31256,10 @@ exports.scheduledOpenRideCheck = onSchedule(
                 if (!ride.pickupTimestamp) return;
                 if (ride.assignmentLocked) return;
                 const msUntil = ride.pickupTimestamp - now;
-                // 🆕 v6.63.672 (Patrick 10.07. 11:27 Koch-Fall): auch bereits überfällige
-                // Fahrten (msUntil < 0) prüfen. Vorher wurden Fahrten die im aktuellen Zyklus
-                // gerade überfällig geworden waren mit acceptedAt=null unsichtbar hängen gelassen.
-                // Skip nur wenn schon mehr als 60 Min überfällig — dann greift STALE-CLEANUP.
-                if (msUntil < -60 * 60000) return;
+                // v6.63.673 (Patrick 10.07. 11:40 Bridge: "zurück brauchst du keine Fahrten
+                //   prüfen, weil dann sind sie vorbei"): Vergangenheit skippen — überfällige
+                //   Fahrten sind ohnehin verloren. Nur zukünftige assigned-Fahrten überwachen.
+                if (msUntil < 0) return;
                 const minUntil = Math.round(msUntil / 60000);
                 // v6.63.672: acceptedAt=null bedeutet Fahrer hat NIE bestätigt — behandeln wie offline
                 const _neverAccepted = !ride.acceptedAt;

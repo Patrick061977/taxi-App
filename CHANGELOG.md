@@ -19,8 +19,8 @@ Patrick 10.07. 11:27 Bridge: *"aber wenn der Fahrer nicht annimmt oder akzeptier
 - `shift.status='auto-ended'` bleibt beim 4h-Fenster (App-Restart kann Schicht reaktivieren)
 
 **Fix STUCK-ASSIGNED-WATCHDOG (functions/index.js ~Z31258):**
-- msUntil<0-Guard aufgeweicht: prüft jetzt auch überfällige Fahrten bis 60 Min zurück
 - `acceptedAt=null` + Pickup kritisch (<=30 Min) + assignedAt>5 Min alt → als offline behandeln → Safety-Net triggert → warteschlange
+- Vergangenheit (msUntil<0) wird weiterhin geskippt — überfällige Fahrten sind ohnehin verloren (Patrick 10.07. 11:40)
 
 ---
 

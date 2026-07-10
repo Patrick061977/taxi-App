@@ -6,6 +6,27 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [6.63.680] - 2026-07-10
+
+### ✨ Native Dispo: Korrespondenz-Timeline pro Fahrt (Q)
+
+Patrick 10.07. 16:40 Bridge: *'Ich sehe die Korrespondenzen nicht zwischen den Kunden und mir. Normalerweise müsste ich sehen was rausgeschickt wurde und was nicht.'*
+
+**Neu — LongPress auf Fahrt-Karte in Dispo:**
+- Aktions-Menü: '📨 Korrespondenz anzeigen' / '✏️ Bearbeiten' / '❌ Schließen'
+
+**Korrespondenz-Dialog `showKorrespondenzDialog`:**
+Sammelt aus 3 Firebase-Nodes nach `rideId`:
+- `/anfragen` — confirmSent-Felder mit confirmChannel + confirmSentAt
+- `/smsQueue` — text + category + createdAt
+- `/personalMailQueue` — subject + status (pending_approval / sent)
+
+Timeline chronologisch, mit Icon (📱 WA / ✉ Email / 📲 SMS) + Zeit + Kanal + Text-Snippet + Status.
+
+Hinweis wenn leer: 'Manuelle Sends via CRM erscheinen hier NICHT (noch)'.
+
+---
+
 ## [6.63.679] - 2026-07-10
 
 ### 🐛 Native Dispo: Engpass-Schwelle 5 Min statt jede Minute (O)

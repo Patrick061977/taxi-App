@@ -3357,8 +3357,128 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 } else {
                     itemView.setOnClickListener(_v -> showEditRideDialog(r));
                 }
+                // v6.63.680 (Patrick 10.07. 16:40 Bridge: "ich sehe die Korrespondenzen
+                //   nicht zwischen den Kunden und mir"): LongPress öffnet Aktions-Menü
+                //   mit '📨 Korrespondenz' — Timeline aller Nachrichten an/von diesem Kunden
+                //   für diese Fahrt.
+                itemView.setOnLongClickListener(_v -> {
+                    new AlertDialog.Builder(AdminDashboardActivity.this)
+                        .setTitle("Fahrt: " + (r.customerName != null ? r.customerName : "?"))
+                        .setItems(new String[]{
+                            "📨 Korrespondenz anzeigen",
+                            "✏️ Bearbeiten",
+                            "❌ Schließen"
+                        }, (d, which) -> {
+                            if (which == 0) showKorrespondenzDialog(r);
+                            else if (which == 1) showEditRideDialog(r);
+                        }).show();
+                    return true;
+                });
             }
         }
+    }
+
+    // v6.63.680 (Patrick 10.07. 16:40 Bridge): Kunden-Kommunikations-Timeline.
+    //   Sammelt aus /anfragen (confirmSent-Felder), /smsQueue, /personalMailQueue nach
+    //   rideId + customerPhone. Zeigt kompakte Timeline: Icon + Kanal + Zeit + Text-Snippet.
+    private void showKorrespondenzDialog(Ride r) {
+        if (r == null || db == null) return;
+        final java.util.List<String> lines = new java.util.ArrayList<>();
+        final java.util.List<Long> timestamps = new java.util.ArrayList<>();
+        final int[] pendingCalls = { 3 };
+        final SimpleDateFormat _tf = new SimpleDateFormat("dd.MM. HH:mm", Locale.GERMANY);
+        _tf.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
+
+        Runnable renderIfDone = () -> {
+            pendingCalls[0]--;
+            if (pendingCalls[0] > 0) return;
+            // Sortieren nach timestamp asc, kombinieren zu Text
+            java.util.List<Integer> order = new java.util.ArrayList<>();
+            for (int i = 0; i < lines.size(); i++) order.add(i);
+            order.sort((a, b) -> Long.compare(timestamps.get(a), timestamps.get(b)));
+            StringBuilder body = new StringBuilder();
+            if (lines.isEmpty()) {
+                body.append("Keine Nachrichten gefunden für diese Fahrt.\n\nHinweise:\n" +
+                    "• Anfrage-Bestätigungen: Cloud sendet automatisch (WA/Email/SMS)\n" +
+                    "• Status-Updates (akzeptiert / on_way / picked_up / completed): via SMS an Kunden-Mobilnr\n" +
+                    "• Manuelle Sends via CRM/WhatsApp erscheinen hier NICHT (noch)");
+            } else {
+                for (int idx : order) body.append(lines.get(idx)).append("\n\n");
+            }
+            android.widget.TextView tv = new android.widget.TextView(this);
+            tv.setText(body.toString());
+            tv.setTextSize(13);
+            int _p = (int)(getResources().getDisplayMetrics().density * 16);
+            tv.setPadding(_p, _p, _p, _p);
+            tv.setTextIsSelectable(true);
+            android.widget.ScrollView _sv = new android.widget.ScrollView(this);
+            _sv.addView(tv);
+            new AlertDialog.Builder(this)
+                .setTitle("📨 Korrespondenz — " + (r.customerName != null ? r.customerName : "?"))
+                .setView(_sv)
+                .setPositiveButton("Schließen", null)
+                .show();
+        };
+
+        // 1) anfragen mit rideId=r.id
+        db.getReference("anfragen").orderByChild("rideId").equalTo(r.id)
+            .addListenerForSingleValueEvent(new ValueEventListener() {
+                @Override public void onDataChange(@NonNull DataSnapshot s) {
+                    for (DataSnapshot c : s.getChildren()) {
+                        Long ts = c.child("confirmSentAt").getValue(Long.class);
+                        String ch = c.child("confirmChannel").getValue(String.class);
+                        String by = c.child("confirmSentBy").getValue(String.class);
+                        if (ts != null && ch != null) {
+                            String icon = "email".equals(ch) ? "✉" : "whatsapp".equals(ch) ? "📱" : "📲";
+                            lines.add(icon + " " + _tf.format(new Date(ts)) + " — Bestätigung " + ch +
+                                (by != null && by.contains("cloud") ? " (auto)" : ""));
+                            timestamps.add(ts);
+                        }
+                    }
+                    renderIfDone.run();
+                }
+                @Override public void onCancelled(@NonNull DatabaseError e) { renderIfDone.run(); }
+            });
+
+        // 2) smsQueue mit rideId=r.id
+        db.getReference("smsQueue").orderByChild("rideId").equalTo(r.id)
+            .addListenerForSingleValueEvent(new ValueEventListener() {
+                @Override public void onDataChange(@NonNull DataSnapshot s) {
+                    for (DataSnapshot c : s.getChildren()) {
+                        Long ts = c.child("createdAt").getValue(Long.class);
+                        String txt = c.child("text").getValue(String.class);
+                        String cat = c.child("category").getValue(String.class);
+                        if (ts != null && txt != null) {
+                            String snippet = txt.length() > 80 ? txt.substring(0, 80) + "…" : txt;
+                            lines.add("📲 " + _tf.format(new Date(ts)) + " — SMS" +
+                                (cat != null ? " (" + cat + ")" : "") + "\n   " + snippet);
+                            timestamps.add(ts);
+                        }
+                    }
+                    renderIfDone.run();
+                }
+                @Override public void onCancelled(@NonNull DatabaseError e) { renderIfDone.run(); }
+            });
+
+        // 3) personalMailQueue mit rideId=r.id
+        db.getReference("personalMailQueue").orderByChild("rideId").equalTo(r.id)
+            .addListenerForSingleValueEvent(new ValueEventListener() {
+                @Override public void onDataChange(@NonNull DataSnapshot s) {
+                    for (DataSnapshot c : s.getChildren()) {
+                        Long ts = c.child("createdAt").getValue(Long.class);
+                        String subj = c.child("subject").getValue(String.class);
+                        String st = c.child("status").getValue(String.class);
+                        if (ts != null && subj != null) {
+                            String stLbl = "pending_approval".equals(st) ? " ⏳ (wartet auf Freigabe)" :
+                                          "sent".equals(st) ? " ✅ (versendet)" : (st != null ? " ("+st+")" : "");
+                            lines.add("✉ " + _tf.format(new Date(ts)) + " — Email: " + subj + stLbl);
+                            timestamps.add(ts);
+                        }
+                    }
+                    renderIfDone.run();
+                }
+                @Override public void onCancelled(@NonNull DatabaseError e) { renderIfDone.run(); }
+            });
     }
 
     // v6.63.601: Time-Shift-Dialog — beide Richtungen (früher + später)

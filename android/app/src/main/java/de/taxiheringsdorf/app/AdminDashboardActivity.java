@@ -2970,12 +2970,29 @@ public class AdminDashboardActivity extends AppCompatActivity {
                             })
                             .setNeutralButton("🚕 Nur Hinfahrt", (d2, w2) ->
                                 _uebernehmeAnfrageImpl(a))
-                            .setNegativeButton("Abbrechen", null)
+                            // v6.63.670 (Patrick 10.07. 07:08): Ablehnen muss auf jeder Anfrage-Karte klar erreichbar sein
+                            .setNegativeButton("❌ Ablehnen", (d2, w2) -> {
+                                db.getReference("anfragen/" + a.id + "/status").setValue("abgelehnt");
+                                Toast.makeText(AdminDashboardActivity.this, "Anfrage abgelehnt", Toast.LENGTH_SHORT).show();
+                            })
                             .show();
                     });
                 } else {
                     tvRueckfahrt.setVisibility(View.GONE);
-                    itemView.setOnClickListener(_v -> _uebernehmeAnfrageImpl(a));
+                    // v6.63.670 (Patrick 10.07. 07:08): Tap zeigt jetzt Auswahl-Dialog statt sofort zu uebernehmen.
+                    //   Vorher (v6.63.629) landete jeder Fehl-Tap sofort als accepted Ride — Ablehnen ging nur
+                    //   per LongPress. Patrick: "kann ja gar nicht mehr ablehnen".
+                    itemView.setOnClickListener(_v -> {
+                        new AlertDialog.Builder(AdminDashboardActivity.this)
+                            .setTitle("📥 " + (a.name != null ? a.name : "Anfrage") + " — was tun?")
+                            .setPositiveButton("✅ Übernehmen + bestätigen", (d2, w2) -> _uebernehmeAnfrageImpl(a))
+                            .setNeutralButton("⚪ Nur übernehmen", (d2, w2) -> uebernehmeAnfrageOhneBestaetigung(a))
+                            .setNegativeButton("❌ Ablehnen", (d2, w2) -> {
+                                db.getReference("anfragen/" + a.id + "/status").setValue("abgelehnt");
+                                Toast.makeText(AdminDashboardActivity.this, "Anfrage abgelehnt", Toast.LENGTH_SHORT).show();
+                            })
+                            .show();
+                    });
                 }
                 itemView.setOnLongClickListener(_v -> {
                     new AlertDialog.Builder(AdminDashboardActivity.this)

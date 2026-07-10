@@ -2159,36 +2159,22 @@ public class AdminDashboardActivity extends AppCompatActivity {
         tvTitle.setLayoutParams(_titleP);
         layout.addView(tvTitle);
 
-        // v6.63.675 (Patrick 10.07. 14:45 Bridge "Rechnung an Auftraggeber zeigt 0 Euro,
-        //   warum Web-App geöffnet"): Betrag + Fahrt-Details prominent im Dialog.
-        //   Vorher lud der Dialog das PDF via docs.google.com/gview WebView — das wirkte
-        //   als würde die "Web-App geöffnet", und wenn der Viewer langsam lud oder
-        //   scrollte sah Patrick keinen Betrag → "0 Euro"-Eindruck.
-        //   Neu: PDF-Vorschau entfernt, dafür Klartext-Zusammenfassung. Das PDF ist als
-        //   Anhang der Email dabei — der Empfänger sieht die Rechnung im Mailclient.
+        // v6.63.676 (Patrick 10.07. 15:12 Bridge: "Rechnung an Auftraggeber ist zu
+        //   kompliziert. Ich will nur diese PDF an die Email angehängt haben, mehr nicht."):
+        //   Dialog radikal vereinfacht — nur noch Betrag+Kunde (eine Zeile) + Empfänger-Feld
+        //   + Send-Button. Betreff wird automatisch gesetzt (Cloud-Function-Default:
+        //   "Rechnung {invoiceNumber}"). Keine Route, keine PDF-Vorschau, kein Betreff-Feld.
         double _invAmt = r.actualPrice != null ? r.actualPrice : (r.price != null ? r.price : 0.0);
         android.widget.TextView tvSum = new android.widget.TextView(this);
-        StringBuilder _sumB = new StringBuilder();
-        _sumB.append("💰 Rechnungsbetrag: ").append(String.format(Locale.GERMANY, "%.2f €", _invAmt)).append('\n');
-        if (r.pickupTime != null) _sumB.append("📅 ").append(r.pickupTime).append('\n');
-        if (r.customerName != null) _sumB.append("👤 ").append(r.customerName);
-        if (r.guestName != null && !r.guestName.isEmpty()) _sumB.append(" (Gast: ").append(r.guestName).append(')');
-        _sumB.append('\n');
-        if (r.pickup != null) _sumB.append("📍 ").append(r.pickup).append('\n');
-        if (r.destination != null) _sumB.append("🎯 ").append(r.destination).append('\n');
-        _sumB.append("\n📎 Rechnung als PDF-Anhang");
+        String _sumTxt = String.format(Locale.GERMANY, "💰 %.2f €", _invAmt);
+        if (r.customerName != null) _sumTxt += "  · 👤 " + r.customerName;
         if (r.invoicePdfUrl == null || r.invoicePdfUrl.isEmpty()) {
-            _sumB.append(" ⚠️ FEHLT — wird beim Senden aus Firebase generiert.");
+            _sumTxt += "  ⚠️ KEIN PDF — Send wird fehlschlagen";
         }
-        tvSum.setText(_sumB.toString());
-        tvSum.setTextSize(14);
+        tvSum.setText(_sumTxt);
+        tvSum.setTextSize(15);
         tvSum.setTextColor(android.graphics.Color.parseColor("#111827"));
-        tvSum.setBackgroundColor(android.graphics.Color.parseColor("#f3f4f6"));
-        tvSum.setPadding(pad, pad, pad, pad);
-        LinearLayout.LayoutParams _sumP = new LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        _sumP.setMargins(0, 0, 0, pad);
-        tvSum.setLayoutParams(_sumP);
+        tvSum.setPadding(0, 0, 0, pad);
         layout.addView(tvSum);
 
         // E-Mail-Empfänger
@@ -2207,25 +2193,13 @@ public class AdminDashboardActivity extends AppCompatActivity {
         }
         LinearLayout.LayoutParams _emailP = new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        _emailP.setMargins(0, 0, 0, padSm);
+        _emailP.setMargins(0, 0, 0, pad);
         etEmail.setLayoutParams(_emailP);
         layout.addView(etEmail);
 
-        // Betreff
-        android.widget.TextView tvSubjectLabel = new android.widget.TextView(this);
-        tvSubjectLabel.setText("Betreff:");
-        tvSubjectLabel.setTextSize(13);
-        tvSubjectLabel.setTextColor(android.graphics.Color.parseColor("#6b7280"));
-        layout.addView(tvSubjectLabel);
-
-        EditText etSubject = new EditText(this);
-        etSubject.setHint("Betreff");
-        etSubject.setText("Rechnung " + r.invoiceNumber + " – Funk Taxi Wydra");
-        LinearLayout.LayoutParams _subjP = new LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        _subjP.setMargins(0, 0, 0, pad);
-        etSubject.setLayoutParams(_subjP);
-        layout.addView(etSubject);
+        // v6.63.676: Betreff-Feld ENTFERNT — Cloud-Function setzt automatisch
+        // "Rechnung {invoiceNumber}" wenn subject leer. Weniger UI, weniger Klicks.
+        final String _autoSubject = "Rechnung " + r.invoiceNumber + " – Funk Taxi Wydra";
 
         // Senden-Button
         com.google.android.material.button.MaterialButton btnSend =
@@ -2244,9 +2218,8 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 etEmail.setError("Ungültige E-Mail-Adresse");
                 return;
             }
-            String subject = etSubject.getText().toString().trim();
             sheet.dismiss();
-            _sendInvoiceEmail(r, email, subject);
+            _sendInvoiceEmail(r, email, _autoSubject);
         });
         layout.addView(btnSend);
 

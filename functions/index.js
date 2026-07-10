@@ -35199,39 +35199,68 @@ exports.sendInvoiceEmail = onRequest(
             }
 
             if (shouldAttachPdf && effectivePdfUrl) {
+                // v6.63.676 (Patrick 10.07. 15:11 Bridge: "gesendete PDF konnte nicht
+                //   geöffnet werden weil beschädigt"): Robuster PDF-Fetch mit Content-Length-
+                //   Prüfung + PDF-Header/Footer-Verifikation. Bisher konnte ein unvollständig
+                //   heruntergeladenes PDF stillschweigend angehängt werden → Empfänger sah
+                //   "PDF-Datei ist beschädigt". Jetzt: bei jeder Anomalie ABBRECHEN und
+                //   Fehler zurückgeben statt kaputten Anhang zu senden.
                 try {
                     console.log('📎 Lade PDF für Anhang:', effectivePdfUrl);
                     const https = require('https');
                     const http = require('http');
-                    const pdfBuffer = await new Promise((resolve, reject) => {
-                        const client = effectivePdfUrl.startsWith('https') ? https : http;
-                        client.get(effectivePdfUrl, (response) => {
-                            // Redirects folgen
-                            if (response.statusCode === 301 || response.statusCode === 302) {
-                                client.get(response.headers.location, (res2) => {
-                                    const chunks = [];
-                                    res2.on('data', chunk => chunks.push(chunk));
-                                    res2.on('end', () => resolve(Buffer.concat(chunks)));
-                                    res2.on('error', reject);
-                                }).on('error', reject);
-                                return;
-                            }
-                            const chunks = [];
-                            response.on('data', chunk => chunks.push(chunk));
-                            response.on('end', () => resolve(Buffer.concat(chunks)));
-                            response.on('error', reject);
-                        }).on('error', reject);
-                    });
-
+                    async function fetchPdf(url, maxRedirects = 3) {
+                        return new Promise((resolve, reject) => {
+                            const client = url.startsWith('https') ? https : http;
+                            client.get(url, (response) => {
+                                if ([301, 302, 303, 307, 308].includes(response.statusCode) && response.headers.location && maxRedirects > 0) {
+                                    return fetchPdf(response.headers.location, maxRedirects - 1).then(resolve, reject);
+                                }
+                                if (response.statusCode !== 200) {
+                                    return reject(new Error(`HTTP ${response.statusCode} beim PDF-Download`));
+                                }
+                                const expectedLen = parseInt(response.headers['content-length'] || '0', 10);
+                                const chunks = [];
+                                let totalLen = 0;
+                                response.on('data', chunk => { chunks.push(chunk); totalLen += chunk.length; });
+                                response.on('end', () => {
+                                    const buf = Buffer.concat(chunks);
+                                    // 1) Länge gegen Content-Length prüfen
+                                    if (expectedLen > 0 && buf.length !== expectedLen) {
+                                        return reject(new Error(`PDF-Download unvollständig: ${buf.length}/${expectedLen} Bytes`));
+                                    }
+                                    // 2) PDF-Header/Footer verifizieren
+                                    if (buf.length < 128) {
+                                        return reject(new Error(`PDF zu klein (${buf.length} Bytes) — vermutlich Fehler-Response`));
+                                    }
+                                    const head = buf.slice(0, 8).toString('ascii');
+                                    if (!head.startsWith('%PDF-')) {
+                                        return reject(new Error(`Datei ist kein PDF (Header: ${head.slice(0, 5)})`));
+                                    }
+                                    const tail = buf.slice(-16).toString('ascii');
+                                    if (!tail.includes('%%EOF')) {
+                                        return reject(new Error(`PDF-Footer fehlt (%%EOF) — Datei möglicherweise abgeschnitten`));
+                                    }
+                                    resolve(buf);
+                                });
+                                response.on('error', reject);
+                            }).on('error', reject);
+                        });
+                    }
+                    const pdfBuffer = await fetchPdf(effectivePdfUrl);
                     attachments.push({
                         filename: `rechnung-${invoiceNumber}.pdf`,
                         content: pdfBuffer,
                         contentType: 'application/pdf'
                     });
-                    console.log(`📎 PDF-Anhang bereit: ${pdfBuffer.length} Bytes`);
+                    console.log(`📎 PDF-Anhang bereit: ${pdfBuffer.length} Bytes (Header + Footer verifiziert)`);
                 } catch (pdfError) {
-                    console.warn('⚠️ PDF konnte nicht als Anhang geladen werden:', pdfError.message);
-                    // Kein Abbruch — E-Mail wird trotzdem gesendet (mit Download-Link)
+                    console.error('❌ PDF-Anhang FEHLGESCHLAGEN — Send wird abgebrochen:', pdfError.message);
+                    res.status(500).json({
+                        error: `PDF-Anhang konnte nicht erstellt werden: ${pdfError.message}. Rechnung wurde NICHT versendet — bitte PDF neu generieren und erneut versuchen.`,
+                        pdfError: pdfError.message
+                    });
+                    return;
                 }
             }
 

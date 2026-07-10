@@ -6,6 +6,23 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [6.63.677] - 2026-07-10
+
+### 🐛 Cloud autoAssignRide: 'ended' Schicht wieder ins 4h-Fenster (I-Korrektur)
+
+Patrick 10.07. 15:48 Bridge: *"MY ist eingeteilt ab 5:45, warum kein Fahrzeug"*.
+
+**Problem:** v6.63.672 hatte `ended` + `force-ended` HART geblockt, egal wie weit weg der Pickup war. Zu streng: Patrick beendete heute 15:22 seine MY-Schicht → Auto-Assign für morgen 07:50 (Fahrt "Das Ahlbeck") lief danach → MY komplett aus dem Pool geworfen → wartepool. Aber morgen 05:45 startet er ja wieder Schicht (Wochenplan).
+
+**Fix:**
+- `force-ended` → HART blocken (bewusst gesetzt, kein Fahrer geplant)
+- `ended` + `auto-ended` + Pickup <4h → blocken (unmittelbar → sonst hängt)
+- `ended` + `auto-ended` + Pickup ≥4h → **durchlassen** (Wochenplan ist Autorität für Vorbestellungen; Fahrer kann bis dahin wieder in Schicht kommen)
+
+Der Koch-Fall (Kulpa 63h offline, Pickup 3h20min entfernt) wird weiterhin geblockt weil <4h-Fenster greift.
+
+---
+
 ## [6.63.676] - 2026-07-10
 
 ### 🐛 Rechnung-Send: PDF-Integrität + Dialog radikal vereinfacht (N-Fortsetzung)

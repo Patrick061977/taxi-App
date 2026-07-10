@@ -1588,23 +1588,29 @@ async function autoAssignRide(rideId, rideData, _excludeVehicleIds = []) {
                 // Hintergrund: Patrick in MY-222 eingeloggt, IK-222 per Heartbeat-Timeout auto-ended
                 // → scheduledAutoAssign weist Fahrten trotzdem IK-222 zu → Patrick sieht sie nicht.
                 //
-                // 🆕 v6.63.672 (Patrick 10.07. 11:27 Koch-Fall): Manuelles 'ended' + 'force-ended'
-                // wird HART geblockt, egal wie weit weg der Pickup ist. Koch wurde heute 06:39 an
-                // Danilos vg-lk-111 auto-assigned obwohl der seit 07.07. 18:28 (63h) ended. Grund:
-                // damaliger msUntilPickup war ~7h → außerhalb des 4h-Fensters → Check inaktiv.
-                // 'auto-ended' bleibt beim 4h-Fenster (App-Restart kann Schicht reaktivieren).
+                // 🆕 v6.63.672 (Patrick 10.07. 11:27 Koch-Fall): 'ended' + 'force-ended'
+                //   sollten geblockt werden. Aber v6.63.677 (Patrick 10.07. 15:48 Bridge:
+                //   "MY ist eingeteilt ab 5.45, warum kein Fahrzeug"): HART geblockt war
+                //   ZU STRENG. Patrick hatte heute Nachmittag seine MY-Schicht ended, das
+                //   auto-assign für morgen 07:50 lief danach → MY komplett aus dem Pool.
+                //   Aber morgen früh startet er ja wieder Schicht (steht im Wochenplan).
+                //
+                //   Neue Regel:
+                //   - 'force-ended' → HART blocken (bewusst gesetzt, kein Fahrer geplant)
+                //   - 'ended' / 'auto-ended' + Pickup <4h → blocken (unmittelbar → sonst hängt)
+                //   - 'ended' / 'auto-ended' + Pickup >=4h → durchlassen (Fahrer kann morgen
+                //     wieder in Schicht, Wochenplan ist Autorität für Vorbestellungen)
                 const _msUntilPickup = rideData.pickupTimestamp - Date.now();
                 const _shiftStatus = _vData.shift && _vData.shift.status;
-                const _hardEnded = _shiftStatus === 'ended' || _shiftStatus === 'force-ended';
-                const _autoEnded = _shiftStatus === 'auto-ended';
-                if (_hardEnded) {
-                    console.log(`   ❌ ${info.name}: Schicht '${_shiftStatus}' — hart blockiert (v6.63.672 Koch-Fix)`);
-                    vehicleScores[vehicleId] = { status: 'rejected', reason: `Schicht ${_shiftStatus}, kein Fahrer aktiv`, check: 'shift-hard-ended' };
+                if (_shiftStatus === 'force-ended') {
+                    console.log(`   ❌ ${info.name}: Schicht 'force-ended' — hart blockiert`);
+                    vehicleScores[vehicleId] = { status: 'rejected', reason: 'Schicht force-ended, kein Fahrer aktiv', check: 'shift-force-ended' };
                     continue;
                 }
-                if (_autoEnded && _msUntilPickup < 4 * 60 * 60 * 1000 && _msUntilPickup > -30 * 60 * 1000) {
-                    console.log(`   ❌ ${info.name}: Vorbestellung in <4h — shift.status=auto-ended, kein aktiver Fahrer`);
-                    vehicleScores[vehicleId] = { status: 'rejected', reason: `Schicht auto-ended, kein Fahrer aktiv`, check: 'shift-auto-ended-near-pickup' };
+                const _shiftInactive = _shiftStatus === 'ended' || _shiftStatus === 'auto-ended';
+                if (_shiftInactive && _msUntilPickup < 4 * 60 * 60 * 1000 && _msUntilPickup > -30 * 60 * 1000) {
+                    console.log(`   ❌ ${info.name}: Vorbestellung in <4h — shift.status=${_shiftStatus}, kein aktiver Fahrer`);
+                    vehicleScores[vehicleId] = { status: 'rejected', reason: `Schicht ${_shiftStatus}, kein Fahrer aktiv`, check: 'shift-inactive-near-pickup' };
                     continue;
                 }
             }

@@ -6,6 +6,25 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [6.63.681] - 2026-07-10
+
+### ✨ Native Dispo: Korrespondenz-Zeile direkt in Fahrt-Karte (Q-Fortsetzung)
+
+Patrick 10.07. 16:56 Bridge: *'In dem Termin mit den Kunden sollen die Korrespondenzen auch enthalten sein. Nicht dass ich das irgendwo suchen muss.'*
+
+**Neu — kompakte Zeile direkt in der Fahrt-Karte:**
+Aus Ride-eigenen Send-Flags gebaut:
+- 🧾 Rechnung mit Zeit + Kanal (email/whatsapp/sms)
+- ✉ Email
+- 📲 SMS
+- 💬 Telegram
+
+Beispiel: `📨 🧾 09.07. 21:31 (email) · 📲 10.07. 06:37`
+
+Volle Timeline weiter per LongPress → 'Korrespondenz anzeigen' (v6.63.680) — dort auch anfrage-Bestätigungen, smsQueue, personalMailQueue.
+
+---
+
 ## [6.63.680] - 2026-07-10
 
 ### ✨ Native Dispo: Korrespondenz-Timeline pro Fahrt (Q)

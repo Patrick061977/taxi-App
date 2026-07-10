@@ -2667,6 +2667,10 @@ public class AdminDashboardActivity extends AppCompatActivity {
         // 🆕 v6.63.639: Auftraggeber-Email-Lookup (Hotel/Firma bucht für Gast)
         String auftraggeberId;
         Boolean isAuftraggeberBooking;
+        // v6.63.681 (Patrick 10.07. 16:56 Bridge: "in dem Termin mit den Kunden sollen
+        //   die Korrespondenzen auch enthalten sein"): Kompakt-Anzeige direkt in der Card.
+        //   Gebaut aus emailSent/smsSent/invoiceSent-Feldern der Ride.
+        transient String commLine;
 
         static boolean isWebSource(String s) {
             return s != null && (
@@ -2794,6 +2798,31 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 r.auftraggeberId = s.child("_auftraggeberId").getValue(String.class);
                 Object _isAuftr = s.child("_isAuftraggeberBooking").getValue();
                 r.isAuftraggeberBooking = _isAuftr instanceof Boolean ? (Boolean) _isAuftr : null;
+                // v6.63.681: kompakte Korrespondenz-Zusammenfassung aus Ride-eigenen Flags
+                //   emailSent/smsSent/invoiceSent inkl. Zeitstempel + Kanal.
+                {
+                    java.text.SimpleDateFormat _tf = new java.text.SimpleDateFormat("dd.MM. HH:mm", Locale.GERMANY);
+                    _tf.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
+                    java.util.List<String> _parts = new java.util.ArrayList<>();
+                    Object _iSAt = s.child("invoiceSentAt").getValue();
+                    if (_iSAt instanceof Number) {
+                        String _iVia = s.child("invoiceSentVia").getValue(String.class);
+                        _parts.add("🧾 " + _tf.format(new java.util.Date(((Number) _iSAt).longValue())) + (_iVia != null ? " (" + _iVia + ")" : ""));
+                    }
+                    Object _eSAt = s.child("emailSentAt").getValue();
+                    if (_eSAt instanceof Number) {
+                        _parts.add("✉ " + _tf.format(new java.util.Date(((Number) _eSAt).longValue())));
+                    }
+                    Object _sSAt = s.child("smsSentAt").getValue();
+                    if (_sSAt instanceof Number) {
+                        _parts.add("📲 " + _tf.format(new java.util.Date(((Number) _sSAt).longValue())));
+                    }
+                    Object _cSAt = s.child("customerTelegramSentAt").getValue();
+                    if (_cSAt instanceof Number) {
+                        _parts.add("💬 " + _tf.format(new java.util.Date(((Number) _cSAt).longValue())));
+                    }
+                    if (!_parts.isEmpty()) r.commLine = "📨 " + String.join(" · ", _parts);
+                }
                 // Waypoints: Liste von Objekten mit address+name — analog DriverDashboard
                 DataSnapshot wpSnap = s.child("waypoints");
                 if (wpSnap.exists() && wpSnap.hasChildren()) {
@@ -3341,6 +3370,12 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 // 🆕 v6.63.665: Notizen in Disposition-Karte anzeigen (Patrick: "Kindersitz sehe ich nicht")
                 if (r.notes != null && !r.notes.isEmpty()) {
                     route.append("\n📝 ").append(r.notes);
+                }
+                // 🆕 v6.63.681 (Patrick 10.07. 16:56): Korrespondenz-Zeile in Karte —
+                //   direkt sichtbar was schon rausging (Rechnung/Email/SMS/Telegram).
+                //   Volle Timeline weiter per LongPress → 'Korrespondenz anzeigen'.
+                if (r.commLine != null) {
+                    route.append('\n').append(r.commLine);
                 }
                 t2.setText(route.toString());
                 // v6.62.153: Tap → Edit-Dialog (Patrick: 'will Fahrten bearbeiten aus der App')

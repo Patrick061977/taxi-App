@@ -2201,6 +2201,33 @@ public class AdminDashboardActivity extends AppCompatActivity {
         // "Rechnung {invoiceNumber}" wenn subject leer. Weniger UI, weniger Klicks.
         final String _autoSubject = "Rechnung " + r.invoiceNumber + " – Funk Taxi Wydra";
 
+        // v6.63.676 (Patrick 10.07. 15:14 Bridge: "Formular öffnen wo drin steht
+        //   sehr geehrte..."): editierbares Anschreiben-Feld mit sinnvollem Default.
+        android.widget.TextView tvBodyLabel = new android.widget.TextView(this);
+        tvBodyLabel.setText("Text:");
+        tvBodyLabel.setTextSize(13);
+        tvBodyLabel.setTextColor(android.graphics.Color.parseColor("#6b7280"));
+        layout.addView(tvBodyLabel);
+
+        EditText etBody = new EditText(this);
+        etBody.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE);
+        etBody.setMinLines(5);
+        etBody.setGravity(android.view.Gravity.TOP | android.view.Gravity.START);
+        String _empfName = (r.customerName != null && !r.customerName.isEmpty()) ? r.customerName : "Damen und Herren";
+        String _bodyDefault = "Sehr geehrte " + _empfName + ",\n\n"
+            + "im Anhang finden Sie die Rechnung " + r.invoiceNumber
+            + " über " + String.format(Locale.GERMANY, "%.2f €", _invAmt) + ".\n\n"
+            + "Vielen Dank für Ihre Buchung.\n\n"
+            + "Mit freundlichen Grüßen\n"
+            + "Patrick Wydra\n"
+            + "Funk Taxi Heringsdorf";
+        etBody.setText(_bodyDefault);
+        LinearLayout.LayoutParams _bodyP = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        _bodyP.setMargins(0, 0, 0, pad);
+        etBody.setLayoutParams(_bodyP);
+        layout.addView(etBody);
+
         // Senden-Button
         com.google.android.material.button.MaterialButton btnSend =
             new com.google.android.material.button.MaterialButton(this);
@@ -2218,8 +2245,9 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 etEmail.setError("Ungültige E-Mail-Adresse");
                 return;
             }
+            String bodyText = etBody.getText().toString().trim();
             sheet.dismiss();
-            _sendInvoiceEmail(r, email, _autoSubject);
+            _sendInvoiceEmail(r, email, _autoSubject, bodyText);
         });
         layout.addView(btnSend);
 
@@ -2246,7 +2274,7 @@ public class AdminDashboardActivity extends AppCompatActivity {
         sheet.show();
     }
 
-    private void _sendInvoiceEmail(Ride r, String toEmail, String subject) {
+    private void _sendInvoiceEmail(Ride r, String toEmail, String subject, String bodyText) {
         Toast.makeText(this, "⏳ Rechnung wird gesendet...", Toast.LENGTH_SHORT).show();
         new Thread(() -> {
             try {
@@ -2255,6 +2283,11 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 body.put("toEmail", toEmail);
                 if (r.customerName != null) body.put("toName", r.customerName);
                 if (subject != null && !subject.isEmpty()) body.put("subject", subject);
+                // v6.63.676: htmlBody aus dem editierten Formular-Text (Zeilenumbrüche → <br>)
+                if (bodyText != null && !bodyText.isEmpty()) {
+                    String _html = bodyText.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\n", "<br>");
+                    body.put("htmlBody", "<div style=\"font-family:Arial,sans-serif;font-size:14px;line-height:1.5;color:#111\">" + _html + "</div>");
+                }
                 if (r.invoicePdfUrl != null && !r.invoicePdfUrl.isEmpty()) {
                     body.put("pdfUrl", r.invoicePdfUrl);
                     body.put("attachPdf", true);

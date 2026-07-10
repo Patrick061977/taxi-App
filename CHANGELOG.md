@@ -18,11 +18,13 @@ Patrick 10.07. 15:11 Bridge: *"gesendete PDF konnte nicht geöffnet werden weil 
 - Bei jeder Anomalie: HTTP 500 zurück mit klarer Fehlermeldung. Rechnung wird NICHT versendet (statt kaputten Anhang zu verschicken)
 - Redirect-Chain jetzt bis zu 3 Ebenen tief (301/302/303/307/308)
 
-**Native Dialog — schrumpft auf Minimum (~Z2135):**
+**Native Dialog — schlank + editierbarer Text (~Z2135):**
 - Zusammenfassung: nur `💰 10,00 € · 👤 Kunde` in einer Zeile (vorher: 5-6 Zeilen mit Route)
-- Betreff-Feld entfernt — Cloud setzt automatisch `"Rechnung {invoiceNumber} – Funk Taxi Wydra"`
-- Bleibt: Empfänger-Feld + Send-Button + Cancel-Button
-- Weniger UI, weniger Klicks — genau was Patrick will
+- Betreff-Feld entfernt — Cloud setzt automatisch
+- **Editierbares Anschreiben** mit sinnvollem Default:
+  `Sehr geehrte {customerName}, im Anhang finden Sie die Rechnung {nr} über {betrag}. Vielen Dank für Ihre Buchung. Mit freundlichen Grüßen, Patrick Wydra, Funk Taxi Heringsdorf`
+- Text wird als `htmlBody` an Cloud-Function übermittelt (Zeilenumbrüche → `<br>`)
+- Bleibt: Empfänger + Send + Cancel
 
 ---
 

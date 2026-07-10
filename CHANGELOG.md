@@ -6,6 +6,28 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [6.63.676] - 2026-07-10
+
+### 🐛 Rechnung-Send: PDF-Integrität + Dialog radikal vereinfacht (N-Fortsetzung)
+
+Patrick 10.07. 15:11 Bridge: *"gesendete PDF konnte nicht geöffnet werden weil beschädigt"* + *"Rechnung an Auftraggeber ist zu kompliziert. Ich will nur die PDF an die Email angehängt haben, mehr nicht."*
+
+**Cloud `sendInvoiceEmail` — PDF-Fetch mit Integritätsprüfung (~Z35201):**
+- Bisher konnte ein unvollständig heruntergeladenes PDF stillschweigend als Anhang gesendet werden → Empfänger sah "PDF-Datei ist beschädigt"
+- Neu: Content-Length gegen Buffer-Länge geprüft, `%PDF-` Header + `%%EOF` Footer verifiziert, mind. 128 Bytes
+- Bei jeder Anomalie: HTTP 500 zurück mit klarer Fehlermeldung. Rechnung wird NICHT versendet (statt kaputten Anhang zu verschicken)
+- Redirect-Chain jetzt bis zu 3 Ebenen tief (301/302/303/307/308)
+
+**Native Dialog — schlank + editierbarer Text (~Z2135):**
+- Zusammenfassung: nur `💰 10,00 € · 👤 Kunde` in einer Zeile (vorher: 5-6 Zeilen mit Route)
+- Betreff-Feld entfernt — Cloud setzt automatisch
+- **Editierbares Anschreiben** mit sinnvollem Default:
+  `Sehr geehrte {customerName}, im Anhang finden Sie die Rechnung {nr} über {betrag}. Vielen Dank für Ihre Buchung. Mit freundlichen Grüßen, Patrick Wydra, Funk Taxi Heringsdorf`
+- Text wird als `htmlBody` an Cloud-Function übermittelt (Zeilenumbrüche → `<br>`)
+- Bleibt: Empfänger + Send + Cancel
+
+---
+
 ## [6.63.675] - 2026-07-10
 
 ### 🐛 Native Admin: Rechnung-an-Auftraggeber-Dialog zeigt Klartext-Betrag (N)

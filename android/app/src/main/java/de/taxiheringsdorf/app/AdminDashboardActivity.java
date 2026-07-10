@@ -2155,36 +2155,41 @@ public class AdminDashboardActivity extends AppCompatActivity {
         tvTitle.setTypeface(null, android.graphics.Typeface.BOLD);
         LinearLayout.LayoutParams _titleP = new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        _titleP.setMargins(0, 0, 0, pad);
+        _titleP.setMargins(0, 0, 0, padSm);
         tvTitle.setLayoutParams(_titleP);
         layout.addView(tvTitle);
 
-        // PDF-Vorschau (WebView) wenn URL vorhanden
-        if (r.invoicePdfUrl != null && !r.invoicePdfUrl.isEmpty()) {
-            android.webkit.WebView wv = new android.webkit.WebView(this);
-            wv.getSettings().setJavaScriptEnabled(false);
-            wv.getSettings().setLoadWithOverviewMode(true);
-            wv.getSettings().setUseWideViewPort(true);
-            // Google Docs PDF-Viewer für In-App-Vorschau ohne externen Reader
-            String viewerUrl = "https://docs.google.com/gview?embedded=true&url=" +
-                android.net.Uri.encode(r.invoicePdfUrl);
-            wv.loadUrl(viewerUrl);
-            LinearLayout.LayoutParams _wvP = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, (int)(dp * 380));
-            _wvP.setMargins(0, 0, 0, pad);
-            wv.setLayoutParams(_wvP);
-            layout.addView(wv);
-        } else {
-            android.widget.TextView tvNoPdf = new android.widget.TextView(this);
-            tvNoPdf.setText("ℹ️ Kein PDF verfügbar — Rechnung wird aus Firebase generiert.");
-            tvNoPdf.setTextSize(13);
-            tvNoPdf.setTextColor(android.graphics.Color.parseColor("#6b7280"));
-            LinearLayout.LayoutParams _noPdfP = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-            _noPdfP.setMargins(0, 0, 0, pad);
-            tvNoPdf.setLayoutParams(_noPdfP);
-            layout.addView(tvNoPdf);
+        // v6.63.675 (Patrick 10.07. 14:45 Bridge "Rechnung an Auftraggeber zeigt 0 Euro,
+        //   warum Web-App geöffnet"): Betrag + Fahrt-Details prominent im Dialog.
+        //   Vorher lud der Dialog das PDF via docs.google.com/gview WebView — das wirkte
+        //   als würde die "Web-App geöffnet", und wenn der Viewer langsam lud oder
+        //   scrollte sah Patrick keinen Betrag → "0 Euro"-Eindruck.
+        //   Neu: PDF-Vorschau entfernt, dafür Klartext-Zusammenfassung. Das PDF ist als
+        //   Anhang der Email dabei — der Empfänger sieht die Rechnung im Mailclient.
+        double _invAmt = r.actualPrice != null ? r.actualPrice : (r.price != null ? r.price : 0.0);
+        android.widget.TextView tvSum = new android.widget.TextView(this);
+        StringBuilder _sumB = new StringBuilder();
+        _sumB.append("💰 Rechnungsbetrag: ").append(String.format(Locale.GERMANY, "%.2f €", _invAmt)).append('\n');
+        if (r.pickupTime != null) _sumB.append("📅 ").append(r.pickupTime).append('\n');
+        if (r.customerName != null) _sumB.append("👤 ").append(r.customerName);
+        if (r.guestName != null && !r.guestName.isEmpty()) _sumB.append(" (Gast: ").append(r.guestName).append(')');
+        _sumB.append('\n');
+        if (r.pickup != null) _sumB.append("📍 ").append(r.pickup).append('\n');
+        if (r.destination != null) _sumB.append("🎯 ").append(r.destination).append('\n');
+        _sumB.append("\n📎 Rechnung als PDF-Anhang");
+        if (r.invoicePdfUrl == null || r.invoicePdfUrl.isEmpty()) {
+            _sumB.append(" ⚠️ FEHLT — wird beim Senden aus Firebase generiert.");
         }
+        tvSum.setText(_sumB.toString());
+        tvSum.setTextSize(14);
+        tvSum.setTextColor(android.graphics.Color.parseColor("#111827"));
+        tvSum.setBackgroundColor(android.graphics.Color.parseColor("#f3f4f6"));
+        tvSum.setPadding(pad, pad, pad, pad);
+        LinearLayout.LayoutParams _sumP = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        _sumP.setMargins(0, 0, 0, pad);
+        tvSum.setLayoutParams(_sumP);
+        layout.addView(tvSum);
 
         // E-Mail-Empfänger
         android.widget.TextView tvEmailLabel = new android.widget.TextView(this);

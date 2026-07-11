@@ -6,6 +6,25 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [6.63.682] - 2026-07-11
+
+### ✨ Cloud + Native: Schicht-Änderung triggert sofortige Re-Zuweisung (R)
+
+Patrick 11.07. 07:01 Bridge: *'Wenn ich das Fahrzeug die Uhrzeit verändere, muss sofort geändert werden'*.
+
+**Cloud — neue HTTP-Function `retriggerAssignAfterShiftChange` (~Z24250):**
+- POST `{ vehicleId }` löst für alle vorbestellten Fahrten der nächsten 48h einen Re-Assign aus
+- Fahrten des Fahrzeugs werden freigegeben (assignedVehicle=null) und via `autoAssignRide` neu berechnet
+- Response: `{ released, candidatesChecked, newlyAssigned }`
+
+**Native `ShiftEditorActivity`:**
+- Nach jedem Save (Hauptschicht + Tages-Override + Wochenplan-Editor) → `triggerReassignForVehicle(vehicleId, name)` als POST-Call
+- Toast zeigt Ergebnis: `🔁 Vito LK: 2 freigegeben, 1 neu zugewiesen`
+
+Bisher: nur 10-Min-Cron. Jetzt: Wirkung sofort sichtbar.
+
+---
+
 ## [6.63.681] - 2026-07-10
 
 ### ✨ Native Dispo: Korrespondenz-Zeile direkt in Fahrt-Karte (Q-Fortsetzung)

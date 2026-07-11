@@ -24249,6 +24249,62 @@ async function getCustomerChatId(ride) {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// 🆕 v6.63.682 (Patrick 11.07. 07:01 Bridge: "wenn ich das Fahrzeug die Uhrzeit
+//   verändere, muss sofort geändert werden"): Manueller Trigger nach
+//   Schicht-Editor-Save. Rechnet für alle vorbestellten Fahrten des Fahrzeugs
+//   (oder alle Fahrten falls vehicleId leer) sofort autoAssignRide durch.
+//   Aufruf via POST { vehicleId?: string } aus Native ShiftEditorActivity.
+// ═══════════════════════════════════════════════════════════════
+exports.retriggerAssignAfterShiftChange = onRequest(
+    { region: 'europe-west1', timeoutSeconds: 90, invoker: 'public' },
+    async (req, res) => {
+        res.set('Access-Control-Allow-Origin', '*');
+        res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+        res.set('Access-Control-Allow-Headers', 'Content-Type');
+        if (req.method === 'OPTIONS') return res.status(204).send('');
+        if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
+        try {
+            const vehicleId = req.body?.vehicleId || null;
+            const now = Date.now();
+            const _horizonMs = 48 * 60 * 60 * 1000; // 48h nach vorne prüfen
+            const ridesSnap = await db.ref('rides').once('value');
+            const _rides = ridesSnap.val() || {};
+            const _tasks = [];
+            let _released = 0;
+            for (const [rid, r] of Object.entries(_rides)) {
+                if (!r || !r.pickupTimestamp) continue;
+                if (r.pickupTimestamp < now || r.pickupTimestamp > now + _horizonMs) continue;
+                if (['completed', 'cancelled', 'declined'].includes(r.status)) continue;
+                if (r.assignmentLocked) continue;
+                const _vidOnRide = r.assignedVehicle || r.vehicleId;
+                // Wenn vehicleId angegeben: nur Fahrten dieses Fahrzeugs UND unzugewiesene
+                if (vehicleId && _vidOnRide !== vehicleId && _vidOnRide) continue;
+                // Wenn Fahrt an das Fahrzeug gebunden ist, das jetzt schichtplan-mäßig raus ist → freigeben
+                if (vehicleId && _vidOnRide === vehicleId) {
+                    await db.ref(`rides/${rid}`).update({
+                        assignedVehicle: null, vehicleId: null,
+                        assignedBy: 'cloud-retrigger-after-shift-change',
+                        _shiftRetriggerAt: now
+                    });
+                    _released++;
+                }
+                _tasks.push(autoAssignRide(rid, { ...r, assignedVehicle: null, vehicleId: null }).catch(e => ({ error: e.message })));
+            }
+            const _results = await Promise.all(_tasks);
+            const _assigned = _results.filter(x => x && x.success).length;
+            console.log(`🔁 retriggerAssignAfterShiftChange: vid=${vehicleId||'*'}, released=${_released}, tasks=${_tasks.length}, assigned=${_assigned}`);
+            return res.status(200).json({
+                success: true, vehicleId, released: _released,
+                candidatesChecked: _tasks.length, newlyAssigned: _assigned
+            });
+        } catch (e) {
+            console.error('retriggerAssignAfterShiftChange:', e.message);
+            return res.status(500).json({ error: e.message });
+        }
+    }
+);
+
+// ═══════════════════════════════════════════════════════════════
 // 🆕 v6.26.0: SCHEDULED AUTO-ASSIGN — Alle 10 Min unzugewiesene Fahrten zuweisen
 // Zentrale Cloud-Zuweisung — funktioniert 24/7 ohne Browser!
 // ═══════════════════════════════════════════════════════════════

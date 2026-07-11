@@ -1042,9 +1042,13 @@ public class ShiftEditorActivity extends AppCompatActivity {
                     FirebaseDatabase.getInstance(DB_URL)
                         .getReference("vehicleShifts/" + vs.vehicleId + "/" + dateKey)
                         .removeValue()
-                        .addOnSuccessListener(unused -> Toast.makeText(this,
-                            "✅ " + vs.name + ": HAUPTSCHICHT alle " + dayNames[dowSel] + " → " + startStr + "–" + endStr,
-                            Toast.LENGTH_LONG).show())
+                        .addOnSuccessListener(unused -> {
+                            Toast.makeText(this,
+                                "✅ " + vs.name + ": HAUPTSCHICHT alle " + dayNames[dowSel] + " → " + startStr + "–" + endStr,
+                                Toast.LENGTH_LONG).show();
+                            // v6.63.682 (Patrick 11.07. 07:01 Bridge): sofortige Re-Assign auslösen
+                            triggerReassignForVehicle(vs.vehicleId, vs.name);
+                        })
                         .addOnFailureListener(e -> Toast.makeText(this,
                             "Fehler beim Aufräumen: " + e.getMessage(), Toast.LENGTH_LONG).show());
                     return;
@@ -1084,6 +1088,8 @@ public class ShiftEditorActivity extends AppCompatActivity {
                                 }
                             });
                         }
+                        // v6.63.682: sofortige Re-Assign auslösen
+                        triggerReassignForVehicle(vs.vehicleId, vs.name);
                     })
                     .addOnFailureListener(e -> Toast.makeText(this,
                         "Fehler: " + e.getMessage(), Toast.LENGTH_LONG).show());
@@ -1897,12 +1903,57 @@ public class ShiftEditorActivity extends AppCompatActivity {
                     }
                 }
                 FirebaseDatabase.getInstance(DB_URL).getReference().updateChildren(upd)
-                    .addOnSuccessListener(_ok -> Toast.makeText(ShiftEditorActivity.this,
-                        "✅ " + vs.name + " — Wochenplan gespeichert", Toast.LENGTH_LONG).show())
+                    .addOnSuccessListener(_ok -> {
+                        Toast.makeText(ShiftEditorActivity.this,
+                            "✅ " + vs.name + " — Wochenplan gespeichert", Toast.LENGTH_LONG).show();
+                        triggerReassignForVehicle(vs.vehicleId, vs.name);
+                    })
                     .addOnFailureListener(e -> Toast.makeText(ShiftEditorActivity.this,
                         "Fehler: " + e.getMessage(), Toast.LENGTH_LONG).show());
             })
             .setNegativeButton("Abbrechen", null)
             .show();
+    }
+
+    // v6.63.682 (Patrick 11.07. 07:01 Bridge: "wenn ich das Fahrzeug die Uhrzeit
+    //   verändere, muss sofort geändert werden"): Cloud-Function retriggerAssignAfterShiftChange
+    //   aufrufen. Löst für alle 48h-Vorbestellungen des Fahrzeugs einen Re-Assign aus —
+    //   die Anzeige in der Dispo aktualisiert sich dann automatisch via Firebase-Listener.
+    private void triggerReassignForVehicle(String vehicleId, String vehicleName) {
+        if (vehicleId == null || vehicleId.isEmpty()) return;
+        new Thread(() -> {
+            try {
+                java.net.URL url = new java.net.URL(
+                    "https://europe-west1-taxi-heringsdorf.cloudfunctions.net/retriggerAssignAfterShiftChange");
+                java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("POST");
+                conn.setRequestProperty("Content-Type", "application/json; charset=utf-8");
+                conn.setDoOutput(true);
+                conn.setConnectTimeout(10000);
+                conn.setReadTimeout(90000);
+                org.json.JSONObject body = new org.json.JSONObject();
+                body.put("vehicleId", vehicleId);
+                try (java.io.OutputStream os = conn.getOutputStream()) {
+                    os.write(body.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                }
+                int rc = conn.getResponseCode();
+                java.io.InputStream is = (rc >= 200 && rc < 300) ? conn.getInputStream() : conn.getErrorStream();
+                java.io.BufferedReader br = new java.io.BufferedReader(new java.io.InputStreamReader(is, java.nio.charset.StandardCharsets.UTF_8));
+                StringBuilder sb = new StringBuilder(); String line;
+                while ((line = br.readLine()) != null) sb.append(line);
+                br.close();
+                android.util.Log.d("ShiftEditor", "retrigger response " + rc + ": " + sb);
+                if (rc >= 200 && rc < 300) {
+                    org.json.JSONObject resp = new org.json.JSONObject(sb.toString());
+                    int released = resp.optInt("released", 0);
+                    int assigned = resp.optInt("newlyAssigned", 0);
+                    runOnUiThread(() -> Toast.makeText(this,
+                        "🔁 " + vehicleName + ": " + released + " freigegeben, " + assigned + " neu zugewiesen",
+                        Toast.LENGTH_LONG).show());
+                }
+            } catch (Throwable t) {
+                android.util.Log.w("ShiftEditor", "retrigger failed: " + t.getMessage());
+            }
+        }).start();
     }
 }

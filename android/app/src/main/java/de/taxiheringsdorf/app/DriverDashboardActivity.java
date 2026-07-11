@@ -2144,11 +2144,12 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 banner.setVisibility(View.VISIBLE);
                 return;
             }
-            // Kein Termin in Sicht — Fahrer komplett frei
-            banner.setBackgroundColor(android.graphics.Color.parseColor("#059669"));
-            statusText.setText("🟢 Frei für Sofort-Anfragen — keine Vorbestellung in Sicht");
+            // v6.63.683 (Patrick 11.07. 08:28 Bridge: "frei für Sofortfahrten brauchen wir
+            //   nicht, der Banner soll nur kommen wenn wirklich etwas ist"):
+            //   Grüner 'alles-ok'-Banner weg — spart Platz. Bei Problemen (Losfahren, überfällig,
+            //   ohne Fahrer, kurzes Fenster) bleibt der Banner sichtbar.
+            banner.setVisibility(View.GONE);
             nextText.setVisibility(View.GONE);
-            banner.setVisibility(View.VISIBLE);
             return;
         }
         // Berechnung: blockiert ab pickup - max(15 Min, drivingTimeToPickup + 3 Min)
@@ -2205,11 +2206,13 @@ public class DriverDashboardActivity extends AppCompatActivity {
             nextText.setText("📍 " + pickupAddr);
             nextText.setVisibility(View.VISIBLE);
         } else {
-            // Locker — gruen
-            banner.setBackgroundColor(android.graphics.Color.parseColor("#059669"));
-            statusText.setText("🟢 Frei für Sofort · max " + maxFahrtMin + " Min (Vorbestellung " + customer + " um " + pickupHM + ")");
-            nextText.setText("📍 " + pickupAddr);
-            nextText.setVisibility(View.VISIBLE);
+            // v6.63.683 (Patrick 11.07. 08:28): Locker/entspannter Fall → Banner GONE.
+            //   Nur echte Handlungs-Situationen (Losfahren / Pickup naht / kurzes Fenster)
+            //   zeigen den Banner. Vorher: 'grün Frei für Sofort max X Min' war Standard-
+            //   Anzeige, hat Bildschirm verschwendet.
+            banner.setVisibility(View.GONE);
+            nextText.setVisibility(View.GONE);
+            return;
         }
         banner.setVisibility(View.VISIBLE);
     }

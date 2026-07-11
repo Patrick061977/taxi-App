@@ -1748,8 +1748,18 @@ public class DriverDashboardActivity extends AppCompatActivity {
             + "🎯 " + (ride.destination != null ? ride.destination : "?") + "\n"
             + (ride.passengers != null ? "👥 " + ride.passengers + " Person(en)\n" : "")
             + (ride.price != null ? "💰 ca. " + ride.price + " €\n" : "");
-        new android.app.AlertDialog.Builder(this)
-            .setTitle("🚕 Fahrt ohne Fahrer")
+        // v6.63.684 (Patrick 11.07. 10:50 Bridge: "9:40 Uhr, jetzt 10:50, ich will die
+        //   Fahrt als erledigt markieren nicht übernehmen"): Wenn Pickup schon länger
+        //   überfällig ist, brauche eine dritte Option '✔ Erledigt' die die Fahrt einfach
+        //   auf completed setzt (Fahrer hat sie offline abgewickelt / Kunde storniert
+        //   telefonisch / nicht mehr relevant).
+        final long _pickupTs = ride.pickupTimestamp != null ? ride.pickupTimestamp : 0;
+        final long _overdueMin = _pickupTs > 0 ? (System.currentTimeMillis() - _pickupTs) / 60000 : 0;
+        final boolean _isOverdue = _overdueMin > 15;
+        String _titleAdd = _isOverdue ? "  ⏰ " + _overdueMin + " Min überfällig" : "";
+
+        android.app.AlertDialog.Builder builder = new android.app.AlertDialog.Builder(this)
+            .setTitle("🚕 Fahrt ohne Fahrer" + _titleAdd)
             .setMessage(msg)
             .setPositiveButton("✅ Übernehmen", (d, w) -> {
                 String _myVid = currentVehicleId;
@@ -1773,9 +1783,24 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 db.getReference("rides/" + ride.id).updateChildren(u);
                 logLifecycleTap(ride.id, "✅", "Banner-Tap: Fahrt übernommen (wartepool/new → accepted)", "accepted");
                 android.widget.Toast.makeText(this, "✓ Fahrt übernommen!", android.widget.Toast.LENGTH_LONG).show();
-            })
-            .setNegativeButton("Abbrechen", null)
-            .show();
+            });
+        // Bei überfälligen Fahrten: '✔ Erledigt'-Option statt Abbrechen
+        if (_isOverdue) {
+            builder.setNeutralButton("✔ Erledigt (schließen)", (d, w) -> {
+                Map<String, Object> u = new HashMap<>();
+                u.put("status", "completed");
+                u.put("completedAt", System.currentTimeMillis());
+                u.put("completedBy", "native_wartepool_banner_erledigt");
+                u.put("updatedAt", System.currentTimeMillis());
+                u.put("wartepoolReason", null);
+                u.put("wartepoolAt", null);
+                u.put("_erledigtOhneFahrer", true);
+                db.getReference("rides/" + ride.id).updateChildren(u);
+                logLifecycleTap(ride.id, "✔", "Wartepool-Banner: als erledigt markiert (kein Fahrer, überfällig)", "completed");
+                android.widget.Toast.makeText(this, "✔ Fahrt als erledigt markiert.", android.widget.Toast.LENGTH_LONG).show();
+            });
+        }
+        builder.setNegativeButton("Abbrechen", null).show();
     }
 
     // v6.63.342 (Patrick 15.06. 06:02 'System soll Konflikte selber abarbeiten +

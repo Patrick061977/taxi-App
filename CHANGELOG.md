@@ -6,6 +6,20 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [6.63.684] - 2026-07-11
+
+### 🐛 Native Driver-Banner: 'Erledigt'-Option bei überfälligen Wartepool-Fahrten (E)
+
+Patrick 11.07. 10:50 Bridge: *'9:40 Uhr, jetzt 10:50, ich will die Fahrt als erledigt markieren nicht übernehmen'*.
+
+**`DriverDashboardActivity.showUnassignedRideGrabDialog` (~Z1751):**
+- Bisher nur 2 Buttons: ✅ Übernehmen / Abbrechen
+- Neu bei Pickup >15 Min überfällig: dritter Button `✔ Erledigt (schließen)`
+  - Setzt `status=completed`, `_erledigtOhneFahrer=true`, räumt Wartepool-Felder auf
+  - Titel-Erweiterung `⏰ X Min überfällig`
+
+---
+
 ## [6.63.683] - 2026-07-11
 
 ### 🐛 Native: 'Frei für Sofort'-Banner nur bei echten Situationen

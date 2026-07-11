@@ -11,6 +11,17 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+
+// v6.63.684: .env laden (Gmail-Script hatte den Loader nie — GMAIL_PASS blieb undefined
+// wenn nicht global gesetzt → 'FATAL: No password configured')
+const _envPath = path.join(__dirname, '..', '.env');
+if (fs.existsSync(_envPath)) {
+    fs.readFileSync(_envPath, 'utf8').split('\n').forEach(line => {
+        const [k, ...v] = line.trim().split('=');
+        if (k && v.length) process.env[k.trim()] = v.join('=').trim();
+    });
+}
+
 const { ImapFlow } = require('C:/Taxi App/taxi-App-github/functions/node_modules/imapflow');
 const { simpleParser } = require('C:/Taxi App/taxi-App-github/functions/node_modules/mailparser');
 const nodemailer = require('C:/Taxi App/taxi-App-github/functions/node_modules/nodemailer');
@@ -20,7 +31,9 @@ const STATE_FILE = path.join(__dirname, '..', '.gmail-datev-state.json');
 const ONEDRIVE_GMX_ROOT = 'C:/Users/Taxi/OneDrive/5.Buchführung/Rechnungen/_Gmail-Eingang';
 // v6.63.315 (Patrick 13.06.2026): 5-Postfach-Routing — siehe scripts/lib/datev-routing.js
 // v6.63.253 (Patrick 09.06.): Bons/Kassenbelege analog zum GMX-Pendant.
-const SUBJ_REGEX = /rechnung|invoice|beleg|quittung|abrechnung|fakturen?|ebon|kassenbon|kaufbeleg|bonbeleg/i;
+// v6.63.684: mit gmx-daily-datev-forward.js synchronisiert — kostenbescheid/mahnung etc.
+//   Vorher fehlten die im Gmail-Skript → Eichdirektion-Nord-Kostenbescheide wurden ignoriert.
+const SUBJ_REGEX = /rechnung|invoice|beleg|quittung|abrechnung|fakturen?|kostenbescheid|zahlungsaufford|mahnung|vollstreckung|kostennote|gebührenbescheid|honorarnote|ebon|kassenbon|kaufbeleg|bonbeleg/i;
 const SUBJ_NEGATIVE = /taxiabrechnung|tagesumsatz|arbeitszeit|wichtiger hinweis|service-erlaubnis|auto-gmx|datev|forward|uploadmail/i;
 // Skip: alle DATEV-Bestätigungen + Forwards aus dem eigenen Postfach + bekannte Skip-Lieferanten
 const SKIP_DOMAINS = new Set([
@@ -101,7 +114,11 @@ function saveState(s) { fs.writeFileSync(STATE_FILE, JSON.stringify(s, null, 2))
         if (SKIP_DOMAINS.has(fromDomain)) { skippedSkipDomain++; continue; }
         if (!SUBJ_REGEX.test(subject)) { skippedNoMatch++; continue; }
         if (SUBJ_NEGATIVE.test(subject)) { skippedNoMatch++; continue; }
-        const pdfs = (p.attachments || []).filter(a => /pdf/i.test(a.contentType || a.filename || ''));
+        // v6.63.684 (Patrick 11.07. 09:xx Bridge Eichamt-Fix): filename UND contentType prüfen,
+        // NICHT nur einen. Bug vorher: (contentType || filename) → wenn contentType='application/octet-stream'
+        // ist truthy, filename wurde nie geprüft. Eichdirektion Nord verschickt PDFs als
+        // octet-stream — die wurden alle stillschweigend übersprungen.
+        const pdfs = (p.attachments || []).filter(a => /pdf/i.test(a.contentType || '') || /\.pdf$/i.test(a.filename || ''));
         if (pdfs.length === 0) { skippedNoPdf++; continue; }
 
         const dateISO = (p.date || new Date()).toISOString().slice(0, 10);

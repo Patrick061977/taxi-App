@@ -105,7 +105,8 @@ function saveState(s) { fs.writeFileSync(STATE_FILE, JSON.stringify(s, null, 2))
         if (SKIP_DOMAINS.has(fromDomain)) { skippedSkipDomain++; continue; }
         if (!SUBJ_REGEX.test(subject)) { skippedNoMatch++; continue; }
         if (SUBJ_NEGATIVE.test(subject)) { skippedNoMatch++; continue; }
-        const pdfs = (p.attachments || []).filter(a => /pdf/i.test(a.contentType || a.filename || ''));
+        // v6.63.684: gleicher Filter-Fix wie in gmail-daily-datev-forward.js
+        const pdfs = (p.attachments || []).filter(a => /pdf/i.test(a.contentType || '') || /\.pdf$/i.test(a.filename || ''));
         if (pdfs.length === 0) { skippedNoPdf++; continue; }
 
         const dateISO = (p.date || new Date()).toISOString().slice(0, 10);
@@ -125,7 +126,13 @@ function saveState(s) { fs.writeFileSync(STATE_FILE, JSON.stringify(s, null, 2))
             // Triple-Check Dedupe
             if (state.sentKeys[key]) { skippedDup++; continue; }
             if (state.sentHashes[hash]) { skippedHashDup++; LOG(`⚠️  Hash-Dup ${fromAddr} ${filename} (war: ${state.sentHashes[hash].key || '?'})`); continue; }
-            if (state.sentFromFile[fromFileKey]) { skippedFromFileDup++; LOG(`⚠️  From+File-Dup ${fromAddr} ${filename}`); continue; }
+            // v6.63.684 (Patrick 11.07. Bridge: 'rewe bon fehlt noch für die kasse'):
+            //   Bon-Filenames (REWE-ebon.pdf, aldi-ebon.pdf, edeka-ebon.pdf, ...) wiederholen sich
+            //   pro Kunde jeden Einkauf → sentFromFile ist zu aggressiv. Hash-Check reicht
+            //   für echte Duplikat-Erkennung. Nur bei individuellen Filenames (Rechnungsnummer
+            //   drin, Datum drin) sinnvoll — Bons sind Sonderfall.
+            const _isBonFilename = /-?ebon(_|\.|$)|kassenbon|kaufbeleg|bonbeleg/i.test(filename);
+            if (!_isBonFilename && state.sentFromFile[fromFileKey]) { skippedFromFileDup++; LOG(`⚠️  From+File-Dup ${fromAddr} ${filename}`); continue; }
 
             // v6.63.315: Routing pro Beleg (5 Postfaecher)
             // v6.63.316: SKIP (Bar-Eigenrechnung) → nicht senden, aber im state markieren

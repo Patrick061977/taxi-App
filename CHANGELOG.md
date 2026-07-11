@@ -6,6 +6,21 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [6.63.685] - 2026-07-11
+
+### 🐛 Native: 1 Person wird jetzt auch angezeigt
+
+Patrick 11.07. 14:45 Bridge (Anna Ulbricht Fall): *'kommt bei 1 Person keine Personenzahl'*.
+
+**AdminDashboardActivity (Z3028 Anfrage-Card, Z3135 Ride-Card):**
+- Vorher: `passengers > 1` → 1 Pax versteckt
+- Neu: `passengers >= 1` → 1 Pax wird als `👥 1` angezeigt
+
+**DriverDashboardActivity (Z4943 Fahrt-Card):**
+- Gleicher Fix — 1 Pax in Fahrer-Ansicht sichtbar
+
+---
+
 ## [6.63.684] - 2026-07-11
 
 ### 🐛 Native Driver-Banner: 'Erledigt'-Option bei überfälligen Wartepool-Fahrten (E)

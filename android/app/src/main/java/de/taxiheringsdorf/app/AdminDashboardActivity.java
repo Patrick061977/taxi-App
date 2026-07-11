@@ -3025,7 +3025,9 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 if (a.date != null) line1.append(a.date);
                 if (a.time != null) line1.append(' ').append(a.time);
                 line1.append("  ").append(a.name != null ? a.name : "?");
-                if (a.passengers != null && a.passengers > 1) line1.append("  👥 ").append(a.passengers);
+                // v6.63.685 (Patrick 11.07. Bridge "kommt bei 1 Person keine Personenzahl"):
+                //   Auch 1 Pax anzeigen — vorher wurde nur >1 gezeigt.
+                if (a.passengers != null && a.passengers >= 1) line1.append("  👥 ").append(a.passengers);
                 t1.setText(line1.toString());
                 StringBuilder line2 = new StringBuilder();
                 line2.append("📍 ").append(a.pickup != null ? a.pickup : "?");
@@ -3132,7 +3134,8 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 }
                 String statusBadge = r.status != null ? "  [" + statusEmoji(r.status) + " " + r.status + "]" : "";
                 // v6.63.630: Personenzahl-Badge (wenn >1) und kompaktes Bezahlt-Badge in Zeile 1
-                String paxBadge = (r.passengers != null && r.passengers > 1) ? "  👥" + r.passengers : "";
+                // v6.63.685: 1 Pax auch anzeigen (Patrick 11.07. Ulbricht-Fall)
+                String paxBadge = (r.passengers != null && r.passengers >= 1) ? "  👥" + r.passengers : "";
                 String payBadge = "";
                 if ("paid".equalsIgnoreCase(r.paymentStatus)) {
                     payBadge = "  ✅" + (r.stripePaidAmount != null ? String.format(Locale.GERMANY, " %.0f€", r.stripePaidAmount) : "");

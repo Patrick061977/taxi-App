@@ -6,6 +6,20 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [6.63.683] - 2026-07-11
+
+### 🐛 Native: 'Frei für Sofort'-Banner nur bei echten Situationen
+
+Patrick 11.07. 08:28 Bridge: *'Kannst du oben den Banner "Frei für Sofortfahrten" wenn nichts ist einfach weg machen. Nur wenn wirklich eine Fahrt überfällig ist. Sonst benutzt der oben zu viel sinnlos.'*
+
+**Fix `DriverDashboardActivity.updateStatusBanner` (~Z2149 + Z2210):**
+- Vorher: grüner Banner `🟢 Frei für Sofort-Anfragen — keine Vorbestellung in Sicht` immer sichtbar wenn kein Termin ansteht
+- Vorher: grüner Banner `🟢 Frei für Sofort · max X Min` sichtbar bei entspannter Lage (Pickup >30 Min)
+- Neu: beide grünen Fälle → `banner.setVisibility(View.GONE)`
+- Rot/Gelb-Fälle (Losfahren, Pickup naht, kurzes Fenster, ohne Fahrer, überfällig) bleiben sichtbar
+
+---
+
 ## [6.63.682] - 2026-07-11
 
 ### ✨ Cloud + Native: Schicht-Änderung triggert sofortige Re-Zuweisung (R)

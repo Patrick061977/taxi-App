@@ -6,6 +6,25 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [6.63.687] - 2026-07-12
+
+### 🎨 Native Schicht-Editor: Vorschau übersichtlich mit 2 Zeilen (Heute + Wochenplan)
+
+Patrick 12.07. Bridge: *'Overrides verwirren mich — entweder 1 und 2 aber dass ich sehe was heute und was der Wochenplan ist'*.
+
+**Vorschau `refreshPreview` (~Z862):**
+- Header zeigt Modus + Warnung wenn kein Effekt (Override = Wochenplan)
+- 2 klare Zeilen darunter:
+  - `Heute (So 12.07.): 07:30–18:00  NEU (Override)`
+  - `Wochenplan (jeden Sonntag): 07:30–18:00  (unverändert)`
+- Farbkodierung:
+  - Grün = Wochenplan-Änderung
+  - Blau = Tages-Override
+  - Rot = OFFLINE
+  - Gelb = Warnung „kein Effekt"
+
+---
+
 ## [6.63.686] - 2026-07-12
 
 ### ✨ Native Dispo: Sammelfahrt zusammenlegen (X)

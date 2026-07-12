@@ -6,6 +6,26 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [6.63.686] - 2026-07-12
+
+### ✨ Native Dispo: Sammelfahrt zusammenlegen (X)
+
+Patrick 12.07. 10:01 Bridge (Schmidt+Jungjohann-Fall — beide 07:50 Ferienhotel Ahlbeck → Bahnhof, je 2 Pax): *'wir hatten gar keine Möglichkeit Sammelfahrten anzunehmen'*.
+
+**LongPress-Menü auf Fahrt-Karte (AdminDashboardActivity ~Z3402):**
+- Neue Option `👥 Sammelfahrt zusammenlegen mit…`
+- Bei bereits verlinkter Fahrt: `👥 Sammelfahrt AUFLÖSEN`
+
+**`showSammelfahrtLinkDialog`:**
+- Findet Kandidaten in ±30 Min mit gleichem Pickup (String-Match) ODER Koords <200m
+- Auswahl → beide Fahrten bekommen `linkedGroupId` (8-Zeichen-Kurz-ID)
+- Wird auf gemeinsames Fahrzeug gesetzt (Fahrzeug der aktuellen Fahrt)
+
+**Card-Display:**
+- `👥 SAMMELFAHRT (Gruppe XXXXXXXX)` als eigene Zeile in der Fahrt-Karte
+
+---
+
 ## [6.63.685] - 2026-07-11
 
 ### 🐛 Native: 1 Person wird jetzt auch angezeigt

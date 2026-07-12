@@ -2671,6 +2671,9 @@ public class AdminDashboardActivity extends AppCompatActivity {
         //   die Korrespondenzen auch enthalten sein"): Kompakt-Anzeige direkt in der Card.
         //   Gebaut aus emailSent/smsSent/invoiceSent-Feldern der Ride.
         transient String commLine;
+        // v6.63.686 (Patrick 12.07. Bridge Sammelfahrt): Verlinkte Fahrten-Gruppen.
+        //   linkedGroupId gemeinsam bei allen Fahrten die als Sammelfahrt zusammen fahren.
+        String linkedGroupId;
 
         static boolean isWebSource(String s) {
             return s != null && (
@@ -2798,6 +2801,7 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 r.auftraggeberId = s.child("_auftraggeberId").getValue(String.class);
                 Object _isAuftr = s.child("_isAuftraggeberBooking").getValue();
                 r.isAuftraggeberBooking = _isAuftr instanceof Boolean ? (Boolean) _isAuftr : null;
+                r.linkedGroupId = s.child("linkedGroupId").getValue(String.class); // v6.63.686 Sammelfahrt
                 // v6.63.681: kompakte Korrespondenz-Zusammenfassung aus Ride-eigenen Flags
                 //   emailSent/smsSent/invoiceSent inkl. Zeitstempel + Kanal.
                 {
@@ -3380,6 +3384,10 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 if (r.commLine != null) {
                     route.append('\n').append(r.commLine);
                 }
+                // v6.63.686: Sammelfahrt-Badge in Card
+                if (r.linkedGroupId != null && !r.linkedGroupId.isEmpty()) {
+                    route.append("\n👥 SAMMELFAHRT (Gruppe ").append(r.linkedGroupId).append(")");
+                }
                 t2.setText(route.toString());
                 // v6.62.153: Tap → Edit-Dialog (Patrick: 'will Fahrten bearbeiten aus der App')
                 // v6.62.636: Bei abgeschlossenen Vergangenheits-Fahrten → Wiederhol-Dialog
@@ -3400,20 +3408,105 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 //   mit '📨 Korrespondenz' — Timeline aller Nachrichten an/von diesem Kunden
                 //   für diese Fahrt.
                 itemView.setOnLongClickListener(_v -> {
+                    // v6.63.686 (Patrick 12.07. 10:01 Bridge Option 2 zu Sammelfahrten):
+                    //   '👥 Sammelfahrt zusammenlegen' — verlinkt zwei Fahrten via linkedGroupId,
+                    //   Fahrer sieht sie als zusammengelegt (kombinierte Pax), gemeinsames Fahrzeug.
+                    String _sammelLabel = r.linkedGroupId != null && !r.linkedGroupId.isEmpty()
+                        ? "👥 Sammelfahrt AUFLÖSEN" : "👥 Sammelfahrt zusammenlegen mit…";
                     new AlertDialog.Builder(AdminDashboardActivity.this)
                         .setTitle("Fahrt: " + (r.customerName != null ? r.customerName : "?"))
                         .setItems(new String[]{
                             "📨 Korrespondenz anzeigen",
                             "✏️ Bearbeiten",
+                            _sammelLabel,
                             "❌ Schließen"
                         }, (d, which) -> {
                             if (which == 0) showKorrespondenzDialog(r);
                             else if (which == 1) showEditRideDialog(r);
+                            else if (which == 2) {
+                                if (r.linkedGroupId != null && !r.linkedGroupId.isEmpty()) unlinkSammelfahrt(r);
+                                else showSammelfahrtLinkDialog(r);
+                            }
                         }).show();
                     return true;
                 });
             }
         }
+    }
+
+    // v6.63.686 (Patrick 12.07. Bridge): Sammelfahrt-Verlinkungs-Dialog.
+    //   Zeigt alle Fahrten mit ähnlichem Pickup+Zeit (Kandidaten) — Auswahl setzt linkedGroupId
+    //   auf beide, weist beide dem SELBEN Fahrzeug zu (das der aktuellen Fahrt).
+    private void showSammelfahrtLinkDialog(Ride current) {
+        if (current == null || current.pickupTimestamp == null || current.id == null) return;
+        // Kandidaten: gleicher Zeitraum ±30 Min, GLEICHER Pickup (String-Match) ODER nah (Koords)
+        java.util.List<Ride> cand = new java.util.ArrayList<>();
+        for (Ride r : _currentRides) {
+            if (r.id == null || r.id.equals(current.id)) continue;
+            if (r.pickupTimestamp == null) continue;
+            long dt = Math.abs(r.pickupTimestamp - current.pickupTimestamp);
+            if (dt > 30 * 60_000L) continue;
+            boolean samePickup = current.pickup != null && r.pickup != null &&
+                (current.pickup.equalsIgnoreCase(r.pickup)
+                    || (current.pickup.length() > 10 && r.pickup.startsWith(current.pickup.substring(0, 10))));
+            boolean nearCoords = current.pickupLat != null && current.pickupLon != null
+                && r.pickupLat != null && r.pickupLon != null
+                && Math.abs(current.pickupLat - r.pickupLat) < 0.002
+                && Math.abs(current.pickupLon - r.pickupLon) < 0.003;
+            if (samePickup || nearCoords) cand.add(r);
+        }
+        if (cand.isEmpty()) {
+            Toast.makeText(this, "Keine passenden Fahrten in der Nähe (±30 Min, gleicher Pickup) gefunden.", Toast.LENGTH_LONG).show();
+            return;
+        }
+        SimpleDateFormat _hm = new SimpleDateFormat("HH:mm", Locale.GERMANY);
+        _hm.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
+        String[] labels = new String[cand.size()];
+        for (int i = 0; i < cand.size(); i++) {
+            Ride c = cand.get(i);
+            String t = c.pickupTimestamp != null ? _hm.format(new java.util.Date(c.pickupTimestamp)) : "?";
+            int pax = c.passengers != null ? c.passengers : 1;
+            String vid = c.assignedVehicle != null ? " · " + c.assignedVehicle : "";
+            labels[i] = t + " · " + (c.customerName != null ? c.customerName : "?") + " (" + pax + " Pax)" + vid;
+        }
+        new AlertDialog.Builder(this)
+            .setTitle("👥 Zusammenlegen mit welcher Fahrt?")
+            .setItems(labels, (d, which) -> {
+                Ride partner = cand.get(which);
+                String groupId = current.id.substring(1, 9); // Kurze Group-ID aus Firebase-Key
+                String vid = current.assignedVehicle != null ? current.assignedVehicle : partner.assignedVehicle;
+                Map<String, Object> u1 = new HashMap<>();
+                u1.put("linkedGroupId", groupId);
+                u1.put("_linkedAt", System.currentTimeMillis());
+                if (vid != null) { u1.put("assignedVehicle", vid); u1.put("vehicleId", vid); }
+                Map<String, Object> u2 = new HashMap<>(u1);
+                db.getReference("rides/" + current.id).updateChildren(u1);
+                db.getReference("rides/" + partner.id).updateChildren(u2);
+                Toast.makeText(this,
+                    "👥 Sammelfahrt: " + (current.customerName != null ? current.customerName : "?")
+                    + " + " + (partner.customerName != null ? partner.customerName : "?")
+                    + " (Group " + groupId + ")",
+                    Toast.LENGTH_LONG).show();
+            })
+            .setNegativeButton("Abbrechen", null)
+            .show();
+    }
+
+    private void unlinkSammelfahrt(Ride r) {
+        if (r == null || r.id == null || r.linkedGroupId == null) return;
+        final String gid = r.linkedGroupId;
+        new AlertDialog.Builder(this)
+            .setTitle("Sammelfahrt auflösen?")
+            .setMessage("Diese Fahrt wird aus der Sammelfahrt-Gruppe entfernt. Die anderen Fahrten der Gruppe bleiben verlinkt.")
+            .setPositiveButton("Auflösen", (d, w) -> {
+                Map<String, Object> u = new HashMap<>();
+                u.put("linkedGroupId", null);
+                u.put("_linkedAt", null);
+                db.getReference("rides/" + r.id).updateChildren(u);
+                Toast.makeText(this, "🔓 " + (r.customerName != null ? r.customerName : "?") + " aus Gruppe " + gid + " entfernt", Toast.LENGTH_SHORT).show();
+            })
+            .setNegativeButton("Abbrechen", null)
+            .show();
     }
 
     // v6.63.680 (Patrick 10.07. 16:40 Bridge): Kunden-Kommunikations-Timeline.

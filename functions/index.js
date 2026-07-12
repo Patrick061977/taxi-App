@@ -25904,30 +25904,35 @@ exports.onAnfrageStatusChanged = onValueUpdated(
             //   anfrage.channel='web' / default → smsQueue (wie bisher)
             const _channel = (after.channel || '').toLowerCase();
             const _email = (after.email || '').trim();
+
+            // v6.63.690 (Patrick 12.07. Bridge #1783848749266 "Stripe Link wird nicht ueber
+            //   WhatsApp mitgesendet"): Stripe-Link JETZT vor Channel-Switch generieren, damit
+            //   WhatsApp + SMS + Email den Link kriegen. Vorher war der Link nur im email-Zweig.
+            let _stripeUrl = null;
+            try {
+                const _priceRaw = after.price ? parseFloat(String(after.price).replace(/[^0-9.,]/g,'').replace(',','.')) : 0;
+                if (_priceRaw > 0) {
+                    const _checkoutResp = await fetch('https://europe-west1-taxi-heringsdorf.cloudfunctions.net/createStripeCheckout', {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            invoiceNumber: 'ANF-' + (anfrageId || '').substring(0, 12),
+                            amount: _priceRaw,
+                            customerName: _name,
+                            customerEmail: _email || undefined,
+                            anfrageId,
+                            description: 'Funk Taxi — Transfer ' + (after.date || '') + ' ' + (after.time || '') + ' ' + (after.pickup || '').substring(0,30)
+                        })
+                    });
+                    const _ckJson = await _checkoutResp.json();
+                    if (_ckJson && _ckJson.url) _stripeUrl = _ckJson.url;
+                }
+            } catch (_stripeErr) { console.warn('Stripe-Checkout Fehler:', _stripeErr.message); }
+            const _payLine = _stripeUrl ? `\n\n💳 Sicher online zahlen: ${_stripeUrl}` : '';
+            if (_stripeUrl) {
+                try { await db.ref(`anfragen/${anfrageId}`).update({ stripePaymentLink: _stripeUrl, stripeRequestedAt: Date.now() }); } catch(_) {}
+            }
+
             if (_channel === 'email' && _email) {
-                // 🆕 v6.63.294 (Patrick 11.06. 19:17 'wurde schon 1000 mal besprochen'):
-                //   Stripe-Bezahl-Link in der Email-Bestaetigung mitschicken wenn Festpreis
-                //   vorhanden. Patrick will dass Kunden direkt online bezahlen koennen ohne
-                //   Bar-Hassle bei der Fahrt.
-                let _stripeUrl = null;
-                try {
-                    const _priceRaw = after.price ? parseFloat(String(after.price).replace(/[^0-9.,]/g,'').replace(',','.')) : 0;
-                    if (_priceRaw > 0) {
-                        const _checkoutResp = await fetch('https://europe-west1-taxi-heringsdorf.cloudfunctions.net/createStripeCheckout', {
-                            method: 'POST', headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                invoiceNumber: 'ANF-' + (anfrageId || '').substring(0, 12),
-                                amount: _priceRaw,
-                                customerName: _name,
-                                customerEmail: _email,
-                                anfrageId,
-                                description: 'Funk Taxi — Transfer ' + (after.date || '') + ' ' + (after.time || '') + ' ' + (after.pickup || '').substring(0,30)
-                            })
-                        });
-                        const _ckJson = await _checkoutResp.json();
-                        if (_ckJson && _ckJson.url) _stripeUrl = _ckJson.url;
-                    }
-                } catch (_stripeErr) { console.warn('Stripe-Checkout Fehler:', _stripeErr.message); }
                 // Email-Bestaetigung
                 const _emailBody = `Sehr geehrte/r ${_name},\n\n` +
                     `vielen Dank fuer Ihre Reservierung — wir bestaetigen Ihnen den Transfer:\n\n` +
@@ -25975,9 +25980,6 @@ exports.onAnfrageStatusChanged = onValueUpdated(
                     };
                     await sendToAllAdmins(_msg, 'mail-preview', { reply_markup: _keyboard });
                 } catch (_pErr) { console.warn('mail-preview Push fehlgeschlagen:', _pErr.message); }
-                if (_stripeUrl) {
-                    await db.ref(`anfragen/${anfrageId}`).update({ stripePaymentLink: _stripeUrl, stripeRequestedAt: Date.now() });
-                }
                 await db.ref(`anfragen/${anfrageId}`).update({
                     confirmSent: true, confirmChannel: 'email',
                     confirmSentAt: Date.now(), confirmSentBy: 'cloud-onAnfrageStatusChanged-v6.62.900'
@@ -25991,7 +25993,7 @@ exports.onAnfrageStatusChanged = onValueUpdated(
                 //   Jetzt: direkter sendWhatsAppMessage-Call über die WhatsApp
                 //   Business API. Bei Versand-Fehler (Config fehlt, API down) fällt
                 //   die Logik auf SMS zurück, damit der Kunde trotzdem Bescheid kriegt.
-                const _waText = `Funk Taxi Heringsdorf: ${_anrede}, Ihre Vorbestellung${_zeit} (${_pickup} → ${_dest}${_pax}${_preis}) ist bestätigt.${_veh} Bei Fragen 038378/22022.`;
+                const _waText = `Funk Taxi Heringsdorf: ${_anrede}, Ihre Vorbestellung${_zeit} (${_pickup} → ${_dest}${_pax}${_preis}) ist bestätigt.${_veh} Bei Fragen 038378/22022.${_payLine}`;
                 const _waMsgId = await sendWhatsAppMessage(phone, _waText);
                 if (_waMsgId) {
                     await db.ref(`anfragen/${anfrageId}`).update({
@@ -26007,7 +26009,7 @@ exports.onAnfrageStatusChanged = onValueUpdated(
                     console.warn(`⚠️ v6.63.069 WhatsApp-Versand fehlgeschlagen fuer ${anfrageId} (Config/API) — Fallback auf SMS`);
                     await db.ref('smsQueue').push({
                         phone: phone,
-                        text: _smsText,
+                        text: _smsText + _payLine,
                         rideId: after.rideId || null,
                         anfrageId: anfrageId,
                         category: 'anfrage-uebernahme-bestaetigung-fallback',
@@ -26026,7 +26028,7 @@ exports.onAnfrageStatusChanged = onValueUpdated(
                 // SMS (Default für web/sms-Anfragen)
                 await db.ref('smsQueue').push({
                     phone: phone,
-                    text: _smsText,
+                    text: _smsText + _payLine,
                     rideId: after.rideId || null,
                     anfrageId: anfrageId,
                     category: 'anfrage-uebernahme-bestaetigung',

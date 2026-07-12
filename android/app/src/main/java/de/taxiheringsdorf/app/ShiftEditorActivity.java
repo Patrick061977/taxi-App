@@ -858,33 +858,51 @@ public class ShiftEditorActivity extends AppCompatActivity {
         previewText.setLineSpacing(0f, 1.3f);
         root.addView(previewText);
 
-        // Vorschau-Renderer (wird in jedem Pill-Click + nach Zeit-Aenderung getriggert)
+        // v6.63.687 (Patrick 12.07. Bridge "entweder 1 und 2 aber das ich sehe was
+        //   heute und was der Wochenplan ist"):
+        //   Vorschau IMMER mit 2 klaren Zeilen: 'Heute (Datum): X-Y' und
+        //   'Wochenplan (Wochentag): X-Y'. Über den beiden Zeilen der aktive Modus als
+        //   Header. Farbkodierung: grün=Wochenplan-Modus · blau=Nur-heute · rot=AUS ·
+        //   gelb=Warnung wenn keine Änderung.
         final Runnable refreshPreview = new Runnable() {
             @Override public void run() {
                 String _startStr = String.format(Locale.GERMANY, "%02d:%02d", start[0], start[1]);
                 String _endStr = String.format(Locale.GERMANY, "%02d:%02d", end[0], end[1]);
                 int _dow = selDate.get(Calendar.DAY_OF_WEEK) - 1;
-                String _dayLong = _dfDisplay.format(selDate.getTime());
+                String _dayShort = new SimpleDateFormat("EE dd.MM.", Locale.GERMANY).format(selDate.getTime());
                 String _curStartT = (vs.defaultTimes != null && vs.defaultTimes[_dow] != null) ? vs.defaultTimes[_dow][0] : null;
                 String _curEndT   = (vs.defaultTimes != null && vs.defaultTimes[_dow] != null) ? vs.defaultTimes[_dow][1] : null;
                 String _cur = (_curStartT != null && _curEndT != null) ? (_curStartT + "–" + _curEndT) : "—";
-                String txt;
+                boolean sameAsWeekplan = (_startStr.equals(_curStartT) && _endStr.equals(_curEndT));
+
+                String header;
+                String todayLine;
+                String weekLine;
+                int bg;
+
                 if (modeState[0] == 0) { // WOCHENPLAN
-                    txt = "📅 Ab kommender Woche fährt " + vs.name + " jeden " + dayNames[_dow] + "\n"
-                        + "      neu: " + _startStr + "–" + _endStr
-                        + (_cur.equals("—") ? "" : ("   (alt: " + _cur + ")"))
-                        + "\n      Standort bleibt: " + (vs.homeLocations != null && vs.homeLocations[_dow] != null ? vs.homeLocations[_dow] : "—");
+                    bg = sameAsWeekplan ? 0xFF78350F : 0xFF064E3B;
+                    header = sameAsWeekplan
+                        ? "⚠️ Wochenplan-Modus — aber unverändert (kein Effekt)"
+                        : "📅 Wochenplan ändern — ab nächsten " + dayNames[_dow];
+                    todayLine = "Heute (" + _dayShort + "): " + _cur + "  (unverändert)";
+                    weekLine  = "Wochenplan (jeden " + dayNames[_dow] + "): " + _startStr + "–" + _endStr + "  " + (sameAsWeekplan ? "= bisher" : "NEU");
                 } else if (modeState[0] == 1) { // NUR DIESER TAG
-                    // 🔧 v6.63.616: "heute:" → tatsächliches Datum (war verwirrend wenn Morgen editiert)
-                    String _dayShort = new SimpleDateFormat("EE dd.MM.", Locale.GERMANY).format(selDate.getTime());
-                    txt = "📌 Override für " + _dayLong + "\n"
-                        + "      " + _dayShort + ": " + _startStr + "–" + _endStr
-                        + "\n      Wochenplan bleibt unverändert (" + _cur + ")";
+                    bg = sameAsWeekplan ? 0xFF78350F : 0xFF1E3A5F;
+                    header = sameAsWeekplan
+                        ? "⚠️ Nur-heute-Modus — identisch mit Wochenplan (kein Effekt)"
+                        : "📌 Nur am " + _dayShort + " abweichend";
+                    todayLine = "Heute (" + _dayShort + "): " + _startStr + "–" + _endStr + "  " + (sameAsWeekplan ? "= wie Wochenplan" : "NEU (Override)");
+                    weekLine  = "Wochenplan (jeden " + dayNames[_dow] + "): " + _cur + "  (unverändert)";
                 } else { // AUS
-                    txt = "⚫ " + vs.name + " am " + _dayLong + " komplett OFFLINE\n"
-                        + "      Wochenplan bleibt unverändert (" + _cur + ")";
+                    bg = 0xFF7F1D1D;
+                    header = "🔴 Heute komplett OFFLINE — " + vs.name;
+                    todayLine = "Heute (" + _dayShort + "): OFFLINE  keine Fahrten";
+                    weekLine  = "Wochenplan (jeden " + dayNames[_dow] + "): " + _cur + "  (unverändert)";
                 }
-                previewText.setText(txt);
+
+                previewText.setText(header + "\n\n" + todayLine + "\n" + weekLine);
+                previewText.setBackgroundColor(bg);
             }
         };
         refreshPreview.run();

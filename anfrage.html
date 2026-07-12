@@ -96,25 +96,51 @@
                  Patrick (13.05. 20:16): "Erst Abholort, Zielort, Datum, Uhrzeit — DANN
                  die Karte mit Datum links + Preis rechts wie bei buchen.html." -->
             <div style="display:flex;gap:8px;margin-bottom:12px;">
-                <div style="flex:1;position:relative;" onclick="(function(){try{document.getElementById('anf-date').showPicker();}catch(_){document.getElementById('anf-date').focus();}})()">
-                    <div style="display:flex;align-items:center;gap:10px;padding:14px;border:2px solid #e2e8f0;border-radius:10px;background:white;cursor:pointer;" onmouseover="this.style.borderColor='#10b981'" onmouseout="this.style.borderColor='#e2e8f0'">
+                <div class="anf-date-wrap" onclick="(function(){try{document.getElementById('anf-date').showPicker();}catch(_){document.getElementById('anf-date').focus();}})()">
+                    <div class="anf-date-card">
                         <span style="font-size:22px;pointer-events:none;">📅</span>
                         <div style="flex:1;min-width:0;pointer-events:none;">
                             <div style="font-size:11px;color:#64748b;font-weight:600;margin-bottom:2px;">Datum</div>
                             <div id="anf-date-label" style="font-size:14px;color:#0f172a;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">— Tippen —</div>
                         </div>
                     </div>
-                    <input type="date" id="anf-date" onchange="updateAnfDateLabel();calcAnfPrice()" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;border:0;padding:0;">
+                    <input type="date" id="anf-date" class="anf-date-input" onchange="updateAnfDateLabel();calcAnfPrice()">
                 </div>
-                <div style="flex:1;position:relative;" onclick="(function(){try{document.getElementById('anf-time').showPicker();}catch(_){document.getElementById('anf-time').focus();}})()">
-                    <div style="display:flex;align-items:center;gap:10px;padding:14px;border:2px solid #e2e8f0;border-radius:10px;background:white;cursor:pointer;" onmouseover="this.style.borderColor='#10b981'" onmouseout="this.style.borderColor='#e2e8f0'">
+                <style>
+                  .anf-date-wrap { flex:1; position:relative; }
+                  .anf-date-card { display:flex; align-items:center; gap:10px; padding:14px; border:2px solid #e2e8f0; border-radius:10px; background:white; cursor:pointer; }
+                  .anf-date-card:hover { border-color:#10b981; }
+                  .anf-date-input { position:absolute; inset:0; width:100%; height:100%; opacity:0; cursor:pointer; border:0; padding:0; }
+                  @media (pointer: fine) {
+                    .anf-date-card { display:none; }
+                    .anf-date-input { position:relative; opacity:1; padding:14px; border:2px solid #e2e8f0; border-radius:10px; background:white; font-size:16px; height:auto; }
+                    .anf-date-input:hover { border-color:#10b981; }
+                  }
+                </style>
+                <!-- v6.62.693 (Patrick 12.07. Bridge "am PC Uhrzeit nicht auswählen"):
+                     Am Desktop öffnet showPicker() nicht immer + overlay-Trick reagiert schlecht.
+                     Media-Query blendet auf Desktop das native input direkt sichtbar ein und
+                     versteckt die Karte. Handy-Trick (Karte tippbar) bleibt. -->
+                <style>
+                  .anf-time-wrap { flex:1; position:relative; }
+                  .anf-time-card { display:flex; align-items:center; gap:10px; padding:14px; border:2px solid #e2e8f0; border-radius:10px; background:white; cursor:pointer; }
+                  .anf-time-card:hover { border-color:#10b981; }
+                  .anf-time-input { position:absolute; inset:0; width:100%; height:100%; opacity:0; cursor:pointer; border:0; padding:0; }
+                  @media (pointer: fine) {
+                    .anf-time-card { display:none; }
+                    .anf-time-input { position:relative; opacity:1; padding:14px; border:2px solid #e2e8f0; border-radius:10px; background:white; font-size:16px; height:auto; }
+                    .anf-time-input:hover { border-color:#10b981; }
+                  }
+                </style>
+                <div class="anf-time-wrap" onclick="(function(){try{document.getElementById('anf-time').showPicker();}catch(_){document.getElementById('anf-time').focus();}})()">
+                    <div class="anf-time-card">
                         <span style="font-size:22px;pointer-events:none;">🕐</span>
                         <div style="flex:1;min-width:0;pointer-events:none;">
                             <div style="font-size:11px;color:#64748b;font-weight:600;margin-bottom:2px;">Uhrzeit</div>
                             <div id="anf-time-label" style="font-size:14px;color:#0f172a;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">— Tippen —</div>
                         </div>
                     </div>
-                    <input type="time" id="anf-time" step="600" onchange="updateAnfTimeLabel();calcAnfPrice()" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;border:0;padding:0;">
+                    <input type="time" id="anf-time" class="anf-time-input" step="600" onchange="updateAnfTimeLabel();calcAnfPrice()">
                 </div>
             </div>
             <script>

@@ -24756,19 +24756,24 @@ exports.scheduledAutoAssign = onSchedule(
                         //   Flag setzen + FCM. Bei 'vorbestellt' wie gehabt → 'assigned'.
                         const _wasVorbestellt = r.status === 'vorbestellt';
                         try {
+                            // 🐛 v6.63.697 (Patrick 13.07. Bridge #1783928436106):
+                            //   "Assigned kann NUR gemacht werden wenn Fahrer bestaetigt hat.
+                            //    Das System kann doch nicht selber assign."
+                            //   VORHER: setzte status='assigned' als Idempotenz-Marker.
+                            //   Folge: Ride war in Dispo-Views unsichtbar (die filtern
+                            //   'vorbestellt' oder 'accepted'), Ziebell 13.07. fast verpasst.
+                            //   JETZT: separater Flag reminderPushedAt=now — Status bleibt
+                            //   'vorbestellt' bis Fahrer explizit akzeptiert.
                             const _upd = {
-                                statusTransitionedAt: now,
-                                statusTransitionReason: 'v6.62.804 Push-Reminder bei <60 Min vor Pickup',
+                                reminderPushedAt: now,
+                                lastReminderReason: 'v6.63.697 Push-Reminder bei <60 Min vor Pickup',
                                 openRideWarned: true,  // verhindert Re-Trigger im naechsten 10-Min-Cron
                                 updatedAt: now
                             };
-                            if (_wasVorbestellt) {
-                                _upd.status = 'assigned';
-                            }
                             await db.ref('rides/' + r.firebaseId).update(_upd);
-                            if (_wasVorbestellt) r.status = 'assigned'; // lokale Kopie aktualisieren
-                            console.log(`   ✅ ${r.customerName || r.firebaseId} (${_vName}, in ${_minUntil} Min) status=${r.status}`);
-                            await addRideLog(r.firebaseId, '📲', `Push-Reminder: ${_wasVorbestellt ? 'vorbestellt→assigned' : 'accepted (bleibt)'}  (Pickup in ${_minUntil} Min)`, {
+                            r.reminderPushedAt = now; // lokale Kopie aktualisieren
+                            console.log(`   ✅ ${r.customerName || r.firebaseId} (${_vName}, in ${_minUntil} Min) status=${r.status} (reminderPushedAt gesetzt)`);
+                            await addRideLog(r.firebaseId, '📲', `Push-Reminder: ${_wasVorbestellt ? 'vorbestellt (bleibt, +reminderPushedAt)' : 'accepted (bleibt)'} (Pickup in ${_minUntil} Min)`, {
                                 quelle: 'scheduledAutoAssign v6.62.804',
                                 fahrzeug: _vName,
                                 minutenBisAbholung: _minUntil
@@ -24811,43 +24816,52 @@ exports.scheduledAutoAssign = onSchedule(
                 }
             }
 
-            // 🆕 v6.63.568: No-Response-Reassign — Jetzt-Los-Push gefeuert aber Fahrer hat
-            // nicht reagiert (kein acceptedAt/onWayAt nach min. 5 Min). Patrick 02.07.2026:
+            // 🆕 v6.63.568 + 🐛 v6.63.697 (Patrick 13.07. Bridge — assigned-Bug):
+            // No-Response-Reassign: Jetzt-Los-Push gefeuert aber Fahrer hat nicht
+            // reagiert (kein acceptedAt/onWayAt nach min. 5 Min). Patrick 02.07.2026:
             // "wenn er nicht annimmt, dann muss die doch weitergeleitet werden"
+            //
+            // v6.63.697 Fix: Prueft jetzt status='vorbestellt' + reminderPushedAt
+            // (statt status='assigned'), weil Reminder den Status nicht mehr aendert.
             {
                 const _noResponseList = allRides.filter(r => {
-                    if (r.status !== 'assigned') return false;
+                    // Neu (v6.63.697): vorbestellt + reminderPushedAt gesetzt
+                    // Legacy: alte Rides mit status='assigned' auch noch mitnehmen
+                    const _isEligible = (r.status === 'vorbestellt' && r.reminderPushedAt)
+                        || r.status === 'assigned';
+                    if (!_isEligible) return false;
                     if (!r.openRideWarned) return false;
                     if (r.acceptedAt || r.onWayAt) return false;
                     if (r.assignmentLocked) return false;
                     if (!r.pickupTimestamp) return false;
                     if ((r.pickupTimestamp - now) < -5 * 60000) return false; // >5 Min überfällig → zu spät
                     if ((r.pickupTimestamp - now) > 60 * 60000) return false; // noch >60 Min hin → nicht dringend
-                    // Mindest-Wartezeit: statusTransitionedAt muss min. 5 Min alt sein
-                    // (verhindert sofortigen Re-Assign in gleicher Cron-Runde wie Push)
-                    const _transAt = r.statusTransitionedAt || 0;
-                    if (!_transAt || (now - _transAt) < 5 * 60000) return false;
+                    // Mindest-Wartezeit: reminderPushedAt (oder legacy statusTransitionedAt)
+                    // muss min. 5 Min alt sein — verhindert sofortigen Re-Assign in gleicher Cron-Runde.
+                    const _markerAt = r.reminderPushedAt || r.statusTransitionedAt || 0;
+                    if (!_markerAt || (now - _markerAt) < 5 * 60000) return false;
                     return true;
                 });
                 if (_noResponseList.length > 0) {
-                    console.log(`🔄 v6.63.568 No-Response-Reassign: ${_noResponseList.length} Fahrt(en) ohne Fahrerannahme nach Jetzt-Los-Push`);
+                    console.log(`🔄 v6.63.697 No-Response-Reassign: ${_noResponseList.length} Fahrt(en) ohne Fahrerannahme nach Jetzt-Los-Push`);
                     for (const r of _noResponseList) {
                         const _curVid = r.vehicleId || r.assignedVehicle;
                         const _vName = (OFFICIAL_VEHICLES[_curVid] || {}).name || _curVid;
                         console.log(`   ⏰ ${r.customerName || r.firebaseId} (${_vName}): kein acceptedAt → Re-Assign ohne ${_curVid}`);
                         try {
-                            // Zurück auf vorbestellt + Flags leeren → autoAssignRide kann neu zuweisen
+                            // Zurück auf vorbestellt + alle Reminder-Flags leeren → autoAssignRide kann neu zuweisen
                             await db.ref('rides/' + r.firebaseId).update({
                                 status: 'vorbestellt',
                                 openRideWarned: null,
                                 statusTransitionedAt: null,
+                                reminderPushedAt: null,
                                 updatedAt: now
                             });
                             await addRideLog(r.firebaseId, '🔄', `No-Response Reassign: ${_vName} hat Jetzt-Los-Push nicht angenommen → neues Fahrzeug gesucht`, {
-                                quelle: 'scheduledAutoAssign v6.63.568',
+                                quelle: 'scheduledAutoAssign v6.63.697',
                                 altesFahrzeug: _curVid
                             });
-                            await autoAssignRide(r.firebaseId, { ...r, status: 'vorbestellt', openRideWarned: null }, [_curVid]);
+                            await autoAssignRide(r.firebaseId, { ...r, status: 'vorbestellt', openRideWarned: null, reminderPushedAt: null }, [_curVid]);
                         } catch (_nrErr) {
                             console.error(`   ❌ No-Response Reassign fehlgeschlagen ${r.firebaseId}:`, _nrErr.message);
                         }

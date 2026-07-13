@@ -29198,6 +29198,14 @@ exports.onRideUpdated = onValueUpdated(
                 await sendCustomerWhatsAppNotification(after, rideId, 'booking_confirmed');
 
             } else if (newStatus === 'storniert' || newStatus === 'cancelled') {
+                // 🐛 v6.63.695 (Patrick 13.07. Bridge #1783926130261):
+                //   "02:30 sind 7-8 Storno-SMS rausgegangen." Der scheduledGhostRideSweep
+                //   markiert nachts alle 12h+ ueberfaelligen Non-Final-Rides als cancelled.
+                //   Das ist internes Aufraeumen — Kunde ist laengst am Ziel, kriegt aber
+                //   um 02:30 Nacht eine Storno-SMS. Deshalb hier: Wenn Ghost-Sweep der
+                //   Ausloeser war → keine Kunden-Notification (SMS/WA/Fahrer-Telegram).
+                const _isGhostSweep = String(after.cancelledBy || '').startsWith('cloud-ghost-sweep')
+                    || after.ghostSweepReason;
                 // 🆕 v6.25.4: Zeige WER und WO storniert hat
                 const deletedBy = after.deletedBy || after.cancelledBy || '?';
                 let storniertVon = '?';
@@ -29224,9 +29232,9 @@ exports.onRideUpdated = onValueUpdated(
                     `\n🔧 <b>Storniert über:</b> ${storniertVon}` +
                     `\n⚠️ Status: Storniert`;
 
-                // Fahrer benachrichtigen falls zugewiesen
+                // Fahrer benachrichtigen falls zugewiesen (nicht bei Ghost-Sweep — v6.63.695)
                 const vehicleId = after.assignedVehicle || after.vehicleId;
-                if (vehicleId) {
+                if (vehicleId && !_isGhostSweep) {
                     const driverChatId = await getDriverChatId(vehicleId);
                     if (driverChatId) {
                         const cancelMsg = `🚫 <b>FAHRT STORNIERT!</b>\n\n` +
@@ -29241,14 +29249,20 @@ exports.onRideUpdated = onValueUpdated(
                 }
 
                 // 🆕 v6.28.0: WhatsApp-Stornierung an Kunden
-                await sendCustomerWhatsAppNotification(after, rideId, 'cancelled');
+                if (!_isGhostSweep) {
+                    await sendCustomerWhatsAppNotification(after, rideId, 'cancelled');
+                } else {
+                    console.log(`👻 v6.63.695 WhatsApp-Storno UNTERDRUECKT (Ghost-Sweep) fuer ${rideId}`);
+                }
 
                 // 🆕 v6.62.522: SMS-Stornierung an Kunden (Patrick 09.05.: bei Werner-Storno
                 // kam keine SMS Bestaetigung; bisher gab's nur WhatsApp + Telegram).
                 // Nur Mobile-Nummern, optional via /settings/sms/cancelEnabled abschaltbar.
                 try {
                     const _custPhoneCancel = after.customerPhone || after.customerMobile;
-                    if (_custPhoneCancel) {
+                    if (_isGhostSweep) {
+                        console.log(`👻 v6.63.695 SMS-Storno UNTERDRUECKT (Ghost-Sweep) fuer ${rideId}`);
+                    } else if (_custPhoneCancel) {
                         const _smsSetSnap = await db.ref('settings/sms').once('value');
                         const _smsSet = _smsSetSnap.val() || {};
                         if (_smsSet.cancelEnabled !== false) { // Default ON

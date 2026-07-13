@@ -1,0 +1,11 @@
+Zur Conflict-Traffic-Frage:
+
+Die autoResolveConflicts-Routing-Calls sind deutlich weniger problematisch als der ReachabilityCheck, weil:
+✅ Home→Pickup und Prev-Dest→Next-Pickup sind statische Koordinaten → 60-Min-Cache greift
+✅ 60-Min-Cooldown (lastOptimizedAt) verhindert Ping-Pong zwischen Fahrzeugen
+
+Das heißt: bei Konflikten werden Routen maximal 1× pro Stunde neu von Google berechnet, danach aus dem Cache. Der große Verbraucher war der ReachabilityCheck (moving GPS → kein Cache), der ist jetzt gefixt.
+
+Wenn du aber trotzdem "Scheibe dreht sich bei Konflikten" beobachtest: das ist wahrscheinlich die Analyse-Phase (alle Fahrzeuge × alle Fahrten prüfen), aber mit Cache kostet das nur Firebase-Reads, keine Google-API-Calls mehr.
+
+Kurz: der wichtigste Fix läuft bereits seit heute Morgen. Ich halte die Logs im Auge.

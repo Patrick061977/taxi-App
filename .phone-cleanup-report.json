@@ -1,0 +1,744 @@
+{
+  "total": 67,
+  "fixed": 67,
+  "unclear": [],
+  "applied": [
+    {
+      "id": "-Oerje71XYC3LoKDYP3r",
+      "name": "Antje Dünenweg",
+      "patch": {
+        "phone": "+491632759062",
+        "mobilePhone": "+491632759062",
+        "phone2": "+4938378794659",
+        "phoneCleanupAt": 1783924297579,
+        "phoneCleanupBy": "claude-verknotet-sweep-v6.63.692"
+      }
+    },
+    {
+      "id": "-Oerje9ss9nNhwNdjKh3",
+      "name": "Arno Herder",
+      "patch": {
+        "phone": "+491723762896",
+        "mobilePhone": "+491723762896",
+        "phone2": "+4941317779019",
+        "phoneCleanupAt": 1783924298608,
+        "phoneCleanupBy": "claude-verknotet-sweep-v6.63.692"
+      }
+    },
+    {
+      "id": "-OerjeFE3g9fivcvKRS-",
+      "name": "Automobile Esser GmbH",
+      "patch": {
+        "phone": "+493837520267",
+        "mobilePhone": "",
+        "phone2": "+493837521323",
+        "phoneCleanupAt": 1783924299581,
+        "phoneCleanupBy": "claude-verknotet-sweep-v6.63.692"
+      }
+    },
+    {
+      "id": "-OerjeQ-n6xh1Xt7hJxC",
+      "name": "Bindernagel Jörg Werbung Beschriftung",
+      "patch": {
+        "phone": "+491713170428",
+        "mobilePhone": "+491713170428",
+        "phone2": "+4938312833500",
+        "phoneCleanupAt": 1783924300709,
+        "phoneCleanupBy": "claude-verknotet-sweep-v6.63.692"
+      }
+    },
+    {
+      "id": "-OerjeVHcuJlT8J5Zyms",
+      "name": "Brinkmann Frank",
+      "patch": {
+        "phone": "+4915152189134",
+        "mobilePhone": "+4915152189134",
+        "phone2": "+493837829109",
+        "phoneCleanupAt": 1783924301815,
+        "phoneCleanupBy": "claude-verknotet-sweep-v6.63.692"
+      }
+    },
+    {
+      "id": "-OerjeYdXzGtBniFTERR",
+      "name": "Carmen",
+      "patch": {
+        "phone": "+4917652255164",
+        "mobilePhone": "+4917652255164",
+        "phone2": "+493837155933",
+        "phoneCleanupAt": 1783924302860,
+        "phoneCleanupBy": "claude-verknotet-sweep-v6.63.692"
+      }
+    },
+    {
+      "id": "-OerjeZ8mL3caZasPo_C",
+      "name": "Carola",
+      "patch": {
+        "phone": "+491729142214",
+        "mobilePhone": "+491729142214",
+        "phone2": "",
+        "phoneCleanupAt": 1783924303890,
+        "phoneCleanupBy": "claude-verknotet-sweep-v6.63.692-dedupe"
+      }
+    },
+    {
+      "id": "-OerjecS11J8Ui2OWgiH",
+      "name": "Christian Sixt",
+      "patch": {
+        "phone": "+491729569199",
+        "mobilePhone": "+491729569199",
+        "phone2": "+4938378336495",
+        "phoneCleanupAt": 1783924304940,
+        "phoneCleanupBy": "claude-verknotet-sweep-v6.63.692"
+      }
+    },
+    {
+      "id": "-OerjeiGgP7opGl2dYbI",
+      "name": "Crumpler GmbH",
+      "patch": {
+        "phone": "+4922194995410",
+        "mobilePhone": "",
+        "phone2": "+492219499540",
+        "phoneCleanupAt": 1783924305954,
+        "phoneCleanupBy": "claude-verknotet-sweep-v6.63.692"
+      }
+    },
+    {
+      "id": "-OerjemYi7DJ3DMnfu6E",
+      "name": "David",
+      "patch": {
+        "phone": "+491606084748",
+        "mobilePhone": "+491606084748",
+        "phone2": "+4938378335698",
+        "phoneCleanupAt": 1783924306972,
+        "phoneCleanupBy": "claude-verknotet-sweep-v6.63.692"
+      }
+    },
+    {
+      "id": "-Oerjf7nOkp4mbc_3H1_",
+      "name": "Esplanade",
+      "patch": {
+        "phone": "+4938378700",
+        "mobilePhone": "",
+        "phone2": "+493837870418",
+        "phoneCleanupAt": 1783924307997,
+        "phoneCleanupBy": "claude-verknotet-sweep-v6.63.692"
+      }
+    },
+    {
+      "id": "-OerjfETx66juZLrFsgg",
+      "name": "Ferienwohnung Friedrich Usedom",
+      "patch": {
+        "phone": "+491742436536",
+        "mobilePhone": "+491742436536",
+        "phone2": "+493837831855",
+        "phoneCleanupAt": 1783924308992,
+        "phoneCleanupBy": "claude-verknotet-sweep-v6.63.692"
+      }
+    },
+    {
+      "id": "-OerjfLG6Ud-ZSjVg2dh",
+      "name": "Frau Andraschko",
+      "patch": {
+        "phone": "+491744147640",
+        "mobilePhone": "+491744147640",
+        "phone2": "+4938378790748",
+        "phoneCleanupAt": 1783924310099,
+        "phoneCleanupBy": "claude-verknotet-sweep-v6.63.692"
+      }
+    },
+    {
+      "id": "-OerjfP8tiUp1ADO_nAy",
+      "name": "Frau Grimm",
+      "patch": {
+        "phone": "+491708089615",
+        "mobilePhone": "+491708089615",
+        "phone2": "+4938378499311",
+        "phoneCleanupAt": 1783924311230,
+        "phoneCleanupBy": "claude-verknotet-sweep-v6.63.692"
+      }
+    },
+    {
+      "id": "-OerjfpEr-KeapX4BTz3",
+      "name": "Griehl J",
+      "patch": {
+        "phone": "+491714961449",
+        "mobilePhone": "+491714961449",
+        "phone2": "+491725238086",
+        "phoneCleanupAt": 1783924312488,
+        "phoneCleanupBy": "claude-verknotet-sweep-v6.63.692"
+      }
+    },
+    {
+      "id": "-Oerjfw-LLwxhakUYowG",
+      "name": "Hardke Roland",
+      "patch": {
+        "phone": "+491728373755",
+        "mobilePhone": "+491728373755",
+        "phone2": "+493837828196",
+        "phoneCleanupAt": 1783924313719,
+        "phoneCleanupBy": "claude-verknotet-sweep-v6.63.692"
+      }
+    },
+    {
+      "id": "-Oerjfz5HZfunR5aTJPm",
+      "name": "Hausmeisterservice & Martens",
+      "patch": {
+        "phone": "+4915116726001",
+        "mobilePhone": "+4915116726001",
+        "phone2": "+4938378498633",
+        "phoneCleanupAt": 1783924314772,
+        "phoneCleanupBy": "claude-verknotet-sweep-v6.63.692"
+      }
+    },
+    {
+      "id": "-Oerjg44jr2d4APe1cMR",
+      "name": "Heppner Ingenieurbüro",
+      "patch": {
+        "phone": "+491758168096",
+        "mobilePhone": "+491758168096",
+        "phone2": "+493832160052",
+        "phoneCleanupAt": 1783924315837,
+        "phoneCleanupBy": "claude-verknotet-sweep-v6.63.692"
+      }
+    },
+    {
+      "id": "-Oerjg53uBTkD5_wHjuV",
+      "name": "Heringsdorf Hubertus",
+      "patch": {
+        "phone": "+4938378477611",
+        "mobilePhone": "",
+        "phone2": "+493837847760",
+        "phoneCleanupAt": 1783924316911,
+        "phoneCleanupBy": "claude-verknotet-sweep-v6.63.692"
+      }
+    },
+    {
+      "id": "-OerjgCqdLzvX2mnP4hf",
+      "name": "Holmer Rechtsanwalt",
+      "patch": {
+        "phone": "+491723904077",
+        "mobilePhone": "+491723904077",
+        "phone2": "+493837828766",
+        "phoneCleanupAt": 1783924318486,
+        "phoneCleanupBy": "claude-verknotet-sweep-v6.63.692"
+      }
+    },
+    {
+      "id": "-OerjgEKfn9Eusna7U78",
+      "name": "Hotel OASIS Inh. Hannemann",
+      "patch": {
+        "phone": "+493837826562",
+        "mobilePhone": "",
+        "phone2": "+49383782650",
+        "phoneCleanupAt": 1783924319602,
+        "phoneCleanupBy": "claude-verknotet-sweep-v6.63.692"
+      }
+    },
+    {
+      "id": "-OerjgGp_-j_AgYbKAGi",
+      "name": "Hübner H. med",
+      "patch": {
+        "phone": "+493837882364",
+        "mobilePhone": "",
+        "phone2": "",
+        "phoneCleanupAt": 1783924320673,
+        "phoneCleanupBy": "claude-verknotet-sweep-v6.63.692-dedupe"
+      }
+    },
+    {
+      "id": "-OerjgQB0VeF_ktj3IbL",
+      "name": "Jens Aktienhof",
+      "patch": {
+        "phone": "+491622149790",
+        "mobilePhone": "+491622149790",
+        "phone2": "+493837880063",
+        "phoneCleanupAt": 1783924321818,
+        "phoneCleanupBy": "claude-verknotet-sweep-v6.63.692"
+      }
+    },
+    {
+      "id": "-OerjgcPErGBb3Y9_Yki",
+      "name": "Kathrin Quadt",
+      "patch": {
+        "phone": "+491712673259",
+        "mobilePhone": "+491712673259",
+        "phone2": "+491705881788",
+        "phoneCleanupAt": 1783924322912,
+        "phoneCleanupBy": "claude-verknotet-sweep-v6.63.692"
+      }
+    },
+    {
+      "id": "-OerjgiamTfi1At5OZu6",
+      "name": "Köpke Heinz Anita",
+      "patch": {
+        "phone": "+493837828308",
+        "mobilePhone": "",
+        "phone2": "",
+        "phoneCleanupAt": 1783924324028,
+        "phoneCleanupBy": "claude-verknotet-sweep-v6.63.692-dedupe"
+      }
+    },
+    {
+      "id": "-Oerjgp25GES2G019TLm",
+      "name": "Landesamt für M/V",
+      "patch": {
+        "phone": "+4915155149607",
+        "mobilePhone": "+4915155149607",
+        "phone2": "+493954226478",
+        "phoneCleanupAt": 1783924325151,
+        "phoneCleanupBy": "claude-verknotet-sweep-v6.63.692"
+      }
+    },
+    {
+      "id": "-Oerjgq2oOBkoAcKJIFv",
+      "name": "Lars Höhne",
+      "patch": {
+        "phone": "+491625842283",
+        "mobilePhone": "+491625842283",
+        "phone2": "+4916095437464",
+        "phoneCleanupAt": 1783924326255,
+        "phoneCleanupBy": "claude-verknotet-sweep-v6.63.692"
+      }
+    },
+    {
+      "id": "-Oerjh1K2zeJtE5lWmmc",
+      "name": "Manfred Heyn",
+      "patch": {
+        "phone": "+4915254108246",
+        "mobilePhone": "+4915254108246",
+        "phone2": "+493837832698",
+        "phoneCleanupAt": 1783924327361,
+        "phoneCleanupBy": "claude-verknotet-sweep-v6.63.692"
+      }
+    },
+    {
+      "id": "-Oerjh4q6IqMBv-19uJj",
+      "name": "Marek Kaiserstrand",
+      "patch": {
+        "phone": "+491704106875",
+        "mobilePhone": "+491704106875",
+        "phone2": "+4938378496300",
+        "phoneCleanupAt": 1783924328477,
+        "phoneCleanupBy": "claude-verknotet-sweep-v6.63.692"
+      }
+    },
+    {
+      "id": "-Oerjh5KFmOyNSDcRLqZ",
+      "name": "Maria Köpnick",
+      "patch": {
+        "phone": "+491718906016",
+        "mobilePhone": "+491718906016",
+        "phone2": "+493837865804",
+        "phoneCleanupAt": 1783924329607,
+        "phoneCleanupBy": "claude-verknotet-sweep-v6.63.692"
+      }
+    },
+    {
+      "id": "-OerjhGyXpEQM89ssUys",
+      "name": "Mietwagenzentrale Usedom",
+      "patch": {
+        "phone": "+4916093517219",
+        "mobilePhone": "+4916093517219",
+        "phone2": "+493837831684",
+        "phoneCleanupAt": 1783924330716,
+        "phoneCleanupBy": "claude-verknotet-sweep-v6.63.692"
+      }
+    },
+    {
+      "id": "-OerjhKxFnX8TsMORC0-",
+      "name": "Möllers & Rechtsanwälte",
+      "patch": {
+        "phone": "+49383126540",
+        "mobilePhone": "",
+        "phone2": "+493831265499",
+        "phoneCleanupAt": 1783924331834,
+        "phoneCleanupBy": "claude-verknotet-sweep-v6.63.692"
+      }
+    },
+    {
+      "id": "-OerjhMPOiHSk1irTdW-",
+      "name": "Moy Raymond MD",
+      "patch": {
+        "phone": "+14145457245",
+        "mobilePhone": "",
+        "phone2": "",
+        "phoneCleanupAt": 1783924332946,
+        "phoneCleanupBy": "claude-verknotet-sweep-v6.63.692-dedupe"
+      }
+    },
+    {
+      "id": "-OerjhU6BXCp0wEe1t1u",
+      "name": "Nina Morales",
+      "patch": {
+        "phone": "+4915203666444",
+        "mobilePhone": "+4915203666444",
+        "phone2": "+4915203557495",
+        "phoneCleanupAt": 1783924334090,
+        "phoneCleanupBy": "claude-verknotet-sweep-v6.63.692"
+      }
+    },
+    {
+      "id": "-OerjhVYBq6Ttp7_G3M8",
+      "name": "NTB Nachrichtentechnik GmbH",
+      "patch": {
+        "phone": "+491723810204",
+        "mobilePhone": "+491723810204",
+        "phone2": "+49396125740",
+        "phoneCleanupAt": 1783924335233,
+        "phoneCleanupBy": "claude-verknotet-sweep-v6.63.692"
+      }
+    },
+    {
+      "id": "-OerjhYc9ODKFp038isj",
+      "name": "Olaf Oberländer",
+      "patch": {
+        "phone": "+4915164611153",
+        "mobilePhone": "+4915164611153",
+        "phone2": "+493837831684",
+        "phoneCleanupAt": 1783924336381,
+        "phoneCleanupBy": "claude-verknotet-sweep-v6.63.692"
+      }
+    },
+    {
+      "id": "-Oerjh_bK83ZfVc4Bgkl",
+      "name": "Omi Linda",
+      "patch": {
+        "phone": "+493837120400",
+        "mobilePhone": "",
+        "phone2": "+493837125345",
+        "phoneCleanupAt": 1783924337511,
+        "phoneCleanupBy": "claude-verknotet-sweep-v6.63.692"
+      }
+    },
+    {
+      "id": "-Oerjhc2OKcfnGf-qb0r",
+      "name": "Ortwich",
+      "patch": {
+        "phone": "+491776864021",
+        "mobilePhone": "+491776864021",
+        "phone2": "+4915758505127",
+        "phoneCleanupAt": 1783924338630,
+        "phoneCleanupBy": "claude-verknotet-sweep-v6.63.692"
+      }
+    },
+    {
+      "id": "-OerjhevRFF9bKt9fcPw",
+      "name": "Villen im Park Park",
+      "patch": {
+        "phone": "+493837847000",
+        "mobilePhone": "",
+        "phone2": "+49383784700300",
+        "phoneCleanupAt": 1783924339772,
+        "phoneCleanupBy": "claude-verknotet-sweep-v6.63.692"
+      }
+    },
+    {
+      "id": "-OerjhfQmINR8DCaT6fW",
+      "name": "Ostseetherme",
+      "patch": {
+        "phone": "+493837827314",
+        "mobilePhone": "",
+        "phone2": "+493837827313",
+        "phoneCleanupAt": 1783924340892,
+        "phoneCleanupBy": "claude-verknotet-sweep-v6.63.692"
+      }
+    },
+    {
+      "id": "-OerjhlPFzrY8Q5hgCoq",
+      "name": "Peter Autohaus",
+      "patch": {
+        "phone": "+491719964177",
+        "mobilePhone": "+491719964177",
+        "phone2": "+493957768863",
+        "phoneCleanupAt": 1783924342030,
+        "phoneCleanupBy": "claude-verknotet-sweep-v6.63.692"
+      }
+    },
+    {
+      "id": "-OerjhnxRlR34xbRFWuX",
+      "name": "Philipp Birk",
+      "patch": {
+        "phone": "+4915202073236",
+        "mobilePhone": "+4915202073236",
+        "phone2": "+491733927499",
+        "phoneCleanupAt": 1783924343201,
+        "phoneCleanupBy": "claude-verknotet-sweep-v6.63.692"
+      }
+    },
+    {
+      "id": "-OerjhuIYH5VeGNozR2x",
+      "name": "Pom Hof",
+      "patch": {
+        "phone": "+493837861400",
+        "mobilePhone": "",
+        "phone2": "+493837861403",
+        "phoneCleanupAt": 1783924344456,
+        "phoneCleanupBy": "claude-verknotet-sweep-v6.63.692"
+      }
+    },
+    {
+      "id": "-Oerjhwq-uSVj7TxiJje",
+      "name": "Psychologische Privatpraxis Dipl. -Psychologin Ingeborg Werner",
+      "patch": {
+        "phone": "+496980104933",
+        "mobilePhone": "",
+        "phone2": "+496980108828",
+        "phoneCleanupAt": 1783924345625,
+        "phoneCleanupBy": "claude-verknotet-sweep-v6.63.692"
+      }
+    },
+    {
+      "id": "-OerjhzIodzIOUqg6eYL",
+      "name": "Rainer Gamradt",
+      "patch": {
+        "phone": "+491727231722",
+        "mobilePhone": "+491727231722",
+        "phone2": "+4938378798163",
+        "phoneCleanupAt": 1783924346789,
+        "phoneCleanupBy": "claude-verknotet-sweep-v6.63.692"
+      }
+    },
+    {
+      "id": "-OerjiQscDCDYAHRu-cm",
+      "name": "Scharmberg",
+      "patch": {
+        "phone": "+491714864276",
+        "mobilePhone": "+491714864276",
+        "phone2": "+491702030355",
+        "phoneCleanupAt": 1783924347924,
+        "phoneCleanupBy": "claude-verknotet-sweep-v6.63.692"
+      }
+    },
+    {
+      "id": "-OerjiRNQ8ljqYCyqbjf",
+      "name": "Schefi",
+      "patch": {
+        "phone": "+4916094970264",
+        "mobilePhone": "+4916094970264",
+        "phone2": "+491606864338",
+        "phoneCleanupAt": 1783924349094,
+        "phoneCleanupBy": "claude-verknotet-sweep-v6.63.692"
+      }
+    },
+    {
+      "id": "-OerjiTtIw7b66MxZOUN",
+      "name": "Schlüsseldienst Wilke Schlüsseldienst",
+      "patch": {
+        "phone": "+491746114816",
+        "mobilePhone": "+491746114816",
+        "phone2": "+493837831553",
+        "phoneCleanupAt": 1783924350212,
+        "phoneCleanupBy": "claude-verknotet-sweep-v6.63.692"
+      }
+    },
+    {
+      "id": "-OerjiUO2rglsqw1o4Kt",
+      "name": "Schmidt Steuerberaterin",
+      "patch": {
+        "phone": "+493831297671",
+        "mobilePhone": "",
+        "phone2": "+493831309639",
+        "phoneCleanupAt": 1783924351347,
+        "phoneCleanupBy": "claude-verknotet-sweep-v6.63.692"
+      }
+    },
+    {
+      "id": "-OerjiXtCGwX8Z2Z6tZ5",
+      "name": "Schütt Reifendienst",
+      "patch": {
+        "phone": "+4915151814431",
+        "mobilePhone": "+4915151814431",
+        "phone2": "+493837822663",
+        "phoneCleanupAt": 1783924352442,
+        "phoneCleanupBy": "claude-verknotet-sweep-v6.63.692"
+      }
+    },
+    {
+      "id": "-OerjieIvF8FWc6lY-fN",
+      "name": "Sing Kulivindr",
+      "patch": {
+        "phone": "+4938378338627",
+        "mobilePhone": "",
+        "phone2": "",
+        "phoneCleanupAt": 1783924353577,
+        "phoneCleanupBy": "claude-verknotet-sweep-v6.63.692-dedupe"
+      }
+    },
+    {
+      "id": "-OerjilGGO2RCnTXYwpa",
+      "name": "Stefan Meister",
+      "patch": {
+        "phone": "+491738616373",
+        "mobilePhone": "+491738616373",
+        "phone2": "+491703338161",
+        "phoneCleanupAt": 1783924354692,
+        "phoneCleanupBy": "claude-verknotet-sweep-v6.63.692"
+      }
+    },
+    {
+      "id": "-OerjiwdtdZ0THHI8KOs",
+      "name": "Sven Teetzen",
+      "patch": {
+        "phone": "+493837828296",
+        "mobilePhone": "",
+        "phone2": "",
+        "phoneCleanupAt": 1783924355811,
+        "phoneCleanupBy": "claude-verknotet-sweep-v6.63.692-dedupe"
+      }
+    },
+    {
+      "id": "-Oerjj0txXNjDsqyMStw",
+      "name": "Taxi Dienst Bergen",
+      "patch": {
+        "phone": "+491723434343",
+        "mobilePhone": "+491723434343",
+        "phone2": "+493838256704",
+        "phoneCleanupAt": 1783924356931,
+        "phoneCleanupBy": "claude-verknotet-sweep-v6.63.692"
+      }
+    },
+    {
+      "id": "-Oerjj3s5e0gaDotJAUr",
+      "name": "Taxi-Ring Ahlbeck-Bansin V",
+      "patch": {
+        "phone": "+493837822526",
+        "mobilePhone": "",
+        "phone2": "+493837880963",
+        "phoneCleanupAt": 1783924358035,
+        "phoneCleanupBy": "claude-verknotet-sweep-v6.63.692"
+      }
+    },
+    {
+      "id": "-Oerjj4q1poIpc83Rzuy",
+      "name": "TEDIMA TEDIMA",
+      "patch": {
+        "phone": "+493837828817",
+        "mobilePhone": "",
+        "phone2": "",
+        "phoneCleanupAt": 1783924359166,
+        "phoneCleanupBy": "claude-verknotet-sweep-v6.63.692-dedupe"
+      }
+    },
+    {
+      "id": "-Oerjj8GtJAhybKqtWQE",
+      "name": "Tessmer Korswandt",
+      "patch": {
+        "phone": "+4917634997356",
+        "mobilePhone": "+4917634997356",
+        "phone2": "+4938378472392",
+        "phoneCleanupAt": 1783924360346,
+        "phoneCleanupBy": "claude-verknotet-sweep-v6.63.692"
+      }
+    },
+    {
+      "id": "-OerjjBfB1GviubaySly",
+      "name": "Thornow",
+      "patch": {
+        "phone": "+493831491314",
+        "mobilePhone": "",
+        "phone2": "+493831491312",
+        "phoneCleanupAt": 1783924361548,
+        "phoneCleanupBy": "claude-verknotet-sweep-v6.63.692"
+      }
+    },
+    {
+      "id": "-OerjjJ9CkATpMdrGtPH",
+      "name": "Travel Bansin",
+      "patch": {
+        "phone": "+4938378800106",
+        "mobilePhone": "",
+        "phone2": "+49383788000",
+        "phoneCleanupAt": 1783924362746,
+        "phoneCleanupBy": "claude-verknotet-sweep-v6.63.692"
+      }
+    },
+    {
+      "id": "-OerjjN0OgpAVZmgxE_I",
+      "name": "Udo Knaack",
+      "patch": {
+        "phone": "+491728001057",
+        "mobilePhone": "+491728001057",
+        "phone2": "+4938378498191",
+        "phoneCleanupAt": 1783924363944,
+        "phoneCleanupBy": "claude-verknotet-sweep-v6.63.692"
+      }
+    },
+    {
+      "id": "-OerjjOv4d7gVDkaRUQ7",
+      "name": "Usedomer GmbH",
+      "patch": {
+        "phone": "+493837827132",
+        "mobilePhone": "",
+        "phone2": "+49383782710",
+        "phoneCleanupAt": 1783924365160,
+        "phoneCleanupBy": "claude-verknotet-sweep-v6.63.692"
+      }
+    },
+    {
+      "id": "-OerjjSJtDg7j2tutRb_",
+      "name": "Versicherungsmakler Wiechel GmbH & KG",
+      "patch": {
+        "phone": "+493987401911",
+        "mobilePhone": "",
+        "phone2": "+49398740190",
+        "phoneCleanupAt": 1783924366367,
+        "phoneCleanupBy": "claude-verknotet-sweep-v6.63.692"
+      }
+    },
+    {
+      "id": "-OerjjUKblNwnNBEc_Hw",
+      "name": "Vw Zöller",
+      "patch": {
+        "phone": "+493971292971",
+        "mobilePhone": "",
+        "phone2": "+49397129290",
+        "phoneCleanupAt": 1783924367562,
+        "phoneCleanupBy": "claude-verknotet-sweep-v6.63.692"
+      }
+    },
+    {
+      "id": "-OerjjWOzbBFeNSC3KAk",
+      "name": "Wanke Jörg",
+      "patch": {
+        "phone": "+491717456071",
+        "mobilePhone": "+491717456071",
+        "phone2": "+493837831489",
+        "phoneCleanupAt": 1783924368870,
+        "phoneCleanupBy": "claude-verknotet-sweep-v6.63.692"
+      }
+    },
+    {
+      "id": "-OerjjYvVMgml9yqeKbb",
+      "name": "Watzke M",
+      "patch": {
+        "phone": "+493837831078",
+        "mobilePhone": "",
+        "phone2": "",
+        "phoneCleanupAt": 1783924370135,
+        "phoneCleanupBy": "claude-verknotet-sweep-v6.63.692-dedupe"
+      }
+    },
+    {
+      "id": "-Oerjj_vuFVjZyZT3E-g",
+      "name": "Werbeagentur Inh. Marko",
+      "patch": {
+        "phone": "+491755203694",
+        "mobilePhone": "+491755203694",
+        "phone2": "+493837831198",
+        "phoneCleanupAt": 1783924371302,
+        "phoneCleanupBy": "claude-verknotet-sweep-v6.63.692"
+      }
+    },
+    {
+      "id": "-Oerjje-Ejeg7qPO4gd_",
+      "name": "Witt Allfinanz mbH",
+      "patch": {
+        "phone": "+49407106929",
+        "mobilePhone": "",
+        "phone2": "+49407105511",
+        "phoneCleanupAt": 1783924372477,
+        "phoneCleanupBy": "claude-verknotet-sweep-v6.63.692"
+      }
+    }
+  ]
+}

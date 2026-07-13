@@ -1,0 +1,33 @@
+━━━ ANTJE BUCHUNG — ANALYSE ━━━
+
+✅ BEIDE FAHRTEN SIND IN FIREBASE — KEIN PROBLEM!
+
+📋 JULY 5 FAHRTEN (heute):
+1. Fahrt GgM8AR: 15:20 Dünenweg 14 → Pommern Residenz
+   Status: vorbestellt | Fahrzeug: Prius IK | Preis: 18,90€
+
+2. Fahrt uPuuZd: 19:45 Pommern Residenz → Dünenweg 14
+   Status: vorbestellt | Fahrzeug: Tesla MY222 | Preis: 18,40€
+
+Erstellt um 10:31 und 10:46 Uhr — sie hat BEIDE Fahrten gebucht.
+
+⚠️ WARUM HATTE SIE PROBLEME (mehrfache Versuche):
+Die Seite buchen.html hat sich alle 60 Sek automatisch neu geladen,
+weil ein interner Versions-Check eine neuere Version erkannte.
+Antje musste dann die Buchung von vorn starten.
+Beim 3.–4. Versuch hat es dann geklappt.
+
+Bug-Fix läuft: ich stoppe diesen unnötigen Reload-Zyklus.
+
+━━━ 6 STUCK RIDES ━━━
+
+Die 5 gestrigen (Rödel, Specht, Wagner, Gärtner, Kloter)
+setze ich jetzt auf 'completed' — alle >17h überfällig.
+
+The Breeze (heute 10:10, kein Fahrzeug zugewiesen):
+Wurde die Fahrt wirklich gefahren? Falls ja → completed.
+Falls nicht gefahren → auch completed (per deiner Regel "nie canceln")?
+Bitte kurz ja/nein damit ich den setze.
+
+Danach baue ich die automatische Cloud-Function:
+'new' Fahrten >2h nach Pickup → auto completed.

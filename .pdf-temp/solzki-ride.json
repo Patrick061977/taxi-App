@@ -1,0 +1,21 @@
+{
+  "customerName": "Frau Solzki",
+  "customerId": "customer_1782287580solzki",
+  "customerPhone": "+4915111264098",
+  "customerMobile": "+4915111264098",
+  "pickup": "Usedomer Brauhaus, Seestraße, 17424 Heringsdorf",
+  "pickupLat": 53.9559543,
+  "pickupLon": 14.1657818,
+  "destination": "Haus Friesia, Seestraße 84, 17429 Bansin",
+  "destinationLat": 53.9721400,
+  "destinationLon": 14.1437519,
+  "pickupTimestamp": 1782327600000,
+  "pickupTime": "21:00",
+  "status": "vorbestellt",
+  "passengers": 3,
+  "paymentMethod": "bar",
+  "notes": "Solzki-Rueckruf 24.06. 09:16 — Whisper-Transkript. 3 Personen vom Usedomer Brauhaus zum Haus Friesia in Bansin (Seestr 84).",
+  "createdAt": 1782287600000,
+  "createdBy": "claude-bridge-acr-solzki-ride",
+  "source": "acr-whisper-outgoing"
+}

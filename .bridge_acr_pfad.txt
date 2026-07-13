@@ -1,0 +1,13 @@
+Der ACR-Ordner auf dem PC existiert und funktioniert — aber seit 30.06. kommen keine neuen Aufnahmen mehr an (OneDrive-Sync unterbrochen).
+
+📁 Pfad auf dem PC (wo das Skript sucht):
+OneDrive → 6.Dokumente unsortiert → Anwendungen → ACRPhone Cloud Uploads → Acr
+
+📱 Was du auf dem Handy einstellen musst:
+In der ACR Phone App → Einstellungen → Cloud-Backup → OneDrive
+Dort den Ordner auswählen:
+  ACRPhone Cloud Uploads/Acr
+
+Dann einmal "Sync erzwingen" tippen — danach müssten die neuen Aufnahmen automatisch hochladen.
+
+Letzte angekommen Aufnahme war vom 30.06.2026.

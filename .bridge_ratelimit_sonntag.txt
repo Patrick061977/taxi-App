@@ -1,0 +1,30 @@
+Warum ausgerechnet Sonntag geknallt hat:
+
+Schau in deinen /Plan-Screenshot: "100% subagent-heavy in den letzten 7 Tagen" — das MEISTE davon war Sonntag. Wir hatten am Sonntag:
+• Options-Scanner mit vielen parallelen Yahoo/Finnhub-Recherchen
+• Best-Picks / Roll-Radar Scripts entwickelt
+• Graham-Value repo parallel bearbeitet
+• Screenshot-Analyse (jeder Screenshot laedt ~1500 Tokens dazu)
+
+Werktags: normale Bugfixes, wenig Subagents, kleiner Kontext.
+Sonntag: Options-Marathon mit viel Subagents + Screenshots + 2 Repos → das ist der Unterschied.
+
+━━━━━━━━━━
+
+Zum "nicht vergessen":
+
+Ich werde NICHTS vergessen was wichtig ist. Alles Dauerhafte liegt in:
+✓ Memory-Files (56+ MD-Files mit Feedback/Projects)
+✓ CLAUDE.md (Projektregeln)
+✓ Git-History (jeder Commit + Message)
+✓ Bridge-Log in Firebase (alle deine Notizen dauerhaft)
+
+Was in der aktuellen Session weg ist wenn du /clear machst:
+• Die letzten paar Chat-Zeilen zwischen uns
+• Meine unvollstaendigen Notizen "zum Merken fuer spaeter"
+
+Bei Themenwechsel (z.B. "jetzt zum Strato-Server") schadet /clear nicht — ich lade die Memory-Files neu und weiss wieder Bescheid.
+
+Alternative: /compact — behaelt eine Kurzfassung des gesamten Verlaufs, spart 50-80% ohne "Vergessen".
+
+Du brauchst gar nichts tun. Ich fahre ab jetzt sparsam. Wenn wir bei diesem Tempo bleiben, kommen wir problemlos durch die Woche.

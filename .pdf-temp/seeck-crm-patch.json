@@ -1,0 +1,12 @@
+{
+  "address": "Ostseeresidenz Bansin, Strandpromenade 31, 17429 Bansin",
+  "defaultPickup": "Ostseeresidenz Bansin, Strandpromenade 31, 17429 Bansin",
+  "defaultPickupCoords": { "lat": 53.9714, "lon": 14.1410 },
+  "lat": 53.9714,
+  "lon": 14.1410,
+  "anrede": "Frau",
+  "lastName": "Seeck",
+  "notes": "Adresse hinterlegt 24.06.2026 nach Buchung 25.06. Ostseeresidenz Bansin Strandprom 31. Sie sagt am Telefon 'Seeschloss' (Spitzname).",
+  "updatedAt": 1782305700000,
+  "updatedBy": "claude-bridge-seeck-addr"
+}

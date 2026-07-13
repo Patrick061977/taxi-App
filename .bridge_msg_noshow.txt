@@ -1,0 +1,16 @@
+No-Show-System ist eigentlich schon recht vollständig:
+✅ Modal mit Grundgebühr + Anfahrt km/€ + Wartezeit min/€
+✅ PDF mit Rechtsgrundlage (§§ 642, 643 BGB + AG Siegen 2001)
+✅ Speichert in Firebase (noShowInvoices/)
+✅ Rechnungsnummer-Schema: 20-26-NS-001
+
+Was ich als "schwach" erkenne:
+❌ Kein auto. Status → "nicht erschienen" nach No-Show-PDF
+❌ Kein Email-Versand an Kunden direkt aus dem Modal
+❌ Bei Vorbestellungen mit Festpreis (z.B. 80€) zeigt das Modal nicht automatisch 100% davon — du musst die Felder manuell ausfüllen
+❌ Button im Kalender nur sichtbar wenn Status schon "abgesagt" oder "nicht erschienen"
+
+Was soll ich verbessern? Z.B.:
+1. Button "Nicht erschienen + Rechnung" setzt Status + öffnet Modal in einem Schritt
+2. Bei Festpreis-Fahrten: Modal füllt automatisch 100% Festpreis in "Grundgebühr" ein
+3. Email-Versand direkt aus Modal (an hinterlegte Kunden-Email)

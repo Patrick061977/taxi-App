@@ -1,0 +1,251 @@
+{
+  "sentKeys": {
+    "gmail:30923:DRP155084515.pdf": {
+      "sentAt": 1782213037473,
+      "messageId": "<efd0265a-db43-67be-9f4c-01ea682eec8a@googlemail.com>",
+      "from": "service@strato.de",
+      "subject": "Ihre STRATO-Rechnung für Kundennummer 61890102",
+      "localPath": "C:\\Users\\Taxi\\OneDrive\\5.Buchführung\\Rechnungen\\_Gmail-Eingang\\2026-06\\2026-06-17_uid30923_DRP155084515.pdf",
+      "key": "gmail:30923:DRP155084515.pdf",
+      "datevTarget": "eingang"
+    },
+    "gmail:30960:DRP155128754.pdf": {
+      "sentAt": 1782213049347,
+      "messageId": "<456df8f5-42f8-96c9-34ac-39f5dfe2d4c5@googlemail.com>",
+      "from": "service@strato.de",
+      "subject": "Ihre STRATO-Rechnung für Kundennummer 61890102",
+      "localPath": "C:\\Users\\Taxi\\OneDrive\\5.Buchführung\\Rechnungen\\_Gmail-Eingang\\2026-06\\2026-06-18_uid30960_DRP155128754.pdf",
+      "key": "gmail:30960:DRP155128754.pdf",
+      "datevTarget": "eingang"
+    },
+    "gmail:30961:DRP155128755.pdf": {
+      "sentAt": 1782213052376,
+      "messageId": "<fba17f3b-7b21-ac10-484c-f35bcaafeac1@googlemail.com>",
+      "from": "service@strato.de",
+      "subject": "Ihre STRATO-Rechnung für Kundennummer 61890102",
+      "localPath": "C:\\Users\\Taxi\\OneDrive\\5.Buchführung\\Rechnungen\\_Gmail-Eingang\\2026-06\\2026-06-18_uid30961_DRP155128755.pdf",
+      "key": "gmail:30961:DRP155128755.pdf",
+      "datevTarget": "eingang"
+    },
+    "gmail:31309:Rechnung_RE-260628-365.pdf": {
+      "sentAt": 1783065662154,
+      "messageId": "<e40196de-5764-8497-d547-189abfc00013@googlemail.com>",
+      "from": "buchhaltung@werbeagentur-nickel.de",
+      "subject": "Rechnung RE-260628-365",
+      "localPath": "C:\\Users\\Taxi\\OneDrive\\5.Buchführung\\Rechnungen\\_Gmail-Eingang\\2026-06\\2026-06-28_uid31309_Rechnung_RE-260628-365.pdf",
+      "key": "gmail:31309:Rechnung_RE-260628-365.pdf",
+      "datevTarget": "eingang"
+    },
+    "gmail:31417:DRP155585158.pdf": {
+      "sentAt": 1783065690325,
+      "messageId": "<8d0ec2f9-bf1a-3884-542b-3fe70beb2e0c@googlemail.com>",
+      "from": "service@strato.de",
+      "subject": "Ihre STRATO-Rechnung für Kundennummer 61890102",
+      "localPath": "C:\\Users\\Taxi\\OneDrive\\5.Buchführung\\Rechnungen\\_Gmail-Eingang\\2026-07\\2026-07-01_uid31417_DRP155585158.pdf",
+      "key": "gmail:31417:DRP155585158.pdf",
+      "datevTarget": "eingang"
+    },
+    "gmail:27527:Mahnung_20260708_111457841.pdf": {
+      "sentAt": 1783754463057,
+      "messageId": "<25235c88-214d-1ed9-d11e-69cbbdd7f047@googlemail.com>",
+      "from": "buchhaltung@ed-nord.de",
+      "subject": "Vollstreckungsankündigung  Deb. 14922 34 Datum:  08.07.2026",
+      "localPath": "C:\\Users\\Taxi\\OneDrive\\5.Buchführung\\Rechnungen\\_Gmail-Eingang\\2026-07\\2026-07-08_uid27527_Mahnung_20260708_111457841.pdf",
+      "key": "gmail:27527:Mahnung_20260708_111457841.pdf",
+      "datevTarget": "eingang"
+    },
+    "gmail:27578:Berechnung Zuschläge ,Stunden.pdf": {
+      "sentAt": 1783754483359,
+      "messageId": "<ae04b33e-7b30-4c51-d6b1-91d8a533cf4c@googlemail.com>",
+      "from": "beatrice.buchholz@ecovis.com",
+      "subject": "Probeabrechnung vorab zur Prüfung",
+      "localPath": "C:\\Users\\Taxi\\OneDrive\\5.Buchführung\\Rechnungen\\_Gmail-Eingang\\2026-07\\2026-07-09_uid27578_Berechnung Zuschläge ,Stunden.pdf",
+      "key": "gmail:27578:Berechnung Zuschläge ,Stunden.pdf",
+      "datevTarget": "eingang"
+    },
+    "gmail:27578:Probeabrechnung 06.2026.pdf": {
+      "sentAt": 1783754486445,
+      "messageId": "<3f20c593-3adf-3901-e3b1-469019495abc@googlemail.com>",
+      "from": "beatrice.buchholz@ecovis.com",
+      "subject": "Probeabrechnung vorab zur Prüfung",
+      "localPath": "C:\\Users\\Taxi\\OneDrive\\5.Buchführung\\Rechnungen\\_Gmail-Eingang\\2026-07\\2026-07-09_uid27578_Probeabrechnung 06.2026.pdf",
+      "key": "gmail:27578:Probeabrechnung 06.2026.pdf",
+      "datevTarget": "eingang"
+    },
+    "gmail:27609:EDNORD_Beleg_26009718.pdf": {
+      "sentAt": 1783754495797,
+      "messageId": "<98dc0b00-f4eb-7c63-a8e6-36bef6c7ef30@googlemail.com>",
+      "from": "buchhaltung@ed-nord.de",
+      "subject": "Kostenbescheid-Nr. 26009718",
+      "localPath": "C:\\Users\\Taxi\\OneDrive\\5.Buchführung\\Rechnungen\\_Gmail-Eingang\\2026-07\\2026-07-10_uid27609_EDNORD_Beleg_26009718.pdf",
+      "key": "gmail:27609:EDNORD_Beleg_26009718.pdf",
+      "datevTarget": "eingang"
+    }
+  },
+  "sentHashes": {
+    "e875d65b12d42055a168eeb2c97a3651": {
+      "sentAt": 1782213037473,
+      "messageId": "<efd0265a-db43-67be-9f4c-01ea682eec8a@googlemail.com>",
+      "from": "service@strato.de",
+      "subject": "Ihre STRATO-Rechnung für Kundennummer 61890102",
+      "localPath": "C:\\Users\\Taxi\\OneDrive\\5.Buchführung\\Rechnungen\\_Gmail-Eingang\\2026-06\\2026-06-17_uid30923_DRP155084515.pdf",
+      "key": "gmail:30923:DRP155084515.pdf",
+      "datevTarget": "eingang"
+    },
+    "cd24dedefa19d2b0688a82813e06e4cb": {
+      "sentAt": 1782213049347,
+      "messageId": "<456df8f5-42f8-96c9-34ac-39f5dfe2d4c5@googlemail.com>",
+      "from": "service@strato.de",
+      "subject": "Ihre STRATO-Rechnung für Kundennummer 61890102",
+      "localPath": "C:\\Users\\Taxi\\OneDrive\\5.Buchführung\\Rechnungen\\_Gmail-Eingang\\2026-06\\2026-06-18_uid30960_DRP155128754.pdf",
+      "key": "gmail:30960:DRP155128754.pdf",
+      "datevTarget": "eingang"
+    },
+    "44fa0edfb2ea16480963007cfccea892": {
+      "sentAt": 1782213052376,
+      "messageId": "<fba17f3b-7b21-ac10-484c-f35bcaafeac1@googlemail.com>",
+      "from": "service@strato.de",
+      "subject": "Ihre STRATO-Rechnung für Kundennummer 61890102",
+      "localPath": "C:\\Users\\Taxi\\OneDrive\\5.Buchführung\\Rechnungen\\_Gmail-Eingang\\2026-06\\2026-06-18_uid30961_DRP155128755.pdf",
+      "key": "gmail:30961:DRP155128755.pdf",
+      "datevTarget": "eingang"
+    },
+    "cfbc46b64e8137ed8f1e41db3fb1d539": {
+      "sentAt": 1783065662154,
+      "messageId": "<e40196de-5764-8497-d547-189abfc00013@googlemail.com>",
+      "from": "buchhaltung@werbeagentur-nickel.de",
+      "subject": "Rechnung RE-260628-365",
+      "localPath": "C:\\Users\\Taxi\\OneDrive\\5.Buchführung\\Rechnungen\\_Gmail-Eingang\\2026-06\\2026-06-28_uid31309_Rechnung_RE-260628-365.pdf",
+      "key": "gmail:31309:Rechnung_RE-260628-365.pdf",
+      "datevTarget": "eingang"
+    },
+    "e55ac40d633eecada327889e9f6e5a91": {
+      "sentAt": 1783065690325,
+      "messageId": "<8d0ec2f9-bf1a-3884-542b-3fe70beb2e0c@googlemail.com>",
+      "from": "service@strato.de",
+      "subject": "Ihre STRATO-Rechnung für Kundennummer 61890102",
+      "localPath": "C:\\Users\\Taxi\\OneDrive\\5.Buchführung\\Rechnungen\\_Gmail-Eingang\\2026-07\\2026-07-01_uid31417_DRP155585158.pdf",
+      "key": "gmail:31417:DRP155585158.pdf",
+      "datevTarget": "eingang"
+    },
+    "6600e3af35e4a81d2dda18706b89ba5b": {
+      "sentAt": 1783754463057,
+      "messageId": "<25235c88-214d-1ed9-d11e-69cbbdd7f047@googlemail.com>",
+      "from": "buchhaltung@ed-nord.de",
+      "subject": "Vollstreckungsankündigung  Deb. 14922 34 Datum:  08.07.2026",
+      "localPath": "C:\\Users\\Taxi\\OneDrive\\5.Buchführung\\Rechnungen\\_Gmail-Eingang\\2026-07\\2026-07-08_uid27527_Mahnung_20260708_111457841.pdf",
+      "key": "gmail:27527:Mahnung_20260708_111457841.pdf",
+      "datevTarget": "eingang"
+    },
+    "65becac6896cc865e41bf88c09d3a83d": {
+      "sentAt": 1783754483359,
+      "messageId": "<ae04b33e-7b30-4c51-d6b1-91d8a533cf4c@googlemail.com>",
+      "from": "beatrice.buchholz@ecovis.com",
+      "subject": "Probeabrechnung vorab zur Prüfung",
+      "localPath": "C:\\Users\\Taxi\\OneDrive\\5.Buchführung\\Rechnungen\\_Gmail-Eingang\\2026-07\\2026-07-09_uid27578_Berechnung Zuschläge ,Stunden.pdf",
+      "key": "gmail:27578:Berechnung Zuschläge ,Stunden.pdf",
+      "datevTarget": "eingang"
+    },
+    "33671157b772d2e4c1c0687623d6c9c7": {
+      "sentAt": 1783754486445,
+      "messageId": "<3f20c593-3adf-3901-e3b1-469019495abc@googlemail.com>",
+      "from": "beatrice.buchholz@ecovis.com",
+      "subject": "Probeabrechnung vorab zur Prüfung",
+      "localPath": "C:\\Users\\Taxi\\OneDrive\\5.Buchführung\\Rechnungen\\_Gmail-Eingang\\2026-07\\2026-07-09_uid27578_Probeabrechnung 06.2026.pdf",
+      "key": "gmail:27578:Probeabrechnung 06.2026.pdf",
+      "datevTarget": "eingang"
+    },
+    "f8c279d5b909e3bf9302760b7747a3c9": {
+      "sentAt": 1783754495797,
+      "messageId": "<98dc0b00-f4eb-7c63-a8e6-36bef6c7ef30@googlemail.com>",
+      "from": "buchhaltung@ed-nord.de",
+      "subject": "Kostenbescheid-Nr. 26009718",
+      "localPath": "C:\\Users\\Taxi\\OneDrive\\5.Buchführung\\Rechnungen\\_Gmail-Eingang\\2026-07\\2026-07-10_uid27609_EDNORD_Beleg_26009718.pdf",
+      "key": "gmail:27609:EDNORD_Beleg_26009718.pdf",
+      "datevTarget": "eingang"
+    }
+  },
+  "sentFromFile": {
+    "service@strato.de:DRP155084515.pdf": {
+      "sentAt": 1782213037473,
+      "messageId": "<efd0265a-db43-67be-9f4c-01ea682eec8a@googlemail.com>",
+      "from": "service@strato.de",
+      "subject": "Ihre STRATO-Rechnung für Kundennummer 61890102",
+      "localPath": "C:\\Users\\Taxi\\OneDrive\\5.Buchführung\\Rechnungen\\_Gmail-Eingang\\2026-06\\2026-06-17_uid30923_DRP155084515.pdf",
+      "key": "gmail:30923:DRP155084515.pdf",
+      "datevTarget": "eingang"
+    },
+    "service@strato.de:DRP155128754.pdf": {
+      "sentAt": 1782213049347,
+      "messageId": "<456df8f5-42f8-96c9-34ac-39f5dfe2d4c5@googlemail.com>",
+      "from": "service@strato.de",
+      "subject": "Ihre STRATO-Rechnung für Kundennummer 61890102",
+      "localPath": "C:\\Users\\Taxi\\OneDrive\\5.Buchführung\\Rechnungen\\_Gmail-Eingang\\2026-06\\2026-06-18_uid30960_DRP155128754.pdf",
+      "key": "gmail:30960:DRP155128754.pdf",
+      "datevTarget": "eingang"
+    },
+    "service@strato.de:DRP155128755.pdf": {
+      "sentAt": 1782213052376,
+      "messageId": "<fba17f3b-7b21-ac10-484c-f35bcaafeac1@googlemail.com>",
+      "from": "service@strato.de",
+      "subject": "Ihre STRATO-Rechnung für Kundennummer 61890102",
+      "localPath": "C:\\Users\\Taxi\\OneDrive\\5.Buchführung\\Rechnungen\\_Gmail-Eingang\\2026-06\\2026-06-18_uid30961_DRP155128755.pdf",
+      "key": "gmail:30961:DRP155128755.pdf",
+      "datevTarget": "eingang"
+    },
+    "buchhaltung@werbeagentur-nickel.de:Rechnung_RE-260628-365.pdf": {
+      "sentAt": 1783065662154,
+      "messageId": "<e40196de-5764-8497-d547-189abfc00013@googlemail.com>",
+      "from": "buchhaltung@werbeagentur-nickel.de",
+      "subject": "Rechnung RE-260628-365",
+      "localPath": "C:\\Users\\Taxi\\OneDrive\\5.Buchführung\\Rechnungen\\_Gmail-Eingang\\2026-06\\2026-06-28_uid31309_Rechnung_RE-260628-365.pdf",
+      "key": "gmail:31309:Rechnung_RE-260628-365.pdf",
+      "datevTarget": "eingang"
+    },
+    "service@strato.de:DRP155585158.pdf": {
+      "sentAt": 1783065690325,
+      "messageId": "<8d0ec2f9-bf1a-3884-542b-3fe70beb2e0c@googlemail.com>",
+      "from": "service@strato.de",
+      "subject": "Ihre STRATO-Rechnung für Kundennummer 61890102",
+      "localPath": "C:\\Users\\Taxi\\OneDrive\\5.Buchführung\\Rechnungen\\_Gmail-Eingang\\2026-07\\2026-07-01_uid31417_DRP155585158.pdf",
+      "key": "gmail:31417:DRP155585158.pdf",
+      "datevTarget": "eingang"
+    },
+    "buchhaltung@ed-nord.de:Mahnung_20260708_111457841.pdf": {
+      "sentAt": 1783754463057,
+      "messageId": "<25235c88-214d-1ed9-d11e-69cbbdd7f047@googlemail.com>",
+      "from": "buchhaltung@ed-nord.de",
+      "subject": "Vollstreckungsankündigung  Deb. 14922 34 Datum:  08.07.2026",
+      "localPath": "C:\\Users\\Taxi\\OneDrive\\5.Buchführung\\Rechnungen\\_Gmail-Eingang\\2026-07\\2026-07-08_uid27527_Mahnung_20260708_111457841.pdf",
+      "key": "gmail:27527:Mahnung_20260708_111457841.pdf",
+      "datevTarget": "eingang"
+    },
+    "beatrice.buchholz@ecovis.com:Berechnung Zuschläge ,Stunden.pdf": {
+      "sentAt": 1783754483359,
+      "messageId": "<ae04b33e-7b30-4c51-d6b1-91d8a533cf4c@googlemail.com>",
+      "from": "beatrice.buchholz@ecovis.com",
+      "subject": "Probeabrechnung vorab zur Prüfung",
+      "localPath": "C:\\Users\\Taxi\\OneDrive\\5.Buchführung\\Rechnungen\\_Gmail-Eingang\\2026-07\\2026-07-09_uid27578_Berechnung Zuschläge ,Stunden.pdf",
+      "key": "gmail:27578:Berechnung Zuschläge ,Stunden.pdf",
+      "datevTarget": "eingang"
+    },
+    "beatrice.buchholz@ecovis.com:Probeabrechnung 06.2026.pdf": {
+      "sentAt": 1783754486445,
+      "messageId": "<3f20c593-3adf-3901-e3b1-469019495abc@googlemail.com>",
+      "from": "beatrice.buchholz@ecovis.com",
+      "subject": "Probeabrechnung vorab zur Prüfung",
+      "localPath": "C:\\Users\\Taxi\\OneDrive\\5.Buchführung\\Rechnungen\\_Gmail-Eingang\\2026-07\\2026-07-09_uid27578_Probeabrechnung 06.2026.pdf",
+      "key": "gmail:27578:Probeabrechnung 06.2026.pdf",
+      "datevTarget": "eingang"
+    },
+    "buchhaltung@ed-nord.de:EDNORD_Beleg_26009718.pdf": {
+      "sentAt": 1783754495797,
+      "messageId": "<98dc0b00-f4eb-7c63-a8e6-36bef6c7ef30@googlemail.com>",
+      "from": "buchhaltung@ed-nord.de",
+      "subject": "Kostenbescheid-Nr. 26009718",
+      "localPath": "C:\\Users\\Taxi\\OneDrive\\5.Buchführung\\Rechnungen\\_Gmail-Eingang\\2026-07\\2026-07-10_uid27609_EDNORD_Beleg_26009718.pdf",
+      "key": "gmail:27609:EDNORD_Beleg_26009718.pdf",
+      "datevTarget": "eingang"
+    }
+  }
+}

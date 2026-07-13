@@ -1,0 +1,7 @@
+Verstanden — du willst das direkt in der native App sehen und bearbeiten, ohne Web-Admin.
+
+Ich checke gerade:
+1. Warum steht 7 € wenn Firebase 10 € hat
+2. Was die native App wirklich lädt (ggf. andere Query)
+
+Bin in 2 Min mit Befund zurück.

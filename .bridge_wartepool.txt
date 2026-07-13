@@ -1,0 +1,21 @@
+━━━ WARTEPOOL (2 Fahrten) ━━━
+1. Petra Häusner — GESTERN 03.07. 05:50 Uhr
+   Grenzstraße 2 Ahlbeck → Greifswald
+   ⚠️ 31 Stunden ohne Fahrzeug im Wartepool! → Ist das noch aktuell oder storniert?
+
+2. Erwin Fürst — HEUTE 04.07. 18:00 Uhr
+   Hotel Residenz WALDOASE → Flughafen Heringsdorf (HDF)
+   ℹ️ Noch 5 Stunden Zeit — Fahrzeug fehlt noch
+
+━━━ 999 MIN ZU SPÄT ━━━
+Das sind veraltete Fahrten ohne Status die seit Wochen im System rumliegen:
+• Vetter Touristik 13.06. (Trip 1+2) → noch auf "assigned" — da ist das Schiff schon lange abgefahren
+• 5 Fahrten mit Status "undefined" von 12.06.–27.06. → Zombies, nie richtig abgeschlossen
+
+Insgesamt "62 offene Fahrten" — davon sind ~20 alte Zombies.
+
+Soll ich die alten Fahrten (älter als 48h + ohne aktiven Status) automatisch als "storniert" markieren und aus der Ansicht entfernen? Dann verschwinden die roten Warnungen.
+
+━━━ HEUTE AKTIV ━━━
+15 Fahrten geplant heute (09:00–18:00), verteilt auf MY222/SK222/LK111/IK222 — sieht gut aus!
+Alle Flughafen-Fahrten 15:15-16:45 prüfen ob SK222 auch HDF kennt.

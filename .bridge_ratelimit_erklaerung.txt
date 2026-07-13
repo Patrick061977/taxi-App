@@ -1,0 +1,27 @@
+Warum gestern nach 1 Frage schon Limit — kurze Version:
+
+Das 5h-Fenster ist ROLLIEREND, nicht "neu ab jedem Login".
+Es zaehlt die letzten 5h auf DIESER Maschine — egal ob du zwischendurch was gemacht hast oder nicht.
+
+Konkret bei dir gestern:
+• Vormittag: Marathon-Session mit Subagents (Options-Scanner, Best-Picks etc.)
+• Session bleib danach offen (kein /clear)
+• Kontext war schon auf ~150-200k Token
+• Ich habe ein paar Subagents gestartet fuer Recherche
+• Auto-Loop (bridge-poll, Monitor) laueft nebenher weiter — zaehlt auch
+
+Ergebnis: als du mittags "wo kann ich das PW eintragen" gefragt hast, hat der Server den GANZEN Kontext (150k) plus meine langen vorherigen Antworten NOCHMAL gelesen. Eine "kurze" Frage kostet also 150k Input-Token — nicht 20 Token wie die Frage selbst.
+
+Was ich AB JETZT anders mache:
+✓ Keine Subagents mehr fuer Bugfixes
+✓ Keine langen Auflistungen von Alternativen
+✓ Kurze Antworten (2-4 Zeilen wo moeglich)
+✓ Files gezielt lesen mit offset/limit statt komplett
+✓ Kein Auto-Recherche in ganzem Repo
+
+Was DU tun kannst:
+✓ Nach abgeschlossenem Thema: /clear (loescht Kontext, halbiert Kosten)
+✓ Bei laengerer Diskussion: /compact (fasst zusammen, spart 50-80%)
+✓ Kein Bedarf, nach jedem Thema neu zu starten — nur bei Themenwechsel
+
+Weekly-Limit ist bei 58% mit 2d Reset. Wenn wir heute /clear diszipliniert nutzen, kommen wir locker durch die Woche.

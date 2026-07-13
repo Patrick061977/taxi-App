@@ -1,0 +1,7 @@
+{
+  "text": "Hallo, Grüß Gott ist mein Name. Darf ich die Taxi bestellen bei Ihnen? Wann denn? Von hier, von Heringsdorf, Hotel Kaiserhof zu Nachbarnsinn. Ja, 10 Minuten. Ok, danke.",
+  "usage": {
+    "type": "duration",
+    "seconds": 24
+  }
+}

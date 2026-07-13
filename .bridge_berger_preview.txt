@@ -1,0 +1,12 @@
+📋 VORSCHAU — Fahrt anlegen?
+
+📅 Heute 04.07.2026, 20:30 Uhr
+📍 Von: Bahnhof Heringsdorf
+🏁 Nach: Kulmstraße 6, Heringsdorf
+👤 Berger
+👥 1 Person
+📞 01736809016
+
+Fahrzeug: wird automatisch zugewiesen.
+
+ja = anlegen | nein = abbrechen

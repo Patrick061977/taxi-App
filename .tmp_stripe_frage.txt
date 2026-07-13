@@ -1,0 +1,9 @@
+Stripe-Link nicht versendet — welche Fahrt genau?
+
+Ich brauche eine Info:
+1. Hatte der Kunde eine Email-Adresse in der Webanfrage?
+2. Oder eine Mobilnummer?
+
+Ablauf: Stripe-Link wird per Email gesendet wenn Email vorhanden, per SMS wenn Mobilnummer vorhanden. Wenn beides fehlt → Link nur im Admin-Panel sichtbar.
+
+→ Schick mir Kundenname oder Fahrt-Uhrzeit, dann schau ich in Firebase nach.

@@ -1,0 +1,14 @@
+Ich (Claude) habe den SMTP-Test gemacht.
+
+Geschichte:
+• v6.21.0 (14.03.2026) — SMTP Email-Versand + testSmtpConnection Cloud Function (ich)
+• v6.27.1 (15.03.2026) — CRM E-Mail/SMTP Einstellungen + Fixes (ich)
+• v6.63.480 (23.06.2026) — EmailJS auf SMTP umgestellt nach 404-Fehler (ich)
+
+Die testSmtpConnection Cloud Function:
+— Liest SMTP-Einstellungen aus Firebase settings/smtp
+— Prüft Verbindung (transporter.verify())
+— Schickt Test-Email an sich selbst
+— Region: europe-west1, public erreichbar
+
+Gibt es ein Problem damit?

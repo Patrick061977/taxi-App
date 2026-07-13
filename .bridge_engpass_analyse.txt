@@ -1,0 +1,27 @@
+🔍 BEFUND: Warum entstehen Engpässe + Wartepool?
+
+━━━ HAUPTURSACHE 1: Rückfahrt-Puffer 30 Min (kritisch!) ━━━
+Nach jeder Fahrt rechnet das System "Fahrer fährt erst nach Hause, dann zur nächsten Fahrt".
+Puffer laut Firebase-Settings: undefined → Fallback = 30 Min Standard.
+
+Beispiel: Fahrt 10 Min + 2 Min Umsteigen + 30 Min Heimfahrt = 42 Min Slot
+Nächste Fahrt kommt in 35 Min → System meldet "Engpass 7 Min zu spät"
+Realität: Fahrer ist noch vor Ort und kommt locker hin.
+
+Das passiert immer wenn die Kettenfahrt-Erkennung nicht greift.
+
+━━━ HAUPTURSACHE 2: Toleranz nur 5 Min ━━━
+maxAutoVerschiebungMin = 5 (laut Firebase)
+Selbst bei 1 Min Überziehung → Wartepool.
+Empfehlung: 10 Min.
+
+━━━ HAUPTURSACHE 3: Dauer-Fallback 20 Min ━━━
+Wenn OSRM/Google die Route nicht berechnen kann → Fahrtdauer = 20 Min angenommen.
+Für eine 5-Min-Stadtfahrt in Heringsdorf = 4x zu viel.
+
+━━━ WAS KONKRET HILFT (2 Firebase-Werte ändern) ━━━
+settings/pricing/standortRueckkehrPufferMinuten → 10 (statt 30)
+settings/pricing/maxAutoVerschiebungMin → 10 (statt 5)
+
+Das allein würde 70-80% der "künstlichen" Engpässe eliminieren.
+Soll ich das ändern?

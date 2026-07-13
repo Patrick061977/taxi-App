@@ -1,0 +1,6 @@
+{
+  "message": "v6.63.552 deployed ✅\n\n1️⃣ GPS-offline + Sofort-Fahrt\nFahrer hat nicht bestätigt + GPS weg → sofort Neu-Assign an nächstes freies Fahrzeug. Altes Fahrzeug kommt auf rejected-Liste.\n\n2️⃣ STILL UNREACHABLE weg\nErster Alarm (SCHAFFBARKEIT) bleibt. Beim zweiten Alarm: Auto-Neuzuweisung statt Spam. Entweder '🔄 Neuzuweisung → FahrzeugX' oder '⚠️ kein Ersatz, bitte manuell eingreifen'.\n\nCloud Functions deploy läuft ~2 Min.",
+  "targetChatId": 6229490043,
+  "via": "claude",
+  "ts": 1751215200000
+}

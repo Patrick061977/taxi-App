@@ -1,0 +1,9 @@
+v6.63.600 gepusht — APK-Build läuft (~5 Min):
+
+1. 🧾 Rechnungen-Button direkt unten auf dem Hauptscreen (neben 📞 und Neue Buchung) — kein Untermenü mehr
+
+2. Strandidyll (20-26-1292, A-Rosa, 7 €) war ohne Datum → direkt in Firebase gepatcht + taucht jetzt auf
+
+3. Rechnungen-Liste: Suchfeld oben + Bearbeiten-Button (✏️) pro Rechnung → Betrag direkt ändern
+
+4. Danilo/Golfhotel: Taxistandpunkt "Bahnhof Ahlbeck" ist korrekt eingetragen. Problem: Auto-Assign ignoriert homeLocation und verteilt nach GPS-Nähe + Verfügbarkeit. Soll ich für Danilo einen harten Ahlbeck-Radius einbauen (z.B. nur Fahrten innerhalb 10 km von Ahlbeck)?

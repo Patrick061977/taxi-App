@@ -1,0 +1,14 @@
+━━━ v6.63.607 DEPLOYED ━━━
+APK baut gerade (~5 Min) + Web-App aktualisiert.
+
+📄 RECHNUNG PDF AUTO-FIX:
+• Wenn du jetzt die Strandidyll-Rechnung im Web-Admin öffnest → PDF wird AUTOMATISCH neu generiert (kein Knopf nötig)
+• Gilt ab jetzt für ALLE Rechnungen: Betrag in nativer App geändert → Web-Admin öffnen → PDF passt sich automatisch an
+
+🟡 Anrufliste: Warteschlangen-Karte ist jetzt dunkelbraun-amber → weißer Text sichtbar
+
+━━━ FEHLENDE ANRUFE ━━━
+Frage: Wenn du sagst "nicht alle Anrufe da" — vergleichst du die App-Liste mit der Fritz!Box-Anrufliste oder mit der nativen Samsung-Anrufliste?
+
+Wenn Fritz!Box: Anrufe, die auf der DECT-Station (Tischtelefon) beantwortet wurden, sind nicht im Android-Anrufprotokoll → nur auf der Fritz!Box-Weboberfläche sichtbar.
+Fix wäre: Fritz!Box-Anrufliste zusätzlich einlesen. Das kann ich bauen wenn du es brauchst.

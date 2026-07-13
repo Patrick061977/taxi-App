@@ -1,0 +1,7 @@
+Ja, macht Sinn. Ich baue einen Auto-Discovery-Modus ein:
+
+1. Beim ersten Start sucht das Skript automatisch in OneDrive nach Ordnern mit .m4a-Dateien im ACR-Format (Dateiname hat das Muster "Name (+Nummer) [Datum] [Eingehend]")
+2. Gefundener Pfad wird in der State-Datei gespeichert — beim nächsten Mal direkt verwendet
+3. Für ein zweites Handy: gleiche Logik, eigene State-Datei mit eigenem gespeicherten Pfad
+
+Soll ich das jetzt einbauen?

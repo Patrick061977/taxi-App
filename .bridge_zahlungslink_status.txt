@@ -1,0 +1,38 @@
+📊 STATUS "Zahlungslink verschicken":
+
+AUTOMATISCH (v6.63.690 seit gestern):
+✅ Anfrage uebernehmen → Cloud-Function schickt Bestaetigung an KUNDE
+   • Email-Anfrage → Email + Stripe-Link
+   • WA-Anfrage → WhatsApp + Stripe-Link (NEU seit v6.63.690)
+   • SMS-Anfrage → SMS + Stripe-Link (NEU seit v6.63.690)
+
+MANUELL im Native-Dispo-Dialog:
+✅ Nach Uebernahme kommt showVorkasseEmailDialog
+✅ Preis eingeben + Email → "💳 Mit Stripe-Link senden" (per Email)
+❌ KEIN Button "per SMS/WA schicken" in dem Dialog
+❌ Wenn Fahrt normal manuell angelegt (nicht via Anfrage): kein Payment-Dialog
+
+Der Bug bei Antje war: WA-Send scheiterte still (verknotete Nummer). Der QR-Code am Auto hat gerettet.
+
+━━━━━━━━━━━━━━━━━━
+
+📍 PREIS IN VORBESTELLUNG SEHEN:
+
+Aktuell:
+• In der Dispo-Karte: Preis wird als "€X" angezeigt wenn price>0 gesetzt ist
+• Im Anlegen-Dialog / im Bearbeiten-Dialog editierbar
+• Im showVorkasseEmailDialog: Preis-Feld gross oben
+
+Was fehlt evtl.? Sag mir wo du den Preis nicht siehst — Screenshot hilft.
+
+━━━━━━━━━━━━━━━━━━
+
+🛠 WAS BAUEN? (Prioritaeten sag du)
+
+[SMS-WA-BUTTON] Im showVorkasseEmailDialog zusaetzlich Button "📱 Per SMS/WA schicken" → nutzt customerMobile (Handy) direkt, gleicher Cloud-Endpoint. ~30 Min.
+
+[QUICK-PAY-DIALOG] Neu: Button in Fahrt-Detail "💳 Zahlungslink schicken" → waehlt Kanal (Email/SMS/WA), zeigt Preis-Preview, versendet. Fuer nachtraegliche Sends bei bereits angelegten Fahrten. ~1 h. (Kollidiert mit deinem alten TODO "Stripe Quick-Pay fuer EINSTEIGER".)
+
+[SWEEP-60] Zusatz zum vorherigen Vorschlag: 60 CRM-Nummern in Handy+Festnetz splitten. ~1 h.
+
+Was zuerst?

@@ -1,0 +1,5 @@
+2026/07/09-13:35:27.243 9468 Creating DB C:\Taxi App\taxi-App-github\UsersTaxiAppDataLocalGoogleChromeUser Data\Default\Local Storage\leveldb since it was missing.
+2026/07/09-13:35:27.269 9468 Reusing MANIFEST C:\Taxi App\taxi-App-github\UsersTaxiAppDataLocalGoogleChromeUser Data\Default\Local Storage\leveldb/MANIFEST-000001
+2026/07/09-13:35:33.772 5ca8 Level-0 table #5: started
+2026/07/09-13:35:33.776 5ca8 Level-0 table #5: 32440 bytes OK
+2026/07/09-13:35:33.778 5ca8 Delete type=0 #3

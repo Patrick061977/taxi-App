@@ -1,0 +1,7 @@
+Ursache: Am 30.06. wurde für den SK die Schicht über den Schicht-Editor manuell beendet ("Schicht beenden" Button). Danach blieb der Status "forceEnded" dauerhaft gespeichert.
+
+Das Problem: Die App filtert Fahrzeuge mit "forceEnded" komplett aus der Auswahl heraus — auch wenn du eine neue Schicht starten willst. Das darf so nicht sein.
+
+Ein beendeter Schicht-Status sollte das Fahrzeug NUR als "offline" markieren, aber NICHT aus der Fahrzeugauswahl verschwinden lassen. Sonst kann man nach einer Schicht-Pause nie wieder einsteigen ohne Admin-Eingriff.
+
+Das ist ein Bug — ich schaue jetzt wo in der App dieser Filter sitzt und fixe das.

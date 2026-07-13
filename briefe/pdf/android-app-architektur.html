@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>Fahrer-App Android — Architektur-Übersicht</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 10pt; color: #1a1a1a; background: #fff; }
+
+  /* === DRUCK === */
+  @media print {
+    body { font-size: 9pt; }
+    .page-break { page-break-before: always; }
+    .no-print { display: none; }
+    h1 { font-size: 16pt; }
+    h2 { font-size: 12pt; }
+  }
+
+  /* === LAYOUT === */
+  .page { max-width: 210mm; margin: 0 auto; padding: 12mm 14mm; }
+
+  /* === KOPFZEILE === */
+  .header { border-bottom: 3px solid #1565C0; padding-bottom: 8px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: flex-end; }
+  .header h1 { font-size: 20pt; color: #1565C0; font-weight: 700; line-height: 1.1; }
+  .header .meta { text-align: right; font-size: 8pt; color: #666; }
+  .header .meta strong { color: #1565C0; }
+
+  /* === INTRO === */
+  .intro { background: #E3F2FD; border-left: 4px solid #1565C0; padding: 8px 12px; margin-bottom: 18px; font-size: 9pt; line-height: 1.5; }
+
+  /* === SECTION === */
+  .section { margin-bottom: 20px; }
+  .section-title { font-size: 11pt; font-weight: 700; color: #fff; padding: 5px 10px; border-radius: 4px 4px 0 0; margin-bottom: 0; }
+  .section-body { border: 1.5px solid; border-top: none; border-radius: 0 0 4px 4px; padding: 0; overflow: hidden; }
+
+  /* Farbschemas je Kategorie */
+  .cat-activity .section-title { background: #1565C0; }
+  .cat-activity .section-body { border-color: #1565C0; }
+  .cat-service  .section-title { background: #2E7D32; }
+  .cat-service  .section-body { border-color: #2E7D32; }
+  .cat-receiver .section-title { background: #6A1B9A; }
+  .cat-receiver .section-body { border-color: #6A1B9A; }
+  .cat-plugin   .section-title { background: #E65100; }
+  .cat-plugin   .section-body { border-color: #E65100; }
+  .cat-external .section-title { background: #424242; }
+  .cat-external .section-body { border-color: #424242; }
+
+  /* === KOMPONENTEN-TABELLE === */
+  .comp-table { width: 100%; border-collapse: collapse; }
+  .comp-table tr:nth-child(even) { background: #FAFAFA; }
+  .comp-table td { padding: 5px 10px; vertical-align: top; border-bottom: 1px solid #eee; }
+  .comp-table tr:last-child td { border-bottom: none; }
+  .comp-name { font-weight: 700; font-size: 9pt; white-space: nowrap; width: 38mm; color: #1a1a1a; }
+  .comp-type { font-size: 7.5pt; color: #888; font-style: italic; white-space: nowrap; width: 22mm; }
+  .comp-desc { font-size: 8.5pt; line-height: 1.45; color: #333; }
+  .comp-links { font-size: 7.5pt; color: #888; font-style: italic; }
+  .badge { display: inline-block; font-size: 7pt; font-weight: 700; padding: 1px 5px; border-radius: 3px; margin-right: 3px; vertical-align: middle; }
+  .badge-admin { background: #BBDEFB; color: #0D47A1; }
+  .badge-fahrer { background: #C8E6C9; color: #1B5E20; }
+  .badge-beide  { background: #FFF9C4; color: #F57F17; }
+  .badge-system { background: #EDE7F6; color: #4527A0; }
+
+  /* === FLOW-DIAGRAMM === */
+  .flow-box { border: 2px solid; border-radius: 6px; padding: 10px 14px; text-align: center; font-size: 9pt; }
+  .flow-grid { display: grid; gap: 8px; margin: 12px 0; }
+  .flow-grid-2 { grid-template-columns: 1fr 1fr; }
+  .flow-grid-3 { grid-template-columns: 1fr 1fr 1fr; }
+  .flow-arrow { text-align: center; font-size: 14pt; color: #999; margin: 2px 0; }
+  .flow-center { text-align: center; }
+  .flow-entry { background: #1565C0; color: #fff; border-color: #1565C0; }
+  .flow-main  { background: #E3F2FD; border-color: #1565C0; }
+  .flow-svc   { background: #E8F5E9; border-color: #2E7D32; color: #2E7D32; font-weight: 600; }
+  .flow-ext   { background: #F5F5F5; border-color: #9E9E9E; color: #616161; }
+  .flow-label { font-size: 7.5pt; color: #888; margin-top: 2px; }
+  .flow-title { font-weight: 700; font-size: 9.5pt; }
+
+  /* === DATENFLUSS-TABELLE === */
+  .flow-table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 8.5pt; }
+  .flow-table th { background: #37474F; color: #fff; padding: 5px 8px; text-align: left; }
+  .flow-table td { padding: 5px 8px; border-bottom: 1px solid #E0E0E0; vertical-align: top; }
+  .flow-table tr:nth-child(even) { background: #FAFAFA; }
+  .arrow-col { color: #1565C0; font-weight: 700; text-align: center; white-space: nowrap; }
+
+  /* === VERSIONSINFORMATION === */
+  .version-bar { background: #37474F; color: #fff; text-align: center; padding: 5px; font-size: 8pt; margin-bottom: 16px; border-radius: 4px; }
+
+  /* === FUSSNOTE === */
+  .footer { border-top: 1px solid #ccc; margin-top: 20px; padding-top: 8px; font-size: 7.5pt; color: #888; text-align: center; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- KOPF -->
+  <div class="header">
+    <div>
+      <h1>Fahrer-App Android<br><span style="font-size:12pt;color:#555;font-weight:400">Architektur-Explosionszeichnung</span></h1>
+    </div>
+    <div class="meta">
+      <strong>Funk Taxi Heringsdorf</strong><br>
+      de.taxiheringsdorf.app<br>
+      Version 6.63.546 · 29.06.2026<br>
+      Android 8+ · minSdk 22 · targetSdk 34
+    </div>
+  </div>
+
+  <div class="version-bar">
+    Alle Komponenten der nativen Android-Fahrer-App — Funktionen, Zuständigkeiten, Abhängigkeiten
+  </div>
+
+  <!-- INTRO -->
+  <div class="intro">
+    Die Fahrer-App ist eine <strong>hybride Android-App</strong> auf Basis von <strong>Capacitor (Ionic)</strong>.
+    Kern ist eine WebView die <code>index.html</code> (die Taxi-Web-App) rendert.
+    Drumherum gibt es native Android-Komponenten für GPS-Tracking, Push-Benachrichtigungen,
+    Anruf-Aufnahme, Email-Versand, Kartenwahl und Admin-Disposition — alles was eine reine WebApp nicht kann.
+    <br><br>
+    <strong>Legende:</strong>
+    <span class="badge badge-fahrer">Fahrer</span> nur Fahrer sichtbar &nbsp;
+    <span class="badge badge-admin">Admin</span> nur Admin/Patrick &nbsp;
+    <span class="badge badge-beide">Beide</span> Fahrer + Admin &nbsp;
+    <span class="badge badge-system">System</span> läuft unsichtbar im Hintergrund
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- SECTION 1: ACTIVITIES (Bildschirme) -->
+  <!-- ============================================================ -->
+  <div class="section cat-activity">
+    <div class="section-title">📱 Activities — Bildschirme &amp; Dialoge</div>
+    <div class="section-body">
+      <table class="comp-table">
+        <tr>
+          <td class="comp-name">MainActivity</td>
+          <td class="comp-type">Capacitor<br>BridgeActivity</td>
+          <td class="comp-desc">
+            <span class="badge badge-beide">Beide</span>
+            <strong>Einstiegspunkt der App.</strong> Startet den Capacitor-WebView und lädt <code>index.html</code>.
+            Registriert alle Capacitor-Plugins. Prüft Berechtigungen beim ersten Start.
+            Leitet direkt weiter zu LoginActivity wenn kein User eingeloggt ist.
+            <div class="comp-links">→ Startet: LoginActivity, DriverDashboardActivity, AdminDashboardActivity</div>
+          </td>
+        </tr>
+        <tr>
+          <td class="comp-name">LoginActivity</td>
+          <td class="comp-type">AppCompatActivity</td>
+          <td class="comp-desc">
+            <span class="badge badge-beide">Beide</span>
+            <strong>Login-Bildschirm.</strong> Firebase-Auth mit Email+Passwort und Google Sign-In.
+            Liest nach Login die Rolle aus Firebase (<code>/users/{uid}/role</code>):
+            <em>driver</em> → DriverDashboard, <em>admin</em> → AdminDashboard.
+            <div class="comp-links">→ Startet: DriverDashboardActivity oder AdminDashboardActivity</div>
+          </td>
+        </tr>
+        <tr>
+          <td class="comp-name">DriverDashboard<br>Activity</td>
+          <td class="comp-type">AppCompatActivity</td>
+          <td class="comp-desc">
+            <span class="badge badge-fahrer">Fahrer</span>
+            <strong>Haupt-Bildschirm des Fahrers.</strong> Zeigt aktive Fahrt, Schicht-Status, GPS-Qualität, ETA.
+            Schicht-Start/Stop startet/stoppt ShiftForegroundService. ANNEHMEN-Button für zugewiesene Fahrten.
+            Navigation per Google Maps. Hamburger-Menü für Stats, CRM, Dispo-Live, Aufnahmen.
+            15s-etaTick überwacht Service-Gesundheit und GPS-Intervall.
+            <div class="comp-links">→ Startet: LoginActivity, VehiclePickerActivity, CallLogActivity, CrmSearchActivity, DispoActivity, AdminDashboardActivity, StatsActivity, CallRecordingsActivity, MapPickerActivity</div>
+          </td>
+        </tr>
+        <tr>
+          <td class="comp-name">AdminDashboard<br>Activity</td>
+          <td class="comp-type">AppCompatActivity</td>
+          <td class="comp-desc">
+            <span class="badge badge-admin">Admin</span>
+            <strong>Dispositions-Zentrale für Patrick.</strong> Zeigt alle offenen Web-Anfragen (<code>/anfragen</code>)
+            als RecyclerView. "Übernehmen"-Button konvertiert Anfrage in Ride, öffnet dann Fahrt-Bearbeiten-Dialog.
+            Edit-Dialog hat EMAIL-BESTÄTIGUNG-Button → EmailPreviewActivity. System-Check-Badge.
+            Neue Buchung, Anrufliste, Schicht-Editor, Fahrzeugverwaltung.
+            <div class="comp-links">→ Startet: EmailPreviewActivity, CrmSearchActivity, CallLogActivity, ShiftEditorActivity, VehiclePickerActivity, MapPickerActivity, CallRecordingsActivity, LoginActivity</div>
+          </td>
+        </tr>
+        <tr>
+          <td class="comp-name">RideAlertActivity</td>
+          <td class="comp-type">AppCompatActivity</td>
+          <td class="comp-desc">
+            <span class="badge badge-fahrer">Fahrer</span>
+            <strong>Vollbild-Auftrag-Alarm</strong> — erscheint über dem Sperrbildschirm wenn FCM-Push eintrifft.
+            Zeigt Kunde, Pickup, Ziel, Preis. Zwei Buttons: ANNEHMEN (grün) / ABLEHNEN (rot).
+            ANNEHMEN sendet Broadcast an RideActionReceiver + öffnet DriverDashboardActivity.
+            <div class="comp-links">→ Startet: DriverDashboardActivity · Sendet: RideActionReceiver-Broadcast</div>
+          </td>
+        </tr>
+        <tr>
+          <td class="comp-name">EmailPreview<br>Activity</td>
+          <td class="comp-type">AppCompatActivity</td>
+          <td class="comp-desc">
+            <span class="badge badge-admin">Admin</span>
+            <strong>Email-Vorschau &amp; Versand.</strong> Zeigt An-Adresse, Betreff, vollständigen Email-Body
+            mit allen Fahrt-Details. Checkboxen für Stripe-Zahlungslink und Tracking-Link.
+            SENDEN-Button schickt via Android-Email-App-Chooser. Keine direkte SMTP-Verbindung.
+            <div class="comp-links">← Gestartet von: AdminDashboardActivity, DriverDashboardActivity</div>
+          </td>
+        </tr>
+        <tr>
+          <td class="comp-name">CrmSearchActivity</td>
+          <td class="comp-type">AppCompatActivity</td>
+          <td class="comp-desc">
+            <span class="badge badge-beide">Beide</span>
+            <strong>CRM-Kundensuche.</strong> Durchsucht <code>/customers</code> in Firebase nach Name/Telefon.
+            Zeigt Kundenkarte mit letzten Fahrten, Stammrouten, Kontaktdaten.
+            Auswahl → neue Buchung mit vorausgefüllten Kundendaten.
+          </td>
+        </tr>
+        <tr>
+          <td class="comp-name">CallLogActivity</td>
+          <td class="comp-type">AppCompatActivity</td>
+          <td class="comp-desc">
+            <span class="badge badge-beide">Beide</span>
+            <strong>Anrufliste.</strong> Liest <code>/callHistory</code> aus Firebase, zeigt eingehende/ausgehende
+            Anrufe mit Nummer, Zeitstempel, CRM-Zuordnung.
+            Tippen auf Eintrag → CRM-Suche nach dieser Nummer.
+          </td>
+        </tr>
+        <tr>
+          <td class="comp-name">CallRecordings<br>Activity</td>
+          <td class="comp-type">AppCompatActivity</td>
+          <td class="comp-desc">
+            <span class="badge badge-beide">Beide</span>
+            <strong>Aufnahmen-Browser.</strong> Listet alle M4A-Dateien aus <code>/sdcard/FunktaxiCalls/</code>.
+            Abspielen, Löschen, Teilen. Zeigt Anrufer-Nummer aus Dateiname.
+          </td>
+        </tr>
+        <tr>
+          <td class="comp-name">DispoActivity</td>
+          <td class="comp-type">AppCompatActivity</td>
+          <td class="comp-desc">
+            <span class="badge badge-beide">Beide</span>
+            <strong>Live-Dispositions-Ansicht.</strong> Read-Only-Übersicht aller aktiven Fahrten und
+            Fahrzeugpositionen. Für Fahrer: "Was ist gerade los?" ohne vollen Admin-Zugriff.
+          </td>
+        </tr>
+        <tr>
+          <td class="comp-name">ShiftEditorActivity</td>
+          <td class="comp-type">AppCompatActivity</td>
+          <td class="comp-desc">
+            <span class="badge badge-admin">Admin</span>
+            <strong>Wochenplan-Editor.</strong> Pro Fahrzeug Dienst-Zeiten für Mo–So einstellen.
+            "Alle gleich"-Toggle, Ausnahme-Tage. Schreibt nach <code>/vehicleShifts/{vehicleId}</code>.
+            Basis für Vorbestellungs-Validierung und Auto-Zuweisung.
+          </td>
+        </tr>
+        <tr>
+          <td class="comp-name">VehiclePickerActivity</td>
+          <td class="comp-type">AppCompatActivity</td>
+          <td class="comp-desc">
+            <span class="badge badge-fahrer">Fahrer</span>
+            <strong>Fahrzeug-Auswahl beim Schichtbeginn.</strong> Zeigt verfügbare Fahrzeuge aus Firebase.
+            Auswahl setzt <code>currentVehicleId</code> und startet ShiftForegroundService.
+          </td>
+        </tr>
+        <tr>
+          <td class="comp-name">MapPickerActivity</td>
+          <td class="comp-type">AppCompatActivity</td>
+          <td class="comp-desc">
+            <span class="badge badge-admin">Admin</span>
+            <strong>Adress-Picker auf Karte.</strong> Leaflet-WebView mit Nominatim-Geocoding.
+            Tippen auf Karte → Adresse auflösen → zurück an aufrufende Activity.
+            Verwendet für Pickup/Ziel-Auswahl in Fahrt-Bearbeiten.
+          </td>
+        </tr>
+        <tr>
+          <td class="comp-name">DriverMapActivity</td>
+          <td class="comp-type">AppCompatActivity</td>
+          <td class="comp-desc">
+            <span class="badge badge-fahrer">Fahrer</span>
+            <strong>Flottenübersicht auf Karte.</strong> Zeigt alle Fahrzeug-GPS-Positionen live aus Firebase.
+            Für Fahrer die einen Überblick über die Flotte wollen.
+          </td>
+        </tr>
+        <tr>
+          <td class="comp-name">StatsActivity</td>
+          <td class="comp-type">AppCompatActivity</td>
+          <td class="comp-desc">
+            <span class="badge badge-beide">Beide</span>
+            <strong>Statistik-Übersicht.</strong> Zeigt Umsatz, Fahrten-Anzahl, Durchschnitts-Preis
+            pro Zeitraum (heute/Woche/Monat). Liest aus <code>/rides</code> und <code>/vehicles</code>.
+          </td>
+        </tr>
+        <tr>
+          <td class="comp-name">Onboarding<br>HealthcheckActivity</td>
+          <td class="comp-type">AppCompatActivity</td>
+          <td class="comp-desc">
+            <span class="badge badge-fahrer">Fahrer</span>
+            <strong>Erst-Einrichtungs-Assistent.</strong> Prüft alle nötigen Berechtigungen:
+            Standort (immer), Benachrichtigungen, Mikrofon (Aufnahme), Telefon-Status, Akku-Optimierung.
+            Führt Fahrer Schritt für Schritt durch die Aktivierung.
+          </td>
+        </tr>
+        <tr>
+          <td class="comp-name">MultiDayCopySheet</td>
+          <td class="comp-type">BottomSheetDialog<br>Fragment</td>
+          <td class="comp-desc">
+            <span class="badge badge-admin">Admin</span>
+            <strong>Fahrt auf mehrere Tage kopieren.</strong> Kalender-Auswahl + Zieldaten.
+            Erstellt mehrere Rides aus einer Vorlage (z.B. Dialyse-Serien).
+          </td>
+        </tr>
+      </table>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- SECTION 2: SERVICES (Hintergrunddienste) -->
+  <!-- ============================================================ -->
+  <div class="section cat-service">
+    <div class="section-title">⚙️ Services — Hintergrunddienste</div>
+    <div class="section-body">
+      <table class="comp-table">
+        <tr>
+          <td class="comp-name">ShiftForeground<br>Service</td>
+          <td class="comp-type">Foreground<br>Service</td>
+          <td class="comp-desc">
+            <span class="badge badge-system">System</span>
+            <strong>Kern des GPS-Trackings.</strong> Läuft solange die Schicht aktiv ist.
+            FusedLocationProviderClient mit 15s Intervall. Schreibt Position via Cloud-Function-Heartbeat
+            nach Firebase <code>/vehicles/{id}</code>.
+            <strong>Dynamisches Intervall:</strong> on_way/picked_up/arrived/accepted → 15s,
+            assigned → 30s, standby → 60s. PARTIAL_WAKE_LOCK gegen Prozess-Kill.
+            Wird bei App-Kill durch etaTick-Watchdog (alle 15s) automatisch neu gestartet.
+            <div class="comp-links">← Gesteuert von: DriverDashboardActivity, VehiclePickerActivity</div>
+          </td>
+        </tr>
+        <tr>
+          <td class="comp-name">TaxiFCMService</td>
+          <td class="comp-type">Firebase<br>MessagingService</td>
+          <td class="comp-desc">
+            <span class="badge badge-system">System</span>
+            <strong>Push-Notifications empfangen.</strong> Firebase Cloud Messaging für neue Aufträge,
+            Status-Updates und Admin-Nachrichten — auch bei geschlossener App / gesperrtem Bildschirm.
+            Neuer Auftrag → startet RideAlertActivity über Sperrbildschirm + AlertSoundService.
+            FCM-Token wird bei Schichtstart in Firebase gespeichert.
+          </td>
+        </tr>
+        <tr>
+          <td class="comp-name">AlertSoundService</td>
+          <td class="comp-type">Service</td>
+          <td class="comp-desc">
+            <span class="badge badge-system">System</span>
+            <strong>Alarm-Ton bei neuem Auftrag.</strong> Spielt lauten Klingelton ab wenn ein neuer
+            Auftrag eintrifft — auch wenn das Handy auf lautlos gestellt ist.
+            Stoppt wenn Auftrag angenommen oder abgelehnt wird.
+          </td>
+        </tr>
+        <tr>
+          <td class="comp-name">CallRecorderService</td>
+          <td class="comp-type">Foreground<br>Service</td>
+          <td class="comp-desc">
+            <span class="badge badge-system">System</span>
+            <strong>Automatische Anrufaufnahme.</strong> Hört auf PhoneStateReceiver.
+            OFFHOOK → MediaRecorder startet. IDLE → Aufnahme stoppt + speichert nach
+            <code>/sdcard/FunktaxiCalls/{Jahr}/{Monat}/{Tag}/+{Nummer}-{Richtung}-{ts}.m4a</code>.
+            ACR-Ersatz ohne Cloud-Abhängigkeit.
+          </td>
+        </tr>
+      </table>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- SECTION 3: BROADCAST RECEIVERS -->
+  <!-- ============================================================ -->
+  <div class="section cat-receiver">
+    <div class="section-title">📡 BroadcastReceivers — Ereignis-Empfänger</div>
+    <div class="section-body">
+      <table class="comp-table">
+        <tr>
+          <td class="comp-name">RideActionReceiver</td>
+          <td class="comp-type">Broadcast<br>Receiver</td>
+          <td class="comp-desc">
+            <span class="badge badge-fahrer">Fahrer</span>
+            <strong>Annehmen/Ablehnen direkt aus der Benachrichtigung</strong> — ohne App zu öffnen.
+            Empfängt Intents von Notification-Action-Buttons und von RideAlertActivity.
+            HTTP-Call an Cloud-Function <code>rideAction</code> → Status in Firebase setzen.
+            Öffnet danach DriverDashboardActivity mit <code>openedFromAccept=true</code>.
+          </td>
+        </tr>
+        <tr>
+          <td class="comp-name">PhoneStateReceiver</td>
+          <td class="comp-type">Broadcast<br>Receiver</td>
+          <td class="comp-desc">
+            <span class="badge badge-system">System</span>
+            <strong>Anruf-Status überwachen.</strong> Empfängt <code>PHONE_STATE</code>-Broadcasts
+            vom Android-System. OFFHOOK (Gespräch beginnt) → CallRecorderService starten.
+            IDLE (Gespräch endet) → Service stoppen.
+          </td>
+        </tr>
+      </table>
+    </div>
+  </div>
+
+  <!-- PAGE BREAK -->
+  <div class="page-break"></div>
+
+  <!-- ============================================================ -->
+  <!-- SECTION 4: CAPACITOR PLUGINS -->
+  <!-- ============================================================ -->
+  <div class="section cat-plugin">
+    <div class="section-title">🔌 Capacitor-Plugins — JavaScript ↔ Native Brücke</div>
+    <div class="section-body">
+      <table class="comp-table">
+        <tr>
+          <td class="comp-name">AppUpdatePlugin</td>
+          <td class="comp-type">@CapacitorPlugin</td>
+          <td class="comp-desc">
+            <span class="badge badge-system">System</span>
+            <strong>APK-Update-Prüfung.</strong> Ruft <code>umwelt-taxi-insel-usedom.de/app/latest.json</code>
+            auf Strato ab. Vergleicht <code>versionName</code> mit installierter Version.
+            Zeigt Update-Banner in der WebApp wenn neue Version verfügbar.
+            Öffnet APK-Download-Link im Browser (nicht im In-App-Browser).
+            <div class="comp-links">JS-Aufruf: <code>AppUpdate.checkForUpdate()</code></div>
+          </td>
+        </tr>
+        <tr>
+          <td class="comp-name">ShiftForeground<br>Plugin</td>
+          <td class="comp-type">@CapacitorPlugin</td>
+          <td class="comp-desc">
+            <span class="badge badge-fahrer">Fahrer</span>
+            <strong>GPS-Service aus JavaScript steuern.</strong> Ermöglicht index.html den nativen
+            ShiftForegroundService zu starten/stoppen. Gibt GPS-Koordinaten und Schicht-Status zurück.
+            <div class="comp-links">JS-Aufruf: <code>ShiftForeground.startShift({vehicleId})</code></div>
+          </td>
+        </tr>
+        <tr>
+          <td class="comp-name">FCMPlugin</td>
+          <td class="comp-type">@CapacitorPlugin</td>
+          <td class="comp-desc">
+            <span class="badge badge-fahrer">Fahrer</span>
+            <strong>Push-Token an Firebase übermitteln.</strong> Gibt den aktuellen FCM-Token
+            an die WebApp weiter damit er in <code>/users/{uid}/fcmToken</code> gespeichert werden kann.
+            <div class="comp-links">JS-Aufruf: <code>FCM.getToken()</code></div>
+          </td>
+        </tr>
+        <tr>
+          <td class="comp-name">SmsSenderPlugin</td>
+          <td class="comp-type">@CapacitorPlugin</td>
+          <td class="comp-desc">
+            <span class="badge badge-admin">Admin</span>
+            <strong>SMS direkt aus JavaScript senden.</strong> Umgeht Web-SMS-Beschränkungen.
+            Nutzt Android SmsManager für programmgesteuerten SMS-Versand
+            (Buchungsbestätigungen, Status-Updates an Kunden).
+            <div class="comp-links">JS-Aufruf: <code>SmsSender.send({number, message})</code></div>
+          </td>
+        </tr>
+        <tr>
+          <td class="comp-name">BatteryOptimization<br>Plugin</td>
+          <td class="comp-type">@CapacitorPlugin</td>
+          <td class="comp-desc">
+            <span class="badge badge-fahrer">Fahrer</span>
+            <strong>Akku-Optimierung deaktivieren.</strong> Öffnet Android-Systemeinstellungen damit
+            Fahrer die App von Akku-Optimierung ausnehmen kann. Wichtig damit ShiftForegroundService
+            nachts nicht vom System abgewürgt wird.
+            <div class="comp-links">JS-Aufruf: <code>BatteryOptimization.requestIgnore()</code></div>
+          </td>
+        </tr>
+        <tr>
+          <td class="comp-name">CrashlyticsPlugin</td>
+          <td class="comp-type">@CapacitorPlugin</td>
+          <td class="comp-desc">
+            <span class="badge badge-system">System</span>
+            <strong>Firebase Crashlytics aus JavaScript.</strong> Ermöglicht der WebApp
+            Fehler-Logs und Custom-Events an Firebase Crashlytics zu senden.
+            Ergänzt native Crash-Reports um JavaScript-Fehler.
+            <div class="comp-links">JS-Aufruf: <code>Crashlytics.recordException({message})</code></div>
+          </td>
+        </tr>
+      </table>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- SECTION 5: EXTERNE DIENSTE -->
+  <!-- ============================================================ -->
+  <div class="section cat-external">
+    <div class="section-title">☁️ Externe Dienste — Abhängigkeiten</div>
+    <div class="section-body">
+      <table class="comp-table">
+        <tr>
+          <td class="comp-name">Firebase Realtime<br>Database</td>
+          <td class="comp-type">Google Firebase</td>
+          <td class="comp-desc">
+            <strong>Zentraler Datenspeicher.</strong> Echtzeit-Synchronisation aller Fahrten,
+            Fahrzeug-GPS, Benutzer, CRM-Kunden, Einstellungen. Wird von Native-App direkt
+            (ohne Umweg über WebApp) gelesen und geschrieben.
+            <div class="comp-links">Pfade: /rides · /vehicles · /users · /customers · /anfragen · /vehicleShifts</div>
+          </td>
+        </tr>
+        <tr>
+          <td class="comp-name">Firebase Auth</td>
+          <td class="comp-type">Google Firebase</td>
+          <td class="comp-desc">
+            <strong>Authentifizierung.</strong> Email+Passwort und Google Sign-In.
+            JWT-Token wird für alle Firebase-Zugriffe verwendet.
+            Rolle (driver/admin) wird nach Login aus RTDB gelesen.
+          </td>
+        </tr>
+        <tr>
+          <td class="comp-name">Firebase Cloud<br>Messaging (FCM)</td>
+          <td class="comp-type">Google Firebase</td>
+          <td class="comp-desc">
+            <strong>Push-Notifications.</strong> Cloud Functions senden FCM-Nachrichten bei
+            neuen Fahrten, Status-Updates, Admin-Meldungen. Funktioniert auch bei
+            geschlossener App / gesperrtem Bildschirm.
+          </td>
+        </tr>
+        <tr>
+          <td class="comp-name">Firebase Crashlytics</td>
+          <td class="comp-type">Google Firebase</td>
+          <td class="comp-desc">
+            <strong>Crash-Diagnose.</strong> Automatische Crash-Reports bei nativen Abstürzen.
+            Stacktrace, Gerät, Android-Version werden in Firebase Console angezeigt.
+            Ergänzt durch JS-Fehler via CrashlyticsPlugin.
+          </td>
+        </tr>
+        <tr>
+          <td class="comp-name">Google Places API</td>
+          <td class="comp-type">Google Maps Platform</td>
+          <td class="comp-desc">
+            <strong>Adress-Autocomplete.</strong> Places SDK 4.4.1 (Places API New) für
+            Autocomplete-Felder in Vorbestellungs- und CRM-Adress-Eingaben.
+            Legacy Places API wurde Anfang 2025 abgeschaltet.
+          </td>
+        </tr>
+        <tr>
+          <td class="comp-name">Firebase Cloud<br>Functions</td>
+          <td class="comp-type">Google Firebase</td>
+          <td class="comp-desc">
+            <strong>Server-Logik.</strong> <code>rideAction</code>-Endpoint für Annehmen/Ablehnen,
+            Heartbeat-Empfang mit GPS-Update, Telegram-Webhook, Auto-Zuweisung, Konflikt-Auflösung.
+            Native App kommuniziert direkt per HTTPS mit den Functions.
+          </td>
+        </tr>
+        <tr>
+          <td class="comp-name">Strato-Server</td>
+          <td class="comp-type">umwelt-taxi-<br>insel-usedom.de</td>
+          <td class="comp-desc">
+            <strong>APK-Hosting.</strong> Aktuellste APK liegt unter <code>/app/taxi-app-latest.apk</code>,
+            Versions-Info unter <code>/app/latest.json</code>. GitHub Actions deployen bei jedem
+            Merge automatisch. AppUpdatePlugin prüft diese URL.
+          </td>
+        </tr>
+      </table>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- DATENFLUSS-DIAGRAMM -->
+  <!-- ============================================================ -->
+  <div class="section">
+    <div class="section-title" style="background:#37474F;border-radius:4px;padding:5px 10px;color:#fff;font-size:11pt;font-weight:700;margin-bottom:10px;">
+      🔄 Datenfluss — Neue Fahrt von Anfrage bis GPS-Tracking
+    </div>
+
+    <table class="flow-table">
+      <tr>
+        <th style="width:28%">Schritt</th>
+        <th style="width:12%" class="arrow-col">Wohin</th>
+        <th>Was passiert</th>
+      </tr>
+      <tr>
+        <td><strong>1. Kunde bucht</strong><br><em>Telegram / Web / WhatsApp</em></td>
+        <td class="arrow-col">→ Firebase</td>
+        <td>Cloud Function legt neue Anfrage in <code>/anfragen/{id}</code> an. System-Check wird aktualisiert.</td>
+      </tr>
+      <tr>
+        <td><strong>2. Admin sieht Anfrage</strong><br><em>AdminDashboardActivity</em></td>
+        <td class="arrow-col">← Firebase</td>
+        <td>Firebase-Listener empfängt neue Anfrage, RecyclerView zeigt sie mit Kundendaten und gewünschter Uhrzeit.</td>
+      </tr>
+      <tr>
+        <td><strong>3. Übernehmen</strong><br><em>AdminDashboardActivity</em></td>
+        <td class="arrow-col">→ Firebase</td>
+        <td>Cloud Function erstellt Ride in <code>/rides/{id}</code>, löscht Anfrage. Danach öffnet sich Fahrt-Bearbeiten-Dialog automatisch.</td>
+      </tr>
+      <tr>
+        <td><strong>4. Email-Bestätigung</strong><br><em>EmailPreviewActivity</em></td>
+        <td class="arrow-col">→ Email-App</td>
+        <td>EmailPreviewActivity öffnet sich mit allen Fahrt-Daten. Patrick prüft, tippt SENDEN → Android-Email-App-Chooser öffnet sich.</td>
+      </tr>
+      <tr>
+        <td><strong>5. Auto-Zuweisung</strong><br><em>Cloud Function (alle 10 Min)</em></td>
+        <td class="arrow-col">→ Firebase</td>
+        <td>scheduledAutoAssign wählt passendes Fahrzeug laut Schichtplan. Schreibt <code>assignedVehicle</code> in Ride.</td>
+      </tr>
+      <tr>
+        <td><strong>6. FCM-Push an Fahrer</strong><br><em>TaxiFCMService</em></td>
+        <td class="arrow-col">← FCM</td>
+        <td>TaxiFCMService empfängt Push-Nachricht. Startet RideAlertActivity über Sperrbildschirm + AlertSoundService (Alarm-Ton).</td>
+      </tr>
+      <tr>
+        <td><strong>7. Fahrer nimmt an</strong><br><em>RideAlertActivity / RideActionReceiver</em></td>
+        <td class="arrow-col">→ Cloud Fn</td>
+        <td>Broadcast an RideActionReceiver → HTTPS-Call an <code>rideAction</code>-Function → Status = "accepted" in Firebase.</td>
+      </tr>
+      <tr>
+        <td><strong>8. GPS-Tracking läuft</strong><br><em>ShiftForegroundService</em></td>
+        <td class="arrow-col">→ Firebase</td>
+        <td>Bei Status "accepted" wechselt Heartbeat auf 15s. GPS-Position alle 15s via Cloud Function → <code>/vehicles/{id}</code>. Admin sieht Fahrer live auf der Karte.</td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- BUILD & DEPLOY -->
+  <!-- ============================================================ -->
+  <div class="section">
+    <div class="section-title" style="background:#4A148C;border-radius:4px;padding:5px 10px;color:#fff;font-size:11pt;font-weight:700;margin-bottom:10px;">
+      🚀 Build &amp; Deployment
+    </div>
+    <table class="flow-table">
+      <tr>
+        <th>Was</th>
+        <th>Trigger</th>
+        <th>Ergebnis</th>
+      </tr>
+      <tr>
+        <td><strong>APK-Build</strong></td>
+        <td>Push auf <code>main</code> (wenn <code>android/**</code> geändert)</td>
+        <td>GitHub Actions → signierte Release-APK → automatisch auf Strato hochgeladen. Fahrer-App zeigt Update-Banner beim nächsten Öffnen.</td>
+      </tr>
+      <tr>
+        <td><strong>Version hochzählen</strong></td>
+        <td>Pflicht bei jeder Android-Änderung</td>
+        <td><code>android/app/build.gradle</code>: versionCode + versionName erhöhen. Format: <code>Major×1.000.000 + Minor×1.000 + Patch</code></td>
+      </tr>
+      <tr>
+        <td><strong>Signing</strong></td>
+        <td>GitHub Actions Secrets</td>
+        <td>ANDROID_KEYSTORE_PATH, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD — lokal nicht vorhanden.</td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- FUSSNOTE -->
+  <div class="footer">
+    Funk Taxi Heringsdorf · de.taxiheringsdorf.app · Erstellt 29.06.2026 · Claude Sonnet 4.6 · Intern — nicht zur Weitergabe bestimmt
+  </div>
+
+  <!-- DRUCK-BUTTON (nur im Browser) -->
+  <div class="no-print" style="text-align:center;margin-top:20px;padding:10px;">
+    <button onclick="window.print()" style="background:#1565C0;color:#fff;border:none;padding:10px 30px;font-size:12pt;border-radius:6px;cursor:pointer;">
+      🖨️ Als PDF drucken / speichern
+    </button>
+    <p style="margin-top:8px;font-size:9pt;color:#888;">Im Browser-Druckdialog: Ziel = "Als PDF speichern", Papier = A4, Ränder = Minimum</p>
+  </div>
+
+</div>
+</body>
+</html>

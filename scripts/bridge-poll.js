@@ -21,10 +21,13 @@ const POLL_INTERVAL_MS = 60000;
 const RTDB_HOST = 'taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.app';
 const seenKeys = new Set();
 
-// Token-Cache: gcloud-Tokens halten ~60 Min. Wir refreshen alle 50 Min.
+// Token-Cache: gcloud-Tokens halten ~60 Min laut Google-Doku, aber in der
+// Praxis wurden sie 10.07.2026 mehrfach bereits nach ~10-15 Min invalid (HTTP 401
+// vom RTDB). TTL auf 5 Min reduziert — gcloud-CLI cached selbst intern, also
+// ist der Overhead beim Refresh minimal.
 let cachedToken = null;
 let tokenFetchedAt = 0;
-const TOKEN_TTL_MS = 50 * 60 * 1000;
+const TOKEN_TTL_MS = 5 * 60 * 1000;
 
 function getToken() {
     if (cachedToken && (Date.now() - tokenFetchedAt) < TOKEN_TTL_MS) return cachedToken;

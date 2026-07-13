@@ -1,0 +1,21 @@
+━━━ RECHNUNG A-ROSA STRANDIDYLL ━━━
+✅ Firebase zeigt bereits 10 € — deine Änderung hat also FUNKTIONIERT.
+📄 Problem: Das PDF wurde nicht neu generiert → es zeigt noch den alten Betrag.
+→ Web-Admin öffnen → Rechnungen → 20-26-1292 → PDF neu generieren.
+
+━━━ ANRUFLISTE: KASTEN ZU HELL ━━━
+✅ Fix in v6.63.607 — APK baut gerade (~5 Min).
+Früher: gelb-weiß → Warteschlangen-Anruf = unsichtbarer Text.
+Jetzt: dunkelbraun-amber → weißer Text klar lesbar.
+
+━━━ FEHLENDE ANRUFE ━━━
+Schaue mir das an — könnte sein dass Anrufe im Wartezeichen (2. Anruf kommt während 1. aktiv) nicht immer vom PhoneStateReceiver erfasst werden.
+
+━━━ WIE VIELE FAHRZEUGE? ━━━
+1 Fahrzeug = ~4 kurze Stadtfahrten/h (Heringsdorf/Ahlbeck/Bansin).
+3 Fahrzeuge = normaler Tag entspannt.
+Flieger + Zug = Lastspitzen → braucht man 2-3 gleichzeitig.
+
+Kaiserhof-Kalender Einbindung ist technisch machbar — iCal-URL reinhängen wie bei den anderen Hotel-Kalendern. Dann sieht man Hotel-Checkout + Bahnhof + Flieger in einer gemeinsamen Übersicht.
+
+Ich schaue mir den heutigen Tagesplan an und melde mich.

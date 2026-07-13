@@ -1,0 +1,21 @@
+{
+  "customerName": "Nayef",
+  "customerId": "-OurC66Inveu3O_v551z",
+  "customerPhone": "+4917622915995",
+  "customerMobile": "+4917622915995",
+  "pickup": "Dünenweg 16, 17424 Heringsdorf",
+  "pickupLat": 53.9601293,
+  "pickupLon": 14.1542893,
+  "destination": "Sparkasse Ahlbeck, Seestraße 17, 17419 Ahlbeck",
+  "destinationLat": 53.9424196,
+  "destinationLon": 14.1879226,
+  "pickupTimestamp": 1782285300000,
+  "pickupTime": "09:15",
+  "status": "vorbestellt",
+  "passengers": 1,
+  "paymentMethod": "bar",
+  "notes": "Buchung via Bridge 24.06. 09:00 — CRM-Match per 0176-Nummer.",
+  "createdAt": 1782284850000,
+  "createdBy": "claude-bridge-nayef-duenenweg",
+  "source": "bridge-quickbooking"
+}

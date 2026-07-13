@@ -1,0 +1,7 @@
+{
+  "text": "Hallo! Hallo! Patrick, kann ich morgen um 7.30 Uhr ein Taxi von zu Hause zum Bierkutscher bestellen? 7.30 Uhr wird nix, 7.10 Uhr, 7.15 Uhr kann ich dir anbieten. Ja, nehm ich 7.15 Uhr. Alles klar, prima. Okay, danke, bis morgen, tschüss! Tschüss!",
+  "usage": {
+    "type": "duration",
+    "seconds": 25
+  }
+}

@@ -1,0 +1,14 @@
+✅ Stripe-Link-Fix für WhatsApp gemerged (v6.63.690, PR #2602)
+
+Genau der Aschmoneit-Fall: WA-Bestellung → Bestätigung ging bisher OHNE Stripe-Link raus, weil der Link nur im Email-Zweig codiert war.
+
+Jetzt: Stripe-Checkout wird VOR der Kanal-Verzweigung erzeugt, dann hängen alle 3 Kanäle (Email / WhatsApp / SMS) einen Bezahl-Link an:
+
+💳 Sicher online zahlen: https://checkout.stripe.com/…
+
+Deploy läuft (~2 Min). Nächste WA-Anfrage bekommt Link mit.
+
+Zu deinen anderen Nachrichten:
+1) "kein Bock zu laufen" — welchen Banner meinst du genau? "Sofort-Fahrt 5 Min" bzw. "wenn das Taxi frei ist" ist mir gerade nicht klar, wo der drauf sein soll (keinbockzulaufen.de? buchen.html? Fahrer-App?). Kannst du mir das kurz zeigen (Screenshot) oder die URL nennen?
+
+2) "wann ist das Limit wieder erledigt" — welches Limit meinst du? (Finnhub-Options-Scanner / IBKR / DATEV-Mail-Send / …)

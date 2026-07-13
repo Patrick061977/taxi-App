@@ -1,0 +1,28 @@
+{
+  "positions": [
+    { "id": 1, "description": "Krankenfahrt 16.03.2026 08:00 Hinfahrt: Lyonel-Feininger-Str. 11, 17429 Benz → Dr. Weiß, Schulstraße 1, 17419 Ahlbeck", "amount": 32, "quantity": 1, "unit": "Fahrt", "vatRate": 7, "discount": 0, "note": "" },
+    { "id": 2, "description": "Krankenfahrt 16.03.2026 10:00 Rückfahrt: Dr. Weiß, Schulstraße 1, 17419 Ahlbeck → Lyonel-Feininger-Str. 11, 17429 Benz", "amount": 32, "quantity": 1, "unit": "Fahrt", "vatRate": 7, "discount": 0, "note": "" },
+    { "id": 3, "description": "Krankenfahrt 19.03.2026 Hinfahrt: Lyonel-Feininger-Str. 11, 17429 Benz → Krankenhaus Demmin, Am Krankenhaus, 17109 Demmin", "amount": 187, "quantity": 1, "unit": "Fahrt", "vatRate": 19, "discount": 0, "note": "" },
+    { "id": 4, "description": "Wartezeit 19.03.2026 am Krankenhaus Demmin (3 Std. × 40 €/h)", "amount": 40, "quantity": 3, "unit": "h", "vatRate": 19, "discount": 0, "note": "" },
+    { "id": 5, "description": "Krankenfahrt 19.03.2026 Rückfahrt: Krankenhaus Demmin → Lyonel-Feininger-Str. 11, 17429 Benz", "amount": 187, "quantity": 1, "unit": "Fahrt", "vatRate": 19, "discount": 0, "note": "" },
+    { "id": 6, "description": "Krankenfahrt 02.04.2026 Hinfahrt: Lyonel-Feininger-Str. 11, 17429 Benz → Krankenhaus Demmin, Am Krankenhaus, 17109 Demmin", "amount": 187, "quantity": 1, "unit": "Fahrt", "vatRate": 19, "discount": 0, "note": "" },
+    { "id": 7, "description": "Wartezeit 02.04.2026 am Krankenhaus Demmin (3 Std. × 40 €/h)", "amount": 40, "quantity": 3, "unit": "h", "vatRate": 19, "discount": 0, "note": "" },
+    { "id": 8, "description": "Krankenfahrt 02.04.2026 Rückfahrt: Krankenhaus Demmin → Lyonel-Feininger-Str. 11, 17429 Benz", "amount": 187, "quantity": 1, "unit": "Fahrt", "vatRate": 19, "discount": 0, "note": "" },
+    { "id": 9, "description": "Krankenfahrt 08.04.2026 09:00 Hin: Lyonel-Feininger-Str. 11, 17429 Benz → Physiotherapie Schwandt, Dorf Bansin 46, 17429 Bansin", "amount": 23, "quantity": 1, "unit": "Fahrt", "vatRate": 7, "discount": 0, "note": "" },
+    { "id": 10, "description": "Krankenfahrt 08.04.2026 10:15 Rück: Physiotherapie Schwandt, Dorf Bansin 46 → Lyonel-Feininger-Str. 11, 17429 Benz", "amount": 23, "quantity": 1, "unit": "Fahrt", "vatRate": 7, "discount": 0, "note": "" },
+    { "id": 11, "description": "Krankenfahrt 14.04.2026 11:00 Hin: Lyonel-Feininger-Str. 11, 17429 Benz → Physiotherapie Schwandt, Dorf Bansin 46, 17429 Bansin", "amount": 23, "quantity": 1, "unit": "Fahrt", "vatRate": 7, "discount": 0, "note": "" },
+    { "id": 12, "description": "Krankenfahrt 14.04.2026 ca. 12:00 Rück: Physiotherapie Schwandt, Dorf Bansin 46 → Lyonel-Feininger-Str. 11, 17429 Benz", "amount": 23, "quantity": 1, "unit": "Fahrt", "vatRate": 7, "discount": 0, "note": "Uhrzeit der Rueckfahrt nicht im System — geschätzt ca. 12:00" },
+    { "id": 13, "description": "Krankenfahrt 16.04.2026 10:00 Hin: Lyonel-Feininger-Str. 11, 17429 Benz → Physiotherapie Schwandt, Dorf Bansin 46, 17429 Bansin", "amount": 23, "quantity": 1, "unit": "Fahrt", "vatRate": 7, "discount": 0, "note": "" },
+    { "id": 14, "description": "Krankenfahrt 16.04.2026 12:22 Rück: Physiotherapie Schwandt, Dorf Bansin 46 → Lyonel-Feininger-Str. 11, 17429 Benz", "amount": 23, "quantity": 1, "unit": "Fahrt", "vatRate": 7, "discount": 0, "note": "" },
+    { "id": 15, "description": "Krankenfahrt 17.04.2026 10:00 Hin: Lyonel-Feininger-Str. 11, 17429 Benz → Physiotherapie Schwandt, Dorf Bansin 46, 17429 Bansin", "amount": 23, "quantity": 1, "unit": "Fahrt", "vatRate": 7, "discount": 0, "note": "" },
+    { "id": 16, "description": "Krankenfahrt 17.04.2026 10:55 Rück: Physiotherapie Schwandt, Dorf Bansin 46 → Lyonel-Feininger-Str. 11, 17429 Benz", "amount": 23, "quantity": 1, "unit": "Fahrt", "vatRate": 7, "discount": 0, "note": "" }
+  ],
+  "totalGross": 1236,
+  "totalNet": 1062.0,
+  "totalVat": 174.0,
+  "vatBreakdown": { "19": 157.748, "7": 16.226 },
+  "netBreakdown": { "19": 830.252, "7": 231.774 },
+  "rideDate": "2026-04-19",
+  "updatedAt": 1782297000000,
+  "_lastClaudePatch": "v4-2026-06-24-plus-schulstr-16.03"
+}

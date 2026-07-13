@@ -1,0 +1,21 @@
+{
+  "customerName": "Frau Kunert",
+  "customerId": "-OixBkOZOIrXopY2a1l8",
+  "customerPhone": "+491796115057",
+  "customerMobile": "+491796115057",
+  "pickup": "Stella Maris, Waldbühnenweg 6, 17424 Heringsdorf",
+  "pickupLat": 53.9536,
+  "pickupLon": 14.1715,
+  "destination": "Dr. Krohn, Saarstraße 5, 17419 Ahlbeck",
+  "destinationLat": 53.9445929,
+  "destinationLon": 14.1819468,
+  "pickupTimestamp": 1782372600000,
+  "pickupTime": "09:30",
+  "status": "vorbestellt",
+  "passengers": 2,
+  "paymentMethod": "bar",
+  "notes": "Vorbestellung via ACR-Whisper-Anruf 24.06. 15:27. Termin bei Dr. Krohn.",
+  "createdAt": 1782307900000,
+  "createdBy": "claude-bridge-kunert-25.06",
+  "source": "acr-whisper-incoming"
+}

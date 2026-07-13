@@ -1,0 +1,5 @@
+Verstanden — kein Stripe-Link wurde erstellt weil in der Anfrage kein Festpreis stand.
+
+Ich baue gerade: "💳 Stripe-Link" Button direkt in der Telegram-Fahrtdetail-Ansicht — dann kannst du per Handy einen Preis eingeben und der Link wird sofort per SMS/WA an den Kunden geschickt.
+
+Für Nina jetzt: Was ist der Preis? Schick mir z.B. "Nina 35" und ich erstelle dir den Link direkt hier.

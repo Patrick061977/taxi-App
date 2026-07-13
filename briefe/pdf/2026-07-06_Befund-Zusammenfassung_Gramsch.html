@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>Befund-Zusammenfassung — Patrick Wydra — Dr. Gramsch</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Arial', sans-serif; font-size: 11pt; color: #222; line-height: 1.5; }
+  .page { max-width: 170mm; margin: 0 auto; }
+  h1 { font-size: 16pt; color: #1a3a5c; border-bottom: 2.5px solid #1a3a5c; padding-bottom: 6px; margin-bottom: 8px; }
+  h2 { font-size: 12.5pt; color: #1a3a5c; margin-top: 18px; margin-bottom: 6px; border-left: 4px solid #c0392b; padding-left: 8px; }
+  h3 { font-size: 11pt; color: #333; margin-top: 12px; margin-bottom: 4px; }
+  .meta { color: #555; font-size: 10pt; margin-bottom: 14px; }
+  table { width: 100%; border-collapse: collapse; margin: 8px 0 12px 0; font-size: 10.5pt; }
+  th { background: #1a3a5c; color: #fff; padding: 6px 8px; text-align: left; }
+  td { padding: 5px 8px; border-bottom: 1px solid #ddd; }
+  tr:nth-child(even) td { background: #f5f8fb; }
+  .critical { color: #c0392b; font-weight: bold; }
+  .warn { color: #e67e22; font-weight: bold; }
+  .ok { color: #27ae60; }
+  .badge-critical { display: inline-block; background: #c0392b; color: #fff; border-radius: 3px; padding: 1px 6px; font-size: 9pt; margin-left: 4px; }
+  .badge-warn { display: inline-block; background: #e67e22; color: #fff; border-radius: 3px; padding: 1px 6px; font-size: 9pt; margin-left: 4px; }
+  .badge-ok { display: inline-block; background: #27ae60; color: #fff; border-radius: 3px; padding: 1px 6px; font-size: 9pt; margin-left: 4px; }
+  ul { margin: 6px 0 6px 18px; }
+  li { margin-bottom: 3px; }
+  .box { border: 1px solid #1a3a5c; border-radius: 4px; padding: 10px 14px; margin: 10px 0; background: #f0f5fb; }
+  .box-red { border-color: #c0392b; background: #fff5f5; }
+  .box-green { border-color: #27ae60; background: #f0fbf0; }
+  .section-divider { border: none; border-top: 1.5px solid #ddd; margin: 16px 0; }
+  .footer { margin-top: 24px; font-size: 9pt; color: #888; border-top: 1px solid #ddd; padding-top: 8px; }
+  .tagesplan-grid { display: grid; grid-template-columns: 90px 1fr; gap: 4px 12px; margin: 8px 0; }
+  .tagesplan-grid .zeit { font-weight: bold; color: #1a3a5c; padding-top: 2px; }
+  .supp-table td:first-child { font-weight: bold; width: 30%; }
+  .supp-table td:nth-child(2) { width: 35%; }
+  .questions ol { margin-left: 16px; }
+  .questions li { margin-bottom: 6px; }
+  .disclaimer { background: #fffbe6; border: 1px solid #f0c040; border-radius: 4px; padding: 8px 12px; font-size: 9.5pt; margin-top: 14px; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <h1>Befund-Zusammenfassung</h1>
+  <div class="meta">
+    Patient: <strong>Patrick Wydra</strong> &nbsp;|&nbsp;
+    Behandelnde Ärztin: <strong>Dr. Gramsch</strong> &nbsp;|&nbsp;
+    Befunde: IMD-Labor Juni 2026 + BioScan Mai 2026<br>
+    Erstellt: 06.07.2026
+  </div>
+
+  <!-- KRITISCHE WERTE -->
+  <h2>1. Kritische Laborwerte im Überblick</h2>
+  <table>
+    <tr>
+      <th>Parameter</th>
+      <th>Ihr Wert</th>
+      <th>Referenz</th>
+      <th>Bewertung</th>
+    </tr>
+    <tr>
+      <td>Vitamin D (25-OH)</td>
+      <td class="critical">9,1 ng/ml</td>
+      <td>30–100 ng/ml</td>
+      <td><span class="badge-critical">SCHWERER MANGEL</span></td>
+    </tr>
+    <tr>
+      <td>Homocystein</td>
+      <td class="warn">13,9 µmol/l</td>
+      <td>&lt; 10 µmol/l</td>
+      <td><span class="badge-warn">ERHÖHT</span></td>
+    </tr>
+    <tr>
+      <td>Selen</td>
+      <td class="warn">79,0 µg/l</td>
+      <td>85–200 µg/l</td>
+      <td><span class="badge-warn">ERNIEDRIGT</span></td>
+    </tr>
+    <tr>
+      <td>Zink</td>
+      <td class="warn">4,3 mg/l</td>
+      <td>5,0–15,0 mg/l</td>
+      <td><span class="badge-warn">ERNIEDRIGT</span></td>
+    </tr>
+    <tr>
+      <td>Candida (Darm)</td>
+      <td class="warn">erhöht</td>
+      <td>negativ</td>
+      <td><span class="badge-warn">ERHÖHT</span></td>
+    </tr>
+    <tr>
+      <td>Dysbiose-Index</td>
+      <td class="warn">&gt; 2</td>
+      <td>&lt; 1</td>
+      <td><span class="badge-warn">GESTÖRT</span></td>
+    </tr>
+  </table>
+
+  <div class="box box-red">
+    <strong>⚠ Wichtigster Befund:</strong> Vitamin D 9,1 ng/ml ist medizinisch als <em>schwerer Mangel</em> einzustufen
+    (Normalwert mind. 30 ng/ml). Dies beeinträchtigt Immunsystem, Stimmung, Muskelkraft und Knochendichte erheblich.
+    Eine sofortige hochdosierte Substitution ist in der Regel notwendig.
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- THERAPIEPLÄNE ZUSAMMENFASSUNG -->
+  <h2>2. Therapiepläne Dr. Gramsch (20.05. + 09.06.2026)</h2>
+
+  <h3>Therapieplan 1 (20.05.2026)</h3>
+  <ul>
+    <li>Antifungale Therapie gegen Candida (Dauer lt. Plan)</li>
+    <li>Darm-Aufbau-Protokoll: Probiotika + Präbiotika</li>
+    <li>Supplementierung Spurenelemente (Selen, Zink)</li>
+    <li>Ernährungsumstellung: zuckerreduziert, weißmehlarm</li>
+  </ul>
+
+  <h3>Therapieplan 2 (09.06.2026)</h3>
+  <ul>
+    <li>Anpassung der Supplementierung nach Kontroll-Labor</li>
+    <li>Vitamin D Hochdosis-Einleitung (genaue Dosis mit Arzt abstimmen)</li>
+    <li>B-Komplex (B6, B12, Folsäure) zur Homocystein-Senkung</li>
+    <li>Fortsetzung Darm-Sanierung mindestens 6–8 Wochen</li>
+    <li>Kokosnussöl täglich als natürliches Antimykotikum</li>
+  </ul>
+
+  <hr class="section-divider">
+
+  <!-- FRAGEN FÜR DR. GRAMSCH -->
+  <h2>3. Fragen für den nächsten Termin</h2>
+  <div class="questions">
+    <ol>
+      <li><strong>Vitamin D:</strong> Welche genaue Tagesdosis IE empfehlen Sie bei 9,1 ng/ml? Kombiniert mit K2 (MK-7)?</li>
+      <li><strong>Homocystein 13,9:</strong> Brauche ich einen B6+B12+Folsäure-Komplex? Welche Dosierung und wie lange?</li>
+      <li><strong>Selen:</strong> Selenomethionin oder Natriumselenit? Wie viel mcg täglich, wie lange?</li>
+      <li><strong>Zink:</strong> Welche Form (Bisglycinat?), wie viele mg täglich, Einnahmedauer?</li>
+      <li><strong>Candida + Dysbiose:</strong> Antifungale Diät für wie lange? Welche Probiotika-Stämme (Lactobacillus, Bifidobacterium) + KBE empfehlen Sie?</li>
+      <li><strong>Wechselwirkungen:</strong> Welche Supplements darf ich NICHT gleichzeitig einnehmen?</li>
+      <li><strong>Kontroll-Labor:</strong> Wann soll Vitamin D neu gemessen werden? Welche Werte dann?</li>
+      <li><strong>Priorität:</strong> Wenn ich nicht alles auf einmal anfangen kann — was ist die wichtigste erste Maßnahme?</li>
+    </ol>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- ERNÄHRUNGSPLAN -->
+  <h2>4. Ernährungsempfehlungen (bei Candida + Dysbiose)</h2>
+
+  <h3>4a. Gemüse: roh vs. gegart</h3>
+  <table>
+    <tr>
+      <th>Roh essen (Enzyme + Vit C)</th>
+      <th>Dünsten/Blanchieren (besser bei Dysbiose)</th>
+    </tr>
+    <tr>
+      <td>Gurke, Tomate, Paprika, Karotte, Radieschen, Feldsalat</td>
+      <td>Brokkoli, Blumenkohl, Zucchini, Spinat, Mangold</td>
+    </tr>
+    <tr>
+      <td>150–200 g pro Mahlzeit</td>
+      <td>200–300 g pro Mahlzeit (Volumen schrumpft beim Garen)</td>
+    </tr>
+  </table>
+  <p style="margin-top:6px;"><strong>Empfehlung:</strong> Täglich beides — eine Mahlzeit roh, eine Mahlzeit gegart.</p>
+
+  <h3 style="margin-top:12px;">4b. Was meiden (mindestens 6–8 Wochen bei Candida)</h3>
+  <ul>
+    <li>Zucker, Süßigkeiten, Honig, Agavensirup</li>
+    <li>Weißmehl, Weißbrot, normale Nudeln, Croissants</li>
+    <li>Fruchtsäfte, Softdrinks, Alkohol</li>
+    <li>Obst: nur kleine Mengen erlaubt (Handvoll Beeren/Tag)</li>
+    <li>Pilze (Champignons in kleinen Mengen okay, andere meiden)</li>
+  </ul>
+
+  <h3 style="margin-top:12px;">4c. Günstige Lebensmittel</h3>
+  <ul>
+    <li><strong>Proteine:</strong> Hühnchen, Pute, Lachs (2–3x/Woche), Eier (täglich okay)</li>
+    <li><strong>Öle:</strong> Olivenöl (kalt 3 EL/Tag), Kokosnussöl zum Braten (antifungal)</li>
+    <li><strong>Antifungal-Gewürze:</strong> Knoblauch (1–2 Zehen täglich), Oregano, Ingwer</li>
+    <li><strong>Präbiotika:</strong> Zwiebeln, Lauch, Topinambur, grüner Spargel (nähren gute Darmbakterien)</li>
+    <li><strong>Komplexe Kohlenhydrate:</strong> Quinoa, Süßkartoffel, Hülsenfrüchte (kleine Portionen)</li>
+    <li><strong>Nüsse:</strong> Walnüsse (10–12 Stück/Tag) — gut für Homocystein und Omega-3</li>
+  </ul>
+
+  <h3 style="margin-top:12px;">4d. Beispiel-Tagesplan</h3>
+  <div class="tagesplan-grid">
+    <div class="zeit">7–8 Uhr</div>
+    <div>3 Eier (Rührei) in Kokosnussöl · 100 g Champignons · 1–2 Scheiben Dinkelknäckebrot · Grüntee oder Wasser</div>
+
+    <div class="zeit">12–13 Uhr</div>
+    <div>150 g Hühnchenbrust oder Lachs (gegrillt/gedünstet) · 250 g gedünstetes Gemüse (Brokkoli + Zucchini) · 100 g Quinoa oder Süßkartoffel · 2 EL Olivenöl · 1 Knoblauchzehe</div>
+
+    <div class="zeit">15–16 Uhr</div>
+    <div>10–12 Walnüsse · Handvoll Heidelbeeren oder Erdbeeren</div>
+
+    <div class="zeit">18–19 Uhr</div>
+    <div>Großer Rohkost-Salat (200 g): Gurke, Paprika, Karotte, Tomate · 120 g Pute oder Thunfisch · Dressing: Olivenöl + Zitrone + Salz + Knoblauch</div>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- SUPPLEMENTS -->
+  <h2>5. Supplement-Schema (nach Arzt-Rücksprache dosieren!)</h2>
+  <table class="supp-table">
+    <tr>
+      <th>Supplement</th>
+      <th>Zeitpunkt</th>
+      <th>Hinweis</th>
+    </tr>
+    <tr>
+      <td>Vitamin D3 + K2 (MK-7)</td>
+      <td>Morgens zum Frühstück</td>
+      <td>Fettlöslich — immer mit Essen! K2 verhindert Kalk-Ablagerung</td>
+    </tr>
+    <tr>
+      <td>B-Komplex (B6+B12+Folsäure)</td>
+      <td>Abends</td>
+      <td>Senkt Homocystein · B12 als Methylcobalamin bevorzugt</td>
+    </tr>
+    <tr>
+      <td>Zink (Bisglycinat)</td>
+      <td>Mittags mit Essen</td>
+      <td>NICHT gleichzeitig mit Calcium oder Eisen nehmen</td>
+    </tr>
+    <tr>
+      <td>Selen (Selenomethionin)</td>
+      <td>Morgens nüchtern oder zum Frühstück</td>
+      <td>Organische Form (Selenomethionin) besser resorbierbar</td>
+    </tr>
+    <tr>
+      <td>Probiotika (Darm)</td>
+      <td>Morgens nüchtern oder 30 Min vor dem Essen</td>
+      <td>Stämme: Lactobacillus acidophilus + Bifidobacterium longum · mind. 10 Mrd. KBE</td>
+    </tr>
+  </table>
+
+  <div class="disclaimer">
+    ⚠ <strong>Wichtig:</strong> Genaue Dosierungen bitte ausschließlich mit Dr. Gramsch absprechen.
+    Diese Zusammenfassung basiert auf den vorliegenden Laborbefunden (IMD-Labor Juni 2026 + BioScan Mai 2026)
+    und dient als Gesprächsgrundlage für den nächsten Arzttermin — kein Ersatz für medizinische Beratung.
+  </div>
+
+  <div class="footer">
+    Erstellt am 06.07.2026 auf Basis der Befunde von Dr. Gramsch (IMD-Laborbefunde + BioScan-Auswertung).
+    Für Rückfragen: Patrick Wydra | Funk Taxi Heringsdorf
+  </div>
+
+</div>
+</body>
+</html>

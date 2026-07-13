@@ -1,0 +1,13 @@
+{
+  "name": "Frau Solzki",
+  "lastName": "Solzki",
+  "anrede": "Frau",
+  "mobilePhone": "+4915111264098",
+  "phone": "",
+  "type": "customer",
+  "customerKind": "gelegenheitskunde",
+  "category": "",
+  "notes": "Erst-Anlage via ACR-Whisper am 24.06.2026 09:16 (Patricks Rueckruf nach Mama-Anruf). Schreibweise des Nachnamens unklar — eventuell 'Rohsolzki' oder 'Solski'. Erste Buchung: 24.06. 21:00 Brauhaus → Haus Friesia Bansin.",
+  "createdAt": 1782287600000,
+  "createdBy": "claude-bridge-acr-solzki-anlage"
+}

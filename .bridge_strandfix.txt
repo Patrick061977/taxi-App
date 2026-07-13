@@ -1,0 +1,10 @@
+━━━ STRANDIDYLL-RECHNUNG (Befund) ━━━
+Firebase-Daten: 10 € ✅ (korrekt seit 12:25)
+Problem: Die native App hat die Daten von 08:47 geladen (als es noch 7 € war) — sie zeigt Altdaten.
+
+Lösung: In der Rechnungen-Liste oben auf 🔄 Aktualisieren tippen → App lädt frisch aus Firebase → zeigt 10 €.
+
+Danach: PDF-Button → PDF wird automatisch neu generiert (weil ich den Flag gesetzt habe).
+
+━━━ WARTEPOOL: 2 FAHRTEN (12:58) ━━━
+Schaue ich mir jetzt an — was sind das für Fahrten?

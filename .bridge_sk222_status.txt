@@ -1,0 +1,11 @@
+Renault SK (PW-SK 222) — Diagnose:
+
+🔴 Schicht-Status: forceEnded (manuell beendet am 28.06.)
+📴 online: false
+🕐 Letzter GPS-Heartbeat: 28.06. — seit 6 Tagen kein Signal
+
+Deshalb taucht er nicht in der Fahrzeugauswahl auf — das System zeigt nur Fahrzeuge mit aktiver Schicht.
+
+Was du tun musst: Im Fahrer-Login → Schicht starten → Renault SK auswählen. Dann ist er wieder verfügbar.
+
+Oder: Soll ich die Schicht direkt in Firebase aktivieren? Dann kannst du sofort einsteigen ohne neu anmelden.

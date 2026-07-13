@@ -1,0 +1,23 @@
+{
+  "customerName": "Frau Seeck",
+  "customerId": "customer_1773049477358",
+  "customerPhone": "+4915252792301",
+  "customerMobile": "+4915252792301",
+  "pickup": "Ostseeresidenz Bansin, Strandpromenade 31, 17429 Bansin",
+  "pickupLat": 53.9714,
+  "pickupLon": 14.1410,
+  "destination": "Bansin Bahnhof, 17429 Bansin",
+  "destinationLat": 53.9638713,
+  "destinationLon": 14.1315516,
+  "pickupTimestamp": 1782367800000,
+  "pickupTime": "08:10",
+  "status": "vorbestellt",
+  "passengers": 2,
+  "paymentMethod": "bar",
+  "price": 12.60,
+  "distance": 1.5,
+  "notes": "Vorbestellung via ACR-Whisper-Anruf 24.06. 14:02. Frau Seeck sagt 'Seeschloss' = Ostseeresidenz Bansin Strandprom 31 (Spitzname). Zug-Anschluss 08:40 Uhr.",
+  "createdAt": 1782305700000,
+  "createdBy": "claude-bridge-seeck-25.06",
+  "source": "acr-whisper-incoming"
+}

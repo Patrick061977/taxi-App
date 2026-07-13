@@ -1,0 +1,3 @@
+{
+  "error" : "Index not defined, add \".indexOn\": \"customerName\", for path \"/rides\", to the rules"
+}

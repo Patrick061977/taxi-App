@@ -1,0 +1,28 @@
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+📋 NOTIZEN ABGEARBEITET
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1️⃣ Kindersitz/Notiz in Dispo anzeigen
+✅ Machbar — Stichwörter aus der Fahrt-Beschreibung (Kindersitz, Babyschale, Rollstuhl) direkt als Badge in der Dispo-Karte zeigen. Soll ich das umsetzen?
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+2️⃣ Pixel Pro Empfehlung
+→ Pixel 9 Pro
+Bestes Mikrofon, beste On-Device-Spracherkennung, ACR-kompatibel, läuft Native-App einwandfrei. Preis-Leistung besser als Pixel 9 Pro XL.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+3️⃣ Prius IK online?
+✅ JA — pw-ik-222 (Kulpa) ist online
+• Schicht gestartet: 06:16 Uhr heute
+• Letzter Heartbeat: 11:40 Uhr (vor wenigen Minuten)
+• GPS: kein Signal gemeldet (App offen, aber kein aktiver Standort)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+4️⃣ Schrader Fahrt 6. Juni nicht gefunden
+🔍 Befund: Schrader ist im CRM vorhanden (+491621867461), aber die Fahrt ist WEDER in /rides noch in /deletedRides.
+→ Wahrscheinliche Ursache: Die Fahrt liegt im /archiveRides Pfad (täglicher Archiv-Cron verschiebt abgeschlossene Fahrten dorthin). Die kunden.html zeigt aber nur /rides — archivierte Fahrten werden dort nicht angezeigt.
+→ Fix nötig: kunden.html muss auch /archiveRides laden für die Fahrthistorie.
+Soll ich das fixen?

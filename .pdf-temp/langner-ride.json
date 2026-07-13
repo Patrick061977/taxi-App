@@ -1,0 +1,21 @@
+{
+  "customerName": "Frau Langner",
+  "customerPhone": "+491721453176",
+  "customerMobile": "+491721453176",
+  "pickup": "Rehabilitationsklinik Seebad Ahlbeck, Kieferngrund 1-10, 17419 Ahlbeck",
+  "pickupLat": 53.9361302,
+  "pickupLon": 14.1990329,
+  "destination": "Seebrücke Heringsdorf, 17424 Heringsdorf",
+  "destinationLat": 53.9575379,
+  "destinationLon": 14.1732811,
+  "pickupTimestamp": 1782624600000,
+  "pickupTime": "07:30",
+  "status": "vorbestellt",
+  "passengers": 1,
+  "paymentMethod": "bar",
+  "notes": "Schiffsabfahrt Seebrücke 08:30 Uhr. Buchung telefonisch via ACR-Whisper am 24.06.2026 08:05 (Anrufer +491721453176).",
+  "createdAt": 1782281900000,
+  "createdBy": "claude-bridge-acr-whisper-langner",
+  "source": "acr-whisper-transkription",
+  "originalCallFile": "+49 172 1453176 (+491721453176) [2026-06-24 08-05-15] [Eingehend].m4a"
+}

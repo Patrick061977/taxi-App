@@ -1,0 +1,29 @@
+{
+  "name": "Rosemarie Porath",
+  "firstName": "Rosemarie",
+  "lastName": "Porath",
+  "anrede": "Frau",
+  "birthDate": "1951-03-04",
+  "address": "Lyonel-Feininger-Str. 11, 17429 Benz",
+  "billingAddresses": [
+    {
+      "id": 1782224000001,
+      "address": "Lyonel-Feininger-Str. 11, 17429 Benz",
+      "isDefault": true,
+      "label": "Wohnanschrift"
+    }
+  ],
+  "defaultPickup": "Lyonel-Feininger-Str. 11, 17429 Benz",
+  "phone": "+493837922615",
+  "mobilePhone": "+4915510335918",
+  "type": "customer",
+  "customerKind": "stammkunde",
+  "category": "privatpatient",
+  "defaultAuftraggeberId": "customer_17822240000ap_solutions",
+  "defaultAuftraggeberName": "AP Solutions GmbH (Allianz)",
+  "aktenzeichen": "2026 01116041",
+  "versicherungsnummer": "AS-9060784264 / AS2026-20176094",
+  "notes": "Versicherte bei Allianz Versicherungs-AG (Kostenübernahme via AP Solutions GmbH, München). Fallnummer 2026 01116041. Mutter von Frau Porath (CRM-ID -OnanntLRAW1j8cIlIse). 2 Kostenübernahmen: AS-9060784264 (11.03.-19.04.2026), AS2026-20176094 (20.04.-17.05.2026). RECHNUNG GEHT IMMER AN AP SOLUTIONS — Rosemarie Porath ist Fahrgast.",
+  "createdAt": 1782224000001,
+  "createdBy": "claude-bridge-23.06-rosemarie-porath-anlage"
+}

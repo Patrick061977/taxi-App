@@ -1,0 +1,7 @@
+{
+  "text": "Ich möchte ein Taxi bestellen vom Osterhotel bis Bahnhof. Wann denn? Jetzt. Nee, geht das nicht. Wann ist möglich? Nee, erst in einer halben Stunde. Also wir haben jetzt drei Bahnhöfe. Also 8 Uhr 20 würde gehen. Bis 8 Uhr 20? Nee, genau. Also da sind wir ausgebucht. Alles klar, danke. Bitte, tschüss.",
+  "usage": {
+    "type": "duration",
+    "seconds": 40
+  }
+}

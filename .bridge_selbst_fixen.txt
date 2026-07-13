@@ -1,0 +1,13 @@
+JA, selber fixen geht — 3 Wege:
+
+1️⃣ NATIVE-CRM (empfehlung):
+Native-App → CRM → Kunde suchen → tippen → Nummer-Feld editieren.
+Bei "verknoteter" Nummer: Slash + Whitespace + Doppel-Nummer entfernen, nur Handy stehen lassen. Speichern.
+
+2️⃣ WEB-CRM:
+funktaxi-heringsdorf.web.app → CRM-Tab → Kunde → Bearbeiten. Gleiche Prozedur.
+
+3️⃣ DIRECT-EDIT im Ride:
+Wenn nur EINE Fahrt betroffen ist (wie Antje gestern): Dispo-Karte lang druecken → "Bearbeiten" → Handynummer korrigieren. Habe ich fuer Antje schon gemacht (Ride 62Cg3ACn).
+
+Fuer 60 Kunden per Hand nervig — dann besser Sweep-Script (sag "SWEEP" und ich bau's). Fuer 1-2 Einzelfaelle: reicht selber fixen.

@@ -1,0 +1,31 @@
+{
+  "customerId": "customer_17821989991allysca",
+  "customerName": "ERGO Versicherung AG, Abt. Unfallschaden",
+  "customerCompany": "c/o ALLYSCA Assistance GmbH",
+  "invoiceLegalName": "ERGO Versicherung AG, Abt. Unfallschaden",
+  "invoiceAddition": "c/o ALLYSCA Assistance GmbH",
+  "address": "Thomas-Dehler-Str. 2, 81737 München",
+  "customerAddress": "Thomas-Dehler-Str. 2, 81737 München",
+  "customerEmail": "care@allysca.de",
+  "customerEmailCc": "Technische.Assistance@allysca.de",
+  "guestName": "Viola Splettstößer, geb. 03.10.1956",
+  "internalNote": "Aktenzeichen: 6334756/26-EMS — Versicherungsnummer: US070214149-0003",
+  "patientName": "Viola Splettstößer",
+  "patientBirthDate": "1956-10-03",
+  "patientCustomerId": "customer_17821989992splett",
+  "aktenzeichen": "6334756/26-EMS",
+  "versicherungsnummer": "US070214149-0003",
+  "displayOptions": {
+    "showAddress": true,
+    "showCustomer": true,
+    "showDateTime": true,
+    "showDistance": false,
+    "showGuest": true,
+    "showRoute": true,
+    "showVat": true,
+    "showWaypoints": false
+  },
+  "_fixedAt": 1782214600000,
+  "_fixedBy": "claude-v6.63.486-manual-fix",
+  "_fixReason": "Rechnung wurde an Patientin Splettstoesser statt an Auftraggeber ALLYSCA ausgestellt — vor v6.63.486-Deploy. Manuell auf ALLYSCA umgeschrieben."
+}

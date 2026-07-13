@@ -1,0 +1,3 @@
+v6.63.611: Build-Fehler gefixt. Fehlte ein import (android.util.Log) in der Rechnungs-Liste.
+
+APK baut jetzt neu — in ca. 3-4 Min fertig.

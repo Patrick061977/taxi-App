@@ -1,0 +1,8 @@
+{
+  "price": 16,
+  "distance": 4.5,
+  "estimatedDistance": 4.5,
+  "estimatedPrice": 16,
+  "_priceManualFix": "Patrick 24.06. 09:26: 16 EUR, nicht 27 — falsche Geocoding-Strecke (8.3km statt 4.5km)",
+  "updatedAt": 1782286400000
+}

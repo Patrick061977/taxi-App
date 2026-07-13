@@ -1,0 +1,11 @@
+v6.63.621 — Stripe-Button direkt in der Telegram-Fahrtansicht (~5 Min bis live)
+
+So geht's ab jetzt auf dem Handy:
+1. Fahrt in Telegram öffnen (wie gehabt)
+2. Button "💳 Stripe-Link erstellen + senden" tippen
+3. Preis eintippen (z.B. "35")
+4. Fertig — Link wird per WhatsApp + SMS an den Kunden geschickt
+5. Link steht auch im Chat zum manuellen Kopieren
+
+━━━ Nina jetzt ━━━
+Sobald Deploy fertig ist: Ninas Fahrt in Telegram öffnen → Button tippen → Preis eingeben.

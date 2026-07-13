@@ -1,0 +1,7 @@
+13:45 Santangelo → Wartepool freigegeben ✅
+
+Befund: pw-ik-222 hatte shift.status=ended — wurde heute Mittag vom Fahrer beendet. Die Fahrt war schon heute früh zugewiesen als die Schicht noch lief.
+
+Fehler im Code: Watchdog las Heartbeat aus falscher Stelle (vehicleShifts/ statt vehicles/{vid}/shift/lastHeartbeat). Außerdem: vorbestellt-Fahrten wurden gar nicht geprüft, nur assigned.
+
+Fix läuft gerade, kommt als v6.63.637.

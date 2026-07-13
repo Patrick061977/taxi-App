@@ -4105,6 +4105,11 @@ public class AdminDashboardActivity extends AppCompatActivity {
                             body.put("customerName", _name);
                             if (_fHasEmail) body.put("customerEmail", _email);
                             body.put("description", _desc.isEmpty() ? "Vorkasse Funk Taxi Heringsdorf" : _desc);
+                            // 🐛 v6.63.692 (Patrick 13.07. Bridge #1783924300711 — Aschmoneit-Bug):
+                            //   Ohne rideId in metadata konnte checkout.session.completed die Ride
+                            //   nicht finden → paymentStatus blieb "offen" trotz erfolgreicher Zahlung.
+                            //   Fix: rideId + anfrageId mitgeben damit Webhook markieren kann.
+                            if (r.id != null && !r.id.isEmpty()) body.put("rideId", r.id);
                             java.net.URL _url = new java.net.URL("https://europe-west1-taxi-heringsdorf.cloudfunctions.net/createStripeCheckout");
                             java.net.HttpURLConnection conn = (java.net.HttpURLConnection) _url.openConnection();
                             conn.setRequestMethod("POST");

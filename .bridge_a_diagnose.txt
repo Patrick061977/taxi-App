@@ -1,0 +1,10 @@
+OK, B (Bridge) ist gefixt. A (Kunden-Buchungen kommen nicht an) muss ich diagnostizieren.
+
+Fuer die Log-Suche brauche ich EINEN konkreten Fall:
+• Kunden-Handynummer oder Name
+• Uhrzeit (grob) der verlorenen Anfrage
+• Kam die per WhatsApp, SMS oder Telefon rein?
+
+Dann kann ich in der Cloud-Function-Log genau diese Message-ID durchgehen und sehen wo sie haengen geblieben ist (Webhook empfangen? analyzeTelegramBooking gestartet? pending state? oder gar nicht angekommen?).
+
+Ohne konkreten Fall bin ich beim Raten — und das willst du nicht.

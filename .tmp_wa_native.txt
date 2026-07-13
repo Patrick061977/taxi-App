@@ -1,0 +1,12 @@
+v6.63.622 — WhatsApp-Buttons in der Fahrer-App (APK-Build läuft ~8 Min)
+
+Fahrt bearbeiten zeigt jetzt:
+💬 "Buchungsbestätigung per WhatsApp"
+   → tippt auf Ninas Nummer, öffnet WA direkt mit vorausgefüllter Bestätigung
+
+💳 "Stripe-Vorkasse-Link erstellen & senden"
+   → jetzt auch ohne Email (nur Telefon reicht)
+   → nach Link-Erstellung: "💬 WhatsApp senden" öffnet WA direkt an Ninas Nummer
+
+━━━ Nina sofort ━━━
+Für jetzt: Ninas Fahrt in Telegram (@Funktaxiclaudebot) öffnen → "💳 Stripe-Link erstellen + senden" → Preis eingeben → Link geht per SMS + WA raus.

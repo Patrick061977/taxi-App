@@ -1,0 +1,9 @@
+{
+  "address": "Dünenweg 16, 17424 Heringsdorf",
+  "defaultPickup": "Dünenweg 16, 17424 Heringsdorf",
+  "defaultPickupCoords": { "lat": 53.9601293, "lon": 14.1542893 },
+  "lat": 53.9601293,
+  "lon": 14.1542893,
+  "updatedAt": 1782284850000,
+  "updatedBy": "claude-bridge-nayef-address"
+}

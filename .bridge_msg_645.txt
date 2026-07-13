@@ -1,0 +1,11 @@
+AGB § 5 No-Show live (v6.63.645) ✅
+
+Gestaffelt:
+• >2h vor Abholung → kostenlos
+• 30 Min–2h → 50 % des Festpreises
+• <30 Min oder No-Show → 100 %, mindestens 15 €
+• Sofortfahrten → Anfahrt + max 10 Min Wartezeit
+
+Zur Adresssuche: buchen.html nutzt aktuell Nominatim (OpenStreetMap). Die Fahrer-App (Vorbestellungs-Maske in index.html) nutzt Google Places — das siehst du da.
+
+buchen.html bekommt Google Places noch nicht. Soll ich das einbauen? Würde die Adresserkennung auf buchen.html deutlich verbessern (Hausnummern, Tippfehler-Toleranz, POIs).

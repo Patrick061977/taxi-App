@@ -1,0 +1,22 @@
+{
+  "customerName": "Frau Niesen",
+  "customerPhone": "+4915167639882",
+  "customerMobile": "+4915167639882",
+  "pickup": "Strandterrasse, Duenenstrasse 43, 17419 Ahlbeck",
+  "pickupLat": 53.9418876,
+  "pickupLon": 14.1898607,
+  "destination": "Bahnhof Heringsdorf, 17424 Seebad Heringsdorf",
+  "destinationLat": 53.9444,
+  "destinationLon": 14.1696,
+  "pickupTimestamp": 1782547200000,
+  "pickupTime": "09:00",
+  "status": "vorbestellt",
+  "passengers": 1,
+  "paymentMethod": "bar",
+  "price": 11.0,
+  "distance": 1.8,
+  "notes": "Anruf 25.06. 15:49 Frau Niesen. Zug 09:33 ab Bahnhof Heringsdorf — du hattest 08:50 angeboten, sie hat 09:00 gewaehlt. Strandterrasse Duenenstr 43 Ahlbeck.",
+  "createdAt": 1782395829000,
+  "createdBy": "claude-bridge-niesen-25.06",
+  "source": "acr-whisper-incoming"
+}

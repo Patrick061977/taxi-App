@@ -1,0 +1,11 @@
+v6.63.601 gepusht — APK-Build läuft (~5 Min):
+
+Pickup-Dialog zeigt jetzt BEIDE Richtungen:
+
+➡️ +5 / +10 / +15 Min (nach hinten)
+⬅️ −5 / −10 / −15 Min (vorziehen)
+
+Stöhr (Nachfolge-Fahrt) → grüne Buttons "+X Min" empfohlen
+Engpass (Vorgänger) → lila Buttons "−X Min" empfohlen
+
+Flughafen-Termine: einfach +5 oder +10 tippen.

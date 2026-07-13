@@ -1,0 +1,6 @@
+{
+  "message": "Routing-Optionen:\n\nGoogle Routes: nur SCHNELLSTE Route (mit/ohne Verkehr) — kein 'kürzeste Distanz'\nOSRM: ebenfalls per default schnellste, aber auf Usedom fast = kürzeste weil Straßennetz eingeschränkt\n\nBefund Beeck-Fahrt: Google Routes hat für Kulmstraße→Bahnhof 6,42 km ausgegeben — das ist Quatsch. OSRM sagt 1,59 km → das stimmt. Preis müsste ~9,25€ sein, nicht 21,50€.\n\nFix: Cloud Function auf OSRM als primär umstellen + Sanity-Check: wenn Google > 3× OSRM → OSRM gewinnt. Soll ich das so machen?",
+  "targetChatId": 6229490043,
+  "via": "claude",
+  "ts": 0
+}

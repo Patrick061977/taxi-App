@@ -1,0 +1,14 @@
+🐛 BUG GEFUNDEN + GEFIXT (v6.63.623):
+
+Warum Frau von der Alm KEINE Email-Bestätigung bekommen hat:
+
+Das System hat die Email-Adresse beim Anlegen der Fahrt unter dem Feldnamen "email" gespeichert — aber der Code der die Bestätigungs-Email schickt sucht nach "customerEmail". Das Feld wurde nie gefunden → Email ging nie raus. Das passiert bei JEDER Web-Anfrage mit Email seit Beginn.
+
+Fix ist gerade deployed (v6.63.623). Ab sofort:
+→ Web-Anfrage mit Email bestätigen → Kunde bekommt automatisch Email-Bestätigung
+
+Für Frau von der Alm (jetzt manuell):
+Öffne ihre Fahrt im Telegram-Bot → tippe auf "📧 Bestätigung an ..." → Email geht sofort raus.
+
+━━━ YM/Greifswald (kein Stress) ━━━
+Kein Problem — ich schau das nach wenn du Zeit hast. Schick mir einfach die Uhrzeit der Fahrt oder Ride-ID, dann prüfe ich ob die System-Rückkehrzeit realistisch war.

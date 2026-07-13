@@ -1,0 +1,17 @@
+v6.63.620 deployed — 2 Bugs gefixt (Nina-Fall):
+
+1️⃣ Mobilnummer-Erkennung war kaputt
+   Vorher: nur "+491..." wurde erkannt (SMS ging durch)
+   Nachher: auch "015...", "016...", "017..." ohne Ländercode ✅
+
+2️⃣ WhatsApp + Stripe-URL jetzt in Telegram sichtbar
+   Ab sofort siehst du den Link DIREKT in der Bestätigungs-Nachricht:
+   → Per WA senden wenn Nina vorher mit Bot geschrieben hat
+   → Per SMS zusätzlich automatisch
+   → Link immer zum manuellen Kopieren sichtbar
+
+━━━ Nina jetzt ━━━
+Den Stripe-Link für Ninas aktuelle Fahrt findest du:
+→ Admin-Webseite → Fahrt -OwnXQHTYWkO_EWq7cNL → Feld "stripeCheckoutUrl"
+   (oder im Stripe Dashboard unter Checkout Sessions)
+→ Link dort kopieren + Nina per WhatsApp/Telegram manuell schicken

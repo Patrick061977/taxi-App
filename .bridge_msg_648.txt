@@ -1,0 +1,17 @@
+✅ v6.63.648 — Ursache + Fix
+
+🔍 Gefunden:
+scheduledAutoAssign (alle 5 Min) ruft autoAssignRide() für jede offene Fahrt auf.
+autoAssignRide() hat dabei bei JEDEM Aufruf 3 große Nodes neu gelesen:
+• /vehicles (alle Fahrzeuge)
+• /vehicleShifts (alle Schichten)
+• /rides Fenster -2h bis +24h (30-100 Fahrten)
+
+Bei 4 offenen Fahrten = 12 große Firebase-Downloads pro 5-Minuten-Cron statt 3.
+Das erklärt die Spitzen beim "Fahrzeug suchen".
+
+✅ Fix (v6.63.648):
+30s In-Memory-Cache in autoAssignRide — alle Aufrufe innerhalb eines Cron-Laufs teilen sich einen Cache-Miss.
+Ergebnis: 12 → 3 Reads = 75% weniger Download-Bytes pro Cron-Runde.
+
+Ist jetzt live (GitHub Actions deployed gerade).

@@ -1,0 +1,9 @@
+Kurz zusammengefasst:
+
+Bug war: Ninas Handynummer (z.B. 015...) wurde vom System nicht als Mobilnummer erkannt → kein SMS-Versand
+
+Fix v6.63.620 läuft gerade auf GitHub Actions (~5 Min bis live).
+
+Für Nina jetzt: Admin-Webseite öffnen → Fahrt suchen → Stripe-URL kopieren → Nina manuell schicken.
+
+Was meinst du mit "?"  — welche Frage ist noch offen?

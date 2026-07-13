@@ -1,0 +1,22 @@
+{
+  "customerName": "Familie Wagner",
+  "guestName": "Familie Wagner",
+  "customerPhone": "+493837850225",
+  "customerMobile": "+493837850225",
+  "pickup": "Hotel Residenz Waldoase, 17419 Seebad Ahlbeck",
+  "pickupLat": 53.9327744,
+  "pickupLon": 14.2071339,
+  "destination": "Rathaus Ahlbeck, Schulzenstraße, 17419 Seebad Ahlbeck",
+  "destinationLat": 53.9401694,
+  "destinationLon": 14.1925175,
+  "pickupTimestamp": 1782285000000,
+  "pickupTime": "09:10",
+  "status": "vorbestellt",
+  "passengers": 2,
+  "paymentMethod": "bar",
+  "notes": "Gäste vom Hotel Residenz Waldoase Ahlbeck. Müssen Bus 09:30 Uhr vom Rathaus erwischen. Buchung telefonisch via Hotel-Rezeption Waldoase (+493837850225) am 23.06.2026 18:39 — Aufnahme transkribiert via Whisper.",
+  "createdAt": 1782238500000,
+  "createdBy": "claude-bridge-acr-whisper-waldoase",
+  "source": "acr-whisper-transkription",
+  "originalCallFile": "Waldoase Ahlbeck (+493837850225) [2026-06-23 18-39-50] [Eingehend].m4a"
+}

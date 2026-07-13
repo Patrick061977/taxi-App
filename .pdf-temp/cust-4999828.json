@@ -1,0 +1,9 @@
+{
+  "name": "Kunde +49 1522 4999828",
+  "mobilePhone": "+4915224999828",
+  "type": "customer",
+  "customerKind": "gelegenheitskunde",
+  "notes": "Erst-Anlage via ACR-Anruf 22.06. 09:22 — Anrufer hat keinen Namen genannt. Fahrt Pommernstr 1A → Dr. Voyda Lindenstr 76 Ahlbeck.",
+  "createdAt": 1782291000000,
+  "createdBy": "claude-bridge-anon-pommern"
+}

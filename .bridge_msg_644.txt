@@ -1,0 +1,7 @@
+Antworten:
+
+📋 AGB → vorhanden (agb.html, Stand 24.06.2026, vollständige §§)
+⚖️ Impressum → vorhanden, im Footer verlinkt
+📬 Kontaktformular → kontakt.html existiert, jetzt auch im Footer von buchen.html verlinkt (v6.63.644 live)
+
+Hausnummern/Google Places: ja, das wäre die nächste sinnvolle Verbesserung. Nominatim (aktuell) ist oft schwach bei Hausnummern auf Usedom. Google Places würde "Kanalstraße 3" sofort finden + Tippfehler tolerieren. Kosten: ~0-5€/Monat bei unserem Volumen. Soll ich das einbauen?

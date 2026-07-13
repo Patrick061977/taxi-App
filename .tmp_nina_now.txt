@@ -1,0 +1,15 @@
+✅ Deploy fertig — Stripe-Button ist JETZT live!
+
+Für Nina sofort:
+1. @Funktaxiclaudebot → /fahrten oder Fahrt suchen
+2. Ninas Fahrt öffnen
+3. "💳 Stripe-Link erstellen + senden" tippen
+4. Preis eingeben (z.B. 35)
+→ Link geht per WhatsApp + SMS an Nina, steht auch im Chat zum Kopieren
+
+━━━ Native-App WhatsApp ━━━
+Kommt als nächstes: WhatsApp-Button + Bestätigung in der Fahrer-App.
+Was genau soll dort möglich sein?
+A) Stripe-Link per WA an Kunden
+B) Buchungsbestätigung per WA
+C) Beides als Buttons in der Fahrt-Detailansicht

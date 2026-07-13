@@ -1,0 +1,6 @@
+{
+  "status": "cancelled",
+  "cancelledAt": 1782284800000,
+  "cancelledBy": "claude-bridge-storno",
+  "cancelReason": "Falscher Kunde — Patrick hat um 09:04 Storno + Narjev-Anlage gebeten (24.06.2026)"
+}

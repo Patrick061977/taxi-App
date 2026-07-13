@@ -1,0 +1,22 @@
+{
+  "customerName": "Frau Heiland",
+  "customerPhone": "+491751050506",
+  "customerMobile": "+491751050506",
+  "pickup": "Haus des Gastes Bansin, Strandpromenade 40, 17429 Bansin",
+  "pickupLat": 53.9749087,
+  "pickupLon": 14.1426047,
+  "destination": "Villa Louise, Duenenstrasse 35, 17419 Ahlbeck",
+  "destinationLat": 53.9401402,
+  "destinationLon": 14.1932980,
+  "pickupTimestamp": 1782590400000,
+  "pickupTime": "22:00",
+  "status": "vorbestellt",
+  "passengers": 1,
+  "paymentMethod": "bar",
+  "price": 20.0,
+  "distance": 5.0,
+  "notes": "Anruf 25.06. 16:09 Frau Heiland. Pickup vor Haus des Gastes Bansin (Strandpromenade 40) — Fahrer soll direkt vor dem Haus warten. Nachtfahrt (22:00) — Nacht-Tarif: 5,50 + 2×3,30 + 2×2,80 + 1×2,40 = 19,80 EUR.",
+  "createdAt": 1782398640000,
+  "createdBy": "claude-bridge-heiland-25.06",
+  "source": "acr-whisper-incoming"
+}

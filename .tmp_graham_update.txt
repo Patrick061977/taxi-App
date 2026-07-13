@@ -1,0 +1,7 @@
+Graham Screener: Kurse aktualisiert!
+
+428 Aktien haben jetzt IBKR-Preise von heute (02.07.2026). Screener-Datum zeigt jetzt "2026-07-02".
+
+Die restlichen 2244 Aktien haben noch Mai-Preise (Yahoo rate-limitiert). Nur die Top-428 Graham-Aktien wurden aktualisiert — die sind eh die wichtigsten.
+
+https://graham-value.web.app

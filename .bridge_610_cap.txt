@@ -1,0 +1,7 @@
+v6.63.610: Kapazitäts-Schutz beim Fahrzeug-Zuweisen ist drin.
+
+Fansch/Funsch (8 Pax) kann jetzt nicht mehr still einem 4-Sitzer zugewiesen werden:
+• Spinner zeigt ⚠️ 4 Plätze / 8 Pax direkt in der Auswahl
+• "Speichern"-Button fragt nochmal nach ("Trotzdem zuweisen?")
+
+Nebenbei: Die Fahrt "Fansch 8 Pax" ist aktuell unzugewiesen (status: new). Wenn du die heute noch zuweisen willst, brauchst du Renault SK (8) oder Mercedes LK (8).

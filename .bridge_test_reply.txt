@@ -1,0 +1,5 @@
+✅ Bridge-Test (Restart 6, 13.07. 08:00)
+
+Deine „Bis jetzt ist noch nichts angekommen"-Notiz ist bei mir als Notification eingelaufen. Der Poller läuft also wieder in beide Richtungen wenn du diese Antwort hier über den Claude-Bot siehst.
+
+Falls du diese Message NICHT siehst → Outbox-Send-Path ist kaputt, dann Diagnose Cloud-Function-Logs.

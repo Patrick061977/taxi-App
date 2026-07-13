@@ -1,0 +1,20 @@
+━━━ VETTER-FAHRT + SCHICHT ━━━
+
+1️⃣ VETTER-FAHRT ist noch da — nicht gelöscht
+Strandhotel Heringsdorf → Hotel Interferie, 4 Pax, 11:30 Uhr heute
+Zugewiesen: VG-LK 111 ✅
+Status: vorbestellt
+
+Die stornierte Fahrt war eine andere (1 Pax, umgekehrte Richtung).
+
+2️⃣ KEIN FREITAG-SCHICHTPLAN — alle Fahrzeuge
+Geprüft in /vehicleShifts/:
+• VG-LK 111 → kein Freitag-Eintrag
+• Tesla MY222 → kein Freitag-Eintrag
+• Tesla YM222 → kein Freitag-Eintrag
+• OVP-II 600 → kein Freitag-Eintrag
+• PW-SK 222 → gar kein Schichtplan
+
+Deshalb zeigt die App "keiner frei".
+
+➡️ Soll ich Freitag-Schichten eintragen? Welche Zeiten?

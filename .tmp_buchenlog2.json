@@ -1,0 +1,602 @@
+{
+  "-OwiMtSOFgpHzT7O8ZPe" : {
+    "emoji" : "🎯",
+    "msg" : "AUTO-ZUWEISUNG: Gross → Tesla Model Y | Vorbestellung | Score: 36 | Abgelehnt: Toyota Prius IK: 08:00 außerhalb Wochenplan-Schicht | Tesla Model Y: chosen | Toyota Prius II: So nicht aktiv in defaults | Tesla YM222: So nicht aktiv in defaults | Renault Traffic 8 Pax: So nicht ak",
+    "session" : "cloud",
+    "time" : 1783189445020
+  },
+  "-OwiQKEMNcjxzqdCvWlE" : {
+    "emoji" : "🎯",
+    "msg" : "AUTO-ZUWEISUNG: Steiner → Tesla Model Y | Vorbestellung | Score: 36 | Abgelehnt: Toyota Prius IK: 06:30 außerhalb Wochenplan-Schicht | Tesla Model Y: chosen | Toyota Prius II: So nicht aktiv in defaults | Tesla YM222: So nicht aktiv in defaults | Renault Traffic 8 Pax: So nicht ak",
+    "session" : "cloud",
+    "time" : 1783190344981
+  },
+  "-OwiVQY_8roY7-QyLXR2" : {
+    "emoji" : "🟣",
+    "msg" : "FAHRER: arrived → picked_up | Meier Karin | Mercedes Vito 8 Pax",
+    "session" : "cloud",
+    "time" : 1783191681258
+  },
+  "-OwiVU4j44sBd8o6pBdg" : {
+    "emoji" : "✅",
+    "msg" : "FAHRER: picked_up → completed | Meier Karin | Mercedes Vito 8 Pax",
+    "session" : "cloud",
+    "time" : 1783191695732
+  },
+  "-Owjff-nJKl8PgLvUyCY" : {
+    "emoji" : "❌",
+    "msg" : "FAHRER: vorbestellt → cancelled | Waldoase | Toyota Prius IK",
+    "session" : "cloud",
+    "time" : 1783211405369
+  },
+  "-Owjff3C3VA5sTOguFQo" : {
+    "emoji" : "❌",
+    "msg" : "FAHRER: new → cancelled | Hass | ?",
+    "session" : "cloud",
+    "time" : 1783211405587
+  },
+  "-Owjff3ccovUvYQ11xTS" : {
+    "emoji" : "❌",
+    "msg" : "FAHRER: vorbestellt → cancelled | Mathias Hasbargen | Toyota Prius IK",
+    "session" : "cloud",
+    "time" : 1783211405614
+  },
+  "-Owjff3mTXkgNghhYltp" : {
+    "emoji" : "❌",
+    "msg" : "FAHRER: vorbestellt → cancelled | Wetzel | Renault Traffic 8 Pax",
+    "session" : "cloud",
+    "time" : 1783211405624
+  },
+  "-Owjff9O8SL0Gmd5y0fS" : {
+    "emoji" : "❌",
+    "msg" : "FAHRER: new → cancelled | Euscher | ?",
+    "session" : "cloud",
+    "time" : 1783211405983
+  },
+  "-OwkUoSRZi5V82bjUZ5d" : {
+    "emoji" : "🟢",
+    "msg" : "FAHRER: assigned → accepted | Steiner | Tesla Model Y",
+    "session" : "cloud",
+    "time" : 1783225075555
+  },
+  "-OwkXKjmPZz0H6TOOk9z" : {
+    "emoji" : "🟣",
+    "msg" : "FAHRER: arrived → picked_up | Steiner | Tesla Model Y",
+    "session" : "cloud",
+    "time" : 1783225736186
+  },
+  "-OwkZHf-VgtJ-3pb4H-9" : {
+    "emoji" : "✅",
+    "msg" : "FAHRER: picked_up → completed | Steiner | Tesla Model Y",
+    "session" : "cloud",
+    "time" : 1783226247880
+  },
+  "-OwkZJxEgmTopxGW2vdh" : {
+    "emoji" : "🟢",
+    "msg" : "FAHRER: vorbestellt → accepted | Rieckert | Tesla Model Y",
+    "session" : "cloud",
+    "time" : 1783226257239
+  },
+  "-OwkcMOktUqf4xQ88Acn" : {
+    "emoji" : "🟣",
+    "msg" : "FAHRER: arrived → picked_up | Rieckert | Tesla Model Y",
+    "session" : "cloud",
+    "time" : 1783227315831
+  },
+  "-Owkes8MIPbZLiz7FaqA" : {
+    "emoji" : "✅",
+    "msg" : "FAHRER: picked_up → completed | Rieckert | Tesla Model Y",
+    "session" : "cloud",
+    "time" : 1783227974239
+  },
+  "-OwkkzTDOweqsSDJ8au6" : {
+    "emoji" : "🎯",
+    "msg" : "AUTO-ZUWEISUNG: Gross → Tesla Model Y | Vorbestellung | Score: 36 | Abgelehnt: Toyota Prius IK: 08:00 außerhalb Wochenplan-Schicht | Tesla Model Y: chosen | Toyota Prius II: So nicht aktiv in defaults | Tesla YM222: So nicht aktiv in defaults | Renault Traffic 8 Pax: So nicht ak",
+    "session" : "cloud",
+    "time" : 1783229577110
+  },
+  "-Owkl4TAOdGVypquKakw" : {
+    "emoji" : "🟢",
+    "msg" : "FAHRER: vorbestellt → accepted | Gross | Tesla Model Y",
+    "session" : "cloud",
+    "time" : 1783229601683
+  },
+  "-OwkrBTa23DGTwqVTo_D" : {
+    "emoji" : "🟣",
+    "msg" : "FAHRER: arrived → picked_up | Gross | Tesla Model Y",
+    "session" : "cloud",
+    "time" : 1783231203244
+  },
+  "-Owks-LMyUUiyu8n2bdF" : {
+    "emoji" : "✅",
+    "msg" : "FAHRER: picked_up → completed | Gross | Tesla Model Y",
+    "session" : "cloud",
+    "time" : 1783231415709
+  },
+  "-OwkuXq-saMBW4RzW_uc" : {
+    "emoji" : "🎯",
+    "msg" : "AUTO-ZUWEISUNG: Berger → Tesla Model Y | Sofort | Score: 33 | 0.2km, ~3min | Abgelehnt: Toyota Prius IK: Sofortfahrt: Schicht nicht live aktiv | Tesla Model Y: chosen | Toyota Prius II: Sofortfahrt: Schicht nicht live aktiv | Tesla YM222: Sofortfahrt: Schicht nicht live aktiv | Renault T",
+    "session" : "cloud",
+    "time" : 1783232081286
+  },
+  "-OwkuaW40MbmaxVejqGX" : {
+    "emoji" : "✅",
+    "msg" : "FAHRER: sofort → completed | Berger | Tesla Model Y",
+    "session" : "cloud",
+    "time" : 1783232096331
+  },
+  "-Owl6DqrrSgyFMapDeGR" : {
+    "emoji" : "✅",
+    "msg" : "FAHRER: assigned → completed | Uhlmann | Toyota Prius IK",
+    "session" : "cloud",
+    "time" : 1783235407293
+  },
+  "-Owl6F2Z_yTbnHCva59d" : {
+    "emoji" : "✅",
+    "msg" : "FAHRER: assigned → completed | Antje Faulenbach | Toyota Prius IK",
+    "session" : "cloud",
+    "time" : 1783235412201
+  },
+  "-Owl6Ftwi_9u0JHPriXB" : {
+    "emoji" : "✅",
+    "msg" : "FAHRER: assigned → completed | Sindy Lehnort | Toyota Prius IK",
+    "session" : "cloud",
+    "time" : 1783235415682
+  },
+  "-Owl6HH-IZZovkzET2O0" : {
+    "emoji" : "✅",
+    "msg" : "FAHRER: assigned → completed | Judith Koch | Toyota Prius IK",
+    "session" : "cloud",
+    "time" : 1783235421318
+  },
+  "-Owl6IU1b9FDpdh1GW9c" : {
+    "emoji" : "✅",
+    "msg" : "FAHRER: assigned → completed | Helga Schaub | Toyota Prius IK",
+    "session" : "cloud",
+    "time" : 1783235426248
+  },
+  "-Owl6KSsZzYK3P_VgK01" : {
+    "emoji" : "✅",
+    "msg" : "FAHRER: assigned → completed | Stöhr | Toyota Prius IK",
+    "session" : "cloud",
+    "time" : 1783235434366
+  },
+  "-Owl6La7B9-rH0epV0sY" : {
+    "emoji" : "🟢",
+    "msg" : "FAHRER: vorbestellt → accepted | Hank | Toyota Prius IK",
+    "session" : "cloud",
+    "time" : 1783235438990
+  },
+  "-Owl7z5EnNjeJmZEXWRU" : {
+    "emoji" : "🟣",
+    "msg" : "FAHRER: arrived → picked_up | Hank | Toyota Prius IK",
+    "session" : "cloud",
+    "time" : 1783235867029
+  },
+  "-Owl8jRn3XF-Yy-eEQ_0" : {
+    "emoji" : "✅",
+    "msg" : "FAHRER: picked_up → completed | Hank | Toyota Prius IK",
+    "session" : "cloud",
+    "time" : 1783236065081
+  },
+  "-Owl8kr6IldGfBsta8dU" : {
+    "emoji" : "🟢",
+    "msg" : "FAHRER: new → accepted | Dönges | Toyota Prius IK",
+    "session" : "cloud",
+    "time" : 1783236070861
+  },
+  "-Owl9GJVfz9tfiTxlw8B" : {
+    "emoji" : "🟣",
+    "msg" : "FAHRER: arrived → picked_up | Dönges | Toyota Prius IK",
+    "session" : "cloud",
+    "time" : 1783236203814
+  },
+  "-Owl9QHSjOAOmlH-DpZX" : {
+    "emoji" : "🎯",
+    "msg" : "AUTO-ZUWEISUNG: Strandhotel Ahlbeck → Toyota Prius IK | Vorbestellung | Score: 10 | Abgelehnt: Toyota Prius IK: chosen | Toyota Prius II: So nicht aktiv in defaults | Tesla YM222: So nicht aktiv in defaults | Renault Traffic 8 Pax: So nicht aktiv in defaults | Mercedes Vito 8 Pax: So nicht akti",
+    "session" : "cloud",
+    "time" : 1783236245108
+  },
+  "-OwlB8QfWcERXenn6F9H" : {
+    "emoji" : "🎯",
+    "msg" : "AUTO-ZUWEISUNG: Henniges → Tesla Model Y | Vorbestellung | Score: 32 | Abgelehnt: Toyota Prius IK: Zeitkonflikt: Dönges um 09:30 (rechnet 10:36 fertig, 44 Min Anfahrt → 36 Min zu spät) | Tesla Model Y: chosen | Toyota Prius II: So nicht aktiv in defaults | Tesla YM222: So nicht akt",
+    "session" : "cloud",
+    "time" : 1783236695793
+  },
+  "-OwlEVtqrk_1TmX9O5ET" : {
+    "emoji" : "🟢",
+    "msg" : "FAHRER: new → accepted | Henniges | Tesla Model Y",
+    "session" : "cloud",
+    "time" : 1783237578364
+  },
+  "-OwlFDkuo8vVVcCYuQYg" : {
+    "emoji" : "🟣",
+    "msg" : "FAHRER: arrived → picked_up | Henniges | Tesla Model Y",
+    "session" : "cloud",
+    "time" : 1783237766208
+  },
+  "-OwlHWwW8YjuGA4WwWmk" : {
+    "emoji" : "✅",
+    "msg" : "FAHRER: picked_up → completed | Henniges | Tesla Model Y",
+    "session" : "cloud",
+    "time" : 1783238369063
+  },
+  "-OwlHgGvMOM7WD-idWwh" : {
+    "emoji" : "🟢",
+    "msg" : "FAHRER: vorbestellt → accepted | Strandhotel Ahlbeck | Tesla Model Y",
+    "session" : "cloud",
+    "time" : 1783238411393
+  },
+  "-OwlL-cDFNjKL6wtm5rE" : {
+    "emoji" : "✅",
+    "msg" : "FAHRER: picked_up → completed | Dönges | Toyota Prius IK",
+    "session" : "cloud",
+    "time" : 1783239281172
+  },
+  "-OwlMkMdywrgvf1-niEp" : {
+    "emoji" : "🌐",
+    "msg" : "buchen.html geoeffnet | Build: 2026-06-21 21:10 v6.63.465 | 🌐 Browser | umwelt-taxi-insel-usedom.de",
+    "session" : "mr7iwcm8t178",
+    "time" : 1783239738850
+  },
+  "-OwlMkZaYwpzf91UF4vP" : {
+    "emoji" : "🔐",
+    "msg" : "Bereits eingeloggt: +491632759062",
+    "session" : "mr7iwcm8t178",
+    "time" : 1783239739686
+  },
+  "-OwlN6bPzQzudCx3eZNx" : {
+    "emoji" : "❌",
+    "msg" : "FAHRER: arrived → cancelled | Strandhotel Ahlbeck | Tesla Model Y",
+    "session" : "cloud",
+    "time" : 1783239834080
+  },
+  "-OwlN9Tgv5cC_e--rRHh" : {
+    "emoji" : "📍",
+    "msg" : "Pickup gesetzt: ",
+    "session" : "mr7iwcm8t178",
+    "time" : 1783239845334
+  },
+  "-OwlNEM1Nob1E-gA3A5M" : {
+    "emoji" : "🎯",
+    "msg" : "Ziel gesetzt: ",
+    "session" : "mr7iwcm8t178",
+    "time" : 1783239865324
+  },
+  "-OwlNEPtFzNrHXorfvrl" : {
+    "emoji" : "💰",
+    "msg" : "PREIS-VERGLEICH\n                          Termin: 5.7.2026, 15:20:00 → 18.90€ Sonntagstarif\n                          Jetzt:  5.7.2026, 10:24:25 → 18.90€ Sonntagstarif",
+    "session" : "mr7iwcm8t178",
+    "time" : 1783239865570
+  },
+  "-OwlNTK2BLewt9_J8_RY" : {
+    "emoji" : "🛑",
+    "msg" : "Tab geschlossen — letzter Step: 💰",
+    "session" : "mr7iwcm8t178",
+    "time" : 1783239926636
+  },
+  "-OwlNVFMDR1ZT__lZ0gU" : {
+    "emoji" : "🌐",
+    "msg" : "buchen.html geoeffnet | Build: 2026-06-21 21:10 v6.63.465 | 🌐 Browser | umwelt-taxi-insel-usedom.de",
+    "session" : "mr7j0jyrrovc",
+    "time" : 1783239934996
+  },
+  "-OwlNVO8By2EY1aBV2lF" : {
+    "emoji" : "🔐",
+    "msg" : "Bereits eingeloggt: +491632759062",
+    "session" : "mr7j0jyrrovc",
+    "time" : 1783239935561
+  },
+  "-OwlNqIbeg4DkENmLIxO" : {
+    "emoji" : "📍",
+    "msg" : "Pickup gesetzt: ",
+    "session" : "mr7j0jyrrovc",
+    "time" : 1783240024839
+  },
+  "-OwlO1QZ18vCqV9OWkHV" : {
+    "emoji" : "🎯",
+    "msg" : "Ziel gesetzt: ",
+    "session" : "mr7j0jyrrovc",
+    "time" : 1783240074500
+  },
+  "-OwlO1VevXQqF1WhMFFs" : {
+    "emoji" : "💰",
+    "msg" : "PREIS-VERGLEICH\n                          Termin: 5.7.2026, 15:20:00 → 18.90€ Sonntagstarif\n                          Jetzt:  5.7.2026, 10:27:54 → 18.90€ Sonntagstarif",
+    "session" : "mr7j0jyrrovc",
+    "time" : 1783240074819
+  },
+  "-OwlORWeBAFzLULDtyoi" : {
+    "emoji" : "🛑",
+    "msg" : "Tab geschlossen — letzter Step: 💰",
+    "session" : "mr7j0jyrrovc",
+    "time" : 1783240181385
+  },
+  "-OwlOSqBkuLtUNTgLzFd" : {
+    "emoji" : "🌐",
+    "msg" : "buchen.html geoeffnet | Build: 2026-06-21 21:10 v6.63.465 | 🌐 Browser | umwelt-taxi-insel-usedom.de",
+    "session" : "mr7j5ymgnzqp",
+    "time" : 1783240187273
+  },
+  "-OwlOSyV3fauxoBDUoyt" : {
+    "emoji" : "🔐",
+    "msg" : "Bereits eingeloggt: +491632759062",
+    "session" : "mr7j5ymgnzqp",
+    "time" : 1783240187807
+  },
+  "-OwlOfs19c5bEJaHeb7H" : {
+    "emoji" : "📍",
+    "msg" : "Pickup gesetzt: ",
+    "session" : "mr7j5ymgnzqp",
+    "time" : 1783240244236
+  },
+  "-OwlOkA2qHO5tn3Q7C26" : {
+    "emoji" : "🎯",
+    "msg" : "Ziel gesetzt: ",
+    "session" : "mr7j5ymgnzqp",
+    "time" : 1783240261838
+  },
+  "-OwlOkD-9GzN_ViejKvH" : {
+    "emoji" : "💰",
+    "msg" : "PREIS-VERGLEICH\n                          Termin: 5.7.2026, 15:20:00 → 18.90€ Sonntagstarif\n                          Jetzt:  5.7.2026, 10:31:02 → 18.90€ Sonntagstarif",
+    "session" : "mr7j5ymgnzqp",
+    "time" : 1783240262026
+  },
+  "-OwlOuO8bzkoXhd4UFJO" : {
+    "emoji" : "✅",
+    "msg" : "Eingeloggt via Phone-Auth — überspringe SMS (+491632759062)",
+    "session" : "mr7j5ymgnzqp",
+    "time" : 1783240303695
+  },
+  "-OwlP5l_yjudaHmlL4vR" : {
+    "emoji" : "🌐",
+    "msg" : "buchen.html geoeffnet | Build: 2026-06-21 21:10 v6.63.465 | 🌐 Browser | umwelt-taxi-insel-usedom.de",
+    "session" : "mr7j9jz3ryqb",
+    "time" : 1783240354913
+  },
+  "-OwlP5vULOzj0ydTcQ81" : {
+    "emoji" : "🔐",
+    "msg" : "Bereits eingeloggt: +491632759062",
+    "session" : "mr7j9jz3ryqb",
+    "time" : 1783240355551
+  },
+  "-OwlP8H-X1FmmyzjEdos" : {
+    "emoji" : "🛑",
+    "msg" : "Tab geschlossen — letzter Step: 🔐",
+    "session" : "mr7j9jz3ryqb",
+    "time" : 1783240364702
+  },
+  "-OwlP9VJxK9Im-ljCxzu" : {
+    "emoji" : "🌐",
+    "msg" : "buchen.html geoeffnet | Build: 2026-06-21 21:10 v6.63.465 | 🌐 Browser | umwelt-taxi-insel-usedom.de",
+    "session" : "mr7j9vrkr4zc",
+    "time" : 1783240370192
+  },
+  "-OwlP9cqGp_2OxEZMdea" : {
+    "emoji" : "🔐",
+    "msg" : "Bereits eingeloggt: +491632759062",
+    "session" : "mr7j9vrkr4zc",
+    "time" : 1783240370741
+  },
+  "-OwlPFWQnTA0R2NcHAOu" : {
+    "emoji" : "🛑",
+    "msg" : "Tab geschlossen — letzter Step: 🔐",
+    "session" : "mr7j9vrkr4zc",
+    "time" : 1783240394380
+  },
+  "-OwlPGQBBohA80jEsiFo" : {
+    "emoji" : "🌐",
+    "msg" : "buchen.html geoeffnet | Build: 2026-06-21 21:10 v6.63.465 | 🌐 Browser | umwelt-taxi-insel-usedom.de",
+    "session" : "mr7jahmx5i8c",
+    "time" : 1783240398537
+  },
+  "-OwlPGXeXL8Vmftd49_f" : {
+    "emoji" : "🔐",
+    "msg" : "Bereits eingeloggt: +491632759062",
+    "session" : "mr7jahmx5i8c",
+    "time" : 1783240399017
+  },
+  "-OwlPO6Chdry3mUwxpNc" : {
+    "emoji" : "📍",
+    "msg" : "Pickup gesetzt: ",
+    "session" : "mr7jahmx5i8c",
+    "time" : 1783240429497
+  },
+  "-OwlPWSRilA0H-gjhH15" : {
+    "emoji" : "🎯",
+    "msg" : "Ziel gesetzt: ",
+    "session" : "mr7jahmx5i8c",
+    "time" : 1783240463688
+  },
+  "-OwlPWWi35TFH8AQOhPT" : {
+    "emoji" : "💰",
+    "msg" : "Preis-Anzeige: 18.40€ · 4.3km",
+    "session" : "mr7jahmx5i8c",
+    "time" : 1783240463962
+  },
+  "-OwlPWY58wfMfxGt9g45" : {
+    "emoji" : "✅",
+    "msg" : "ERGEBNIS: Taxi verfuegbar! 3 Fzg, ETA 4 Min (GPS frisch)",
+    "session" : "mr7jahmx5i8c",
+    "time" : 1783240464050
+  },
+  "-OwlP_ckNnuQbycJtmvH" : {
+    "emoji" : "🌐",
+    "msg" : "buchen.html geoeffnet | Build: 2026-06-21 21:10 v6.63.465 | 🌐 Browser | umwelt-taxi-insel-usedom.de",
+    "session" : "mr7jc9ijj4ud",
+    "time" : 1783240481324
+  },
+  "-OwlP_lIptC--lO96FY4" : {
+    "emoji" : "🔐",
+    "msg" : "Bereits eingeloggt: +491632759062",
+    "session" : "mr7jc9ijj4ud",
+    "time" : 1783240481874
+  },
+  "-OwlPd2fZ8y2AAjfBMzi" : {
+    "emoji" : "🌐",
+    "msg" : "buchen.html geoeffnet | Build: 2026-06-21 21:10 v6.63.465 | 🌐 Browser | umwelt-taxi-insel-usedom.de",
+    "session" : "mr7jckbp8xpk",
+    "time" : 1783240495334
+  },
+  "-OwlPd4XzV1I_9w_SbQE" : {
+    "emoji" : "🛑",
+    "msg" : "Tab geschlossen — letzter Step: 🔐",
+    "session" : "mr7jc9ijj4ud",
+    "time" : 1783240494967
+  },
+  "-OwlPdAg1fCa7xSAI9pc" : {
+    "emoji" : "🔐",
+    "msg" : "Bereits eingeloggt: +491632759062",
+    "session" : "mr7jckbp8xpk",
+    "time" : 1783240495851
+  },
+  "-OwlPf7NHRxTGRLGrXRW" : {
+    "emoji" : "🌐",
+    "msg" : "buchen.html geoeffnet | Build: 2026-06-21 21:10 v6.63.465 | 🌐 Browser | umwelt-taxi-insel-usedom.de",
+    "session" : "mr7jcqvndxe1",
+    "time" : 1783240503828
+  },
+  "-OwlPf9KaMNC8ilJnuJk" : {
+    "emoji" : "🛑",
+    "msg" : "Tab geschlossen — letzter Step: 🔐",
+    "session" : "mr7jckbp8xpk",
+    "time" : 1783240503425
+  },
+  "-OwlPfFxHRgyLwIyjOuf" : {
+    "emoji" : "🔐",
+    "msg" : "Bereits eingeloggt: +491632759062",
+    "session" : "mr7jcqvndxe1",
+    "time" : 1783240504381
+  },
+  "-OwlPfH4s6cl-f4IL9kV" : {
+    "emoji" : "🛑",
+    "msg" : "Tab geschlossen — letzter Step: 🔐",
+    "session" : "mr7jcqvndxe1",
+    "time" : 1783240504453
+  },
+  "-OwlQa0eS7ddpcFxhF9u" : {
+    "emoji" : "🎯",
+    "msg" : "AUTO-ZUWEISUNG: Moritz → Tesla Model Y | Vorbestellung | Score: 41 | Abgelehnt: Toyota Prius IK: 09:30 außerhalb Wochenplan-Schicht | Tesla Model Y: chosen | Toyota Prius II: Mo nicht aktiv in defaults | Tesla YM222: Mo nicht aktiv in defaults | Renault Traffic 8 Pax: Mo nicht ak",
+    "session" : "cloud",
+    "time" : 1783240745068
+  },
+  "-OwlQrsuV14aRXjaOm1X" : {
+    "emoji" : "🌐",
+    "msg" : "buchen.html geoeffnet | Build: 2026-06-21 21:10 v6.63.465 | 🌐 Browser | umwelt-taxi-insel-usedom.de",
+    "session" : "mr7jjhgze0l9",
+    "time" : 1783240818229
+  },
+  "-OwlQs0Yahb3Vj2tGegI" : {
+    "emoji" : "🔐",
+    "msg" : "Bereits eingeloggt: +491632759062",
+    "session" : "mr7jjhgze0l9",
+    "time" : 1783240818787
+  },
+  "-OwlQyvYMtsZfwT5K888" : {
+    "emoji" : "📍",
+    "msg" : "Pickup gesetzt: ",
+    "session" : "mr7jjhgze0l9",
+    "time" : 1783240846543
+  },
+  "-OwlR4OeCC19Lh49JACY" : {
+    "emoji" : "🎯",
+    "msg" : "Ziel gesetzt: ",
+    "session" : "mr7jjhgze0l9",
+    "time" : 1783240873046
+  },
+  "-OwlR4RMfqDjGyYAq5eR" : {
+    "emoji" : "💰",
+    "msg" : "Preis-Anzeige: 18.40€ · 4.3km",
+    "session" : "mr7jjhgze0l9",
+    "time" : 1783240873219
+  },
+  "-OwlR4ScycQSgjbhNr6b" : {
+    "emoji" : "✅",
+    "msg" : "ERGEBNIS: Taxi verfuegbar! 3 Fzg, ETA 4 Min (GPS frisch)",
+    "session" : "mr7jjhgze0l9",
+    "time" : 1783240873300
+  },
+  "-OwlR55-OAp6W9kibuiN" : {
+    "emoji" : "🌐",
+    "msg" : "buchen.html geoeffnet | Build: 2026-06-21 21:10 v6.63.465 | 🌐 Browser | umwelt-taxi-insel-usedom.de",
+    "session" : "mr7jkqcxknbb",
+    "time" : 1783240876402
+  },
+  "-OwlR5JoWyA3o1q2P_x0" : {
+    "emoji" : "🔐",
+    "msg" : "Bereits eingeloggt: +491632759062",
+    "session" : "mr7jkqcxknbb",
+    "time" : 1783240877363
+  },
+  "-OwlR6H6uLIekrvntORA" : {
+    "emoji" : "🛑",
+    "msg" : "Tab geschlossen — letzter Step: 🔐",
+    "session" : "mr7jkqcxknbb",
+    "time" : 1783240880805
+  },
+  "-OwldKYE_ILgC3nP0xI_" : {
+    "emoji" : "🟢",
+    "msg" : "FAHRER: assigned → accepted | Das Ahlbeck | Toyota Prius IK",
+    "session" : "cloud",
+    "time" : 1783244347606
+  },
+  "-Owlddk2E1gBOz2ngiDD" : {
+    "emoji" : "🎯",
+    "msg" : "AUTO-ZUWEISUNG: Düker → Tesla Model Y | Vorbestellung | Score: 37 | Abgelehnt: Toyota Prius IK: Schicht heute ended um 11:40 — Fahrer kommt nicht mehr in Zeit | Tesla Model Y: chosen | Toyota Prius II: So nicht aktiv in defaults | Tesla YM222: So nicht aktiv in defaults | Renaul",
+    "session" : "cloud",
+    "time" : 1783244430346
+  },
+  "-Owlddv8ilPYzeLVbEbu" : {
+    "emoji" : "🎯",
+    "msg" : "AUTO-ZUWEISUNG: Antje Dünenweg → Tesla Model Y | Vorbestellung | Score: 33 | Abgelehnt: Toyota Prius IK: Schicht heute ended um 11:40 — Fahrer kommt nicht mehr in Zeit | Tesla Model Y: chosen | Toyota Prius II: So nicht aktiv in defaults | Tesla YM222: So nicht aktiv in defaults | Renaul",
+    "session" : "cloud",
+    "time" : 1783244431056
+  },
+  "-Owlfv7Z-H9fSMqNYGT0" : {
+    "emoji" : "🟣",
+    "msg" : "FAHRER: arrived → picked_up | Das Ahlbeck | Toyota Prius IK",
+    "session" : "cloud",
+    "time" : 1783245025835
+  },
+  "-OwlgiGazgyyBXxnQSTl" : {
+    "emoji" : "✅",
+    "msg" : "FAHRER: picked_up → completed | Das Ahlbeck | Toyota Prius IK",
+    "session" : "cloud",
+    "time" : 1783245235309
+  },
+  "-Owlgl2rDWaE7zVpvlEf" : {
+    "emoji" : "🎯",
+    "msg" : "AUTO-ZUWEISUNG: Buchholz → Tesla Model Y | Vorbestellung | Score: 49 | Abgelehnt: Toyota Prius IK: 22:30 außerhalb Wochenplan-Schicht | Tesla Model Y: chosen | Toyota Prius II: So nicht aktiv in defaults | Tesla YM222: So nicht aktiv in defaults | Renault Traffic 8 Pax: So nicht ak",
+    "session" : "cloud",
+    "time" : 1783245246723
+  },
+  "-OwlmT9UDbvvIl39uzCa" : {
+    "emoji" : "🔐",
+    "msg" : "Bereits eingeloggt: 10fuCE2oviR2wS2co4Aga68HXBM2",
+    "session" : "mr7n2eycj2ku",
+    "time" : 1783246742220
+  },
+  "-OwlnJwG0uTjzctem_NQ" : {
+    "emoji" : "🎯",
+    "msg" : "AUTO-ZUWEISUNG: Manfred Gärtner → Toyota Prius IK | Sofort | Score: 11 | 7.2km, ~11min | Abgelehnt: Toyota Prius IK: chosen | Tesla Model Y: Fahrer hat nicht bestätigt | Toyota Prius II: Sofortfahrt: Schicht nicht live aktiv | Tesla YM222: Sofortfahrt: Schicht nicht live aktiv | Renault Traffic 8 Pa",
+    "session" : "cloud",
+    "time" : 1783246966551
+  },
+  "-OwlnK1_gNC2XXNW1_Jc" : {
+    "emoji" : "🎯",
+    "msg" : "AUTO-ZUWEISUNG: Wagner → Toyota Prius IK | Sofort | Score: 7 | 4.6km, ~7min | Abgelehnt: Toyota Prius IK: chosen | Tesla Model Y: Fahrer hat nicht bestätigt | Toyota Prius II: Sofortfahrt: Schicht nicht live aktiv | Tesla YM222: Sofortfahrt: Schicht nicht live aktiv | Renault Traffic 8 Pa",
+    "session" : "cloud",
+    "time" : 1783246966955
+  },
+  "-OwlnK2yC2nMBjZ2HTK3" : {
+    "emoji" : "🎯",
+    "msg" : "AUTO-ZUWEISUNG: Specht → Toyota Prius IK | Sofort | Score: 4 | 2.9km, ~4min | Abgelehnt: Toyota Prius IK: chosen | Tesla Model Y: Fahrer hat nicht bestätigt | Toyota Prius II: Sofortfahrt: Schicht nicht live aktiv | Tesla YM222: Sofortfahrt: Schicht nicht live aktiv | Renault Traffic 8 Pa",
+    "session" : "cloud",
+    "time" : 1783246967044
+  },
+  "-OwlnK8K16dxg22p5RZM" : {
+    "emoji" : "🎯",
+    "msg" : "AUTO-ZUWEISUNG: Rödel → Toyota Prius IK | Sofort | Score: 11 | 7.2km, ~11min | Abgelehnt: Toyota Prius IK: chosen | Tesla Model Y: Fahrer hat nicht bestätigt | Toyota Prius II: Sofortfahrt: Schicht nicht live aktiv | Tesla YM222: Sofortfahrt: Schicht nicht live aktiv | Renault Traffic 8 Pa",
+    "session" : "cloud",
+    "time" : 1783246967387
+  }
+}

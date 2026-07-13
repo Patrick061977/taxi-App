@@ -1,0 +1,14 @@
+Traffic-Diagnose fertig + Fix deployed (v6.63.646) ✅
+
+🔍 Wurzel gefunden:
+scheduledReachabilityCheck (läuft JEDE MINUTE) rief für jede aktive Fahrt calculateRoute() auf — das ruft Google Routes API + OSRM parallel auf. Da das Fahrzeug jede Minute neue GPS-Koordinaten hat, gibt es keinen Cache-Hit → jede Minute = 1 Google-API-Call pro Fahrt.
+
+Bei 5 Fahrten Hochsaison (12h/Tag) = 3.600 Google-Calls/Tag × 5$/1000 = ~18$/Tag = ~500€/Monat NUR für die "Fahrer kommt in X Minuten"-Anzeige.
+
+✅ Fix:
+ETA-Berechnung im ReachabilityCheck läuft jetzt nur noch über OSRM (kostenlos).
+Google Routes bleibt für Preisberechnung + Konflikte (seltener, cachefähig).
+
+Noch 2 kleinere Traffic-Sparer:
+• settings/dispatch/routeMode wurde bisher bei JEDEM Routing-Call aus Firebase gelesen → jetzt 5-Min-Memory-Cache (spart ~7.000 DB-Reads/Tag)
+• /routeCache hat 8.146 Einträge — der 30-Tage-Cleanup läuft automatisch, kein Handlungsbedarf

@@ -4131,12 +4131,13 @@ public class AdminDashboardActivity extends AppCompatActivity {
                             runOnUiThread(() -> {
                                 android.content.ClipboardManager _cm = (android.content.ClipboardManager) getSystemService(android.content.Context.CLIPBOARD_SERVICE);
                                 _cm.setPrimaryClip(android.content.ClipData.newPlainText("Stripe", _checkoutUrl));
-                                // Dialog: WhatsApp + Email
-                                androidx.appcompat.app.AlertDialog.Builder _b = new androidx.appcompat.app.AlertDialog.Builder(this)
-                                    .setTitle("✅ Stripe-Link erstellt")
-                                    .setMessage(String.format(java.util.Locale.GERMANY, "%.2f", _amt) + " € — in Zwischenablage.\n\n" + _checkoutUrl);
+                                // 🆕 v6.63.693 (Patrick 13.07. — SMS als 3. Option):
+                                //   ListView-Chooser statt 3 AlertDialog-Buttons, damit auch SMS Platz hat.
+                                java.util.List<String> _opts = new java.util.ArrayList<>();
+                                java.util.List<Runnable> _actions = new java.util.ArrayList<>();
                                 if (_fHasPhone) {
-                                    _b.setPositiveButton("💬 WhatsApp senden", (_d2, _w2) -> {
+                                    _opts.add("💬 Per WhatsApp senden");
+                                    _actions.add(() -> {
                                         String _wa = "Hallo " + _name + ",\n\nIhr Zahlungslink (" + String.format(java.util.Locale.GERMANY, "%.2f", _amt) + " €):\n" + _checkoutUrl + "\n\nNach Zahlung ist Ihre Buchung bestätigt.\n\nFunk Taxi Heringsdorf";
                                         String _ph = _phone.replaceAll("[\\s\\-\\/\\(\\)\\+]", "");
                                         if (_ph.startsWith("0")) _ph = "49" + _ph.substring(1);
@@ -4144,14 +4145,40 @@ public class AdminDashboardActivity extends AppCompatActivity {
                                         _wi.setData(android.net.Uri.parse("https://wa.me/" + _ph + "?text=" + java.net.URLEncoder.encode(_wa)));
                                         try { startActivity(_wi); } catch (Throwable _t) { android.widget.Toast.makeText(this, "WhatsApp nicht verfügbar", android.widget.Toast.LENGTH_SHORT).show(); }
                                     });
+                                    _opts.add("📱 Per SMS senden");
+                                    _actions.add(() -> {
+                                        // Native-SMS-Intent — Nutzer wählt die App (Nachrichten, Signal, etc.)
+                                        // Text ist kurz gehalten, damit er in EINE SMS passt (160 Zeichen).
+                                        String _sms = "Funk Taxi Heringsdorf: Ihr Zahlungslink über "
+                                            + String.format(java.util.Locale.GERMANY, "%.2f", _amt) + " €: " + _checkoutUrl;
+                                        String _ph = _phone.replaceAll("[\\s\\-\\/\\(\\)]", "");
+                                        try {
+                                            android.content.Intent _si = new android.content.Intent(android.content.Intent.ACTION_VIEW);
+                                            _si.setData(android.net.Uri.parse("smsto:" + _ph));
+                                            _si.putExtra("sms_body", _sms);
+                                            startActivity(_si);
+                                        } catch (Throwable _t) {
+                                            android.widget.Toast.makeText(this, "SMS-App nicht verfügbar", android.widget.Toast.LENGTH_SHORT).show();
+                                        }
+                                    });
                                 }
                                 if (_fHasEmail) {
-                                    _b.setNeutralButton("📧 Email senden", (_d2, _w2) -> {
+                                    _opts.add("📧 Per Email senden");
+                                    _actions.add(() -> {
                                         String _amtStr = String.format(java.util.Locale.US, "%.2f", _amt);
                                         _sendVorkasseEmail(r.id, _email, _name, _amtStr, r.pickup != null ? r.pickup : "", r.destination != null ? r.destination : "", r.pickupTime != null ? r.pickupTime : "", null);
                                     });
                                 }
-                                _b.setNegativeButton("Schließen", null).show();
+                                _opts.add("📋 Nur in Zwischenablage (bereits kopiert)");
+                                _actions.add(() -> android.widget.Toast.makeText(this, "Link ist in der Zwischenablage", android.widget.Toast.LENGTH_SHORT).show());
+
+                                new androidx.appcompat.app.AlertDialog.Builder(this)
+                                    .setTitle("✅ Stripe-Link erstellt (" + String.format(java.util.Locale.GERMANY, "%.2f", _amt) + " €)")
+                                    .setItems(_opts.toArray(new String[0]), (_d2, _idx) -> {
+                                        if (_idx >= 0 && _idx < _actions.size()) _actions.get(_idx).run();
+                                    })
+                                    .setNegativeButton("Schließen", null)
+                                    .show();
                             });
                         } catch (Throwable _t) {
                             runOnUiThread(() -> android.widget.Toast.makeText(this, "❌ Fehler: " + _t.getMessage(), android.widget.Toast.LENGTH_LONG).show());
@@ -4159,6 +4186,52 @@ public class AdminDashboardActivity extends AppCompatActivity {
                     }).start();
                 });
                 layout.addView(btnStripe);
+            }
+        }
+
+        // 🆕 v6.63.693 (Patrick 13.07. Bridge #1783924369763):
+        //   "kann ich den auch manuell auf bezahlt setzen wenn jetzt irgendwie ein problem"
+        //   Notfall-Button falls Stripe-Webhook nicht durchkam. Nur sichtbar wenn
+        //   paymentStatus != 'paid'.
+        {
+            boolean _alreadyPaid = "paid".equals(r.paymentStatus) || "bezahlt".equals(r.paymentStatus);
+            if (!_alreadyPaid) {
+                com.google.android.material.button.MaterialButton btnManualPaid =
+                    new com.google.android.material.button.MaterialButton(this);
+                btnManualPaid.setText("✅ Manuell auf 'bezahlt' setzen");
+                btnManualPaid.setTextSize(15);
+                btnManualPaid.setBackgroundColor(android.graphics.Color.parseColor("#10b981"));
+                btnManualPaid.setTextColor(android.graphics.Color.WHITE);
+                LinearLayout.LayoutParams _mpParams = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+                _mpParams.setMargins(0, 8, 0, 8);
+                btnManualPaid.setLayoutParams(_mpParams);
+                btnManualPaid.setOnClickListener(_v -> {
+                    // Bezahl-Art abfragen (Bar, Karte, EC, Sonstiges)
+                    final String[] _methods = { "💵 Bar", "💳 Karte (Terminal)", "🏦 Überweisung", "🔗 Stripe (Link nachträglich)", "💰 Sonstiges" };
+                    final String[] _methodKeys = { "bar", "card_terminal", "ueberweisung", "stripe", "sonstiges" };
+                    new androidx.appcompat.app.AlertDialog.Builder(this)
+                        .setTitle("Wie wurde bezahlt?")
+                        .setItems(_methods, (_d, _which) -> {
+                            java.util.Map<String,Object> _upd = new java.util.HashMap<>();
+                            _upd.put("paymentStatus", "paid");
+                            _upd.put("paymentMethod", _methodKeys[_which]);
+                            _upd.put("paidAt", System.currentTimeMillis());
+                            _upd.put("paidManuallyAt", System.currentTimeMillis());
+                            _upd.put("paidManuallyBy", "admin-native-v6.63.693");
+                            _upd.put("updatedAt", System.currentTimeMillis());
+                            db.getReference("rides/" + r.id).updateChildren(_upd, (err, ref) -> {
+                                if (err == null) {
+                                    android.widget.Toast.makeText(this, "✅ Als bezahlt markiert (" + _methods[_which] + ")", android.widget.Toast.LENGTH_LONG).show();
+                                } else {
+                                    android.widget.Toast.makeText(this, "❌ Fehler: " + err.getMessage(), android.widget.Toast.LENGTH_LONG).show();
+                                }
+                            });
+                        })
+                        .setNegativeButton("Abbrechen", null)
+                        .show();
+                });
+                layout.addView(btnManualPaid);
             }
         }
 

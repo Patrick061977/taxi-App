@@ -1,0 +1,18 @@
+Was ich kann und was ich nicht kann:
+
+❌ Gerät sperren: Nur Google/Samsung können das — ich habe keinen Zugriff auf Android-Systemfunktionen.
+
+❌ Bewegungsverlauf: Unsere App speichert GPS nur während aktiver Schicht. Letzte bekannte Position: 27.06. Heringsdorf — seitdem keine Daten.
+
+✅ Was ich jetzt tue: Firebase-Account von Kulpa deaktivieren → App funktioniert auf dem gestohlenen Gerät nicht mehr (kein Login möglich).
+
+Wenn Find My Device das Gerät nicht findet, bedeutet das:
+→ Handy ausgeschaltet oder WLAN/Daten aus
+→ Oder Standort deaktiviert
+→ Sobald der Dieb es einschaltet + Internet hat, erscheint es in Find My Device
+
+Tipps:
+• Find My Device → "Benachrichtigung wenn Gerät online geht" aktivieren
+• Polizei melden mit IMEI — Netzbetreiber kann IMEI sperren, dann nutzt kein Netz mehr
+
+Deaktiviere ich jetzt den Firebase-Account?

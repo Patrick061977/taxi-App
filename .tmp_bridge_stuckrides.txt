@@ -1,0 +1,23 @@
+━━━ SYSTEMMONITOR-ANALYSE ━━━
+
+ANTJE-BUCHUNG: Sie hat buchen.html benutzt — System zeigte ihr:
+"Taxi verfuegbar! 3 Fzg, ETA 4 Min (10:41:13)"
+Dann Tab geschlossen — Buchung NIE abgeschlossen.
+Du hast die Fahrt danach manuell als Admin angelegt. ✓
+
+6 STUCK RIDES (status='new', Pickup schon vorbei):
+1. Rödel         — Pickup 04.07 16:20 (gestern, 19h vorbei)
+2. Specht        — Pickup 04.07 15:30 (gestern, 20h vorbei)
+3. Wagner        — Pickup 04.07 15:15 (gestern, 21h vorbei)
+4. Manfred Gärtner — Pickup 04.07 16:45 (gestern, 19h vorbei)
+5. Hansruedi Kloter — Pickup 04.07 19:15 | assignmentLocked=TRUE (Email-Quelle)
+6. The Breeze    — Pickup 05.07 10:10 (heute, 1.7h vorbei)
+
+Problem: Auto-Archiv läuft nur für 'completed' Fahrten, nicht für 'new'.
+Diese Fahrten bleiben ewig stuck.
+
+Darf ich die 5 gestrigen Fahrten (Nr.1-5) auf 'cancelled' setzen?
+The Breeze (heute): Wurde die Fahrt doch noch durchgeführt? Oder auch canceln?
+
+Außerdem: Soll ich eine Cloud-Function bauen die 'new' Fahrten >2h
+nach Pickup-Zeit automatisch cancelt/archiviert?

@@ -1,0 +1,41 @@
+📊 GRAHAM VERGLEICH — Wir vs. grahamvalue.com
+
+| Ticker | Unser G# | GV.com G# | Diff |
+|--------|----------|-----------|------|
+| CAG    | 26.35    | 25.24     | +4%  |
+| LEN    | 155.75   | 154.98    | +0.5% ✓ |
+| VZ     | 48.71    | 45.14     | +8%  |
+| SWKS   | 71.56    | 61.21     | +17% |
+
+FORMEL ist identisch: √(22.5 × EPS × BVPS)
+Bei LEN + CAG praktisch identisch — Formel + Datenquelle stimmen.
+Bei VZ leicht ab, bei SWKS deutlich.
+
+DIE URSACHE:
+Wir nutzen EPS_5yr-Durchschnitt (Finnhub-Daten).
+grahamvalue.com nutzt vermutlich 7-Jahres-MEDIAN (SEC-Filings).
+
+Bei stabilen Firmen (LEN Bau, CAG Nahrung) egal — 5yr-Avg ≈ 7yr-Median.
+Bei zyklischen Firmen (SWKS Halbleiter, VZ Telco-Umbau) knallt der Unterschied:
+  SWKS 5yr-Avg $5.94 vs. Median $4.30 → 38% Unterschied im EPS
+  → daraus √-Effekt ~17% in Graham#
+
+WEITERER PUNKT bei GV.com:
+Die zeigen in der Tabelle "EPS 3.08" fuer SWKS — das ist TTM-EPS.
+In der FORMEL nutzen sie aber ihren normalisierten Wert (nicht der Tabellen-EPS).
+Das ist verwirrend aber nicht falsch — nur schlecht dokumentiert.
+
+INTRINSIC VALUE (grahamvalue.com):
+CAG 0.00 | LEN 154.98 | VZ 0.00 | SWKS 6.17
+→ Die vergeben 0 wenn "qualitative Kriterien" nicht erfuellt (Debt/Current-Ratio/Div-History etc.).
+LEN ist der einzige der die vollen 17 Regeln passt.
+
+UNSER SCORE:
+CAG 8/9 | LEN 7/8 | VZ 7/9 | SWKS 6/9
+Deckt sich grob: LEN gut, andere nicht komplett.
+
+NAECHSTER SCHRITT (nicht heute):
+Option A: Statt 5yr-Avg → 7yr-Median implementieren (score.js Z.245)
+Option B: Zusaetzlich Debt-to-Equity + 10yr-Dividend-History checken (aehnlich GV.com's 17 Regeln)
+
+Priorisierung offen — sag Bescheid welches wichtiger ist.

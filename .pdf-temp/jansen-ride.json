@@ -1,0 +1,22 @@
+{
+  "customerName": "Christine Jansen",
+  "customerPhone": "+491754483896",
+  "customerMobile": "+491754483896",
+  "pickup": "Bahnhof Ahlbeck, Bahnhofstrasse, 17419 Ahlbeck",
+  "pickupLat": 53.9359764,
+  "pickupLon": 14.1889930,
+  "destination": "Ahlbecker Hof, Duenenstrasse 47, 17419 Ahlbeck",
+  "destinationLat": 53.9425256,
+  "destinationLon": 14.1885515,
+  "pickupTimestamp": 1782398100000,
+  "pickupTime": "16:35",
+  "status": "vorbestellt",
+  "passengers": 2,
+  "paymentMethod": "bar",
+  "price": 7.3,
+  "distance": 1.0,
+  "notes": "WhatsApp 24.06. 20:28 von Christine Jansen. CRM-Anlage parallel (Neukunde). Preis nach Taxitarif: 4 + 1.0km*3.30 = 7,30 EUR.",
+  "createdAt": 1782375030000,
+  "createdBy": "claude-bridge-jansen-25.06",
+  "source": "whatsapp-incoming"
+}

@@ -1,0 +1,28 @@
+=== ANRUFE MIT CODES — wähle: "go A C F" oder "skip B D" oder "alle skip" ===
+
+⏭️ ZEITLICH SCHON VORBEI — wahrscheinlich erledigt/verfallen:
+  [A] 09:00 Knüppel | 2026-06-25 sofort | Steigenberger Hotel, Heri > Swinemünde, Chorsum
+  [B] 09:10 Kaczmarek | 2026-06-25 sofort | Kaiserstrand / Beach Hote > Albek, Promenade
+  [C] 10:03 Inselklinik Haus K | 2026-06-25 sofort | Inselklinik Haus Kulm Str > Wolgast, Notaufnahme
+  [D] 12:18 ? | 2026-06-25 12:40 | Albiger Bahnhof > Reha-Klinik Albig
+  [E] 13:03 Kunkel | 2026-06-25 14:10 | Bahnhof oder Zugstation ( > Hotel Heringsdorf (angeno
+  [F] 13:50 Schäuble | 2026-06-25 sofort | Bahnhof Bansin > Bansin-Forsthaus-Langenbe
+  [G] 13:57 ? | 2026-06-25 sofort | Kaiserhof > Strandvillen Betanien Ruh
+  [H] 15:28 Petra Rappl | 2026-06-25 17:25 | Heringsdorf Bahnhof > Ahlbeck, Seestraße
+
+🚖 HEUTE NOCH ZUKUNFT:
+  [I] 09:56 Freitag | 2026-06-25 19:00 | Hotel Schloensee, Badstra > Waterblick, Lodin
+
+📅 VORBESTELLUNG ZUKUNFT:
+  [J] 07:47 Lorenz | 2026-07-02 11:35 | Seebartalbeck > Reha-Klinik Albeck
+  [K] 10:36 Petra Steffen | Samstag (nächster Samstag nach 25.6.2026, also 27.6.2026) 07:50 | Ahlbecker Hof > Bahnhof Ahlbeck
+  [L] 10:51 Luc | 2026-06-26 10:30 | Neue Straße 7, Heringsdor > Bahnhof Heringsdorf
+  [M] 11:47 Steffi Krale | 25.06.2026 12:15 | Bansin, Seestraße 19 (vor > Bahnhof Bansin
+  [N] 12:50 ? | 2026-07-01 05:45 | Benz > Bansin
+  [O] 13:14 Johansen | 2026-06-27 07:30 | Stresemannstraße > Busbahnhof Heringsdorf
+  [P] 13:29 Ostseehotel Albeck | morgen 07:50 | Ostseehotel/Osby Hotel Al > Bahnhof
+  [Q] 14:03 ? | 25.06.2026 14:33 | Strandhotel Ostende, Heri > Schwindemünde
+  [R] 14:11 Frau Peter | 25.06.2026 00:00 | Heringsdorf, Fußballprome > Privat (Zuhause)
+  [S] 15:28 ? | 26.06.2026 07:30 | Feldmann > Bahnhof Heringsdorf
+  [T] 15:34 Enrico | 25.06.2026 17:30 | Bahnhof Heringsdorf > Büro (Heringsdorf), dann 
+  [U] 17:32 Schneider | 2026-06-26 08:45 | Ahlbeck, Neue Straße Ecke > Bahnhof Heringsdorf

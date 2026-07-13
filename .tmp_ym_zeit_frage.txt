@@ -1,0 +1,12 @@
+Zur YM-Greifswald-Zeitfrage:
+
+Fahrtstrecke Ahlbeck → Greifswald ≈ 100 km ≈ 65–70 Min (A20)
+
+Rechnung:
+• Abfahrt 05:50 → Ankunft Greifswald ~06:55
+• Sofort zurück → Ahlbeck ~08:05
+• Mit 5–10 Min Puffer → 08:10–08:15
+
+Das System müsste also ~08:05–08:15 als Rückkehr berechnet haben.
+
+Frage: Was hat das System als Ende-/Rückkehr-Zeit für diese Fahrt angezeigt? Wenn es z.B. 07:30 oder 09:00 angezeigt hat, wäre die Berechnung falsch gewesen. Kannst du kurz sagen was da stand — oder Ride-ID schicken, dann schau ich direkt in Firebase nach.

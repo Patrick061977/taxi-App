@@ -1,0 +1,17 @@
+Antje 15:20 — vollständige Erklärung:
+
+1. Antje bucht um ca. 15:08 für 15:20 Uhr
+2. Auto-Assign gibt die Fahrt an Danilo (Schicht aktiv, GPS frisch)
+3. Danilo nimmt NICHT an → Annahme-Timeout läuft ab
+4. Fahrt geht zurück auf Status 'new'
+5. Da jetzt nur noch ~12 Min bis Pickup (15:08 Uhr) → System stuft die Fahrt als SOFORTFAHRT ein
+6. Banner erscheint bei dir: du siehst "15:08 Uhr" weil das der MOMENT war als das Banner kam — die Pickup-Zeit war immer noch 15:20 Uhr
+
+Die Pickup-Zeit hat sich NICHT verändert. 15:08 war nur die Uhrzeit der Notification bei dir.
+
+Warum hast du die Fahrt nicht von Anfang an bekommen?
+→ Danilo hatte Priorität (seine Schicht war aktiv + GPS war frisch)
+→ Erst nach Danilos Timeout bist du dran
+→ Das ist die normale Reihenfolge des Auto-Assign
+
+War deine Schicht in der App gestartet als du am Bahnhof standest?

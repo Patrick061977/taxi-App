@@ -1,0 +1,48 @@
+📋 Antworten von gestern nach Rate-Limit-Reset (nochmal, kompakt):
+
+1️⃣ RATE-LIMIT WARUM SO SCHNELL WEG?
+Aus deinem /status: Session (5h) 100%, resettet in 1h. Ursachen laut App-Anzeige:
+• 100% subagent-heavy (jeder Subagent = eigenes Kontingent obendrauf)
+• 100% 8h+-Sessions (Loops halten offen)
+• 74% >150k Kontext (grosser Kontext = teure Antworten)
+Weekly 58% → 2d bis Reset, reicht locker.
+
+2️⃣ TRAFFIC-RATE SENKEN — ich mache ab jetzt:
+• Weniger Subagents (nur bei >3 parallelen Suchen)
+• Kein Auto-Explore ueber halbe Repos
+• Kurze Antworten
+Du: /clear zwischen Themen.
+
+3️⃣ SUBAGENTS: Eigene Claude-Instanzen die parallel arbeiten. Jeder verbraucht eigenes Kontingent — 5 Subagents = 5x Cost. Fuer Bugfixes NICHT noetig.
+
+4️⃣ VS CODE: Editor mit Claude-Extension, nutzt dieselbe API → spart 0 Token. Nur UI-Vorteil. Wir brauchen es NICHT.
+
+5️⃣ STRATO-SERVER-PW eintragen:
+1. Explorer → C:\Taxi App\taxi-App-github
+2. Neue Textdatei ".strato_pw" (Notepad)
+3. NUR Passwort rein
+4. Sag "PW eingetragen"
+Ich lese, teste SSH, loesche danach. .gitignore deckt .strato_* ab.
+
+6️⃣ 5-MIN-OPTIMIERUNGS-REGEL: in Memory gespeichert. Code-Stand:
+• Phase 2 hat Schwelle 10 Min (default)
+• Phase 3 hat KEINE Zeit-Schwelle → wahrscheinlich siehst du das
+• Code-Fix (Delta ≥5 Min in Phase 3) kommt in naechster Session
+
+7️⃣ GRAHAM-FORMEL vs. grahamvalue.com: Unsere Formel √(22.5 × EPS_5yr × BVPS) ist IDENTISCH. Unterschied bei SWKS/VZ/CAG/LEN liegt in Eingabewerten (Finnhub vs. SEC-Filings). Ticker-Vergleich mach ich in eigener Session.
+
+8️⃣ STRIPE-LINK per WhatsApp: PR #2602 gemerged (v6.63.690). Naechste WA-Anfrage kriegt Link mit.
+
+9️⃣ 20-UHR-GEMEINDE-ANFRAGE: Task C bleibt offen als Idee-Notiz.
+
+━━━━━━━━━━━━━━━━━━
+
+⚠️ ZUR MSGID-FRAGE:
+"Claude-Bot → ... | msgId: 39771" heisst: Telegram HAT die Nachricht angenommen und eine echte MsgId vergeben. Wenn die msgId da ist, liegt sie IN Telegrams System.
+
+Wenn du sie trotzdem nicht siehst, ist der Bruch entweder:
+a) falscher Bot geoeffnet (Hauptbot statt Claude-Bot)
+b) Telegram-App-Sync-Bug (App neu starten hilft oft)
+c) Push-Notification blockiert (Batterie-Optimierung)
+
+Kein Fake — msgId kommt echt von Telegram-Server zurueck, nicht von mir erfunden.

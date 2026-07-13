@@ -1,0 +1,27 @@
+━━━ 4 FIXES DEPLOYED ━━━
+
+✅ v6.63.617 — buchen.html:
+Antje-Bug behoben: Nach Vorbestellung konnte kein 2. Taxi gebucht werden.
+→ Die 15:20-Buchung hat das Formular für 19:45 blockiert.
+→ Fix: Vorbestellungen werden nicht mehr wiederhergestellt.
+Nächstes Mal kann Antje beide Fahrten direkt hintereinander buchen.
+
+✅ v6.63.617 — Cloud Function:
+scheduledAutoCompleteStuckRides: alle 30 Min → 'new' Fahrten
+>2h nach Pickup werden auf 'completed' gesetzt (nie canceln).
+Die 5 Juli-4-Fahrten habe ich manuell bereits erledigt. ✓
+The Breeze (heute 10:10) — soll ich die auch auf completed setzen?
+
+✅ v6.63.617 — Cloud Function:
+Email-Vorschau Fix: [✅ Senden] hat vorher nichts getan.
+→ personalMailSender feuert nur bei NEU-Anlage, nicht bei Update.
+→ personalMailSenderApproval hinzugefügt → geht raus wenn du tippst.
+
+✅ v6.63.618 — Fahrer-App (APK):
+Banner zeigt jetzt auch 'new' Fahrten ohne Fahrer.
+Antippen → Dialog "Fahrt übernehmen?" → direkt dein Tesla zugewiesen.
+APK-Build läuft (~8 Min) → dann Update-Banner in der App.
+
+━━━ OFFEN ━━━
+💳 Stripe/Email Flow: Kannst du mir sagen welche Fahrt du meinst?
+   (Name des Kunden + Datum) Dann schaue ich was fehlt.

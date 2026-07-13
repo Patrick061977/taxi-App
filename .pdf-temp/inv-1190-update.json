@@ -1,0 +1,25 @@
+{
+  "rideDate": "2026-04-19",
+  "positions": [
+    { "id": 1, "description": "Krankenfahrt 19.03.2026 Hinfahrt: Benz/Neppermin → Krankenhaus Demmin", "amount": 187, "quantity": 1, "unit": "Fahrt", "vatRate": 7, "discount": 0, "note": "" },
+    { "id": 2, "description": "Wartezeit 19.03.2026 am Krankenhaus Demmin (3 Std. × 40 €/h)", "amount": 40, "quantity": 3, "unit": "h", "vatRate": 7, "discount": 0, "note": "" },
+    { "id": 3, "description": "Krankenfahrt 19.03.2026 Rückfahrt: Krankenhaus Demmin → Benz/Neppermin", "amount": 187, "quantity": 1, "unit": "Fahrt", "vatRate": 7, "discount": 0, "note": "" },
+    { "id": 4, "description": "Krankenfahrt 02.04.2026 Hinfahrt: Benz/Neppermin → Krankenhaus Demmin", "amount": 187, "quantity": 1, "unit": "Fahrt", "vatRate": 7, "discount": 0, "note": "" },
+    { "id": 5, "description": "Wartezeit 02.04.2026 am Krankenhaus Demmin (3 Std. × 40 €/h)", "amount": 40, "quantity": 3, "unit": "h", "vatRate": 7, "discount": 0, "note": "" },
+    { "id": 6, "description": "Krankenfahrt 02.04.2026 Rückfahrt: Krankenhaus Demmin → Benz/Neppermin", "amount": 187, "quantity": 1, "unit": "Fahrt", "vatRate": 7, "discount": 0, "note": "" },
+    { "id": 7, "description": "Krankenfahrt 08.04.2026 09:00 Hin: Benz/Neppermin → Physiotherapie Bansin", "amount": 23, "quantity": 1, "unit": "Fahrt", "vatRate": 7, "discount": 0, "note": "" },
+    { "id": 8, "description": "Krankenfahrt 08.04.2026 10:15 Rück: Physiotherapie Bansin → Benz/Neppermin", "amount": 23, "quantity": 1, "unit": "Fahrt", "vatRate": 7, "discount": 0, "note": "" },
+    { "id": 9, "description": "Krankenfahrt 14.04.2026 11:00 Hin: Benz/Neppermin → Physiotherapie Bansin", "amount": 23, "quantity": 1, "unit": "Fahrt", "vatRate": 7, "discount": 0, "note": "" },
+    { "id": 10, "description": "Krankenfahrt 16.04.2026 10:00 Hin: Benz/Neppermin → Physiotherapie Bansin", "amount": 23, "quantity": 1, "unit": "Fahrt", "vatRate": 7, "discount": 0, "note": "" },
+    { "id": 11, "description": "Krankenfahrt 16.04.2026 12:22 Rück: Physiotherapie Bansin → Benz/Neppermin", "amount": 23, "quantity": 1, "unit": "Fahrt", "vatRate": 7, "discount": 0, "note": "" },
+    { "id": 12, "description": "Krankenfahrt 17.04.2026 10:00 Hin: Benz/Neppermin → Physiotherapie Bansin", "amount": 23, "quantity": 1, "unit": "Fahrt", "vatRate": 7, "discount": 0, "note": "" },
+    { "id": 13, "description": "Krankenfahrt 17.04.2026 10:55 Rück: Physiotherapie Bansin → Benz/Neppermin", "amount": 23, "quantity": 1, "unit": "Fahrt", "vatRate": 7, "discount": 0, "note": "" }
+  ],
+  "totalGross": 1149,
+  "totalNet": 1073.831775700935,
+  "totalVat": 75.16822429906543,
+  "vatBreakdown": { "7": 75.16822429906543 },
+  "netBreakdown": { "7": 1073.831775700935 },
+  "updatedAt": 1782285900000,
+  "_lastClaudePatch": "v6.63.490-patch-2026-06-24-demmin19marz"
+}

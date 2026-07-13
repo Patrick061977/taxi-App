@@ -1,0 +1,15 @@
+🐛 BUG GEFUNDEN + GEFIXT (v6.63.619, Cloud Functions):
+
+Automatische Buchungsbestätigung per Email hat NIE funktioniert!
+
+Problem: sendBookingConfirmationEmail las von /settings/email/smtp
+— der Pfad existiert nicht, alle SMTP-Einstellungen sind unter /settings/smtp
+→ jede Auto-Bestätigung bei Buchungserstellung → "SMTP fehlt → skip"
+
+Fix: Jetzt korrekt settings/smtp (wie alle 12 anderen Email-Funktionen).
+
+Das betrifft auch sendStripeLinkEmail.
+
+Ab nächster Buchung mit Email-Adresse bekommt der Kunde SOFORT automatisch:
+• Buchungsbestätigung (Datum/Zeit/Strecke/Preis/Track-Link)
+• Kein manuelles Approve nötig — läuft automatisch in onRideCreated

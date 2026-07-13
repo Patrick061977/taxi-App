@@ -1,0 +1,28 @@
+━━━ ANTWORTEN 4 OFFENE PUNKTE ━━━
+
+📱 1) ANTJE 19:45 — ROOT CAUSE GEFUNDEN
+Nach ihrer 15:20-Buchung blieb "activeBooking" im Browser-Speicher.
+Als sie 19:45 buchte, lud die Seite die alte Buchung wieder — 
+success-card für 15:20 erschien → "Jetzt buchen"-Button versteckt.
+Sie hat die Route eingegeben (18,40€, 4,3km sichtbar), aber dann
+überschrieb der Restore-Screen ihr Formular.
+→ Fix: restoreActiveBooking() überspringt vorbestellt-Buchungen.
+Sie kann dann gleich eine zweite Fahrt buchen. Läuft gleich.
+
+🚌 2) THE BREEZE — Wartepool-Logik
+Wurde dir angeboten, nicht angenommen → Fahrt zurück auf 'new', 
+kein Fahrzeug zugewiesen. Sie liegt jetzt im Wartepool.
+Soll ich sie auf 'completed' setzen (>2h vorbei)? 
+Oder: wurde The Breeze heute Morgen doch gefahren? Ja/Nein.
+
+📊 3) BANNER "FREI FÜR SOFORT" — irreführend
+Der Banner prüft nur vorbestellt-Fahrten. Wartepool-Fahrten
+('new', kein Fahrer) sieht er nicht. 
+→ Fix: wenn 'new' Fahrt ohne Fahrer existiert → Banner zeigt
+"⚠️ X Fahrt im Wartepool — Übernehmen?" statt "Frei".
+Soll ich das einbauen? Ja/Nein.
+
+💳 4) STRIPE-LINK IN EMAIL-VORSCHAU
+Du siehst Email-Vorschau aber keinen Stripe-Link. 
+Schick mir: Fahrtkunden-Name + wann war die Fahrt?
+Dann schaue ich ob Stripe-Payment konfiguriert ist für diesen Kunden.

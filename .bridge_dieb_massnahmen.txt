@@ -1,0 +1,26 @@
+🚨 Sofort-Maßnahmen:
+
+① Google Find My Device (WICHTIGSTE Maßnahme)
+   → google.com/android/find mit funktaxi.dk@gmail.com
+   → Gerät sperren + Passwort setzen falls noch nicht gesperrt
+   → Alle Daten löschen wenn nötig
+
+② Google-Konto SOFORT absichern:
+   → Passwort für funktaxi.dk@gmail.com ändern
+   → 2FA aktivieren
+   → Andernfalls hat der Dieb Zugriff auf alle Google-Dienste, Gmail, Drive etc.
+
+③ Netzanbieter anrufen:
+   → SIM sperren lassen (IMEI-Sperre beantragen)
+   → Modell: Xiaomi/Redmi 2201117PG
+
+④ Polizei:
+   → Diebstahl melden
+   → IMEI-Nummer angeben (steht auf der Gerätebox oder unter *#06# wählbar vorher)
+
+⑤ Aus unserer App rauswerfen:
+   → Ich kann den Firebase-Account von Kulpa sofort deaktivieren
+   → Dann funktioniert die Taxi-App auf dem gestohlenen Gerät nicht mehr
+   → Soll ich das tun?
+
+Das Gerät war um 18:54 Uhr zuletzt online — Find My Device jetzt probieren!

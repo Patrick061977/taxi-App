@@ -1,0 +1,15 @@
+{
+  "assignedVehicle": "pw-my-222-e",
+  "assignedTo": "pw-my-222-e",
+  "assignedVehicleName": "Tesla MY222",
+  "assignedVehiclePlate": "PW-MY 222 E",
+  "vehicle": "Tesla MY222",
+  "vehicleId": "pw-my-222-e",
+  "vehicleLabel": "Tesla MY222",
+  "vehiclePlate": "PW-MY 222 E",
+  "assignedBy": "claude-manual-emergency-25.06-1118",
+  "assignmentLocked": true,
+  "reassignReason": "11:15 IK-Doppelbelegung-Konflikt - Patrick selbst uebernimmt mit MY222 nach Kochan",
+  "updatedAt": 1782379200000,
+  "updatedBy": "claude-emergency"
+}

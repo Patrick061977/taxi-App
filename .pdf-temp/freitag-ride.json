@@ -1,0 +1,23 @@
+{
+  "customerName": "Familie Freitag",
+  "customerPhone": "+491737756977",
+  "customerMobile": "+491737756977",
+  "pickup": "Hotel Schloonsee, Badstrasse 2, 17429 Bansin",
+  "pickupLat": 53.9708565,
+  "pickupLon": 14.1455091,
+  "destination": "Waterblick, Am Muehlenberg 5, Koelpinsee, 17459 Loddin",
+  "destinationLat": 54.0194637,
+  "destinationLon": 14.0070602,
+  "pickupTimestamp": 1782406800000,
+  "pickupTime": "19:00",
+  "pickupDate": "2026-06-25",
+  "status": "vorbestellt",
+  "passengers": 2,
+  "paymentMethod": "bar",
+  "price": 24.0,
+  "distance": 12.0,
+  "notes": "Anruf 25.06. 09:56 Familie Freitag (Bansin). HEUTE 19:00 — Hotel Schloonsee → Restaurant Waterblick in Loddin/Koelpinsee (Am Muehlenberg 5, deutsche Insel-Strecke ~12 km Inselroute). Tarif: 4 + 2x3.30 + 2x2.80 + 8x2.20 = 23.80 EUR, konservativ 24 EUR.",
+  "createdAt": 1782408400000,
+  "createdBy": "claude-bridge-freitag-25.06",
+  "source": "acr-whisper-incoming"
+}

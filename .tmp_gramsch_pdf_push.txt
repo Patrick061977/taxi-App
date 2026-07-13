@@ -1,0 +1,13 @@
+✅ PDF erstellt: Befund-Zusammenfassung Gramsch (141 KB)
+
+Inhalt:
+• Kritische Laborwerte (Vit D, Homocystein, Selen, Zink, Candida, Dysbiose)
+• Therapiepläne 20.05. + 09.06. zusammengefasst
+• 8 Fragen für Dr. Gramsch
+• Gemüse roh vs. gegart (mit Gramm-Angaben)
+• Beispiel-Tagesplan (Frühstück/Mittag/Snack/Abend)
+• Supplement-Schema mit Zeitpunkten + Hinweisen
+
+📁 Pfad: C:\Taxi App\taxi-App-github\briefe\pdf\2026-07-06_Befund-Zusammenfassung_Gramsch.pdf
+
+Zum Drucken/Verschicken: Datei-Explorer → Pfad eingeben → öffnen + drucken oder per Email an Arzt schicken.

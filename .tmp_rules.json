@@ -1,0 +1,227 @@
+{
+  "rules": {
+    ".read": "auth != null",
+    ".write": "auth != null",
+
+    "users": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
+
+    "rides": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      ".indexOn": ["pickupTimestamp", "status", "vehicleId", "completedAt", "createdAt", "customerId"]
+    },
+
+    "archiveRides": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      ".indexOn": ["customerId", "pickupTimestamp", "completedAt", "vehicleId"]
+    },
+
+    "drivers": {
+      ".read": true,
+      ".write": "auth != null"
+    },
+
+    "invoices": {
+      ".read": "auth != null && root.child('users/' + auth.uid + '/role').val() === 'admin'",
+      ".write": "auth != null && root.child('users/' + auth.uid + '/role').val() === 'admin'",
+      ".indexOn": ["rideId", "createdAt", "invoiceDate", "stripePaymentStatus", "updatedAt"]
+    },
+
+    "invoiceRequests": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+
+    "tracking": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+
+    "vehicles": {
+      ".read": true,
+      ".write": "auth != null"
+    },
+
+    "settings": {
+      ".read": false,
+      ".write": false,
+      "calendarExport": {
+        ".read": true
+      },
+      "telegram": {
+        "pending": {
+          ".read": "auth != null"
+        },
+        "botlog": {
+          ".read": "auth != null"
+        }
+      },
+      "buchenLog": {
+        ".read": "auth != null",
+        ".write": "auth != null",
+        ".indexOn": ["time"]
+      },
+      "tarif": {
+        ".read": true
+      },
+      "pricing": {
+        ".read": true
+      },
+      "googleMapsApiKey": {
+        ".read": true
+      },
+      "googlePlacesApiKey": {
+        ".read": true
+      },
+      "bookingSystemOnline": {
+        ".read": true
+      },
+      "timeslotSettings": {
+        ".read": true
+      },
+      "googleReviewUrl": {
+        ".read": true
+      }
+    },
+
+    "logs": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+
+    "bookingRequests": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+
+    "calendarEvents": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+
+    "pois": {
+      ".read": true,
+      ".write": "auth != null"
+    },
+
+    "geocache": {
+      ".read": true,
+      ".write": "auth != null"
+    },
+
+    "optimierungsLog": {
+      ".read": "auth != null && root.child('users/' + auth.uid + '/role').val() === 'admin'",
+      ".write": "auth != null && root.child('users/' + auth.uid + '/role').val() === 'admin'",
+      ".indexOn": ["timestamp"]
+    },
+
+    "contactMessages": {
+      ".read": "auth != null",
+      ".indexOn": ["createdAt", "category"],
+      "$msgId": {
+        ".write": "!data.exists() && newData.child('message').isString() && newData.child('message').val().length >= 2 && newData.child('message').val().length <= 2000"
+      }
+    },
+
+    "feedback": {
+      ".read": "auth != null",
+      ".indexOn": ["submittedAt", "rating"],
+      "$rideId": {
+        ".write": "!data.exists() && newData.child('rating').isNumber() && newData.child('rating').val() >= 1 && newData.child('rating').val() <= 5"
+      }
+    },
+
+    "vehicleShifts": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+
+    "shifts": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+
+    "scripts": {
+      ".read": "auth != null && root.child('users/' + auth.uid + '/role').val() === 'admin'",
+      ".write": "auth != null && root.child('users/' + auth.uid + '/role').val() === 'admin'"
+    },
+
+    "analytics": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+
+    "customers": {
+      ".read": "auth != null && (root.child('users/' + auth.uid + '/role').val() === 'admin' || root.child('users/' + auth.uid + '/role').val() === 'fahrer')",
+      ".write": "auth != null && root.child('users/' + auth.uid + '/role').val() === 'admin'"
+    },
+
+    "activity_log": {
+      ".read": "auth != null && root.child('users/' + auth.uid + '/role').val() === 'admin'",
+      ".write": "auth != null && root.child('users/' + auth.uid + '/role').val() === 'admin'"
+    },
+
+    "callHistory": {
+      ".read": "auth != null && root.child('users/' + auth.uid + '/role').val() === 'admin'",
+      ".write": "auth != null && root.child('users/' + auth.uid + '/role').val() === 'admin'",
+      ".indexOn": ["timestamp"]
+    },
+
+    "hotelCalendars": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+
+    "hotelInvoices": {
+      ".read": "auth != null && root.child('users/' + auth.uid + '/role').val() === 'admin'",
+      ".write": "auth != null && root.child('users/' + auth.uid + '/role').val() === 'admin'"
+    },
+
+    "cancellations": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+
+    "smsQueue": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      ".indexOn": ["rideId", "createdAt"]
+    },
+
+    "anfragen": {
+      ".read": "auth != null",
+      ".indexOn": ["createdAt", "status"],
+      "$reqId": {
+        ".write": "(!data.exists() && newData.child('name').isString() && newData.child('name').val().length >= 2 && newData.child('name').val().length <= 100 && (newData.hasChild('pickup') || newData.hasChild('destination'))) || auth != null"
+      }
+    },
+
+    "publicData": {
+      ".read": true,
+      ".write": "auth != null"
+    },
+
+    "emailInbox": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      ".indexOn": ["ts", "read"]
+    },
+
+    "urlaubWatchlist": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+
+    "urlaubRequests": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      ".indexOn": ["ts", "status"]
+    }
+  }
+}

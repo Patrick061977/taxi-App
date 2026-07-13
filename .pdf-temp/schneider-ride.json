@@ -1,0 +1,23 @@
+{
+  "customerName": "Frau Schneider",
+  "customerPhone": "+491722664370",
+  "customerMobile": "+491722664370",
+  "pickup": "Bäckerei Junge, Neue Strasse Ecke Duenenstrasse, 17419 Ahlbeck",
+  "pickupLat": 53.9408019,
+  "pickupLon": 14.1893606,
+  "destination": "Bahnhof Heringsdorf, 17424 Seebad Heringsdorf",
+  "destinationLat": 53.9444,
+  "destinationLon": 14.1696,
+  "pickupTimestamp": 1782456300000,
+  "pickupTime": "08:45",
+  "pickupDate": "2026-06-26",
+  "status": "vorbestellt",
+  "passengers": 2,
+  "paymentMethod": "bar",
+  "price": 11.0,
+  "distance": 2.0,
+  "notes": "Anruf 25.06. 17:32 Frau Schneider. Fruehstueck bei Junge (Ecke Neue Str/Duenenstr Ahlbeck), dann zum Bahnhof Heringsdorf. 2 Pax.",
+  "createdAt": 1782406700000,
+  "createdBy": "claude-bridge-schneider-25.06",
+  "source": "acr-whisper-incoming"
+}

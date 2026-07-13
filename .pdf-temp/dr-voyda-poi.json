@@ -1,0 +1,10 @@
+{
+  "name": "Dr. Voyda",
+  "category": "arzt",
+  "address": "Lindenstraße 76, 17419 Ahlbeck",
+  "lat": 53.9426908,
+  "lon": 14.1812185,
+  "notes": "Hausarztpraxis Lindenstraße 76, Ahlbeck (Wildpark)",
+  "createdAt": 1782291000000,
+  "createdBy": "claude-bridge-patrick-poi-voyda"
+}

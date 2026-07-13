@@ -1,0 +1,18 @@
+[B] Klarstellung + Korrektur:
+
+📮 VERSANDWEG (wie beim Erst-Anschreiben 25.06.):
+Per Email an kontakt@rechtsanwalt-hornburg.de über deinen googlemail-Absender + PDF-Anlage. Ich generiere PDF aus dem Markdown, rufe das Send-Skript auf — Hornburg bekommt die Ergänzungsanfrage direkt in sein Postfach.
+
+📅 ILSE-BUS-START 2026:
+Guter Hinweis — Fragen 4/5/6 waren auf 2024/2025 formuliert. Korrigiert auf:
+• Frage 4 (Kurkarten-Erstattung): "seit Betriebsaufnahme 2026 (Ist) + Ansatz 2027"
+• Frage 5 (Fahrgaststatistik): "seit Betriebsaufnahme 2026" (kein 2024/2025)
+• Frage 6 (Fördersumme): "seit Aufnahme 2026 (Ist) + Ansätze 2026/2027"
+
+Rest bleibt (Rechtsgrundlage / Anhörung § 14 PBefG / ÖDA-Zuschüsse).
+
+📁 Datei: briefe/2026-07-10_Anschreiben_RA_Hornburg_Ilsebus-IFG.md
+
+────────────
+✅ RAUS → PDF + Email an Hornburg mit Anlage Sektion S
+✏️ NOCH WAS → sag was

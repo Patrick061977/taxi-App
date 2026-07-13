@@ -1,0 +1,23 @@
+✅ v6.63.619 APK-Build erfolgreich — Update-Banner erscheint beim nächsten App-Öffnen.
+
+━━━ Deine Fragen ━━━
+
+🚕 WARUM DANILO STATT DU (Bahnhof-Sofortfahrt)?
+Ich kann das nur mit dem konkreten Ride-Eintrag prüfen — da steht autoAssignLastReason drin.
+Häufigste Ursachen: GPS war >5 Min alt (kein frischer Standort), oder eine andere Fahrt blockierte deinen Slot.
+→ Sag mir die Uhrzeit der Buchung (z.B. "12:50") dann schau ich in Firebase nach.
+
+📧 EMAIL PREVIEW — WO IST DIE EMAIL?
+Mit Fix v6.63.617 (Cloud Function) funktioniert [✅ Senden] jetzt korrekt.
+Aber: was du in der App siehst (blauer Banner "Email-Vorschau") — das ist das WEB-UI-Modal in index.html, KEIN Telegram-Vorschau. Das hat einen eigenen Senden-Button. Schick mir Screenshot wenn da "Grafer..." steht, dann schau ich in welcher Zeile in index.html dieser Senden-Button seine Funktion hat.
+→ Kurze Frage: hast du da auf Senden getippt und nichts passiert? Oder kam eine Fehlermeldung?
+
+💬 ENGPASS-BEDEUTUNG
+Engpass in der Dispo heißt: Fahrt wäre theoretisch machbar, aber nur mit <10 Min Puffer (Karenz). Das System versucht dann eine Alternative, statt zu riskieren. Du hast recht — "Engpass" sollte nicht automatisch bedeuten "anderes Fahrzeug" wenn es noch in der Toleranz liegt. Ich schaue mir das an.
+
+📄 PDF (Gramsch-Befunde)
+Die Befunde-PDF hast du via Telegram gesendet — der Bot empfängt sie, kann sie aber nicht öffnen/lesen (kein Datei-Download in der Bridge). Schick sie bitte per Email an taxiwydra@googlemail.com, dann kann ich sie lesen.
+
+🍽️ MINERALIEN/ERNÄHRUNG (Arzttermin morgen)
+Den Therapieplan-Link von Dr. Gramsch (Welldium) habe ich schon geschickt: https://welldium.com/r/327i327f9z
+Sobald ich die PDF-Befunde per Email habe, sage ich dir welche Mineralien fehlen + was du essen kannst.

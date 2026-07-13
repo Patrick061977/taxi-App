@@ -1,0 +1,6 @@
+v6.63.609 ist gerade gebaut (APK läuft auf GitHub). Enthält genau die 3 Dinge:
+① 7€ Stale-Bug: Liste liest jetzt immer frisch vom Server (.get statt Cache)
+② CRM-Email: Schaut bei leerem Email-Feld automatisch in /customers nach
+③ Firebase-Write: Zeigt Toast wenn Speichern klappt oder fehlschlägt
+
+Bitte nach APK-Install kurz testen — sobald du die neue Version siehst (6.63.609 in den App-Infos) sollte der 7€-Bug weg sein.

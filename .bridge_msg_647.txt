@@ -1,0 +1,10 @@
+✅ v6.63.647 deployed
+
+Email-Übernahme hat jetzt ein Vorschau-Modal:
+• Alle Felder werden angezeigt (Abholung, Ziel, Datum, Gast, Personen)
+• Preis ist direkt editierbar — grünes Eingabefeld, vorausgefüllt mit berechnetem/Anfrage-Preis
+• Notizen ebenfalls änderbar
+• "Abbrechen" → Fahrt wird nicht angelegt
+• "✅ Fahrt anlegen" → Fahrt geht mit deinem Preis in Firebase
+
+GitHub Actions baut die neue index.html gerade (~2 Min).

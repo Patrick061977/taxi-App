@@ -1,0 +1,9 @@
+✅ v6.63.616 deployed (APK-Build läuft)
+
+Schicht-Editor Tab3 "Wochenplan-Übersicht" zeigt jetzt:
+  So ⬜  Mo ⬜↺06:30–22:00  Di ✅  Mi ✅  ...
+          ↑ Wochenplan-Muster   ↑ Override diese Woche
+
+Preview-Text fix: "Mo 06.07.: 06:30–22:00" statt irreführendem "heute:"
+
+Update-Banner erscheint wenn du die Fahrer-App das nächste Mal öffnest.

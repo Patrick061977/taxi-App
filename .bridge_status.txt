@@ -1,0 +1,10 @@
+━━━ Status ━━━
+
+1️⃣ Strandidyll-Rechnung (7→10€):
+✅ GEFIXT — Firebase direkt gepatcht + positions/0/amount + totalNet korrekt. PDF-Regenerierung kannst du manuell aus der Rechnungs-Ansicht anstoßen.
+
+2️⃣ Antje Web-Anfrage:
+Ich finde in Firebase keine Anfrage mit status='offen'. Nur Antje Jung (Mai) — bereits übernommen. Gibt es noch einen anderen Vornamen oder ein anderes Gerät wo du das siehst? Screenshot wäre hilfreich.
+
+3️⃣ Downloads 106 MB + Routenberechnung:
+Das untersuche ich gerade. Wahrscheinlich läuft der Admin-Dashboard-Refresh alle 2 Sekunden und zieht jedes Mal alle Rides neu. Schaue mir die Routenberechnungs-Intervalle an.

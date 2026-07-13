@@ -1,0 +1,21 @@
+{
+  "customerName": "Familie Schmidt",
+  "customerId": "customer_1782287837schmidt",
+  "customerPhone": "+491788083616",
+  "customerMobile": "+491788083616",
+  "pickup": "Seestraße 19 (Ostseepark Bansin), 17429 Bansin",
+  "pickupLat": 53.9686802,
+  "pickupLon": 14.1387098,
+  "destination": "Bansin Bahnhof, 17429 Bansin",
+  "destinationLat": 53.9638713,
+  "destinationLon": 14.1315516,
+  "pickupTimestamp": 1782627600000,
+  "pickupTime": "08:20",
+  "status": "vorbestellt",
+  "passengers": 1,
+  "paymentMethod": "bar",
+  "notes": "Frau Schmidt vom Ostseepark mit Gepaeck zum Bahnhof Bansin. Vorbestellung via ACR-Whisper-Anruf 23.06. 18:44. (Hinweis: Gast steht vorm Vermietungsbuero oben an der Straße.)",
+  "createdAt": 1782287900000,
+  "createdBy": "claude-bridge-acr-schmidt-ride",
+  "source": "acr-whisper-incoming"
+}

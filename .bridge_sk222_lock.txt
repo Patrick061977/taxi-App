@@ -1,0 +1,5 @@
+Jetzt sollte es klappen. Das Problem war: Kulpas Gerät hatte den SK noch aktiv gelockt (Heartbeat lief noch). Nicht-Admins sehen ein gelocktes Fahrzeug gar nicht in der Liste.
+
+Lock ist jetzt gelöscht → SK erscheint wieder in der Fahrzeugauswahl.
+
+Bitte VehiclePicker neu laden (App schließen + neu öffnen falls nötig).

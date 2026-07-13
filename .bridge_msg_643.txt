@@ -1,0 +1,6 @@
+v6.63.643 deployed ✅
+
+Fix 1: AGB-Checkbox ausgeblendet für Rückkehrer (< 30 Tage) — auto-checked, kleiner grüner Hinweis.
+Fix 3: Validierte Nummer braucht keine SMS mehr — gilt für alle, nicht nur Firebase-Auth-User.
+
+Zu deiner Frage: Einmal AGB akzeptieren reicht — das merken wir uns im localStorage. Richtige AGB-Seite haben wir noch nicht, das stimmt. Soll ich einen Entwurf machen?

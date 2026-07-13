@@ -1,0 +1,7 @@
+2026/07/09-13:35:57.545 3db0 Reusing MANIFEST C:\Taxi App\taxi-App-github\UsersTaxiAppDataLocalGoogleChromeUser Data\Default\IndexedDB\https_umwelt-taxi-insel-usedom.de_0.indexeddb.leveldb/MANIFEST-000001
+2026/07/09-13:35:57.545 3db0 Recovering log #4
+2026/07/09-13:35:57.546 3db0 Reusing old log C:\Taxi App\taxi-App-github\UsersTaxiAppDataLocalGoogleChromeUser Data\Default\IndexedDB\https_umwelt-taxi-insel-usedom.de_0.indexeddb.leveldb/000004.log 
+2026/07/09-13:35:58.980 bbe0 Level-0 table #8: started
+2026/07/09-13:35:58.981 bbe0 Level-0 table #8: 3495 bytes OK
+2026/07/09-13:35:58.983 bbe0 Delete type=0 #4
+2026/07/09-13:35:58.984 1c8 Manual compaction at level-0 from '\x00\x07\x00\x00\x00' @ 72057594037927935 : 1 .. '\x00\x08\x00\x00\x00' @ 0 : 0; will stop at (end)

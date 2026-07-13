@@ -1,0 +1,7 @@
+{
+  "text": "Ja hallo, wir möchten gerne ein Taxi bestellen, zum Flughafen Heringsdorf. Nee, das wird bei uns heute leider nichts werden. Nichts da? Okay, danke. Also da kommen jetzt immer noch ein paar Taxen hoch, aber wir können da nichts mehr machen heute, großartig. Okay, alles klar, danke.",
+  "usage": {
+    "type": "duration",
+    "seconds": 25
+  }
+}

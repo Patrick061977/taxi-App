@@ -1,0 +1,11 @@
+👍 QR-Scan hat gerettet, ok — im Payment-Dialog laueft der Native-QR-Code (ZXing seit v6.59.0), unabhaengig von der Nummer.
+
+Kurze Freigabe-Frage:
+
+Soll ich das Sweep-Script fuer die 60 verknoteten Kunden-Nummern bauen?
+
+[JA-SWEEP] → ich bau ein Preview-Script (zeigt alle 60 splits vor Ausfuehrung), du siehst Vorschlag, gibst Go/No-Go pro Zeile oder gesamt.
+
+[NEIN] → lassen wir. Nur beim naechsten Trigger (SMS/WA an einen dieser Kunden) manuell einzeln fixen.
+
+[SPAETER] → parke ich als TODO.

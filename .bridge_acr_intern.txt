@@ -1,0 +1,12 @@
+Das Skript schaut in diesen OneDrive-Ordner (der existiert und hat Dateien bis 30.06.):
+
+  OneDrive
+  └── 6.Dokumente unsortiert
+      └── Anwendungen
+          └── ACRPhone Cloud Uploads
+              └── Acr           ← hier müssen die .m4a Dateien liegen
+
+In der ACR Phone App → Einstellungen → Cloud Backup → OneDrive:
+Der Upload-Zielordner muss exakt auf "ACRPhone Cloud Uploads/Acr" zeigen.
+
+Wenn du ihn auf "ACR" oder "ACRPhone" umbenannt hast, sag mir den neuen Pfad — dann passe ich das Skript an.

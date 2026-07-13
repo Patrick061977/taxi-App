@@ -1,0 +1,8 @@
+Antje Jung (einzige Antje in /anfragen) ist bereits übernommen — rideId vorhanden, Status: bestätigt.
+
+Kannst du kurz sagen:
+1. Zeigt die App noch den roten Banner "offene Anfragen"?
+2. Was passiert wenn du "Übernehmen" tippst — welche Meldung kommt?
+3. Wie heißt Antje mit Nachnamen?
+
+Ich find keine neue offene Anfrage von heute in Firebase.

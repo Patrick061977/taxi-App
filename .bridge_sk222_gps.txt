@@ -1,0 +1,8 @@
+Nein, kein Live-GPS möglich — letzte bekannte Position war vom 27.06., vor 7 Tagen:
+
+📍 53.957811, 14.1491856 (Heringsdorf, letzter bekannter Standort 27.06. 21:12)
+🗺 https://www.google.com/maps?q=53.957811,14.1491856
+
+Das Gerät hatte zwar noch eine Firebase-Verbindung (Heartbeat lief), aber GPS-Tracking hatte mit dem Schicht-Ende am 28.06. aufgehört. Live-Orten ist nur möglich wenn der Fahrer eine aktive Schicht fährt — dann schreibt die App alle paar Sekunden die GPS-Position.
+
+Wo ist Kulpa gerade? Falls du ihn erreichst und er die App öffnet + Schicht startet, siehst du den Standort sofort live.

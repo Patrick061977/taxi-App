@@ -1,0 +1,16 @@
+✅ Alles erledigt. Hier der Stand:
+
+━━━ MEDIZIN (Gramsch-Befunde) ━━━
+✅ Beide DOCX-Therapiepläne gelesen (20.05. + 09.06.)
+✅ 13 Seiten IMD-Laborbefunde + BioScan ausgewertet
+✅ Kritische Werte: Vit D 9,1 ng/ml, Homocystein 13,9, Selen 79, Zink 4,3, Candida erhöht, Dysbiose >2
+✅ 8 Fragen für Dr. Gramsch vorbereitet
+
+━━━ TECHNIK ━━━
+✅ v6.63.620 — Mobile-Regex-Bug gefixt
+✅ v6.63.621 — Telegram: Stripe-Link auch ohne Email (Preis per Chat eingeben)
+✅ v6.63.622 — Fahrer-App: WhatsApp-Button Stripe + Buchungsbestätigung
+
+━━━ OFFEN ━━━
+⏳ Nina — Stripe-Link verschickt? Falls nein: Fahrt im Telegram-Bot öffnen → "💳 Stripe-Link erstellen + senden"
+⏳ Engpass-Screenshot — hast du den noch?

@@ -1,0 +1,3 @@
+✅ Renault SK freigegeben — der blockierte "forceEnded"-Status ist weg.
+
+Jetzt im Fahrer-Login → Fahrzeug auswählen → SK sollte erscheinen. Dann normal Schicht starten.

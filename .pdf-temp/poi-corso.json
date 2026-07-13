@@ -1,0 +1,13 @@
+{
+  "name": "Galeria Corso Swinemünde",
+  "address": "Jarosława Dąbrowskiego 5, 72-600 Świnoujście, Polen",
+  "lat": 53.9097844,
+  "lon": 14.2463879,
+  "category": "shopping",
+  "country": "PL",
+  "city": "Swinemuende",
+  "notes": "Einkaufszentrum Swinemünde — Zielziel für Hotel-Gäste",
+  "createdAt": 1782371500000,
+  "createdBy": "claude-bridge-25.06",
+  "source": "telegram-patrick"
+}

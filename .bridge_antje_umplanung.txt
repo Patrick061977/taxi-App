@@ -1,0 +1,32 @@
+📞 Antje Faulenbach — CRM-Befund:
+
+Im CRM ist NUR EINE Nummer hinterlegt:
+• phone: +491632759062 (Handy 0163)
+• mobilePhone: LEER
+• phone2: LEER
+• Keine Festnetznummer im Datensatz
+
+Damit die "Festnetz-verknotet in Link"-Nummer aus einem anderen Ort kommen muss — moeglich:
+a) Ride hatte customerPhone anders gesetzt (vor CRM-Sync)
+b) In der Zahlungslink-Text-SMS wurde Ride-Phone + noch was zusammenkopiert
+c) Die "Verknotung" war in der TEXT-Nachricht, nicht im Stripe-Link selbst
+
+Fuer die genaue Diagnose brauche ich: welchen Zahlungslink hast du geschickt (SMS/WA/Email) und wann (grob Uhrzeit gestern)? Dann finde ich die exakte Message im Log.
+
+━━━━━━━━━━━━━━━━━━
+
+🔁 ZUR UMPLANUNGS-FRAGE:
+
+Bisher (bis v6.63.690):
+• Phase 2 (Optimierung nach Anfahrt): hatte Schwelle "optimierungMinVorteilMinuten" (Default 10 Min in Code, nicht in Firebase gesetzt). Also wechselt nur wenn ≥10 Min besser.
+• Phase 3 (Prio-Time-Re-Sort): HATTE KEINE Zeit-Schwelle. Wenn hoeher-priorisiertes Fahrzeug frei war, wurde umgelegt — egal ob Anfahrt 1 Min oder 20 Min besser.
+
+JA — Phase 3 hat wegen 1 Minute umgeplant. Das ist genau das was du gesehen hast.
+
+Ab v6.63.691 (gerade drin):
+• Phase 3 hat jetzt AUCH eine 5-Min-Schwelle
+• Prio-Wechsel + Anfahrt < 5 Min besser → BLEIBT beim alten Fahrzeug
+• Prio-Wechsel + Anfahrt >= 5 Min besser → umgeplant
+• ECHTER Konflikt (Fahrzeug hat Kollision) → wird IMMER umgelegt, egal Delta
+
+Cloud-Function-Deploy ist durch. Naechster Cron-Run (jede 5 Min) nutzt die neue Regel.

@@ -1,0 +1,27 @@
+{
+  "invoiceNumber": "20-26-1192",
+  "rideId": "-Ovuyo0avjxnvq",
+  "customerId": "customer_1782292483anon4999828",
+  "customerName": "Kunde Pommernstraße 1A",
+  "customerPhone": "+4915224999828",
+  "kundennummer": "",
+  "guestName": "",
+  "pickup": "Pommernstraße 1A, 17419 Ahlbeck",
+  "destination": "Dr. Voyda, Lindenstraße 76, 17419 Ahlbeck",
+  "rideDate": "2026-06-22",
+  "rideTime": "09:38",
+  "distance": 1.5,
+  "positions": [
+    { "id": 1, "description": "Taxifahrt 22.06.2026 Pommernstraße 1A → Dr. Voyda Lindenstraße 76 Ahlbeck", "amount": 9.40, "quantity": 1, "unit": "Fahrt", "vatRate": 7, "discount": 0, "note": "" }
+  ],
+  "totalGross": 9.40,
+  "totalNet": 8.78504672897196,
+  "totalVat": 0.6149532710280374,
+  "vatBreakdown": { "7": 0.6149532710280374 },
+  "netBreakdown": { "7": 8.78504672897196 },
+  "paymentMethod": "stripe",
+  "paymentTerms": "Online-Bezahlung via Stripe-Link",
+  "status": "offen",
+  "createdAt": 1782292600000,
+  "createdBy": "claude-bridge-pommern-stripe-fahrt"
+}

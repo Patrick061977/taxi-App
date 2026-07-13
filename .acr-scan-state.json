@@ -1,0 +1,4398 @@
+{
+  "processed": {
+    "Ostseehotel (+4938378600) [2026-06-24 07-37-42] [Eingehend].m4a": {
+      "ts": 1782279803994,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "2026-06-24",
+        "uhrzeit": "08:20",
+        "pickup": "Ostseehotel",
+        "destination": "Bahnhof",
+        "passengers": null,
+        "customerName": "Ostseehotel",
+        "guestName": null,
+        "notes": "Anrufer wollte sofort fahren, das war nicht möglich. Um 8:20 Uhr angeboten, aber Taxi ist ausgebucht - Buchung wurde nicht abgeschlossen."
+      },
+      "pushedToBridge": true
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-23 11-02-57] [Eingehend].m4a": {
+      "ts": 1782280136672,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "23.6.2026",
+        "uhrzeit": "unklar",
+        "pickup": "unklar",
+        "destination": "unklar",
+        "passengers": null,
+        "customerName": "unklar",
+        "guestName": null,
+        "notes": "Fahrgast hat Termin um 11:00 Uhr, Hin- und Rückfahrt ohne Wartezeit, Transportschein, Fahrer soll vor Ort stehen bleiben und wird per Darik benachrichtigt"
+      },
+      "pushedToBridge": true
+    },
+    "+49 172 6994322 (+491726994322) [2026-06-23 11-10-48] [Eingehend].m4a": {
+      "ts": 1782280142814,
+      "classification": {
+        "isBookingRequest": false,
+        "art": "privat"
+      },
+      "pushedToBridge": false
+    },
+    "+49 171 7584999 (+491717584999) [2026-06-23 11-37-16] [Eingehend].m4a": {
+      "ts": 1782280152365,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "hoch",
+        "datum": "2026-06-27",
+        "uhrzeit": "15:00",
+        "pickup": "Upsdalsboom Hotel, Haupteingang, Heringsdorf",
+        "destination": "Flughafen",
+        "passengers": 4,
+        "customerName": "Wilhelm Hain",
+        "guestName": null,
+        "notes": "Flug 17:00 Uhr, 4 Personen mit Gepäck, Check-in ca. 15:15 Uhr erforderlich, Fahrtzeit ca. 25-30 Minuten zum Flughafen"
+      },
+      "pushedToBridge": true
+    },
+    "+48 531 773 273 (+48531773273) [2026-06-23 12-05-09] [Eingehend].m4a": {
+      "ts": 1782280160684,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "2026-06-23",
+        "uhrzeit": "sofort",
+        "pickup": "Ahlbeck, Rewe-Markt",
+        "destination": null,
+        "passengers": 2,
+        "customerName": "Spieß",
+        "guestName": "Kanne",
+        "notes": "Fahrzeug springt nicht an, hat Starterkabel dabei. Dispatcher muss Kollegen anrufen um Power Bank / Akku-Starter von zu Hause zu holen. Rückruf zugesagt."
+      },
+      "pushedToBridge": true
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-23 12-24-01] [Eingehend].m4a": {
+      "ts": 1782280166377,
+      "classification": {
+        "isBookingRequest": false,
+        "art": "fahrer"
+      },
+      "pushedToBridge": false
+    },
+    "Zentrale (+491715377241) [2026-06-23 13-17-32] [Eingehend].m4a": {
+      "ts": 1782280172363,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "2026-06-23",
+        "uhrzeit": "15:00",
+        "pickup": "Bahnhof",
+        "destination": "Greifswald",
+        "passengers": null,
+        "customerName": "Patrick",
+        "guestName": null,
+        "notes": "Tesla-Fahrzeug gewünscht. Abholung vom Bahnhof zum Greifswald."
+      },
+      "pushedToBridge": true
+    },
+    "+49 1522 5190332 (+4915225190332) [2026-06-23 16-50-04] [Eingehend].m4a": {
+      "ts": 1782280177322,
+      "classification": {
+        "isBookingRequest": false,
+        "art": "sonstiges"
+      },
+      "pushedToBridge": false
+    },
+    "+49 1575 3479327 (+4915753479327) [2026-06-23 17-27-07] [Eingehend].m4a": {
+      "ts": 1782280183716,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "hoch",
+        "datum": "2026-06-24",
+        "uhrzeit": "10:15",
+        "pickup": "Strandvillen Heringsdorf",
+        "destination": "Bahnhof Bansin",
+        "passengers": null,
+        "customerName": "Vogel",
+        "guestName": null,
+        "notes": "Bestätigung einer bereits vorliegenden Buchung für morgen früh"
+      },
+      "pushedToBridge": true
+    },
+    "+49 171 7584999 (+491717584999) [2026-06-23 17-33-10] [Eingehend].m4a": {
+      "ts": 1782280193053,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "2026-06-27",
+        "uhrzeit": null,
+        "pickup": "Hotel Upstads, Brommerlo",
+        "destination": null,
+        "passengers": null,
+        "customerName": "Hein",
+        "guestName": null,
+        "notes": "Anrufer möchte frühere Buchung (47 Euro) stornieren/korrigieren. Neue Buchung soll mit 34-35 Euro erfolgen. Bestätigungssms erhalten aber ohne korrekte Daten."
+      },
+      "pushedToBridge": true
+    },
+    "+49 174 9060461 (+491749060461) [2026-06-23 17-43-03] [Eingehend].m4a": {
+      "ts": 1782280198246,
+      "classification": {
+        "isBookingRequest": false,
+        "art": "sonstiges"
+      },
+      "pushedToBridge": false
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-23 18-25-13] [Eingehend].m4a": {
+      "ts": 1782280223012,
+      "classification": {
+        "isBookingRequest": false,
+        "art": "fahrer"
+      },
+      "pushedToBridge": false
+    },
+    "Waldoase Ahlbeck (+493837850225) [2026-06-23 18-39-50] [Eingehend].m4a": {
+      "ts": 1782280229814,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "hoch",
+        "datum": "2026-06-24",
+        "uhrzeit": "09:10",
+        "pickup": "Hotel Residenz Waldoase, Ahlbeck",
+        "destination": "Rathaus Alwe",
+        "passengers": null,
+        "customerName": "Hotel Residenz Waldoase",
+        "guestName": "Familie Wagner",
+        "notes": "Gäste haben Busanschluss um 9:30 Uhr vom Rathaus Alwe. Abholzeit wurde mehrfach abgestimmt (9:10 Uhr final bestätigt)."
+      },
+      "pushedToBridge": true
+    },
+    "+49 178 8083616 (+491788083616) [2026-06-23 18-44-20] [Eingehend].m4a": {
+      "ts": 1782280236261,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "hoch",
+        "datum": "2026-06-27",
+        "uhrzeit": "08:20",
+        "pickup": "Bansin, Seestraße 19, Ostseepark Bansin (Vermietungsbüro, oben an der Straße)",
+        "destination": "Bahnhof Heringswalde Bansin",
+        "passengers": 1,
+        "customerName": "Schmidt",
+        "guestName": null,
+        "notes": "Fahrgast hat Gepäck dabei"
+      },
+      "pushedToBridge": true
+    },
+    "+49 1515 2548370 (+4915152548370) [2026-06-23 19-25-33] [Eingehend].m4a": {
+      "ts": 1782280241979,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "hoch",
+        "datum": "23.6.2026",
+        "uhrzeit": "19:40",
+        "pickup": "Rewe Ahlbeck, Parkplatz",
+        "destination": "Flughafen Heringsdorf",
+        "passengers": 4,
+        "customerName": null,
+        "guestName": null,
+        "notes": "Fahrgäste stehen bereits auf dem Parkplatz. Abholung in ca. 15 Minuten vereinbart."
+      },
+      "pushedToBridge": true
+    },
+    "+49 171 7176461 (+491717176461) [2026-06-23 19-55-08] [Eingehend].m4a": {
+      "ts": 1782280252873,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "2026-06-23",
+        "uhrzeit": "sofort",
+        "pickup": "Strandpromenade Arlbeck, Bushaltestelle gegenüber Ponnersches Fischrestaurant",
+        "destination": "Bansin",
+        "passengers": 3,
+        "customerName": null,
+        "guestName": null,
+        "notes": "Fahrgäste warten an Bushaltestelle, letzter Bus ist abgefahren, Fahrer verspricht Ankunft in ca. 15 Minuten, Preis ca. 20 Euro gesamt (ca. 6,50-6,60 Euro pro Person)"
+      },
+      "pushedToBridge": true
+    },
+    "+49 176 73517210 (+4917673517210) [2026-06-23 20-48-50] [Eingehend].m4a": {
+      "ts": 1782280258423,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "23.6.2026",
+        "uhrzeit": "sofort",
+        "pickup": "REWE Aalbeek",
+        "destination": "Starva Villa Hotel, Polen",
+        "passengers": null,
+        "customerName": "Fleischhauer",
+        "guestName": null,
+        "notes": "Fahrgast befindet sich beim großen REWE in Aalbeek, wird in etwa 10 Minuten bereit sein. Zielort ist erste Stadt in Polen (genaue Stadt unklar, wahrscheinlich Stettin/Szczecin basierend auf 'Starva Villa Hotel')."
+      },
+      "pushedToBridge": true
+    },
+    "+49 172 1453176 (+491721453176) [2026-06-24 08-05-15] [Eingehend].m4a": {
+      "ts": 1782281752939,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "hoch",
+        "datum": "2026-06-28",
+        "uhrzeit": "07:30",
+        "pickup": "Reha-Klinik Eilbeck",
+        "destination": "Seebrücke Heringsdorf",
+        "passengers": 1,
+        "customerName": "Langner",
+        "guestName": null,
+        "notes": "Fahrgast hat Schiffsabfahrt um 08:30 Uhr, Fahrtdauer etwa 30 Minuten eingeplant"
+      },
+      "pushedToBridge": true
+    },
+    "Zentrale (+491715377241) [2026-06-24 08-34-23] [Eingehend].m4a": {
+      "ts": 1782282940619,
+      "classification": {
+        "isBookingRequest": false,
+        "art": "fahrer"
+      },
+      "pushedToBridge": false
+    },
+    "+49 172 7014215 (+491727014215) [2026-06-24 08-36-55] [Eingehend].m4a": {
+      "ts": 1782283141437,
+      "classification": {
+        "isBookingRequest": false,
+        "art": "fahrer"
+      },
+      "pushedToBridge": false
+    },
+    "+49 1515 2548370 (+4915152548370) [2026-06-24 08-39-02] [Eingehend].m4a": {
+      "ts": 1782283384416,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "24.6.2026",
+        "uhrzeit": "09:30",
+        "pickup": "Orchard Guards (Ortseingang)",
+        "destination": null,
+        "passengers": null,
+        "customerName": "Wehmhoff",
+        "guestName": null,
+        "notes": "Abholung am nächsten Morgen. Kunden wurden am Vortag zum Flughafen Heringsdorf gebracht. Abhol-Details: Können vorne zur Ecke kommen (Orchard Guards statt Haffkliffküste). Im Gespräch wird auch über Reifenprobleme und Abschleppdienst Gastmann diskutiert, aber dies scheint private Nebenabsprache zu sein, nicht Teil der Taxibuchung."
+      },
+      "pushedToBridge": true
+    },
+    "+49 1520 5698066 (+4915205698066) [2026-06-24 08-42-58] [Eingehend].m4a": {
+      "ts": 1782283525136,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "hoch",
+        "datum": "24.06.2026",
+        "uhrzeit": "09:15",
+        "pickup": "Kur-Hotel Heringsdorf",
+        "destination": "Swidermünde, Einkaufszentrum (H&M)",
+        "passengers": null,
+        "customerName": "Taschen Busch",
+        "guestName": null,
+        "notes": "Kunde möchte auch Rückfahrt von Swidermünde - wird per Anruf vereinbart"
+      },
+      "pushedToBridge": true
+    },
+    "+49 38377 41236 (+493837741236) [2026-06-24 08-45-30] [Eingehend].m4a": {
+      "ts": 1782283896058,
+      "classification": {
+        "isBookingRequest": false,
+        "art": "sonstiges"
+      },
+      "pushedToBridge": false
+    },
+    "+49 176 22915995 (+4917622915995) [2026-06-24 08-58-25] [Eingehend].m4a": {
+      "ts": 1782284391563,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "hoch",
+        "datum": "2026-06-24",
+        "uhrzeit": "sofort",
+        "pickup": "Dünnweg 6, Heringsdorf",
+        "destination": null,
+        "passengers": null,
+        "customerName": null,
+        "guestName": null,
+        "notes": "Fahrgast bestätigt ca. 15 Minuten Wartezeit"
+      },
+      "pushedToBridge": true
+    },
+    "Zentrale (+491715377241) [2026-06-24 09-12-40] [Eingehend].m4a": {
+      "skipped": "Groesse 20 KB < 25 KB",
+      "ts": 1782285217399
+    },
+    "Mama (+491719369582) [2026-06-24 09-13-03] [Eingehend].m4a": {
+      "ts": 1782285396373,
+      "classification": {
+        "isBookingRequest": false,
+        "art": "privat"
+      },
+      "pushedToBridge": false
+    },
+    "Steigenberger (+4938378495902) [2026-06-24 09-25-45] [Eingehend].m4a": {
+      "ts": 1782286038257,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "hoch",
+        "datum": "24.06.2026",
+        "uhrzeit": "sofort",
+        "pickup": "Steigenberger Hotel",
+        "destination": "Kaiserhof",
+        "passengers": 1,
+        "customerName": "Steffi",
+        "guestName": null,
+        "notes": "Hotelgast vom Steigenberger Hotel, Fahrtanfrage in etwa 5 Minuten"
+      },
+      "pushedToBridge": true
+    },
+    "Zentrale (+491715377241) [2026-06-24 09-30-13] [Eingehend].m4a": {
+      "ts": 1782286277156,
+      "classification": {
+        "isBookingRequest": false,
+        "art": "fahrer"
+      },
+      "pushedToBridge": false
+    },
+    "Zentrale (+491715377241) [2026-06-24 09-39-41] [Eingehend].m4a": {
+      "ts": 1782286860493,
+      "classification": {
+        "isBookingRequest": false,
+        "art": "fahrer"
+      },
+      "pushedToBridge": false
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-24 09-18-08] [Ausgehend].m4a": {
+      "ts": 1782287637022,
+      "classification": {
+        "isBookingRequest": false,
+        "art": "fahrer"
+      },
+      "pushedToBridge": false
+    },
+    "Mama (+491719369582) [2026-06-24 09-42-20] [Ausgehend].m4a": {
+      "ts": 1782287649233,
+      "classification": {
+        "isBookingRequest": false,
+        "art": "privat"
+      },
+      "pushedToBridge": false
+    },
+    "Iris (+491728795035) [2026-06-24 09-47-55] [Ausgehend].m4a": {
+      "ts": 1782287654341,
+      "classification": {
+        "isBookingRequest": false,
+        "art": "privat"
+      },
+      "pushedToBridge": false
+    },
+    "+49 38378 25520 (+493837825520) [2026-06-24 09-49-54] [Eingehend].m4a": {
+      "ts": 1782287663685,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "hoch",
+        "datum": "2026-06-28",
+        "uhrzeit": "06:00",
+        "pickup": "Dünnstraße 38, 17419 Albeck, Pension Seepelle",
+        "destination": "Bahnhof Albeck",
+        "passengers": null,
+        "customerName": "Pension Seepelle / Familie Schlegel",
+        "guestName": "Familie Schlegel",
+        "notes": "Fahrt zum Bahnhof, Zug fährt 06:22 Uhr ab. Anrufer betont Pünktlichkeit. Fahrer äußerte Bedenken zur Wirtschaftlichkeit, akzeptiert aber die Buchung."
+      },
+      "pushedToBridge": true
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-24 10-18-07] [Ausgehend].m4a": {
+      "ts": 1782289248877,
+      "classification": {
+        "isBookingRequest": false,
+        "art": "fahrer"
+      },
+      "pushedToBridge": false
+    },
+    "Pohlmann (+491724563952) [2026-06-24 10-54-51] [Eingehend].m4a": {
+      "ts": 1782291496937,
+      "classification": {
+        "isBookingRequest": false,
+        "art": "privat"
+      },
+      "pushedToBridge": false
+    },
+    "Lober Gottfried (+4915772100932) [2026-06-24 10-57-26] [Ausgehend].m4a": {
+      "ts": 1782291634766,
+      "classification": {
+        "isBookingRequest": false,
+        "art": "privat"
+      },
+      "pushedToBridge": false
+    },
+    "+49 1525 8166224 (+4915258166224) [2026-06-24 11-09-15] [Eingehend].m4a": {
+      "ts": 1782292317495,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "2026-06-25",
+        "uhrzeit": "10:50",
+        "pickup": "BSW Hotel, Heimstraße 11 oder 12, Heringsdorf",
+        "destination": "Bahnhof Ahlbeck, 17419 Seewald-Ahlbeck",
+        "passengers": 2,
+        "customerName": "Koch-Ahn",
+        "guestName": null,
+        "notes": "Fahrgast möchte pünktlich zum Bahnhof (Zugverbindung). Hinfahrt kostete ca. 10 Euro."
+      },
+      "pushedToBridge": true
+    },
+    "+49 172 3639110 (+491723639110) [2026-06-24 12-42-47] [Eingehend].m4a": {
+      "ts": 1782297878070,
+      "classification": {
+        "isBookingRequest": false,
+        "art": "privat"
+      },
+      "pushedToBridge": false
+    },
+    "Zentrale (+491715377241) [2026-06-24 13-30-38] [Eingehend].m4a": {
+      "ts": 1782300767605,
+      "classification": {
+        "isBookingRequest": false,
+        "art": "privat"
+      },
+      "pushedToBridge": false
+    },
+    "Frau Seeck (+4915252792301) [2026-06-24 14-02-36] [Eingehend].m4a": {
+      "ts": 1782302693815,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "hoch",
+        "datum": "2026-06-25",
+        "uhrzeit": "08:10",
+        "pickup": "Seeschloss",
+        "destination": "Bahnhof Heringsdorf",
+        "passengers": null,
+        "customerName": "Seeck",
+        "guestName": null,
+        "notes": "Fahrgast muss 8:40 Uhr Zug erreichen, genug Zeit eingeplant"
+      },
+      "pushedToBridge": true
+    },
+    "The Breeze Rathenaustraße 3 (+49383786920) [2026-06-24 14-24-00] [Eingehend].m4a": {
+      "ts": 1782303923484,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "2026-06-24",
+        "uhrzeit": "sofort",
+        "pickup": "The Breeze Rathenaustraße 3, Heringsdorf",
+        "destination": "Greifswald",
+        "passengers": null,
+        "customerName": "The Breeze (Hotel/Unterkunft)",
+        "guestName": null,
+        "notes": "Gast der Unterkunft The Breeze, dringende Fahrt nach Greifswald"
+      },
+      "pushedToBridge": true
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-24 14-24-57] [Eingehend].m4a": {
+      "ts": 1782304110392,
+      "classification": {
+        "isBookingRequest": false,
+        "art": "fahrer"
+      },
+      "pushedToBridge": false
+    },
+    "Iris (+491728795035) [2026-06-24 14-30-21] [Ausgehend].m4a": {
+      "ts": 1782304295931,
+      "classification": {
+        "isBookingRequest": false,
+        "art": "privat"
+      },
+      "pushedToBridge": false
+    },
+    "Mama (+491719369582) [2026-06-24 14-32-08] [Ausgehend].m4a": {
+      "ts": 1782304407578,
+      "classification": {
+        "isBookingRequest": false,
+        "art": "privat"
+      },
+      "pushedToBridge": false
+    },
+    "ivo (+4915129127518) [2026-06-24 14-36-14] [Ausgehend].m4a": {
+      "ts": 1782304675062,
+      "classification": {
+        "isBookingRequest": false,
+        "art": "privat"
+      },
+      "pushedToBridge": false
+    },
+    "+49 162 6864043 (+491626864043) [2026-06-24 14-42-41] [Eingehend].m4a": {
+      "ts": 1782305080876,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "2026-06-24",
+        "uhrzeit": "sofort",
+        "pickup": "Schulzenstraße 12, Pommernresidenz Seniorenresidenz, Heringsdorf",
+        "destination": null,
+        "passengers": null,
+        "customerName": null,
+        "guestName": null,
+        "notes": "Fahrtdauer geschätzt auf etwa 30 Minuten. Anrufer ist möglicherweise im Auto unterwegs und muss Kollegen konsultieren."
+      },
+      "pushedToBridge": true
+    },
+    "+49 162 6864043 (+491626864043) [2026-06-24 14-44-07] [Ausgehend].m4a": {
+      "ts": 1782305155231,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "hoch",
+        "datum": "2026-06-24",
+        "uhrzeit": "15:00",
+        "pickup": "Schulzenstraße 12, Heringsdorf, bei Metallgittertor, zweite Reihe Nähe Promenade",
+        "destination": null,
+        "passengers": null,
+        "customerName": null,
+        "guestName": null,
+        "notes": "Abholung an Schulzenstraße 12 (nicht Dünnstraße 30), Kunde kennt den Ort, großes Metallgittertor als Erkennungsmerkmal"
+      },
+      "pushedToBridge": true
+    },
+    "Zentrale (+491715377241) [2026-06-24 14-45-10] [Ausgehend].m4a": {
+      "ts": 1782305257229,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "2026-06-24",
+        "uhrzeit": "15:00",
+        "pickup": "Maki-Goki-Straße",
+        "destination": "Pommern-Residenz, Schulzenstraße 12, Ahlbeck",
+        "passengers": 1,
+        "customerName": "Patrick",
+        "guestName": "alte Frau",
+        "notes": "Fahrgast steigt am Rathaus/Wiesa-Wiederseck-Haltestelle ein. Ca. 30-45 Minuten Umherfahren/Besorgungen während der Fahrt. Fahrgast wird als gesprächig beschrieben."
+      },
+      "pushedToBridge": true
+    },
+    "+49 1511 1174178 (+4915111174178) [2026-06-24 15-02-46] [Eingehend].m4a": {
+      "ts": 1782306259073,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "hoch",
+        "datum": "2026-06-25",
+        "uhrzeit": "12:00",
+        "pickup": "Pommerscher Hof, Seestraße 41, 17424 Heringsdorf",
+        "destination": "Bahnhof Heringsdorf",
+        "passengers": 2,
+        "customerName": "Rose",
+        "guestName": null,
+        "notes": null
+      },
+      "pushedToBridge": true
+    },
+    "Steigenberger (+4938378495901) [2026-06-24 15-05-15] [Eingehend].m4a": {
+      "ts": 1782306404511,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "hoch",
+        "datum": "2026-06-24",
+        "uhrzeit": "17:25",
+        "pickup": "Bahnhof",
+        "destination": "Steigenberger Hotel",
+        "passengers": null,
+        "customerName": "Steigenberger Hotel Rezeption",
+        "guestName": null,
+        "notes": "Transfer-Auftrag vom Hotel. Ursprünglich 16:25 Uhr gebucht, Hotel hat korrigiert auf 17:25 Uhr (Zugverspätung). Gast kommt mit 17:25 Uhr Zug an."
+      },
+      "pushedToBridge": true
+    },
+    "Heringsdorfer Strandidyll Travel-Charme (+4938378476505) [2026-06-24 15-09-52] [Eingehend].m4a": {
+      "ts": 1782306712387,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "24.6.2026",
+        "uhrzeit": "sofort",
+        "pickup": "Heringsdorfer Strandidyll Travel-Charme",
+        "destination": "Albeckerhof",
+        "passengers": 2,
+        "customerName": "Hotel/Pension Strandidyll",
+        "guestName": "Familie Franz",
+        "notes": "Fahrt sofort gewünscht. Anrufer möchte Geld für Fahrt (wahrscheinlich ausstehende Rechnung vom Montag/Dienstag 7:00 Uhr) bei dieser Fahrt begleichen."
+      },
+      "pushedToBridge": true
+    },
+    "Maritim Hotel Kaiserhof (+493837865802) [2026-06-24 15-15-28] [Eingehend].m4a": {
+      "ts": 1782307057776,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "hoch",
+        "datum": "2026-06-24",
+        "uhrzeit": "sofort",
+        "pickup": "Maritim Hotel Kaiserhof",
+        "destination": "Hotel Steigenberger, Heringsdorf",
+        "passengers": null,
+        "customerName": "Walter",
+        "guestName": null,
+        "notes": "Fahrgast wartet vor dem Kaiserhof, bevorzugte Ankunft in 15 Minuten"
+      },
+      "pushedToBridge": true
+    },
+    "Frau Kunert (+491796115057) [2026-06-24 15-27-16] [Eingehend].m4a": {
+      "ts": 1782307740229,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "hoch",
+        "datum": "2026-06-25",
+        "uhrzeit": "09:30",
+        "pickup": "Waldbühnenweg 6, 17424 Heringsdorf",
+        "destination": "Dr. Krohn, Saarstraße 5",
+        "passengers": null,
+        "customerName": "Kunert",
+        "guestName": null,
+        "notes": "Fahrt zum Arzt Dr. Krohn"
+      },
+      "pushedToBridge": true
+    },
+    "+49 38378 620 (+4938378620) [2026-06-24 16-28-26] [Eingehend].m4a": {
+      "ts": 1782311437724,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "morgen",
+        "uhrzeit": "11:30",
+        "pickup": "Hotel Albekarow",
+        "destination": "Zuschow",
+        "passengers": null,
+        "customerName": "Hotel Albekarow",
+        "guestName": null,
+        "notes": "Fahrgast wünscht sich Kartenzahlung, wurde vom Taxifahrer abgelehnt. Bestätigung durch Hotel erfolgt."
+      },
+      "pushedToBridge": true
+    },
+    "+49 1515 9130332 (+4915159130332) [2026-06-24 16-47-45] [Eingehend].m4a": {
+      "ts": 1782312580128,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "hoch",
+        "datum": "25.6.2026",
+        "uhrzeit": "11:15",
+        "pickup": "Hotel am Fischerstrand, Bansin",
+        "destination": "Bahnhof Bansin",
+        "passengers": null,
+        "customerName": "Hofmann",
+        "guestName": null,
+        "notes": "Zug fährt 11:40 Uhr ab, Fahrgast rechnet mit Ankunft 11:20 Uhr (20 Minuten Puffer)"
+      },
+      "pushedToBridge": true
+    },
+    "Marion Bierkutscher +49 1520 5163285 (+4915205163285) [2026-06-24 16-53-17] [Eingehend].m4a": {
+      "ts": 1782312883525,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "hoch",
+        "datum": "2026-06-24",
+        "uhrzeit": "sofort",
+        "pickup": "Rewe",
+        "destination": "Zuhause",
+        "passengers": null,
+        "customerName": "Marion Bierkutscher",
+        "guestName": null,
+        "notes": "Fahrgast steht an der Treppe. Gesprächsteil 'Sag keinem eins Bescheid' unklar (möglicherweise Privatgespräch parallel zum Taxidisponenten)."
+      },
+      "pushedToBridge": true
+    },
+    "Karl-Heinz (+4915124018129) [2026-06-24 16-53-56] [Ausgehend].m4a": {
+      "ts": 1782312962106,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "2026-06-24",
+        "uhrzeit": "sofort",
+        "pickup": "Rewe, Metalltreppe",
+        "destination": null,
+        "passengers": 1,
+        "customerName": "Karl-Heinz",
+        "guestName": "Marion",
+        "notes": "Fahrgast Marion wartet beim Rewe an der Metalltreppe. Rechnungen: 10 Euro über Steigenberger-Rezeption einziehen, 45 Euro von Herr Meier separat einziehen."
+      },
+      "pushedToBridge": true
+    },
+    "Karl-Heinz (+4915751720609) [2026-06-24 17-18-17] [Eingehend].m4a": {
+      "ts": 1782314494438,
+      "classification": {
+        "isBookingRequest": false,
+        "art": "fahrer"
+      },
+      "pushedToBridge": false
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-24 17-22-38] [Eingehend].m4a": {
+      "ts": 1782315161608,
+      "classification": {
+        "isBookingRequest": false,
+        "art": "fahrer"
+      },
+      "pushedToBridge": false
+    },
+    "+49 1523 1490832 (+4915231490832) [2026-06-24 17-45-27] [Eingehend].m4a": {
+      "ts": 1782316026035,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "24.06.2026",
+        "uhrzeit": "18:15",
+        "pickup": "Pier Heringsdorf",
+        "destination": "Kaiserwäldersaal, Heringsdorf",
+        "passengers": null,
+        "customerName": "Konrad Zweiger",
+        "guestName": null,
+        "notes": "Fahrgast möchte in maximal 30 Minuten abgeholt werden, frühestens in 30 Minuten"
+      },
+      "pushedToBridge": true
+    },
+    "+49 1522 8776628 (+4915228776628) [2026-06-24 17-46-22] [Eingehend].m4a": {
+      "ts": 1782316140669,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "hoch",
+        "datum": "2026-06-25",
+        "uhrzeit": "10:15",
+        "pickup": "Heringsdorf, Grünstraße 18",
+        "destination": "Stagnis, Hafen",
+        "passengers": 2,
+        "customerName": "Vollmer",
+        "guestName": null,
+        "notes": "Rückfahrt um 13:30 Uhr gewünscht"
+      },
+      "pushedToBridge": true
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-25 07-45-34] [Ausgehend].m4a": {
+      "skipped": "Groesse 2 KB < 25 KB",
+      "ts": 1782366426194
+    },
+    "+49 30 75639659 (+493075639659) [2026-06-25 07-47-38] [Eingehend].m4a": {
+      "ts": 1782366594650,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "hoch",
+        "datum": "2026-07-02",
+        "uhrzeit": "11:35",
+        "pickup": "Seebartalbeck",
+        "destination": "Reha-Klinik Albeck",
+        "passengers": 1,
+        "customerName": "Lorenz",
+        "guestName": null,
+        "notes": "Fahrgast kommt um 11:35 Uhr an und wird am Taxi-Haltepunkt vor dem Bahnhofsgebäude abgeholt. Fahrgast wird selbst zum Haltepunkt navigiert."
+      },
+      "pushedToBridge": true
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-25 08-02-45] [Ausgehend].m4a": {
+      "ts": 1782367569004,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "morgen (26.6.2026)",
+        "uhrzeit": "07:45",
+        "pickup": "Dünenstraße 18, über Heimstraße",
+        "destination": null,
+        "passengers": null,
+        "customerName": "Piesch",
+        "guestName": null,
+        "notes": "Anrufer nennt sich 'Piesch von der Strandrose' (möglicherweise Hotel/Unterkunft)"
+      },
+      "pushedToBridge": true
+    },
+    "Ahlbeck Villa Strandrose Dunenstraße 18 (+493837828194) [2026-06-25 08-05-15] [Ausgehend].m4a": {
+      "ts": 1782367594778,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "hoch",
+        "datum": "morgen",
+        "uhrzeit": "07:45",
+        "pickup": "Ahlbeck, Villa Strandrose, Dunenstraße 18",
+        "destination": "Bahnhof",
+        "passengers": 2,
+        "customerName": "Schmid",
+        "guestName": "Eheleute Schmid",
+        "notes": "Route über Heimstraße gewünscht"
+      },
+      "pushedToBridge": true
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-25 08-05-48] [Ausgehend].m4a": {
+      "ts": 1782367634454,
+      "classification": {
+        "isBookingRequest": false,
+        "art": "fahrer"
+      },
+      "pushedToBridge": false
+    },
+    "Heringsdorf Strandvillen Bethanienruh (+49383784987660) [2026-06-25 08-07-07] [Eingehend].m4a": {
+      "ts": 1782367741736,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "hoch",
+        "datum": "2026-06-25",
+        "uhrzeit": "09:00",
+        "pickup": "Heringsdorf Strandvillen Bethanienruh",
+        "destination": "Kaiserhof",
+        "passengers": null,
+        "customerName": "Olga",
+        "guestName": "Familie Kollmannsberger",
+        "notes": "Eine Person der Familie ist mobilitätseingeschränkt (nicht gut zu Fuß). Großer Umweg erforderlich. Abholung Straße 11."
+      },
+      "pushedToBridge": true
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-25 08-44-32] [Eingehend].m4a": {
+      "ts": 1782370073548,
+      "classification": {
+        "isBookingRequest": false,
+        "art": "fahrer"
+      },
+      "pushedToBridge": false
+    },
+    "Zentrale (+491715377241) [2026-06-25 08-55-07] [Ausgehend].m4a": {
+      "ts": 1782370606584,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "2026-06-25",
+        "uhrzeit": "09:00",
+        "pickup": "unklar",
+        "destination": "Strand",
+        "passengers": null,
+        "customerName": "Patrick",
+        "guestName": null,
+        "notes": "Fahrt mit 'Tani' (möglicherweise Fahrgast oder Begleiter). Abholort unklar, möglicherweise bereits am Abholort oder benötigt Abholung vom Tagsteller."
+      },
+      "pushedToBridge": true
+    },
+    "Zentrale (+491715377241) [2026-06-25 08-57-31] [Eingehend].m4a": {
+      "ts": 1782370789514,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "niedrig",
+        "datum": "2026-06-25",
+        "uhrzeit": "sofort",
+        "pickup": "Badstraße 11, Heringsdorf",
+        "destination": null,
+        "passengers": null,
+        "customerName": "Patrick",
+        "guestName": "Strand",
+        "notes": "Fahrgast 'Strand' möchte in 'Betanien Ruhe' fahren (möglicherweise Hotelname oder Ortsbezeichnung). Fahrzeug: Toyota. Telefon von Zentrale: +491715377241"
+      },
+      "pushedToBridge": true
+    },
+    "Steigenberger (+4938378495902) [2026-06-25 09-00-36] [Eingehend].m4a": {
+      "ts": 1782370982094,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "2026-06-25",
+        "uhrzeit": "sofort",
+        "pickup": "Steigenberger Hotel, Heringsdorf",
+        "destination": "Swinemünde, Chorsum",
+        "passengers": null,
+        "customerName": "Knüppel",
+        "guestName": null,
+        "notes": "Hotelgast. Wartezeit ca. 15 Minuten akzeptiert. Anrufer möchte per Callback bestätigt werden, ob Gäste noch warten können oder losgehen sollen."
+      },
+      "pushedToBridge": true
+    },
+    "Zentrale (+491715377241) [2026-06-25 09-07-00] [Ausgehend].m4a": {
+      "ts": 1782371306810,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": null,
+        "uhrzeit": "sofort",
+        "pickup": "Steigenberger",
+        "destination": "Twinemünde",
+        "passengers": null,
+        "customerName": null,
+        "guestName": null,
+        "notes": "Anruf von Zentrale, möglicherweise interne Disposition oder Hotelkoordination"
+      },
+      "pushedToBridge": true
+    },
+    "Beach Hotel Bansin (+49383784960) [2026-06-25 09-10-12] [Eingehend].m4a": {
+      "ts": 1782371530982,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "2026-06-25",
+        "uhrzeit": "sofort",
+        "pickup": "Kaiserstrand / Beach Hotel Bansin",
+        "destination": "Albek, Promenade",
+        "passengers": null,
+        "customerName": "Kaczmarek",
+        "guestName": null,
+        "notes": "Anrufer nennt sich 'Kaiserstrand' (möglicherweise Hotelname oder Ortsangabe), spricht von 'fünf Minuten' - unklar ob das Wartezeit oder Fahrtzeit ist. Kommunikation wirkt abgehackt/unklar."
+      },
+      "pushedToBridge": true
+    },
+    "+49 160 95497530 (+4916095497530) [2026-06-25 09-29-56] [Eingehend].m4a": {
+      "ts": 1782372685243,
+      "classification": {
+        "isBookingRequest": false,
+        "art": "privat"
+      },
+      "pushedToBridge": false
+    },
+    "+49 160 95497530 (+4916095497530) [2026-06-25 09-31-56] [Ausgehend].m4a": {
+      "ts": 1782372878749,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "hoch",
+        "datum": "2026-06-25",
+        "uhrzeit": "10:50",
+        "pickup": "Ostseehotel Ahlbeck, Dünenstraße 41",
+        "destination": "Bahnhof Ahlbeck",
+        "passengers": 2,
+        "customerName": "Schumann",
+        "guestName": null,
+        "notes": "Zug fährt 11:22 Uhr, Kundin wünscht 11:00 Uhr Abholung (Fahrer bietet 10:50 Uhr an), Stammkundin (vor 5 Tagen bereits befördert), Hotel hat zwei Namen: Seetel Hotel / Ostseehotel Ahlbeck"
+      },
+      "pushedToBridge": true
+    },
+    "+49 173 7756977 (+491737756977) [2026-06-25 09-56-46] [Eingehend].m4a": {
+      "ts": 1782374360064,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "hoch",
+        "datum": "2026-06-25",
+        "uhrzeit": "19:00",
+        "pickup": "Hotel Schloensee, Badstraße, Bansin",
+        "destination": "Waterblick, Lodin",
+        "passengers": 2,
+        "customerName": "Freitag",
+        "guestName": null,
+        "notes": "Abholung aus Hotel Schloensee in Bansin"
+      },
+      "pushedToBridge": true
+    },
+    "Inselklinik Haus Kulm Str 9 (+493837859100) [2026-06-25 10-03-08] [Eingehend].m4a": {
+      "ts": 1782374776230,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "2026-06-25",
+        "uhrzeit": "sofort",
+        "pickup": "Inselklinik Haus Kulm Str 9, Heringsdorf",
+        "destination": "Wolgast, Notaufnahme",
+        "passengers": null,
+        "customerName": "Inselklinik Haus Kulm",
+        "guestName": null,
+        "notes": "Fahrgast mit Krücken, Notfall-Transport zur Notaufnahme Wolgast. Anrufer beschwert sich über mangelnde Taxiverfügbarkeit in Heringsdorf und fordert Gemeinde-Intervention."
+      },
+      "pushedToBridge": true
+    },
+    "+49 176 10604401 (+4917610604401) [2026-06-25 10-33-36] [Eingehend].m4a": {
+      "ts": 1782376549852,
+      "classification": {
+        "isBookingRequest": false,
+        "art": "sonstiges"
+      },
+      "pushedToBridge": false
+    },
+    "Zentrale (+491715377241) [2026-06-25 10-35-04] [Ausgehend].m4a": {
+      "ts": 1782376596992,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "2026-06-25",
+        "uhrzeit": "sofort",
+        "pickup": [
+          "Ostseehotel",
+          "Alberger Hof"
+        ],
+        "destination": [
+          "Bahnhof",
+          "Sonne"
+        ],
+        "passengers": null,
+        "customerName": "Darik",
+        "guestName": null,
+        "notes": "Zwei Fahrten: 1) Ostseehotel zum Bahnhof, 2) Alberger Hof zur Sonne. Fahrer Darik kehrt in ~15 Minuten zurück."
+      },
+      "pushedToBridge": true
+    },
+    "+49 172 3222553 (+491723222553) [2026-06-25 10-36-10] [Eingehend].m4a": {
+      "ts": 1782376658805,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "hoch",
+        "datum": "Samstag (nächster Samstag nach 25.6.2026, also 27.6.2026)",
+        "uhrzeit": "07:50",
+        "pickup": "Ahlbecker Hof",
+        "destination": "Bahnhof Ahlbeck",
+        "passengers": null,
+        "customerName": "Petra Steffen",
+        "guestName": null,
+        "notes": "Fahrgast muss um 8:22 Uhr Zug erreichen; 7:50 Uhr Abholung ermöglicht ausreichend Puffer"
+      },
+      "pushedToBridge": true
+    },
+    "Frau Kunert (+491796115057) [2026-06-25 10-46-37] [Eingehend].m4a": {
+      "ts": 1782377277856,
+      "classification": {
+        "isBookingRequest": false,
+        "art": "privat"
+      },
+      "pushedToBridge": false
+    },
+    "+49 162 1848588 (+491621848588) [2026-06-25 10-51-37] [Eingehend].m4a": {
+      "ts": 1782377645435,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "hoch",
+        "datum": "2026-06-26",
+        "uhrzeit": "10:30",
+        "pickup": "Neue Straße 7, Heringsdorf",
+        "destination": "Bahnhof Heringsdorf",
+        "passengers": 4,
+        "customerName": "Luc",
+        "guestName": null,
+        "notes": "Vier große Koffer. Zwischenstopp: Labahnstraße 23. Gruppe war zuvor mit Taxi unterwegs und bucht Folgefahrt."
+      },
+      "pushedToBridge": true
+    },
+    "+49 172 9742245 (+491729742245) [2026-06-25 11-10-54] [Eingehend].m4a": {
+      "ts": 1782378800200,
+      "classification": {
+        "isBookingRequest": false,
+        "art": "sonstiges"
+      },
+      "pushedToBridge": false
+    },
+    "+49 1515 9130332 (+4915159130332) [2026-06-25 11-16-17] [Ausgehend].m4a": {
+      "ts": 1782379060870,
+      "classification": {
+        "isBookingRequest": false,
+        "art": "sonstiges"
+      },
+      "pushedToBridge": false
+    },
+    "+49 1511 1174178 (+4915111174178) [2026-06-25 11-33-25] [Ausgehend].m4a": {
+      "ts": 1782380121833,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "2026-06-25",
+        "uhrzeit": "11:50",
+        "pickup": "Hotel",
+        "destination": null,
+        "passengers": null,
+        "customerName": "Rose",
+        "guestName": null,
+        "notes": "Fahrgast möchte 5 Minuten früher abgeholt werden als ursprünglich vereinbart. Fahrgast befindet sich im Hotel und geht gerade runter."
+      },
+      "pushedToBridge": true
+    },
+    "Zentrale (+491715377241) [2026-06-25 11-44-10] [Ausgehend].m4a": {
+      "skipped": "blacklist-number-+491715377241",
+      "ts": 1782380848546,
+      "callerName": "Zentrale"
+    },
+    "+49 1520 2193520 (+4915202193520) [2026-06-25 11-47-46] [Eingehend].m4a": {
+      "ts": 1782381024696,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "hoch",
+        "datum": "25.06.2026",
+        "uhrzeit": "12:15",
+        "pickup": "Bansin, Seestraße 19 (vor Eisentreppe beim Rewe Richtung Bushaltestelle im Seepark)",
+        "destination": "Bahnhof Bansin",
+        "passengers": null,
+        "customerName": "Steffi Krale",
+        "guestName": null,
+        "notes": "2 große Koffer dabei. Abholung vor Eisentreppe beim Rewe-Markt in Richtung Bushaltestelle im Seepark. Fahrgast wird sich dort positionieren."
+      },
+      "pushedToBridge": true
+    },
+    "+49 1525 6418195 (+4915256418195) [2026-06-25 12-18-13] [Eingehend].m4a": {
+      "ts": 1782382845148,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "2026-06-25",
+        "uhrzeit": "12:40",
+        "pickup": "Albiger Bahnhof",
+        "destination": "Reha-Klinik Albig",
+        "passengers": null,
+        "customerName": null,
+        "guestName": null,
+        "notes": "Fahrgast wartet vor dem Bahnhof, Zug kommt 12:35 Uhr an, möglicherweise weitere Personen zum Mitnehmen, Ankunft spätestens 13:00 Uhr erforderlich"
+      },
+      "pushedToBridge": true
+    },
+    "+49 172 8744868 (+491728744868) [2026-06-25 12-24-53] [Ausgehend].m4a": {
+      "ts": 1782383224080,
+      "classification": {
+        "isBookingRequest": false,
+        "art": "fahrer"
+      },
+      "pushedToBridge": false
+    },
+    "+49 176 75866393 (+4917675866393) [2026-06-25 12-50-40] [Eingehend].m4a": {
+      "ts": 1782384810423,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "niedrig",
+        "datum": "2026-07-01",
+        "uhrzeit": "05:45",
+        "pickup": "Benz",
+        "destination": "Bansin",
+        "passengers": null,
+        "customerName": null,
+        "guestName": null,
+        "notes": "Anrufer hat Bedenken wegen früher Uhrzeit (5:45 Uhr) und fraglicher Wirtschaftlichkeit. Preis ~25 EUR genannt. Anrufer unsicher, ob Buchung erfolgen soll, erwägt Alternative Bahn."
+      },
+      "pushedToBridge": true
+    },
+    "+49 1520 6871409 (+4915206871409) [2026-06-25 13-02-46] [Eingehend].m4a": {
+      "ts": 1782385453570,
+      "classification": {
+        "isBookingRequest": false,
+        "art": "sonstiges"
+      },
+      "pushedToBridge": false
+    },
+    "+49 1520 6871409 (+4915206871409) [2026-06-25 13-03-46] [Ausgehend].m4a": {
+      "ts": 1782385562106,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "2026-06-25",
+        "uhrzeit": "14:10",
+        "pickup": "Bahnhof oder Zugstation (unklar)",
+        "destination": "Hotel Heringsdorf (angenommen)",
+        "passengers": null,
+        "customerName": "Kunkel",
+        "guestName": null,
+        "notes": "Fahrgast kam später an als geplant (14:10 statt 13:30 wegen ICE-Verspätung). Fahrgast hat vorher Hotel und Taxi-Unternehmen kontaktiert, aber keine Bestätigung erhalten. Fahrgast wird später anrufen wenn am Zielort angekommen."
+      },
+      "pushedToBridge": true
+    },
+    "+49 176 50399648 (+4917650399648) [2026-06-25 13-14-56] [Eingehend].m4a": {
+      "ts": 1782386237270,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "2026-06-27",
+        "uhrzeit": "07:30",
+        "pickup": "Stresemannstraße",
+        "destination": "Busbahnhof Heringsdorf",
+        "passengers": null,
+        "customerName": "Johansen",
+        "guestName": null,
+        "notes": "Buchung vor einer Woche durch Pension Feldmann vorgenommen, Fahrgast ist Hotelgast, Anschluss zum Busbahnhof"
+      },
+      "pushedToBridge": true
+    },
+    "Ostseehotel (+4938378600) [2026-06-25 13-29-39] [Eingehend].m4a": {
+      "ts": 1782387095839,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "morgen",
+        "uhrzeit": "07:50",
+        "pickup": "Ostseehotel/Osby Hotel Albeck",
+        "destination": "Bahnhof",
+        "passengers": null,
+        "customerName": "Ostseehotel Albeck Rezeption",
+        "guestName": null,
+        "notes": "Anruf vom Hotel, Rezeption bestellt für Hotelgast. Abholzeit war zunächst unklar (8:00 oder 7:50), am Ende wurde 7:50 bestätigt."
+      },
+      "pushedToBridge": true
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-25 13-40-06] [Ausgehend].m4a": {
+      "skipped": "blacklist-name-danilo mercedes vito vg lk 111",
+      "ts": 1782387990157,
+      "callerName": "Danilo Mercedes VITO VG LK 111"
+    },
+    "+49 171 1286154 (+491711286154) [2026-06-25 13-50-53] [Eingehend].m4a": {
+      "ts": 1782388418387,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "hoch",
+        "datum": "2026-06-25",
+        "uhrzeit": "sofort",
+        "pickup": "Bahnhof Bansin",
+        "destination": "Bansin-Forsthaus-Langenberg",
+        "passengers": 2,
+        "customerName": "Schäuble",
+        "guestName": null,
+        "notes": "Eine Fahrgastin kann nicht mehr laufen. Abholung an Bushaltestelle. Fahrer Patrick mit Tesla-Fahrzeug. Fahrgäste haben grünen und schwarzen Koffer. Fahrtdauer ca. 15-20 Minuten."
+      },
+      "pushedToBridge": true
+    },
+    "+49 1523 1490832 (+4915231490832) [2026-06-25 13-57-11] [Eingehend].m4a": {
+      "ts": 1782388740290,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "hoch",
+        "datum": "2026-06-25",
+        "uhrzeit": "sofort",
+        "pickup": "Kaiserhof",
+        "destination": "Strandvillen Betanien Ruhr",
+        "passengers": null,
+        "customerName": null,
+        "guestName": null,
+        "notes": "Taxi sofort erforderlich, Fahrer sagte 5-6 Minuten Ankunftszeit"
+      },
+      "pushedToBridge": true
+    },
+    "Mama (+491719369582) [2026-06-25 14-00-51] [Ausgehend].m4a": {
+      "skipped": "blacklist-name-mama",
+      "ts": 1782388952587,
+      "callerName": "Mama"
+    },
+    "STRANDHOTEL OSTENDE (+4938378510) [2026-06-25 14-03-58] [Eingehend].m4a": {
+      "ts": 1782389144053,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "25.06.2026",
+        "uhrzeit": "14:33",
+        "pickup": "Strandhotel Ostende, Heringsdorf",
+        "destination": "Schwindemünde",
+        "passengers": 1,
+        "customerName": null,
+        "guestName": null,
+        "notes": "Hotelgast, 30 Minuten Wartezeit akzeptiert, Gast soll festgehalten werden (wartet auf Taxi)"
+      },
+      "pushedToBridge": true
+    },
+    "Zentrale (+491715377241) [2026-06-25 14-09-25] [Ausgehend].m4a": {
+      "skipped": "blacklist-number-+491715377241",
+      "ts": 1782389446064,
+      "callerName": "Zentrale"
+    },
+    "+49 1525 9112099 (+4915259112099) [2026-06-25 14-11-35] [Eingehend].m4a": {
+      "ts": 1782389751317,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "niedrig",
+        "datum": "25.06.2026",
+        "uhrzeit": "00:00",
+        "pickup": "Heringsdorf, Fußballpromenade",
+        "destination": "Privat (Zuhause)",
+        "passengers": null,
+        "customerName": "Frau Peter",
+        "guestName": null,
+        "notes": "Nachtfahrt heute Abend (Um Mitternacht erwähnt); Anrufer berichtet, dass Buchung nicht akzeptiert wurde - Taxiunternehmen nahm keine Bestellung entgegen; zweiter Teil des Transkripts: Gespräch mit Anwalt Sebastian Hornburg zu Verkehrsrecht und Buskonflikt (nicht relevant für Buchung)"
+      },
+      "pushedToBridge": true
+    },
+    "038378 29406 (+493837829406) [2026-06-25 14-19-44] [Ausgehend].m4a": {
+      "ts": 1782390089829,
+      "classification": {
+        "isBookingRequest": false,
+        "art": "sonstiges"
+      },
+      "pushedToBridge": false
+    },
+    "+49 160 6492934 (+491606492934) [2026-06-25 14-21-03] [Eingehend].m4a": {
+      "ts": 1782390231381,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "hoch",
+        "datum": "2026-06-25",
+        "uhrzeit": "18:00",
+        "pickup": "Heringsdorf, Klenzelstraße 7, Villa Schlossbauer",
+        "destination": "Albecker Hof",
+        "passengers": null,
+        "customerName": "Schuster",
+        "guestName": null,
+        "notes": "Gepäcktransfer, Hin- und Rückfahrt, Abholung vor der Tür um 18:00 Uhr"
+      },
+      "pushedToBridge": true
+    },
+    "+49 173 3164021 (+491733164021) [2026-06-25 14-28-31] [Eingehend].m4a": {
+      "skipped": "Groesse 15 KB < 25 KB",
+      "ts": 1782390588325
+    },
+    "+49 173 3164021 (+491733164021) [2026-06-25 14-29-58] [Ausgehend].m4a": {
+      "ts": 1782390664374,
+      "classification": {
+        "isBookingRequest": false,
+        "art": "sonstiges"
+      },
+      "pushedToBridge": false
+    },
+    "Mama (+491719369582) [2026-06-25 14-30-21] [Ausgehend].m4a": {
+      "skipped": "blacklist-name-mama",
+      "ts": 1782391934951,
+      "callerName": "Mama"
+    },
+    "Mama (+491719369582) [2026-06-25 14-35-03] [Ausgehend].m4a": {
+      "skipped": "blacklist-name-mama",
+      "ts": 1782391934951,
+      "callerName": "Mama"
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-25 14-41-08] [Ausgehend].m4a": {
+      "skipped": "blacklist-name-danilo mercedes vito vg lk 111",
+      "ts": 1782391934952,
+      "callerName": "Danilo Mercedes VITO VG LK 111"
+    },
+    "+49 176 50399648 (+4917650399648) [2026-06-25 15-28-05] [Eingehend].m4a": {
+      "ts": 1782394181191,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "hoch",
+        "datum": "26.06.2026",
+        "uhrzeit": "07:30",
+        "pickup": "Feldmann",
+        "destination": "Bahnhof Heringsdorf",
+        "passengers": null,
+        "customerName": null,
+        "guestName": null,
+        "notes": "Bestätigung einer bereits getätigten Buchung. Johannes bestätigt die Abholung."
+      },
+      "pushedToBridge": true
+    },
+    "+49 163 2347632 (+491632347632) [2026-06-25 15-28-49] [Eingehend].m4a": {
+      "ts": 1782394361255,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "2026-06-25",
+        "uhrzeit": "17:25",
+        "pickup": "Heringsdorf Bahnhof",
+        "destination": "Ahlbeck, Seestraße",
+        "passengers": null,
+        "customerName": "Petra Rappl",
+        "guestName": null,
+        "notes": "Zug hat Verspätung, Abholung in Heringsdorf statt ursprünglich Ahlbeck. Fahrgast kann bis zu 20 Minuten später ankommen. Zweite Buchung im Transkript: Frau Hedicke, OMA Residenz Südenstraße 30 zu Ahlbeck Seestraße und zurück zur Dienststraße 30, Viertelstunde/ca. 15-20 Minuten Wartezeit akzeptiert."
+      },
+      "pushedToBridge": true
+    },
+    "+49 160 6851570 (+491606851570) [2026-06-25 15-34-31] [Eingehend].m4a": {
+      "ts": 1782394604795,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "25.06.2026",
+        "uhrzeit": "17:30",
+        "pickup": "Bahnhof Heringsdorf",
+        "destination": "Büro (Heringsdorf), dann Villa Germania Aalbeek Heimstraße",
+        "passengers": null,
+        "customerName": "Enrico",
+        "guestName": null,
+        "notes": "Gast kommt mit einer Stunde Verspätung an. Abholen vom Bahnhof, dann zum Büro (Safe mit Schlüssel), danach zur Villa Germania Aalbeek Heimstraße. Zweiteilige Fahrt mit Stopp im Büro."
+      },
+      "pushedToBridge": true
+    },
+    "+49 1514 6221861 (+4915146221861) [2026-06-25 15-39-57] [Eingehend].m4a": {
+      "ts": 1782394941924,
+      "classification": {
+        "isBookingRequest": false,
+        "art": "parse-fehler"
+      },
+      "pushedToBridge": false
+    },
+    "+49 1516 7639882 (+4915167639882) [2026-06-25 15-41-24] [Ausgehend].m4a": {
+      "ts": 1782395007725,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "25.6.2026",
+        "uhrzeit": "09:33",
+        "pickup": "Dünenstraße 43, Aalbeck (Strandterrasse)",
+        "destination": "Bahnhof Heringsdorf",
+        "passengers": null,
+        "customerName": null,
+        "guestName": null,
+        "notes": "Zug fährt 9:33 Uhr - Abholzeit muss basierend auf Fahrzeit zum Bahnhof berechnet werden"
+      },
+      "pushedToBridge": true
+    },
+    "+49 1516 7639882 (+4915167639882) [2026-06-25 15-49-35] [Eingehend].m4a": {
+      "ts": 1782395511837,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "hoch",
+        "datum": "2026-06-27",
+        "uhrzeit": "09:00",
+        "pickup": "Ahlbeck, Dünenstraße 43 (Strandterrasse)",
+        "destination": "Bahnhof Bad Heringsdorf",
+        "passengers": null,
+        "customerName": "Judy Niesen",
+        "guestName": null,
+        "notes": "Fahrgast muss zum Zug 9:33 Uhr. Alternative Abholzeit 8:50 Uhr wurde angeboten, 9:00 Uhr wurde gewählt."
+      },
+      "pushedToBridge": true
+    },
+    "+49 175 1050506 (+491751050506) [2026-06-25 16-09-58] [Eingehend].m4a": {
+      "ts": 1782396812077,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "hoch",
+        "datum": "2026-06-26",
+        "uhrzeit": "22:00",
+        "pickup": "Dünenstraße 35, Bansin",
+        "destination": "Ahlbeck",
+        "passengers": null,
+        "customerName": "Heiland",
+        "guestName": null,
+        "notes": "Fahrgast wartet vor Haus des Gastes in Bansin (Bergstraße). Fahrer soll direkt vor dem Haus warten. Fahrgast ist mit örtlichen Gegebenheiten nicht vertraut."
+      },
+      "pushedToBridge": true
+    },
+    "Mama (+491719369582) [2026-06-25 16-22-29] [Eingehend].m4a": {
+      "skipped": "blacklist-name-mama",
+      "ts": 1782397749261,
+      "callerName": "Mama"
+    },
+    "Allianz Schmidt (+4938378497315) [2026-06-25 16-40-25] [Eingehend].m4a": {
+      "ts": 1782398598805,
+      "classification": {
+        "isBookingRequest": false,
+        "art": "privat"
+      },
+      "pushedToBridge": false
+    },
+    "+49 175 1050506 (+491751050506) [2026-06-25 16-45-49] [Eingehend].m4a": {
+      "ts": 1782398860551,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "2026-06-26",
+        "uhrzeit": null,
+        "pickup": null,
+        "destination": null,
+        "passengers": null,
+        "customerName": null,
+        "guestName": null,
+        "notes": "Kunde hat bereits Taxi bestellt, erhielt aber Bestätigung für Samstag statt Freitag (morgen). Korrektur notwendig. Kunde war gerade dabei, die Buchung umzustellen."
+      },
+      "pushedToBridge": true
+    },
+    "Physiotherapie Am Kulm Inh. Kohlhause (+493837832315) [2026-06-25 17-11-23] [Eingehend].m4a": {
+      "ts": 1782400643784,
+      "classification": {
+        "isBookingRequest": false,
+        "art": "sonstiges"
+      },
+      "pushedToBridge": false
+    },
+    "Bansin Forsthaus langer Berg (+4938378803320) [2026-06-25 17-22-45] [Eingehend].m4a": {
+      "ts": 1782401136524,
+      "classification": {
+        "isBookingRequest": false,
+        "art": "sonstiges"
+      },
+      "pushedToBridge": false
+    },
+    "Karl-Heinz (+4915124018129) [2026-06-25 17-24-44] [Ausgehend].m4a": {
+      "ts": 1782401332597,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "25.06.2026",
+        "uhrzeit": "sofort/18:00",
+        "pickup": [
+          "Bahnhof Heringsdorf",
+          "Brunnenstraße 4",
+          "Klenzelstraße 7"
+        ],
+        "destination": [
+          "Ahlbeck (Brunnenstraße 22)",
+          "Ahlbecker Hof"
+        ],
+        "passengers": null,
+        "customerName": "Karl-Heinz",
+        "guestName": "Jansen, Maja",
+        "notes": "Interne Fahrplan-Koordination zwischen zwei Taxifahrern. Mehrere Fahrten: 1) Jansen-Fahrt nach Ahlbeck (Ahlbecker Hof), 2) Bahnhof zur Brunnenstraße 4/Ahlbeck (Schlüsselübergabe bei Gämmeran), 3) Klenzelstraße 7 zum Ahlbecker Hof hin und zurück um 18:00 Uhr. Eine Gruppe kommt eine Stunde später. Schlüsselübergabe erwähnt. Fahrt 3 muss noch eingetragen werden."
+      },
+      "pushedToBridge": true
+    },
+    "+49 172 2664370 (+491722664370) [2026-06-25 17-32-46] [Eingehend].m4a": {
+      "ts": 1782401696198,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "hoch",
+        "datum": "2026-06-26",
+        "uhrzeit": "08:45",
+        "pickup": "Ahlbeck, Neue Straße Ecke Dünenstraße, bei Junge",
+        "destination": "Bahnhof Heringsdorf",
+        "passengers": 2,
+        "customerName": "Schneider",
+        "guestName": null,
+        "notes": "Fahrgast kommt von Frühstück bei Junge, Anschluss zum Bahnhof Heringsdorf erforderlich"
+      },
+      "pushedToBridge": true
+    },
+    "Karl-Heinz (+4915124018129) [2026-06-25 17-57-24] [Ausgehend].m4a": {
+      "ts": 1782403148063,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "25.6.2026",
+        "uhrzeit": "sofort/unklar",
+        "pickup": "Glänzestraße",
+        "destination": "Alberger Hof",
+        "passengers": null,
+        "customerName": "Karl-Heinz",
+        "guestName": null,
+        "notes": "Fahrgast möchte kurz beim Alberger Hof warten und dann gleich wieder zurück fahren. Fahrer ist bereits unterwegs."
+      },
+      "pushedToBridge": true
+    },
+    "+49 1520 5163285 (+4915205163285) [2026-06-25 19-11-04] [Eingehend].m4a": {
+      "ts": 1782407580110,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "hoch",
+        "datum": "morgen (26.6.2026)",
+        "uhrzeit": "07:15",
+        "pickup": "zu Hause",
+        "destination": "Bierkutscher",
+        "passengers": null,
+        "customerName": "Patrick",
+        "guestName": null,
+        "notes": "Ursprüngliche Wunschzeit 7:30 Uhr nicht verfügbar, Kunde hat 7:15 Uhr akzeptiert"
+      },
+      "pushedToBridge": true
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-25 19-12-24] [Eingehend].m4a": {
+      "skipped": "blacklist-name-danilo mercedes vito vg lk 111",
+      "ts": 1782408245510,
+      "callerName": "Danilo Mercedes VITO VG LK 111"
+    },
+    "+49 176 96626826 (+4917696626826) [2026-06-25 20-50-03] [Eingehend].m4a": {
+      "ts": 1782413530463,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "niedrig",
+        "datum": "25.6.2026",
+        "uhrzeit": "sofort",
+        "pickup": "Bushaltestelle Heringsdorf-Seebrücke",
+        "destination": "Ubstals-Bohm-Hotel, Eichenweg, Heringsdorf",
+        "passengers": null,
+        "customerName": null,
+        "guestName": null,
+        "notes": "Anrufer möchte zunächst einen Kollegen fragen, wo dieser sich befindet. Wird sich wieder melden. Unsicherer Anrufer, eventuell Hotelverantwortlicher."
+      },
+      "pushedToBridge": true
+    },
+    "Karl-Heinz (+4915124018129) [2026-06-25 20-51-09] [Ausgehend].m4a": {
+      "ts": 1782413656089,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "25.6.2026",
+        "uhrzeit": "sofort",
+        "pickup": "Bushaltestelle Seebrücke, Bansin",
+        "destination": "Upsalzbumen",
+        "passengers": 4,
+        "customerName": "Karl-Heinz",
+        "guestName": null,
+        "notes": "4 Personen von Bushaltestelle Seebrücke zum Upsalzbumen. Fahrtzeit ca. 15 Minuten erwartet. Anrufer telefoniert gerade, möchte Taxi zeitnah entsenden."
+      },
+      "pushedToBridge": true
+    },
+    "+49 173 7756977 (+491737756977) [2026-06-25 20-53-49] [Eingehend].m4a": {
+      "ts": 1782413711946,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "hoch",
+        "datum": "2026-06-25",
+        "uhrzeit": "21:23",
+        "pickup": "Lodin",
+        "destination": "nicht genannt",
+        "passengers": null,
+        "customerName": "Freitag",
+        "guestName": null,
+        "notes": "Rückfahrt von Lodin, Fahrgast war zuvor mit uns dort hingefahren worden. Wartezeit ca. 30 Minuten akzeptabel."
+      },
+      "pushedToBridge": true
+    },
+    "+49 176 96626826 (+4917696626826) [2026-06-25 20-54-36] [Ausgehend].m4a": {
+      "ts": 1782413783089,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "2026-06-25",
+        "uhrzeit": "sofort",
+        "pickup": "Heringsdorf, Seebrücke, Bushaltestelle beim Seeschloss Aurora",
+        "destination": null,
+        "passengers": null,
+        "customerName": "Göringer oder Gebhardt",
+        "guestName": "Schwind",
+        "notes": "Wartet an Bushaltestelle Seebrücke (VVG-Bushaltestelle). Nähe Seeschloss Aurora und Pommerscher Hof. Fahrgäste können auch laufen. Möglicher Bus-Anschluss."
+      },
+      "pushedToBridge": true
+    },
+    "Karl-Heinz (+4915124018129) [2026-06-25 21-08-56] [Ausgehend].m4a": {
+      "ts": 1782414815695,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "25.06.2026",
+        "uhrzeit": "22:15",
+        "pickup": "Haftstraße 37, Pretenow",
+        "destination": "Delbrückstraße 7, Heringsdorf",
+        "passengers": null,
+        "customerName": "Andreas Krüger",
+        "guestName": null,
+        "notes": "Fahrgast steht möglicherweise bereits am Abhol-Ort oder hat bereits ein Taxi bestellt; Bestätigung erforderlich"
+      },
+      "pushedToBridge": true
+    },
+    "+49 38378 30910 (+493837830910) [2026-06-26 07-30-44] [Eingehend].m4a": {
+      "ts": 1782451953377,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "26.06.2026",
+        "uhrzeit": "sofort",
+        "pickup": "Flughafen Garp",
+        "destination": "Sonderamt",
+        "passengers": null,
+        "customerName": "Schulters",
+        "guestName": null,
+        "notes": "Anrufer erwähnt, gleich zurückzurufen - Buchung möglicherweise unvollständig oder Anrufer wechselt zu anderem Kanal"
+      },
+      "pushedToBridge": true
+    },
+    "+49 38378 30910 (+493837830910) [2026-06-26 07-38-22] [Ausgehend].m4a": {
+      "ts": 1782452566973,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "2026-06-27",
+        "uhrzeit": "19:15",
+        "pickup": "Flughafen Graz",
+        "destination": "Bambin, Seestraße 11 B",
+        "passengers": 2,
+        "customerName": "Monika Schulz",
+        "guestName": "Krüger",
+        "notes": "Flughafen-Abholung aus Graz (Schweiz). Eine Frau mit Kleinkind (1 Jahr 3-5 Monate alt). Kindersitz erforderlich (+5 Euro). Fahrer: Patrick. Funk-Taxi Heringsdorf Nummer 22022. Fahrtdauer ca. 30 Minuten. Fahrgast wartet draußen am Flughafen."
+      },
+      "pushedToBridge": true
+    },
+    "+49 1590 3774657 (+4915903774657) [2026-06-26 08-04-09] [Eingehend].m4a": {
+      "ts": 1782454012542,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "hoch",
+        "datum": "morgen (27.6.2026)",
+        "uhrzeit": "08:00",
+        "pickup": "Kulmstraße 7a, Heringsdorf",
+        "destination": "Bahnhof",
+        "passengers": 2,
+        "customerName": "Bec",
+        "guestName": null,
+        "notes": "Anrufer hatte gestern Abend bereits bei Kollege bestellt, keine SMS erhalten. Buchung wird nachträglich eingetragen und SMS-Bestätigung folgt."
+      },
+      "pushedToBridge": true
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-26 08-19-46] [Eingehend].m4a": {
+      "skipped": "blacklist-name-danilo mercedes vito vg lk 111",
+      "ts": 1782454943085,
+      "callerName": "Danilo Mercedes VITO VG LK 111"
+    },
+    "+49 1512 8164637 (+4915128164637) [2026-06-26 08-46-05] [Eingehend].m4a": {
+      "ts": 1782456521433,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "hoch",
+        "datum": "2026-06-30",
+        "uhrzeit": "08:50",
+        "pickup": "Residenz Weidoase",
+        "destination": "Bahnhof Albeck",
+        "passengers": 1,
+        "customerName": "Petra Winkler",
+        "guestName": null,
+        "notes": "Fahrgast hat Rollator und Rucksack; Koffer wird separat verschickt; Zugabfahrt 09:22 Uhr"
+      },
+      "pushedToBridge": true
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-26 08-54-00] [Eingehend].m4a": {
+      "skipped": "blacklist-name-danilo mercedes vito vg lk 111",
+      "ts": 1782456934336,
+      "callerName": "Danilo Mercedes VITO VG LK 111"
+    },
+    "+49 1590 3774657 (+4915903774657) [2026-06-26 09-06-51] [Eingehend].m4a": {
+      "ts": 1782457788583,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "morgen",
+        "uhrzeit": "08:20",
+        "pickup": "Bahnhof",
+        "destination": null,
+        "passengers": null,
+        "customerName": "Bec",
+        "guestName": null,
+        "notes": "Preiskorrektur: Hinfahrt korrigiert von 21,50 Euro auf 9,40 Euro (war Schreibfehler). SMS-Bestätigung war bereits erfolgt. Abhol-Zeit 08:20 Uhr am Bahnhof ist Kundenwunsch."
+      },
+      "pushedToBridge": true
+    },
+    "+49 162 6864043 (+491626864043) [2026-06-26 09-26-55] [Eingehend].m4a": {
+      "ts": 1782458976117,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "hoch",
+        "datum": "2026-06-27",
+        "uhrzeit": "12:30",
+        "pickup": "Schulzenstraße 12, Seniorenresidenz Pomerania",
+        "destination": "Heringsdorf, Hotel Kaiserhof",
+        "passengers": null,
+        "customerName": "Hänicke",
+        "guestName": null,
+        "notes": "Kundin hebt sich 12:30 Uhr ab und kommt dann runter; informell freundlicher Ton; Kundin betont Normalität der Vorbestellung"
+      },
+      "pushedToBridge": true
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-26 09-29-46] [Ausgehend].m4a": {
+      "skipped": "blacklist-name-danilo mercedes vito vg lk 111",
+      "ts": 1782459240862,
+      "callerName": "Danilo Mercedes VITO VG LK 111"
+    },
+    "+49 163 9655409 (+491639655409) [2026-06-26 09-35-37] [Eingehend].m4a": {
+      "ts": 1782459477536,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "hoch",
+        "datum": "2026-06-28",
+        "uhrzeit": "09:00",
+        "pickup": "Kaiserstrand Beach Hotel, Bansin",
+        "destination": "Bahnhof Anklam",
+        "passengers": null,
+        "customerName": "Trigger",
+        "guestName": null,
+        "notes": "Zugabfahrt 11:00 Uhr ab Anklam - Abholzeit 09:00 Uhr zur Pufferzeit vereinbart"
+      },
+      "pushedToBridge": true
+    },
+    "+49 174 1503605 (+491741503605) [2026-06-26 09-38-47] [Eingehend].m4a": {
+      "ts": 1782459632104,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "26.06.2026",
+        "uhrzeit": "10:00",
+        "pickup": "Strand Heringsdorf",
+        "destination": "Bahnhof",
+        "passengers": null,
+        "customerName": null,
+        "guestName": null,
+        "notes": "Anrufer fragt höflich nach Verfügbarkeit, bestätigt aber nicht explizit die Buchung"
+      },
+      "pushedToBridge": true
+    },
+    "+49 176 82232881 (+4917682232881) [2026-06-26 09-54-03] [Eingehend].m4a": {
+      "ts": 1782460553986,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "hoch",
+        "datum": "2026-06-27",
+        "uhrzeit": "08:15",
+        "pickup": "Bergstraße 6, Bansin",
+        "destination": "Bahnhof Bansin",
+        "passengers": 4,
+        "customerName": "Konstanze Heiner",
+        "guestName": null,
+        "notes": "4 Personen mit Gepäck"
+      },
+      "pushedToBridge": true
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-26 09-54-53] [Ausgehend].m4a": {
+      "skipped": "blacklist-name-danilo mercedes vito vg lk 111",
+      "ts": 1782460662343,
+      "callerName": "Danilo Mercedes VITO VG LK 111"
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-26 09-57-11] [Ausgehend].m4a": {
+      "skipped": "blacklist-name-danilo mercedes vito vg lk 111",
+      "ts": 1782460718432,
+      "callerName": "Danilo Mercedes VITO VG LK 111"
+    },
+    "+49 1512 1942425 (+4915121942425) [2026-06-26 09-58-59] [Eingehend].m4a": {
+      "ts": 1782460928105,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "26.06.2026",
+        "uhrzeit": "10:40 und 11:15",
+        "pickup": "Bahnhof Heringsdorf und Lidl Bansin",
+        "destination": "Strandstraße Heringsdorf",
+        "passengers": 10,
+        "customerName": "Weimann",
+        "guestName": "Weimann",
+        "notes": "Buchung besteht aus zwei Teilen: (1) 5 Personen mit Koffern vom Bahnhof Heringsdorf 10:40 Uhr zur Strandstraße Heringsdorf. (2) 5 Damen mit Koffern vom Lidl Bansin 11:15 Uhr (ca. viertel zwölf) zur Strandstraße Heringsdorf. Fahrgäste kommen mit Bus an und müssen vorher einen Schlüssel holen (Verspätungsrisiko). Extra-Kosten 10 Euro erwähnt. Disponent bittet um Voranmeldung mindestens einen Tag vorher bei zukünftigen Buchungen."
+      },
+      "pushedToBridge": true
+    },
+    "Ostseehotel (+4938378600) [2026-06-26 10-05-26] [Eingehend].m4a": {
+      "error": "fetch failed",
+      "ts": 1782472788276
+    },
+    "Ostseehotel (+4938378600) [2026-06-26 10-14-36] [Ausgehend].m4a": {
+      "ts": 1782472954261,
+      "classification": {
+        "isBookingRequest": false,
+        "art": "sonstiges"
+      },
+      "pushedToBridge": false
+    },
+    "+49 38378 4702115 (+49383784702115) [2026-06-26 10-17-03] [Eingehend].m4a": {
+      "error": "Anthropic-Fehler 429 {\"type\":\"error\",\"error\":{\"type\":\"rate_limit_error\",\"message\":\"This request would exceed your organization's rate limit of 1,000 requests per minute (org: a32e1395-c5f1-42e5-8ebd-2",
+      "ts": 1782472966025
+    },
+    "Ostseehotel (+4938378600) [2026-06-26 10-18-20] [Ausgehend].m4a": {
+      "error": "fetch failed",
+      "ts": 1782473491727
+    },
+    "+49 162 1848588 (+491621848588) [2026-06-26 10-34-27] [Eingehend].m4a": {
+      "ts": 1782473604720,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "2026-06-26",
+        "uhrzeit": "10:30",
+        "pickup": "Neuer Weg 7, Heringsdorf",
+        "destination": "Bahnhof Heringsdorf",
+        "passengers": null,
+        "customerName": "Frau Luck",
+        "guestName": null,
+        "notes": "Fahrt sollte über Labahnstraße führen; Taxi war möglicherweise in Ahlbeck unterwegs statt zu Neuer Weg 7; Adressverwirrung während Anruf (Neuenstraße vs. Neuer Weg)"
+      },
+      "pushedToBridge": true
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-26 10-35-32] [Ausgehend].m4a": {
+      "skipped": "blacklist-name-danilo mercedes vito vg lk 111",
+      "ts": 1782473610388,
+      "callerName": "Danilo Mercedes VITO VG LK 111"
+    },
+    "+49 162 6864043 (+491626864043) [2026-06-26 10-37-33] [Eingehend].m4a": {
+      "error": "fetch failed",
+      "ts": 1782473717581
+    },
+    "+49 38378 495197 (+4938378495197) [2026-06-26 10-41-19] [Eingehend].m4a": {
+      "ts": 1782473774890,
+      "classification": {
+        "isBookingRequest": false,
+        "art": "sonstiges"
+      },
+      "pushedToBridge": false
+    },
+    "+49 162 6864043 (+491626864043) [2026-06-26 10-44-16] [Eingehend].m4a": {
+      "ts": 1782473940065,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "26.06.2026",
+        "uhrzeit": "13:00",
+        "pickup": "Kaiserhof",
+        "destination": "Wolgast Krankenhaus",
+        "passengers": null,
+        "customerName": "Henicke",
+        "guestName": null,
+        "notes": "Notaufnahme wegen Verdacht auf Thrombose. Kunde kann gut laufen. Unsicherheit bezüglich Uhrzeit (13 Uhr oder 14 Uhr). Kunde möchte zurückgerufen werden zur Bestätigung."
+      },
+      "pushedToBridge": true
+    },
+    "Karl-Heinz (+4915124018129) [2026-06-26 10-48-49] [Ausgehend].m4a": {
+      "error": "fetch failed",
+      "ts": 1782474064146
+    },
+    "+49 38378 723495 (+4938378723495) [2026-06-26 10-50-07] [Ausgehend].m4a": {
+      "error": "Whisper-Fehler 429 {\n    \"error\": {\n        \"message\": \"You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform",
+      "ts": 1782474101126
+    },
+    "+49 170 8310685 (+491708310685) [2026-06-26 10-53-20] [Eingehend].m4a": {
+      "error": "Whisper-Fehler 429 {\n    \"error\": {\n        \"message\": \"You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform",
+      "ts": 1782474145507
+    },
+    "+49 1512 5111978 (+4915125111978) [2026-06-26 10-55-24] [Eingehend].m4a": {
+      "error": "Whisper-Fehler 429 {\n    \"error\": {\n        \"message\": \"You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform",
+      "ts": 1782474190623
+    },
+    "+49 1512 5111978 (+4915125111978) [2026-06-26 10-59-12] [Ausgehend].m4a": {
+      "error": "fetch failed",
+      "ts": 1782474225334
+    },
+    "Karl-Heinz (+4915124018129) [2026-06-26 11-02-20] [Ausgehend].m4a": {
+      "error": "Whisper-Fehler 429 {\n    \"error\": {\n        \"message\": \"You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform",
+      "ts": 1782474313300
+    },
+    "Hornburg (+493836202183) [2026-06-26 11-08-57] [Ausgehend].m4a": {
+      "error": "Whisper-Fehler 429 {\n    \"error\": {\n        \"message\": \"You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform",
+      "ts": 1782474322810
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-26 11-12-48] [Ausgehend].m4a": {
+      "skipped": "blacklist-name-danilo mercedes vito vg lk 111",
+      "ts": 1782474322811,
+      "callerName": "Danilo Mercedes VITO VG LK 111"
+    },
+    "+49 35203 337573 (+4935203337573) [2026-06-26 11-29-22] [Eingehend].m4a": {
+      "error": "Whisper-Fehler 429 {\n    \"error\": {\n        \"message\": \"You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform",
+      "ts": 1782474353218
+    },
+    "+49 38378 28301 (+493837828301) [2026-06-26 11-54-51] [Eingehend].m4a": {
+      "error": "Whisper-Fehler 429 {\n    \"error\": {\n        \"message\": \"You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform",
+      "ts": 1782474354133
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-26 12-09-26] [Ausgehend].m4a": {
+      "skipped": "blacklist-name-danilo mercedes vito vg lk 111",
+      "ts": 1782474354136,
+      "callerName": "Danilo Mercedes VITO VG LK 111"
+    },
+    "+49 160 99176755 (+4916099176755) [2026-06-26 12-24-45] [Eingehend].m4a": {
+      "error": "Whisper-Fehler 429 {\n    \"error\": {\n        \"message\": \"You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform",
+      "ts": 1782474360175
+    },
+    "Karl-Heinz (+4915751720609) [2026-06-26 12-34-27] [Eingehend].m4a": {
+      "error": "Whisper-Fehler 429 {\n    \"error\": {\n        \"message\": \"You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform",
+      "ts": 1782474361191
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-26 12-46-52] [Ausgehend].m4a": {
+      "skipped": "blacklist-name-danilo mercedes vito vg lk 111",
+      "ts": 1782474361193,
+      "callerName": "Danilo Mercedes VITO VG LK 111"
+    },
+    "+49 1522 4339847 (+4915224339847) [2026-06-26 13-01-30] [Eingehend].m4a": {
+      "error": "Whisper-Fehler 429 {\n    \"error\": {\n        \"message\": \"You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform",
+      "ts": 1782474361522
+    },
+    "Sandy Zornow (+491736760775) [2026-06-26 13-07-07] [Eingehend].m4a": {
+      "error": "Whisper-Fehler 429 {\n    \"error\": {\n        \"message\": \"You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform",
+      "ts": 1782474362144
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-26 13-28-56] [Eingehend].m4a": {
+      "skipped": "blacklist-name-danilo mercedes vito vg lk 111",
+      "ts": 1782474602889,
+      "callerName": "Danilo Mercedes VITO VG LK 111"
+    },
+    "SEETEL Hotel Gmb (+4938378610) [2026-06-26 14-13-19] [Eingehend].m4a": {
+      "error": "Whisper-Fehler 429 {\n    \"error\": {\n        \"message\": \"You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform",
+      "ts": 1782476167285
+    },
+    "+49 1516 5440889 (+4915165440889) [2026-06-26 14-17-57] [Eingehend].m4a": {
+      "error": "Whisper-Fehler 429 {\n    \"error\": {\n        \"message\": \"You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform",
+      "ts": 1782476453624
+    },
+    "+49 1516 5440889 (+4915165440889) [2026-06-26 14-20-07] [Ausgehend].m4a": {
+      "error": "Whisper-Fehler 429 {\n    \"error\": {\n        \"message\": \"You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform",
+      "ts": 1782476616682
+    },
+    "+49 172 1453176 (+491721453176) [2026-06-26 14-27-01] [Eingehend].m4a": {
+      "error": "Whisper-Fehler 429 {\n    \"error\": {\n        \"message\": \"You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform",
+      "ts": 1782476887884
+    },
+    "+49 171 6333555 (+491716333555) [2026-06-26 14-31-47] [Eingehend].m4a": {
+      "error": "Whisper-Fehler 429 {\n    \"error\": {\n        \"message\": \"You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform",
+      "ts": 1782477216419
+    },
+    "+49 172 1453176 (+491721453176) [2026-06-26 14-35-15] [Eingehend].m4a": {
+      "error": "Whisper-Fehler 429 {\n    \"error\": {\n        \"message\": \"You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform",
+      "ts": 1782477439564
+    },
+    "+49 38378 620 (+4938378620) [2026-06-26 14-52-08] [Eingehend].m4a": {
+      "error": "Whisper-Fehler 429 {\n    \"error\": {\n        \"message\": \"You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform",
+      "ts": 1782478428553
+    },
+    "+49 38378 620 (+4938378620) [2026-06-26 14-54-31] [Eingehend].m4a": {
+      "error": "Whisper-Fehler 429 {\n    \"error\": {\n        \"message\": \"You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform",
+      "ts": 1782478550029
+    },
+    "+49 172 1453176 (+491721453176) [2026-06-26 15-08-40] [Ausgehend].m4a": {
+      "error": "Whisper-Fehler 429 {\n    \"error\": {\n        \"message\": \"You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform",
+      "ts": 1782479413105
+    },
+    "+49 38378 620 (+4938378620) [2026-06-26 15-19-14] [Eingehend].m4a": {
+      "error": "Whisper-Fehler 429 {\n    \"error\": {\n        \"message\": \"You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform",
+      "ts": 1782480061569
+    },
+    "+49 38378 620 (+4938378620) [2026-06-26 15-22-00] [Eingehend].m4a": {
+      "error": "Whisper-Fehler 429 {\n    \"error\": {\n        \"message\": \"You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform",
+      "ts": 1782480198703
+    },
+    "+49 177 8933693 (+491778933693) [2026-06-26 15-34-21] [Eingehend].m4a": {
+      "error": "Whisper-Fehler 429 {\n    \"error\": {\n        \"message\": \"You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform",
+      "ts": 1782481014654
+    },
+    "Heringsdorf Ostseeblick (+4938378540) [2026-06-26 15-53-23] [Eingehend].m4a": {
+      "error": "Whisper-Fehler 429 {\n    \"error\": {\n        \"message\": \"You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform",
+      "ts": 1782482125499
+    },
+    "+49 175 1050506 (+491751050506) [2026-06-26 15-56-16] [Eingehend].m4a": {
+      "error": "Whisper-Fehler 429 {\n    \"error\": {\n        \"message\": \"You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform",
+      "ts": 1782482264606
+    },
+    "+49 1516 7639882 (+4915167639882) [2026-06-26 15-58-17] [Eingehend].m4a": {
+      "error": "Whisper-Fehler 429 {\n    \"error\": {\n        \"message\": \"You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform",
+      "ts": 1782482413648
+    },
+    "Karl-Heinz (+4915751720609) [2026-06-26 16-09-49] [Ausgehend].m4a": {
+      "error": "Whisper-Fehler 429 {\n    \"error\": {\n        \"message\": \"You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform",
+      "ts": 1782483432387
+    },
+    "+49 160 94498974 (+4916094498974) [2026-06-26 16-26-31] [Eingehend].m4a": {
+      "error": "Whisper-Fehler 429 {\n    \"error\": {\n        \"message\": \"You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform",
+      "ts": 1782484111298
+    },
+    "+49 176 51641175 (+4917651641175) [2026-06-26 16-52-45] [Ausgehend].m4a": {
+      "error": "Whisper-Fehler 429 {\n    \"error\": {\n        \"message\": \"You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform",
+      "ts": 1782485686505
+    },
+    "Karl-Heinz (+4915124018129) [2026-06-26 16-53-52] [Ausgehend].m4a": {
+      "error": "Whisper-Fehler 429 {\n    \"error\": {\n        \"message\": \"You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform",
+      "ts": 1782485775811
+    },
+    "Karl-Heinz (+4915751720609) [2026-06-26 17-05-29] [Eingehend].m4a": {
+      "error": "Whisper-Fehler 429 {\n    \"error\": {\n        \"message\": \"You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform",
+      "ts": 1782486605101
+    },
+    "+49 176 51641175 (+4917651641175) [2026-06-26 17-06-10] [Ausgehend].m4a": {
+      "error": "Whisper-Fehler 429 {\n    \"error\": {\n        \"message\": \"You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform",
+      "ts": 1782486605541
+    },
+    "+49 176 51641175 (+4917651641175) [2026-06-26 17-06-55] [Ausgehend].m4a": {
+      "error": "Whisper-Fehler 429 {\n    \"error\": {\n        \"message\": \"You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform",
+      "ts": 1782486605938
+    },
+    "Karl-Heinz (+4915124018129) [2026-06-26 17-07-41] [Ausgehend].m4a": {
+      "error": "Whisper-Fehler 429 {\n    \"error\": {\n        \"message\": \"You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform",
+      "ts": 1782486606116
+    },
+    "Karl-Heinz (+4915124018129) [2026-06-26 17-21-49] [Ausgehend].m4a": {
+      "error": "Whisper-Fehler 429 {\n    \"error\": {\n        \"message\": \"You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform",
+      "ts": 1782487480300
+    },
+    "Marion Bierkutscher +49 1520 5163285 (+4915205163285) [2026-06-27 06-46-50] [Ausgehend].m4a": {
+      "error": "Whisper-Fehler 429 {\n    \"error\": {\n        \"message\": \"You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform",
+      "ts": 1782535708927
+    },
+    "Ahlbeck Hotel Das Ahlbeck (+493837849940) [2026-06-27 07-29-03] [Eingehend].m4a": {
+      "error": "Whisper-Fehler 429 {\n    \"error\": {\n        \"message\": \"You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform",
+      "ts": 1782538293772
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-27 07-43-56] [Ausgehend].m4a": {
+      "skipped": "blacklist-name-danilo mercedes vito vg lk 111",
+      "ts": 1782539144033,
+      "callerName": "Danilo Mercedes VITO VG LK 111"
+    },
+    "Hasi (+491719369582) [2026-06-27 07-53-49] [Eingehend].m4a": {
+      "skipped": "blacklist-name-hasi",
+      "ts": 1782539727118,
+      "callerName": "Hasi"
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-27 07-57-46] [Ausgehend].m4a": {
+      "skipped": "blacklist-name-danilo mercedes vito vg lk 111",
+      "ts": 1782540039146,
+      "callerName": "Danilo Mercedes VITO VG LK 111"
+    },
+    "The Breeze Rathenaustraße 3 (+49383786920) [2026-06-27 08-06-16] [Ausgehend].m4a": {
+      "error": "Whisper-Fehler 429 {\n    \"error\": {\n        \"message\": \"You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform",
+      "ts": 1782540524773
+    },
+    "The Breeze Rathenaustraße 3 (+49383786920) [2026-06-27 08-13-41] [Eingehend].m4a": {
+      "error": "Whisper-Fehler 429 {\n    \"error\": {\n        \"message\": \"You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform",
+      "ts": 1782540899903
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-27 08-14-09] [Ausgehend].m4a": {
+      "skipped": "blacklist-name-danilo mercedes vito vg lk 111",
+      "ts": 1782540917930,
+      "callerName": "Danilo Mercedes VITO VG LK 111"
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-27 08-14-33] [Ausgehend].m4a": {
+      "skipped": "blacklist-name-danilo mercedes vito vg lk 111",
+      "ts": 1782540951544,
+      "callerName": "Danilo Mercedes VITO VG LK 111"
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-27 08-16-22] [Ausgehend].m4a": {
+      "skipped": "blacklist-name-danilo mercedes vito vg lk 111",
+      "ts": 1782541049730,
+      "callerName": "Danilo Mercedes VITO VG LK 111"
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-27 08-16-47] [Ausgehend].m4a": {
+      "skipped": "blacklist-name-danilo mercedes vito vg lk 111",
+      "ts": 1782541104992,
+      "callerName": "Danilo Mercedes VITO VG LK 111"
+    },
+    "+49 178 8083616 (+491788083616) [2026-06-27 08-22-19] [Eingehend].m4a": {
+      "error": "Whisper-Fehler 429 {\n    \"error\": {\n        \"message\": \"You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform",
+      "ts": 1782541435892
+    },
+    "Zentrale (+491715377241) [2026-06-27 08-30-01] [Ausgehend].m4a": {
+      "skipped": "blacklist-number-+491715377241",
+      "ts": 1782542083945,
+      "callerName": "Zentrale"
+    },
+    "Steigenberger (+4938378495901) [2026-06-27 08-41-45] [Eingehend].m4a": {
+      "error": "Whisper-Fehler 429 {\n    \"error\": {\n        \"message\": \"You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform",
+      "ts": 1782542599545
+    },
+    "STRANDHOTEL OSTENDE (+4938378510) [2026-06-27 08-54-01] [Eingehend].m4a": {
+      "error": "Whisper-Fehler 429 {\n    \"error\": {\n        \"message\": \"You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform",
+      "ts": 1782543365552
+    },
+    "Zentrale (+491715377241) [2026-06-27 09-04-00] [Eingehend].m4a": {
+      "skipped": "blacklist-number-+491715377241",
+      "ts": 1782543936860,
+      "callerName": "Zentrale"
+    },
+    "+49 38378 476502 (+4938378476502) [2026-06-27 09-23-23] [Eingehend].m4a": {
+      "ts": 1782545121409,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "hoch",
+        "datum": "2026-06-27",
+        "uhrzeit": "15:00",
+        "pickup": "Arosa-Strand-Edel-Hillings-Store",
+        "destination": "Flughafen",
+        "passengers": null,
+        "customerName": "Arosa-Strand-Edel-Hillings-Store",
+        "guestName": "Frau Weber",
+        "notes": "Gäste des Stores, Zahlung durch Store"
+      },
+      "pushedToBridge": true
+    },
+    "Steigenberger (+4938378495901) [2026-06-27 09-38-08] [Eingehend].m4a": {
+      "ts": 1782546107183,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "niedrig",
+        "datum": "2026-06-27",
+        "uhrzeit": "11:30",
+        "pickup": "Steigenbeere Hotel",
+        "destination": "Bansin, Steighoff",
+        "passengers": 2,
+        "customerName": "Steigenbeere Rezeption",
+        "guestName": null,
+        "notes": "Gäste mit Gepäck. Zielort nur vage angegeben (irgendwo in Bansin, Steighoff erwähnt). Rezeptionist konnte keine genaue Adresse vom Gast erfragen. Fahrer hat darauf hingewiesen, dass genaue Zieladresse erforderlich ist für Planung."
+      },
+      "pushedToBridge": true
+    },
+    "Steigenberger (+4938378495901) [2026-06-27 09-51-49] [Eingehend].m4a": {
+      "ts": 1782546829360,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "hoch",
+        "datum": "27.06.2026",
+        "uhrzeit": "11:30",
+        "pickup": "Steigenberger Hotel Heringsdorf",
+        "destination": "Bahnhof Bansin",
+        "passengers": 2,
+        "customerName": "Steigenberger Rezeption",
+        "guestName": "Gas Steighoff",
+        "notes": "zwei Gäste mit Gepäck, Hotelabholung"
+      },
+      "pushedToBridge": true
+    },
+    "+49 170 1603468 (+491701603468) [2026-06-27 09-54-09] [Eingehend].m4a": {
+      "ts": 1782547063601,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "hoch",
+        "datum": "27.06.2026",
+        "uhrzeit": "06:30",
+        "pickup": "Grenzstraße 2, Heringsdorf (Insel Usedom)",
+        "destination": "Stralsunder Straße 20-27-30, Greifswald",
+        "passengers": null,
+        "customerName": "Heusner",
+        "guestName": null,
+        "notes": "Fahrzeugabholung (Transporter). Anrufer und Gruppe sind mit Fahrrädern angereist, fahren in einer Woche mit Transporter zurück. Preis: 155 Euro Festpreis."
+      },
+      "pushedToBridge": true
+    },
+    "+49 1517 0816512 (+4915170816512) [2026-06-27 10-00-47] [Eingehend].m4a": {
+      "ts": 1782547390440,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "morgen",
+        "uhrzeit": "10:00",
+        "pickup": "Labanstraße 13 A, Haus Mittag, Heringsdorf",
+        "destination": "Bahnhof Heringsdorf",
+        "passengers": null,
+        "customerName": "Boehm",
+        "guestName": null,
+        "notes": "Fahrgast möchte um 10 Uhr morgens vom Hotel 'Haus Mittag' zum Bahnhof fahren"
+      },
+      "pushedToBridge": true
+    },
+    "+49 38378 620 (+4938378620) [2026-06-27 10-16-32] [Eingehend].m4a": {
+      "ts": 1782548437466,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "27.06.2026",
+        "uhrzeit": "10:50",
+        "pickup": "unklar",
+        "destination": "Bahnhof",
+        "passengers": 2,
+        "customerName": null,
+        "guestName": null,
+        "notes": "Kunde bei 411 (möglicherweise Hotelzimmer oder Adresse); knapper Zeitrahmen; Ankunftszeit oder Busanschluss relevant"
+      },
+      "pushedToBridge": true
+    },
+    "+49 38378 2690 (+49383782690) [2026-06-27 10-18-19] [Eingehend].m4a": {
+      "ts": 1782548455076,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "hoch",
+        "datum": "27.06.2026",
+        "uhrzeit": "sofort",
+        "pickup": "Hotel Baltic Petite Bünding, Heringsdorf",
+        "destination": "Bereitschaftsarzt Bansin",
+        "passengers": 1,
+        "customerName": "Hotel Baltic Petite Bünding",
+        "guestName": null,
+        "notes": "Gast muss zum Arzt (Bereitschaftsarzt). Zeitangabe 'in 10 Minuten' deutet auf sofortige Abholung hin."
+      },
+      "pushedToBridge": true
+    },
+    "Zentrale (+491715377241) [2026-06-27 10-19-07] [Ausgehend].m4a": {
+      "skipped": "blacklist-number-+491715377241",
+      "ts": 1782548492941,
+      "callerName": "Zentrale"
+    },
+    "+49 176 50060135 (+4917650060135) [2026-06-27 10-37-04] [Eingehend].m4a": {
+      "ts": 1782549557276,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "2026-06-27",
+        "uhrzeit": "16:20",
+        "pickup": "Flughafen Luxemburg",
+        "destination": "The Breeze, Heringsdorf",
+        "passengers": null,
+        "customerName": "Hennen",
+        "guestName": null,
+        "notes": "Ankunft 16:30 Uhr aus Luxemburg. Anrufer erwähnt, bereits gestern Abend vor 22:00 angerufen zu haben, möchte bestätigen ob Buchung notiert ist. Route: Heringsdorf nach Halrig erwähnt (unklar ob Ziel oder Zwischenhalt)."
+      },
+      "pushedToBridge": true
+    },
+    "Zentrale (+491715377241) [2026-06-27 10-38-08] [Ausgehend].m4a": {
+      "skipped": "blacklist-number-+491715377241",
+      "ts": 1782549581028,
+      "callerName": "Zentrale"
+    },
+    "+49 178 4688707 (+491784688707) [2026-06-27 10-40-48] [Eingehend].m4a": {
+      "ts": 1782549741208,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "hoch",
+        "datum": "27.06.2026",
+        "uhrzeit": "sofort",
+        "pickup": "Hotel Arlbeck",
+        "destination": "Tankstelle Bansin",
+        "passengers": null,
+        "customerName": "Storbeck",
+        "guestName": null,
+        "notes": "Fahrgast im Hotel Arlbeck, Fahrzeit geschätzt 10-20 Minuten"
+      },
+      "pushedToBridge": true
+    },
+    "Ahlbecker Hof (+493837862449) [2026-06-27 10-42-17] [Ausgehend].m4a": {
+      "ts": 1782549897546,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "2026-06-27",
+        "uhrzeit": "10:50",
+        "pickup": "Ahlbecker Hof",
+        "destination": "Bahnhof",
+        "passengers": null,
+        "customerName": "Ahlbecker Hof / Maris Amaparat",
+        "guestName": "Familie Götze",
+        "notes": "Abholung 5 Minuten später als ursprünglich geplant (ca. 10:55 statt 10:50). Hotelabholung. Bestätigung einer bereits bekannten Buchung."
+      },
+      "pushedToBridge": true
+    },
+    "Zentrale (+491715377241) [2026-06-27 10-44-04] [Ausgehend].m4a": {
+      "skipped": "blacklist-number-+491715377241",
+      "ts": 1782549930919,
+      "callerName": "Zentrale"
+    },
+    "Zentrale (+491715377241) [2026-06-27 10-45-33] [Ausgehend].m4a": {
+      "skipped": "blacklist-number-+491715377241",
+      "ts": 1782550127506,
+      "callerName": "Zentrale"
+    },
+    "+49 1515 1740174 (+4915151740174) [2026-06-27 10-48-20] [Eingehend].m4a": {
+      "ts": 1782550259568,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "hoch",
+        "datum": "2026-06-28",
+        "uhrzeit": "08:50",
+        "pickup": "Dünenstraße 29, Haus Bommen, Heringsdorf",
+        "destination": "Bahnhof Ahlbeck",
+        "passengers": 2,
+        "customerName": "Langer",
+        "guestName": null,
+        "notes": "Kunde betont Zuganbindung - pünktliche Abholung wichtig. Abholort neben Fischstube."
+      },
+      "pushedToBridge": true
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-27 10-53-31] [Ausgehend].m4a": {
+      "skipped": "blacklist-name-danilo mercedes vito vg lk 111",
+      "ts": 1782550532504,
+      "callerName": "Danilo Mercedes VITO VG LK 111"
+    },
+    "+49 163 6139290 (+491636139290) [2026-06-27 10-55-30] [Eingehend].m4a": {
+      "ts": 1782550715102,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "hoch",
+        "datum": "2026-07-03",
+        "uhrzeit": "09:30",
+        "pickup": "Mühlenkamp 17, Ferienwohnung 6 am Sonnenblick, Herdenheringsdorf",
+        "destination": "Bahnhof",
+        "passengers": 2,
+        "customerName": "Wagner",
+        "guestName": null,
+        "notes": "2 große Koffer"
+      },
+      "pushedToBridge": true
+    },
+    "+49 1515 1740174 (+4915151740174) [2026-06-27 10-58-37] [Eingehend].m4a": {
+      "ts": 1782550807417,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "morgen (28.6.2026)",
+        "uhrzeit": "08:50",
+        "pickup": null,
+        "destination": null,
+        "passengers": null,
+        "customerName": null,
+        "guestName": null,
+        "notes": "Stornierung einer bestehenden Buchung für morgen 8:50 Uhr. Grund: Kunde nutzt stattdessen Bus. Bestätigung der Stornierung erfolgt."
+      },
+      "pushedToBridge": true
+    },
+    "+49 163 6139290 (+491636139290) [2026-06-27 10-59-45] [Eingehend].m4a": {
+      "ts": 1782550867504,
+      "classification": {
+        "isBookingRequest": false,
+        "art": "privat"
+      },
+      "pushedToBridge": false
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-27 11-17-02] [Ausgehend].m4a": {
+      "skipped": "blacklist-name-danilo mercedes vito vg lk 111",
+      "ts": 1782551998074,
+      "callerName": "Danilo Mercedes VITO VG LK 111"
+    },
+    "+49 171 8146937 (+491718146937) [2026-06-27 11-29-33] [Eingehend].m4a": {
+      "ts": 1782552725804,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "hoch",
+        "datum": "2026-06-27",
+        "uhrzeit": "17:30",
+        "pickup": "Hotel Garni Eden, Arlbeck",
+        "destination": "Kulmeck",
+        "passengers": 2,
+        "customerName": null,
+        "guestName": null,
+        "notes": "Anrufer bestätigt, dass Fahrer/Dispatcher das Hotel Garni Eden kennt"
+      },
+      "pushedToBridge": true
+    },
+    "Vetter (+491606185003) [2026-06-27 12-01-28] [Eingehend].m4a": {
+      "ts": 1782554723313,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "2026-06-27",
+        "uhrzeit": "13:00",
+        "pickup": "Zwinemünde",
+        "destination": "Interferi Medica Spa",
+        "passengers": null,
+        "customerName": "Vetter",
+        "guestName": null,
+        "notes": "Vetter Touristik; Gruppe; Fahrt verzögert sich um ca. eine Stunde; Anrufer ist Fahrtleiter und hatte keine Einweisung zu Anruf-Prozeduren; Kunden warten bereits am Zielort"
+      },
+      "pushedToBridge": true
+    },
+    "Zentrale (+491715377241) [2026-06-27 12-04-15] [Ausgehend].m4a": {
+      "skipped": "blacklist-number-+491715377241",
+      "ts": 1782554743026,
+      "callerName": "Zentrale"
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-27 12-26-42] [Eingehend].m4a": {
+      "skipped": "blacklist-name-danilo mercedes vito vg lk 111",
+      "ts": 1782556217551,
+      "callerName": "Danilo Mercedes VITO VG LK 111"
+    },
+    "+49 162 6864043 (+491626864043) [2026-06-27 12-33-11] [Eingehend].m4a": {
+      "ts": 1782556517305,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "2026-06-27",
+        "uhrzeit": "12:30",
+        "pickup": "unklar",
+        "destination": null,
+        "passengers": null,
+        "customerName": "Henke",
+        "guestName": null,
+        "notes": "Anrufer steht bereits am Abholort und wartet auf Taxi. Fahrt sollte um 12:30 Uhr erfolgen."
+      },
+      "pushedToBridge": true
+    },
+    "+49 162 6864043 (+491626864043) [2026-06-27 12-36-02] [Eingehend].m4a": {
+      "ts": 1782556663596,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "27.06.2026",
+        "uhrzeit": "sofort",
+        "pickup": "Schulzenstraße 12, Heringsdorf",
+        "destination": null,
+        "passengers": null,
+        "customerName": null,
+        "guestName": null,
+        "notes": "Kunde beschwert sich, dass Taxi nicht am richtigen Ort steht (Dünenstraße 30 statt Schulzenstraße 12). Anrufer hat schriftliche Bestätigung. Taxi soll zu Schulzenstraße 12 kommen."
+      },
+      "pushedToBridge": true
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-27 12-42-34] [Eingehend].m4a": {
+      "skipped": "blacklist-name-danilo mercedes vito vg lk 111",
+      "ts": 1782557073518,
+      "callerName": "Danilo Mercedes VITO VG LK 111"
+    },
+    "Vetter (+491606185003) [2026-06-27 12-55-54] [Eingehend].m4a": {
+      "ts": 1782557877194,
+      "classification": {
+        "isBookingRequest": false,
+        "art": "fahrer"
+      },
+      "pushedToBridge": false
+    },
+    "Zentrale (+491715377241) [2026-06-27 12-57-02] [Ausgehend].m4a": {
+      "skipped": "blacklist-number-+491715377241",
+      "ts": 1782557924751,
+      "callerName": "Zentrale"
+    },
+    "Vetter (+491606185003) [2026-06-27 12-58-15] [Ausgehend].m4a": {
+      "ts": 1782557965572,
+      "classification": {
+        "isBookingRequest": false,
+        "art": "privat"
+      },
+      "pushedToBridge": false
+    },
+    "+49 1520 4017895 (+4915204017895) [2026-06-27 13-05-35] [Eingehend].m4a": {
+      "ts": 1782558491078,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "hoch",
+        "datum": "28.06.2026",
+        "uhrzeit": "08:00",
+        "pickup": "Seestraße 3, Heringsdorf (Seeschloss)",
+        "destination": "Bahnhof Wiener Münde / Bahnhof Herwe (polnische Seite)",
+        "passengers": null,
+        "customerName": "Richthoff",
+        "guestName": null,
+        "notes": "Fahrgast möchte zum Bahnhof auf polnischer Seite (Wiener Münde/Herwe). Abholung am Seeschloss, in der Nähe der Busstation am Greiferhof."
+      },
+      "pushedToBridge": true
+    },
+    "Zentrale (+491715377241) [2026-06-27 13-12-56] [Eingehend].m4a": {
+      "skipped": "blacklist-number-+491715377241",
+      "ts": 1782559170909,
+      "callerName": "Zentrale"
+    },
+    "The Breeze Rathenaustraße 3 (+49383786920) [2026-06-27 13-18-46] [Eingehend].m4a": {
+      "ts": 1782559254867,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "27.6.2026 oder bald",
+        "uhrzeit": "unklar",
+        "pickup": "Greifswald",
+        "destination": "The Breeze, Rathenaustraße 3, Heringsdorf",
+        "passengers": null,
+        "customerName": "Marie Schletterer",
+        "guestName": null,
+        "notes": "Hotel The Breeze - Gast muss von Greifswald zurück zum Hotel. Taxi-Unternehmen hat Kapazitätsprobleme wegen Flughafeneinsätze. Fahrgast kann nicht mit Karte zahlen. Alternative: Taxi in Greifswald nehmen."
+      },
+      "pushedToBridge": true
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-27 13-20-11] [Ausgehend].m4a": {
+      "skipped": "blacklist-name-danilo mercedes vito vg lk 111",
+      "ts": 1782559409535,
+      "callerName": "Danilo Mercedes VITO VG LK 111"
+    },
+    "+49 170 7414138 (+491707414138) [2026-06-27 13-23-15] [Eingehend].m4a": {
+      "ts": 1782559499823,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "hoch",
+        "datum": "27.06.2026",
+        "uhrzeit": "sofort",
+        "pickup": "Bansin, Mecklenburger Backstube / Apotheke vor dem Poller",
+        "destination": "Heringsdorf, Hotel Bayertig",
+        "passengers": null,
+        "customerName": null,
+        "guestName": null,
+        "notes": "Fahrt sollte ca. 10 Minuten dauern. Abhol- und Zielort befinden sich auf der Insel Usedom."
+      },
+      "pushedToBridge": true
+    },
+    "The Breeze Rathenaustraße 3 (+49383786920) [2026-06-27 13-35-13] [Eingehend].m4a": {
+      "ts": 1782560268146,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "hoch",
+        "datum": "2026-06-28",
+        "uhrzeit": "11:00",
+        "pickup": "The Breeze Hotel, Rathenaustraße 3, Arlbeck",
+        "destination": "Ueckermünde, Krankenhaus/Klinik",
+        "passengers": null,
+        "customerName": "Marie",
+        "guestName": "Elisee",
+        "notes": "Fahrgast muss ca. 30 Minuten bis 1 Stunde in Ueckermünde warten, dann Rückfahrt nach Arlbeck. Taxifahrer soll auf Gast warten."
+      },
+      "pushedToBridge": true
+    },
+    "Zentrale (+491715377241) [2026-06-27 13-41-25] [Eingehend].m4a": {
+      "skipped": "blacklist-number-+491715377241",
+      "ts": 1782560613649,
+      "callerName": "Zentrale"
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-27 13-55-06] [Ausgehend].m4a": {
+      "skipped": "blacklist-name-danilo mercedes vito vg lk 111",
+      "ts": 1782561527041,
+      "callerName": "Danilo Mercedes VITO VG LK 111"
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-27 14-08-11] [Eingehend].m4a": {
+      "skipped": "blacklist-name-danilo mercedes vito vg lk 111",
+      "ts": 1782562245356,
+      "callerName": "Danilo Mercedes VITO VG LK 111"
+    },
+    "+49 171 2162316 (+491712162316) [2026-06-27 14-15-16] [Eingehend].m4a": {
+      "ts": 1782562627158,
+      "classification": {
+        "isBookingRequest": false,
+        "art": "privat"
+      },
+      "pushedToBridge": false
+    },
+    "+49 1522 2097145 (+4915222097145) [2026-06-27 14-38-28] [Eingehend].m4a": {
+      "ts": 1782564025057,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "hoch",
+        "datum": "2026-06-27",
+        "uhrzeit": "sofort",
+        "pickup": "Bahnhof Heringsdorf",
+        "destination": "Maya (Schlüsselabhol), dann Labernstraße",
+        "passengers": null,
+        "customerName": "Henniges",
+        "guestName": null,
+        "notes": "Familie. Zwei Ziele: erst Maya zum Schlüsselabholen, dann Labernstraße. Wartezeit ca. 10 Minuten genannt."
+      },
+      "pushedToBridge": true
+    },
+    "Ahlbeck Hotel Das Ahlbeck (+493837849940) [2026-06-27 14-40-56] [Eingehend].m4a": {
+      "ts": 1782564172717,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "niedrig",
+        "datum": "unklar",
+        "uhrzeit": "unklar",
+        "pickup": "Ahlbeck Hotel Das Ahlbeck",
+        "destination": "Swinemünde oder Flughafen",
+        "passengers": 2,
+        "customerName": "Ahlbeck Hotel Das Ahlbeck",
+        "guestName": null,
+        "notes": "Eine Person zur Swinemünde, zweite Person zum Flughafen. Anfrage wurde nicht abgeschlossen, Hotel sagte 'das wird jetzt bei uns leider nichts'."
+      },
+      "pushedToBridge": true
+    },
+    "Zentrale (+491715377241) [2026-06-27 14-42-00] [Eingehend].m4a": {
+      "skipped": "blacklist-number-+491715377241",
+      "ts": 1782564224550,
+      "callerName": "Zentrale"
+    },
+    "Zentrale (+491715377241) [2026-06-27 14-47-08] [Ausgehend].m4a": {
+      "skipped": "blacklist-number-+491715377241",
+      "ts": 1782564601553,
+      "callerName": "Zentrale"
+    },
+    "Zentrale (+491715377241) [2026-06-27 14-53-42] [Ausgehend].m4a": {
+      "skipped": "blacklist-number-+491715377241",
+      "ts": 1782564933389,
+      "callerName": "Zentrale"
+    },
+    "Zentrale (+491715377241) [2026-06-27 14-55-47] [Eingehend].m4a": {
+      "skipped": "blacklist-number-+491715377241",
+      "ts": 1782565069787,
+      "callerName": "Zentrale"
+    },
+    "Zentrale (+491715377241) [2026-06-27 15-22-33] [Eingehend].m4a": {
+      "skipped": "blacklist-number-+491715377241",
+      "ts": 1782566793878,
+      "callerName": "Zentrale"
+    },
+    "+49 1511 6516552 (+4915116516552) [2026-06-27 15-35-58] [Eingehend].m4a": {
+      "ts": 1782567528851,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "hoch",
+        "datum": "2026-06-28",
+        "uhrzeit": "08:50",
+        "pickup": "BSW Hotel, Heimstraße 12, Albek",
+        "destination": "Bahnhof",
+        "passengers": null,
+        "customerName": "Meiler",
+        "guestName": null,
+        "notes": "Fahrgast im Hotel BSW, Zimmer 227. Fahrt zum Bahnhof mit zeitlich straffer Planung (8:50 Uhr)."
+      },
+      "pushedToBridge": true
+    },
+    "+49 1523 1494346 (+4915231494346) [2026-06-27 15-44-47] [Eingehend].m4a": {
+      "ts": 1782568066077,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "hoch",
+        "datum": "2026-06-27",
+        "uhrzeit": "16:00",
+        "pickup": "Bühnestraße 12D, Heringsdorf (gegenüber Parkhaus, Hochhäuser mit Parkbuchten)",
+        "destination": "Bergstraße 2, Korswand (am Wolgastsee, beim Parkplatz, Haus Helene/Eiskaffee Helene)",
+        "passengers": 2,
+        "customerName": null,
+        "guestName": null,
+        "notes": "Zwei Töchter (9 und 8 Jahre alt) steigen in Heringsdorf ein und werden zu ihrem Vater nach Korswand gefahren. Kinder sind derzeit bei ihrer Mutter. Anrufer wird Bescheid sagen, wann Taxi kommt."
+      },
+      "pushedToBridge": true
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-27 15-46-28] [Ausgehend].m4a": {
+      "skipped": "blacklist-name-danilo mercedes vito vg lk 111",
+      "ts": 1782568160608,
+      "callerName": "Danilo Mercedes VITO VG LK 111"
+    },
+    "+49 162 4694605 (+491624694605) [2026-06-27 15-49-35] [Eingehend].m4a": {
+      "ts": 1782568284297,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "niedrig",
+        "datum": "27.06.2026",
+        "uhrzeit": "sofort",
+        "pickup": "Lindenstraße 79, hinten im Hof",
+        "destination": null,
+        "passengers": null,
+        "customerName": null,
+        "guestName": null,
+        "notes": "Anrufer hatte Autoprobleme und musste Ersatzschlüssel holen, daher keine Zeit für sofortige Buchung. Funk-Taxi Heringsdorf konnte nicht sofort fahren (erst in 1 Stunde), daher Anrufer wurde auf Alternativen verwiesen (Taxi Brinkmann, Taxi Schröter, Taxi Ring)."
+      },
+      "pushedToBridge": true
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-27 16-02-30] [Eingehend].m4a": {
+      "skipped": "blacklist-name-danilo mercedes vito vg lk 111",
+      "ts": 1782569026356,
+      "callerName": "Danilo Mercedes VITO VG LK 111"
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-27 16-03-48] [Ausgehend].m4a": {
+      "skipped": "blacklist-name-danilo mercedes vito vg lk 111",
+      "ts": 1782569098124,
+      "callerName": "Danilo Mercedes VITO VG LK 111"
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-27 16-08-45] [Ausgehend].m4a": {
+      "skipped": "blacklist-name-danilo mercedes vito vg lk 111",
+      "ts": 1782569399829,
+      "callerName": "Danilo Mercedes VITO VG LK 111"
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-27 16-25-51] [Ausgehend].m4a": {
+      "skipped": "blacklist-name-danilo mercedes vito vg lk 111",
+      "ts": 1782570482001,
+      "callerName": "Danilo Mercedes VITO VG LK 111"
+    },
+    "+49 172 1846302 (+491721846302) [2026-06-27 16-37-38] [Eingehend].m4a": {
+      "ts": 1782571214310,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "hoch",
+        "datum": "27.06.2026",
+        "uhrzeit": "19:00",
+        "pickup": "Dellbrückstraße 47",
+        "destination": "Seebrücke Heringsdorf",
+        "passengers": null,
+        "customerName": "Klink",
+        "guestName": null,
+        "notes": "Fahrt dauert ca. 5 Minuten. Pauschale 10 Euro für Dellbrück. Fahrgast möchte kurz vor der Seebrücke abgesetzt werden, nicht direkt an der Brücke."
+      },
+      "pushedToBridge": true
+    },
+    "The Breeze Rathenaustraße 3 (+49383786920) [2026-06-27 16-42-17] [Eingehend].m4a": {
+      "ts": 1782571430625,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "27.06.2026",
+        "uhrzeit": "sofort",
+        "pickup": "The Breeze Rathenaustraße 3",
+        "destination": "Flughafen Heringsdorf",
+        "passengers": null,
+        "customerName": "Jonas",
+        "guestName": null,
+        "notes": "Fahrgäste von Hotel/Unterkunft 'The Breeze' oder 'Debris' (Namenangabe unklar), gewünscht in 15-20 Minuten"
+      },
+      "pushedToBridge": true
+    },
+    "Karl-Heinz (+4915124018129) [2026-06-27 16-59-00] [Ausgehend].m4a": {
+      "ts": 1782572458131,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "2026-06-27",
+        "uhrzeit": "sofort",
+        "pickup": "The Breeze",
+        "destination": "Flughafen",
+        "passengers": null,
+        "customerName": "Karl-Heinz",
+        "guestName": null,
+        "notes": "Anrufer befindet sich bereits im The Breeze und wartet auf Fahrzeug. Mehrere Fahrgäste wollen zum Flughafen. Zusätzlich eine weitere Gruppe im südlichen Bereich zum Abholen erwähnt. Fahrt soll nach Rückfahrt erneuert werden."
+      },
+      "pushedToBridge": true
+    },
+    "Zentrale (+491715377241) [2026-06-27 17-02-01] [Ausgehend].m4a": {
+      "skipped": "blacklist-number-+491715377241",
+      "ts": 1782572614466,
+      "callerName": "Zentrale"
+    },
+    "Marion Bierkutscher +49 1520 5163285 (+4915205163285) [2026-06-27 17-08-56] [Eingehend].m4a": {
+      "ts": 1782573027465,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "27.06.2026",
+        "uhrzeit": "sofort",
+        "pickup": "Bierkoscher",
+        "destination": "Wohnort Marion Bierkutscher",
+        "passengers": null,
+        "customerName": "Marion Bierkutscher",
+        "guestName": null,
+        "notes": "Anrufer nennt sich selbst 'Bierkoscher', möglicherweise Spitzname oder Aussprachevariation"
+      },
+      "pushedToBridge": true
+    },
+    "Zentrale (+491715377241) [2026-06-27 17-09-21] [Eingehend].m4a": {
+      "skipped": "blacklist-number-+491715377241",
+      "ts": 1782573065199,
+      "callerName": "Zentrale"
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-27 17-11-43] [Ausgehend].m4a": {
+      "skipped": "blacklist-name-danilo mercedes vito vg lk 111",
+      "ts": 1782573186970,
+      "callerName": "Danilo Mercedes VITO VG LK 111"
+    },
+    "Karl-Heinz (+4915124018129) [2026-06-27 17-23-01] [Ausgehend].m4a": {
+      "ts": 1782573897961,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "niedrig",
+        "datum": "27.6.2026",
+        "uhrzeit": "17:30",
+        "pickup": "Sechau",
+        "destination": null,
+        "passengers": null,
+        "customerName": "Karl-Heinz",
+        "guestName": null,
+        "notes": "Anrufer nennt möglicherweise 'Kultmeck' als Zielort (unklar wegen schlechter Audioqualität). Gesprächsfluss wirkt fragmentarisch mit mehrfachen Verbindungsabbrüchen."
+      },
+      "pushedToBridge": true
+    },
+    "Zentrale (+491715377241) [2026-06-27 17-24-01] [Ausgehend].m4a": {
+      "skipped": "blacklist-number-+491715377241",
+      "ts": 1782573921189,
+      "callerName": "Zentrale"
+    },
+    "Zentrale (+491715377241) [2026-06-27 17-24-34] [Ausgehend].m4a": {
+      "skipped": "blacklist-number-+491715377241",
+      "ts": 1782573958532,
+      "callerName": "Zentrale"
+    },
+    "Zentrale (+491715377241) [2026-06-27 17-25-52] [Ausgehend].m4a": {
+      "skipped": "blacklist-number-+491715377241",
+      "ts": 1782574038774,
+      "callerName": "Zentrale"
+    },
+    "+41 79 751 76 73 (+41797517673) [2026-06-27 17-35-54] [Eingehend].m4a": {
+      "ts": 1782574659083,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "27.06.2026",
+        "uhrzeit": "18:45",
+        "pickup": "unklar",
+        "destination": null,
+        "passengers": null,
+        "customerName": null,
+        "guestName": null,
+        "notes": "Anrufer sagt 'ich bin's wieder' - bekannter Kunde. Anrufer möglicherweise nicht der Fahrgast (spricht von 'Morsing'/Ort). Taxifahrer hatte gerade zu tun, sollte zurückrufen."
+      },
+      "pushedToBridge": true
+    },
+    "+49 171 8146937 (+491718146937) [2026-06-27 17-36-59] [Eingehend].m4a": {
+      "ts": 1782574769384,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "2026-06-27",
+        "uhrzeit": "17:30",
+        "pickup": [
+          "Kulm-Eck",
+          "Steigenberger"
+        ],
+        "destination": [
+          "Hotel Garni-Eden",
+          "Garni-Eden"
+        ],
+        "passengers": null,
+        "customerName": null,
+        "guestName": null,
+        "notes": "Anrufer möchte zwei separate Fahrten: eine vom Kulm-Eck und eine vom Steigenberger zum Garni-Eden. Ursprüngliche Buchung für 17:30 Uhr zum Garni-Eden existiert (SMS-Bestätigung vorhanden). Fahrer war bei Anruf vor Ort, aber nicht am richtigen Abholort. Anrufer wünscht sich möglicherweise Großraumtaxi, normales Taxi steht zur Verfügung. Anrufer erwähnt Freunde, die mitfahren sollen."
+      },
+      "pushedToBridge": true
+    },
+    "+41 79 751 76 73 (+41797517673) [2026-06-27 17-39-13] [Ausgehend].m4a": {
+      "ts": 1782574843618,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "hoch",
+        "datum": "27.06.2026",
+        "uhrzeit": "18:45",
+        "pickup": "unklar",
+        "destination": "Tacamillo, Aalbeek",
+        "passengers": null,
+        "customerName": null,
+        "guestName": null,
+        "notes": "Restaurant Tacamillo in Aalbeek"
+      },
+      "pushedToBridge": true
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-27 17-40-04] [Ausgehend].m4a": {
+      "skipped": "blacklist-name-danilo mercedes vito vg lk 111",
+      "ts": 1782574914440,
+      "callerName": "Danilo Mercedes VITO VG LK 111"
+    },
+    "+49 160 6316824 (+491606316824) [2026-06-27 17-43-21] [Eingehend].m4a": {
+      "ts": 1782575096418,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "hoch",
+        "datum": "27.06.2026",
+        "uhrzeit": "sofort",
+        "pickup": "Bahnhof Ahlbeck",
+        "destination": "Ueckeritz",
+        "passengers": null,
+        "customerName": "Timan",
+        "guestName": null,
+        "notes": "Fahrer (Kollege) wurde informiert, Ankunftszeit ca. 10 Minuten mitgeteilt"
+      },
+      "pushedToBridge": true
+    },
+    "Zentrale (+491715377241) [2026-06-27 17-45-30] [Ausgehend].m4a": {
+      "skipped": "blacklist-number-+491715377241",
+      "ts": 1782575323258,
+      "callerName": "Zentrale"
+    },
+    "Karl-Heinz (+4915751720609) [2026-06-27 18-04-58] [Eingehend].m4a": {
+      "ts": 1782576508910,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "niedrig",
+        "datum": "2026-06-27",
+        "uhrzeit": "19:00",
+        "pickup": "Gartz Seestrasse",
+        "destination": "Bansin",
+        "passengers": null,
+        "customerName": "Karl-Heinz",
+        "guestName": "Straub",
+        "notes": "Flughafen-Anschluss (Flieger 30 Min. verspätet). Mehrere Fahrten erwähnt. Personenzahl unklar (erwähnt: Straub als 1 Person, IK mit 2 Personen, möglicherweise Kindersitz). Zielort auch 'Zinnewitz' genannt. Anrufer wirkt unsicher/verwirrt über Details."
+      },
+      "pushedToBridge": true
+    },
+    "Zentrale (+491715377241) [2026-06-27 18-07-46] [Ausgehend].m4a": {
+      "skipped": "blacklist-number-+491715377241",
+      "ts": 1782576753421,
+      "callerName": "Zentrale"
+    },
+    "Michelle (+4917676722631) [2026-06-27 18-14-25] [Eingehend].m4a": {
+      "ts": 1782577006867,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "27.06.2026",
+        "uhrzeit": "19:20",
+        "pickup": [
+          "Gumlin",
+          "Orishorst"
+        ],
+        "destination": "Chorswand (bei Sieward)",
+        "passengers": null,
+        "customerName": "Michelle",
+        "guestName": "Johanna",
+        "notes": "Mehrere Abholstationen: zuerst Johanna aus Gumlin (19:20), dann Freunde aus Orishorst, danach Chorswand. Flugverspätung Grund für Zeitänderung. Standorte werden per Nachricht übermittelt."
+      },
+      "pushedToBridge": true
+    },
+    "+49 163 7199765 (+491637199765) [2026-06-27 18-17-43] [Eingehend].m4a": {
+      "ts": 1782577249608,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "27.06.2026",
+        "uhrzeit": "unklar",
+        "pickup": "Bahnhof Heringsdorf",
+        "destination": "Swinemünde, Hotel Arlbeck",
+        "passengers": 4,
+        "customerName": "Borschel",
+        "guestName": null,
+        "notes": "Anfrage für Festpreis-Buchung. Kunde möchte online buchen und erhält Rückmeldung per WhatsApp. Kunde erwähnt mögliche Verzögerung."
+      },
+      "pushedToBridge": true
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-27 18-33-14] [Ausgehend].m4a": {
+      "skipped": "blacklist-name-danilo mercedes vito vg lk 111",
+      "ts": 1782578355898,
+      "callerName": "Danilo Mercedes VITO VG LK 111"
+    },
+    "Maritim Hotel Kaiserhof (+493837865802) [2026-06-27 18-44-13] [Eingehend].m4a": {
+      "ts": 1782578767348,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "27.06.2026",
+        "uhrzeit": "sofort",
+        "pickup": "Maritim Hotel Kaiserhof, Heringsdorf",
+        "destination": "Nachbarnsinn",
+        "passengers": null,
+        "customerName": null,
+        "guestName": null,
+        "notes": "Anruf vom Hotel; Fahrgast ist vermutlich Hotelgast; gewünschte Wartezeit ca. 10 Minuten"
+      },
+      "pushedToBridge": true
+    },
+    "Karl-Heinz (+4915751720609) [2026-06-27 18-54-52] [Eingehend].m4a": {
+      "ts": 1782579415184,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "niedrig",
+        "datum": "2026-06-27",
+        "uhrzeit": "19:30",
+        "pickup": "Kaiserbeete",
+        "destination": null,
+        "passengers": null,
+        "customerName": "Karl-Heinz",
+        "guestName": null,
+        "notes": "Fahrgast kann wahlweise durch Kaiserbeete durchfahren oder hochfahren. Fahrtzeit ca. 45 Minuten. Treffpunkt Kaiserbeete."
+      },
+      "pushedToBridge": true
+    },
+    "Zentrale (+491715377241) [2026-06-27 19-00-07] [Ausgehend].m4a": {
+      "skipped": "blacklist-number-+491715377241",
+      "ts": 1782579944121,
+      "callerName": "Zentrale"
+    },
+    "Zentrale (+491715377241) [2026-06-27 19-18-43] [Eingehend].m4a": {
+      "skipped": "blacklist-number-+491715377241",
+      "ts": 1782580800952,
+      "callerName": "Zentrale"
+    },
+    "+49 176 24944956 (+4917624944956) [2026-06-27 19-19-08] [Eingehend].m4a": {
+      "ts": 1782580953464,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "niedrig",
+        "datum": "27.06.2026",
+        "uhrzeit": "sofort",
+        "pickup": "Buschgenstraße 7-9, Heringsdorf",
+        "destination": "Familienwohnungshotel Rassenheide",
+        "passengers": null,
+        "customerName": null,
+        "guestName": null,
+        "notes": "Anrufer hat Hotel bereits gebucht, Fahrtdauer ca. 30 Minuten erwartet. Anrufer erwägt alternative Anreise mit Zug (Google Maps hat ihm keine direkten Optionen gezeigt). Anrufer beendete Gespräch mit Dankesgruß, unklar ob Buchung letztendlich abgeschlossen wurde."
+      },
+      "pushedToBridge": true
+    },
+    "+49 38378 30910 (+493837830910) [2026-06-27 19-24-47] [Eingehend].m4a": {
+      "ts": 1782581196278,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "27.06.2026",
+        "uhrzeit": "unklar",
+        "pickup": "Flughafen",
+        "destination": null,
+        "passengers": null,
+        "customerName": "Schulz",
+        "guestName": null,
+        "notes": "Fliegerverspätung, Fahrgast mit Baby wartet am Flughafen, Abholung wird koordiniert"
+      },
+      "pushedToBridge": true
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-27 19-28-43] [Ausgehend].m4a": {
+      "skipped": "blacklist-name-danilo mercedes vito vg lk 111",
+      "ts": 1782581872325,
+      "callerName": "Danilo Mercedes VITO VG LK 111"
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-27 19-37-01] [Ausgehend].m4a": {
+      "skipped": "blacklist-name-danilo mercedes vito vg lk 111",
+      "ts": 1782582307877,
+      "callerName": "Danilo Mercedes VITO VG LK 111"
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-27 19-45-24] [Eingehend].m4a": {
+      "skipped": "blacklist-name-danilo mercedes vito vg lk 111",
+      "ts": 1782582405861,
+      "callerName": "Danilo Mercedes VITO VG LK 111"
+    },
+    "+49 1520 2825942 (+4915202825942) [2026-06-27 19-47-12] [Eingehend].m4a": {
+      "ts": 1782582528274,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "hoch",
+        "datum": "27.06.2026",
+        "uhrzeit": "sofort",
+        "pickup": "Bahnhof Heringsdorf",
+        "destination": null,
+        "passengers": null,
+        "customerName": null,
+        "guestName": null,
+        "notes": "Fahrgast sitzt im steckengebliebenen Zug am Bahnhof Heringsdorf fest (Lokführer-Ausfall). Anrufer wartet am Bahnhof. Aussage 'Hatte ich eben mit Ihnen gesprochen' deutet auf vorangegangenen Kontakt hin."
+      },
+      "pushedToBridge": true
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-27 19-47-49] [Ausgehend].m4a": {
+      "skipped": "blacklist-name-danilo mercedes vito vg lk 111",
+      "ts": 1782582544720,
+      "callerName": "Danilo Mercedes VITO VG LK 111"
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-27 19-48-28] [Ausgehend].m4a": {
+      "skipped": "blacklist-name-danilo mercedes vito vg lk 111",
+      "ts": 1782582580595,
+      "callerName": "Danilo Mercedes VITO VG LK 111"
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-27 19-49-01] [Eingehend].m4a": {
+      "skipped": "blacklist-name-danilo mercedes vito vg lk 111",
+      "ts": 1782582666210,
+      "callerName": "Danilo Mercedes VITO VG LK 111"
+    },
+    "Karl-Heinz (+4915751720609) [2026-06-27 19-52-29] [Ausgehend].m4a": {
+      "ts": 1782582837555,
+      "classification": {
+        "isBookingRequest": false,
+        "art": "privat"
+      },
+      "pushedToBridge": false
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-27 19-53-39] [Eingehend].m4a": {
+      "skipped": "blacklist-name-danilo mercedes vito vg lk 111",
+      "ts": 1782582918983,
+      "callerName": "Danilo Mercedes VITO VG LK 111"
+    },
+    "+49 176 53604826 (+4917653604826) [2026-06-27 19-57-39] [Eingehend].m4a": {
+      "ts": 1782583252059,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "27.06.2026",
+        "uhrzeit": "20:07",
+        "pickup": "Hotel See-Eck",
+        "destination": "Heringsdorf Strandhotel",
+        "passengers": null,
+        "customerName": null,
+        "guestName": null,
+        "notes": "Fahrgast ist ältere Dame, mobilitätseingeschränkt. Ankunftszeit 20:33 Uhr. Ursprüngliche Anfrage für Gorch Söth Bansin zu Heringsdorf Strandhotel, später geändert auf Hotel See-Eck. Kurzfristige Buchung (ca. 10 Minuten Wartezeit zugesagt). Taxi wird zur Terrasse des Hotels erwartet."
+      },
+      "pushedToBridge": true
+    },
+    "Karl-Heinz (+4915751720609) [2026-06-27 20-03-19] [Ausgehend].m4a": {
+      "ts": 1782583701214,
+      "classification": {
+        "isBookingRequest": false,
+        "art": "fahrer"
+      },
+      "pushedToBridge": false
+    },
+    "Mama (+491719369582) [2026-06-27 20-14-33] [Ausgehend].m4a": {
+      "skipped": "blacklist-name-mama",
+      "ts": 1782584239818,
+      "callerName": "Mama"
+    },
+    "+49 1514 7458961 (+4915147458961) [2026-06-27 20-35-23] [Eingehend].m4a": {
+      "ts": 1782585444733,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "hoch",
+        "datum": "2026-06-27",
+        "uhrzeit": "sofort",
+        "pickup": "Flughafen Heringsdorf",
+        "destination": null,
+        "passengers": 5,
+        "customerName": "Fürst",
+        "guestName": null,
+        "notes": "Kunde wartet bereits am Taxi mit Erdbeerhochwärmung-Branding. 5 Personen kommen in Kürze dazu. Zwei weitere Personen sollen noch mitgenommen werden (insgesamt möglicherweise 7 Fahrgäste)."
+      },
+      "pushedToBridge": true
+    },
+    "+49 1520 1786884 (+4915201786884) [2026-06-27 20-42-45] [Eingehend].m4a": {
+      "ts": 1782585958208,
+      "classification": {
+        "isBookingRequest": false,
+        "art": "parse-fehler"
+      },
+      "pushedToBridge": false
+    },
+    "Heringsdorf Strandhotel Heringsdorf (+49383782320) [2026-06-27 20-45-08] [Eingehend].m4a": {
+      "ts": 1782586021513,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "2026-06-27",
+        "uhrzeit": "sofort",
+        "pickup": "Flughafen",
+        "destination": "Heringsdorf Strandhotel Heringsdorf",
+        "passengers": null,
+        "customerName": "Heringsdorf Strandhotel Heringsdorf",
+        "guestName": null,
+        "notes": "Gäste warten am Flughafen nach Flugverspätung, Fahrer sucht sie auf. Abholzeit ca. 30 Minuten ab Anrufzeitpunkt (21:15 Uhr). Gäste sind bereits an Abholort angekommen."
+      },
+      "pushedToBridge": true
+    },
+    "+41 76 468 88 66 (+41764688866) [2026-06-27 20-49-37] [Eingehend].m4a": {
+      "ts": 1782586269666,
+      "classification": {
+        "isBookingRequest": false,
+        "art": "sonstiges"
+      },
+      "pushedToBridge": false
+    },
+    "Karl-Heinz (+4915751720609) [2026-06-27 20-53-23] [Ausgehend].m4a": {
+      "ts": 1782586488617,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": null,
+        "uhrzeit": "sofort",
+        "pickup": null,
+        "destination": "Gosch",
+        "passengers": null,
+        "customerName": "Karl-Heinz",
+        "guestName": null,
+        "notes": "Fahrgast möchte zum Gosch gefahren werden (vermutlich Restaurant/Lokal auf Usedom)"
+      },
+      "pushedToBridge": true
+    },
+    "+49 176 51130352 (+4917651130352) [2026-06-27 20-54-01] [Eingehend].m4a": {
+      "ts": 1782586517102,
+      "classification": {
+        "isBookingRequest": false,
+        "art": "privat"
+      },
+      "pushedToBridge": false
+    },
+    "+49 172 9104359 (+491729104359) [2026-06-27 20-55-30] [Eingehend].m4a": {
+      "ts": 1782586754697,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "2026-06-27",
+        "uhrzeit": "21:10",
+        "pickup": "Hotel Seeegg, Heringsdorf",
+        "destination": "Rehaklinik Aalbeck",
+        "passengers": null,
+        "customerName": "Marsch",
+        "guestName": null,
+        "notes": "Fahrgast befindet sich im Hotel Seeegg. Nach Ankunft in Aalbeck (ca. 21:10) eventuell weitere Fahrt nach Zürich geplant (ca. 25-30 Euro). Fahrgast verpasste Bus und Zug wegen Verspätung, möchte Möglichkeit einer Weiterfahrt nach Zürich prüfen."
+      },
+      "pushedToBridge": true
+    },
+    "Zentrale (+491715377241) [2026-06-27 21-01-17] [Eingehend].m4a": {
+      "skipped": "blacklist-number-+491715377241",
+      "ts": 1782586967325,
+      "callerName": "Zentrale"
+    },
+    "Zentrale (+491715377241) [2026-06-27 21-02-05] [Eingehend].m4a": {
+      "skipped": "blacklist-number-+491715377241",
+      "ts": 1782587029375,
+      "callerName": "Zentrale"
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-27 21-07-22] [Ausgehend].m4a": {
+      "skipped": "blacklist-name-danilo mercedes vito vg lk 111",
+      "ts": 1782587418220,
+      "callerName": "Danilo Mercedes VITO VG LK 111"
+    },
+    "Mama (+491719369582) [2026-06-27 21-09-24] [Ausgehend].m4a": {
+      "skipped": "blacklist-name-mama",
+      "ts": 1782587460291,
+      "callerName": "Mama"
+    },
+    "Karl-Heinz (+4915751720609) [2026-06-27 21-23-20] [Ausgehend].m4a": {
+      "ts": 1782588573283,
+      "classification": {
+        "isBookingRequest": false,
+        "art": "fahrer"
+      },
+      "pushedToBridge": false
+    },
+    "Mama (+491719369582) [2026-06-27 21-28-30] [Ausgehend].m4a": {
+      "skipped": "blacklist-name-mama",
+      "ts": 1782588586685,
+      "callerName": "Mama"
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-27 21-29-01] [Ausgehend].m4a": {
+      "skipped": "blacklist-name-danilo mercedes vito vg lk 111",
+      "ts": 1782588630038,
+      "callerName": "Danilo Mercedes VITO VG LK 111"
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-27 21-30-35] [Eingehend].m4a": {
+      "skipped": "blacklist-name-danilo mercedes vito vg lk 111",
+      "ts": 1782588780279,
+      "callerName": "Danilo Mercedes VITO VG LK 111"
+    },
+    "Karl-Heinz (+4915751720609) [2026-06-27 21-48-04] [Eingehend].m4a": {
+      "ts": 1782589857725,
+      "classification": {
+        "isBookingRequest": false,
+        "art": "fahrer"
+      },
+      "pushedToBridge": false
+    },
+    "+49 163 9655409 (+491639655409) [2026-06-28 06-37-02] [Eingehend].m4a": {
+      "ts": 1782621506767,
+      "classification": {
+        "isBookingRequest": false,
+        "art": "sonstiges"
+      },
+      "pushedToBridge": false
+    },
+    "+49 163 9655409 (+491639655409) [2026-06-28 06-40-39] [Eingehend].m4a": {
+      "ts": 1782621778033,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "28.06.2026",
+        "uhrzeit": "09:00",
+        "pickup": "Kaiserstrand Beach Hotel, Bansin",
+        "destination": "Bahnhof Anklam",
+        "passengers": null,
+        "customerName": "Rieger",
+        "guestName": null,
+        "notes": "STORNIERUNG: Fahrt für heute (28.6.2026, 09:00 Uhr) wird ABGESAGT, da Zug ausfällt. Kunde plant voraussichtlich Mittwoch zu fahren und wird erneut anrufen."
+      },
+      "pushedToBridge": true
+    },
+    "Maritim Hotel Kaiserhof (+493837865802) [2026-06-28 06-51-29] [Eingehend].m4a": {
+      "ts": 1782622394350,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "28.06.2026",
+        "uhrzeit": "08:00-08:10",
+        "pickup": "Maritim Hotel Kaiserhof",
+        "destination": null,
+        "passengers": null,
+        "customerName": "Peter Kaiserhoff",
+        "guestName": null,
+        "notes": "Änderung einer bestehenden Buchung von 09:00 auf 08:00 (oder 08:10). Anrufer nennt auch Namen 'Judy', unklar ob das der Fahrgast oder eine andere Person ist."
+      },
+      "pushedToBridge": true
+    },
+    "+49 172 1453176 (+491721453176) [2026-06-28 07-28-53] [Eingehend].m4a": {
+      "ts": 1782624646557,
+      "classification": {
+        "isBookingRequest": false,
+        "art": "privat"
+      },
+      "pushedToBridge": false
+    },
+    "+49 178 8083616 (+491788083616) [2026-06-28 07-37-45] [Eingehend].m4a": {
+      "ts": 1782625189032,
+      "classification": {
+        "isBookingRequest": false,
+        "art": "sonstiges"
+      },
+      "pushedToBridge": false
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-28 07-46-29] [Eingehend].m4a": {
+      "skipped": "blacklist-name-danilo mercedes vito vg lk 111",
+      "ts": 1782625735297,
+      "callerName": "Danilo Mercedes VITO VG LK 111"
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-28 07-48-13] [Ausgehend].m4a": {
+      "skipped": "blacklist-name-danilo mercedes vito vg lk 111",
+      "ts": 1782625857841,
+      "callerName": "Danilo Mercedes VITO VG LK 111"
+    },
+    "+49 1512 3031600 (+4915123031600) [2026-06-28 08-10-53] [Eingehend].m4a": {
+      "ts": 1782627190623,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "28.06.2026",
+        "uhrzeit": "sofort",
+        "pickup": "Gritterstraße 31, Albeck",
+        "destination": "Bahnhof Swinemünde (polnischer Bahnhof)",
+        "passengers": null,
+        "customerName": "Adrian Neuhardt",
+        "guestName": null,
+        "notes": "Kunde ruft später nochmal an, da momentan alle Taxis vorbestellt sind"
+      },
+      "pushedToBridge": true
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-28 08-12-08] [Ausgehend].m4a": {
+      "skipped": "blacklist-name-danilo mercedes vito vg lk 111",
+      "ts": 1782627269404,
+      "callerName": "Danilo Mercedes VITO VG LK 111"
+    },
+    "+49 1512 3031600 (+4915123031600) [2026-06-28 08-14-35] [Ausgehend].m4a": {
+      "ts": 1782627358644,
+      "classification": {
+        "isBookingRequest": false,
+        "art": "sonstiges"
+      },
+      "pushedToBridge": false
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-28 08-26-20] [Eingehend].m4a": {
+      "skipped": "blacklist-name-danilo mercedes vito vg lk 111",
+      "ts": 1782628086722,
+      "callerName": "Danilo Mercedes VITO VG LK 111"
+    },
+    "+49 1520 2562290 (+4915202562290) [2026-06-28 08-32-41] [Eingehend].m4a": {
+      "ts": 1782628460425,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "niedrig",
+        "datum": null,
+        "uhrzeit": "sofort",
+        "pickup": "Heringsdorf Lindenstraße",
+        "destination": "Karlsregen",
+        "passengers": null,
+        "customerName": null,
+        "guestName": null,
+        "notes": "Preis wird mit 80 Euro angegeben, aber Anrufer wirkt unsicher/verwirrt bezüglich des Preises"
+      },
+      "pushedToBridge": true
+    },
+    "+49 170 8026604 (+491708026604) [2026-06-28 08-40-06] [Eingehend].m4a": {
+      "ts": 1782628898407,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "hoch",
+        "datum": "28.06.2026",
+        "uhrzeit": "sofort",
+        "pickup": "Überitz-Sandstraße",
+        "destination": "Sweden-Münde",
+        "passengers": null,
+        "customerName": null,
+        "guestName": null,
+        "notes": "Anfrage wurde vom Dispatcher abgelehnt - keine Kapazität zum Anfragezeitpunkt"
+      },
+      "pushedToBridge": true
+    },
+    "Steigenberger (+4938378495901) [2026-06-28 08-49-42] [Eingehend].m4a": {
+      "ts": 1782629490847,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "28.06.2026",
+        "uhrzeit": "11:24",
+        "pickup": "Bahnhof",
+        "destination": "Dörn",
+        "passengers": null,
+        "customerName": "Steigenberger",
+        "guestName": "Familie Werntheer",
+        "notes": "Gäste kommen früher als ursprünglich geplant. Bereits im Kalender eingetragen. Anrufer wird E-Mail versenden."
+      },
+      "pushedToBridge": true
+    },
+    "+33 2 58 58 99 94 (+33258589994) [2026-06-28 08-56-51] [Eingehend].m4a": {
+      "ts": 1782629897820,
+      "classification": {
+        "isBookingRequest": false,
+        "art": "privat"
+      },
+      "pushedToBridge": false
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-28 09-04-24] [Eingehend].m4a": {
+      "skipped": "blacklist-name-danilo mercedes vito vg lk 111",
+      "ts": 1782630360821,
+      "callerName": "Danilo Mercedes VITO VG LK 111"
+    },
+    "Maja Immobilien (+493837832408) [2026-06-28 09-18-52] [Eingehend].m4a": {
+      "ts": 1782631241859,
+      "classification": {
+        "isBookingRequest": false,
+        "art": "sonstiges"
+      },
+      "pushedToBridge": false
+    },
+    "+49 1512 1942425 (+4915121942425) [2026-06-28 09-44-34] [Eingehend].m4a": {
+      "error": "callerLabel.toUpperCase is not a function",
+      "ts": 1782632927908
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-28 09-47-46] [Ausgehend].m4a": {
+      "skipped": "blacklist-name-danilo mercedes vito vg lk 111",
+      "ts": 1782632952432,
+      "callerName": "Danilo Mercedes VITO VG LK 111"
+    },
+    "+49 1512 1942425 (+4915121942425) [2026-06-28 09-48-44] [Ausgehend].m4a": {
+      "ts": 1782633025551,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "Dienstag (28.6.2026 war Samstag, daher nächster Dienstag = 1.7.2026)",
+        "uhrzeit": "14:15 und 13:30",
+        "pickup": "Strandstraße 14",
+        "destination": "Bahnhof Heringsdorf",
+        "passengers": 10,
+        "customerName": "Weimann",
+        "guestName": null,
+        "notes": "10 Damen, 10 Koffer, zwei separate Fahrten (14:15 Uhr und 13:30 Uhr) zum Bahnhof"
+      },
+      "pushedToBridge": true
+    },
+    "Heringsdorf Ostseeblick (+4938378540) [2026-06-28 09-56-30] [Eingehend].m4a": {
+      "ts": 1782633503625,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "28.06.2026",
+        "uhrzeit": "17:00",
+        "pickup": "Hotel Ostseeblick",
+        "destination": "Bahnhof Heringsdorf",
+        "passengers": null,
+        "customerName": "Sandra Vintiguera",
+        "guestName": null,
+        "notes": "Anrufer vom Hotel Ostseeblick, möglicherweise Hotelgast oder Rezeption"
+      },
+      "pushedToBridge": true
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-28 10-06-25] [Eingehend].m4a": {
+      "skipped": "blacklist-name-danilo mercedes vito vg lk 111",
+      "ts": 1782634233386,
+      "callerName": "Danilo Mercedes VITO VG LK 111"
+    },
+    "+49 1515 5551865 (+4915155551865) [2026-06-28 10-14-14] [Eingehend].m4a": {
+      "ts": 1782634603315,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "29.06.2026",
+        "uhrzeit": "16:45",
+        "pickup": "Kaiser Wilhelm-Berlin-Wohnung, Delbrückstraße 7, Heringsdorf",
+        "destination": "Bahnhof Heringsdorf",
+        "passengers": null,
+        "customerName": null,
+        "guestName": null,
+        "notes": "Fahrgast muss Flixbus nach Berlin um ca. 17:00 Uhr erreichen. Anrufer betont Zuverlässigkeit wichtig. Dispatcher antwortet skeptisch ('Nee, kann man sich nicht verlassen')."
+      },
+      "pushedToBridge": true
+    },
+    "Karl-Heinz (+4915751720609) [2026-06-28 10-46-18] [Ausgehend].m4a": {
+      "skipped": "Groesse 2 KB < 25 KB",
+      "ts": 1782636484553
+    },
+    "Karl-Heinz (+4915751720609) [2026-06-28 10-47-40] [Eingehend].m4a": {
+      "ts": 1782636612554,
+      "classification": {
+        "isBookingRequest": false,
+        "art": "fahrer"
+      },
+      "pushedToBridge": false
+    },
+    "+49 1520 2825942 (+4915202825942) [2026-06-28 10-50-16] [Eingehend].m4a": {
+      "ts": 1782636790721,
+      "classification": {
+        "isBookingRequest": false,
+        "art": "sonstiges"
+      },
+      "pushedToBridge": false
+    },
+    "+49 38378 476502 (+4938378476502) [2026-06-28 11-04-24] [Eingehend].m4a": {
+      "ts": 1782637584725,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "hoch",
+        "datum": "28.06.2026",
+        "uhrzeit": "11:25",
+        "pickup": "Bahnhof Heringsdorf",
+        "destination": null,
+        "passengers": 2,
+        "customerName": "Außerstein-Italien-Store",
+        "guestName": "Mosek",
+        "notes": "Gäste vom Außerstein-Italien-Store; Fahrer muss vorher zum Steigenberger, Gäste müssen ca. 5 Minuten warten"
+      },
+      "pushedToBridge": true
+    },
+    "The Breeze Rathenaustraße 3 (+49383786920) [2026-06-28 11-10-35] [Eingehend].m4a": {
+      "ts": 1782637929970,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "2026-06-27",
+        "uhrzeit": "11:00",
+        "pickup": "The Breeze, Rathenaustraße 3, Heringsdorf",
+        "destination": "Ueckermünde",
+        "passengers": null,
+        "customerName": null,
+        "guestName": null,
+        "notes": "Vorbestellung von gestern, Anrufer fragt nach Status des Taxifahrers, Fahrer sollte unterwegs sein"
+      },
+      "pushedToBridge": true
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-28 11-11-21] [Ausgehend].m4a": {
+      "skipped": "blacklist-name-danilo mercedes vito vg lk 111",
+      "ts": 1782638019720,
+      "callerName": "Danilo Mercedes VITO VG LK 111"
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-28 11-23-24] [Eingehend].m4a": {
+      "skipped": "blacklist-name-danilo mercedes vito vg lk 111",
+      "ts": 1782638721252,
+      "callerName": "Danilo Mercedes VITO VG LK 111"
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-28 11-25-13] [Ausgehend].m4a": {
+      "skipped": "blacklist-name-danilo mercedes vito vg lk 111",
+      "ts": 1782638843235,
+      "callerName": "Danilo Mercedes VITO VG LK 111"
+    },
+    "+49 172 7058087 (+491727058087) [2026-06-28 11-36-17] [Eingehend].m4a": {
+      "ts": 1782639477312,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "niedrig",
+        "datum": "Dienstag",
+        "uhrzeit": null,
+        "pickup": null,
+        "destination": null,
+        "passengers": null,
+        "customerName": null,
+        "guestName": null,
+        "notes": null
+      },
+      "pushedToBridge": true
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-28 11-44-07] [Ausgehend].m4a": {
+      "skipped": "blacklist-name-danilo mercedes vito vg lk 111",
+      "ts": 1782639931474,
+      "callerName": "Danilo Mercedes VITO VG LK 111"
+    },
+    "My USEDOM Bansin (+4938378498470) [2026-06-28 11-50-22] [Eingehend].m4a": {
+      "ts": 1782640369518,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "28.06.2026",
+        "uhrzeit": "sofort",
+        "pickup": "C-Straße 42, Bansin (gegenüber Lidl)",
+        "destination": "Peenemünde",
+        "passengers": null,
+        "customerName": "Marusum24",
+        "guestName": null,
+        "notes": "Gäste befinden sich bereits im Büro des Anrufers. Anrufer muss erst Kollegen kontaktieren und wird zurückrufen."
+      },
+      "pushedToBridge": true
+    },
+    "Karl-Heinz (+4915751720609) [2026-06-28 11-52-16] [Ausgehend].m4a": {
+      "ts": 1782640450206,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "28.6.2026",
+        "uhrzeit": "sofort",
+        "pickup": "Bansin, Lidl",
+        "destination": "Peenemünde",
+        "passengers": null,
+        "customerName": "Karl-Heinz",
+        "guestName": null,
+        "notes": "Abholung beim Lidl oben in Bansin, Fahrgast wartet dort, Zeitfenster ca. 20 Minuten"
+      },
+      "pushedToBridge": true
+    },
+    "My USEDOM Bansin (+4938378498470) [2026-06-28 11-53-21] [Ausgehend].m4a": {
+      "ts": 1782640542958,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "28.06.2026",
+        "uhrzeit": "sofort/in 20 Minuten",
+        "pickup": "Lidl Bansin",
+        "destination": null,
+        "passengers": null,
+        "customerName": "Markus",
+        "guestName": null,
+        "notes": "Fahrgäste sprechen nur Englisch. Abholung nach ca. 3-4 Stunden Wartezeit erforderlich. Fahrt kostet ca. 100 Euro. Fahrgast hat Fahrrad dabei."
+      },
+      "pushedToBridge": true
+    },
+    "+49 172 7058087 (+491727058087) [2026-06-28 11-56-57] [Ausgehend].m4a": {
+      "skipped": "Groesse 19 KB < 25 KB",
+      "ts": 1782640679819
+    },
+    "+49 1525 2895569 (+4915252895569) [2026-06-28 11-57-56] [Eingehend].m4a": {
+      "ts": 1782640811945,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "hoch",
+        "datum": "2026-07-04",
+        "uhrzeit": "15:15",
+        "pickup": "Hotel Upstalsboom, Heringsdorf",
+        "destination": "Flughafen Heringsdorf",
+        "passengers": 2,
+        "customerName": null,
+        "guestName": null,
+        "notes": "Fahrgast + Mutter, Flugabflug 17:00 Uhr, Anrufer ist bekannter Gast (wurde bereits vom Taxi hergefahren)"
+      },
+      "pushedToBridge": true
+    },
+    "Karl-Heinz (+4915751720609) [2026-06-28 12-05-04] [Eingehend].m4a": {
+      "ts": 1782641243905,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "niedrig",
+        "datum": "2026-06-28",
+        "uhrzeit": "15:00",
+        "pickup": "Maiusedom",
+        "destination": "unklar",
+        "passengers": 4,
+        "customerName": "Karl-Heinz",
+        "guestName": null,
+        "notes": "Abhängig von Ankommen von 3-4 Personen aus Maiusedom, ca. 15 Uhr. Rückfahrt gewünscht. Anrufer deutet an, dass Fahrer möglicherweise schon vor Ort ist."
+      },
+      "pushedToBridge": true
+    },
+    "My USEDOM Bansin (+4938378498470) [2026-06-28 12-38-17] [Ausgehend].m4a": {
+      "ts": 1782643239066,
+      "classification": {
+        "isBookingRequest": false,
+        "art": "sonstiges"
+      },
+      "pushedToBridge": false
+    },
+    "+49 1511 4521116 (+4915114521116) [2026-06-28 12-50-07] [Eingehend].m4a": {
+      "ts": 1782643920742,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "hoch",
+        "datum": "28.6.2026",
+        "uhrzeit": "sofort",
+        "pickup": "Heringsdorf Bahnhof",
+        "destination": "Kaiserhof",
+        "passengers": null,
+        "customerName": null,
+        "guestName": null,
+        "notes": "Fahrgast steht gerade am Bahnhof, ist mit dem Bus angekommen, benötigt Abholfrist von ca. 10 Minuten"
+      },
+      "pushedToBridge": true
+    },
+    "+49 1511 4521116 (+4915114521116) [2026-06-28 13-00-03] [Ausgehend].m4a": {
+      "ts": 1782644487619,
+      "classification": {
+        "isBookingRequest": false,
+        "art": "fahrer"
+      },
+      "pushedToBridge": false
+    },
+    "The Breeze Rathenaustraße 3 (+49383786920) [2026-06-28 13-05-29] [Eingehend].m4a": {
+      "ts": 1782644847654,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "2026-06-27",
+        "uhrzeit": "13:00",
+        "pickup": "The Breeze Hotel, Rathenaustraße 3, Heringsdorf",
+        "destination": "Bahnhof",
+        "passengers": null,
+        "customerName": "Marie",
+        "guestName": null,
+        "notes": "Gäste des Hotels The Breeze; Fahrt zum Bahnhof; Anrufer konnte keine Buchung im Hotel bestätigen und wird nochmal nachfragen"
+      },
+      "pushedToBridge": true
+    },
+    "The Breeze Rathenaustraße 3 (+49383786920) [2026-06-28 13-09-33] [Eingehend].m4a": {
+      "skipped": "Groesse 16 KB < 25 KB",
+      "ts": 1782645054223
+    },
+    "Karl-Heinz (+4915751720609) [2026-06-28 13-16-28] [Eingehend].m4a": {
+      "ts": 1782645512990,
+      "classification": {
+        "isBookingRequest": false,
+        "art": "fahrer"
+      },
+      "pushedToBridge": false
+    },
+    "+49 172 8400333 (+491728400333) [2026-06-28 13-19-43] [Eingehend].m4a": {
+      "ts": 1782645725307,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "morgen (29.6.2026)",
+        "uhrzeit": "08:00",
+        "pickup": "Heringsdorf, Seestraße, Frischemarkt",
+        "destination": "Bahnhof Heringsdorf",
+        "passengers": 2,
+        "customerName": null,
+        "guestName": null,
+        "notes": "2 Personen mit 1 Koffer, Zugverbindung um ca. 8:15 Uhr, Abholung kurz nach 8:00 Uhr (ca. 8:05 Uhr) möglich"
+      },
+      "pushedToBridge": true
+    },
+    "+49 15565 215097 (+4915565215097) [2026-06-28 13-32-27] [Eingehend].m4a": {
+      "ts": 1782646497424,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "morgen oder später (mind. 1 Tag Vorlauf)",
+        "uhrzeit": "früh/morgens (unklar)",
+        "pickup": "Inselmühle, Insel Usedom",
+        "destination": "Ruhegebiet",
+        "passengers": null,
+        "customerName": "Heinig",
+        "guestName": null,
+        "notes": "Fahrgast ist Kundin des Anrufers. Fahrt außerhalb Insel Usedom. Anrufer will erst mit Kundin absprechen und ruft zurück - kein festes Termin vereinbart."
+      },
+      "pushedToBridge": true
+    },
+    "+49 1522 2727066 (+4915222727066) [2026-06-28 13-34-19] [Eingehend].m4a": {
+      "ts": 1782646538842,
+      "classification": {
+        "isBookingRequest": false,
+        "art": "sonstiges"
+      },
+      "pushedToBridge": false
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-28 13-44-27] [Ausgehend].m4a": {
+      "skipped": "blacklist-name-danilo mercedes vito vg lk 111",
+      "ts": 1782647551601,
+      "callerName": "Danilo Mercedes VITO VG LK 111"
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-28 13-52-04] [Ausgehend].m4a": {
+      "skipped": "blacklist-name-danilo mercedes vito vg lk 111",
+      "ts": 1782648305708,
+      "callerName": "Danilo Mercedes VITO VG LK 111"
+    },
+    "Steigenberger (+4938378495901) [2026-06-28 14-21-22] [Eingehend].m4a": {
+      "ts": 1782649390591,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "hoch",
+        "datum": "2026-06-28",
+        "uhrzeit": "18:28",
+        "pickup": "Bahnhof",
+        "destination": "Steigenberger Grand Hotel",
+        "passengers": null,
+        "customerName": "Steigenberger Grand Hotel Rezeption",
+        "guestName": "Tartaglia",
+        "notes": "Umbuchung von 14:25 Uhr auf 18:28 Uhr. Abholung vom Bahnhof zum Hotel. Anrufer ist Hotel-Rezeption."
+      },
+      "pushedToBridge": true
+    },
+    "Heringsdorf Strandhotel Heringsdorf (+49383782320) [2026-06-28 14-57-01] [Eingehend].m4a": {
+      "ts": 1782651555252,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "hoch",
+        "datum": "2026-06-28",
+        "uhrzeit": "15:25",
+        "pickup": "Bahnhof Heringsdorf",
+        "destination": "Strandhotel Heringsdorf",
+        "passengers": 25,
+        "customerName": "Gaby",
+        "guestName": null,
+        "notes": "Umzeitierung von 14:30 Uhr auf 15:25 Uhr. Gäste des Strandhotels haben telefonisch Verzögerung mitgeteilt. Transfer war bereits gebucht."
+      },
+      "pushedToBridge": true
+    },
+    "+49 172 4992000 (+491724992000) [2026-06-28 15-07-15] [Eingehend].m4a": {
+      "ts": 1782652279115,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "unklar - möglicherweise heute (28.6.2026) oder morgen (29.6.2026)",
+        "uhrzeit": "unklar - ursprünglich 18:25 Uhr geplant, jetzt alternative Ankunftszeit ca. 19:00 Uhr ab Sysow",
+        "pickup": "Sysow",
+        "destination": "Heringsdorf",
+        "passengers": null,
+        "customerName": "Tateja",
+        "guestName": null,
+        "notes": "Ursprüngliche Buchung 18:25 Uhr existiert. Zug fällt aus. Kunde erwägt Regionalbahn 15:22 Uhr mit Ankunft Sysow ca. 18:08 Uhr, dann Taxi nach Heringsdorf (ca. 120 Euro). Hotel-Buchung Steigenberger betroffen - Kunde möchte einen Tag später ankommen und einen Tag länger bleiben. Kunde wird je nach Zugauslastung anrufen und Buchung bestätigen oder absagen. Taxifahrt muss eventuell noch storniert oder bestätigt werden."
+      },
+      "pushedToBridge": true
+    },
+    "+49 38371 505205 (+4938371505205) [2026-06-28 15-14-37] [Eingehend].m4a": {
+      "ts": 1782652635857,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "2026-06-28",
+        "uhrzeit": "sofort",
+        "pickup": "HTM Peenemünde, Museumsstraße, Ecke Fenomenta Spielzeugmuseum",
+        "destination": "Seebad Bansin oder Heringsdorf",
+        "passengers": 2,
+        "customerName": "HTM Peenemünde",
+        "guestName": null,
+        "notes": "Zwei englischsprachige Herrschaften, Abholung vom Museum/Kraftwerk. Gast möchte nach Seebad Bansin oder Heringsdorf, unklar welcher Ort final Ziel ist. Fahrtdauer geschätzt ca. 1 Stunde."
+      },
+      "pushedToBridge": true
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-28 15-16-10] [Ausgehend].m4a": {
+      "skipped": "blacklist-name-danilo mercedes vito vg lk 111",
+      "ts": 1782652654601,
+      "callerName": "Danilo Mercedes VITO VG LK 111"
+    },
+    "Karl-Heinz (+4915124018129) [2026-06-28 15-16-49] [Ausgehend].m4a": {
+      "ts": 1782652718300,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "28.06.2026",
+        "uhrzeit": "sofort",
+        "pickup": "HTM/Kraftwerk/Museum (Heringsdorf)",
+        "destination": null,
+        "passengers": null,
+        "customerName": "Karl-Heinz",
+        "guestName": null,
+        "notes": "Fahrgast(e) sind fertig und warten zur Abholung. Genaue Lokation etwas unklar (HTM, Kraftwerk oder Museum erwähnt). Fahrer fährt gleich los."
+      },
+      "pushedToBridge": true
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-28 15-20-49] [Eingehend].m4a": {
+      "skipped": "blacklist-name-danilo mercedes vito vg lk 111",
+      "ts": 1782652949017,
+      "callerName": "Danilo Mercedes VITO VG LK 111"
+    },
+    "+49 176 81127072 (+4917681127072) [2026-06-28 15-23-31] [Eingehend].m4a": {
+      "ts": 1782653109709,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "hoch",
+        "datum": "2026-06-28",
+        "uhrzeit": "sofort",
+        "pickup": "Bahnhof Bansin",
+        "destination": "Traumdomizil, Bansin",
+        "passengers": null,
+        "customerName": null,
+        "guestName": null,
+        "notes": "Fahrer hat Wartezeit von ca. 10 Minuten bestätigt"
+      },
+      "pushedToBridge": true
+    },
+    "+49 176 81127072 (+4917681127072) [2026-06-28 15-24-42] [Eingehend].m4a": {
+      "ts": 1782653180271,
+      "classification": {
+        "isBookingRequest": false,
+        "art": "sonstiges"
+      },
+      "pushedToBridge": false
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-28 15-27-55] [Ausgehend].m4a": {
+      "skipped": "blacklist-name-danilo mercedes vito vg lk 111",
+      "ts": 1782653451145,
+      "callerName": "Danilo Mercedes VITO VG LK 111"
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-28 15-32-02] [Eingehend].m4a": {
+      "skipped": "blacklist-name-danilo mercedes vito vg lk 111",
+      "ts": 1782653617002,
+      "callerName": "Danilo Mercedes VITO VG LK 111"
+    },
+    "Ahlbeck Hotel Das Ahlbeck (+493837849940) [2026-06-28 15-43-51] [Eingehend].m4a": {
+      "ts": 1782654304294,
+      "classification": {
+        "isBookingRequest": false,
+        "art": "sonstiges"
+      },
+      "pushedToBridge": false
+    },
+    "Ahlbeck Hotel Das Ahlbeck (+493837849940) [2026-06-28 15-44-18] [Eingehend].m4a": {
+      "ts": 1782654357624,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "hoch",
+        "datum": "2026-06-30",
+        "uhrzeit": "10:45",
+        "pickup": "Ahlbeck Hotel Das Ahlbeck",
+        "destination": "Bahnhof Ahlbeck",
+        "passengers": null,
+        "customerName": "Ahlbeck Hotel Das Ahlbeck",
+        "guestName": "Stüttgen",
+        "notes": "Hotelgast, Fahrt zum Bahnhof"
+      },
+      "pushedToBridge": true
+    },
+    "+49 163 8091482 (+491638091482) [2026-06-28 15-48-54] [Eingehend].m4a": {
+      "ts": 1782654644653,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "hoch",
+        "datum": "2026-06-28",
+        "uhrzeit": "16:03",
+        "pickup": "Bahnhof Ahlbeck (Seebad Ahlbeck)",
+        "destination": "Heimstraße 12, Ahlbeck",
+        "passengers": null,
+        "customerName": null,
+        "guestName": null,
+        "notes": "Fahrgast steht am Taxi-Stand"
+      },
+      "pushedToBridge": true
+    },
+    "+49 172 4992000 (+491724992000) [2026-06-28 15-57-38] [Eingehend].m4a": {
+      "ts": 1782655173734,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "morgen (29.6.2026)",
+        "uhrzeit": null,
+        "pickup": null,
+        "destination": null,
+        "passengers": null,
+        "customerName": null,
+        "guestName": null,
+        "notes": "Kunde sagt ab für heute 28.6.2026 wegen defekter Klimaanlage in Regionalbahn. Möchte morgen ggf. erneut anrufen und dann Fahrt buchen."
+      },
+      "pushedToBridge": true
+    },
+    "Traumdomizil USEDOM (+493837847720) [2026-06-28 16-00-20] [Eingehend].m4a": {
+      "ts": 1782655499676,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "2026-06-28",
+        "uhrzeit": [
+          "16:30",
+          "18:18"
+        ],
+        "pickup": [
+          "Seepark 13, Bansin",
+          "Bahnhof Bansin",
+          "Büro Traum-Domizil"
+        ],
+        "destination": [
+          "Bahnhof Bansin",
+          "Unterkunft/Seepark 13"
+        ],
+        "passengers": null,
+        "customerName": "Thomas",
+        "guestName": [
+          "Frau Olle",
+          "Frau Goi",
+          "Frau Schmidt"
+        ],
+        "notes": "Zwei Taxifahrten: 16:30 Uhr von Seepark zum Bahnhof (korrekt bestätigt), 18:18 Uhr Ankunft mit Schlüsselübergabe. Frau Schmidt soll zusätzlich angerufen haben, Details unklar. Rückruf erforderlich."
+      },
+      "pushedToBridge": true
+    },
+    "Traumdomizil USEDOM (+493837847720) [2026-06-28 16-08-23] [Eingehend].m4a": {
+      "ts": 1782655851804,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "unklar",
+        "uhrzeit": "unklar",
+        "pickup": "Bahnhof Usedom oder Umgebung",
+        "destination": "Traumdomizil USEDOM",
+        "passengers": null,
+        "customerName": "Traumdomizil USEDOM (Anrufer)",
+        "guestName": "Frau Schmidt",
+        "notes": "Frau Schmidt sitzt derzeit wegen Waldbrand fest, kommt mit dem Zug nach Usedom. Sie hat keinen festen Ankunftszeitpunkt. Erhält von Traumdomizil einen Code für Schlüsselabholung im Büro. Muss selbst anrufen, um Ankunftszeit zu teilen."
+      },
+      "pushedToBridge": true
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-28 17-07-57] [Ausgehend].m4a": {
+      "skipped": "blacklist-name-danilo mercedes vito vg lk 111",
+      "ts": 1782659741537,
+      "callerName": "Danilo Mercedes VITO VG LK 111"
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-28 17-14-47] [Ausgehend].m4a": {
+      "skipped": "blacklist-name-danilo mercedes vito vg lk 111",
+      "ts": 1782659813532,
+      "callerName": "Danilo Mercedes VITO VG LK 111"
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-28 17-24-15] [Eingehend].m4a": {
+      "skipped": "blacklist-name-danilo mercedes vito vg lk 111",
+      "ts": 1782660377761,
+      "callerName": "Danilo Mercedes VITO VG LK 111"
+    },
+    "+49 1515 0990786 (+4915150990786) [2026-06-28 17-34-19] [Eingehend].m4a": {
+      "ts": 1782661025818,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "2026-06-28",
+        "uhrzeit": "19:00",
+        "pickup": "Züschow Bahnhof",
+        "destination": "Heringsdorf",
+        "passengers": null,
+        "customerName": "Angelika Sill",
+        "guestName": null,
+        "notes": "Ankunft ca. 18:58 Uhr / 19:00 Uhr in Züschow. Zug könnte Verspätung haben. Kundin möchte vorher nochmal anrufen bevor Taxi wartet."
+      },
+      "pushedToBridge": true
+    },
+    "+49 1515 0990786 (+4915150990786) [2026-06-28 17-36-00] [Eingehend].m4a": {
+      "ts": 1782661091006,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "28.06.2026",
+        "uhrzeit": "19:00",
+        "pickup": "Bahnhof Zischow",
+        "destination": "Wohnort (Heringsdorf, Usedom)",
+        "passengers": null,
+        "customerName": "Angelika Sill",
+        "guestName": null,
+        "notes": "Fahrgast ruft nochmal um 19:00 Uhr an, wenn sie am Bahnhof Zischow ist. Grund: keine öffentlichen Verkehrsmittel mehr, würde sonst erst gegen 21:30 Uhr zu Hause ankommen. Kostenschätzung vom Fahrer: ca. 120 Euro."
+      },
+      "pushedToBridge": true
+    },
+    "+49 176 42031810 (+4917642031810) [2026-06-28 18-23-38] [Eingehend].m4a": {
+      "ts": 1782663961080,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "28.06.2026",
+        "uhrzeit": "sofort",
+        "pickup": "Bahnhof Banzin",
+        "destination": "Rolandseck",
+        "passengers": null,
+        "customerName": "Patrick",
+        "guestName": null,
+        "notes": "Zwischenstop im Traumdomizil zum Schlüsselholen erforderlich. Fahrgast kam mit Bahn an, ist über 12 Stunden unterwegs gewesen."
+      },
+      "pushedToBridge": true
+    },
+    "+49 1522 3978659 (+4915223978659) [2026-06-28 18-35-42] [Eingehend].m4a": {
+      "ts": 1782664671430,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "28.06.2026",
+        "uhrzeit": "19:18",
+        "pickup": "Bansin",
+        "destination": null,
+        "passengers": 2,
+        "customerName": "Olle",
+        "guestName": null,
+        "notes": "Anrufer bestätigt Abholung um 19:18 Uhr in Bansin; eine Person ist bereits vor Ort; Cousine im Auto"
+      },
+      "pushedToBridge": true
+    },
+    "+49 1515 0990786 (+4915150990786) [2026-06-28 19-02-03] [Eingehend].m4a": {
+      "ts": 1782666215407,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "hoch",
+        "datum": "2026-06-28",
+        "uhrzeit": "sofort",
+        "pickup": "Syschow Bahnhof",
+        "destination": null,
+        "passengers": null,
+        "customerName": null,
+        "guestName": null,
+        "notes": "Fahrgast ist soeben gelandet/angekommen. Fahrer hat Wartezeit von ca. 1 Stunde mitgeteilt."
+      },
+      "pushedToBridge": true
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-28 19-02-58] [Ausgehend].m4a": {
+      "skipped": "blacklist-name-danilo mercedes vito vg lk 111",
+      "ts": 1782666353007,
+      "callerName": "Danilo Mercedes VITO VG LK 111"
+    },
+    "The Breeze Rathenaustraße 3 (+49383786920) [2026-06-28 20-17-30] [Eingehend].m4a": {
+      "ts": 1782670758829,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "morgen",
+        "uhrzeit": "11:00",
+        "pickup": "The Breeze, Rathenaustraße 3, Heringsdorf",
+        "destination": "Greifswald",
+        "passengers": null,
+        "customerName": "The Breeze (Hotel/Unterkunft)",
+        "guestName": "Elysees",
+        "notes": "Gäste sind Wiederholungskunden, Buchung erfolgt durch Hotel The Breeze"
+      },
+      "pushedToBridge": true
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-28 21-11-27] [Eingehend].m4a": {
+      "skipped": "blacklist-name-danilo mercedes vito vg lk 111",
+      "ts": 1782674040853,
+      "callerName": "Danilo Mercedes VITO VG LK 111"
+    },
+    "+49 176 53943731 (+4917653943731) [2026-06-29 07-45-26] [Eingehend].m4a": {
+      "ts": 1782712140966,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "29.06.2026",
+        "uhrzeit": "14:35",
+        "pickup": "Bahnhof Heringsdorf",
+        "destination": "Alnick Hotel (Kastell am Strand)",
+        "passengers": 2,
+        "customerName": "Moritz",
+        "guestName": null,
+        "notes": "Zugankuft 14:25 Uhr in Heringsdorf, Abholung ca. 10 Minuten später (14:35 Uhr). Fahrgast hat Schlüssel dabei. Zielort: Alnick Hotel (Kastell am Strand). Kunde möchte später ggf. noch Bescheid geben, falls sich etwas ändert."
+      },
+      "pushedToBridge": true
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-29 08-13-55] [Eingehend].m4a": {
+      "skipped": "blacklist-name-danilo mercedes vito vg lk 111",
+      "ts": 1782713739226,
+      "callerName": "Danilo Mercedes VITO VG LK 111"
+    },
+    "+49 1573 7813048 (+4915737813048) [2026-06-29 08-18-04] [Eingehend].m4a": {
+      "ts": 1782714082200,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "heute (29.6.2026)",
+        "uhrzeit": "in etwa einer Stunde (ca. 09:18)",
+        "pickup": "Hotel Balmersee",
+        "destination": "Schmollensee Bahnhof",
+        "passengers": null,
+        "customerName": null,
+        "guestName": null,
+        "notes": "Fahrgast möchte Zug um 15:44 Uhr ab Schmollensee erreichen. Alternative Einstieg in Bansin wurde erwogen (gleicher Preis). Kunde wollte sich nochmal melden, um Buchung zu bestätigen."
+      },
+      "pushedToBridge": true
+    },
+    "+49 163 9655409 (+491639655409) [2026-06-29 08-23-18] [Eingehend].m4a": {
+      "ts": 1782714344254,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "Mittwoch (29.6.2026 oder folgende Woche unklar)",
+        "uhrzeit": "10:10",
+        "pickup": "Hotel Balmersee, Rezeption",
+        "destination": "Bahnhof Banzin",
+        "passengers": null,
+        "customerName": "Drexler",
+        "guestName": null,
+        "notes": "Fahrgast muss um 10:40 Uhr am Bahnhof Banzin sein; Abholung 10:10 Uhr an Rezeption Hotel Balmersee; Anrufer erwähnt Zugfahrt"
+      },
+      "pushedToBridge": true
+    },
+    "Buchholz Ecovis (+493837837725) [2026-06-29 08-25-06] [Ausgehend].m4a": {
+      "ts": 1782714421673,
+      "classification": {
+        "isBookingRequest": false,
+        "art": "sonstiges"
+      },
+      "pushedToBridge": false
+    },
+    "Buchholz Ecovis (+493837837725) [2026-06-29 08-26-51] [Ausgehend].m4a": {
+      "ts": 1782714610382,
+      "classification": {
+        "isBookingRequest": false,
+        "art": "sonstiges"
+      },
+      "pushedToBridge": false
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-29 08-29-47] [Eingehend].m4a": {
+      "skipped": "blacklist-name-danilo mercedes vito vg lk 111",
+      "ts": 1782714749280,
+      "callerName": "Danilo Mercedes VITO VG LK 111"
+    },
+    "+49 160 2335586 (+491602335586) [2026-06-29 08-35-45] [Eingehend].m4a": {
+      "ts": 1782715074883,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "29.6.2026 (Nachmittag)",
+        "uhrzeit": "unklar",
+        "pickup": "Edeka Heringsdorf",
+        "destination": null,
+        "passengers": null,
+        "customerName": "Gronz",
+        "guestName": null,
+        "notes": "Einkaufsfahrt, mehrere Pakete/Einkäufe im Kofferraum, Kunde möchte vorbestellen sobald Zeitpunkt feststeht"
+      },
+      "pushedToBridge": true
+    },
+    "+49 172 1453176 (+491721453176) [2026-06-29 08-44-56] [Eingehend].m4a": {
+      "ts": 1782715608055,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "hoch",
+        "datum": "2026-06-30",
+        "uhrzeit": "10:30",
+        "pickup": "Reha-Klinik",
+        "destination": "Bahnhof",
+        "passengers": null,
+        "customerName": null,
+        "guestName": null,
+        "notes": "Fahrgast möglicherweise Patient der Reha-Klinik, Bahnhof-Transfer"
+      },
+      "pushedToBridge": true
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-29 08-55-50] [Eingehend].m4a": {
+      "skipped": "blacklist-name-danilo mercedes vito vg lk 111",
+      "ts": 1782716255232,
+      "callerName": "Danilo Mercedes VITO VG LK 111"
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-29 09-47-51] [Eingehend].m4a": {
+      "skipped": "blacklist-name-danilo mercedes vito vg lk 111",
+      "ts": 1782719643374,
+      "callerName": "Danilo Mercedes VITO VG LK 111"
+    },
+    "Maritim Hotel Kaiserhof (+493837865802) [2026-06-29 09-54-58] [Eingehend].m4a": {
+      "ts": 1782719797562,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "29.06.2026",
+        "uhrzeit": "10:10",
+        "pickup": "Maritim Hotel Kaiserhof",
+        "destination": null,
+        "passengers": null,
+        "customerName": null,
+        "guestName": "Lohmann",
+        "notes": "Zugausfallbedingte Umplanung: ursprünglicher Transfer um 11:00 verlegt auf 10:33-Zug, Abholung ~10:10 Uhr"
+      },
+      "pushedToBridge": true
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-29 09-55-38] [Ausgehend].m4a": {
+      "skipped": "blacklist-name-danilo mercedes vito vg lk 111",
+      "ts": 1782719865845,
+      "callerName": "Danilo Mercedes VITO VG LK 111"
+    },
+    "Spam (+4969200940087) [2026-06-29 09-59-16] [Eingehend].m4a": {
+      "ts": 1782720047952,
+      "classification": {
+        "isBookingRequest": false,
+        "art": "werbung"
+      },
+      "pushedToBridge": false
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-29 10-18-41] [Ausgehend].m4a": {
+      "skipped": "blacklist-name-danilo mercedes vito vg lk 111",
+      "ts": 1782721339725,
+      "callerName": "Danilo Mercedes VITO VG LK 111"
+    },
+    "+49 1525 5260415 (+4915255260415) [2026-06-29 10-28-05] [Eingehend].m4a": {
+      "ts": 1782721832125,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "hoch",
+        "datum": "2026-06-30",
+        "uhrzeit": "08:00",
+        "pickup": "Maxim-Gorki-Straße 5, Haus Georg, Heringsdorf",
+        "destination": "Bansin Hauptbahnhof",
+        "passengers": 2,
+        "customerName": "Lindner",
+        "guestName": null,
+        "notes": null
+      },
+      "pushedToBridge": true
+    },
+    "The Breeze Rathenaustraße 3 (+49383786920) [2026-06-29 10-35-28] [Eingehend].m4a": {
+      "ts": 1782722274028,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "29.06.2026",
+        "uhrzeit": "10:50",
+        "pickup": "Ostsee-Therme Aalberg (Anfahrt nicht möglich) / Alternative: Bahnhof Heringsdorf oder Bahnhof Aalberg",
+        "destination": "Bahnhof (Heringsdorf oder Aalberg)",
+        "passengers": null,
+        "customerName": "Fricke",
+        "guestName": "Gäste (Name unbekannt)",
+        "notes": "Anrufer ist The Breeze Rathenaustraße 3 (vermutlich Hotel/Unterkunft). Ostsee-Therme als Abholort nicht anfahrbar. Maximalpreis 10 Euro erwünscht. Anrufer möchte sich nach Rücksprache mit einer Dame (Gast) nochmals melden."
+      },
+      "pushedToBridge": true
+    },
+    "+49 172 4992000 (+491724992000) [2026-06-29 10-38-16] [Eingehend].m4a": {
+      "ts": 1782722471302,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "2026-06-29",
+        "uhrzeit": "16:25",
+        "pickup": "Bahnhof Heringsdorf",
+        "destination": "Steigenberger Hotel",
+        "passengers": null,
+        "customerName": "Tatalja",
+        "guestName": null,
+        "notes": "Anrufer hatte gestern zwei Fehlversuche; abhängig von Zugverfügbarkeit (Zug könnte ausfallen wie gestern); Hotel antwortet nicht auf Telefon und Mail; Anrufer wird sofort anrufen falls sich Ankunftszeit ändert"
+      },
+      "pushedToBridge": true
+    },
+    "The Breeze Rathenaustraße 3 (+49383786920) [2026-06-29 10-40-47] [Eingehend].m4a": {
+      "ts": 1782722538284,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "29.6.2026",
+        "uhrzeit": "sofort",
+        "pickup": "The Breeze, Rathenaustraße 3",
+        "destination": "Albek Bahnhof",
+        "passengers": null,
+        "customerName": "The Breeze (Hotel/Unterkunft)",
+        "guestName": "Gökbön",
+        "notes": "Gast steht unten bereit, Zimmer 8, direkt zum Bahnhof"
+      },
+      "pushedToBridge": true
+    },
+    "Danilo Mercedes VITO VG LK 111 (+491724659904) [2026-06-29 10-54-39] [Eingehend].m4a": {
+      "skipped": "blacklist-name-danilo mercedes vito vg lk 111",
+      "ts": 1782723426211,
+      "callerName": "Danilo Mercedes VITO VG LK 111"
+    },
+    "Erik (+4915120494409) [2026-06-29 11-03-50] [Ausgehend].m4a": {
+      "ts": 1782724016008,
+      "classification": {
+        "isBookingRequest": false,
+        "art": "sonstiges"
+      },
+      "pushedToBridge": false
+    },
+    "Beach Hotel Bansin (+49383784960) [2026-06-29 11-07-16] [Eingehend].m4a": {
+      "ts": 1782724127877,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "2026-06-29",
+        "uhrzeit": "11:15",
+        "pickup": "Beach Hotel Bansin / Kaiserstrand",
+        "destination": null,
+        "passengers": null,
+        "customerName": "Kaiserstrand",
+        "guestName": null,
+        "notes": "Anrufer bestätigt Taxibestellung für 11:00 Uhr, Fahrer teilt mit 11:15 Uhr 'bin gleich da'"
+      },
+      "pushedToBridge": true
+    },
+    "+49 170 6725151 (+491706725151) [2026-06-29 11-30-15] [Eingehend].m4a": {
+      "ts": 1782725499271,
+      "classification": {
+        "isBookingRequest": false,
+        "art": "sonstiges"
+      },
+      "pushedToBridge": false
+    },
+    "+49 170 6725151 (+491706725151) [2026-06-29 11-32-48] [Eingehend].m4a": {
+      "ts": 1782725638405,
+      "classification": {
+        "isBookingRequest": false,
+        "art": "sonstiges"
+      },
+      "pushedToBridge": false
+    },
+    "+49 163 7702271 (+491637702271) [2026-06-29 11-46-57] [Eingehend].m4a": {
+      "ts": 1782726550267,
+      "classification": {
+        "isBookingRequest": true,
+        "confidence": "mittel",
+        "datum": "2026-06-29",
+        "uhrzeit": "13:40",
+        "pickup": "Bahnhof Seebert-Aalbeck",
+        "destination": "Hotel Setel, Dünenstraße 41, Heringsdorf",
+        "passengers": 2,
+        "customerName": "Baatz",
+        "guestName": null,
+        "notes": "Fahrgast reist mit älterer Mutter. Ankunft Bahnhof 13:40 Uhr."
+      },
+      "pushedToBridge": true
+    }
+  },
+  "lastRunAt": 1782726902575
+}

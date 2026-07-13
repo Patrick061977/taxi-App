@@ -1,0 +1,25 @@
+🎯 Warum Danilo statt du (Sofortfahrt-Logik):
+
+Für SOFORTFAHRTEN gilt: nur Fahrzeuge mit aktiver Schicht (shift.status='active') werden berücksichtigt.
+
+Prüfung: War deine Schicht in der Fahrer-App aktiv gestartet als du am Bahnhof standest?
+→ Wenn du die App geöffnet aber KEINE Schicht gestartet hast = nicht eligible
+→ Danilo hatte seine Schicht aktiv → bekommt die Fahrt
+
+Das System schaut im Grunde: wer ist JETZT live eingeloggt + Schicht aktiv + kein Zeitkonflikt + GPS < 5 Min alt?
+
+Den genauen Ablehnungsgrund für dein Fahrzeug siehst du in der Fahrten-Detailansicht im Feld "autoAssignLastReason".
+
+━━━ Antje 15:20 → du hast 15:08 gesehen ━━━
+
+15:08 war die UHRZEIT als die Notification bei dir ankam — die Pickup-Zeit war immer noch 15:20.
+Was ist passiert:
+1. Antje hat für 15:20 gebucht → Danilo bekam die Fahrt zugewiesen
+2. Danilo hat NICHT angenommen (Annahme-Timeout)
+3. Um ~15:08 (12 Min vor Pickup) wurde die Fahrt zurück auf 'new' gesetzt
+4. Da nur noch 12 Min bis Pickup = Sofortfahrt → Banner erscheint bei dir
+→ Das ist korrekte Systemlogik. Pickup-Zeit war immer 15:20.
+
+━━━ Engpass-Frage ━━━
+"Engpass" ist kein Begriff aus dem System — du meinst vermutlich einen Zeitkonflikt oder "SCHAFFBARKEIT"-Alarm?
+Schick mir Screenshot oder Wortlaut der Nachricht, dann kann ich genau sagen was das war.

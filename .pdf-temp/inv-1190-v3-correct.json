@@ -1,0 +1,26 @@
+{
+  "rideDate": "2026-04-19",
+  "positions": [
+    { "id": 1, "description": "Krankenfahrt 19.03.2026 Hinfahrt: Lyonel-Feininger-Str. 11, 17429 Benz → Krankenhaus Demmin, Am Krankenhaus, 17109 Demmin", "amount": 187, "quantity": 1, "unit": "Fahrt", "vatRate": 19, "discount": 0, "note": "" },
+    { "id": 2, "description": "Wartezeit 19.03.2026 am Krankenhaus Demmin (3 Std. × 40 €/h)", "amount": 40, "quantity": 3, "unit": "h", "vatRate": 19, "discount": 0, "note": "" },
+    { "id": 3, "description": "Krankenfahrt 19.03.2026 Rückfahrt: Krankenhaus Demmin → Lyonel-Feininger-Str. 11, 17429 Benz", "amount": 187, "quantity": 1, "unit": "Fahrt", "vatRate": 19, "discount": 0, "note": "" },
+    { "id": 4, "description": "Krankenfahrt 02.04.2026 Hinfahrt: Lyonel-Feininger-Str. 11, 17429 Benz → Krankenhaus Demmin, Am Krankenhaus, 17109 Demmin", "amount": 187, "quantity": 1, "unit": "Fahrt", "vatRate": 19, "discount": 0, "note": "" },
+    { "id": 5, "description": "Wartezeit 02.04.2026 am Krankenhaus Demmin (3 Std. × 40 €/h)", "amount": 40, "quantity": 3, "unit": "h", "vatRate": 19, "discount": 0, "note": "" },
+    { "id": 6, "description": "Krankenfahrt 02.04.2026 Rückfahrt: Krankenhaus Demmin → Lyonel-Feininger-Str. 11, 17429 Benz", "amount": 187, "quantity": 1, "unit": "Fahrt", "vatRate": 19, "discount": 0, "note": "" },
+    { "id": 7, "description": "Krankenfahrt 08.04.2026 09:00 Hin: Lyonel-Feininger-Str. 11, 17429 Benz → Physiotherapie Schwandt, Dorf Bansin 46, 17429 Bansin", "amount": 23, "quantity": 1, "unit": "Fahrt", "vatRate": 7, "discount": 0, "note": "" },
+    { "id": 8, "description": "Krankenfahrt 08.04.2026 10:15 Rück: Physiotherapie Schwandt, Dorf Bansin 46 → Lyonel-Feininger-Str. 11, 17429 Benz", "amount": 23, "quantity": 1, "unit": "Fahrt", "vatRate": 7, "discount": 0, "note": "" },
+    { "id": 9, "description": "Krankenfahrt 14.04.2026 11:00 Hin: Lyonel-Feininger-Str. 11, 17429 Benz → Physiotherapie Schwandt, Dorf Bansin 46, 17429 Bansin", "amount": 23, "quantity": 1, "unit": "Fahrt", "vatRate": 7, "discount": 0, "note": "" },
+    { "id": 10, "description": "Krankenfahrt 14.04.2026 ca. 12:00 Rück: Physiotherapie Schwandt, Dorf Bansin 46 → Lyonel-Feininger-Str. 11, 17429 Benz", "amount": 23, "quantity": 1, "unit": "Fahrt", "vatRate": 7, "discount": 0, "note": "Uhrzeit der Rueckfahrt nicht im System — geschätzt ca. 12:00" },
+    { "id": 11, "description": "Krankenfahrt 16.04.2026 10:00 Hin: Lyonel-Feininger-Str. 11, 17429 Benz → Physiotherapie Schwandt, Dorf Bansin 46, 17429 Bansin", "amount": 23, "quantity": 1, "unit": "Fahrt", "vatRate": 7, "discount": 0, "note": "" },
+    { "id": 12, "description": "Krankenfahrt 16.04.2026 12:22 Rück: Physiotherapie Schwandt, Dorf Bansin 46 → Lyonel-Feininger-Str. 11, 17429 Benz", "amount": 23, "quantity": 1, "unit": "Fahrt", "vatRate": 7, "discount": 0, "note": "" },
+    { "id": 13, "description": "Krankenfahrt 17.04.2026 10:00 Hin: Lyonel-Feininger-Str. 11, 17429 Benz → Physiotherapie Schwandt, Dorf Bansin 46, 17429 Bansin", "amount": 23, "quantity": 1, "unit": "Fahrt", "vatRate": 7, "discount": 0, "note": "" },
+    { "id": 14, "description": "Krankenfahrt 17.04.2026 10:55 Rück: Physiotherapie Schwandt, Dorf Bansin 46 → Lyonel-Feininger-Str. 11, 17429 Benz", "amount": 23, "quantity": 1, "unit": "Fahrt", "vatRate": 7, "discount": 0, "note": "" }
+  ],
+  "totalGross": 1172,
+  "totalNet": 1002.2147,
+  "totalVat": 169.7853,
+  "vatBreakdown": { "19": 157.748, "7": 12.037 },
+  "netBreakdown": { "19": 830.252, "7": 171.963 },
+  "updatedAt": 1782295500000,
+  "_lastClaudePatch": "v3-2026-06-24-final-mit-mwst-mix"
+}

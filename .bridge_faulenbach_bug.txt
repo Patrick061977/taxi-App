@@ -1,0 +1,37 @@
+🐛 BUG GEFUNDEN — Antje Faulenbach:
+
+Ride vom 12.07. 17:17 (ride -OxMAUpqwiUX62Cg3ACn):
+❌ customerName: "Antje Duenenweg" (Strasse als Nachname — Name-Split-Repair-Sweep-Bug)
+❌ customerPhone: "+4938378794659 / +49 163 2759062" (Festnetz + Handy in EINEM String, Slash-getrennt)
+
+Deshalb kein WA-Send: kein API akzeptiert "+4938... / +49..." als Nummer.
+
+✅ RIDE JETZT GEFIXT:
+• customerName: "Antje Faulenbach"
+• customerPhone: "+491632759062"
+• customerMobile: "+491632759062"
+• customerLandline: "+4938378794659" (Festnetz separat aufgehoben)
+
+━━━━━━━━━━━━━━━━━━
+
+⚠️ GROESSERE BAUSTELLE:
+Ich hab die Kunden-DB gescannt — 60 Kunden haben "/" oder mehrere +49-Nummern in EINEM phone-Feld:
+• "Automobile Esser GmbH": +493837520267 / +493837521323
+• "Bindernagel Joerg": +4938312833500 / +491713170428
+• "Brinkmann Frank": 038-378-29109 / +49 1515 2189134
+• "Carmen": 038-371-55933 / +4917652255164  016-018-74020
+• ...
+
+Wenn du bei einem von denen jetzt SMS/WA schicken willst, knallt es genauso.
+
+VORSCHLAG:
+1. Sweep-Script bauen: splittet phone bei "/" oder Whitespace → Handy (016x/017x/015x) landet in mobilePhone, Rest in phone (Festnetz)
+2. Preview zeigt vor Ausfuehrung was passieren wuerde (60 Aenderungen)
+3. Nach Freigabe: apply
+4. Prevention im CRM-Modal: warn wenn Nummer "/" enthaelt
+
+Soll ich das Script bauen? (~1 h Aufwand, kein Deploy noetig, laueft lokal)
+
+━━━━━━━━━━━━━━━━━━
+
+Falls Antje's Zahlung/Rechnung gestern trotzdem geklappt hat (10€, Rechnung 20-26-1400): das ging weil du den Stripe-Link vermutlich manuell im Payment-Dialog ausgeloest hast, wo customerEmail zaehlt (antje.faulenbach@icloud.com) und nicht die Nummer. WA scheiterte still.

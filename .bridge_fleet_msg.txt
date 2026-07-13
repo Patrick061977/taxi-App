@@ -1,0 +1,29 @@
+━━━ TAGESPLAN HEUTE (SA 04.07.) ━━━
+Im System: 0 Fahrten gebucht.
+→ Entweder noch keine Buchungen eingegangen, oder Fahrten nicht eingetragen.
+
+Schichtplan heute:
+🚗 Tesla MY222: 05:45–20:00
+🚐 Renault SK222: 07:45–18:00
+🚐 Vito LK111: 09:00–20:30
+🚗 Prius IK222: 16:00–23:59
+= 4 Fahrzeuge → gut aufgestellt für Samstag.
+
+━━━ WIE VIELE FAHRZEUGE BRAUCHT MAN? ━━━
+Faustregel: 1 Fahrzeug = ~4 kurze Fahrten/h (Heringsdorf/Ahlbeck/Bansin).
+
+3 Fahrzeuge tagsüber = entspannter Betrieb bis ~12 Fahrten/h.
+Bei Flieger-Ankunft (z.B. 17:00 Heringsdorf) + Zugankünfte gleichzeitig → braucht man 2-3 gleichzeitig für diesen Block.
+1 Fahrzeug abends bis ~00:00 für Spätfahrten.
+
+Wirtschaftlich: Wenn 1 Fahrzeug 4 Fahrten/h à 15-20€ = 60-80€/h Umsatz, braucht man >35€/h Mindest-Auslastung um kostendeckend zu fahren (Fahrer + Sprit + Fahrzeug).
+
+━━━ KAISERHOF-KALENDER ━━━
+Technisch machbar: iCal-URL von Kaiserhof eintragen → App liest Reservierungen → zeigt sie in der Dispo-Übersicht.
+
+Dann sieht man: Heute 3 Hotel-Checkouts um 10:00 + 2 Ankünfte um 17:00 = geplante Fahrten-Peaks → dementsprechend Fahrzeuge einplanen.
+
+Die Funktion "Hotel-Kalender hinzufügen" ist schon im System gebaut. Wenn du die iCal-URL vom Kaiserhof hast, können wir das sofort einrichten.
+
+━━━ FEHLENDE ANRUFE ━━━
+Schaue ich mir heute noch an. Vermutlich: Anrufe die auf der DECT-Station (Fritz!Box) beantwortet werden, erscheinen nicht im Android-Anrufprotokoll — nur die, die du direkt auf dem S9+ beantwortet hast.

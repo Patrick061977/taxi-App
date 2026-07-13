@@ -1,0 +1,20 @@
+✅ APK-Build-Fix v6.63.619 gepusht (~8 Min):
+— passengers-Feld fehlte im Ride-Modell → Kompilier-Fehler
+— myVid kein Klassen-Feld, muss currentVehicleId sein
+Update-Banner erscheint beim nächsten App-Öffnen.
+
+━━━ Dr. Gramsch ━━━
+Emails vom 10.06.2026 gefunden:
+
+📧 Welldium-Therapieplan (info@welldium.com):
+Dr. Gramsch hat dir 2 Produkte empfohlen.
+Link: https://welldium.com/r/327i327f9z
+→ Da drin sind die Supplements + vermutlich Videolinks
+
+📎 Email direkt von Dr. Gramsch (ch.gramsch@t-online.de):
+Anhänge:
+• Wydra,Patrick Befunde 6.26.pdf
+• Wydra,Patrick 2.docx
+• Hauer Bestellformular_Patienten_2026_aktiv.pdf
+
+Die PDFs selbst kann ich via Gmail-API nicht öffnen (kein Download-Scope). Öffne sie in deiner Mail-App. Welldium-Link hat die Empfehlungen + ggf. Videos.

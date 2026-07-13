@@ -1,0 +1,813 @@
+{
+  "-OwbjCzAmReJyZlhS7w9" : {
+    "assignedVehiclePlate" : "VG-LK 111",
+    "assignmentDistance" : 0.8150072798076966,
+    "audioRecordingPath" : "/storage/emulated/0/ACRCalls/ACRPhone/2026/07/03/+4915152701379/+4915152701379-0-1783066777251.m4a",
+    "autoAssignLastEarlyStage" : "outer-catch",
+    "autoAssignLastFailAtV454" : 1783175821315,
+    "autoAssignLastReason" : "6 Fahrzeuge gepr.: 3× Sofortfahrt: Schicht nicht live aktiv | 2× Fahrer hat nicht bestätigt | 1× Aktuell besetzt: Das Ahlbeck (on_way)",
+    "backfilledDestAt" : 1783078118118,
+    "backfilledDestBy" : "cloud-onRideCreated-v6.63.350",
+    "cloudNotificationSent" : true,
+    "createdAt" : 1783078116281,
+    "customerId" : "-OwbjCxo-fcyMs2qCZfg",
+    "customerMobile" : "+4915152701379",
+    "customerName" : "Rödel",
+    "customerPhone" : "+4915152701379",
+    "customerWhatsAppSent" : true,
+    "departureAlertSent" : true,
+    "destCoords" : {
+      "lat" : 53.9456835,
+      "lon" : 14.1823833
+    },
+    "destination" : "the breeze, Rathenaustraße 3, 17419 Ahlbeck-Kaiserbäder",
+    "destinationLat" : 53.9456835,
+    "destinationLon" : 14.1823833,
+    "dispatcherTipSent" : {
+      "sammelfahrt" : {
+        "escalationLevel" : 2,
+        "partner" : "-OwX2lC-MjBlhakQAdOm",
+        "t" : 1783133642946
+      }
+    },
+    "distance" : "11.4",
+    "drivingDistanceToDestKm" : 11.4,
+    "drivingDistanceToPickupKm" : 2.7,
+    "drivingTimeToDestination" : 18,
+    "drivingTimeToPickup" : 3,
+    "duration" : 18,
+    "estimatedArrivalAt" : 1783176360089,
+    "estimatedDistance" : "11.4",
+    "estimatedDuration" : 18,
+    "estimatedPrice" : "32.50",
+    "estimatedWaitComputedAt" : 1783177680285,
+    "estimatedWaitMinutes" : 0,
+    "etaUpdatedAt" : 1783176181774,
+    "etaUpdatedBy" : "scheduledReachabilityCheck",
+    "flexibility" : 0,
+    "lastOptimizedAt" : 1783157046540,
+    "lastOptimizedTo" : "pw-ik-222",
+    "liveEtaMethod" : "google-routes",
+    "liveEtaUpdatedAt" : 1783174591663,
+    "notes" : "KINDER SITZ KIND 4 JAHRE",
+    "notifyLateSms" : true,
+    "openRideWarned" : true,
+    "passengers" : 3,
+    "pickup" : "Flughafen Heringsdorf, 17419 Garz",
+    "pickupCoords" : {
+      "lat" : 53.8785325,
+      "lon" : 14.1510213
+    },
+    "pickupLat" : 53.8785325,
+    "pickupLon" : 14.1510213,
+    "pickupTime" : "16:20",
+    "pickupTimestamp" : 1783174800407,
+    "price" : "32.50",
+    "priceCalculatedAt" : 1783078118982,
+    "priceCalculatedBy" : "onRideCreated-auto",
+    "reassignReason" : "Fahrzeug Renault Traffic 8 Pax hatte keinen Dienst zum Abholzeitpunkt",
+    "reassignedAt" : 1783155480410,
+    "rejectedAt" : 1783174600832,
+    "rejectedBy" : "pw-my-222-e",
+    "rejectedVehicles" : [ "pw-my-222-e", "vg-lk-111" ],
+    "rejectedVia" : "native_dashboard",
+    "replanReason" : "Smart-Routing: Tesla Model Y (14.2 km, 22 Min) → Toyota Prius IK (12.3 km, 18 Min), 34 Min kürzer",
+    "source" : "native_vorbestellung_crmsearch",
+    "status" : "new",
+    "statusTransitionReason" : "v6.62.804 Push-Reminder bei <60 Min vor Pickup",
+    "updatedAt" : 1783176182591,
+    "vehiclePlate" : "VG-LK 111",
+    "vehicleScores" : {
+      "pw-ik-222" : {
+        "blockingRideCustomer" : "Das Ahlbeck",
+        "blockingRideStatus" : "on_way",
+        "check" : "busy",
+        "reason" : "Aktuell besetzt: Das Ahlbeck (on_way)",
+        "status" : "busy"
+      },
+      "pw-ki-222" : {
+        "check" : "live-shift-required",
+        "reason" : "Sofortfahrt: Schicht nicht live aktiv",
+        "shiftStatus" : "auto-ended",
+        "status" : "rejected"
+      },
+      "pw-my-222-e" : {
+        "check" : "driver_rejected",
+        "reason" : "Fahrer hat nicht bestätigt",
+        "status" : "rejected"
+      },
+      "pw-sk-222" : {
+        "check" : "live-shift-required",
+        "reason" : "Sofortfahrt: Schicht nicht live aktiv",
+        "status" : "rejected"
+      },
+      "pw-ym-222-e" : {
+        "check" : "live-shift-required",
+        "reason" : "Sofortfahrt: Schicht nicht live aktiv",
+        "shiftStatus" : "stale",
+        "status" : "rejected"
+      },
+      "vg-lk-111" : {
+        "check" : "driver_rejected",
+        "reason" : "Fahrer hat nicht bestätigt",
+        "status" : "rejected"
+      }
+    },
+    "vehicleScoresAt" : 1783244468523,
+    "watchdogLastAttempt" : 1783181821056
+  },
+  "-OwkaiiTmpsm8a6Wi3eV" : {
+    "_auftraggeberAddress" : "the breeze Rathenaustraße 3, 17419 Ahlbeck",
+    "_auftraggeberKind" : "hotel",
+    "_auftraggeberLat" : 53.9456835,
+    "_auftraggeberLon" : 14.1823833,
+    "_isAuftraggeberBooking" : true,
+    "assignedVehicleName" : "Toyota Prius IK",
+    "assignedVehiclePlate" : "PW-IK 222",
+    "audioRecordingPath" : "/sdcard/ACRCalls/ACRPhone/2026/06/21/+49383786920/+49383786920-0-1782069646221.m4a",
+    "autoAssignAttempts" : 10,
+    "autoAssignLastFailAt" : 1783235344738,
+    "autoAssignLastReason" : "6 Fahrzeuge gepr.: 4× Sofortfahrt: Schicht nicht live aktiv | 2× Fahrer hat nicht bestätigt",
+    "backfilledDestAt" : 1783226889231,
+    "backfilledDestBy" : "cloud-onRideCreated-v6.63.350",
+    "cloudNotificationSent" : true,
+    "createdAt" : 1783226886188,
+    "customerId" : "-OibQ8Qjd8LrcI4pVpOR",
+    "customerName" : "The Breeze",
+    "customerPhone" : "+49383786920",
+    "destCoords" : {
+      "lat" : 53.949313,
+      "lon" : 14.169976
+    },
+    "destination" : "Heringsdorf, Bahnhof, Am Bahnhof, 17424 Heringsdorf",
+    "destinationLat" : 53.949313,
+    "destinationLon" : 14.169976,
+    "dispatcherTipSent" : {
+      "blockAlarm" : {
+        "kind" : "B",
+        "reason" : "Sofortfahrt seit 186 Min ohne Fahrzeug",
+        "t" : 1783238042834
+      },
+      "sammelfahrt" : {
+        "escalationLevel" : 0,
+        "partner" : "-Owcq2nAHntVcAiMOjll",
+        "t" : 1783227243104
+      }
+    },
+    "distance" : "1.7",
+    "drivingDistanceToDestKm" : 1.7,
+    "drivingDistanceToPickupKm" : 25.3,
+    "drivingTimeToDestination" : 5,
+    "drivingTimeToPickup" : 26,
+    "duration" : 5,
+    "estimatedDistance" : "1.7",
+    "estimatedDuration" : 5,
+    "estimatedPrice" : "11.10",
+    "estimatedWaitComputedAt" : 1783245180330,
+    "estimatedWaitMinutes" : 0,
+    "etaUpdatedAt" : 1783237741665,
+    "etaUpdatedBy" : "scheduledReachabilityCheck",
+    "flexibility" : 0,
+    "guestName" : "Guting",
+    "hotelEmailReason" : "Hotel-Email-Versand ist deaktiviert (Probephase)",
+    "hotelEmailStatus" : "disabled",
+    "hotelEmailTo" : "thebreeze@velahotels.de",
+    "hotelEmailUpdatedAt" : 1783226890125,
+    "liveEtaMethod" : "google-routes",
+    "liveEtaUpdatedAt" : 1783237765473,
+    "notifyLateSms" : true,
+    "openRideWarned" : true,
+    "passengers" : 1,
+    "paymentResponsible" : "auftraggeber",
+    "pickup" : "the breeze Rathenaustraße 3, 17419 Ahlbeck",
+    "pickupCoords" : {
+      "lat" : 53.9456835,
+      "lon" : 14.1823833
+    },
+    "pickupLat" : 53.9456835,
+    "pickupLon" : 14.1823833,
+    "pickupTime" : "10:10",
+    "pickupTimestamp" : 1783239000223,
+    "price" : "11.10",
+    "priceCalculatedAt" : 1783226890070,
+    "priceCalculatedBy" : "onRideCreated-auto",
+    "proposedSwap" : {
+      "proposedAt" : 1783234443293,
+      "proposedBy" : "scheduledProposeLongestFirst v6.63.221",
+      "reason" : "laengste-strecke-vorrang",
+      "victimCustomer" : "Henniges",
+      "victimDistance" : 1.5,
+      "victimRideId" : "-Owcq2nAHntVcAiMOjll",
+      "victimVehicle" : "pw-ik-222",
+      "wpDistance" : 1.7
+    },
+    "rejectedAt" : 1783240761742,
+    "rejectedBy" : "pw-ik-222",
+    "rejectedVehicles" : [ "pw-my-222-e", "pw-ik-222" ],
+    "rejectedVia" : "fcm-notification-action",
+    "source" : "native_vorbestellung_crmsearch",
+    "status" : "new",
+    "updatedAt" : 1783240761742,
+    "vehicleLabel" : "Toyota Prius IK",
+    "vehiclePlate" : "PW-IK 222",
+    "vehicleScores" : {
+      "pw-ik-222" : {
+        "check" : "driver_rejected",
+        "reason" : "Fahrer hat nicht bestätigt",
+        "status" : "rejected"
+      },
+      "pw-ki-222" : {
+        "check" : "live-shift-required",
+        "reason" : "Sofortfahrt: Schicht nicht live aktiv",
+        "shiftStatus" : "auto-ended",
+        "status" : "rejected"
+      },
+      "pw-my-222-e" : {
+        "check" : "driver_rejected",
+        "reason" : "Fahrer hat nicht bestätigt",
+        "status" : "rejected"
+      },
+      "pw-sk-222" : {
+        "check" : "live-shift-required",
+        "reason" : "Sofortfahrt: Schicht nicht live aktiv",
+        "status" : "rejected"
+      },
+      "pw-ym-222-e" : {
+        "check" : "live-shift-required",
+        "reason" : "Sofortfahrt: Schicht nicht live aktiv",
+        "shiftStatus" : "stale",
+        "status" : "rejected"
+      },
+      "vg-lk-111" : {
+        "check" : "live-shift-required",
+        "reason" : "Sofortfahrt: Schicht nicht live aktiv",
+        "shiftStatus" : "ended",
+        "status" : "rejected"
+      }
+    },
+    "vehicleScoresAt" : 1783246021161,
+    "wartepoolAt" : 1783229044672,
+    "wartepoolDetectivePushed" : true,
+    "wartepoolReason" : "6 Fahrzeuge gepr.: 4× So nicht aktiv in defaults | 1× Schicht auto-ended (Heartbeat-Timeout), kein Fahrer aktiv | 1× Zeitkonflikt: Dönges um 09:30 (rechnet 11:03 fertig, 45 Min Anfahrt → 58 Min zu spät)",
+    "wartepoolResolverPushed" : true,
+    "watchdogLastAttempt" : 1783246021086
+  },
+  "-OvnoCI41lhxoeP0JSU_" : {
+    "actualPrice" : 55,
+    "assignedAt" : 1783184276728,
+    "assignedBy" : "native_admin_dispo_assign",
+    "assignedTo" : "pw-sk-222",
+    "assignedVehicle" : "pw-sk-222",
+    "assignedVehicleName" : "Renault Traffic 8 Pax",
+    "assignedVehiclePlate" : "PW-SK 222",
+    "assignmentLocked" : true,
+    "autoAssignAttempts" : 0,
+    "autoAssignLastReason" : "6 Fahrzeuge gepr.: 4× Kapazität 4 < 6 Personen | 1× Sofortfahrt: Schicht nicht live aktiv | 1× Fahrer hat nicht bestätigt",
+    "backfilledDestAt" : 1782207014065,
+    "backfilledDestBy" : "cloud-onRideCreated-v6.63.350",
+    "changeSmsHashes" : {
+      "f7b8b77e970e" : 1782232867868
+    },
+    "cloudNotificationSent" : true,
+    "createdAt" : 1782205000000,
+    "createdBy" : "claude-bridge-2026-06-23-kloter-buchung",
+    "customerEmail" : "h.kloter@hispeed.ch",
+    "customerMobile" : "+41796587739",
+    "customerName" : "Hansruedi Kloter",
+    "customerPhone" : "+41796587739",
+    "destination" : "Ferienhaus Strandschlösschen, Eichenweg 9, 17424 Heringsdorf",
+    "destinationLat" : 53.9628,
+    "destinationLon" : 14.1685,
+    "dispatcherTipSent" : {
+      "blockAlarm" : {
+        "kind" : "B",
+        "reason" : "Sofortfahrt seit 16317 Min ohne Fahrzeug",
+        "t" : 1783184042751
+      }
+    },
+    "drivingDistanceToDestKm" : 14.5,
+    "drivingTimeToDestination" : 26,
+    "estimatedWaitComputedAt" : 1783183980323,
+    "estimatedWaitMinutes" : 0,
+    "etaUpdatedBy" : "scheduledReachabilityCheck",
+    "kindersitze" : 2,
+    "lastChangeNotifyAt" : 1783180445088,
+    "lastLateRescueAt" : 1783182241936,
+    "lifecycleLog" : {
+      "-Owi3Az3kSLfGg-hprF4" : {
+        "action" : "FCM-Push empfangen (Handy)",
+        "details" : "{\"type\":\"new_ride\",\"isReminder\":\"false\"}",
+        "device" : "2201117PG",
+        "icon" : "📥",
+        "source" : "🤖 Native v6.62.849",
+        "t" : 1783184277473
+      }
+    },
+    "lockedAt" : 1783179742673,
+    "lockedBy" : "native_admin_edit",
+    "luggage" : "6 Koffer + 1 Buggy",
+    "notes" : "Familie Kloter — 4 Erw + 2 Kinder (3+7J) mit Kindersitzen, 6 Koffer, Buggy. Flug aus Zürich landet 19:15. Vito (8 Pax). Gesamtpreis 55€ inkl. Kindersitze 10€ + Großraumzuschlag. Rückfahrt 11.07.2026 18:30.",
+    "openRideWarned" : true,
+    "passengers" : 6,
+    "paymentMethod" : "cash",
+    "pickup" : "Flughafen Heringsdorf, 17424 Heringsdorf",
+    "pickupDate" : "2026-07-04",
+    "pickupLat" : 53.8794,
+    "pickupLon" : 14.1521,
+    "pickupTime" : "19:15",
+    "pickupTimestamp" : 1783185300000,
+    "previousAssignedVehicle" : "pw-sk-222",
+    "price" : 55,
+    "priceQuoted" : true,
+    "priceUpdatedAt" : 1783184276728,
+    "rejectedAt" : 1783183946324,
+    "rejectedBy" : "vg-lk-111",
+    "rejectedVehicles" : [ "vg-lk-111" ],
+    "rejectedVia" : "native_dashboard",
+    "resetBy" : "native_admin_dispo_edit_v6.63.027",
+    "resetForAssignAt" : 1783184276728,
+    "source" : "email-bestaetigt",
+    "status" : "new",
+    "updatedAt" : 1783184276728,
+    "updatedBy" : "native_admin_dispo_edit",
+    "vehicle" : "Renault Traffic 8 Pax",
+    "vehicleId" : "pw-sk-222",
+    "vehicleLabel" : "Renault Traffic 8 Pax",
+    "vehiclePlate" : "PW-SK 222",
+    "vehicleScores" : {
+      "pw-ik-222" : {
+        "check" : "capacity",
+        "reason" : "Kapazität 4 < 6 Personen",
+        "status" : "rejected"
+      },
+      "pw-ki-222" : {
+        "check" : "capacity",
+        "reason" : "Kapazität 4 < 6 Personen",
+        "status" : "rejected"
+      },
+      "pw-my-222-e" : {
+        "check" : "capacity",
+        "reason" : "Kapazität 4 < 6 Personen",
+        "status" : "rejected"
+      },
+      "pw-sk-222" : {
+        "check" : "live-shift-required",
+        "reason" : "Sofortfahrt: Schicht nicht live aktiv",
+        "shiftStatus" : "forceEnded",
+        "status" : "rejected"
+      },
+      "pw-ym-222-e" : {
+        "check" : "capacity",
+        "reason" : "Kapazität 4 < 6 Personen",
+        "status" : "rejected"
+      },
+      "vg-lk-111" : {
+        "blockingRideCustomer" : "Meier Karin",
+        "blockingRideDest" : "Seetelhotel Ostseehotel Ahlbeck, Dünenstraße 41, 17419 Ahlbeck",
+        "blockingRideTime" : "19:15",
+        "busyUntil" : "19:40",
+        "check" : "driver_rejected",
+        "reason" : "Fahrer hat nicht bestätigt",
+        "status" : "busy"
+      }
+    },
+    "vehicleScoresAt" : 1783184221196,
+    "wartepoolFreedAt" : 1783065962556,
+    "wartepoolFreedReason" : "v6.63.377 onShiftChange: pw-ik-222 hat Schicht für 2026-07-04 bekommen",
+    "watchdogLastAttempt" : 1783184221072
+  },
+  "-OwEWcpnDEz3Hfhuejr0" : {
+    "assignedVehicleName" : "Mercedes Vito 8 Pax",
+    "assignedVehiclePlate" : "VG-LK 111",
+    "assignmentDistance" : 9.453061948284843,
+    "audioRecordingPath" : "/storage/emulated/0/ACRCalls/ACRPhone/2026/06/28/+4915252895569/+4915252895569-0-1782640676549.m4a",
+    "autoAssignAttempts" : 2,
+    "autoAssignLastFailAt" : 1783148946995,
+    "autoAssignLastReason" : "6 Fahrzeuge gepr.: 3× Sofortfahrt: Schicht nicht live aktiv | 2× Fahrer hat nicht bestätigt | 1× Aktuell besetzt: Das Ahlbeck (on_way)",
+    "backfilledDestAt" : 1782671905148,
+    "backfilledDestBy" : "cloud-onRideCreated-v6.63.350",
+    "cloudNotificationSent" : true,
+    "createdAt" : 1782671903262,
+    "customerId" : "-OwEWcoZw_UQQVki01sz",
+    "customerMobile" : "+4915252895569",
+    "customerName" : "Wagner",
+    "customerPhone" : "+4915252895569",
+    "customerWhatsAppSent" : true,
+    "destCoords" : {
+      "lat" : 53.8785325,
+      "lon" : 14.1510213
+    },
+    "destination" : "Flughafen Heringsdorf, 17419 Garz",
+    "destinationLat" : 53.8785325,
+    "destinationLon" : 14.1510213,
+    "dispatcherTipSent" : {
+      "blockAlarm" : {
+        "kind" : "B",
+        "reason" : "Sofortfahrt seit 8296 Min ohne Fahrzeug",
+        "t" : 1783169642756
+      },
+      "sammelfahrt" : {
+        "escalationLevel" : 2,
+        "partner" : "-OwapXKtIuVcMVbDzkc5",
+        "t" : 1783130043558
+      }
+    },
+    "distance" : "15.0",
+    "drivingDistanceToDestKm" : 15,
+    "drivingDistanceToPickupKm" : 14,
+    "drivingTimeToDestination" : 21,
+    "drivingTimeToPickup" : 14,
+    "duration" : 21,
+    "estimatedArrivalAt" : 1783172474489,
+    "estimatedDistance" : "15.0",
+    "estimatedDuration" : 21,
+    "estimatedPrice" : "40.40",
+    "estimatedWaitComputedAt" : 1783177680285,
+    "estimatedWaitMinutes" : 0,
+    "etaUpdatedAt" : 1783171682184,
+    "etaUpdatedBy" : "scheduledReachabilityCheck",
+    "flexibility" : 0,
+    "lastOptimizedAt" : 1783156146206,
+    "lastOptimizedTo" : "pw-sk-222",
+    "liveEtaMethod" : "google-routes",
+    "liveEtaUpdatedAt" : 1783169475938,
+    "notifyLateSms" : true,
+    "openRideWarned" : true,
+    "passengers" : 2,
+    "pickup" : "Eichenweg 4, 17429 Bansin-Kaiserbäder",
+    "pickupCoords" : {
+      "lat" : 53.9629826,
+      "lon" : 14.1263825
+    },
+    "pickupLat" : 53.9629826,
+    "pickupLon" : 14.1263825,
+    "pickupTime" : "15:15",
+    "pickupTimestamp" : 1783170900315,
+    "price" : "40.40",
+    "priceCalculatedAt" : 1782671911808,
+    "priceCalculatedBy" : "onRideCreated-auto",
+    "reassignReason" : "Tesla Model Y Schicht-Ende — automatische Umverteilung",
+    "reassignedAt" : 1783164625846,
+    "rejectedAt" : 1783171759520,
+    "rejectedBy" : "vg-lk-111",
+    "rejectedVehicles" : [ "pw-my-222-e", "vg-lk-111" ],
+    "rejectedVia" : "fcm-notification-action",
+    "replanReason" : "Smart-Routing: Tesla Model Y (2.5 km, 7 Min) → Renault Traffic 8 Pax (4 km, 9 Min), 28 Min kürzer",
+    "source" : "native_vorbestellung_crmsearch",
+    "status" : "new",
+    "unreachableAlert" : {
+      "distanceKm" : 14,
+      "eta" : 19,
+      "firstAt" : 1783171682184,
+      "lastAt" : 1783171682184,
+      "minBisPickup" : -13,
+      "missedBy" : 32,
+      "vehicleLat" : 53.8784582,
+      "vehicleLon" : 14.1391423
+    },
+    "updatedAt" : 1783171759520,
+    "vehicleLabel" : "Mercedes Vito 8 Pax",
+    "vehiclePlate" : "VG-LK 111",
+    "vehicleScores" : {
+      "pw-ik-222" : {
+        "blockingRideCustomer" : "Das Ahlbeck",
+        "blockingRideStatus" : "on_way",
+        "check" : "busy",
+        "reason" : "Aktuell besetzt: Das Ahlbeck (on_way)",
+        "status" : "busy"
+      },
+      "pw-ki-222" : {
+        "check" : "live-shift-required",
+        "reason" : "Sofortfahrt: Schicht nicht live aktiv",
+        "shiftStatus" : "auto-ended",
+        "status" : "rejected"
+      },
+      "pw-my-222-e" : {
+        "check" : "driver_rejected",
+        "reason" : "Fahrer hat nicht bestätigt",
+        "status" : "rejected"
+      },
+      "pw-sk-222" : {
+        "check" : "live-shift-required",
+        "reason" : "Sofortfahrt: Schicht nicht live aktiv",
+        "status" : "rejected"
+      },
+      "pw-ym-222-e" : {
+        "check" : "live-shift-required",
+        "reason" : "Sofortfahrt: Schicht nicht live aktiv",
+        "shiftStatus" : "stale",
+        "status" : "rejected"
+      },
+      "vg-lk-111" : {
+        "check" : "driver_rejected",
+        "reason" : "Fahrer hat nicht bestätigt",
+        "status" : "rejected"
+      }
+    },
+    "vehicleScoresAt" : 1783244468365,
+    "wartepoolFreedAt" : 1782974092123,
+    "wartepoolFreedReason" : "v6.63.377 onShiftChange: pw-sk-222 hat Schicht für 2026-07-04 bekommen",
+    "watchdogLastAttempt" : 1783177921081
+  },
+  "-Ow9e5P8CqP6dOugoSlm" : {
+    "_vorkasseRequested" : true,
+    "anfrageId" : "-Ow9dnOtR3IcyhcuSpHO",
+    "assignedVehicleName" : "Tesla Model Y",
+    "assignedVehiclePlate" : "PW-MY 222 E",
+    "assignmentDistance" : 6.756888749796316,
+    "autoAssignLastEarlyStage" : "outer-catch",
+    "autoAssignLastFailAtV454" : 1783174980750,
+    "autoAssignLastReason" : "6 Fahrzeuge gepr.: 3× Sofortfahrt: Schicht nicht live aktiv | 2× Fahrer hat nicht bestätigt | 1× Aktuell besetzt: Das Ahlbeck (on_way)",
+    "autoGeocodedAt" : 1782590241930,
+    "autoGeocodedBy" : "cloud-onRideCreated-v6.62.827",
+    "cloudNotificationSent" : true,
+    "consistencyHealedAt" : 1783090445779,
+    "consistencyHealedReason" : "vehicleId=pw-my-222-e assignedTo=pw-ik-222 assignedVehicle=pw-my-222-e → pw-my-222-e",
+    "createdAt" : 1782590235694,
+    "customerEmail" : "mannigaertner@online.de",
+    "customerMobile" : "+491724969021",
+    "customerName" : "Manfred Gärtner",
+    "customerPhone" : "+491724969021",
+    "customerWhatsAppSent" : true,
+    "departureAlertSent" : true,
+    "destCoords" : {
+      "lat" : 53.935676199999996,
+      "lon" : 14.1880533
+    },
+    "destination" : "Bahnhof, 17419 Heringsdorf-Seebad Ahlbeck, Deutschland",
+    "destinationLat" : 53.935676199999996,
+    "destinationLon" : 14.1880533,
+    "distance" : "10.6",
+    "drivingDistanceToPickupKm" : 11.3,
+    "drivingTimeToPickup" : 17,
+    "duration" : 15,
+    "emailConfirmationSentAt" : 1782590281417,
+    "emailConfirmationTo" : "mannigaertner@online.de",
+    "estimatedArrivalAt" : 1783177021424,
+    "estimatedDistance" : "10.6",
+    "estimatedDuration" : 15,
+    "estimatedPrice" : "31,00",
+    "estimatedWaitComputedAt" : 1783183380299,
+    "estimatedWaitMinutes" : 54,
+    "etaUpdatedAt" : 1783176601752,
+    "etaUpdatedBy" : "scheduledReachabilityCheck",
+    "lastOptimizedAt" : 1783161546309,
+    "lastOptimizedTo" : "pw-sk-222",
+    "lifecycleLog" : {
+      "-OwhUMDcDxNo1V6x6sLO" : {
+        "action" : "FCM-Push empfangen (Handy)",
+        "details" : "{\"type\":\"new_ride\",\"isReminder\":\"true\"}",
+        "device" : "2201117PG",
+        "icon" : "📥",
+        "source" : "🤖 Native v6.62.849",
+        "t" : 1783174624091
+      },
+      "-OwhWrVR_tqFRqtoSfzR" : {
+        "action" : "FCM-Push empfangen (Handy)",
+        "details" : "{\"type\":\"new_ride\",\"isReminder\":\"true\"}",
+        "device" : "2201117PG",
+        "icon" : "📥",
+        "source" : "🤖 Native v6.62.849",
+        "t" : 1783175280719
+      }
+    },
+    "liveEtaMethod" : "google-routes",
+    "liveEtaUpdatedAt" : 1783176700197,
+    "notes" : "Festpreis 31.00€ vorab bezahlen — bitte Zahlungslink senden",
+    "openRideWarned" : true,
+    "passengers" : 1,
+    "paymentMethod" : "stripe",
+    "paymentStatus" : "paid",
+    "pickup" : "Flughafen Heringsdorf HDF, Am Flughafen 1, 17419 Zirchow, Deutschland",
+    "pickupCoords" : {
+      "lat" : 53.877589799999996,
+      "lon" : 14.158117899999999
+    },
+    "pickupLat" : 53.877589799999996,
+    "pickupLon" : 14.158117899999999,
+    "pickupTime" : "16:45",
+    "pickupTimestamp" : 1783176300000,
+    "prepayDetectedFromNotes" : true,
+    "prepayRequested" : true,
+    "price" : "31,00",
+    "priceFromAnfrage" : true,
+    "priceFromAnfrageAt" : 1782590235694,
+    "reassignReason" : "Tesla Model Y Schicht-Ende — automatische Umverteilung",
+    "reassignedAt" : 1783158573295,
+    "rejectedAt" : 1783177591109,
+    "rejectedBy" : "vg-lk-111",
+    "rejectedVehicles" : [ "vg-lk-111", "pw-my-222-e" ],
+    "rejectedVia" : "fcm-notification-action",
+    "replanReason" : "Smart-Routing: Tesla Model Y (14.7 km, 22 Min) → Renault Traffic 8 Pax (12.8 km, 19 Min), 33 Min kürzer",
+    "source" : "anfrage-uebernahme-native",
+    "status" : "new",
+    "statusTransitionReason" : "v6.62.804 Push-Reminder bei <60 Min vor Pickup",
+    "stripeBelegNr" : "VK-P6dOugoSlm-279905",
+    "stripeCheckoutUrl" : "https://checkout.stripe.com/c/pay/cs_live_a11U3OhkKSzOlOMPIapf1IOrJMYc6IwmpObiPwDu1uwukJg9EICGA5zCUw#fidnandhYHdWcXxpYCc%2FJ2FgY2RwaXEnKSdicGRmZGhqaWBTZHdsZGtxJz8nZmprcXdqaScpJ2R1bE5gfCc%2FJ3VuWmlsc2BaMDRRNFZvTFU2PEJrZ3NAN3xsc28ySTNmb0dsS11PRDZ8Qj1JYldmM2JwNjFcTGxUdG9pY21vaG5MN3VndH1tUldKckRgV1ZvQl1NPEJWdmZha2FDTTBGblc1NX91ZHxzfTVVJyknY3dqaFZgd3Ngdyc%2FcXdwYCknZ2RmbmJ3anBrYUZqaWp3Jz8nJmNjY2NjYycpJ2lkfGpwcVF8dWAnPyd2bGtiaWBabHFgaCcpJ2BrZGdpYFVpZGZgbWppYWB3dic%2FcXdwYHgl",
+    "stripePaidAmount" : 31,
+    "stripePaidAt" : 1782590378732,
+    "stripePayerEmail" : "mannigaertner@online.de",
+    "stripePayerName" : "Manfred Gärtner",
+    "stripePaymentIntentId" : "pi_3Tn2O1P39GnbvE2y0sESsjf7",
+    "stripePaymentStatus" : "paid",
+    "unreachableAlert" : {
+      "distanceKm" : 10.5,
+      "eta" : 15,
+      "firstAt" : 1783176421676,
+      "lastAt" : 1783176421676,
+      "minBisPickup" : -2,
+      "missedBy" : 17,
+      "vehicleLat" : 53.9356522,
+      "vehicleLon" : 14.1885445
+    },
+    "updatedAt" : 1783177591109,
+    "vehicleLabel" : "Tesla Model Y",
+    "vehiclePlate" : "PW-MY 222 E",
+    "vehicleScores" : {
+      "pw-ik-222" : {
+        "blockingRideCustomer" : "Das Ahlbeck",
+        "blockingRideStatus" : "on_way",
+        "check" : "busy",
+        "reason" : "Aktuell besetzt: Das Ahlbeck (on_way)",
+        "status" : "busy"
+      },
+      "pw-ki-222" : {
+        "check" : "live-shift-required",
+        "reason" : "Sofortfahrt: Schicht nicht live aktiv",
+        "shiftStatus" : "auto-ended",
+        "status" : "rejected"
+      },
+      "pw-my-222-e" : {
+        "check" : "driver_rejected",
+        "reason" : "Fahrer hat nicht bestätigt",
+        "status" : "rejected"
+      },
+      "pw-sk-222" : {
+        "check" : "live-shift-required",
+        "reason" : "Sofortfahrt: Schicht nicht live aktiv",
+        "status" : "rejected"
+      },
+      "pw-ym-222-e" : {
+        "check" : "live-shift-required",
+        "reason" : "Sofortfahrt: Schicht nicht live aktiv",
+        "shiftStatus" : "stale",
+        "status" : "rejected"
+      },
+      "vg-lk-111" : {
+        "check" : "driver_rejected",
+        "reason" : "Fahrer hat nicht bestätigt",
+        "status" : "rejected"
+      }
+    },
+    "vehicleScoresAt" : 1783244468276,
+    "vorkasseRequestedAt" : 1782590281417,
+    "vorkasseRequestedBy" : "native-email-preview-dialog",
+    "watchdogLastAttempt" : 1783183321048
+  },
+  "-OwapXKtIuVcMVbDzkc5" : {
+    "assignedVehiclePlate" : "VG-LK 111",
+    "assignmentDistance" : 8.906748917308466,
+    "audioRecordingPath" : "/storage/emulated/0/ACRCalls/ACRPhone/2026/07/03/+491705596567/+491705596567-0-1783061482962.m4a",
+    "autoAssignAttempts" : 11,
+    "autoAssignLastEarlyStage" : "outer-catch",
+    "autoAssignLastFailAt" : 1783159744845,
+    "autoAssignLastFailAtV454" : 1783236009877,
+    "autoAssignLastReason" : "6 Fahrzeuge gepr.: 3× Fahrer hat nicht bestätigt | 2× Sofortfahrt: Schicht nicht live aktiv | 1× Aktuell besetzt: Das Ahlbeck (on_way)",
+    "backfilledDestAt" : 1783062997156,
+    "backfilledDestBy" : "cloud-onRideCreated-v6.63.350",
+    "cloudNotificationSent" : true,
+    "createdAt" : 1783062995683,
+    "customerId" : "-OwapXK0cfkrqnhXKHK_",
+    "customerMobile" : "+491705596567",
+    "customerName" : "Specht",
+    "customerPhone" : "+491705596567",
+    "customerWhatsAppSent" : true,
+    "departureAlertSent" : true,
+    "departureAlertSentAt" : 1783171264095,
+    "destCoords" : {
+      "lat" : 53.8785325,
+      "lon" : 14.1510213
+    },
+    "destination" : "Flughafen Heringsdorf, 17419 Garz",
+    "destinationLat" : 53.8785325,
+    "destinationLon" : 14.1510213,
+    "dispatcherTipSent" : {
+      "sammelfahrt" : {
+        "escalationLevel" : 2,
+        "partner" : "-OwEWcpnDEz3Hfhuejr0",
+        "t" : 1783130043558
+      }
+    },
+    "distance" : "13.6",
+    "drivingDistanceToDestKm" : 13.6,
+    "drivingDistanceToPickupKm" : 11,
+    "drivingTimeToDestination" : 21,
+    "drivingTimeToPickup" : 16,
+    "duration" : 21,
+    "estimatedArrivalAt" : 1783176934789,
+    "estimatedDistance" : "13.6",
+    "estimatedDuration" : 21,
+    "estimatedPrice" : "37.30",
+    "estimatedWaitComputedAt" : 1783177680285,
+    "estimatedWaitMinutes" : 0,
+    "etaUpdatedAt" : 1783171441707,
+    "etaUpdatedBy" : "scheduledReachabilityCheck",
+    "flexibility" : 0,
+    "lastLateRescueAt" : 1783171441950,
+    "lastOptimizedAt" : 1783148950987,
+    "lastOptimizedTo" : "pw-sk-222",
+    "lifecycleLog" : {
+      "-OwhIDM_1b2G9YS2nS11" : {
+        "action" : "FCM-Push empfangen (Handy)",
+        "details" : "{\"type\":\"new_ride\",\"isReminder\":\"false\"}",
+        "device" : "2201117PG",
+        "icon" : "📥",
+        "source" : "🤖 Native v6.62.849",
+        "t" : 1783171442190
+      }
+    },
+    "liveEtaMethod" : "google-routes",
+    "liveEtaUpdatedAt" : 1783176174094,
+    "notifyLateSms" : true,
+    "openRideWarned" : true,
+    "passengers" : 2,
+    "pickup" : "Fleischerei Klaus Wollin, Neuhofer Straße 14, 17424 Heringsdorf-Neuhof",
+    "pickupCoords" : {
+      "lat" : 53.9582696,
+      "lon" : 14.1515609
+    },
+    "pickupLat" : 53.9582696,
+    "pickupLon" : 14.1515609,
+    "pickupTime" : "15:30",
+    "pickupTimestamp" : 1783171800525,
+    "previousAssignedVehicle" : "vg-lk-111",
+    "price" : "37.30",
+    "priceCalculatedAt" : 1783062998370,
+    "priceCalculatedBy" : "onRideCreated-auto",
+    "proposedSwap" : {
+      "proposedAt" : 1783157043320,
+      "proposedBy" : "scheduledProposeLongestFirst v6.63.221",
+      "reason" : "laengste-strecke-vorrang",
+      "victimCustomer" : "Kiel",
+      "victimDistance" : 2.6,
+      "victimRideId" : "-OwaXmRrE7ChTRjDxfC3",
+      "victimVehicle" : "vg-lk-111",
+      "wpDistance" : 13.6
+    },
+    "reassignReason" : "Fahrzeug Renault Traffic 8 Pax hatte keinen Dienst zum Abholzeitpunkt",
+    "reassignedAt" : 1783151280451,
+    "rejectedAt" : 1783174029459,
+    "rejectedBy" : "pw-my-222-e",
+    "rejectedVehicles" : [ "pw-sk-222", "pw-my-222-e", "vg-lk-111" ],
+    "rejectedVia" : "fcm-notification-action",
+    "replanReason" : "Smart-Routing: Tesla Model Y (0.6 km, 1 Min) → Renault Traffic 8 Pax (1.6 km, 4 Min), 27 Min kürzer",
+    "source" : "native_vorbestellung_crmsearch",
+    "status" : "new",
+    "updatedAt" : 1783176182571,
+    "vehiclePlate" : "VG-LK 111",
+    "vehicleScores" : {
+      "pw-ik-222" : {
+        "blockingRideCustomer" : "Das Ahlbeck",
+        "blockingRideStatus" : "on_way",
+        "check" : "busy",
+        "reason" : "Aktuell besetzt: Das Ahlbeck (on_way)",
+        "status" : "busy"
+      },
+      "pw-ki-222" : {
+        "check" : "live-shift-required",
+        "reason" : "Sofortfahrt: Schicht nicht live aktiv",
+        "shiftStatus" : "auto-ended",
+        "status" : "rejected"
+      },
+      "pw-my-222-e" : {
+        "check" : "driver_rejected",
+        "reason" : "Fahrer hat nicht bestätigt",
+        "status" : "rejected"
+      },
+      "pw-sk-222" : {
+        "check" : "driver_rejected",
+        "reason" : "Fahrer hat nicht bestätigt",
+        "status" : "rejected"
+      },
+      "pw-ym-222-e" : {
+        "check" : "live-shift-required",
+        "reason" : "Sofortfahrt: Schicht nicht live aktiv",
+        "shiftStatus" : "stale",
+        "status" : "rejected"
+      },
+      "vg-lk-111" : {
+        "check" : "driver_rejected",
+        "reason" : "Fahrer hat nicht bestätigt",
+        "status" : "rejected"
+      }
+    },
+    "vehicleScoresAt" : 1783244468433,
+    "wartepoolAt" : 1783152546005,
+    "wartepoolDetectivePushed" : true,
+    "wartepoolFreedAt" : 1783065934388,
+    "wartepoolFreedReason" : "v6.63.377 onShiftChange: vg-lk-111 hat Schicht für 2026-07-04 bekommen",
+    "wartepoolReason" : "6 Fahrzeuge gepr.: 2× Sa nicht aktiv in defaults | 1× 15:30 außerhalb Wochenplan-Schicht | 1× Zeitkonflikt: Wagner um 15:15 (rechnet 15:58 fertig, 20 Min Anfahrt → 28 Min zu spät)",
+    "wartepoolResolverPushed" : true,
+    "watchdogLastAttempt" : 1783178821064
+  }
+}

@@ -1,0 +1,22 @@
+✅ Phase 3 Delta-Fix drin (v6.63.691, PR gemerged)
+
+Was jetzt anders ist:
+Phase 3 (Prio-Time-Re-Sort) hatte bisher NUR Prio-Check → wenn ein Fahrzeug hoehere Prio hatte, wurde umgelegt, egal wie klein der ETA-Vorteil.
+
+Ab v6.63.691:
+1. Prio-Check wie bisher — neues Fahrzeug hat bessere Prio?
+2. Alte Anfahrt (letzter Slot → Pickup) berechnen
+3. Neue Anfahrt vs. alte Anfahrt → Delta
+4. Nur umplanen wenn Delta >= 5 Min
+
+Bei ECHTEM Konflikt (oldVehicle nicht mehr frei) wird weiter umgelegt — Doppelbelegung waere schlimmer als 1-Min-Optimierung.
+
+Cloud-Function-Deploy laueft (~2 Min via GitHub Actions).
+
+Rate-Limit-Report:
+Session (5h) noch ~65% frei. Ich hatte fuer den Fix:
+• 2 gezielte Reads (kein Full-Scan)
+• 1 Edit
+• Keine Subagents
+
+Deutlich schlanker als gestern. Weiter machen mit dem naechsten Thema?

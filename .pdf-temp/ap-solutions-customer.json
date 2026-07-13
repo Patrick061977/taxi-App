@@ -1,0 +1,23 @@
+{
+  "name": "AP Solutions GmbH",
+  "invoiceLegalName": "Allianz Versicherungs-AG",
+  "invoiceAddition": "c/o AP Solutions GmbH",
+  "address": "Königinstraße 28, 80802 München",
+  "billingAddresses": [
+    {
+      "id": 1782224000000,
+      "address": "Königinstraße 28, 80802 München",
+      "isDefault": true,
+      "label": "Standard"
+    }
+  ],
+  "email": "medizin@allianz.com",
+  "phone": "+49 89 2 08 01-7320",
+  "type": "supplier",
+  "customerKind": "firma",
+  "category": "versicherung",
+  "taxId": "DE 201885024",
+  "notes": "Versicherungs-Auftraggeber im Auftrag der Allianz Versicherungs-AG. AP Solutions GmbH wickelt die Kostenübernahme für medizinische Taxifahrten ab. Geschäftsführung: Michael Buttstedt, Laurent Floquet, Jacob Fuest, Clara Silvestri, Beatriz Corti Stuber. HRB 125610 München. Rechnungen via medizin@allianz.com. Zahlungsziel: 30 Tage nach Rechnungserhalt.",
+  "createdAt": 1782224000000,
+  "createdBy": "claude-bridge-23.06-ap-solutions-anlage"
+}

@@ -1,0 +1,12 @@
+Nina — Stripe-Link
+
+Was hat Telegram dir nach der Bestätigung angezeigt?
+
+Mögliche Meldungen:
+A) "📧 Stripe-Link per Email an ... gesendet" → Email-Versand funktioniert
+B) "📱 Stripe-Link per SMS an ... gesendet" → SMS-Versand funktioniert
+C) "⚠️ Kein Email und kein Mobiltelefon — Link manuell weitergeben: https://..." → Nina hat keine Email + keine Handynummer in der Anfrage
+D) "⚠️ Email-Versand fehlgeschlagen: ..." → SMTP-Fehler
+E) "⚠️ Stripe-Link-Erstellung fehlgeschlagen: ..." → Stripe-API-Fehler
+
+Welcher Fall war das? Den Link aus C) kannst du direkt kopieren + Nina schicken.

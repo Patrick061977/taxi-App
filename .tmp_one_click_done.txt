@@ -1,0 +1,9 @@
+v6.63.636 — Rechnung 1-Klick aus der Fahrt ✅
+
+Flow:
+1️⃣ Abgeschlossene Fahrt antippen
+2️⃣ "📧 Rechnung an Auftraggeber senden" (erste Option im Dialog)
+3️⃣ Email-Vorschau: Empfänger + Text vorausgefüllt, PDF als Anhang
+4️⃣ SENDEN — fertig
+
+APK baut gerade (GitHub Actions). Kommt in ~5 Min als Update-Banner.

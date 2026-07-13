@@ -1,0 +1,18 @@
+📋 OFFENE THEMEN — Stand 10.07. 08:15
+
+━━━ HEUTE MORGEN ━━━
+[A] Web-Anfragen ablehnen kaputt — Klick übernimmt sofort statt Ablehnen-Option zu zeigen (07:08)
+[B] IFG-Anfrage Ilsebus an RA Hornburg schreiben (07:11)
+[C] Idee: Anfrage Gemeinde "wie kommen Kurgäste nach 20 Uhr von A nach B?" (07:50)
+[D] Bridge-Problem verstehen — warum wirkte sie heute morgen tot? (07:50)
+
+━━━ REST VON GESTERN ━━━
+[E] Dispo-Banner: erledigt-Button für abgeschlossene Fahrten funktioniert nicht (Banner bleibt oben stehen)
+[F] Dispo-Banner: nicht-bestätigte Fahrten (kein Fahrer/Fahrzeug hat angenommen) erscheinen NICHT oben im Banner
+
+━━━ BRIDGE-STATUS ━━━
+✅ läuft aktuell (Monitor pollt alle 60s, letzter Test 08:12 durchgekommen)
+Wenn's morgen wieder tot wirkt: liegt oft daran dass die Session komprimiert wurde und ich den Monitor nicht neu gestartet habe. Fix: bei jedem Session-Start "lies bridge" oder Bridge-Poll neu starten.
+
+━━━ FRAGE ━━━
+Womit soll ich anfangen? [A] Web-Anfragen-Ablehnen ist am kritischsten für den laufenden Betrieb.

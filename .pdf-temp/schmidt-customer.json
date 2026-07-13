@@ -1,0 +1,13 @@
+{
+  "name": "Familie Schmidt",
+  "lastName": "Schmidt",
+  "anrede": "Familie",
+  "mobilePhone": "+491788083616",
+  "phone": "",
+  "type": "customer",
+  "customerKind": "gelegenheitskunde",
+  "category": "",
+  "notes": "Erst-Anlage via ACR-Whisper (gestern 18:44-Eingehend). Erste Buchung Sa 28.06. 08:20 Bansin Seestr 19 → Bahnhof Bansin.",
+  "createdAt": 1782287900000,
+  "createdBy": "claude-bridge-acr-schmidt-anlage"
+}

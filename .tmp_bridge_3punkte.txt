@@ -1,0 +1,22 @@
+━━━ 3 OFFENE PUNKTE ━━━
+
+📋 1) ANTJE 19:45 — WARUM GEBLOCKT
+Befund: buchenLog fast leer → kein genaues Log vorhanden.
+Aber aus dem Code: slotTs < (jetzt + 60 Min) = "zu kurzfristig" → Slot grau+gesperrt
+Wenn Antje um ~18:50 buchte: 19:45 liegt nur 55 Min weg → geblockt
+Toyota Prius IK endet Sonntag 18:00 → sowieso weg
+Tesla MY222 bis 22:00 → wäre frei gewesen, ABER 60-Min-Vorlauf-Regel greift
+Maßnahme: Vorlauf von 60 auf 30 Min reduzieren? Sag ja/nein.
+
+📋 2) FRAU GRAMSCH VIDEOS
+Email "erste Tipps" vom 20.05.2026 (ch.gramsch@t-online.de) hat Anhang:
+"Ernährung YT Videos.docx"
+→ In Gmail suchen: erste Tipps gramsch → Anhang direkt öffnen
+(Kein direkter Download von hier aus möglich — Gmail-Anhang-Scope fehlt)
+
+📋 3) SCHICHT-EDITOR ÜBERSICHT — BUG GEFUNDEN ✓
+Ursache: Tab "Wochenplan-Übersicht" zeigt nur defaults[] (Wochenplan-Muster).
+Datum-Override für Mo 06.07. wird dort NICHT angezeigt → Mo bleibt ⬜
+→ Obwohl der Override korrekt gespeichert ist, sieht man ihn in Tab 3 nicht.
+Extra-Bug: Preview sagt "heute: 06:30–22:00" obwohl du Montag bearbeitest.
+Fix läuft gerade — Tab 3 zeigt danach Wochenplan+Overrides diese Woche.

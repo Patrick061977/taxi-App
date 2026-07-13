@@ -1,0 +1,12 @@
+v6.63.635 ist durch ✅
+
+Rechnung per Email aus der Native-App:
+• Rechnungen-Liste öffnen
+• Rechnung antippen → Vorschau-Dialog
+• 📧 E-Mail antippen
+• Email-Text prüfen, Empfänger ggf. anpassen
+• SENDEN → PDF kommt als Anhang mit
+
+Fixes: Button war vorher unsichtbar ohne rideId, PDF wurde manchmal nicht angehängt.
+
+A-Rosa Rechnung 20-26-1292 (Grafer, 10€, 04.07.) — soll ich die jetzt direkt schicken oder machst du es selbst aus der App?

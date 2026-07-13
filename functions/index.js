@@ -29304,6 +29304,16 @@ exports.onRideUpdated = onValueUpdated(
                     `\n🎯 Fahrt zum Ziel läuft...`;
 
             } else if (newStatus === 'completed') {
+                // 🐛 v6.63.696 (Patrick 13.07. Bridge #1783927023782):
+                //   Ghost-Sweep completed → STILL. Keine Auto-Pay, keine Auto-Rechnung,
+                //   keine Kunden-SMS, keine Admin-Rechnung-Wartet-Push. Der Sweep raeumt
+                //   nur ueberfaellige non-final Rides auf — er hat keine echten neuen
+                //   Infos ueber Bezahlung/Feedback.
+                if (after.autoCompletedByGhostSweep === true) {
+                    console.log(`👻 v6.63.696 Completed-Trigger STILL fuer ${rideId} (Ghost-Sweep, keine Notifications/Auto-Actions)`);
+                    await addRideLog(rideId, '👻', 'Still-completed durch Ghost-Sweep — kein Follow-up', { rideId });
+                    return;
+                }
                 // 🆕 v6.63.117 (Patrick 03.06. 12:30 "Wie macht Uber das"): Auto-Pay
                 //   trigger wenn customer.autoChargeEnabled=true. Best-effort, blockt
                 //   completed-Trigger nicht bei Fehler.
@@ -32128,19 +32138,26 @@ exports.scheduledGhostRideSweep = onSchedule(
             for (const { id, ride } of toClose) {
                 try {
                     const ageH = Math.round((now - ride.pickupTimestamp) / 3600000);
+                    // 🐛 v6.63.696 (Patrick 13.07. Bridge #1783927023782):
+                    //   "Wenn Status nicht geklaert ist, still auf completed setzen —
+                    //   nicht auf stornieren, was soll der Quatsch?" Ghost-Sweep markiert
+                    //   ueberfaellige non-final Rides jetzt als completed (nicht cancelled),
+                    //   damit kein Storno in der Historie steht. Kunde war ja da, Fahrer
+                    //   hat's nur nicht durchgeklickt.
                     await db.ref('rides/' + id).update({
-                        status: 'cancelled',
-                        cancelledAt: now,
-                        cancelledBy: 'cloud-ghost-sweep-v6.63.104',
-                        ghostSweepReason: `non-final status='${ride.status}' nach ${ageH}h`,
-                        updatedAt: now
+                        status: 'completed',
+                        completedAt: now,
+                        autoCompletedByGhostSweep: true,
+                        ghostSweepReason: `non-final status='${ride.status}' nach ${ageH}h → still auto-completed`,
+                        updatedAt: now,
+                        updatedBy: 'cloud-ghost-sweep-v6.63.696'
                     });
-                    await addRideLog(id, '👻', `Ghost-Sweep: ${ride.status} (${ageH}h alt) → cancelled`, {
+                    await addRideLog(id, '👻', `Ghost-Sweep: ${ride.status} (${ageH}h alt) → completed (still)`, {
                         oldStatus: ride.status,
                         ageHours: ageH,
                         customer: ride.customerName || '?',
                         pickup: ride.pickup,
-                        quelle: 'scheduledGhostRideSweep v6.63.104'
+                        quelle: 'scheduledGhostRideSweep v6.63.696'
                     });
                 } catch (e) {
                     console.error(`❌ GhostSweep ${id}:`, e.message);
@@ -32154,7 +32171,7 @@ exports.scheduledGhostRideSweep = onSchedule(
                     return `• ${g.ride.customerName || '?'} ${ageH}h alt (${g.ride.status})`;
                 }).join('\n');
                 const overflow = toClose.length > 10 ? `\n…und ${toClose.length - 10} weitere` : '';
-                await sendToAllAdmins(`👻 Geister-Sweep: ${toClose.length} stale Fahrt(en) auto-cancelled\n${lines}${overflow}`);
+                await sendToAllAdmins(`👻 Geister-Sweep: ${toClose.length} stale Fahrt(en) still auto-completed\n${lines}${overflow}`);
             }
 
             console.log(`👻 GhostSweep: ${toClose.length}/${ghosts.length} geschlossen`);

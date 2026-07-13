@@ -734,25 +734,25 @@
             <a href="buchen.html?new=1" class="cta-book">🚕 Neue Fahrt buchen</a>
         </div>
 
-        <!-- 🆕 v6.63.694 HOTEL-PORTAL SCREEN (Patrick 13.07. Bridge — Kaiserhof-Test) -->
+        <!-- 🆕 v6.63.694 HOTEL-PORTAL SCREEN (Patrick 13.07. Bridge — Kaiserhof direkt-in-Kalender) -->
         <div id="hotel-portal-screen" style="display:none;">
             <div style="margin-bottom:14px;">
                 <div id="hotel-portal-name" style="font-size:22px;font-weight:800;letter-spacing:-0.4px;color:var(--ink);">🏨 Hotel-Portal</div>
                 <div id="hotel-portal-email" style="font-size:13px;color:var(--ink-3);margin-top:2px;"></div>
             </div>
-            <div style="background:#fef3c7;border:1px solid #fde68a;border-radius:12px;padding:12px;margin-bottom:14px;font-size:13px;color:#78350f;">
-                📋 <b>Testphase</b> — Anfragen landen direkt in der Funk-Taxi Dispo. Kalender-Ansicht folgt in Phase 2.
+            <div style="background:#d1fae5;border:1px solid #a7f3d0;border-radius:12px;padding:12px;margin-bottom:14px;font-size:13px;color:#065f46;">
+                ✅ <b>Direkt-Buchung</b> — Ihre Fahrten werden sofort im Funk-Taxi Kalender eingetragen und Fahrzeug automatisch zugewiesen. Keine Bestätigung nötig.
             </div>
-            <button id="hotel-new-anfrage-btn" onclick="hotelOpenNewAnfrage()" style="width:100%;background:#7c3aed;color:white;border:none;border-radius:12px;padding:14px;font-size:16px;font-weight:700;cursor:pointer;margin-bottom:14px;">➕ Neue Transfer-Anfrage</button>
-            <h3 style="font-size:15px;font-weight:700;color:var(--ink);margin:14px 0 8px;">📋 Meine offenen Anfragen</h3>
+            <button id="hotel-new-anfrage-btn" onclick="hotelOpenNewAnfrage()" style="width:100%;background:#7c3aed;color:white;border:none;border-radius:12px;padding:14px;font-size:16px;font-weight:700;cursor:pointer;margin-bottom:14px;">➕ Neue Transfer-Buchung</button>
+            <h3 style="font-size:15px;font-weight:700;color:var(--ink);margin:14px 0 8px;">🗓 Meine Buchungen</h3>
             <div id="hotel-anfragen-list"><div style="text-align:center;padding:20px;color:#6b7280;font-size:13px;">Lade…</div></div>
         </div>
 
-        <!-- 🆕 v6.63.694 HOTEL NEUE ANFRAGE MODAL -->
+        <!-- 🆕 v6.63.694 HOTEL NEUE BUCHUNG MODAL -->
         <div class="modal-overlay" id="hotel-anfrage-modal">
             <div class="modal">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-                    <h3>➕ Neue Transfer-Anfrage</h3>
+                    <h3>➕ Neue Transfer-Buchung</h3>
                     <button onclick="hotelCloseAnfrageModal()" style="background:none;border:none;font-size:24px;cursor:pointer;color:#6b7280;">✕</button>
                 </div>
                 <label style="font-size:13px;font-weight:600;">👤 Gastname *</label>
@@ -781,7 +781,7 @@
                 <textarea id="hotel-anf-notes" rows="2" placeholder="Kindersitz, viel Gepäck, etc." style="width:100%;padding:12px;border:1px solid #d1d5db;border-radius:10px;margin:4px 0 12px;font-size:14px;resize:vertical;"></textarea>
                 <div style="display:flex;gap:8px;margin-top:14px;">
                     <button onclick="hotelCloseAnfrageModal()" style="flex:1;padding:12px;background:#f3f4f6;color:#374151;border:none;border-radius:10px;font-weight:600;cursor:pointer;">Abbrechen</button>
-                    <button onclick="hotelSubmitAnfrage()" style="flex:2;padding:12px;background:#7c3aed;color:white;border:none;border-radius:10px;font-weight:700;cursor:pointer;">✅ Anfrage senden</button>
+                    <button onclick="hotelSubmitAnfrage()" style="flex:2;padding:12px;background:#7c3aed;color:white;border:none;border-radius:10px;font-weight:700;cursor:pointer;">✅ Buchung anlegen</button>
                 </div>
             </div>
         </div>
@@ -2864,30 +2864,46 @@
         }
 
         async function loadHotelAnfragen() {
+            // Patrick 13.07.: Direkt-Buchung — lese aus /rides mit source='hotel-portal'
+            //   und hotelCrmId == customerData.id (kein /anfragen mehr, kein Bestaetigen).
             const listEl = document.getElementById('hotel-anfragen-list');
             try {
-                // Alle Anfragen mit hotelCrmId == customerData.id
-                const snap = await db.ref('anfragen').orderByChild('hotelCrmId').equalTo(customerData.id).once('value');
-                const anfr = snap.val() || {};
-                const rows = Object.entries(anfr).map(([k,v]) => ({ id: k, ...v }))
-                    .sort((a,b) => (b.createdAt||0) - (a.createdAt||0));
+                const snap = await db.ref('rides').orderByChild('hotelCrmId').equalTo(customerData.id).once('value');
+                const rides = snap.val() || {};
+                // Nur zukuenftige/heutige (letzte 7 Tage reicht als Rueckblick)
+                const cutoff = Date.now() - 7 * 86400000;
+                const rows = Object.entries(rides).map(([k,v]) => ({ id: k, ...v }))
+                    .filter(r => (r.pickupTimestamp || r.createdAt || 0) > cutoff)
+                    .sort((a,b) => (a.pickupTimestamp||0) - (b.pickupTimestamp||0));
                 if (rows.length === 0) {
-                    listEl.innerHTML = '<div style="text-align:center;padding:24px;color:#6b7280;font-size:13px;">Noch keine Anfragen. Klick oben auf ➕ Neue Transfer-Anfrage.</div>';
+                    listEl.innerHTML = '<div style="text-align:center;padding:24px;color:#6b7280;font-size:13px;">Noch keine Buchungen. Klick oben auf ➕ Neue Transfer-Buchung.</div>';
                     return;
                 }
                 listEl.innerHTML = rows.map(r => {
-                    const statusEmoji = { 'new': '🆕', 'accepted': '✅', 'rejected': '❌', 'completed': '🏁' }[r.status] || '⏳';
-                    const statusLabel = { 'new': 'Neu (wartet)', 'accepted': 'Übernommen', 'rejected': 'Abgelehnt', 'completed': 'Erledigt' }[r.status] || (r.status || 'unbekannt');
-                    const dtStr = r.date && r.time ? (r.date.split('-').reverse().join('.') + ' ' + r.time) : (r.date || '?');
+                    const statusMap = {
+                        'new': { emoji: '📅', label: 'Geplant', color: '#e0e7ff', text: '#3730a3' },
+                        'vorbestellt': { emoji: '📅', label: 'Geplant', color: '#e0e7ff', text: '#3730a3' },
+                        'accepted': { emoji: '✅', label: 'Fahrzeug zugewiesen', color: '#d1fae5', text: '#065f46' },
+                        'on_way': { emoji: '🚕', label: 'Fahrer unterwegs', color: '#fef3c7', text: '#78350f' },
+                        'arrived': { emoji: '📍', label: 'Fahrer da', color: '#fed7aa', text: '#7c2d12' },
+                        'picked_up': { emoji: '🛣', label: 'Unterwegs', color: '#dbeafe', text: '#1e40af' },
+                        'completed': { emoji: '🏁', label: 'Erledigt', color: '#f3f4f6', text: '#374151' },
+                        'cancelled': { emoji: '❌', label: 'Storniert', color: '#fee2e2', text: '#7f1d1d' }
+                    };
+                    const s = statusMap[r.status] || { emoji: '⏳', label: r.status || 'unbekannt', color: '#f3f4f6', text: '#374151' };
+                    const d = r.pickupTimestamp ? new Date(r.pickupTimestamp) : null;
+                    const dtStr = d ? (String(d.getDate()).padStart(2,'0')+'.'+String(d.getMonth()+1).padStart(2,'0')+'.'+d.getFullYear()+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')) : '?';
+                    const vehName = r.vehicleLabel || r.vehicle || r.assignedVehicleName || '';
                     return `<div style="background:white;border:1px solid #e5e7eb;border-radius:12px;padding:12px;margin-bottom:8px;">
                         <div style="display:flex;justify-content:space-between;align-items:start;gap:8px;">
-                            <div>
-                                <div style="font-weight:700;font-size:15px;">${r.name || 'Gast'}</div>
-                                <div style="font-size:12px;color:#6b7280;margin-top:2px;">📅 ${dtStr} · 👥 ${r.passengers || 1} Pax</div>
-                                <div style="font-size:12px;color:#374151;margin-top:4px;">📍 ${(r.pickup||'').substring(0,50)}<br>🎯 ${(r.destination||'').substring(0,50)}</div>
+                            <div style="flex:1;">
+                                <div style="font-weight:700;font-size:15px;">${r.customerName || r.guestName || 'Gast'}</div>
+                                <div style="font-size:12px;color:#6b7280;margin-top:2px;">📅 ${dtStr} · 👥 ${r.passengers || 1} Pax${r.returnTrip ? ' · 🔁 Rückfahrt' : ''}</div>
+                                <div style="font-size:12px;color:#374151;margin-top:4px;">📍 ${(r.pickup||'').substring(0,60)}<br>🎯 ${(r.destination||'').substring(0,60)}</div>
+                                ${vehName ? `<div style="font-size:12px;color:#065f46;margin-top:4px;font-weight:600;">🚕 ${vehName}</div>` : ''}
                                 ${r.notes ? `<div style="font-size:11px;color:#6b7280;margin-top:4px;font-style:italic;">📝 ${r.notes.substring(0,80)}</div>` : ''}
                             </div>
-                            <div style="text-align:right;flex-shrink:0;"><span style="font-size:12px;font-weight:700;padding:4px 8px;border-radius:20px;background:#f3f4f6;">${statusEmoji} ${statusLabel}</span></div>
+                            <div style="text-align:right;flex-shrink:0;"><span style="font-size:12px;font-weight:700;padding:4px 8px;border-radius:20px;background:${s.color};color:${s.text};">${s.emoji} ${s.label}</span></div>
                         </div>
                     </div>`;
                 }).join('');
@@ -2901,7 +2917,7 @@
         function hotelCloseAnfrageModal() { document.getElementById('hotel-anfrage-modal').classList.remove('active'); }
 
         async function hotelSubmitAnfrage() {
-            const name = document.getElementById('hotel-anf-name').value.trim();
+            const guestName = document.getElementById('hotel-anf-name').value.trim();
             const date = document.getElementById('hotel-anf-date').value;
             const time = document.getElementById('hotel-anf-time').value;
             const pax = parseInt(document.getElementById('hotel-anf-pax').value) || 1;
@@ -2909,34 +2925,69 @@
             const dest = document.getElementById('hotel-anf-dest').value.trim();
             const returnTrip = document.getElementById('hotel-anf-return').checked;
             const notes = document.getElementById('hotel-anf-notes').value.trim();
-            if (!name || !date || !time || !pickup || !dest) {
+            if (!guestName || !date || !time || !pickup || !dest) {
                 alert('Bitte alle Pflichtfelder (*) ausfüllen.');
                 return;
             }
             const pickupTs = new Date(date + 'T' + time + ':00').getTime();
-            const anfr = {
-                name: name,
-                date: date,
-                time: time,
-                passengers: pax,
+
+            // Patrick 13.07.: DIREKT-BUCHUNG — geht in /rides, nicht /anfragen.
+            //   Auftraggeber-System nutzen: Hotel = Auftraggeber, guestName = Fahrgast.
+            //   source='hotel-portal' → Native-Dispo kann Farbmarkierung setzen.
+            //   Pickup-Koordinaten aus CRM (Hotel-Adresse ist geocoded), Ziel muss
+            //   Cloud-Function nachgeocoden (v6.25.4 Geocoding-Fallback in Phase 2).
+            const ride = {
+                customerName: customerData.name, // Auftraggeber = Hotel-Name
+                customerId: customerData.id,
+                customerPhone: customerData.phone || null,
+                customerEmail: customerData.email || null,
+                guestName: guestName, // der tatsaechliche Fahrgast
+                _isAuftraggeberBooking: true,
+                _auftraggeberResolved: true,
+                _auftraggeberCrmId: customerData.id,
+                _auftraggeberAddress: customerData.address || null,
+                _auftraggeberLat: customerData.lat || customerData.addressLat || null,
+                _auftraggeberLon: customerData.lon || customerData.addressLon || null,
                 pickup: pickup,
                 destination: dest,
+                pickupLat: (pickup === (customerData.address || '')) ? (customerData.addressLat || customerData.lat || null) : null,
+                pickupLon: (pickup === (customerData.address || '')) ? (customerData.addressLon || customerData.lon || null) : null,
+                pickupTime: time,
+                pickupDate: date,
+                pickupTimestamp: pickupTs,
+                passengers: pax,
                 returnTrip: returnTrip,
                 notes: notes || null,
+                status: 'new',
+                source: 'hotel-portal',
                 channel: 'hotel-portal',
                 hotelCrmId: customerData.id,
                 hotelName: customerData.name,
-                phone: customerData.phone || null,
-                email: customerData.email || null,
-                pickupTimestamp: pickupTs,
-                status: 'new',
-                source: 'kunden.html-hotel-portal-v6.63.694',
                 createdAt: Date.now(),
-                createdBy: 'hotel-' + (customerData.id || 'unknown')
+                createdBy: 'hotel-portal-' + (customerData.id || 'unknown'),
+                updatedAt: Date.now(),
+                paymentMethod: 'rechnung', // Sammel-Rechnung an Hotel
+                paymentStatus: 'offen'
             };
             try {
-                const ref = db.ref('anfragen').push();
-                await ref.set(anfr);
+                const ref = db.ref('rides').push();
+                await ref.set(ride);
+                // Rueckfahrt: 2. Ride mit swapped pickup/destination
+                if (returnTrip) {
+                    const returnRide = { ...ride,
+                        pickup: dest, destination: pickup,
+                        pickupLat: null, pickupLon: null,
+                        pickupTimestamp: pickupTs + 3 * 3600000, // +3h (Fallback bis Hotel exakte Rueckfahrt-Zeit angibt)
+                        pickupTime: (() => { const d2 = new Date(pickupTs + 3 * 3600000); return String(d2.getHours()).padStart(2,'0') + ':' + String(d2.getMinutes()).padStart(2,'0'); })(),
+                        notes: (notes ? notes + ' — ' : '') + 'Rueckfahrt zum Hotel',
+                        returnTrip: false,
+                        _linkedRideId: ref.key
+                    };
+                    const rRef = db.ref('rides').push();
+                    await rRef.set(returnRide);
+                    // Verknuepfung
+                    await ref.child('_linkedReturnRideId').set(rRef.key);
+                }
                 hotelCloseAnfrageModal();
                 // Reset Formular
                 document.getElementById('hotel-anf-name').value = '';
@@ -2946,10 +2997,10 @@
                 document.getElementById('hotel-anf-notes').value = '';
                 document.getElementById('hotel-anf-pax').value = '2';
                 loadHotelAnfragen();
-                alert('✅ Anfrage gesendet! Wir melden uns mit einer Bestätigung.');
+                alert('✅ Buchung eingetragen! Fahrzeug wird automatisch zugewiesen.' + (returnTrip ? ' Rückfahrt +3h Standard, kann in Dispo angepasst werden.' : ''));
             } catch (e) {
                 console.error('hotelSubmitAnfrage:', e);
-                alert('❌ Fehler beim Senden: ' + e.message);
+                alert('❌ Fehler beim Anlegen: ' + e.message);
             }
         }
     </script>

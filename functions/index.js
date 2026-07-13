@@ -22947,6 +22947,31 @@ exports.autoResolveConflicts = onSchedule(
                             slotsPerVehicle[oldVehicle].push({ start: ride.pickupTimestamp, end: rideEnd, destLat: ride.destinationLat || ride.destCoords?.lat, destLon: ride.destinationLon || ride.destCoords?.lon, customer: ride.customerName });
                             continue;
                         }
+                        // 🆕 v6.63.691 (Patrick 12.07. 16:55 Bridge #1783868104116):
+                        // "Wenn Optimierung nicht mehr als 5 Minuten besser ist, dann nicht
+                        // mehr umplanen." Phase 3 hatte bisher NUR Prio-Check — bei
+                        // Prio-Wechsel wurde umgeplant, selbst wenn Anfahrt nur 1-2 Min besser.
+                        // Jetzt: nur umplanen wenn oldVehicle-Anfahrt >= newVehicle-Anfahrt + 5 Min
+                        // (bei echtem Konflikt oldVehicleStillFree=false wird umgelegt egal was).
+                        const MIN_OPTIMIZE_DELTA_MIN = 5;
+                        if (oldVehicleStillFree) {
+                            const _rPickLat = ride.pickupLat || ride.pickupCoords?.lat;
+                            const _rPickLon = ride.pickupLon || ride.pickupCoords?.lon;
+                            let oldVehicleLeerfahrtMin = 0;
+                            const _oldPrevSlots = (slotsPerVehicle[oldVehicle] || [])
+                                .filter(s => s.end <= ride.pickupTimestamp && !(s.firebaseId === ride.firebaseId));
+                            if (_oldPrevSlots.length > 0) {
+                                const _lastOld = _oldPrevSlots.reduce((a, b) => b.end > a.end ? b : a);
+                                oldVehicleLeerfahrtMin = _quickLeerfahrtMin(_lastOld.destLat, _lastOld.destLon, _rPickLat, _rPickLon);
+                            }
+                            const _delta = oldVehicleLeerfahrtMin - (bestVehicleLeerfahrtMin || 0);
+                            if (_delta < MIN_OPTIMIZE_DELTA_MIN) {
+                                phase3DebugLines.push(`⏭️ ${timeStr} ${ride.customerName || '?'} → ${(OFFICIAL_VEHICLES[oldVehicle] || {}).name} bleibt (Delta ${_delta} Min < ${MIN_OPTIMIZE_DELTA_MIN}min-Schwelle, v6.63.691)`);
+                                slotsPerVehicle[oldVehicle].push({ start: ride.pickupTimestamp, end: rideEnd, destLat: ride.destinationLat || ride.destCoords?.lat, destLon: ride.destinationLon || ride.destCoords?.lon, customer: ride.customerName });
+                                continue;
+                            }
+                        }
+
                         // 🐛 v6.63.250 (Patrick 09.06. Ahlbeck-Ping-Pong): Cooldown gegen
                         // 4×-pro-Stunde Re-Sort. Phase 2 hat seit v6.25.4 Cooldown
                         // (lastOptimizedAt + lastOptimizedTo, 60min) — Phase 3 hatte keinen.

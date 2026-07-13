@@ -24756,19 +24756,24 @@ exports.scheduledAutoAssign = onSchedule(
                         //   Flag setzen + FCM. Bei 'vorbestellt' wie gehabt → 'assigned'.
                         const _wasVorbestellt = r.status === 'vorbestellt';
                         try {
+                            // 🐛 v6.63.697 (Patrick 13.07. Bridge #1783928436106):
+                            //   "Assigned kann NUR gemacht werden wenn Fahrer bestaetigt hat.
+                            //    Das System kann doch nicht selber assign."
+                            //   VORHER: setzte status='assigned' als Idempotenz-Marker.
+                            //   Folge: Ride war in Dispo-Views unsichtbar (die filtern
+                            //   'vorbestellt' oder 'accepted'), Ziebell 13.07. fast verpasst.
+                            //   JETZT: separater Flag reminderPushedAt=now — Status bleibt
+                            //   'vorbestellt' bis Fahrer explizit akzeptiert.
                             const _upd = {
-                                statusTransitionedAt: now,
-                                statusTransitionReason: 'v6.62.804 Push-Reminder bei <60 Min vor Pickup',
+                                reminderPushedAt: now,
+                                lastReminderReason: 'v6.63.697 Push-Reminder bei <60 Min vor Pickup',
                                 openRideWarned: true,  // verhindert Re-Trigger im naechsten 10-Min-Cron
                                 updatedAt: now
                             };
-                            if (_wasVorbestellt) {
-                                _upd.status = 'assigned';
-                            }
                             await db.ref('rides/' + r.firebaseId).update(_upd);
-                            if (_wasVorbestellt) r.status = 'assigned'; // lokale Kopie aktualisieren
-                            console.log(`   ✅ ${r.customerName || r.firebaseId} (${_vName}, in ${_minUntil} Min) status=${r.status}`);
-                            await addRideLog(r.firebaseId, '📲', `Push-Reminder: ${_wasVorbestellt ? 'vorbestellt→assigned' : 'accepted (bleibt)'}  (Pickup in ${_minUntil} Min)`, {
+                            r.reminderPushedAt = now; // lokale Kopie aktualisieren
+                            console.log(`   ✅ ${r.customerName || r.firebaseId} (${_vName}, in ${_minUntil} Min) status=${r.status} (reminderPushedAt gesetzt)`);
+                            await addRideLog(r.firebaseId, '📲', `Push-Reminder: ${_wasVorbestellt ? 'vorbestellt (bleibt, +reminderPushedAt)' : 'accepted (bleibt)'} (Pickup in ${_minUntil} Min)`, {
                                 quelle: 'scheduledAutoAssign v6.62.804',
                                 fahrzeug: _vName,
                                 minutenBisAbholung: _minUntil
@@ -24811,43 +24816,52 @@ exports.scheduledAutoAssign = onSchedule(
                 }
             }
 
-            // 🆕 v6.63.568: No-Response-Reassign — Jetzt-Los-Push gefeuert aber Fahrer hat
-            // nicht reagiert (kein acceptedAt/onWayAt nach min. 5 Min). Patrick 02.07.2026:
+            // 🆕 v6.63.568 + 🐛 v6.63.697 (Patrick 13.07. Bridge — assigned-Bug):
+            // No-Response-Reassign: Jetzt-Los-Push gefeuert aber Fahrer hat nicht
+            // reagiert (kein acceptedAt/onWayAt nach min. 5 Min). Patrick 02.07.2026:
             // "wenn er nicht annimmt, dann muss die doch weitergeleitet werden"
+            //
+            // v6.63.697 Fix: Prueft jetzt status='vorbestellt' + reminderPushedAt
+            // (statt status='assigned'), weil Reminder den Status nicht mehr aendert.
             {
                 const _noResponseList = allRides.filter(r => {
-                    if (r.status !== 'assigned') return false;
+                    // Neu (v6.63.697): vorbestellt + reminderPushedAt gesetzt
+                    // Legacy: alte Rides mit status='assigned' auch noch mitnehmen
+                    const _isEligible = (r.status === 'vorbestellt' && r.reminderPushedAt)
+                        || r.status === 'assigned';
+                    if (!_isEligible) return false;
                     if (!r.openRideWarned) return false;
                     if (r.acceptedAt || r.onWayAt) return false;
                     if (r.assignmentLocked) return false;
                     if (!r.pickupTimestamp) return false;
                     if ((r.pickupTimestamp - now) < -5 * 60000) return false; // >5 Min überfällig → zu spät
                     if ((r.pickupTimestamp - now) > 60 * 60000) return false; // noch >60 Min hin → nicht dringend
-                    // Mindest-Wartezeit: statusTransitionedAt muss min. 5 Min alt sein
-                    // (verhindert sofortigen Re-Assign in gleicher Cron-Runde wie Push)
-                    const _transAt = r.statusTransitionedAt || 0;
-                    if (!_transAt || (now - _transAt) < 5 * 60000) return false;
+                    // Mindest-Wartezeit: reminderPushedAt (oder legacy statusTransitionedAt)
+                    // muss min. 5 Min alt sein — verhindert sofortigen Re-Assign in gleicher Cron-Runde.
+                    const _markerAt = r.reminderPushedAt || r.statusTransitionedAt || 0;
+                    if (!_markerAt || (now - _markerAt) < 5 * 60000) return false;
                     return true;
                 });
                 if (_noResponseList.length > 0) {
-                    console.log(`🔄 v6.63.568 No-Response-Reassign: ${_noResponseList.length} Fahrt(en) ohne Fahrerannahme nach Jetzt-Los-Push`);
+                    console.log(`🔄 v6.63.697 No-Response-Reassign: ${_noResponseList.length} Fahrt(en) ohne Fahrerannahme nach Jetzt-Los-Push`);
                     for (const r of _noResponseList) {
                         const _curVid = r.vehicleId || r.assignedVehicle;
                         const _vName = (OFFICIAL_VEHICLES[_curVid] || {}).name || _curVid;
                         console.log(`   ⏰ ${r.customerName || r.firebaseId} (${_vName}): kein acceptedAt → Re-Assign ohne ${_curVid}`);
                         try {
-                            // Zurück auf vorbestellt + Flags leeren → autoAssignRide kann neu zuweisen
+                            // Zurück auf vorbestellt + alle Reminder-Flags leeren → autoAssignRide kann neu zuweisen
                             await db.ref('rides/' + r.firebaseId).update({
                                 status: 'vorbestellt',
                                 openRideWarned: null,
                                 statusTransitionedAt: null,
+                                reminderPushedAt: null,
                                 updatedAt: now
                             });
                             await addRideLog(r.firebaseId, '🔄', `No-Response Reassign: ${_vName} hat Jetzt-Los-Push nicht angenommen → neues Fahrzeug gesucht`, {
-                                quelle: 'scheduledAutoAssign v6.63.568',
+                                quelle: 'scheduledAutoAssign v6.63.697',
                                 altesFahrzeug: _curVid
                             });
-                            await autoAssignRide(r.firebaseId, { ...r, status: 'vorbestellt', openRideWarned: null }, [_curVid]);
+                            await autoAssignRide(r.firebaseId, { ...r, status: 'vorbestellt', openRideWarned: null, reminderPushedAt: null }, [_curVid]);
                         } catch (_nrErr) {
                             console.error(`   ❌ No-Response Reassign fehlgeschlagen ${r.firebaseId}:`, _nrErr.message);
                         }
@@ -29198,6 +29212,14 @@ exports.onRideUpdated = onValueUpdated(
                 await sendCustomerWhatsAppNotification(after, rideId, 'booking_confirmed');
 
             } else if (newStatus === 'storniert' || newStatus === 'cancelled') {
+                // 🐛 v6.63.695 (Patrick 13.07. Bridge #1783926130261):
+                //   "02:30 sind 7-8 Storno-SMS rausgegangen." Der scheduledGhostRideSweep
+                //   markiert nachts alle 12h+ ueberfaelligen Non-Final-Rides als cancelled.
+                //   Das ist internes Aufraeumen — Kunde ist laengst am Ziel, kriegt aber
+                //   um 02:30 Nacht eine Storno-SMS. Deshalb hier: Wenn Ghost-Sweep der
+                //   Ausloeser war → keine Kunden-Notification (SMS/WA/Fahrer-Telegram).
+                const _isGhostSweep = String(after.cancelledBy || '').startsWith('cloud-ghost-sweep')
+                    || after.ghostSweepReason;
                 // 🆕 v6.25.4: Zeige WER und WO storniert hat
                 const deletedBy = after.deletedBy || after.cancelledBy || '?';
                 let storniertVon = '?';
@@ -29224,9 +29246,9 @@ exports.onRideUpdated = onValueUpdated(
                     `\n🔧 <b>Storniert über:</b> ${storniertVon}` +
                     `\n⚠️ Status: Storniert`;
 
-                // Fahrer benachrichtigen falls zugewiesen
+                // Fahrer benachrichtigen falls zugewiesen (nicht bei Ghost-Sweep — v6.63.695)
                 const vehicleId = after.assignedVehicle || after.vehicleId;
-                if (vehicleId) {
+                if (vehicleId && !_isGhostSweep) {
                     const driverChatId = await getDriverChatId(vehicleId);
                     if (driverChatId) {
                         const cancelMsg = `🚫 <b>FAHRT STORNIERT!</b>\n\n` +
@@ -29241,14 +29263,20 @@ exports.onRideUpdated = onValueUpdated(
                 }
 
                 // 🆕 v6.28.0: WhatsApp-Stornierung an Kunden
-                await sendCustomerWhatsAppNotification(after, rideId, 'cancelled');
+                if (!_isGhostSweep) {
+                    await sendCustomerWhatsAppNotification(after, rideId, 'cancelled');
+                } else {
+                    console.log(`👻 v6.63.695 WhatsApp-Storno UNTERDRUECKT (Ghost-Sweep) fuer ${rideId}`);
+                }
 
                 // 🆕 v6.62.522: SMS-Stornierung an Kunden (Patrick 09.05.: bei Werner-Storno
                 // kam keine SMS Bestaetigung; bisher gab's nur WhatsApp + Telegram).
                 // Nur Mobile-Nummern, optional via /settings/sms/cancelEnabled abschaltbar.
                 try {
                     const _custPhoneCancel = after.customerPhone || after.customerMobile;
-                    if (_custPhoneCancel) {
+                    if (_isGhostSweep) {
+                        console.log(`👻 v6.63.695 SMS-Storno UNTERDRUECKT (Ghost-Sweep) fuer ${rideId}`);
+                    } else if (_custPhoneCancel) {
                         const _smsSetSnap = await db.ref('settings/sms').once('value');
                         const _smsSet = _smsSetSnap.val() || {};
                         if (_smsSet.cancelEnabled !== false) { // Default ON
@@ -29290,6 +29318,16 @@ exports.onRideUpdated = onValueUpdated(
                     `\n🎯 Fahrt zum Ziel läuft...`;
 
             } else if (newStatus === 'completed') {
+                // 🐛 v6.63.696 (Patrick 13.07. Bridge #1783927023782):
+                //   Ghost-Sweep completed → STILL. Keine Auto-Pay, keine Auto-Rechnung,
+                //   keine Kunden-SMS, keine Admin-Rechnung-Wartet-Push. Der Sweep raeumt
+                //   nur ueberfaellige non-final Rides auf — er hat keine echten neuen
+                //   Infos ueber Bezahlung/Feedback.
+                if (after.autoCompletedByGhostSweep === true) {
+                    console.log(`👻 v6.63.696 Completed-Trigger STILL fuer ${rideId} (Ghost-Sweep, keine Notifications/Auto-Actions)`);
+                    await addRideLog(rideId, '👻', 'Still-completed durch Ghost-Sweep — kein Follow-up', { rideId });
+                    return;
+                }
                 // 🆕 v6.63.117 (Patrick 03.06. 12:30 "Wie macht Uber das"): Auto-Pay
                 //   trigger wenn customer.autoChargeEnabled=true. Best-effort, blockt
                 //   completed-Trigger nicht bei Fehler.
@@ -32114,19 +32152,26 @@ exports.scheduledGhostRideSweep = onSchedule(
             for (const { id, ride } of toClose) {
                 try {
                     const ageH = Math.round((now - ride.pickupTimestamp) / 3600000);
+                    // 🐛 v6.63.696 (Patrick 13.07. Bridge #1783927023782):
+                    //   "Wenn Status nicht geklaert ist, still auf completed setzen —
+                    //   nicht auf stornieren, was soll der Quatsch?" Ghost-Sweep markiert
+                    //   ueberfaellige non-final Rides jetzt als completed (nicht cancelled),
+                    //   damit kein Storno in der Historie steht. Kunde war ja da, Fahrer
+                    //   hat's nur nicht durchgeklickt.
                     await db.ref('rides/' + id).update({
-                        status: 'cancelled',
-                        cancelledAt: now,
-                        cancelledBy: 'cloud-ghost-sweep-v6.63.104',
-                        ghostSweepReason: `non-final status='${ride.status}' nach ${ageH}h`,
-                        updatedAt: now
+                        status: 'completed',
+                        completedAt: now,
+                        autoCompletedByGhostSweep: true,
+                        ghostSweepReason: `non-final status='${ride.status}' nach ${ageH}h → still auto-completed`,
+                        updatedAt: now,
+                        updatedBy: 'cloud-ghost-sweep-v6.63.696'
                     });
-                    await addRideLog(id, '👻', `Ghost-Sweep: ${ride.status} (${ageH}h alt) → cancelled`, {
+                    await addRideLog(id, '👻', `Ghost-Sweep: ${ride.status} (${ageH}h alt) → completed (still)`, {
                         oldStatus: ride.status,
                         ageHours: ageH,
                         customer: ride.customerName || '?',
                         pickup: ride.pickup,
-                        quelle: 'scheduledGhostRideSweep v6.63.104'
+                        quelle: 'scheduledGhostRideSweep v6.63.696'
                     });
                 } catch (e) {
                     console.error(`❌ GhostSweep ${id}:`, e.message);
@@ -32140,7 +32185,7 @@ exports.scheduledGhostRideSweep = onSchedule(
                     return `• ${g.ride.customerName || '?'} ${ageH}h alt (${g.ride.status})`;
                 }).join('\n');
                 const overflow = toClose.length > 10 ? `\n…und ${toClose.length - 10} weitere` : '';
-                await sendToAllAdmins(`👻 Geister-Sweep: ${toClose.length} stale Fahrt(en) auto-cancelled\n${lines}${overflow}`);
+                await sendToAllAdmins(`👻 Geister-Sweep: ${toClose.length} stale Fahrt(en) still auto-completed\n${lines}${overflow}`);
             }
 
             console.log(`👻 GhostSweep: ${toClose.length}/${ghosts.length} geschlossen`);

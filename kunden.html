@@ -768,6 +768,16 @@
                 </div>
                 <label style="font-size:13px;font-weight:600;">👤 Gastname *</label>
                 <input id="hotel-anf-name" type="text" placeholder="z.B. Familie Meier" style="width:100%;padding:12px;border:1px solid #d1d5db;border-radius:10px;margin:4px 0 12px;font-size:15px;">
+                <!-- v6.63.705 (Patrick 14.07.): Reihenfolge — Abholort/Ziel oben, dann Datum/Uhrzeit, dann Pax -->
+                <label style="font-size:13px;font-weight:600;">📍 Abholort (Standard: Hotel-Adresse)</label>
+                <input id="hotel-anf-pickup" type="text" placeholder="Hotel-Adresse (Standard)" style="width:100%;padding:12px;border:1px solid #d1d5db;border-radius:10px;margin:4px 0 12px;font-size:15px;">
+                <label style="font-size:13px;font-weight:600;">🎯 Zielort *</label>
+                <input id="hotel-anf-dest" type="text" placeholder="z.B. Bahnhof Ahlbeck" style="width:100%;padding:12px;border:1px solid #d1d5db;border-radius:10px;margin:4px 0 4px;font-size:15px;">
+                <div id="hotel-fav-chips" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;"></div>
+                <div style="display:flex;gap:6px;margin-bottom:12px;">
+                    <button type="button" onclick="hotelSwapPickupDest()" style="flex:1;padding:8px;background:#f3f4f6;border:1px solid #e5e7eb;border-radius:8px;font-size:12px;cursor:pointer;color:#374151;font-weight:600;">↔ Abholort ↔ Ziel tauschen</button>
+                    <button type="button" onclick="hotelAddFavorite()" style="flex:1;padding:8px;background:#f3f4f6;border:1px solid #e5e7eb;border-radius:8px;font-size:12px;cursor:pointer;color:#374151;font-weight:600;">⭐ Aktuelles Ziel als Favorit</button>
+                </div>
                 <div style="display:flex;gap:8px;">
                     <div style="flex:1;">
                         <label style="font-size:13px;font-weight:600;">📅 Datum *</label>
@@ -780,16 +790,6 @@
                 </div>
                 <label style="font-size:13px;font-weight:600;">👥 Personen *</label>
                 <input id="hotel-anf-pax" type="number" min="1" max="20" value="2" style="width:100%;padding:12px;border:1px solid #d1d5db;border-radius:10px;margin:4px 0 12px;font-size:15px;">
-                <label style="font-size:13px;font-weight:600;">📍 Abholort (Standard: Hotel-Adresse)</label>
-                <input id="hotel-anf-pickup" type="text" placeholder="Hotel-Adresse (Standard)" style="width:100%;padding:12px;border:1px solid #d1d5db;border-radius:10px;margin:4px 0 12px;font-size:15px;">
-                <label style="font-size:13px;font-weight:600;">🎯 Zielort *</label>
-                <input id="hotel-anf-dest" type="text" placeholder="z.B. Bahnhof Ahlbeck" style="width:100%;padding:12px;border:1px solid #d1d5db;border-radius:10px;margin:4px 0 4px;font-size:15px;">
-                <!-- v6.63.702 (Patrick 14.07.): Favoriten-Schnellwahl + Rueckfahrt-Swap -->
-                <div id="hotel-fav-chips" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;"></div>
-                <div style="display:flex;gap:6px;margin-bottom:12px;">
-                    <button type="button" onclick="hotelSwapPickupDest()" style="flex:1;padding:8px;background:#f3f4f6;border:1px solid #e5e7eb;border-radius:8px;font-size:12px;cursor:pointer;color:#374151;font-weight:600;">↔ Abholort ↔ Ziel tauschen</button>
-                    <button type="button" onclick="hotelAddFavorite()" style="flex:1;padding:8px;background:#f3f4f6;border:1px solid #e5e7eb;border-radius:8px;font-size:12px;cursor:pointer;color:#374151;font-weight:600;">⭐ Aktuelles Ziel als Favorit</button>
-                </div>
                 <label style="display:flex;align-items:center;gap:8px;margin:8px 0;font-size:14px;font-weight:600;cursor:pointer;">
                     <input id="hotel-anf-return" type="checkbox">
                     🔁 Mit Rückfahrt

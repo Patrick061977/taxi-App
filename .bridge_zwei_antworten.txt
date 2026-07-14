@@ -1,0 +1,44 @@
+📊 GLD-ZYKLUS seit letztem Assignment 06.02.2026:
+
+Praemien SP:      +$15.597
+Praemien CC:      +$43.279
+CC-Buybacks:      -$31.618
+Hedge/Long-Puts:  -$9.730
+─────────────────────────
+NETTO Praemien: +$17.528
+
+Aktien-Buchverlust (200 × ($458.28 − $367.13)): -$18.230
+
+━━━━━━━━━━━━━━━━━━
+
+🎯 BILANZ TOTAL bei Aufloesung heute: -$702 (praktisch Plus-Minus Null!)
+
+📈 BREAK-EVEN-KURS: $370.64
+   (Du bist aktuell $367.13 — nur $3.51 pro Aktie unter BE = -$702 gesamt)
+
+━━━━━━━━━━━━━━━━━━
+
+💡 DEINE OPTIONEN:
+A) HEUTE aufloesen: −$702 realisieren (fast Null), Wheel neu starten
+B) WARTEN bis Gold $371 → BE-Auflosung mit +/-0
+C) HOCH-ROLLEN: bei jedem 5% Kurs-Anstieg CC-Strike anheben, sammle mehr Praemien
+   → Ziel: Bei $460+ Called Away wieder mit Gewinn
+
+Wenn du echt zumachen willst: bei Kurs 370-375 waer ideal.
+
+━━━━━━━━━━━━━━━━━━
+
+🎨 DANILO'S WUNSCH — Einsteiger-Farbe im Kalender:
+
+✅ v5.6 Kalender-Sync gepusht (PR #2614)
+Einsteiger-Fahrten (kein pickupTime + cash-Zahlung) → ColorId 4 = FLAMINGO (rot-orange)
+Normale Fahrten bleiben CONFIG.EVENT_COLOR (aktuell 5 = Basil/gruen)
+
+⚠️ WICHTIG: Google Apps Script hat KEIN Auto-Deploy!
+Du musst den Code MANUELL ins Google Apps Script Projekt kopieren:
+1. https://script.google.com oeffnen
+2. Projekt "Kalender-Sync" waehlen
+3. kalender-sync-v5.6.js aus GitHub Repo ins Script kopieren
+4. Speichern (Strg+S) — Trigger laueft weiter automatisch
+
+Danach erscheinen neue Einsteiger-Fahrten in rot-orange, Fahrer erkennt sie sofort.

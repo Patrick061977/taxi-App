@@ -1,0 +1,23 @@
+✅ Fix drin (v0.10.54) — Grid unterscheidet jetzt:
+
+🟢 gruen ✓ = 100 Aktien im Depot (WIRKLICH eingebucht)
+🟣 violett 📝 = Short-Put offen, wartet auf Assignment (dein Fall)
+🔴 rot = Kurs unter Trigger (Aktion faellig)
+🟡 gelb = <2% zum Trigger
+grau = normale Kauf-Stufe (+100 Aktien wenn getriggert)
+
+━━━━━━━━━━━━━━━━━━
+
+Zu "Limit im Markt legen fuer 7 Tage bei $288":
+
+Ja — das ist DHWI-Standard: 7-Tage ATM/leicht-OTM Short-Put an Stufe 1 verkaufen. Wenn assigned → 100 Aktien im Depot zu $288, Praemie behalten.
+
+In deiner Card gibt es schon Buttons (aus Screenshot 3587 gesehen "DHWI SP OFEN Placeholder" oder so). Falls du eine Neue Order legen willst:
+• "SP verkaufen" Button — falls in Card vorhanden
+• Sonst: TWS direkt
+
+Soll ich einen "🔫 Limit-SP hier" Button PRO Grid-Zeile einbauen? Waere dann pro Stufe ein direkter Trade-Trigger. Sag GO wenn ja.
+
+━━━━━━━━━━━━━━━━━━
+
+Deploy in ~2 Min, dann testen. Rate-Limit-Notiz: bei mir noch ok, aber wir naehern uns dem Weekly-Limit.

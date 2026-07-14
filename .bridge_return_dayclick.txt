@@ -1,0 +1,21 @@
+✅ v6.63.706 gemerged (PR #2613) — Zwei Fixes auf einmal
+
+🔁 RUECKFAHRT-ZEIT-FELDER:
+Checkbox "Mit Rueckfahrt" oeffnet jetzt violettes Panel darunter:
+• 📅 Datum + 🕒 Uhrzeit fuer die Rueckfahrt
+• Datum wird auto-gefuellt (= Hinfahrt-Datum)
+• Wenn du eine Zeit eintraegst: Rueckfahrt-Ride bekommt genau die Zeit
+• Wenn leer bleibt: Fallback +3h nach Hinfahrt (wie bisher)
+
+📅 GOOGLE-KALENDER-STYLE — Klick auf Tag:
+• Klick auf LEEREN Tag (Monat oder Woche) → neue Buchung mit
+  vorgefuelltem Datum + Rueckfahrt-Datum
+• Klick auf Tag MIT Fahrten → Detail-Liste (wie bisher)
+• Leere Zellen zeigen "+ neu" Hinweis (visuelle Klick-Einladung)
+• Feld "Datum" ist beim Oeffnen bereits ausgefuellt
+
+Jetzt fuehlt sich das Hotel-Portal wie Google Calendar an: einfach auf den Tag tippen, an dem die Fahrt sein soll, und Modal oeffnet sich vorgefuellt.
+
+━━━━━━━━━━━━━━━━━━
+
+Deploy in ~2 Min via Strato. Hard-Refresh + testen.

@@ -1,0 +1,22 @@
+✅ NEUE FLEX-XML IMPORTIERT + DEPLOYED
+
+📊 STATS:
+• Neue Flex-XML: Zeitraum 20250714 → 20260713 (bis GESTERN)
+• Neue Trades gefunden: +38
+• Total in Archive: 3401 Zeilen (inkl. Enrichment)
+• Delta-Enrichment: 2037 Trades mit Δ (169 skipped ohne Historical Kurse)
+
+TOP 10 neue Symbols (letzte Woche):
+• EUR.USD 15 (Devisen)
+• GLD 4 · SPX 4 · SPY 4
+• VZ 2 (Verizon — dein neuer Einstieg)
+• BCC · BEN · FDS · LEN · MLR (je 1)
+
+━━━━━━━━━━━━━━━━━━
+
+⚠️ EINE KLEINE LUECKE bleibt:
+Flex-XML endet gestern (13.07.). Heutige Trades (14.07.) sind noch nicht drin. 22:00-Cron wird sie holen ODER wenn du heute eine neue Flex-XML mit Ende 20260714 ziehst.
+
+━━━━━━━━━━━━━━━━━━
+
+Trade-Log Δ Tab in graham-value.web.app/portfolio.html zeigt jetzt aktuellste Trades. Hard-Refresh im Browser.

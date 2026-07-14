@@ -1,0 +1,57 @@
+📈 BERKSHIRE-TRACKER — was geht und was nicht:
+
+━━━━━━━━━━━━━━━━━━
+
+✅ WAS GEHT (SEC-Daten):
+• 13F-Filings kommen QUARTALSWEISE, 45 Tage nach Quartalsende
+• Buffet Q1 2026 → gemeldet ~15. Mai 2026 (jetzt haben wir Juli, also Q1 ist verfuegbar)
+• Q2 2026 (April-Juni) → wird ~15. August 2026 gemeldet
+• Man sieht: Ticker, Anzahl Shares, aber NICHT Kaufdatum oder Kaufpreis exakt
+• Ableitbar: der Preisbereich WAEHREND des Quartals — d.h. Buffett hat
+  irgendwo zwischen Q-Low und Q-High gekauft
+
+❌ WAS NICHT GEHT:
+• Kein Kaufdatum/Kaufpreis auf den Tag genau
+• Keine "In-die-Zukunft-schauen" — 13F ist rueckblickend
+• Kein Insider-Radar (waere illegal)
+
+━━━━━━━━━━━━━━━━━━
+
+🔨 BUFFETT-TRACKER Feature — Vorschlag:
+
+Neue Seite: buffett.html (in graham-value)
+Quelle: dataroma.com/m/holdings.php?m=BRK (frei zugaenglich, laedt SEC-13F auf)
+
+Zeigt fuer jeden Berkshire-Titel:
+• Position (Shares + Wert)
+• Q-fuer-Q-Historie (welche Quartale gekauft/verkauft/aufgestockt)
+• Kurspanne DIESES Quartals (High/Low aus Finnhub → wo Buffett irgendwo kaufte)
+• Unsere Graham-Analyse (Score, G#, MoS jetzt)
+• Kauf-Fenster-Schaetzung: Q1 2026 typischer Preis $X-$Y
+
+Klick auf Ticker → Detail-Modal mit:
+• EPS Jahr-fuer-Jahr Balken (10 Jahre)
+• BVPS Entwicklung
+• Graham-Number-Historie (letzten 5 Jahre)
+• Aktueller Kurs vs. G# (Sicherheitsmarge in %)
+
+━━━━━━━━━━━━━━━━━━
+
+📅 AUTOMATIONS-IDEE:
+• Cron alle Woche checkt dataroma auf neue Berkshire-Filings
+• Wenn neu → Bridge-Push an dich:
+  "Buffett hat XY gekauft. Unsere Analyse: Score X/9, MoS Z%, G# vs Kurs..."
+
+━━━━━━━━━━━━━━━━━━
+
+⏱ AUFWAND:
+• buffett.html + Fetcher: ~90 Min
+• Detail-Modal EPS-Chart: ~30 Min
+• Cron + Bridge-Push: ~30 Min
+= 2.5 h insgesamt
+
+━━━━━━━━━━━━━━━━━━
+
+Willst du das? Wenn ja, ich fang jetzt an. Wenn nicht, sag was hoehere Prio hat.
+
+Rate-Limit: Session-Level noch ok, aber wenn wir noch 2h weitermachen sind wir am Ende.

@@ -1,0 +1,31 @@
+✅ AUTOMATIK EINGERICHTET
+
+Windows Task Scheduler:
+  Name: GrahamPortfolioDaily
+  Naechste Laufzeit: 14.07.2026 22:00
+  Status: Bereit · Aktiviert
+
+Was heute abend um 22:00 automatisch passiert:
+1. fetch-portfolio.js — neue Trades von TWS holen (letzte 7 Tage)
+2. enrich-trades-delta.js — Delta-Berechnung ueber alle Trades
+3. Copy trades.jsonl + trades-enriched.jsonl + positions nach public/
+4. Git commit + push → Web-App ist frisch
+5. Log in logs/daily-fetch.log
+
+Ab morgen fruh ist Trade-Log Δ immer aktuell (max 24h alter Stand).
+
+━━━━━━━━━━━━━━━━━━
+
+⚠️ VORAUSSETZUNG heute abend:
+- TWS-Terminal MUSS um 22:00 laufen (sonst kein fetch-portfolio-Zugriff)
+- PC/Server muss laufen (Task Scheduler = lokal auf diesem PC)
+
+Wenn TWS nicht laueft: Delta-Enrichment laueft trotzdem (Yahoo-basiert), aber neue Trades werden nicht hinzugefuegt.
+
+━━━━━━━━━━━━━━━━━━
+
+Fuer die Luecke 08.-14.07 (5 Tage): entweder
+a) Heute Nachmittag TWS auflassen → 22:00 Cron holt alles auf einmal
+b) Neue Flex-XML jetzt runterladen und Pfad schicken (schnellster Fix)
+
+Was moechtest du?

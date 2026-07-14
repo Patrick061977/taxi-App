@@ -1,0 +1,25 @@
+👀 SCREENSHOT ANGEKOMMEN — dein bestehender DHWI-Tab in portfolio.html.
+
+Ich sehe:
+• Pro Underlying (IWM, USO?, SPY, GLD…) eine grosse Karte
+• Mehrere Kurse ($296.97 · $284.25 · $279 — vermutlich Aktuell / Break-Even / Long-Put)
+• DROP-Prozent-Anzeigen (22.20%, 15.66%, 0.02%)
+• Aktions-Button ("DHWI-19-CENT SUCHE" oder aehnlich schwer zu lesen)
+• Best-Picks-Tab in der Reihe (den hatte ich noch nicht gesehen)
+
+Das ist RICHTIG viel drin. Meine dhwi.html war ueberfluessig.
+
+━━━━━━━━━━━━━━━━━━
+
+Damit ich zielsicher ergaenzen kann statt duppeln:
+
+Sag mir bitte KURZ was in dem Tab noch fehlt oder was verbessert werden koennte. Beispiele:
+❓ Kapital-Reserve fuer ALLE Nachkauf-Stufen bis -50% DD sichtbar?
+❓ Ø-Theta-Vergleich pro Short-Put (welche unterperformt)?
+❓ Take-Profit-Alert bei 60-70% Praemien-Rueckgang?
+❓ Hedge-Roll-Erinnerung (30 Tage seit letztem Long-Put-Kauf)?
+❓ Etwas ganz anderes (z.B. Balken-Chart Kurs-vs-Strike, IV-Alarm, Roll-Kalender)?
+
+Oder nur "alles gut so wie es ist, du hast nix zu tun". Auch ok.
+
+Meine dhwi.html-Datei kann ich als Redirect zu portfolio.html einrichten falls jemand den Link nutzt.

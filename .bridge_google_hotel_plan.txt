@@ -1,0 +1,45 @@
+🎉 SUPER — du hast ja schon fuer jedes Hotel ein eigenes Google-Konto:
+• kaiserhof.usedom@gmail.com
+• ahlbeckerhof.transfer@gmail.com
+• taxi.seeschlosbansin@gmail.com
+• taxi.strandhotel.heringsdorf@gmail.com
+• taxi.upstalsboom... (nur teilweise sichtbar)
+
+Dann Google-Login ist der klare Weg — kein Email-Code-Basteln noetig.
+
+━━━━━━━━━━━━━━━━━━
+
+✅ SOFORT-FIX Kaiserhof-CRM:
+Email geaendert: maritimtransfer@gmail.com → kaiserhof.usedom@gmail.com
+CustomerKind: Hotel (war schon)
+hotelPortalEnabled: true (neues Flag)
+
+━━━━━━━━━━━━━━━━━━
+
+🔨 PLAN Hotel-Portal Phase 1 (~90 Min):
+
+public/hotel.html
+• Firebase Auth Google-Sign-In (nutzt existierendes Firebase-Setup)
+• Nach Login: Email pruefen → in /customers suchen wo email==loginEmail UND customerKind==Hotel → Hotel-ID ermitteln
+• Wenn kein Match: "Kein Hotel-Konto verknuepft, bitte Patrick kontaktieren"
+• Wenn Match: Dashboard mit:
+   ▪ "Neue Transfer-Anfrage" Button
+   ▪ Formular: Gastname, Abholzeit, Personen, Bemerkungen, Abholort=Hotel-Adresse (auto), Zielort (frei)
+   ▪ Submit → schreibt in /anfragen mit channel='hotel-portal' + hotelCrmId → landet in deiner Dispo wie eine Web-Anfrage
+   ▪ Uebersicht "Meine offenen Anfragen" (die noch nicht uebernommen sind)
+
+Sichtbar wird in Dispo als Anfrage-Karte mit "🏨 Kaiserhof" Badge.
+
+Beim erste Google-Login prueft der Code das hotelPortalEnabled-Flag — ich hab das gerade fuer Kaiserhof gesetzt.
+
+━━━━━━━━━━━━━━━━━━
+
+📋 Frage vor Loslegen:
+
+Zwei Kaiserhof-CRM-Eintraege existieren:
+  a) "Kaiserhof Heringsdorf" (Kulmstr. 33, Tel +49383786... 5802)
+  b) "Kaiserhof Usedom" (JETZT mit kaiserhof.usedom@gmail.com)
+
+Sind die beiden getrennt oder Duplikat? Falls Duplikat → mergen wie in CRM-Merge (Adresse+Telefon von a) + Email von b))? Sag "MERGE" oder "GETRENNT LASSEN".
+
+Und: Freigabe fuer Phase 1 Hotel-Portal bauen? ("GO" = ich lege los)

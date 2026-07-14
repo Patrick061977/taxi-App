@@ -1,0 +1,24 @@
+🎯 EHRLICHE MEINUNG:
+
+✅ ALLES DA:
+• Einstand · Aktueller Kurs · Prämien · Nächster SP oben — passt
+• Grid mit den Stufen — passt
+• SP · CC · Hedge · CF Netto Übersicht unten — passt
+
+❌ ABER NICHT OPTIMAL ÜBERSICHTLICH:
+1. Zu viele Grid-Zeilen (15+ Stufen bis -50% DD) — die meisten willst du gar nicht sehen. Default sollte nur die naechsten 3-5 zeigen + Toggle "alle anzeigen".
+
+2. Die Kern-Info (Einstand $296.97 · Kurs $296.97 · +$274 Prämien · Nächster SP $288) koennte GROESSER + FETTER ganz oben sein — jetzt sieht sie noch normal aus.
+
+3. Die 5-Zellen-Übersicht unten wiederholt Info aus dem oberen Block (Prämien z.B.).
+
+━━━━━━━━━━━━━━━━━━
+
+VORSCHLAG (bau ich nicht ohne dein OK):
+• Grid: Default nur 3-5 Stufen, Toggle "alle anzeigen"
+• Oben ein 2-Zeilen-Header mit Kern-Zahlen sehr fett
+• 5-Zellen-Übersicht komprimiert (weniger Redundanz)
+
+━━━━━━━━━━━━━━━━━━
+
+Aber: Rate-Limit knapp bei uns beiden. Ich schlage vor: heute reicht. Morgen mit /clear frisch weiter.

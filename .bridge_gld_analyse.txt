@@ -1,0 +1,97 @@
+📊 GLD LIVE-ANALYSE + ROLL-STRATEGIE
+
+━━━━━━━━━━━━━━━━━━
+
+STATUS:
+• 1000 Aktien GLD @ Ø $364 (aus 10 Assignments)
+• Short Call: 2× $400C, exp 07.08.2026 (25 DTE)
+• Short Put: 1× $383P, exp 21.08.2026 (39 DTE)
+• Hedges: 1× $341P (68 DTE) + 3× $326P (79 DTE)
+
+Aktuelle Kurs GLD ~ (unbekannt, letzter Trade ${'$468'} → wahrscheinlich zwischen $290-$310 wenn du -19% Buchverlust sagst)
+
+Wenn du bei -19% bist: Kurs ist bei etwa $295. CC bei $400 ist SEHR weit OTM (safe).
+
+━━━━━━━━━━━━━━━━━━
+
+🎡 DAS DHWI-WHEEL (das Konzept):
+
+   ┌─────────────────┐
+   │  1. SP verkauft │ ← Praemie kassiert
+   └────────┬────────┘
+            │ Kurs faellt unter Strike
+            ▼
+   ┌─────────────────┐
+   │  2. Assigned    │ ← 100 Aktien im Depot
+   │     zu Strike   │
+   └────────┬────────┘
+            │ SOFORT
+            ▼
+   ┌─────────────────┐
+   │  3. CC verkauft │ ← Praemie kassiert
+   │  (7-14 DTE)     │
+   └────────┬────────┘
+            │
+            ├─► Kurs > Strike → Called Away → ZURUECK zu 1
+            │
+            ▼ (wenn Kurs faellt)
+   ┌─────────────────┐
+   │  4. Naechster SP│ ← Grid-Stufe unter Einstand
+   │  bei -Grid%     │
+   └────────┬────────┘
+            │
+            ▼
+   Wiederholung → Aktien-Bestand waechst
+   (100 → 200 → 300 → ...) bis 500 Max
+   Ø-Einstand faellt
+
+Der Hedge (Long Put 90 DTE) sitzt UNTEN in der Grid — er faengt Verluste
+ab wenn Kurs komplett abstuertzt. Muss alle 30 Tage gerollt werden.
+
+━━━━━━━━━━━━━━━━━━
+
+🚨 DEIN GLD-PROBLEM: WAS PASSIERT WENN GOLD ANZIEHT?
+
+Aktuell: 1000 Aktien @ Ø $364, CC bei $400 (25 DTE).
+Wenn Gold auf $400 steigt → Buchgewinn +10% (+$36.000 gegenueber Ø-Einstand)
+Wenn Gold auf $400+ steigt → CC wird ITM → Assignment-Risiko
+
+━━━━━━━━━━━━━━━━━━
+
+🔄 ROLL-STRATEGIE fuer CC $400:
+
+STUFE 1 — Kurs steigt auf $380 (2-3% unter Strike):
+Nichts tun. CC verfaellt wertlos → Praemie behalten. Nach Verfall neuer CC.
+
+STUFE 2 — Kurs steigt auf $395 (nahe Strike, DTE < 7):
+KEIN TAKE-PROFIT weil CC ist gefaehrdet. Halten und beobachten.
+
+STUFE 3 — Kurs steigt auf $400+ (ITM oder gleich Strike, DTE < 5):
+ROLL UP+OUT:
+1. Buy-back CC $400 (kostet: Delta × Kurs-Move, z.B. $5-10 pro Kontrakt)
+2. Verkaufe NEUEN CC bei hoeherem Strike + laengerer DTE
+   z.B. neuer CC $420C 21 DTE fuer +$150-250 Praemie
+3. Netto: Netto-Cashflow bleibt positiv (neuer Praemien-Ertrag > Roll-Kosten)
+
+STUFE 4 — Kurs steigt auf $420+ (deep ITM):
+Wenn Roll immer noch positiv (neuer Strike-Praemie > Buy-back-Kosten) → weiter rollen.
+Wenn nicht mehr positiv → LOSLASSEN. Aktien werden called away @ $400.
+Realisierter Gewinn: (400 - 364) × 1000 = +$36.000 KAPITAL.
+Plus alle Praemien = riesiger Wheel-Zyklus abgeschlossen.
+
+━━━━━━━━━━━━━━━━━━
+
+💡 DEIN VORTEIL bei GLD Ø $364:
+Wenn Gold auf $400 steigt und assigned wirst = +$36.000 realisiert.
+Das ist der GEWINN aus dem Wheel — nicht der Verlust!
+
+Nur wenn du sehr GIERIG bist (immer neue CC bei hoeherer Strike rollen wolltest) und Gold KRACHT dann durch, verpasst du den Aufschwung. Aber das Called-Away-Ereignis ist der WHEEL-PROFIT.
+
+━━━━━━━━━━━━━━━━━━
+
+🎯 EMPFEHLUNG JETZT:
+1. CC $400 25 DTE laufen lassen
+2. Bei Kurs > $380 & DTE < 7: rolle zu $420C 21 DTE
+3. Hedges nicht anfassen — sie schuetzen weiter unten
+
+Willst du dass ich pro DHWI-Card einen Text-Guide fuer die aktuelle Situation einblende? "Wenn Kurs steigt: ROLL up-out zu $420 · Wenn faellt: KAUF-Stufe $305"

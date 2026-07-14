@@ -1,0 +1,24 @@
+✅ v6.63.701 gemerged (PR #2608) — Hotel-Portal-Kalender-Ansichten
+
+Kaiserhof + andere Hotels sehen jetzt oben in kunden.html:
+
+📋 LISTE (default) — kompakte Kartenansicht der Buchungen
+📅 WOCHE — 7 Tage nebeneinander, pro Tag:
+   • Uhrzeit + Gastname (bis 4 Fahrten sichtbar)
+   • "+X weitere" wenn mehr
+   • Heute violett-blau hervorgehoben
+   • Farb-Coding: violett=neu · gruen=accepted · grau=completed · rot=cancelled
+🗓 MONAT — Kalender-Grid 6x7 mit Zahl-Badge pro Tag (Anzahl Fahrten)
+
+Navigation:
+← Prev-Woche/Monat · KW/Monat-Titel · Next-Woche/Monat →
+
+Datenzeitraum: 30 Tage rueckblickend + gesamte Zukunft.
+
+━━━━━━━━━━━━━━━━━━
+
+Deploy laueft (~2 Min via GitHub Actions Strato-Sync). Danach:
+1. Kaiserhof-Login auf funktaxi-heringsdorf.web.app/kunden.html
+2. Google-Login mit kaiserhof.usedom@gmail.com
+3. Oben zwischen "Neue Transfer-Buchung" und Buchungsliste: 3-Tab-Switcher
+4. Auf "Woche" oder "Monat" tippen → volle Kalender-Ansicht

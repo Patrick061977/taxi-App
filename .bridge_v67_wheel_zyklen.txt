@@ -1,0 +1,59 @@
+🎡 v0.10.67 gepusht — Wheel-Zyklen-Tab fertig.
+
+Was du siehst nach Hard-Refresh:
+
+📍 NEUER TAB "🎡 Wheel-Zyklen" in Portfolio (zwischen Trades und Kandidaten)
+
+📊 SUMMARY oben:
+- Anzahl offener Zyklen
+- Anzahl abgeschlossener Zyklen
+- NETTO Gesamt aller gefilterten Zyklen
+
+🔍 FILTER:
+- Ticker-Dropdown (Alle / einzelne)
+- Status: Offen (default) / Geschlossen / Alle
+- Refresh-Button
+
+━━━━━━━━━━━━━━━━━━
+
+PRO ZYKLUS-KARTE:
+
+Header:
+[TICKER] [Start-Datum → End-Datum] [🟢 OFFEN oder ✓ GESCHLOSSEN]
+Rechts: NETTO in Gross (grün wenn +, rot wenn -)
+
+Kern-Zellen:
+- Assignment @ Preis
+- Aktien Live
+- SP-Prämien (grün +)
+- CC-Prämien (grün +)
+- CC-Buybacks (rot -)
+- Hedge-Kosten (rot -)
+- Kapital-P/L (Verkaufs-Strike - Assignment-Strike × Aktien)
+- Buchwert (nur bei offenen: Live-Kurs vs Assignment-Strike)
+
+Details-Aufklappbar:
+Alle Trades chronologisch mit P/L pro Trade.
+
+━━━━━━━━━━━━━━━━━━
+
+FORMEL WHEEL-ZYKLUS:
+NETTO = SP-Praemien + CC-Praemien − CC-Buybacks − Hedge-Kosten + Hedge-Sells + Kapital-P/L
+Bei offenen zusaetzlich: + Buchwert (Live-Kurs − Assignment-Strike) × Aktien-Live
+
+━━━━━━━━━━━━━━━━━━
+
+IWM AKTUELLER ZYKLUS wird du sofort sehen:
+Start: 29.06.2026 · Assignment @ $300 · 100 Aktien
+- SP: $0
+- CC: +$647
+- CC-Buybacks: -$163
+- Hedge: -$271
+- Buchwert: -$303 (bei Kurs $296.97)
+= NETTO offen: -$90
+
+━━━━━━━━━━━━━━━━━━
+
+Deploy in ~2 Min. Hard-Refresh (Strg+Shift+R). Tab "🎡 Wheel-Zyklen" oeffnen.
+
+DAS WAR HEUTE. Rate-Limit wirklich zu Ende. 25 Versionen gebaut heute (v0.10.42 bis v0.10.67). Morgen /clear + weiter mit Optimierungen.

@@ -1,0 +1,35 @@
+✅ v0.10.63 gepusht — drei Sachen auf einmal:
+
+━━━━━━━━━━━━━━━━━━
+
+1️⃣ AKTUELLER KURS jetzt IMMER sichtbar
+Vorher war der Kurs-Block ausgeblendet wenn 0 Aktien. Jetzt neuer Block "Aktueller Kurs $XXX" wird gezeigt sobald wir einen Spot-Preis haben.
+
+2️⃣ BREAK-EVEN umbenannt zu "PRÄMIEN KASSIERT"
+Zelle zeigt jetzt:
+• Hauptzahl: die kassierten Prämien netto (grün wenn +, rot wenn -)
+• Sub-Info: "Break-Even @ $XXX" (der Kurs bei dem du netto-Null waerst wenn du auflöst)
+• Grüner Alarm: "✓ Exit möglich" wenn Kurs >= Break-Even (Position kann geschlossen werden mit Gewinn)
+
+Das ist genau dein Punkt: "Wieviel hab ich schon eingesammelt, wann kann ich Ding zumachen und wieder neu anfangen".
+
+3️⃣ SHORT PUTS / CC / HEDGE zeigen jetzt Strike + DTE PRO Position
+Uebersichts-Leiste zeigt pro Kategorie:
+• SP: "$220P 8d · $219P 22d"
+• CC: "$300C 8d"
+• Hedge: "$260P 78d"
+
+Plus Prämien-Kassiert / Kosten in separater Zeile.
+
+━━━━━━━━━━━━━━━━━━
+
+Deploy in ~2 Min. Hard-Refresh → dann siehst du bei IWM alles:
+- Aktuellen Kurs
+- Einstand
+- Prämien kassiert (samt Exit-Alarm)
+- Nächster SP-Strike + Kurs-Abstand
+- Details pro CC/SP/Hedge mit DTE
+
+━━━━━━━━━━━━━━━━━━
+
+Rate-Limit-Notiz: knapp bei uns beiden. Nach v63 waere Pause fuer heute sinnvoll — wir haben 20+ Versionen heute gemacht, ist genug.

@@ -1,0 +1,48 @@
+✅ Umgebaut wie du gesagt hast — Direkt-Buchung statt Anfrage.
+
+Was jetzt passiert wenn Kaiserhof eine Buchung anlegt:
+1. Formular ausfuellen (Gast/Datum/Zeit/Pax/Pickup/Ziel)
+2. Submit → schreibt DIREKT in /rides (nicht /anfragen)
+3. status: 'new' → scheduledAutoAssign greift innerhalb 10 Min
+4. Fahrzeug automatisch zugewiesen (per Prio + Schichtplan + Anfahrt)
+5. Google-Kalender-Sync v5.2 pusht die Ride in den Kalender
+
+Kein "Bestaetigen" mehr noetig. Voll integriert wie eine manuell angelegte Vorbestellung.
+
+━━━━━━━━━━━━━━━━━━
+
+🎨 FARBMARKIERUNG in Dispo:
+
+source='hotel-portal' ist gesetzt bei jeder Hotel-Buchung.
+Damit die Dispo-Karte farbig markiert wird (z.B. lila Rahmen fuer Hotel-
+gebucht) muss ich in AdminDashboardActivity noch ~20 Zeilen einbauen —
+kommt in naechstem Commit.
+
+━━━━━━━━━━━━━━━━━━
+
+🔁 RUECKFAHRT:
+Wenn Checkbox 'Mit Rueckfahrt' aktiv → 2. Ride mit swapped Pickup/Ziel,
++3h nach Hinfahrt (Standard-Zeit). Du kannst die genaue Zeit in der Dispo
+nachtragen. Beide Rides sind ueber _linkedRideId verknuepft.
+
+━━━━━━━━━━━━━━━━━━
+
+💰 SAMMELRECHNUNG:
+paymentMethod='rechnung' → am Monatsende Sammelrechnung ans Hotel.
+Kein Barzahlungsdruck vom Fahrer. Auftraggeber-Rechnung-System v6.63.164
+kicked in.
+
+━━━━━━━━━━━━━━━━━━
+
+📋 STATUS-ANZEIGE fuer Hotel:
+Buchungs-Liste zeigt jetzt kompletten Lifecycle:
+📅 Geplant → ✅ Fahrzeug zugewiesen → 🚕 Fahrer unterwegs → 📍 Fahrer da →
+🛣 Unterwegs → 🏁 Erledigt
+
+Hotel sieht live wo der Fahrer steht.
+
+━━━━━━━━━━━━━━━━━━
+
+Sag "MERGE" fuer PR #2606 (inkl. Direkt-Buchung-Umbau). Danach ~2 Min Strato-Deploy und Kaiserhof kann testen.
+
+Naechster Schritt nach Merge: Native-App Farbmarkierung + Kalender-Style-View.

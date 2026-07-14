@@ -1,0 +1,24 @@
+✅ v0.10.70 gepusht — Multi-Assignment gewichteter Ø-Strike + CC-Vorschlag
+
+Was du jetzt siehst:
+
+📊 Bei jedem Zyklus mit mehreren Assignments (z.B. SPY 750 + 756 + 757):
+- Header-Badge: "Ø aus 3 Assignments" (violett)
+- Zelle "Ø Assignment @": $754.33 (gewichteter Durchschnitt)
+- Sub-Zeile klein: "$750 + $756 + $757" (Historie)
+- NEUE Zelle "🎯 Nächster CC @": $754 (Vorschlag ATM auf Ø-Strike)
+
+━━━━━━━━━━━━━━━━━━
+
+FORMEL Ø-Assignment-Strike:
+Ø = Σ(qty × price) / Σ(qty)
+
+Beispiel SPY: 100×$750 + 100×$756 + 100×$757 = ($75.000 + $75.600 + $75.700) / 300 = $754.33
+
+Der nächste Covered Call kann jetzt auf diesem Ø-Strike verkauft werden — nicht mehr auf dem letzten einzelnen Assignment-Strike.
+
+━━━━━━━━━━━━━━━━━━
+
+DAMIT sind IWM + SPY + GLD Multi-Assignment-Zyklen sauber getrackt. Die "wie viel Prämie hab ich in diesem Zyklus kassiert und wo mach ich den nächsten CC" Frage ist jetzt in EINER Zelle beantwortet.
+
+Deploy in ~2 Min. Hard-Refresh → alle Multi-Assignment-Zyklen jetzt korrekt.

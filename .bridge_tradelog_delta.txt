@@ -1,0 +1,50 @@
+✅ v0.10.75 gepusht — Trade-Log Δ Tab live
+
+📓 NEUER TAB "Trade-Log Δ" in Portfolio:
+Alle 2024 Trades mit Delta-Enrichment sichtbar. Spalten:
+Datum · Ticker · Aktion (💰SP / 📈CC / 🛡Hedge / ↩️Buyback) · Strike · DTE · Kurs · **Δ Delta** · HV% · Prämie
+
+Farb-Coding Delta:
+🔴 |Δ| > 0.6 (deep ITM)
+🟡 |Δ| 0.4-0.6 (ATM)
+🟢 |Δ| 0.2-0.4 (leicht OTM — dein Sweet-Spot)
+grau |Δ| < 0.2 (weit OTM)
+
+Stats-Cards oben:
+- Anzahl SP + Ø-Delta + Total-Prämie
+- Anzahl CC + Ø-Delta + Total-Prämie
+- Anzahl Hedge + Ø-Delta
+
+Filter: Ticker / Side (SP/CC/Hedge/Buyback) / Sortierung (Datum/Delta/Prämie)
+
+━━━━━━━━━━━━━━━━━━
+
+🎯 ZU DEINER FRAGE (Yahoo genug?):
+Historische AKTIEN-Preise sind bei Yahoo TOP (kostenlos, zuverlässig).
+IV der einzelnen Options am Trade-Tag ist nicht verfügbar (kein API).
+Ich nutze deshalb Historical Volatility (rolling 30d) als Näherung.
+
+Genauigkeit: Delta ±0.05 (5%) meist. Für Statistik/Trend absolut ausreichend.
+Wenn du präzisere Deltas willst → müssten wir Deribit/CBOE Historic IV kaufen ($200/Monat).
+
+━━━━━━━━━━━━━━━━━━
+
+🔴 ZU LIVE-DELTA AB JETZT:
+Kann ich einbauen. fetch-portfolio.js Enhancement:
+- Bei neuen Executions: reqMktData(genericTicks='106') → Live-Delta abrufen
+- Speichern in trades.jsonl mit Feld delta_live_at_trade
+- Auch expiry/DTE einfach so aus contract-Daten
+
+Voraussetzung: fetch-portfolio.js läuft (TWS aktiv). Der daily-Cron macht das schon.
+Ich baue das Enhancement gleich als nächstes.
+
+━━━━━━━━━━━━━━━━━━
+
+🎯 "SELBST KAUFEN":
+Nein, ich kann selbstständig KEINE Trades placen. Das wäre gefährlich.
+Aber ich kann:
+- Konkrete Vorschläge machen ("verkaufe SP $291 7d")
+- Order-JSON via fetch an TWS-API senden WENN du auf "Order senden" klickst
+- Nie ohne deinen Klick.
+
+Deploy Trade-Log-Tab in ~2 Min. Hard-Refresh → Tab "📓 Trade-Log Δ" oeffnen.

@@ -1,0 +1,32 @@
+👀 VERSTANDEN — zwei Sachen die dich verwirren:
+
+━━━━━━━━━━━━━━━━━━
+
+1️⃣ WARUM $279 als naechster SP-Strike?
+Angenommen dein Einstand $300, dropStep=7%, Stage 0:
+Stufe 1 = $300 × (1 − 7% × 1) = $300 × 0.93 = $279 ✓
+
+Der aktuelle Kurs (-3% laut deiner Anzeige) ist $291 → noch NICHT bei $279, aber wenn er faellt bis $279, wird die Nachkauf-Stufe getriggert. Das ist die Regel.
+
+━━━━━━━━━━━━━━━━━━
+
+2️⃣ WARUM NUR 6 STUFEN?
+Da lag ich falsch. Ich hab hart auf "Stage 6" gecappt.
+
+Deine Regel ist "max 500 Aktien pro Position" (nicht 600!) und "max -50% DD als worst-case".
+
+Bei dropStep=7% waeren die relevanten Stufen bis -50%:
+Stage 1: -7% = $279 · +100 Aktien
+Stage 2: -14% = $258 · +100 Aktien
+Stage 3: -21% = $237 · +100 Aktien
+Stage 4: -28% = $216 · +100 Aktien
+Stage 5: -35% = $195 · +100 Aktien (= 500 Aktien Max erreicht!)
+Stage 6: -42% = $174 · watch (kein Kauf mehr, nur Beobachten)
+Stage 7: -49% = $153 · Naeher am -50% Worst-Case
+
+Ich fix das jetzt:
+- Stufen bis Stage 7 zeigen (nicht 6)
+- Ab Stufe 6 KEINE Aktien mehr kaufen (500 Max), aber Trigger zeigen
+- Footer summiert nur Kapital fuer Kauf-Stufen (1-5)
+
+Bau ich in 5 Min ein.

@@ -1,0 +1,24 @@
+✅ v6.63.704 gemerged (PR #2611)
+
+📅 Klick auf einen Tag im Monat mit Fahrten:
+Detail-Sektion oeffnet sich UNTER dem Kalender-Grid mit:
+• Uhrzeit + Gastname
+• 📍 Pickup / 🎯 Ziel
+• 👥 Anzahl Personen · 🔁 Rueckfahrt-Badge
+• 🚕 zugewiesenes Fahrzeug (wenn vorhanden)
+• Status-Badge farbig
+Alle Fahrten des Tages sortiert nach Uhrzeit.
+
+✕ oben rechts zum Schliessen der Detail-Sektion.
+
+Kalender-Grid bleibt kompakt (60px Zellen), Detail erscheint on-demand.
+Auto-Scroll damit die Detail-Sektion nach Klick sichtbar wird.
+
+━━━━━━━━━━━━━━━━━━
+
+Deploy laueft (~2 Min via Strato-Sync).
+
+Kaiserhof kann jetzt:
+- Woche-Ansicht: sofort alle Fahrten der Woche sehen
+- Monat-Ansicht: Ueberblick pro Tag + Klick fuer Details
+- Liste: kompakte Kartenansicht wie bisher

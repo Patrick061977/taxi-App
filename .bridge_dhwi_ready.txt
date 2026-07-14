@@ -1,0 +1,47 @@
+✅ DU KANNST TESTEN (HTTP 200 → live seit ~5 Min)
+
+URL: graham-value.web.app/dhwi.html
+
+━━━━━━━━━━━━━━━━━━
+
+GERADE NOCH DAZU GEBAUT (v0.10.50, live in ~2 Min):
+
+💰 SHORT-PUT-CASHFLOW-BALANCE Sektion (unterhalb der Aktien-Grid):
+
+Stats:
+• Anzahl offener Short-Puts
+• Ø Theta/Kontrakt
+• Median Theta/Kontrakt  ← Vergleichs-Basis fuer "Ausreisser"
+• Gesamt Theta/Tag ← dein Cashflow-pro-Tag
+
+Tabelle pro Short-Put:
+• Ticker + Strike (z.B. AGO $80P)
+• DTE (Tage bis Expiry)
+• Anzahl Kontrakte
+• Theta/Kontrakt ($)
+• Theta gesamt/Tag ($ = Theta × Kontrakte × 100)
+• Delta
+• IV %
+
+Farb-Coding:
+🔴 rot "unter Ø-20%" → Position bringt zu wenig Theta (Cashflow-Ungleichgewicht)
+🟡 gelb "ueberdurchschnittlich" → Position performt sehr gut
+grau → normal, im Ø-Bereich
+
+Extra-Empfehlung:
+Wenn Position "unter Ø-20%" UND DTE > 30 → Hinweis "Roll-Kandidat: DTE hoch + Theta gering"
+→ dann besser rollen zu naeherem Strike + kuerzerer DTE fuer besseren Cashflow.
+
+━━━━━━━━━━━━━━━━━━
+
+BEISPIEL:
+Du hast 5 Short-Puts offen. Ø Theta = $50/Kontrakt.
+• SPY $600P: Theta $85 (🟡 überdurchschnittlich — nix tun)
+• IWM $220P: Theta $55 (grau — ok)
+• GLD $310P: Theta $28 (🔴 unter Ø-20%, DTE 45 → Roll-Kandidat!)
+
+→ GLD 45d rollst du auf 21d + naeherer Strike → Theta steigt auf ~$60.
+
+━━━━━━━━━━━━━━━━━━
+
+Teste beide Sektionen und sag was fehlt oder wo Zahlen falsch aussehen.

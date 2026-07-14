@@ -1,0 +1,27 @@
+📄 PDF ANALYSIERT — Zahlungserinnerung Gemeinde Heringsdorf
+
+━━━━━━━━━━━━━━━━━━
+Absender: Eigenbetrieb Kaiserbaeder Insel Usedom (Frau Lambrecht)
+Empfaenger: Patrick Wydra, Amselring 10 (PRIVAT, nicht Firma!)
+Beleg: KB-2026/2006 vom 12.05.2026
+Grund: Kurabgabe
+Betrag: 217,20 EUR
+Faellig war: 26.05.2026
+Mahnstufe: 1
+Neue Frist: 03.07.2026 (schon abgelaufen!)
+━━━━━━━━━━━━━━━━━━
+
+⚠️ 2 Baustellen:
+
+1) DATEV-Frage: Das ist eine PRIVATE Kurabgabe (Zweitwohnsitz/Hauptwohnsitz-Abgabe an dich als Einwohner) — gehoert NICHT in die Firmen-Buchhaltung. Nicht abziehbar als Betriebsausgabe.
+   → Datei liegt zwar in \Rechnungseingang\, aber ich wuerde die NICHT an DATEV weiterleiten.
+
+2) Zahlungsfrist 03.07. ist schon 9 Tage rum (heute 12.07.). Naechste Mahnstufe kommt vermutlich diese Woche mit Mahngebuehr.
+
+━━━━━━━━━━━━━━━━━━
+
+Was willst du?
+[A] 217,20 EUR ueberweisen (IBAN DE14 1203 0000 0000 1032 83, DKB, VZ: KB-2026/2006)
+[B] Ich schreibe Widerspruch/Rueckfrage (z.B. wenn du das schon bezahlt hast oder Kurabgabe fuer 2026 in Frage stellst)
+[C] Erstmal ignorieren, du klaerst selbst
+[D] PDF trotzdem an DATEV weiterleiten (als "privat" markiert)

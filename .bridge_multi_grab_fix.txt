@@ -1,0 +1,26 @@
+✅ FIX gemerged (v6.63.700, PR #2607)
+
+Fahrer-App-Banner mit mehreren offenen Fahrten:
+
+Vorher: Tap → immer nur ERSTE Fahrt geöffnet (Dönges), Drobnik unerreichbar.
+Jetzt: bei 2+ offenen Fahrten → Auswahl-Dialog mit Liste ALLER:
+  "Welche Fahrt übernehmen? (2 offen)"
+  ➤ 09:30 · Dönges · Bansin
+  ➤ 09:35 · Drobnik · Heringsdorf
+Tap auf Zeile → dann normaler Grab-Dialog.
+
+Kein Scrollen des Hauptbildschirms mehr nötig — Auswahl direkt aus Banner.
+
+APK-Build läuft via GitHub Actions (~5-8 Min). Fahrer-App bekommt Update-Banner beim nächsten Öffnen.
+
+━━━━━━━━━━━━━━━━━━
+
+📊 NEBENBEI zur Delta-Enrichment:
+2024 von 2189 OPT-Trades erfolgreich mit rückwirkendem Delta angereichert (Yahoo Historical + Black-Scholes). Beispiele IWM:
+  20250710 SLD P $225 DTE=7 spot=$224.80 Δ=-0.50 HV=15.8%
+  20250717 SLD P $224 DTE=7 spot=$223.92 Δ=-0.49 HV=17.2%
+  20250801 SLD P $212 DTE=7 spot=$214.92 Δ=-0.27 HV=17.5%
+
+Du siehst: du verkaufst SPs sehr konsistent bei Delta -0.30 bis -0.50 (ATM/leicht-OTM). Klassischer Wheel-Style.
+
+Bau ich morgen als Trade-Log-Tab mit Delta-Spalte + Ø-Delta-pro-Ticker-Chart.

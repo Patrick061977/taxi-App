@@ -1,0 +1,32 @@
+🎯 JETZT klar — v0.10.53 gepusht.
+
+DEIN PUNKT WAR RICHTIG:
+$296 × 0.97 = $287.12 = Stufe 1 bei 3% Grid.
+Aber Grid zeigte $279 = Stufe 2 (-6%), weil ich vorher die schon "eingebuchte" Stufe 1 uebersprungen habe.
+
+━━━━━━━━━━━━━━━━━━
+
+FIX: Grid startet jetzt IMMER bei Stufe 1 (-3%).
+Bereits eingebuchte Stufen sind gruen mit ✓ markiert.
+
+Bei IWM (Einstand $296.97, 3% Grid, angenommen dhwiStage=1):
+Stufe 1: -3%  = $288.06 ✓ eingebucht (gruen)
+Stufe 2: -6%  = $279.15 → naechster Kauf
+Stufe 3: -9%  = $270.24 → +100
+Stufe 4: -12% = $261.33 → +100
+Stufe 5: -15% = $252.42 → +100
+Stufe 6: -18% = $243.51 → +100 (500 Aktien Max)
+Stufe 7+:  watch
+
+━━━━━━━━━━━━━━━━━━
+
+Bei GLD mit -30% in der Grid-Tabelle:
+Das heisst du hast dropStep bei GLD sehr klein (z.B. 2%) → 15 Stufen bis -30%. Wenn du das kompakter willst, stell GLD auf 5% oder 7% — hat weniger Stufen.
+
+━━━━━━━━━━━━━━━━━━
+
+Deploy in ~2 Min. Hard-Refresh und du siehst:
+1. Alle Stufen ab Stufe 1
+2. Schon eingebuchte in gruen (✓)
+3. Naechster Kauf klar sichtbar
+4. Kapital-Reserve unten nur fuer offene Kauf-Stufen

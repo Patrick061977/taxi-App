@@ -1,0 +1,45 @@
+📊 DHWI-KAPITAL-PLANER live (v0.10.49)
+
+URL: graham-value.web.app/dhwi.html
+Nav-Link "📊 DHWI Grid" im Screener oben zwischen Portfolio und Buffett.
+
+━━━━━━━━━━━━━━━━━━
+
+WAS DU SIEHST:
+
+Stats-Karten oben:
+• Long-Aktien-Positionen: Anzahl
+• Aktien-Wert: Gesamt Portfolio (nur Aktien)
+• Portfolio-Theta/Tag: Summe aller Options-Theta (Short = positiv)
+• Ø Theta pro Position: Durchschnitt
+• DHWI-Kapital-Reserve noetig: Was gebraucht wird um bei -50% DD alle Stufen durchzuziehen
+
+Controls:
+• Grid-Abstand (default 5.5%) — kannst du testen mit 5%/6%/7%
+• Max Aktien pro Position (default 500 laut deiner Regel)
+• Aktien pro Nachkauf-Stufe (default 100)
+• Nur Long-Aktien (Short-Positionen ausblenden)
+
+Pro Position:
+• Ticker + Aktien × Ø Kaufpreis + Wert
+• Aktueller Kurs + P/L + Prozent
+• Theta pro Tag aus zugehoerigen Options + Yield in % p.a.
+• Grid-Tabelle mit Stufen:
+   - 🔴 rot = getriggert (Kurs unter Trigger)
+   - 🟡 gelb = <2% vom naechsten Trigger
+   - grau = safe
+• Footer: Gesamt-Kapital fuer alle Stufen
+
+━━━━━━━━━━━━━━━━━━
+
+BEISPIEL bei IWM (falls in Portfolio):
+Angenommen 100 Aktien @ $220 avg, aktueller Kurs $210 (-4.5% Buchverlust):
+Stufe 1 (-5.5%): Trigger $207.90 → wenn erreicht → 100 Aktien = $20.790 Kapital
+Stufe 2 (-11%):  Trigger $195.80 → 100 Aktien = $19.580
+Stufe 3 (-16.5%):Trigger $183.70 → 100 Aktien = $18.370
+Stufe 4 (-22%):  Trigger $171.60 → 100 Aktien = $17.160
+Grand Total fuer 4 Stufen bis Max 500 Aktien: ~$75.900 Reserve
+
+━━━━━━━━━━━━━━━━━━
+
+Testen und sag mir was fehlt. Deploy laueft.

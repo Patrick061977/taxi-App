@@ -1,0 +1,18 @@
+👀 Screenshot 3590 gesehen — ich sehe:
+
+✅ Aktueller Kurs $296.97 sichtbar oben links
+✅ Prämien kassiert +$274 (grün)
+✅ Nächster SP-Strike $288
+✅ Grid-Tabelle mit Stufen ab -3%
+✅ Alle Grid-Stufen grau (nicht mehr fälschlich grün ✓)
+
+Sieht gut aus — genau wie es sein soll.
+
+━━━━━━━━━━━━━━━━━━
+
+Was war der Grund fuer den Screenshot? Zeigt du mir:
+a) "Es sieht gut aus"
+b) "Da fehlt noch was" — dann sag konkret was
+c) "Da ist ein Bug" — welche Zelle?
+
+Kurz eine Zeile + ich mach weiter oder Pause.

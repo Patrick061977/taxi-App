@@ -1,0 +1,31 @@
+✅ JA — dein DHWI-Konzept hab ich in Memory (4 Files):
+
+📋 DHWI-STRATEGIE (dein bevorzugter Ansatz):
+1. Short Put ATM verkaufen (max 14 DTE, urspruenglich 7)
+2. Long Put OTM 90-DTE als Hedge
+3. Bei Assignment: Covered Call fahren (max 14 DTE)
+4. Take-Profit ab 60-70% der Praemie
+5. Hedge alle 30 Tage erneuern (finanziert ueber naechste Short-Praemie)
+6. Grid-Nachkauf: 5-6% Stufen (nicht 8-10% wie Original Kasseltrader)
+7. Pyramide: 30/60/90 Tage
+8. Max 500 Aktien pro Position (nicht 600)
+9. Max -50% DD als Worst-Case
+
+📋 KEIN:
+❌ Strangle
+❌ naked Short Call (SPY-Bilanz -44k bewies das)
+
+━━━━━━━━━━━━━━━━━━
+
+Was ich JETZT gebaut habe (dhwi.html) deckt Punkte 6-9 ab (Grid, Kapital-Reserve, max Aktien).
+
+Was FEHLT und ich noch einbauen sollte:
+a) HEDGE-STATUS pro Aktien-Position — laueft ein 90-DTE-Long-Put? Wann lief er zuletzt? Wann muss ich rollen (>30 Tage seit letztem Kauf)?
+b) SHORT-PUT-TAKEPROFIT-ALERT — wenn Position bei 60-70% Gewinn ist → "Jetzt schließen"
+c) SHORT-PUT-DTE-WARNUNG — bei DTE > 14 → "Rolle auf naeheres DTE"
+d) COVERED-CALL-STATUS — bei jeder Aktien-Position pruefen: laueft ein CC? Wann Take-Profit?
+e) HEDGE-COVERAGE Rechner — Long-Put-Delta × Contracts vs. Aktien-Bestand: bei -30% Drawdown wie viel deckt der Hedge?
+
+Ich fange mit a+b+c an (~30 Min). d+e nach Test.
+
+Test-Feedback bitte: siehst du DHWI-Grid und Short-Put-Sektion? Zahlen realistisch?

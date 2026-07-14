@@ -1,0 +1,18 @@
+✅ v0.10.59 gepusht — Hedge-Text raus, echter Hedge-Status rein.
+
+Was da jetzt steht (dynamisch):
+🛡 Hedge OK (85d) → gruen, Hedge ist frisch (>60 DTE)
+⏳ Hedge in 15d rollen → gelb, Hedge zwischen 30-60 DTE
+🔄 HEDGE-ROLL fällig (25d) → rot, Hedge < 30 DTE — jetzt neuer 90d kaufen
+⚠️ KEIN HEDGE! → rot, gar kein Long Put vorhanden
+
+━━━━━━━━━━━━━━━━━━
+
+Logik:
+- Neuester Long-Put im Portfolio wird betrachtet (max DTE)
+- 30-Tage-Regel: Hedge rollen wenn DTE unter 30 fällt
+- Short-Puts sind KOMPLETT unabhaengig (kein Zusammenhang mehr)
+
+Deploy in ~2 Min. Hard-Refresh dann testen.
+
+Rate-Limit-Status: uns beiden knapp. Nach diesem Fix sollte fuer heute ne Pause gut sein — bau ich morgen weiter.

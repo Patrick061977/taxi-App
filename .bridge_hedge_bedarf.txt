@@ -1,0 +1,56 @@
+🎯 DELTA-HEDGE-BEDARF pro Ticker (aktuell):
+
+Ticker  STK    SP     CC     Hedge  Netto Δ   Hedge-Bedarf für neutral
+──────────────────────────────────────────────────────────────────────
+TROW    +116   0      -19    0      +97       — neutral genug —
+TSLA    +100   0      -11    0      +89       — neutral genug —
+LEN     +74    -6     0      0      +68       — neutral genug —
+KBH     +91    -5     0      0      +86       — neutral genug —
+GLD     +200   -16    0      +5     +188      3.8 Long Puts ATM
+SPY     +201   -6     0      +7     +203      4.1 Long Puts ATM
+IWM     +101   0      0      +159   +260      5.2 Long Puts ATM ⚠️
+
+━━━━━━━━━━━━━━━━━━
+
+BEFUNDE:
+
+✅ TROW: Netto +97 Delta. CC $100 haelt Delta klein. Bei 4% Kurs-Fall:
+   Aktien-Verlust: 116 × 4% × Kurs ≈ $-460
+   CC-Gewinn: rechnerisch nur ~$50-100 (CC ist stark OTM)
+   → CC alleine reicht NICHT ganz. Ein Long Put (Delta -50) waere nice-to-have.
+
+⚠️ IWM: Netto +260 (2× so viel wie TROW). Bei 4% Fall verlierst du massiv
+   die 100 Aktien. Aber du hast schon 4-5 Long Puts als Hedge (Delta +159 zu
+   dem Kurs — kann sein dass Hedges sehr weit OTM sind).
+
+⚠️ GLD: Netto +188. Bei 4% Gold-Fall: $1000×4% Aktien = -$40 pro Aktie.
+   3-4 zusatzliche Long Puts wuerden auf Delta 0 hedgen.
+
+━━━━━━━━━━━━━━━━━━
+
+🎯 HEDGE-EMPFEHLUNG jetzt konkret:
+
+1. IWM: Kaufe 3-5 Long Puts $290P 30-45 DTE (~$2-4 pro Kontrakt).
+   Reduziert Delta um -150 bis -250, wird nahe Neutral.
+
+2. GLD: Kaufe 3-4 Long Puts $295P 30-45 DTE (~$3-5).
+   Reduziert Delta um -150 bis -200.
+
+3. TROW/TSLA/LEN/KBH: neutral genug, kein Hedge noetig.
+
+━━━━━━━━━━━━━━━━━━
+
+🕒 ZU DELTA-HISTORIE aus Flex-XML:
+
+Flex hat KEIN Delta-Feld pro Trade. Aber ich kann APPROXIMIEREN:
+- Zum Trade-Zeitpunkt: hole aktuellen Kurs (aus naechstem STK-Trade des Tickers)
+- Mit Strike + DTE + Kurs + IV-Annahme → Black-Scholes = approx Delta
+
+Kann ich morgen bauen: "Delta-Historie pro geschlossenem/gerollten Trade"
+Zeigt: "SP $294 verkauft mit Delta -0.15, gerollt 2 Wochen spaeter bei Delta -0.35"
+
+Das gibt dir Einblick: bei welchem Delta habe ich rein/raus gerollt und was hat's gebracht?
+
+━━━━━━━━━━━━━━━━━━
+
+Rate-Limit-Status: knapp. Delta-Historie ist ein 30-60 Min Feature — mach ich morgen mit frischem Kontext. Fuer heute reicht die JETZT-Analyse.

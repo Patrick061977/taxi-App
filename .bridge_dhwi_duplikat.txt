@@ -1,0 +1,24 @@
+👀 DU HAST RECHT — mein Fehler.
+
+Ich hab dhwi.html gebaut, ohne dass ich zuerst portfolio.html gecheckt hatte. Dabei gibt es DORT SCHON alles:
+
+📁 portfolio.html Tabs:
+• Positions
+• ⚙️ Wheel
+• 🎯 DHWI ← komplette Tracker-Logik: 7d ATM Short Put + 90d OTM Long Put Hedge, Stage 0-6 je 100 Stk, Hedge-Grid-Check, Drop-Trigger, naechste Aktion, IWM default
+• 🛡️ Hedge-Designer ← Portfolio-Analyse + income-neutrale Diagonal-Spreads + Szenarien-Slider
+• Trades (7 Tage)
+• 📊 Kandidaten
+
+Meine neue dhwi.html duppelt das im schlechteren Design.
+
+━━━━━━━━━━━━━━━━━━
+
+FIX-VORSCHLAG (mach ich JETZT):
+1. dhwi.html wird zu einfachem Redirect → portfolio.html#dhwi
+2. Meine 2 SPEZIFISCHEN Sektionen ("Grid-Kapital-Reserve" + "Short-Put-Cashflow-Balance") als ERGAENZUNG in den DHWI-Tab in portfolio.html einfuegen (nicht duppeln, nur was DORT fehlt)
+3. DHWI Nav-Link im Screener → portfolio.html?tab=dhwi
+
+Aufwand: 20 Min. Machen?
+
+Und ehrliche Frage: was hat in deinem bestehenden DHWI-Tab genau gefehlt? (Kapital-Reserve fuer alle Nachkauf-Stufen? Ø-Theta-Vergleich pro Short-Put?) — dann bau ich NUR das dazu.

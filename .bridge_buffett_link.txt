@@ -1,0 +1,18 @@
+🎩 BUFFETT-TRACKER Link jetzt oben im Screener (v0.10.45 gerade gepushed).
+
+Direkt-URL: graham-value.web.app/buffett.html
+
+━━━━━━━━━━━━━━━━━━
+
+Zu "Visualizer und Best Picks weg": bei mir im Code sind BEIDE Links noch da (Zeilen 87-89 in index.html). Wahrscheinlich Browser-Cache. Bitte teste:
+1. Hard-Refresh: Strg+F5 (PC) / Pull-to-refresh (Mobil)
+2. Oder Inkognito-Fenster oeffnen
+
+Nav-Reihenfolge sollte sein (links → rechts):
+🎯 Options-Screener · 📉 Strategy Visualizer · 🎯 Best Picks · 📊 Portfolio · 🎩 Buffett
+
+━━━━━━━━━━━━━━━━━━
+
+Deploy laueft (~2 Min). Danach hard-refresh.
+
+Rate-Limit-Notiz: Session bei uns beiden knapp. Ich mach kurze Antworten. Wenn Bug weiter besteht — kurz "Foto oben Screener + welche 4 Buttons du siehst".

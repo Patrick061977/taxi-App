@@ -1,0 +1,33 @@
+✅ v0.10.47 gepushed — Buffett-Tracker klickt jetzt in den Screener rein (Ticker → index.html?ticker=XYZ → Detail-Modal).
+
+━━━━━━━━━━━━━━━━━━
+
+📊 ZUM DHWI-PORTFOLIO — konkrete Fragen fuer die Visualisierung:
+
+Du sagst "Theta am Tag" (Voice hat "Tater" verstanden). Damit ich das richtig baue, brauche ich Praezisierung:
+
+1️⃣ WELCHER THETA-WERT?
+   a) Pro Option-Position (Short Put z.B. $12 Theta/Tag = 12$ Ertrag pro Tag)
+   b) Pro Aktien-Position (bei Aktien = 0, macht keinen Sinn)
+   c) Portfolio-Gesamt-Theta pro Tag (Summe aller Optionen)
+   d) Durchschnitt pro offener Position
+
+2️⃣ WARNUNG-SCHWELLE?
+   Wenn Theta < X pro Tag → rote Markierung? Welcher Wert?
+
+3️⃣ VERGLEICHS-METRIK?
+   Theta als % vom Portfolio-Wert? Oder $-absolut? Oder beides?
+
+4️⃣ ZEIT-GEWICHTUNG?
+   Was ist wenn Position 5 Tage laueft vs. 30 Tage? Theta beschleunigt gegen
+   Ende — willst du Theta-Kurve als Chart sehen?
+
+5️⃣ POSITION-BLICK:
+   Willst du klick auf Position sehen: "Diese Position bringt $8/Tag, letzte
+   14 Tage Delta-Chart, wann sollte ich schliessen"?
+
+━━━━━━━━━━━━━━━━━━
+
+Kurz jede Frage mit einem Buchstaben antworten (1a, 2 kein, 3 $-absolut, 4 nur Zahl, 5 ja) — ich bau's dann.
+
+Alternativ: "1c+3beide + 5ja" reicht wenn Rest default sein soll.

@@ -287,6 +287,24 @@
       "localPath": "C:\\Users\\Taxi\\OneDrive\\5.Buchführung\\Rechnungen\\_GMX-Eingang\\2026-07\\2026-07-08_uid40884_REWE-ebon.pdf",
       "key": "gmx:40884:REWE-ebon.pdf",
       "datevTarget": "kasse"
+    },
+    "gmx:40990:Rechnung_RE1449_13.07.2026.pdf": {
+      "sentAt": 1784013309385,
+      "messageId": "<e8194ebc-0666-0db1-3473-08fdd27dab84@googlemail.com>",
+      "from": "taxiwydra@googlemail.com",
+      "subject": "Rechnung RE1449 von Taxiunternehmen Patrick Wydra",
+      "localPath": "C:\\Users\\Taxi\\OneDrive\\5.Buchführung\\Rechnungen\\_GMX-Eingang\\2026-07\\2026-07-13_uid40990_Rechnung_RE1449_13.07.2026.pdf",
+      "key": "gmx:40990:Rechnung_RE1449_13.07.2026.pdf",
+      "datevTarget": "ausgang"
+    },
+    "gmx:40991:Rechnung_RE1450_13.07.2026.pdf": {
+      "sentAt": 1784013312255,
+      "messageId": "<159e4f58-21ba-14fe-8cb5-e0e69cf4b80a@googlemail.com>",
+      "from": "taxiwydra@googlemail.com",
+      "subject": "Rechnung RE1450 von Taxiunternehmen Patrick Wydra",
+      "localPath": "C:\\Users\\Taxi\\OneDrive\\5.Buchführung\\Rechnungen\\_GMX-Eingang\\2026-07\\2026-07-13_uid40991_Rechnung_RE1450_13.07.2026.pdf",
+      "key": "gmx:40991:Rechnung_RE1450_13.07.2026.pdf",
+      "datevTarget": "ausgang"
     }
   },
   "sentHashes": {
@@ -577,6 +595,24 @@
       "localPath": "C:\\Users\\Taxi\\OneDrive\\5.Buchführung\\Rechnungen\\_GMX-Eingang\\2026-07\\2026-07-08_uid40884_REWE-ebon.pdf",
       "key": "gmx:40884:REWE-ebon.pdf",
       "datevTarget": "kasse"
+    },
+    "712d9db6d01b6f53c5da243c95056fdb": {
+      "sentAt": 1784013309385,
+      "messageId": "<e8194ebc-0666-0db1-3473-08fdd27dab84@googlemail.com>",
+      "from": "taxiwydra@googlemail.com",
+      "subject": "Rechnung RE1449 von Taxiunternehmen Patrick Wydra",
+      "localPath": "C:\\Users\\Taxi\\OneDrive\\5.Buchführung\\Rechnungen\\_GMX-Eingang\\2026-07\\2026-07-13_uid40990_Rechnung_RE1449_13.07.2026.pdf",
+      "key": "gmx:40990:Rechnung_RE1449_13.07.2026.pdf",
+      "datevTarget": "ausgang"
+    },
+    "ecc54e2ea31ebe62fc590e593f2251a6": {
+      "sentAt": 1784013312255,
+      "messageId": "<159e4f58-21ba-14fe-8cb5-e0e69cf4b80a@googlemail.com>",
+      "from": "taxiwydra@googlemail.com",
+      "subject": "Rechnung RE1450 von Taxiunternehmen Patrick Wydra",
+      "localPath": "C:\\Users\\Taxi\\OneDrive\\5.Buchführung\\Rechnungen\\_GMX-Eingang\\2026-07\\2026-07-13_uid40991_Rechnung_RE1450_13.07.2026.pdf",
+      "key": "gmx:40991:Rechnung_RE1450_13.07.2026.pdf",
+      "datevTarget": "ausgang"
     }
   },
   "sentFromFile": {
@@ -848,6 +884,24 @@
       "subject": "Rechnung RE1448 von Taxiunternehmen Patrick Wydra",
       "localPath": "C:\\Users\\Taxi\\OneDrive\\5.Buchführung\\Rechnungen\\_GMX-Eingang\\2026-07\\2026-07-10_uid40958_Rechnung_RE1448_10.07.2026.pdf",
       "key": "gmx:40958:Rechnung_RE1448_10.07.2026.pdf",
+      "datevTarget": "ausgang"
+    },
+    "taxiwydra@googlemail.com:Rechnung_RE1449_13.07.2026.pdf": {
+      "sentAt": 1784013309385,
+      "messageId": "<e8194ebc-0666-0db1-3473-08fdd27dab84@googlemail.com>",
+      "from": "taxiwydra@googlemail.com",
+      "subject": "Rechnung RE1449 von Taxiunternehmen Patrick Wydra",
+      "localPath": "C:\\Users\\Taxi\\OneDrive\\5.Buchführung\\Rechnungen\\_GMX-Eingang\\2026-07\\2026-07-13_uid40990_Rechnung_RE1449_13.07.2026.pdf",
+      "key": "gmx:40990:Rechnung_RE1449_13.07.2026.pdf",
+      "datevTarget": "ausgang"
+    },
+    "taxiwydra@googlemail.com:Rechnung_RE1450_13.07.2026.pdf": {
+      "sentAt": 1784013312255,
+      "messageId": "<159e4f58-21ba-14fe-8cb5-e0e69cf4b80a@googlemail.com>",
+      "from": "taxiwydra@googlemail.com",
+      "subject": "Rechnung RE1450 von Taxiunternehmen Patrick Wydra",
+      "localPath": "C:\\Users\\Taxi\\OneDrive\\5.Buchführung\\Rechnungen\\_GMX-Eingang\\2026-07\\2026-07-13_uid40991_Rechnung_RE1450_13.07.2026.pdf",
+      "key": "gmx:40991:Rechnung_RE1450_13.07.2026.pdf",
       "datevTarget": "ausgang"
     }
   }

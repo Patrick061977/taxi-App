@@ -1,0 +1,38 @@
+✅ graham-value v0.10.34 gepushed (7yr-Median)
+
+DIE ERGEBNISSE (unser G# vs. grahamvalue.com):
+
+Ticker  Alt (5yr-avg)   Neu (7yr-median)   GV.com    Diff neu
+─────────────────────────────────────────────────────────────
+CAG     26.35     →     23.35              25.24     -7.5%
+LEN     155.75    →     165.43             154.98    +6.7%
+VZ      48.71     →     47.98              45.14     +6.3%
+SWKS    71.56     →     56.42              61.21     -7.8%  ⭐
+
+Alle innerhalb ±10% von grahamvalue.com. SWKS war der Ausreisser (+17%),
+ist jetzt sogar konservativer als GV.com. Das war ja genau dein Punkt —
+"versehentlich in die Scheisse greifen" wird nicht mehr passieren.
+
+━━━━━━━━━━━━━━━━━━
+
+WAS EXAKT PASSIERT IST:
+Vorher: EPS_5yr = Durchschnitt aus 5 Jahren
+  → SWKS: (Boom 2020=$3.71 + 2021=$8.90 + 2022=$9.66 + 2023=$4.47 + 2024=$3.08)/5 = $5.94
+Jetzt: EPS_7yr = Median aus 7 Jahren
+  → SWKS: Median aus [2018-2024] = $3.69 (Extreme faellt raus)
+
+Formel bleibt gleich: G# = √(22.5 × EPS × BVPS)
+
+━━━━━━━━━━━━━━━━━━
+
+DEPLOY:
+Auto-Deploy via GitHub Actions (Firebase Hosting) laueft — ~2 Min bis
+graham-value.web.app zeigt neue Zahlen.
+
+━━━━━━━━━━━━━━━━━━
+
+📊 Rate-Limit: ok noch. Wenn du weitere Ticker vergleichen willst, gib
+Beispiele — dann prüfe ich gezielt gegen GV.com.
+
+Zur PR #2606: Deploy fuer Taxi-App-Fixes laueft jetzt auch. Sollte in
+2 Min alles live sein (Cloud-Functions + Strato).

@@ -1,0 +1,28 @@
+🐛 BUG GEFUNDEN + gefixt (v6.63.703, PR #2610 gemerged)
+
+Der Screenshot zeigt den KUNDEN-Screen (rides-screen), nicht den Hotel-Portal-Screen. Grund:
+
+Rolle-Detection ('bin ich ein Hotel?') lief NUR nach frischem Google-Login.
+Wenn du die Session schon hattest und die Seite neu geladen wird → Direkt loadCustomerData ohne Hotel-Check → normaler Kunden-Screen.
+
+FIX (v6.63.703):
+1. loadCustomerData matcht CRM jetzt auch per Email (nicht nur Phone)
+2. Nach dem Match wird die Hotel-Rolle geprueft
+3. Bei customerKind='Hotel' + hotelPortalEnabled=true → openHotelPortal()
+
+━━━━━━━━━━━━━━━━━━
+
+Was du nach Deploy tun musst:
+
+1. Deploy laueft ~2 Min via GitHub Actions
+2. Hard-Refresh (Strg+Shift+R) im Browser
+3. Kaiserhof-Session bleibt (kein neuer Login noetig)
+
+Danach solltest du sehen:
+🏨 Kaiserhof Usedom · kaiserhof.usedom@gmail.com
+✅ Direkt-Buchung-Banner (gruen)
+➕ Neue Transfer-Buchung
+📋 Liste · 📅 Woche · 🗓 Monat Switcher
++ Kalender-Ansicht mit den 3 View-Modi
+
+Statt jetzt: "Meine Fahrten · Hallo Kaiserhof" (das war der normale Kunden-Screen).

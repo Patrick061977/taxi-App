@@ -1,0 +1,41 @@
+🎯 DU HAST RECHT — ICH HAB DEN BUG GEFUNDEN.
+
+Datei: functions/index.js Zeile 24765-24769
+
+Der Losfahren-Reminder-Cron (scheduledAutoAssign v6.62.804) setzt seit Mai
+folgendes wenn eine 'vorbestellt'-Fahrt <60 Min vor Pickup steht:
+
+    if (_wasVorbestellt) {
+        _upd.status = 'assigned';   ← DAS IST DER BUG
+    }
+    await db.ref('rides/' + r.firebaseId).update(_upd);
+
+Grund war damals: der Cron soll idempotent sein (nicht bei jedem Lauf
+denselben Reminder pushen). Deshalb wurde als "Marker" der Status
+gesetzt. Falscher Ansatz — genau wie du sagst.
+
+Konsequenz die du siehst:
+- Ride ist status='assigned' ohne dass Fahrer bestaetigt hat
+- In der Dispo unsichtbar (weil Ansicht 'vorbestellt' UND 'accepted' zeigt,
+  aber nicht 'assigned')
+- Fahrer weiss nix, du weisst nix, Kunde wartet
+
+DIE REGEL DIE DU FORDERST (bekraeftige ich als Memory):
+> status='assigned' darf NUR gesetzt werden wenn Fahrer aktiv bestaetigt.
+> System-seitige State-Aenderungen laufen ueber separate Flags, nicht
+> ueber den Status.
+
+━━━━━━━━━━━━━━━━━━
+
+FIX (bau ich jetzt):
+- Statt status='assigned' → neuer Flag reminderPushedAt=Date.now()
+- Filter im naechsten Cron-Lauf checkt reminderPushedAt statt status
+- Status bleibt 'vorbestellt' bis Fahrer manuell akzeptiert
+- Alle anderen Code-Stellen die 'assigned' pruefen: entweder auf
+  'accepted' migrieren oder auf pickup_ready-Flag umstellen
+
+Aufwand ~30 Min inkl. Rueckwaerts-Kompatibilitaet fuer alte assigned-Rides.
+
+━━━━━━━━━━━━━━━━━━
+
+Soll ich das JETZT fixen (statt onShiftForceEnded)? Der assigned-Bug ist wichtiger — er ist die eigentliche Ursache warum du die Ziebell-Fahrt nicht gesehen hast.

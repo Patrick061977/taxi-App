@@ -1,0 +1,39 @@
+✅ DU HAST RECHT — aber gute Nachricht: der Code SAMMELT schon.
+
+fetch-portfolio.js macht:
+1. reqExecutions bei TWS API → gibt Trades zurück
+2. loadExistingTrades() liest bestehende trades.jsonl
+3. Nur NEUE Trades (dedup via execId) werden ANGEHAENGT (fs.appendFileSync)
+4. Alte Trades werden NIE geloescht
+
+━━━━━━━━━━━━━━━━━━
+
+WARUM ist trotzdem so wenig drin?
+
+TWS API-Limit: reqExecutions liefert nur die LETZTEN 7 TAGE pro Request.
+Wenn wir nur alle 30 Tage fetchen, verpassen wir 23 Tage → grosse Luecken.
+
+Loesungen:
+A) Cron-Job der TAEGLICH fetch-portfolio.js laueft. Nach 3 Wochen daily-run haben wir 3+ Wochen Historie sauber.
+B) FLEX-XML Bulk-Import: Historie ab Kontostart (mehrere Jahre) in einem Rutsch. Danach reicht daily-Fetch fuer Aktualisierung.
+
+━━━━━━━━━━━━━━━━━━
+
+VORSCHLAG:
+
+1. HEUTE: Ich baue einen Bash-Cron/Windows-Task-Scheduler-Snippet der fetch-portfolio.js taeglich um 22:00 aufruft (nach US-Markt-Close).
+
+2. Wenn du morgen die Flex-XML lieferst: parse ich einmalig alles rein und danach laueft daily-Cron dazu.
+
+Damit hast du dann komplette Historie ab Kontostart.
+
+━━━━━━━━━━━━━━━━━━
+
+Zur Flex-XML von vorhin: die kam nicht als Datei-Attachment durch die Bridge (Bridge nimmt nur Text/Photos, keine XML-Docs).
+
+Du muesstest die XML in einen Ordner legen den ich lokal lesen kann, z.B.
+C:/Users/Taxi/Downloads/ oder C:/Taxi App/taxi-App-github/
+
+━━━━━━━━━━━━━━━━━━
+
+Rate-Limit-Status: bei uns beiden echt am Ende. Sag "GO CRON" wenn ich den taeglichen Fetch-Task baue — sonst pause fuer heute.

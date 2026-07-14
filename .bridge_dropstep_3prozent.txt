@@ -1,0 +1,30 @@
+🎯 JETZT SEHE ICH DEN PUNKT — die Zahlen passen so:
+
+Einstand: $296.97
+Aktueller dropStep fuer diesen Ticker: 6% (nicht 7 wie ich vorhin vermutet hab)
+Stufe 1 = $296.97 × 0.94 = $279 ✓
+
+Du willst aber 3% Grid. Dann waeren:
+Stufe 1: -3%  → $288.06
+Stufe 2: -6%  → $279.15
+Stufe 3: -9%  → $270.24
+Stufe 4: -12% → $261.33
+Stufe 5: -15% → $252.42 → 500 Aktien Max
+Stufe 6+: watch
+
+━━━━━━━━━━━━━━━━━━
+
+WIE DU 3% EINSTELLST:
+
+In der Card fuer diese Position gibt es ein kleines Zahlen-Input-Feld:
+"Drop-Step %" — steht dort aktuell "6", schreibe "3" rein.
+
+Nach Enter aktualisiert sich die ganze Card automatisch (Grid-Stufen + naechster SP-Strike + Total-Kapital).
+
+Die Einstellung wird im Browser (localStorage) gespeichert und ueberlebt Refresh.
+
+━━━━━━━━━━━━━━━━━━
+
+Falls du das Feld nicht findest: es ist im oberen Bereich der Card, meistens zwischen dem "Refresh"-Button und den Kurs-Feldern. Kann auf Mobile in einer zweiten Zeile stehen.
+
+Screenshot mach ich fuer dich mit gruen markiertem Feld wenn du willst — sag "MARKIER".

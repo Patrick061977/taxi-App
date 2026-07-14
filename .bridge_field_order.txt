@@ -1,0 +1,28 @@
+✅ v6.63.705 gemerged (PR #2612) — Feld-Reihenfolge im Buchungs-Modal
+
+Neue Reihenfolge:
+1. 👤 Gastname
+2. 📍 Abholort (Auto-Fill Hotel-Adresse)
+3. 🎯 Zielort + Favoriten-Chips + Swap/Favorit-Buttons
+4. 📅 Datum · 🕒 Uhrzeit (nebeneinander)
+5. 👥 Personen
+6. 🔁 Rueckfahrt
+7. 📝 Bemerkungen
+
+Adressen zusammen oben (mit Favoriten in einer Zone), Datum/Zeit/Pax gruppiert unten — logischer Fluss beim Ausfuellen.
+
+Sanity-Check: alle 8 Feld-IDs unveraendert, keine Duplikate.
+
+Deploy in ~2 Min via Strato. Hard-Refresh → neue Reihenfolge sichtbar.
+
+━━━━━━━━━━━━━━━━━━
+
+Heute in Summe fuer Hotel-Portal gebaut:
+v6.63.700 Multi-Fahrten-Auswahl (Fahrer-App, nicht Hotel)
+v6.63.701 Kalender-Views Woche/Monat
+v6.63.702 Favoriten-Chips + Swap
+v6.63.703 Session-Restore-Fix (Rolle-Detection)
+v6.63.704 Klick auf Monats-Tag → Detail
+v6.63.705 Feld-Reihenfolge Adressen oben
+
+Plus graham-value: v0.10.75 Trade-Log Δ + Delta-Enrichment 2024 Trades

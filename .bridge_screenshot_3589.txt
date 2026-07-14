@@ -1,0 +1,23 @@
+👀 Screenshot 3589 gesehen — Grid ist auf 3% umgestellt, Tabelle ist da. Nice.
+
+━━━━━━━━━━━━━━━━━━
+
+ABER ich sehe ein Problem: alle Zeilen sehen ausgegraut aus (Watch-Only). Das kann zwei Gruende haben:
+
+1️⃣ Du hast bei IWM SCHON 500 Aktien oder mehr → dann sind wirklich alle weitere Stufen Watch-Only (Aktien-Limit erreicht). Bei -6% Einstand-Naehe koennte das stimmen wenn du komplett eingebucht bist.
+
+2️⃣ Bug: mein Code prueft `buyStagesLeft = (500 - stockQty)/100`. Wenn du z.B. 300 Aktien + 2 offene SPs (= dhwiStage 3) hast, muesste "Stufe 4" der naechste Kauf sein → 100 Aktien = +400 total. Aber vielleicht buyStagesLeft rechnet nicht mit den offenen SPs die eingebucht werden.
+
+━━━━━━━━━━━━━━━━━━
+
+FRAGE damit ich weiss ob es ein Bug ist:
+
+Bei IWM aktuell:
+• Wie viele Aktien hast du?
+• Wie viele Short-Puts offen (Kontrakte)?
+
+Kurz zwei Zahlen (z.B. "300 Aktien, 2 SP") — dann weiss ich ob mein Code die Kauf-Stufen richtig berechnet oder ich einen Fix brauche.
+
+━━━━━━━━━━━━━━━━━━
+
+Ausserdem sehe ich in der Grid-Tabelle sehr viele Stufen — das ist ok fuer -50% Rechnung, aber wenn's zu viel Scrollen ist, kann ich noch einen Toggle "nur Kauf-Stufen" einbauen.

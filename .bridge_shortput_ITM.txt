@@ -1,0 +1,12 @@
+👌 Verstanden — wenn der Underlying-Kurs unter den Strike fällt (ITM), steigt Assignment-Risiko. Baue ich als drittes Feld ein:
+
+🟢 OTM safe (Kurs >5% über Strike)
+🟡 nahe Strike (Kurs innerhalb 5% drüber)
+🟠 ITM assignment-Risiko (Kurs unter Strike)
+🔴 tief ITM (Delta > 0.7) + Roll-Empfehlung
+
+Das ist genau der Punkt "wann sollte ich rollen bevor ich assigned werde". Auto-Vorschlag: bei tief-ITM + DTE < 14 → Roll auf Strike unter aktuellem Kurs mit 30-45 DTE.
+
+Baue ich in v0.10.51 in ~15 Min ein, sobald ich einen freien Slot habe.
+
+Rate-Limit-Status: bei mir Session-Level noch 60%, du kannst weiter testen.

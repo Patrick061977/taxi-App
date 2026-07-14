@@ -1,0 +1,29 @@
+🔍 ZIEBELL AUFGELOEST — hier die komplette Chronik:
+
+12.07. 15:24 → Auto-Assign: Toyota Prius IK (P1, Score 6). Fahrer war zu diesem Zeitpunkt noch im Dienst.
+13.07. 07:05 → onRideUpdated: Status vorbestellt → 'assigned' (verdaechtiger Zwischenzustand, muss ich noch klaeren)
+13.07. 09:09 → Departure-Alert skip: pw-ik-222 shift=forceEnded (Fahrer hat gestern Abend/heute frueh Schicht beendet)
+13.07. 09:17 → MEIN RESET: Fahrzeug entfernt, Status wieder auf 'vorbestellt'
+13.07. 09:27:01 → Watchdog erkennt "Sofortfahrt ohne Fahrzeug, -7min bis Pickup" → Auto-Assign Tesla Model Y (1.2 km, ~3 Min Anfahrt)
+13.07. 09:29:12 → Status 'sofort' → 'completed' (Fahrer hat abgeschlossen)
+13.07. 09:29:13 → Auto-Rechnung 20-26-1402 (11,50 €) erstellt + Abschluss-SMS mit PDF-Link an Kundin
+
+→ Ziebell ist gefahren, abgeschlossen, bezahlt-Prozess laueft.
+→ In deiner Dispo unter "Erledigte Fahrten" heute zu finden — nicht in "Aktive/Vorbestellte".
+
+━━━━━━━━━━━━━━━━━━
+
+🎯 DEIN PUNKT:
+"Wenn Fahrer nicht annimmt oder gar nicht online ist, dann kann die Fahrt auch nicht an dieses Fahrzeug weitergegeben..."
+
+Genau. In diesem Fall hat der Prius-Fahrer die Schicht gestern noch WAEHREND des Dienstes zugewiesen bekommen (15:24, war da noch on-shift). Er hat spaeter die Schicht beendet (shift.forceEnded) — aber die Fahrt blieb bei ihm haengen.
+
+Was FEHLT im System:
+Wenn ein Fahrer shift.forceEnded macht, sollten ALLE seine zugewiesenen (aber noch nicht akzeptierten) Vorbestellungen SOFORT freigegeben und neu verteilt werden — nicht erst der Watchdog kurz vor Pickup.
+
+Ich habe das als Task fuer heute Nachmittag eingeplant:
+"onShiftForceEnded → alle assignedVehicle=this + acceptedAt=null + zukuenftige pickupTimestamp → assignedVehicle=null + re-queue fuer scheduledAutoAssign"
+
+Das verhindert genau diesen Fall — Ride wird sofort freigegeben wenn Fahrer Schicht beendet, statt bis 7min vor Pickup zu warten.
+
+Soll ich das JETZT anfangen (nachdem PR #2606 gemerged ist)?

@@ -1,0 +1,39 @@
+✅ Alles gemacht — Zusammenfassung:
+
+1️⃣ CRM-SWEEP FERTIG
+67 Kunden mit verknoteten Nummern gesplittet:
+• Handy landet in "phone" + "mobilePhone" (primary)
+• Festnetz landet in "phone2" (sekundaer)
+• 0 unklare Faelle (US-Nummer war eine, jetzt auch dabei)
+Report: .phone-cleanup-report.json
+
+2️⃣ ASCHMONEIT-BUG GEFIXT (v6.63.692, PR #2604 gemerged)
+Root Cause: Native "Stripe-Vorkasse-Link erstellen" schickte KEINE rideId
+an createStripeCheckout → Webhook konnte die Ride nicht finden → blieb
+"offen" trotz Zahlung.
+
+Fix jetzt drin: rideId wird mitgegeben. Cloud-Function markiert Ride als
+paid sobald Stripe die Zahlung meldet.
+
+Fahrer-App wird nach dem naechsten Cloud-Function-Deploy + APK-Build
+aktualisiert (v6.63.692). APK-Build laueft via GitHub Actions.
+
+3️⃣ CLAUDIA-RIDE MANUELL FIX
+Ride -OxL9VKLMY0JTz046smp wurde manuell auf paymentStatus=paid gesetzt.
+17.50 € war ja schon eingegangen — die Ride braucht jetzt keinen Rueck-
+Fix mehr. In der Dispo-App siehst du "✅ BEZAHLT"-Badge.
+
+━━━━━━━━━━━━━━━━━━
+
+📋 NOCH OFFEN — dein Feedback bitte:
+
+a) SMS-Option beim Stripe-Vorkasse-Link (aktuell nur WhatsApp+Email)
+b) Manueller "auf bezahlt setzen"-Button in der Dispo-Karte (fuer Notfaelle)
+
+Beides sinnvolle Features, ~30 Min pro Stueck. Sag welches zuerst.
+
+━━━━━━━━━━━━━━━━━━
+
+📊 Rate-Limit-Check: Session (5h) noch reichlich Kapazitaet.
+Deploy: Cloud-Function wird automatisch via GitHub Actions gedeployed
+(v6.63.692 in ~2 Min live).

@@ -1,0 +1,50 @@
+💰 THETA / TAG pro STRIKE-ABSTAND (Delta-Bucket) aus 2000+ echten Trades
+
+Was du kassiert hast pro Tag, gruppiert nach Delta beim Verkauf:
+
+━━━━━━━━━━━━━━━━━━
+
+📊 IWM (dein Haupt-Wheel):
+  Weit OTM (Δ<0.15):     Put $4/d · Call $14/d  ← ZU WENIG
+  Δ 0.15-0.30:           Put $22/d · Call $14/d
+  Δ 0.30-0.45:           Put $40/d · Call $22/d  ← Sweet-Spot
+  ATM (Δ 0.45-0.60):     Put $52/d · Call $34/d  ← BESTES
+  ITM (Δ>0.60):          Put $114/d · Call $63/d ← Assignment-Risiko
+
+🎯 GLD:
+  Weit OTM:              Put $3/d · Call $22/d
+  Δ 0.30-0.45:           Put $38/d · Call $38/d  ← Sweet-Spot
+  ATM:                   Put $54/d · Call $43/d  ← BESTES bei SP
+
+🎯 SPY:
+  Weit OTM:              Put $6/d · Call $32/d
+  Δ 0.30-0.45:           Put $66/d · Call $40/d  ← Sweet-Spot
+  ATM:                   Put $59/d · Call $53/d
+
+🎯 TSLA (hohe IV!):
+  Δ 0.30-0.45:           Put $158/d · Call $32/d  ← HAMMER
+  ATM:                   Put $134/d · Call $76/d
+  ITM Call:              $317/d (aber Assignment quasi sicher)
+
+━━━━━━━━━━━━━━━━━━
+
+🎯 REGEL — MAXIMALE THETA-RATE:
+Delta 0.30–0.45 ist bei fast allen Tickern der Sweet-Spot:
+- Genug Praemie pro Tag ($40-160)
+- Assignment-Wahrscheinlichkeit noch <45%
+- Bei Assignment: kein disaster weil Strike nah am Kurs
+
+Weit OTM (Δ<0.15): nur $4-24/d = nicht lohnenswert (viel Kapital blockiert, wenig Ertrag)
+
+━━━━━━━━━━━━━━━━━━
+
+💡 KONKRETER TIPP wenn Strike 30-40 Punkte weg (weit OTM):
+→ BUYBACK jetzt (kostet fast nix wenn deep-OTM) und neuen Short an Delta 0.30-0.45 rollen.
+Beispiel IWM Ø-Strike $300, Kurs jetzt $296, alter SP @$260 (30 Punkte weg, Delta ~0.05):
+- Buyback $260P: ~$5-15 Kosten
+- Neuer SP $291 7d: ~$60-120 Praemie
+- Netto: +$50-100 sofort, plus laufender Theta $30-50/Tag
+
+━━━━━━━━━━━━━━━━━━
+
+Willst du dass ich das als "Roll-Empfehlung"-Feature pro Ticker in DHWI-Card einbaue? "Aktueller SP $260 hat Delta 0.05 = $4/d — Roll auf $291 = $52/d wuerde +$48/d mehr bringen"

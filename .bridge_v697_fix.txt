@@ -1,0 +1,48 @@
+✅ v6.63.697 FERTIG — status='assigned' gefixt
+
+Ab jetzt gilt deine Regel:
+"assigned kann NUR gemacht werden wenn der Fahrer bestaetigt hat."
+
+━━━━━━━━━━━━━━━━━━
+
+WAS GEAENDERT WURDE:
+
+1️⃣ REMINDER-CRON (scheduledAutoAssign):
+Vorher: setzte status='assigned' als Marker
+Jetzt: setzt reminderPushedAt=timestamp als separater Flag
+→ Status bleibt 'vorbestellt' bis Fahrer aktiv annimmt
+
+2️⃣ NO-RESPONSE-REASSIGN (Sicherheitsnetz):
+Wenn Fahrer den Push nicht innerhalb 5 Min annimmt UND Pickup naht,
+wird die Ride automatisch anderem Fahrzeug zugewiesen. Log dokumentiert
+altes Fahrzeug + Grund.
+
+Der Cron prueft jetzt:
+- status='vorbestellt' + reminderPushedAt gesetzt (neu)
+- ODER Legacy status='assigned' + openRideWarned (alte Rides)
+- KEIN acceptedAt/onWayAt (Fahrer hat nicht reagiert)
+- Pickup < 60 Min bevor, aber nicht > 5 Min ueberfaellig
+- Marker > 5 Min alt (Wartezeit fuer Fahrer)
+
+3️⃣ MEMORY DOKUMENTIERT:
+feedback_status-assigned-nur-nach-fahrer-bestaetigung.md — regelt dass
+system-seitige Status-Aenderungen verboten sind, Marker/Idempotenz laufen
+ueber separate Flags.
+
+━━━━━━━━━━━━━━━━━━
+
+PR #2606 hat jetzt 6 Fixes:
+✓ Hotel-Portal (kunden.html)
+✓ Direkt-Buchung (statt Anfrage)
+✓ Storno-SMS-Unterdrueckung bei Ghost-Sweep
+✓ Ghost-Sweep -> completed statt cancelled
+✓ Hotel-Portal status='vorbestellt'
+✓ status='assigned' NUR nach Fahrer-Bestaetigung
+
+Bereit zum Mergen. Sag "MERGE".
+
+━━━━━━━━━━━━━━━━━━
+
+📊 Rate-Limit-Status: Session noch ok, aber wir haben viel gemacht.
+Nach dem Merge sollten wir kurz Pause machen — dann Nachmittag mit
+onShiftForceEnded weitermachen.

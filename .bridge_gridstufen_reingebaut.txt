@@ -1,0 +1,24 @@
+✅ Grid-Stufen jetzt IM richtigen Tab (v0.10.51 gerade gepushed)
+
+Sektion "📊 DHWI-Grid alle Stufen — Kapital-Reserve" in jeder Underlying-Karte
+im DHWI-Tab. Ist per Klick auf den Titel ausklappbar.
+
+Zeigt Stages (aktuell+1) bis 6:
+• Stage-Nr + 🔴/🟡 Marker
+• Trigger-Kurs
+• Abstand zum Einstand (%)
+• Abstand zum aktuellen Spot (%)
+• +100 Aktien pro Stufe
+• Kapital pro Stufe
+• Kumulativ
+
+Footer: Gesamt-Kapital-Reserve bis Stage 6 (dein worst-case -50% DD).
+
+Nutzt deine bereits vorhandene dropStep-Einstellung pro Ticker (den kannst du oben in der Card einstellen, z.B. IWM auf 5% statt 10%).
+
+━━━━━━━━━━━━━━━━━━
+
+Was ich dabei ehrlich raus muss:
+❌ dhwi.html hab ich unnötig gebaut (Duplikat). Ich lass sie als Redirect zu portfolio.html?tab=dhwi drin, falls ein Link darauf zeigt.
+
+Deploy in ~2 Min, dann testen.

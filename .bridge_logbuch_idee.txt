@@ -1,0 +1,40 @@
+📓 JA — Logbuch/Zyklus-History ist genau die richtige Idee.
+
+Konzept "Wheel-Zyklen-Historie":
+
+Ein DHWI-ZYKLUS = SP verkaufen → assigned → CC verkaufen → called away → Zyklus zu.
+
+Pro abgeschlossenem Zyklus loggen wir:
+• Ticker · Start-Datum · End-Datum · Dauer
+• SP-Strike + Praemie
+• Assignment-Preis (= letzter Kauf-Preis der Aktien)
+• Alle Nachkauf-Stufen die im Zyklus getriggert wurden
+• CC-Strike + Praemie
+• Called-Away-Preis (= letzter Verkaufs-Preis)
+• Hedge-Kosten in dem Zyklus
+• REALISIERTE P/L komplett = (Verkaufs-Preise − Kauf-Preise) + Alle Prämien − Hedge-Kosten
+
+Speicherort: JSON-Datei data/wheel-history.jsonl
+Anzeige: neue Tab in Portfolio "📓 Wheel-History"
+
+Zusatz-Statistiken:
+• Ø Dauer pro Zyklus
+• Ø P/L pro Zyklus
+• Sharpe / Win-Rate
+• Best/Worst-Zyklus
+• Chart: kumulierte P/L ueber Zeit
+
+━━━━━━━━━━━━━━━━━━
+
+Aber ohne komplette Trade-Historie (Flex-XML) kann ich das nicht sinnvoll fuellen. Also PLAN:
+
+1. MORGEN: Activity-Flex-Import bauen
+2. Aus Flex → Wheel-Zyklen erkennen (SP → STK-BOT innerhalb 30 Tage nach Expiry = Assignment; STK-SLD nach CC-SLD = Called Away)
+3. Zyklen-History-Log in data/wheel-history.jsonl
+4. Portfolio-Tab "📓 Wheel-History" mit Timeline + Stats
+
+━━━━━━━━━━━━━━━━━━
+
+Rate-Limit-Notiz: uns beiden wirklich am Ende heute. Nach diesem Vorschlag sollten wir wirklich Pause machen.
+
+Sag "GO" fuer morgen mit /clear + Flex-Import — dann bau ich das komplett. Heute: Feierabend.

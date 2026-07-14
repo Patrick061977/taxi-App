@@ -1,0 +1,29 @@
+✅ v6.63.702 gemerged (PR #2609) — Favoriten + Rueckfahrt-Swap
+
+📝 IM BUCHUNGS-MODAL jetzt:
+
+1. ABHOLORT (unveraendert) — auto-fill mit Hotel-Adresse aus CRM.
+
+2. ZIEL — mit FAVORITEN-CHIPS drunter:
+   • Bahnhof Heringsdorf
+   • Bahnhof Ahlbeck
+   • Bahnhof Bansin
+   • Flughafen Heringsdorf
+   → Ein-Klick fuellt das Ziel-Feld
+
+3. ⭐ "AKTUELLES ZIEL ALS FAVORIT" Button:
+   Speichert das eingegebene Ziel im Browser (pro Hotel-Konto). Custom-Favoriten
+   haben ein ✕ zum Entfernen. So kann jedes Hotel seine haeufigsten Ziele
+   selbst pflegen (z.B. eine Ferienwohnung, Restaurant, etc.)
+
+4. ↔ "ABHOLORT ↔ ZIEL TAUSCHEN" Button:
+   Ein Klick → Rueckfahrt vom Ziel zum Hotel. Perfekt fuer Abholung
+   vom Bahnhof zurueck ins Hotel.
+
+━━━━━━━━━━━━━━━━━━
+
+Deploy in ~2 Min via Strato-Sync. Danach im Hotel-Portal testen:
+1. Kaiserhof-Login
+2. "+ Neue Transfer-Buchung"
+3. Chips unter Ziel-Feld anklicken → Ziel wird gesetzt
+4. Bei Bahnhof→Hotel-Fahrt: erst Ziel eintragen, dann ↔ Swap tappen

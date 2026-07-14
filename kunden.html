@@ -1845,14 +1845,21 @@
             document.getElementById('login-screen').style.display = 'none';
             document.getElementById('rides-screen').style.display = 'block';
 
-            // Suche Kunde in CRM
+            // Suche Kunde in CRM — bei Google-Login zusaetzlich per Email matchen
             const phoneVariants = getPhoneVariants(verifiedPhone);
+            const currentUser = firebase.auth().currentUser;
+            const loginEmail = (currentUser?.email || '').toLowerCase();
 
             try {
                 const customersSnap = await db.ref('customers').once('value');
                 const customers = customersSnap.val() || {};
 
                 for (const [id, cust] of Object.entries(customers)) {
+                    // v6.63.703 (Patrick 14.07.): Match auch per Email (Google-Login-Session-Restore)
+                    if (loginEmail && (cust.email || '').toLowerCase() === loginEmail) {
+                        customerData = { ...cust, id };
+                        break;
+                    }
                     const custPhones = [
                         normalizePhone(cust.phone || ''),
                         normalizePhone(cust.mobilePhone || ''),
@@ -1863,6 +1870,12 @@
                         customerData = { ...cust, id };
                         break;
                     }
+                }
+
+                // v6.63.703: Hotel-Rolle-Detection auch bei Session-Restore
+                if (customerData && (customerData.customerKind === 'Hotel' || customerData.customerKind === 'hotel') && customerData.hotelPortalEnabled === true) {
+                    openHotelPortal();
+                    return;
                 }
             } catch (e) {
                 console.error('CRM Fehler:', e);

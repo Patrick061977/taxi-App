@@ -783,7 +783,13 @@
                 <label style="font-size:13px;font-weight:600;">📍 Abholort (Standard: Hotel-Adresse)</label>
                 <input id="hotel-anf-pickup" type="text" placeholder="Hotel-Adresse (Standard)" style="width:100%;padding:12px;border:1px solid #d1d5db;border-radius:10px;margin:4px 0 12px;font-size:15px;">
                 <label style="font-size:13px;font-weight:600;">🎯 Zielort *</label>
-                <input id="hotel-anf-dest" type="text" placeholder="z.B. Bahnhof Ahlbeck" style="width:100%;padding:12px;border:1px solid #d1d5db;border-radius:10px;margin:4px 0 12px;font-size:15px;">
+                <input id="hotel-anf-dest" type="text" placeholder="z.B. Bahnhof Ahlbeck" style="width:100%;padding:12px;border:1px solid #d1d5db;border-radius:10px;margin:4px 0 4px;font-size:15px;">
+                <!-- v6.63.702 (Patrick 14.07.): Favoriten-Schnellwahl + Rueckfahrt-Swap -->
+                <div id="hotel-fav-chips" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;"></div>
+                <div style="display:flex;gap:6px;margin-bottom:12px;">
+                    <button type="button" onclick="hotelSwapPickupDest()" style="flex:1;padding:8px;background:#f3f4f6;border:1px solid #e5e7eb;border-radius:8px;font-size:12px;cursor:pointer;color:#374151;font-weight:600;">↔ Abholort ↔ Ziel tauschen</button>
+                    <button type="button" onclick="hotelAddFavorite()" style="flex:1;padding:8px;background:#f3f4f6;border:1px solid #e5e7eb;border-radius:8px;font-size:12px;cursor:pointer;color:#374151;font-weight:600;">⭐ Aktuelles Ziel als Favorit</button>
+                </div>
                 <label style="display:flex;align-items:center;gap:8px;margin:8px 0;font-size:14px;font-weight:600;cursor:pointer;">
                     <input id="hotel-anf-return" type="checkbox">
                     🔁 Mit Rückfahrt
@@ -3033,7 +3039,48 @@
         }
         function _fmtDe(d) { return String(d.getDate()).padStart(2,'0')+'.'+String(d.getMonth()+1).padStart(2,'0'); }
 
-        function hotelOpenNewAnfrage() { document.getElementById('hotel-anfrage-modal').classList.add('active'); }
+        // v6.63.702: Favoriten-Ziele (Standard + hotel-spezifisch aus localStorage)
+        const HOTEL_DEFAULT_FAVS = ['Bahnhof Heringsdorf, 17424 Heringsdorf', 'Bahnhof Ahlbeck, 17419 Heringsdorf-Ahlbeck', 'Bahnhof Bansin, 17429 Heringsdorf-Bansin', 'Flughafen Heringsdorf, 17419 Zirchow'];
+        function _hotelFavKey() { return 'hotelFavs_' + (customerData?.id || 'default'); }
+        function _hotelGetFavs() {
+            try { const custom = JSON.parse(localStorage.getItem(_hotelFavKey()) || '[]'); return [...HOTEL_DEFAULT_FAVS, ...custom]; } catch(_) { return HOTEL_DEFAULT_FAVS; }
+        }
+        function hotelRenderFavChips() {
+            const container = document.getElementById('hotel-fav-chips');
+            if (!container) return;
+            container.innerHTML = _hotelGetFavs().map((f, i) => {
+                const label = f.split(',')[0];
+                const isCustom = i >= HOTEL_DEFAULT_FAVS.length;
+                return `<span style="display:inline-flex;align-items:center;gap:4px;background:#eef2ff;color:#4338ca;padding:5px 10px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;" onclick="hotelPickFav('${f.replace(/'/g,"\\'")}')" title="${f}">${label}${isCustom ? ' <span onclick=\"event.stopPropagation();hotelRemoveFav(' + (i - HOTEL_DEFAULT_FAVS.length) + ')\" style=\"opacity:0.5;font-size:11px;\">✕</span>' : ''}</span>`;
+            }).join('');
+        }
+        function hotelPickFav(dest) { document.getElementById('hotel-anf-dest').value = dest; }
+        function hotelAddFavorite() {
+            const d = document.getElementById('hotel-anf-dest').value.trim();
+            if (!d) { alert('Bitte erst ein Ziel eintragen'); return; }
+            const custom = JSON.parse(localStorage.getItem(_hotelFavKey()) || '[]');
+            if (!custom.includes(d) && !HOTEL_DEFAULT_FAVS.includes(d)) {
+                custom.push(d);
+                localStorage.setItem(_hotelFavKey(), JSON.stringify(custom));
+                hotelRenderFavChips();
+            }
+        }
+        function hotelRemoveFav(idx) {
+            const custom = JSON.parse(localStorage.getItem(_hotelFavKey()) || '[]');
+            custom.splice(idx, 1);
+            localStorage.setItem(_hotelFavKey(), JSON.stringify(custom));
+            hotelRenderFavChips();
+        }
+        function hotelSwapPickupDest() {
+            const p = document.getElementById('hotel-anf-pickup');
+            const d = document.getElementById('hotel-anf-dest');
+            const tmp = p.value; p.value = d.value; d.value = tmp;
+        }
+
+        function hotelOpenNewAnfrage() {
+            hotelRenderFavChips();
+            document.getElementById('hotel-anfrage-modal').classList.add('active');
+        }
         function hotelCloseAnfrageModal() { document.getElementById('hotel-anfrage-modal').classList.remove('active'); }
 
         async function hotelSubmitAnfrage() {

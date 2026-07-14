@@ -3031,16 +3031,53 @@
             const now = new Date();
             const dayNames = ['Mo','Di','Mi','Do','Fr','Sa','So'];
             const headerHtml = dayNames.map(n => `<div style="font-size:10px;color:#6b7280;font-weight:700;text-align:center;padding:4px;">${n}</div>`).join('');
-            const cellsHtml = cells.map(c => {
+            const cellsHtml = cells.map((c, idx) => {
                 if (!c) return `<div style="min-height:60px;"></div>`;
                 const rides = _hotelRidesForDay(c);
                 const isToday = c.toDateString() === now.toDateString();
-                return `<div style="background:${isToday?'#eef2ff':'white'};border:1px solid ${isToday?'#a5b4fc':'#e5e7eb'};border-radius:6px;padding:4px;min-height:60px;">
+                const iso = c.getFullYear() + '-' + String(c.getMonth()+1).padStart(2,'0') + '-' + String(c.getDate()).padStart(2,'0');
+                const clickable = rides.length > 0;
+                return `<div ${clickable ? `onclick="hotelShowDayDetail('${iso}')" style="cursor:pointer;"` : 'style=""'} data-day="${iso}" style="background:${isToday?'#eef2ff':'white'};border:1px solid ${isToday?'#a5b4fc':'#e5e7eb'};border-radius:6px;padding:4px;min-height:60px;${clickable?'cursor:pointer;':''}">
                     <div style="font-size:11px;font-weight:700;color:${isToday?'#4338ca':'#6b7280'};">${c.getDate()}.</div>
                     ${rides.length > 0 ? `<div style="font-size:10px;background:#7c3aed;color:white;border-radius:3px;padding:1px 3px;margin-top:2px;text-align:center;">${rides.length}</div>` : ''}
                 </div>`;
             }).join('');
-            listEl.innerHTML = `<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;">${headerHtml}${cellsHtml}</div>`;
+            listEl.innerHTML = `<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;">${headerHtml}${cellsHtml}</div>
+                <div id="hotel-day-detail" style="margin-top:14px;"></div>`;
+        }
+
+        // v6.63.704 (Patrick 14.07.): Klick auf Monats-Tag zeigt Detail-Liste
+        function hotelShowDayDetail(isoDate) {
+            const [y,m,d] = isoDate.split('-').map(Number);
+            const day = new Date(y, m-1, d);
+            const rides = _hotelRidesForDay(day);
+            const el = document.getElementById('hotel-day-detail');
+            if (!el || rides.length === 0) return;
+            const dtStr = String(d).padStart(2,'0') + '.' + String(m).padStart(2,'0') + '.' + y;
+            el.innerHTML = `<div style="background:#eef2ff;border:1px solid #a5b4fc;border-radius:12px;padding:14px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                    <b style="font-size:15px;color:#4338ca;">🗓 ${dtStr} · ${rides.length} Fahrt${rides.length===1?'':'en'}</b>
+                    <button onclick="document.getElementById('hotel-day-detail').innerHTML=''" style="background:none;border:none;font-size:18px;cursor:pointer;color:#6b7280;">✕</button>
+                </div>
+                ${rides.sort((a,b)=>(a.pickupTimestamp||0)-(b.pickupTimestamp||0)).map(r => {
+                    const tm = new Date(r.pickupTimestamp);
+                    const hhmm = String(tm.getHours()).padStart(2,'0')+':'+String(tm.getMinutes()).padStart(2,'0');
+                    const st = r.status || 'new';
+                    const stMap = {'new':{c:'#e0e7ff',t:'#3730a3',l:'Geplant'},'vorbestellt':{c:'#e0e7ff',t:'#3730a3',l:'Geplant'},'accepted':{c:'#d1fae5',t:'#065f46',l:'Zugewiesen'},'on_way':{c:'#fef3c7',t:'#78350f',l:'Unterwegs'},'arrived':{c:'#fed7aa',t:'#7c2d12',l:'Fahrer da'},'picked_up':{c:'#dbeafe',t:'#1e40af',l:'Fahrt läuft'},'completed':{c:'#f3f4f6',t:'#374151',l:'Erledigt'},'cancelled':{c:'#fee2e2',t:'#7f1d1d',l:'Storniert'}};
+                    const s = stMap[st] || {c:'#f3f4f6',t:'#374151',l:st};
+                    return `<div style="background:white;border:1px solid #e5e7eb;border-radius:8px;padding:10px;margin-bottom:6px;">
+                        <div style="display:flex;justify-content:space-between;align-items:start;gap:6px;">
+                            <div style="flex:1;">
+                                <div style="font-weight:700;font-size:14px;">${hhmm} · ${r.guestName || r.customerName || 'Gast'}</div>
+                                <div style="font-size:12px;color:#374151;margin-top:4px;">📍 ${(r.pickup||'').substring(0,60)}<br>🎯 ${(r.destination||'').substring(0,60)}</div>
+                                <div style="font-size:11px;color:#6b7280;margin-top:3px;">👥 ${r.passengers || 1} Pax${r.returnTrip ? ' · 🔁 Rückfahrt' : ''}${r.vehicleLabel || r.vehicle ? ' · 🚕 ' + (r.vehicleLabel || r.vehicle) : ''}</div>
+                            </div>
+                            <span style="font-size:11px;font-weight:700;padding:3px 8px;border-radius:12px;background:${s.c};color:${s.t};">${s.l}</span>
+                        </div>
+                    </div>`;
+                }).join('')}
+            </div>`;
+            el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }
 
         function _isoWeek(d) {

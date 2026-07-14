@@ -791,9 +791,24 @@
                 <label style="font-size:13px;font-weight:600;">👥 Personen *</label>
                 <input id="hotel-anf-pax" type="number" min="1" max="20" value="2" style="width:100%;padding:12px;border:1px solid #d1d5db;border-radius:10px;margin:4px 0 12px;font-size:15px;">
                 <label style="display:flex;align-items:center;gap:8px;margin:8px 0;font-size:14px;font-weight:600;cursor:pointer;">
-                    <input id="hotel-anf-return" type="checkbox">
+                    <input id="hotel-anf-return" type="checkbox" onchange="hotelToggleReturn()">
                     🔁 Mit Rückfahrt
                 </label>
+                <!-- v6.63.706 (Patrick 14.07.): Rueckfahrt-Zeit eingebbar -->
+                <div id="hotel-return-fields" style="display:none;background:#eef2ff;border:1px solid #a5b4fc;border-radius:8px;padding:10px;margin-bottom:12px;">
+                    <div style="font-size:12px;font-weight:700;color:#4338ca;margin-bottom:6px;">🔁 Rückfahrt-Zeit (Abholung am Ziel):</div>
+                    <div style="display:flex;gap:8px;">
+                        <div style="flex:1;">
+                            <label style="font-size:12px;font-weight:600;">📅 Datum</label>
+                            <input id="hotel-anf-return-date" type="date" style="width:100%;padding:10px;border:1px solid #d1d5db;border-radius:8px;margin:3px 0;font-size:14px;">
+                        </div>
+                        <div style="flex:1;">
+                            <label style="font-size:12px;font-weight:600;">🕒 Uhrzeit</label>
+                            <input id="hotel-anf-return-time" type="time" style="width:100%;padding:10px;border:1px solid #d1d5db;border-radius:8px;margin:3px 0;font-size:14px;">
+                        </div>
+                    </div>
+                    <div style="font-size:11px;color:#4338ca;margin-top:4px;">💡 Falls leer: automatisch +3h nach Hinfahrt</div>
+                </div>
                 <label style="font-size:13px;font-weight:600;">📝 Bemerkungen (optional)</label>
                 <textarea id="hotel-anf-notes" rows="2" placeholder="Kindersitz, viel Gepäck, etc." style="width:100%;padding:12px;border:1px solid #d1d5db;border-radius:10px;margin:4px 0 12px;font-size:14px;resize:vertical;"></textarea>
                 <div style="display:flex;gap:8px;margin-top:14px;">
@@ -3008,10 +3023,11 @@
                     const col = st === 'completed' ? '#9ca3af' : st === 'cancelled' ? '#ef4444' : st === 'accepted' ? '#10b981' : '#7c3aed';
                     return `<div style="font-size:10px;background:${col};color:white;border-radius:4px;padding:2px 4px;margin-bottom:2px;">${hhmm} ${nm}</div>`;
                 }).join('') + (rides.length > 4 ? `<div style="font-size:10px;color:#6b7280;">+${rides.length - 4}</div>` : '');
-                return `<div style="background:${isToday?'#eef2ff':'white'};border:1px solid ${isToday?'#a5b4fc':'#e5e7eb'};border-radius:8px;padding:6px;min-height:100px;">
+                const isoDay = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+                return `<div onclick="hotelOpenNewAnfrage('${isoDay}')" style="background:${isToday?'#eef2ff':'white'};border:1px solid ${isToday?'#a5b4fc':'#e5e7eb'};border-radius:8px;padding:6px;min-height:100px;cursor:pointer;" title="Klick: Neue Fahrt an diesem Tag">
                     <div style="font-size:11px;color:#6b7280;font-weight:700;">${dayNames[i]}</div>
                     <div style="font-size:14px;font-weight:800;color:${isToday?'#4338ca':'var(--ink)'};margin-bottom:4px;">${d.getDate()}.</div>
-                    ${rowsHtml || '<div style="font-size:10px;color:#9ca3af;">—</div>'}
+                    ${rowsHtml || '<div style="font-size:9px;color:#d1d5db;text-align:center;margin-top:8px;">+ neu</div>'}
                 </div>`;
             }).join('')}</div>`;
         }
@@ -3037,9 +3053,12 @@
                 const isToday = c.toDateString() === now.toDateString();
                 const iso = c.getFullYear() + '-' + String(c.getMonth()+1).padStart(2,'0') + '-' + String(c.getDate()).padStart(2,'0');
                 const clickable = rides.length > 0;
-                return `<div ${clickable ? `onclick="hotelShowDayDetail('${iso}')" style="cursor:pointer;"` : 'style=""'} data-day="${iso}" style="background:${isToday?'#eef2ff':'white'};border:1px solid ${isToday?'#a5b4fc':'#e5e7eb'};border-radius:6px;padding:4px;min-height:60px;${clickable?'cursor:pointer;':''}">
+                // v6.63.706 (Patrick 14.07.): Google-Kalender-Style — Klick auf Tag mit Fahrten zeigt Detail,
+                //   auf leeren Tag oeffnet neue Buchung mit vorgefuelltem Datum.
+                const onClick = clickable ? `hotelShowDayDetail('${iso}')` : `hotelOpenNewAnfrage('${iso}')`;
+                return `<div onclick="${onClick}" data-day="${iso}" style="background:${isToday?'#eef2ff':'white'};border:1px solid ${isToday?'#a5b4fc':'#e5e7eb'};border-radius:6px;padding:4px;min-height:60px;cursor:pointer;">
                     <div style="font-size:11px;font-weight:700;color:${isToday?'#4338ca':'#6b7280'};">${c.getDate()}.</div>
-                    ${rides.length > 0 ? `<div style="font-size:10px;background:#7c3aed;color:white;border-radius:3px;padding:1px 3px;margin-top:2px;text-align:center;">${rides.length}</div>` : ''}
+                    ${rides.length > 0 ? `<div style="font-size:10px;background:#7c3aed;color:white;border-radius:3px;padding:1px 3px;margin-top:2px;text-align:center;">${rides.length}</div>` : '<div style="font-size:9px;color:#d1d5db;margin-top:8px;text-align:center;">+ neu</div>'}
                 </div>`;
             }).join('');
             listEl.innerHTML = `<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;">${headerHtml}${cellsHtml}</div>
@@ -3127,9 +3146,26 @@
             const tmp = p.value; p.value = d.value; d.value = tmp;
         }
 
-        function hotelOpenNewAnfrage() {
+        function hotelOpenNewAnfrage(prefillDate) {
             hotelRenderFavChips();
+            if (prefillDate) {
+                document.getElementById('hotel-anf-date').value = prefillDate;
+                const rd = document.getElementById('hotel-anf-return-date');
+                if (rd) rd.value = prefillDate;
+            }
             document.getElementById('hotel-anfrage-modal').classList.add('active');
+        }
+        // v6.63.706: Toggle Rueckfahrt-Zeit-Felder
+        function hotelToggleReturn() {
+            const chk = document.getElementById('hotel-anf-return');
+            const box = document.getElementById('hotel-return-fields');
+            if (!chk || !box) return;
+            box.style.display = chk.checked ? 'block' : 'none';
+            if (chk.checked) {
+                const rd = document.getElementById('hotel-anf-return-date');
+                const hd = document.getElementById('hotel-anf-date');
+                if (rd && hd && !rd.value) rd.value = hd.value;
+            }
         }
         function hotelCloseAnfrageModal() { document.getElementById('hotel-anfrage-modal').classList.remove('active'); }
 
@@ -3141,6 +3177,8 @@
             const pickup = (document.getElementById('hotel-anf-pickup').value.trim()) || customerData.address || '';
             const dest = document.getElementById('hotel-anf-dest').value.trim();
             const returnTrip = document.getElementById('hotel-anf-return').checked;
+            const returnDate = document.getElementById('hotel-anf-return-date')?.value || '';
+            const returnTime = document.getElementById('hotel-anf-return-time')?.value || '';
             const notes = document.getElementById('hotel-anf-notes').value.trim();
             if (!guestName || !date || !time || !pickup || !dest) {
                 alert('Bitte alle Pflichtfelder (*) ausfüllen.');
@@ -3194,8 +3232,9 @@
                     const returnRide = { ...ride,
                         pickup: dest, destination: pickup,
                         pickupLat: null, pickupLon: null,
-                        pickupTimestamp: pickupTs + 3 * 3600000, // +3h (Fallback bis Hotel exakte Rueckfahrt-Zeit angibt)
-                        pickupTime: (() => { const d2 = new Date(pickupTs + 3 * 3600000); return String(d2.getHours()).padStart(2,'0') + ':' + String(d2.getMinutes()).padStart(2,'0'); })(),
+                        pickupTimestamp: (returnDate && returnTime) ? new Date(returnDate + 'T' + returnTime + ':00').getTime() : (pickupTs + 3 * 3600000),
+                        pickupTime: returnTime || (() => { const d2 = new Date(pickupTs + 3 * 3600000); return String(d2.getHours()).padStart(2,'0') + ':' + String(d2.getMinutes()).padStart(2,'0'); })(),
+                        pickupDate: returnDate || date,
                         notes: (notes ? notes + ' — ' : '') + 'Rueckfahrt zum Hotel',
                         returnTrip: false,
                         _linkedRideId: ref.key

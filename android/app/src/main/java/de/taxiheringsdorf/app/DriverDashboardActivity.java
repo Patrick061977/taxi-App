@@ -1729,9 +1729,31 @@ public class DriverDashboardActivity extends AppCompatActivity {
             nextText.setText(_timeStr + " · " + _custStr + (first.pickup != null ? " · " + first.pickup.split(",")[0] : ""));
             nextText.setVisibility(View.VISIBLE);
             banner.setVisibility(View.VISIBLE);
-            // 🆕 v6.63.618: Banner ist jetzt tappbar — zeigt Dialog mit erster Fahrt
+            // 🆕 v6.63.700 (Patrick 14.07. Bridge #1784007238540): mehrere Fahrten
+            //   im Banner → Auswahl-Dialog statt nur erste
             final java.util.List<Ride> _finalList = _upcoming;
-            banner.setOnClickListener(v -> showUnassignedRideGrabDialog(_finalList.get(0)));
+            banner.setOnClickListener(v -> {
+                if (_finalList.size() == 1) {
+                    showUnassignedRideGrabDialog(_finalList.get(0));
+                } else {
+                    // Multi-Fahrten-Auswahl-Dialog
+                    java.text.SimpleDateFormat _sdf2 = new java.text.SimpleDateFormat("HH:mm", java.util.Locale.GERMANY);
+                    _sdf2.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
+                    String[] labels = new String[_finalList.size()];
+                    for (int i = 0; i < _finalList.size(); i++) {
+                        Ride _r = _finalList.get(i);
+                        String _t = _r.pickupTimestamp != null ? _sdf2.format(new java.util.Date(_r.pickupTimestamp)) : "?";
+                        String _c = _r.customerName != null ? _r.customerName : "Kunde";
+                        String _p = _r.pickup != null ? _r.pickup.split(",")[0] : "?";
+                        labels[i] = _t + " · " + _c + " · " + _p;
+                    }
+                    new android.app.AlertDialog.Builder(this)
+                        .setTitle("Welche Fahrt übernehmen? (" + _finalList.size() + " offen)")
+                        .setItems(labels, (dialog, which) -> showUnassignedRideGrabDialog(_finalList.get(which)))
+                        .setNegativeButton("Abbrechen", null)
+                        .show();
+                }
+            });
         } catch (Throwable _t) { /* defensive */ }
     }
 

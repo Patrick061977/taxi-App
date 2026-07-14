@@ -744,7 +744,18 @@
                 ✅ <b>Direkt-Buchung</b> — Ihre Fahrten werden sofort im Funk-Taxi Kalender eingetragen und Fahrzeug automatisch zugewiesen. Keine Bestätigung nötig.
             </div>
             <button id="hotel-new-anfrage-btn" onclick="hotelOpenNewAnfrage()" style="width:100%;background:#7c3aed;color:white;border:none;border-radius:12px;padding:14px;font-size:16px;font-weight:700;cursor:pointer;margin-bottom:14px;">➕ Neue Transfer-Buchung</button>
-            <h3 style="font-size:15px;font-weight:700;color:var(--ink);margin:14px 0 8px;">🗓 Meine Buchungen</h3>
+
+            <!-- v6.63.701 (Patrick 14.07.): Kalender-Ansichten Woche/Monat/Liste -->
+            <div style="display:flex;gap:6px;margin-bottom:12px;background:#f3f4f6;padding:4px;border-radius:10px;">
+                <button class="hotel-view-btn active" data-view="list" onclick="hotelSwitchView('list')" style="flex:1;padding:8px;background:white;border:none;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;">📋 Liste</button>
+                <button class="hotel-view-btn" data-view="week" onclick="hotelSwitchView('week')" style="flex:1;padding:8px;background:transparent;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:13px;color:#6b7280;">📅 Woche</button>
+                <button class="hotel-view-btn" data-view="month" onclick="hotelSwitchView('month')" style="flex:1;padding:8px;background:transparent;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:13px;color:#6b7280;">🗓 Monat</button>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                <button onclick="hotelCalPrev()" style="background:#f3f4f6;border:none;padding:6px 12px;border-radius:8px;cursor:pointer;font-size:16px;">←</button>
+                <h3 id="hotel-cal-title" style="font-size:15px;font-weight:700;color:var(--ink);margin:0;">🗓 Meine Buchungen</h3>
+                <button onclick="hotelCalNext()" style="background:#f3f4f6;border:none;padding:6px 12px;border-radius:8px;cursor:pointer;font-size:16px;">→</button>
+            </div>
             <div id="hotel-anfragen-list"><div style="text-align:center;padding:20px;color:#6b7280;font-size:13px;">Lade…</div></div>
         </div>
 
@@ -2863,23 +2874,64 @@
             loadHotelAnfragen();
         }
 
+        // v6.63.701 (Patrick 14.07.): Hotel-Kalender-Ansichten Liste/Woche/Monat
+        let HOTEL_VIEW = 'list';
+        let HOTEL_CAL_ANCHOR = new Date();
+        let HOTEL_RIDES = [];
+
+        function hotelSwitchView(v) {
+            HOTEL_VIEW = v;
+            document.querySelectorAll('.hotel-view-btn').forEach(b => {
+                if (b.dataset.view === v) { b.style.background = 'white'; b.style.color = ''; b.style.fontWeight = '700'; }
+                else { b.style.background = 'transparent'; b.style.color = '#6b7280'; b.style.fontWeight = '600'; }
+            });
+            renderHotelCalendar();
+        }
+        function hotelCalPrev() {
+            const d = HOTEL_CAL_ANCHOR;
+            if (HOTEL_VIEW === 'week') d.setDate(d.getDate() - 7);
+            else if (HOTEL_VIEW === 'month') d.setMonth(d.getMonth() - 1);
+            renderHotelCalendar();
+        }
+        function hotelCalNext() {
+            const d = HOTEL_CAL_ANCHOR;
+            if (HOTEL_VIEW === 'week') d.setDate(d.getDate() + 7);
+            else if (HOTEL_VIEW === 'month') d.setMonth(d.getMonth() + 1);
+            renderHotelCalendar();
+        }
+
         async function loadHotelAnfragen() {
             // Patrick 13.07.: Direkt-Buchung — lese aus /rides mit source='hotel-portal'
-            //   und hotelCrmId == customerData.id (kein /anfragen mehr, kein Bestaetigen).
             const listEl = document.getElementById('hotel-anfragen-list');
             try {
                 const snap = await db.ref('rides').orderByChild('hotelCrmId').equalTo(customerData.id).once('value');
                 const rides = snap.val() || {};
-                // Nur zukuenftige/heutige (letzte 7 Tage reicht als Rueckblick)
-                const cutoff = Date.now() - 7 * 86400000;
-                const rows = Object.entries(rides).map(([k,v]) => ({ id: k, ...v }))
+                const cutoff = Date.now() - 30 * 86400000; // 30 Tage rueckblickend fuer Kalender-Views
+                HOTEL_RIDES = Object.entries(rides).map(([k,v]) => ({ id: k, ...v }))
                     .filter(r => (r.pickupTimestamp || r.createdAt || 0) > cutoff)
                     .sort((a,b) => (a.pickupTimestamp||0) - (b.pickupTimestamp||0));
-                if (rows.length === 0) {
-                    listEl.innerHTML = '<div style="text-align:center;padding:24px;color:#6b7280;font-size:13px;">Noch keine Buchungen. Klick oben auf ➕ Neue Transfer-Buchung.</div>';
-                    return;
-                }
-                listEl.innerHTML = rows.map(r => {
+                renderHotelCalendar();
+            } catch (e) {
+                console.error('loadHotelAnfragen:', e);
+                listEl.innerHTML = '<div style="text-align:center;padding:24px;color:#dc2626;font-size:13px;">Fehler beim Laden — bitte neu laden</div>';
+            }
+        }
+
+        function renderHotelCalendar() {
+            const listEl = document.getElementById('hotel-anfragen-list');
+            const titleEl = document.getElementById('hotel-cal-title');
+            if (HOTEL_VIEW === 'list') { titleEl.textContent = '🗓 Meine Buchungen'; renderHotelListView(listEl); return; }
+            if (HOTEL_VIEW === 'week') { renderHotelWeekView(listEl, titleEl); return; }
+            if (HOTEL_VIEW === 'month') { renderHotelMonthView(listEl, titleEl); return; }
+        }
+
+        function renderHotelListView(listEl) {
+            const rows = HOTEL_RIDES.filter(r => (r.pickupTimestamp||0) > Date.now() - 7*86400000);
+            if (rows.length === 0) {
+                listEl.innerHTML = '<div style="text-align:center;padding:24px;color:#6b7280;font-size:13px;">Noch keine Buchungen. Klick oben auf ➕ Neue Transfer-Buchung.</div>';
+                return;
+            }
+            listEl.innerHTML = rows.map(r => {
                     const statusMap = {
                         'new': { emoji: '📅', label: 'Geplant', color: '#e0e7ff', text: '#3730a3' },
                         'vorbestellt': { emoji: '📅', label: 'Geplant', color: '#e0e7ff', text: '#3730a3' },
@@ -2907,11 +2959,79 @@
                         </div>
                     </div>`;
                 }).join('');
-            } catch (e) {
-                console.error('loadHotelAnfragen:', e);
-                listEl.innerHTML = '<div style="text-align:center;padding:24px;color:#dc2626;font-size:13px;">Fehler beim Laden — bitte neu laden</div>';
-            }
         }
+
+        function _hotelRidesForDay(dateObj) {
+            const y = dateObj.getFullYear(), m = dateObj.getMonth(), d = dateObj.getDate();
+            return HOTEL_RIDES.filter(r => {
+                if (!r.pickupTimestamp) return false;
+                const rd = new Date(r.pickupTimestamp);
+                return rd.getFullYear() === y && rd.getMonth() === m && rd.getDate() === d;
+            });
+        }
+
+        function renderHotelWeekView(listEl, titleEl) {
+            const anchor = new Date(HOTEL_CAL_ANCHOR);
+            const dow = anchor.getDay() || 7; // Mo=1 So=7
+            const monday = new Date(anchor); monday.setDate(anchor.getDate() - (dow - 1));
+            const days = [...Array(7)].map((_,i) => { const d = new Date(monday); d.setDate(monday.getDate() + i); return d; });
+            titleEl.textContent = `KW ${_isoWeek(monday)} · ${_fmtDe(monday)} – ${_fmtDe(days[6])}`;
+            const dayNames = ['Mo','Di','Mi','Do','Fr','Sa','So'];
+            const now = new Date();
+            listEl.innerHTML = `<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;">${days.map((d,i) => {
+                const rides = _hotelRidesForDay(d);
+                const isToday = d.toDateString() === now.toDateString();
+                const rowsHtml = rides.slice(0,4).map(r => {
+                    const tm = new Date(r.pickupTimestamp);
+                    const hhmm = String(tm.getHours()).padStart(2,'0')+':'+String(tm.getMinutes()).padStart(2,'0');
+                    const nm = (r.guestName || r.customerName || '').substring(0,10);
+                    const st = r.status || 'new';
+                    const col = st === 'completed' ? '#9ca3af' : st === 'cancelled' ? '#ef4444' : st === 'accepted' ? '#10b981' : '#7c3aed';
+                    return `<div style="font-size:10px;background:${col};color:white;border-radius:4px;padding:2px 4px;margin-bottom:2px;">${hhmm} ${nm}</div>`;
+                }).join('') + (rides.length > 4 ? `<div style="font-size:10px;color:#6b7280;">+${rides.length - 4}</div>` : '');
+                return `<div style="background:${isToday?'#eef2ff':'white'};border:1px solid ${isToday?'#a5b4fc':'#e5e7eb'};border-radius:8px;padding:6px;min-height:100px;">
+                    <div style="font-size:11px;color:#6b7280;font-weight:700;">${dayNames[i]}</div>
+                    <div style="font-size:14px;font-weight:800;color:${isToday?'#4338ca':'var(--ink)'};margin-bottom:4px;">${d.getDate()}.</div>
+                    ${rowsHtml || '<div style="font-size:10px;color:#9ca3af;">—</div>'}
+                </div>`;
+            }).join('')}</div>`;
+        }
+
+        function renderHotelMonthView(listEl, titleEl) {
+            const anchor = new Date(HOTEL_CAL_ANCHOR);
+            const y = anchor.getFullYear(), m = anchor.getMonth();
+            const monthNames = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+            titleEl.textContent = `${monthNames[m]} ${y}`;
+            const first = new Date(y, m, 1);
+            const startDow = (first.getDay() || 7) - 1; // Mo=0
+            const daysInMonth = new Date(y, m+1, 0).getDate();
+            const cells = [];
+            for (let i = 0; i < startDow; i++) cells.push(null);
+            for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(y, m, d));
+            while (cells.length % 7 !== 0) cells.push(null);
+            const now = new Date();
+            const dayNames = ['Mo','Di','Mi','Do','Fr','Sa','So'];
+            const headerHtml = dayNames.map(n => `<div style="font-size:10px;color:#6b7280;font-weight:700;text-align:center;padding:4px;">${n}</div>`).join('');
+            const cellsHtml = cells.map(c => {
+                if (!c) return `<div style="min-height:60px;"></div>`;
+                const rides = _hotelRidesForDay(c);
+                const isToday = c.toDateString() === now.toDateString();
+                return `<div style="background:${isToday?'#eef2ff':'white'};border:1px solid ${isToday?'#a5b4fc':'#e5e7eb'};border-radius:6px;padding:4px;min-height:60px;">
+                    <div style="font-size:11px;font-weight:700;color:${isToday?'#4338ca':'#6b7280'};">${c.getDate()}.</div>
+                    ${rides.length > 0 ? `<div style="font-size:10px;background:#7c3aed;color:white;border-radius:3px;padding:1px 3px;margin-top:2px;text-align:center;">${rides.length}</div>` : ''}
+                </div>`;
+            }).join('');
+            listEl.innerHTML = `<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;">${headerHtml}${cellsHtml}</div>`;
+        }
+
+        function _isoWeek(d) {
+            const dt = new Date(d); dt.setHours(0,0,0,0);
+            dt.setDate(dt.getDate() + 3 - ((dt.getDay() + 6) % 7));
+            const wStart = new Date(dt.getFullYear(), 0, 4);
+            return Math.round(((dt - wStart) / 86400000 + wStart.getDay() + 6) % 7) / 7 > 0
+                ? 1 + Math.round((dt - wStart) / (86400000 * 7)) : 1;
+        }
+        function _fmtDe(d) { return String(d.getDate()).padStart(2,'0')+'.'+String(d.getMonth()+1).padStart(2,'0'); }
 
         function hotelOpenNewAnfrage() { document.getElementById('hotel-anfrage-modal').classList.add('active'); }
         function hotelCloseAnfrageModal() { document.getElementById('hotel-anfrage-modal').classList.remove('active'); }

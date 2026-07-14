@@ -438,7 +438,8 @@ function createOrUpdateCalendarEvent(calendar, ride) {
       existingEvent.setDescription(description);
       existingEvent.setTime(startTime, endTime);
       existingEvent.setLocation(ride.pickup || '');
-      existingEvent.setColor(CONFIG.EVENT_COLOR);
+      const isEinsteiger = !ride.pickupTime && (ride.paymentMethod === 'cash' || ride.source === 'einsteiger' || ride.isEinsteiger === true);
+      existingEvent.setColor(isEinsteiger ? '4' : CONFIG.EVENT_COLOR);
 
       // 🔧 v4.2: Erinnerung setzen wenn aktiviert
       if (EXPORT_SETTINGS.showReminder) {
@@ -457,7 +458,11 @@ function createOrUpdateCalendarEvent(calendar, ride) {
         sendInvites: false
       });
 
-      event.setColor(CONFIG.EVENT_COLOR);
+      // v5.6 (Patrick 14.07. Bridge — Danilo): Einsteiger-Fahrten (kein pickupTime = spontan)
+      // in andere Farbe damit Fahrer nicht denkt es ist eine kommende Fahrt.
+      // ColorId 4 = Flamingo (rot-orange) für Einsteiger, sonst Standard.
+      const isEinsteiger = !ride.pickupTime && (ride.paymentMethod === 'cash' || ride.source === 'einsteiger' || ride.isEinsteiger === true);
+      event.setColor(isEinsteiger ? '4' : CONFIG.EVENT_COLOR);
       event.setTag('firebaseId', ride.firebaseId);
 
       // 🔧 v4.2: Erinnerung setzen wenn aktiviert

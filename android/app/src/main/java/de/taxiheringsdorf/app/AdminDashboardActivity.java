@@ -4111,8 +4111,11 @@ public class AdminDashboardActivity extends AppCompatActivity {
         {
             boolean _hasEmail = r.customerEmail != null && !r.customerEmail.isEmpty() && r.customerEmail.contains("@");
             boolean _hasPhone = r.customerPhone != null && !r.customerPhone.isEmpty();
-            if (r.price != null && r.price > 0 && (_hasEmail || _hasPhone)) {
-                com.google.android.material.button.MaterialButton btnStripe =
+            // v6.63.709 (Patrick 15.07.): Button IMMER anzeigen wenn Kontakt vorhanden.
+            //   Preis-Bedingung entfernt. Wenn Preis fehlt → Preis-Dialog vorgeschaltet,
+            //   nach Eingabe wird der Original-Handler via performClick() erneut ausgelöst.
+            if (_hasEmail || _hasPhone) {
+                final com.google.android.material.button.MaterialButton btnStripe =
                     new com.google.android.material.button.MaterialButton(this);
                 btnStripe.setText("💳 Stripe-Vorkasse-Link erstellen & senden");
                 btnStripe.setTextSize(15);
@@ -4125,6 +4128,38 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 final boolean _fHasEmail = _hasEmail;
                 final boolean _fHasPhone = _hasPhone;
                 btnStripe.setOnClickListener(_v -> {
+                    // v6.63.709: Preis-Vorschaltung wenn r.price fehlt
+                    if (r.price == null || r.price <= 0) {
+                        final android.widget.EditText _priceIn = new android.widget.EditText(this);
+                        _priceIn.setInputType(android.text.InputType.TYPE_CLASS_NUMBER | android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL);
+                        _priceIn.setHint("z.B. 25,00");
+                        int _p709 = (int)(getResources().getDisplayMetrics().density * 16);
+                        _priceIn.setPadding(_p709, _p709, _p709, _p709);
+                        new androidx.appcompat.app.AlertDialog.Builder(this)
+                            .setTitle("💰 Preis fehlt")
+                            .setMessage("Der Preis ist noch nicht berechnet. Bitte Vorkasse-Betrag in EUR eingeben:")
+                            .setView(_priceIn)
+                            .setPositiveButton("Weiter →", (_dd, _ww) -> {
+                                try {
+                                    double _ent = Double.parseDouble(_priceIn.getText().toString().replace(",", ".").trim());
+                                    if (_ent <= 0) { Toast.makeText(this, "❌ Preis muss > 0 sein", Toast.LENGTH_SHORT).show(); return; }
+                                    r.price = _ent;
+                                    java.util.Map<String,Object> _pUpd = new java.util.HashMap<>();
+                                    _pUpd.put("price", _ent);
+                                    _pUpd.put("priceUpdatedAt", System.currentTimeMillis());
+                                    _pUpd.put("priceUpdatedBy", "admin-native-stripe-v6.63.709");
+                                    _pUpd.put("updatedAt", System.currentTimeMillis());
+                                    db.getReference("rides/" + r.id).updateChildren(_pUpd);
+                                    // Original-Handler erneut auslösen — jetzt mit gesetztem Preis
+                                    btnStripe.performClick();
+                                } catch (Throwable _pe) {
+                                    Toast.makeText(this, "❌ Ungültiger Preis", Toast.LENGTH_SHORT).show();
+                                }
+                            })
+                            .setNegativeButton("Abbrechen", null)
+                            .show();
+                        return;
+                    }
                     if (_dlgRef.get() != null) _dlgRef.get().dismiss();
                     // Stripe-Link via createStripeCheckout generieren (kein Email nötig)
                     String _desc = (r.pickup != null ? r.pickup : "") + " → " + (r.destination != null ? r.destination : "");

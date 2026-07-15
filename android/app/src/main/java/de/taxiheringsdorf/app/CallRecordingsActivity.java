@@ -634,11 +634,11 @@ public class CallRecordingsActivity extends AppCompatActivity {
                         }
                         cur.close();
                     }
-                    // Für jede Aufnahme: CallLog-Nummern innerhalb Zeitfenster suchen
-                    // v6.63.717 (Patrick 15.07.): Fenster asymmetrisch — bei outgoing (Patrick ruft
-                    //   raus) sucht 15 Min NACH Aufnahme-Start (Anklopf-Anruf kommt mitten im laufenden
-                    //   Gespräch). Vorher 180s: reichte nur wenn Anklopfer sehr früh anrief. Jetzt
-                    //   fangen wir auch die "8-Min-später-Anklopf"-Fälle wie 15.7. 12:39/12:47 ein.
+                    // Für jede Aufnahme: CallLog-Nummern innerhalb der TATSÄCHLICHEN Gespräch-Dauer suchen
+                    // v6.63.718 (Patrick 15.07.): Statt willkürlicher 3/15 Min-Fenster nutzen wir
+                    //   die echte Aufnahme-Dauer aus File.lastModified() - startTs. Damit fangen wir
+                    //   Anklopfer die MITTEN im Gespräch reinkommen egal wie lang das Gespräch lief.
+                    //   Zusätzlich 60s Toleranz vor+nach (ACR-Timing-Ungenauigkeit).
                     for (Recording r : all) {
                         String rNorm = normalizePhone(r.phone != null ? r.phone : "");
                         java.util.Set<String> alreadyPartner = new java.util.HashSet<>();
@@ -646,16 +646,19 @@ public class CallRecordingsActivity extends AppCompatActivity {
                         if (r.parallelPartners != null) {
                             for (String[] pp : r.parallelPartners) if (pp[1] != null) alreadyPartner.add(normalizePhone(pp[1]));
                         }
-                        // Outgoing (direction=1): 15 Min asymmetrisch (Gespräch läuft weiter, Anklopfer kommt mitten drin)
-                        // Incoming (direction=0): symmetrisch ±3 Min (Anklopfer kommt kurz während Kunden-Anruf rein)
-                        final boolean _isOutgoing = r.direction == 1;
-                        final long _windowBefore = 180_000L; // 3 Min
-                        final long _windowAfter = _isOutgoing ? 900_000L : 180_000L; // 15 Min bzw 3 Min
+                        // Dauer aus File-mtime — wenn nicht ermittelbar, 3 Min Fallback
+                        long _durationMs = 180_000L;
+                        if (r.file != null && r.file.exists()) {
+                            long _mtime = r.file.lastModified();
+                            if (_mtime > r.timestamp) _durationMs = _mtime - r.timestamp;
+                        }
+                        // Anklopf-Fenster: 60s vor Aufnahme-Start (Ring bevor Nutzer annimmt)
+                        // bis Aufnahme-Ende + 60s (ACR-Timing-Ungenauigkeit).
+                        final long _windowStart = r.timestamp - 60_000L;
+                        final long _windowEnd = r.timestamp + _durationMs + 60_000L;
                         for (int ci = 0; ci < callLogTs.size(); ci++) {
                             long ts = callLogTs.get(ci)[0];
-                            long diff = ts - r.timestamp;
-                            // diff negativ = CallLog VOR Aufnahme, positiv = NACH
-                            if (diff < -_windowBefore || diff > _windowAfter) continue;
+                            if (ts < _windowStart || ts > _windowEnd) continue;
                             String clNum = callLogNums.get(ci);
                             if (clNum.isEmpty() || alreadyPartner.contains(clNum)) continue;
                             // Neue Nummer aus CallLog — Anklopf-Partner!

@@ -714,8 +714,15 @@ public class CallLogActivity extends AppCompatActivity {
                         if (cust == null) continue;
                         // 🆕 v6.62.669: ALLE Format-Varianten als Schluessel in die Map,
                         //   damit Match egal ob CallLog +49.../00 49.../0... liefert.
+                        // 🔧 v6.63.716 (Patrick 15.07.): phone2 + additionalPhones jetzt auch indiziert.
+                        //   Vorher: 79 Kunden mit phone2 (viele Hotels wie Ahlbecker Hof, Strandhotel
+                        //   Atlantic, Antje) wurden NICHT erkannt wenn Anruf von der Zweitnummer kam.
                         if (cust.phone != null) addAllPhoneVariants(cust.phone, cust);
                         if (cust.mobilePhone != null) addAllPhoneVariants(cust.mobilePhone, cust);
+                        if (cust.phone2 != null) addAllPhoneVariants(cust.phone2, cust);
+                        if (cust.additionalPhones != null) {
+                            for (String p : cust.additionalPhones) addAllPhoneVariants(p, cust);
+                        }
                     }
                     adapter.notifyDataSetChanged();
                 }
@@ -2493,6 +2500,9 @@ public class CallLogActivity extends AppCompatActivity {
         String id, name, phone, mobilePhone, address, customerKind;
         // v6.62.326: getrennte Felder fuer Anrede + Vor/Nachname
         String salutation, anrede, firstName, lastName;
+        // v6.63.716 (Patrick 15.07.): phone2 + additionalPhones fuer Hotel-Erkennung
+        String phone2;
+        java.util.List<String> additionalPhones = new java.util.ArrayList<>();
         Double lat, lon;
         static CrmCustomer fromSnap(DataSnapshot s) {
             try {
@@ -2501,6 +2511,14 @@ public class CallLogActivity extends AppCompatActivity {
                 c.name = s.child("name").getValue(String.class);
                 c.phone = s.child("phone").getValue(String.class);
                 c.mobilePhone = s.child("mobilePhone").getValue(String.class);
+                c.phone2 = s.child("phone2").getValue(String.class);
+                DataSnapshot addSnap = s.child("additionalPhones");
+                if (addSnap.exists()) {
+                    for (DataSnapshot ap : addSnap.getChildren()) {
+                        String p = ap.getValue(String.class);
+                        if (p != null && !p.isEmpty()) c.additionalPhones.add(p);
+                    }
+                }
                 c.address = s.child("address").getValue(String.class);
                 c.customerKind = s.child("customerKind").getValue(String.class);
                 c.salutation = s.child("salutation").getValue(String.class);

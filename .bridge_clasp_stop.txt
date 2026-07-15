@@ -1,0 +1,11 @@
+👍 OK — clasp-Setup lassen wir.
+
+Ich deaktiviere den Auto-Deploy-Workflow im Repo (sonst fail rote Checks bei jedem Apps-Script-Push wegen fehlender Secrets). Kalender-Sync bleibt wie gehabt: bei Änderungen erinnere ich dich, manuell in Apps Script kopieren.
+
+━━━━━━━━━━━━━━━━━━
+
+📧 EMAIL an Frau Lambrecht wurde als Gmail-Entwurf angelegt:
+- Gmail → Entwürfe → "Zahlungserinnerung KB-2026/2006"
+- Kannst du kurz anschauen und selbst rausschicken
+
+Inhalt: Bitte um Original-PDF + zukünftig alles per Email statt Post.

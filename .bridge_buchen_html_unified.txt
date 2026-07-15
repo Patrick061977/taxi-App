@@ -1,0 +1,49 @@
+💡 JA, geht — sogar besser als separates hotel.html!
+
+Konzept "buchen.html als unified Portal":
+
+Login-Ansicht (aktuell nur SMS-Kunden):
+   ▪ Bestehender Login: "Handynummer + SMS-Code" (Privatkunden)
+   ▪ NEU zusaetzlich: "Mit Google einloggen" Button (Hotels)
+
+Nach Login prueft der Code die Rolle:
+• user.phoneNumber gesetzt UND kein CRM-Hotel → PRIVATKUNDE
+  → normale buchen.html-Maske (wie bisher)
+• user.email in /customers, customerKind='Hotel', hotelPortalEnabled=true → HOTEL
+  → Hotel-Modus mit Kalender-Style-View
+
+EIN URL, EIN Login-System (Firebase Auth macht beides), UNTERSCHIEDLICHE Ansicht je nach Rolle.
+
+━━━━━━━━━━━━━━━━━━
+
+📅 GOOGLE-KALENDER-STYLE Ansicht:
+
+Ich denke du meinst sowas:
+   ┌─── Woche 28. Juli ─────────────┐
+   │ Mo 28  ┃ Di 29 ┃ ... ┃ So 3.8 │
+   ├────────┼───────┼─────┼────────┤
+   │ 09:00  │ 08:30 │     │        │
+   │ Meier  │ Bahn  │     │        │
+   │ 5 Pax  │ 2 Pax │     │        │
+   ├────────┼───────┼─────┼────────┤
+   │ 14:00  │       │     │        │
+   │ Schmidt│       │     │        │
+   └────────┴───────┴─────┴────────┘
+
+Klick auf leere Zelle → "Neue Anfrage anlegen"
+Klick auf Fahrt → Detail-Ansicht
+Drag&Drop → Zeit aendern (Anfrage-Modus, nur solange nicht uebernommen)
+
+━━━━━━━━━━━━━━━━━━
+
+⏱ AUFWAND:
+
+Phase 1a (60 Min): buchen.html Google-Login-Button + Rolle-Detection + einfaches Anfrage-Formular fuer Hotels
+Phase 1b (2 h): Kalender-Style Wochenansicht mit Fahrten-Rendering
+Phase 2 (1 h): Drag&Drop + Detail-Modal
+
+━━━━━━━━━━━━━━━━━━
+
+Vorschlag: erst 1a heute (dann kann Kaiserhof heute Nachmittag schon eine Test-Anfrage schicken), 1b morgen frueh. Dann hast du Wochenende zum Testen.
+
+Gruener Punkt fuer 1a?

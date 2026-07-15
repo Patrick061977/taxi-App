@@ -1,0 +1,38 @@
+🎯 DIE FAHRT HAST DU SELBST GEKRIEGT — Tesla MY222 (PW-MY 222 E), dein eigenes Fahrzeug.
+
+Ablauf war:
+09:17 → ich reset Fahrzeug + Status
+09:27 → Watchdog erkennt "Sofortfahrt ohne Fahrzeug, -7 Min bis Pickup" → autoAssignRide
+09:27 → Auto-Assign findet Tesla MY222 (1.2 km, ~3 Min Anfahrt) → dir zugewiesen
+09:27 → SCHAFFBARKEITS-Alert an dich (das ist die Nachricht die du gerade zeigst)
+09:29 → du completest die Fahrt (weil du sie ueber den Kalender gesehen hast)
+
+Also: das Sicherheitsnetz HAT ausgeloest (der Schaffbarkeits-Alert kam ja). Aber DU warst der Empfaenger — du bist die letzte Instanz.
+
+━━━━━━━━━━━━━━━━━━
+
+WAS DENNOCH SCHIEF LIEF:
+
+1️⃣ status='assigned' hat die Fahrt in der Dispo-Ansicht UNSICHTBAR gemacht.
+   Normalfall: 'vorbestellt' → 'accepted' → 'on_way'. Der Zwischenzustand
+   'assigned' scheint ein Bug zu sein, ich muss den finden.
+
+2️⃣ Kein Banner "Fahrt gefaehrdet" auf der Dispo-Startseite.
+   Der SCHAFFBARKEITS-Alert kam per Telegram — aber nicht als Banner in
+   der Native-App. Da fehlt eine Ansicht.
+
+3️⃣ Kein Broadcast an ALLE Fahrer (nur an dich als Admin).
+   Wenn ein Fahrer den Alert 30 Sek nicht liest, keine Zweit-Warnung.
+
+━━━━━━━━━━━━━━━━━━
+
+DER EIGENTLICHE FIX (heute nach PR-Merge):
+onShiftForceEnded-Trigger → sobald ein Fahrer die Schicht beendet, werden
+ALLE seine assignedVehicle-Rides ohne acceptedAt sofort freigegeben und
+scheduledAutoAssign verteilt sie neu — nicht erst 7 Min vor Pickup, sondern
+sofort. Dann hast du 12h Vorlauf statt 7 Min Panik.
+
+━━━━━━━━━━━━━━━━━━
+
+Bereit fuer MERGE von PR #2606 (Ghost-Sweep + Hotel-Portal)? Danach fang ich
+onShiftForceEnded an. Rate-Limit: noch reichlich Kapazitaet.

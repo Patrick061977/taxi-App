@@ -1,0 +1,50 @@
+🎩 BUFFETT-TRACKER LIVE
+
+URL: graham-value.web.app/buffett.html (in ~2 Min nach Deploy)
+
+WAS DU SIEHST:
+
+📊 STATS-Cards oben:
+• Anzahl neue Positionen
+• Aufgestockt / Reduziert / Verkauft
+• Portfolio-Gesamt-Wert in Milliarden $
+
+📅 QUARTALS-TABS:
+Q4 2024 bis Q1 2026 waehlbar (7 Quartale SEC-Filings verfuegbar).
+
+🔍 FILTER:
+• Aktion: Alle / Neu-Kaufe / Aufstockungen / Reduzierungen / Verkaeufe / nur Buys
+• Suche nach Issuer oder Ticker
+
+📋 TABELLE zeigt pro Position:
+• Aktions-Badge (🆕 Neu, ⬆️ Aufgestockt, etc.)
+• Issuer-Name
+• Ticker (falls in CUSIP-Map, ~35 wichtige)
+• Shares vorher / nach / Delta
+• Wert (Mio $)
+• Graham-Score + Sicherheitsmarge:
+   🟢 gruen = >20% MoS (Graham-konform)
+   🟡 gelb = 0-20% MoS (fair)
+   🔴 rot = <0% MoS (Buffett-Wachstums-Wette)
+
+━━━━━━━━━━━━━━━━━━
+
+🎯 WAS DU DAMIT MACHEN KANNST:
+1. Filter auf "nur Buys" + Q1 2026 → Buffett's aktuellste Kaeufe
+2. Sortiert nach Groesse (Berkshire hat mehrere Sub-Filings — die werden
+   zusammengefasst)
+3. Direkt sehen ob Graham noch mitgeht (gruen) oder Buffet auf Marke setzt (rot)
+
+━━━━━━━━━━━━━━━━━━
+
+⚡ NAECHSTE STUFEN (wenn du willst):
+Phase 2: Kurspanne des Quartals aus Finnhub → "Buffett hat zwischen $X-$Y gekauft"
+Phase 3: Klick-Detail: EPS Jahr-fuer-Jahr Chart, BVPS-Entwicklung, Graham-#-Historie
+Phase 4: Auto-Cron: bei neuem 13F → Bridge-Push mit Analyse
+
+Alles in ~2h Aufwand insgesamt. Sag welche Phase du willst.
+
+━━━━━━━━━━━━━━━━━━
+
+📊 Rate-Limit: session-Level noch ok, weekly wird knapper. Wenn nicht dringend,
+Phase 2-4 auf naechste Session mit /clear.

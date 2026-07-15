@@ -1,0 +1,58 @@
+📊 GLD-CALL-ROLL Analyse (13.07.)
+
+Was du gemacht hast:
+Alt: 2× SLD $400C exp 07.08. (25 DTE) @ $1.11 kassiert = $222
+Neu (13.07.): 2× BUY $400C (Buyback) @ $1.11 = −$222
+              2× SLD $388C exp 28.08. (45 DTE) @ $5.21 = +$1042
+
+Netto-Cashflow durch Roll: +$820 (Praemie neu minus Buyback)
+
+━━━━━━━━━━━━━━━━━━
+
+🎯 STRIKE-CHECK Delta-Bucket:
+Bei GLD Kurs jetzt ~$310-320 (bei −19% von deinem Ø-Einstand $364):
+
+Alter CC $400: 24% ueber Kurs → Delta ~0.05 → weit OTM → nur $1.11 Praemie ($5/d)
+Neuer CC $388: 21% ueber Kurs → Delta ~0.08 → immer noch weit OTM
+             → $5.21 Praemie / 45 DTE = $12/d
+
+Beide sind laut meiner Delta-Bucket-Analyse "weit OTM" (Δ<0.15) — Bucket
+mit den niedrigsten Ertraegen bei GLD ($3/d Put · $22/d Call).
+
+━━━━━━━━━━━━━━━━━━
+
+⚠️ HIER WAERE OPTIMAL GEWESEN:
+Ein $340C 30-DTE haette Delta ~0.30 (Sweet-Spot) und Praemie ~$4-6
+gebracht (wenn Kurs bei $315). Yield $130+/DTE = wesentlich hoeher.
+
+ABER: bei $340C waerst du bei $340 Called Away → +$26 pro Aktie Verlust
+gegenueber Ø-Einstand $364. Bei 1000 Aktien = −$26.000 Kapital-Verlust.
+
+Deshalb machst du $388-400 = "Ich lasse die Aktien nicht unter Einstand
+weglaufen". Das ist psychologisch verstaendlich, aber optionsstatistisch
+sub-optimal.
+
+━━━━━━━━━━━━━━━━━━
+
+💡 3 STRATEGIE-OPTIONEN fuer GLD:
+
+A) STATUS QUO ($388C): niedrige Praemie, maximaler Kapital-Schutz
+   → +$12/Tag Theta, kein Assignment-Risiko
+
+B) MITTELWEG ($370C): moderate Praemie, Kapital-Verlust bei Called Away
+   -6 pro Aktie akzeptabel
+   → geschätzt +$25-40/Tag, ~20% Assignment-Risiko
+
+C) SWEET-SPOT ($340C): hohe Praemie, Kapital-Verlust bei Called Away
+   $24 pro Aktie
+   → geschätzt +$130/Tag, ~35-40% Assignment-Risiko
+   Aber wenn assigned: Wheel-Zyklus zu → +$5-10 Praemien-Netto pro Aktie
+   → Netto-Kapital-Verlust ist real ~$16-20 pro Aktie
+
+━━━━━━━━━━━━━━━━━━
+
+Was ich AUCH sehe: dein Hedge-Setup bei GLD ist gut (3× $326P 78 DTE als
+Absicherung).
+
+Willst du dass ich ein "Optimize-Vorschlag" pro Card einbaue?
+"Aktueller CC $388C bringt $12/d — bei $370C waeren $30/d moeglich (Ø-25% Assignment-Risiko)"

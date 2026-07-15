@@ -1,0 +1,5 @@
+🎤 Deine letzte Sprachnachricht kam leer bei mir an — Whisper hat nichts verstanden und einen Fallback-Text ("Untertitel der Amara.org-Community") ausgegeben. Das ist der Standard-Text den Whisper bei komplett stiller Aufnahme einfuegt.
+
+Was wolltest du sagen? Nochmal bitte.
+
+(Status: Ziebell-Fahrt Reset erledigt, Ghost-Sweep-Fix ist im PR #2606 zum Mergen bereit.)

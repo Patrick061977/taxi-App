@@ -1,0 +1,39 @@
+✅ Ghost-Sweep umgestellt (v6.63.696) — genau wie du gesagt hast.
+
+WAS IST GHOST-SWEEP:
+Cron der taeglich 02:30 alle Rides scannt und diejenigen findet die
+✓ >12h ueberfaellig UND
+✓ noch in non-final Status (vorbestellt/accepted/on_way/arrived/picked_up/...)
+Also Fahrten wo der Fahrer vergessen hat 'completed' zu tippen. Ohne den Cron
+wachsen die "Geister" in /rides und blockieren Statistiken.
+
+━━━━━━━━━━━━━━━━━━
+
+NEU AB v6.63.696:
+Ghost-Sweep setzt status='completed' (nicht 'cancelled')
++ Flag autoCompletedByGhostSweep=true
+
+Der onRideUpdated-Completed-Zweig prueft diesen Flag und macht:
+❌ Kein Auto-Pay
+❌ Keine Auto-Rechnung
+❌ Keine Kunden-Abschluss-SMS
+❌ Keine Admin-Rechnung-Wartet-Push
+
+Also: Ride ist "still abgeschlossen" — Kunde bleibt in Ruhe, du kriegst
+auch keinen Notification-Spam, aber die Fahrt zaehlt in der Statistik als
+gefahren (was wahrscheinlicher ist als storniert).
+
+━━━━━━━━━━━━━━━━━━
+
+Legacy: der alte v6.63.695-Fix (Storno-SMS unterdruecken wenn cancelledBy=ghost-sweep) bleibt drin als Backup falls Rides mit alter cancelled-Markierung noch existieren.
+
+━━━━━━━━━━━━━━━━━━
+
+PR #2606 hat jetzt:
+1. Hotel-Portal Phase 1a (kunden.html)
+2. Direkt-Buchung (statt Anfrage)
+3. Storno-SMS-Unterdrueckung bei Ghost-Sweep
+4. Ghost-Sweep → completed statt cancelled
+5. Hotel-Portal Ride-Status 'vorbestellt'
+
+Bereit zum Mergen. Sag "MERGE".

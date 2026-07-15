@@ -1,0 +1,58 @@
+🏨 KAISERHOF — Ist-Stand + Fragen:
+
+Ich sehe ZWEI Kaiserhof-Eintraege im CRM:
+
+1️⃣ "Kaiserhof Heringsdorf" (-Oerjh9BUSiBS-MvF7K0)
+   • customerKind: Hotel
+   • Email: (leer)
+   • Tel: +493837865802
+   • Adresse: Kulmstraße 33, 17424 Heringsdorf
+
+2️⃣ "Kaiserhof Usedom" (-OgmjljFn-eHMg93Al9M)
+   • Email: maritimtransfer@gmail.com
+   • Kein Telefon
+   • Keine Adresse
+
+Welcher ist der "richtige"? Bzw. moechtest du sie mergen?
+
+Und die Email: du hast "kaiserhof.usedom.com" gesagt — das ist eine Domain, keine Adresse. Vermutlich meinst du?
+   a) kaiserhof@usedom.com
+   b) info@kaiserhof-usedom.com
+   c) reservierung@kaiserhof-usedom.com
+
+━━━━━━━━━━━━━━━━━━
+
+🔨 UMFANG DES HOTEL-PORTALS:
+
+Ich checke gerade: kunden.html existiert (fuer Privatkunden mit SMS-Login).
+hotel-portal.html gibt es NICHT — muss ich neu bauen.
+
+Grober Bauplan (ca. 3-4 h):
+• public/hotel.html — eigene Seite
+• Login: Email + 6-stelliger Code (per Email geschickt) ODER Google-Sign-In
+• Nach Login: Dashboard mit
+  ▪ "Neue Transfer-Anfrage" (Gast-Name, Abholzeit, Personen, Bemerkungen)
+  ▪ Uebersicht "Meine Fahrten" (heute + Zukunft)
+  ▪ Fahrten stornieren
+  ▪ Rechnungsuebersicht (Sammelrechnung pro Monat, PDF-Download)
+• Firebase-Backend: /hotels/{crmId}/rides + /hotels/{crmId}/invoices
+• Session: 30d cookie oder Code alle 30d neu
+
+Google-Login: ja, geht — Firebase Auth hat Google-Provider. Muss ich in
+firebase console aktivieren + im Frontend integrieren. ~30 Min Zusatz.
+
+━━━━━━━━━━━━━━━━━━
+
+🎯 VORSCHLAG STAFFELUNG:
+
+Phase 1 (1-2h): hotel.html mit Email+Code-Login + "Neue Anfrage" Formular
+   → einreichen legt Anfrage in /anfragen an, du siehst sie in der Dispo,
+   uebernimmst wie normal. Kaiserhof kann sofort was tun.
+
+Phase 2 (1h): "Meine Fahrten" Uebersicht + Stornieren
+
+Phase 3 (30min): Google-Login als Alternative zu Email-Code
+
+Phase 4 (2h): Sammelrechnung + PDF-Download
+
+Willst du Phase 1 heute + Rest verteilt uebers Wochenende?

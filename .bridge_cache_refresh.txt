@@ -1,0 +1,20 @@
+🔄 v0.10.54 hat das schon gefixt — Stufe 1 wird NICHT mehr als "✓ eingebucht" markiert wenn du 0 Aktien hast.
+
+Aktuelle Logik (v0.10.54+):
+- 🟢 ✓ eingebucht = NUR wenn tatsaechlich 100 Aktien im Depot
+- 🟣 📝 SP offen (wartet) = wenn Short-Put verkauft aber Kurs noch nicht assigned
+- ⬜ Kauf-Stufe = leer, wartet auf Kurs-Drop
+
+Was du siehst ist wahrscheinlich noch der Browser-Cache mit v0.10.53.
+
+━━━━━━━━━━━━━━━━━━
+
+HARD-REFRESH:
+• Chrome/Firefox: Strg+Shift+R (Windows) oder Cmd+Shift+R (Mac)
+• Oder: F12 → Netzwerk-Tab → Haken "Cache disable" → normal refresh
+
+Danach sollte Stufe 1 bei dir ausschauen als "🟣 📝 SP offen (wartet)" (violett) wenn du einen Short-Put bei $288 offen hast.
+
+━━━━━━━━━━━━━━━━━━
+
+Wenn nach Hard-Refresh Stufe 1 IMMER NOCH gruen ist → screenshot + kurz "immer noch grün" — dann checke ich ob mein Fix wirklich lief.

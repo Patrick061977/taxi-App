@@ -1,0 +1,29 @@
+⚠️ TWS-Fetch: "0 neue Trades"
+
+TWS ist connected und liefert positions (75) + accounts (2), aber KEINE neuen Trades seit unserem letzten Import.
+
+Zwei moegliche Ursachen:
+
+A) Du hast seit 08.07. tatsaechlich keine Trades gemacht
+   (unwahrscheinlich bei deinem Aktivitaets-Level)
+
+B) TWS-API-reqExecutions gibt uns nur die AKTUELLE-Session-Trades
+   zurueck, nicht die 7-Tage-Historie wie erwartet. Ist ein bekannter
+   IB-API-Quirk: manchmal filtert TWS anders wenn ohne expliziten
+   Time-Filter aufgerufen.
+
+━━━━━━━━━━━━━━━━━━
+
+SCHNELLSTER FIX jetzt:
+Lade eine neue Flex-XML runter mit Zeitraum bis heute (14.07.2026):
+1. TWS → Reports → Statements → Flex Queries
+2. "Tradeviz" nochmal ausfuehren
+3. Zeitraum bis 14.07.2026
+4. XML in Downloads speichern
+5. Pfad mir schicken → ich importiere sofort
+
+Nach dem Bulk-Import laueft der 22:00-Cron ab morgen sauber weiter (der wird dann jede Session-Trade fangen).
+
+━━━━━━━━━━━━━━━━━━
+
+Oder falls du wirklich seit 08.07 keine Trades gemacht hast: dann ist der Log korrekt und wir warten auf den naechsten Trade + naechsten Cron-Run.

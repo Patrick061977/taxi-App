@@ -1,0 +1,28 @@
+✅ v0.10.62 gepusht — 3 Bugs gefixt:
+
+━━━━━━━━━━━━━━━━━━
+
+1️⃣ SPY "eingebucht" obwohl nicht (Grid-Tabelle)
+Bug: openSpStages-Rechnung war falsch bei mehreren SPs. Bei 100 Aktien + 2 SPs kam raus openSpStages=1 statt 2 → Stufen als "eingebucht" statt "SP offen wartet" markiert.
+Fix: openSpStages = shortPutContracts direkt.
+
+2️⃣ Naechster SP-Strike zaehlt schon offene SPs mit
+Bug: Bei 100 Aktien + 1 SP@288 stand da immer noch "naechster SP $288" - obwohl der schon offen ist.
+Fix: nextSpStage = completedBuyStages + shortPutContracts + 1
+Bei 100 Aktien + 1 SP: naechster SP = Stufe 2 = $279
+
+3️⃣ Aktueller Kurs jetzt sichtbar (du: 'kannst du den aktuellen Kurs mal immer mit einschreiben')
+Neu unter dem "Naechster SP-Strike": "Aktuell Kurs: $296.97 (+3.1% zum Trigger)"
+
+━━━━━━━━━━━━━━━━━━
+
+Bei SPY jetzt korrekt:
+• Wenn 0 Aktien + 1 SP offen → Stufe 1 violett 📝 "SP offen (wartet)"
+• Naechster SP = Stufe 2 = -6%
+• Aktueller Kurs sichtbar
+
+Deploy in ~2 Min. Hard-Refresh, dann checken.
+
+━━━━━━━━━━━━━━━━━━
+
+Rate-Limit-Notiz: bei uns beiden wirklich knapp. Ich schlage vor: nach diesem Fix Pause fuer heute, morgen fresh mit /clear weiter. Wir haben viel gebaut heute (v0.10.42 bis v0.10.62 = 20 Versionen).

@@ -1,0 +1,46 @@
+🔍 LEN-DIFFERENZ ANALYSIERT:
+
+Unsere epsAnnual (SEC/Macrotrends): LEN Fiscal 2024/2023/2022 = 14.31 / 13.73 / 15.72
+3yr-Avg = 14.59
+
+GV.com's implizites EPS (aus deren G# rueckgerechnet): ~12.00
+
+━━━━━━━━━━━━━━━━━━
+
+WARUM DIE DIFFERENZ:
+Nicht Formel-Bug, sondern EPS-KONZEPT unterschiedlich.
+
+Es gibt fuer JEDE Aktie mehrere legitime EPS-Werte:
+• EPS BASIC (Netto-Earnings / Basic-Shares) → das nutzen wir (Macrotrends)
+• EPS DILUTED (mit Options/Convertibles verwaessert) → GV.com evtl.
+• EPS Continuing Operations (ohne discontinued/one-time-events)
+• EPS Adjusted/Non-GAAP (mit Ausnahmen fuer Restrukturierung etc.)
+
+Bei LEN Fiscal 2024:
+• Wir: ~$14.31 (basic, alles inklusive)
+• GV.com implizit: ~$12.00 (vermutlich diluted continuing operations)
+
+Faktor 12/14.31 = 0.84 → das ist typisch fuer die Diluted-vs-Basic-Diff
+bei Firmen mit vielen Aktienoptionen.
+
+━━━━━━━━━━━━━━━━━━
+
+WAS IST BESSER?
+• DILUTED EPS ist die konservativere Wahl (rechnet mit worst-case, wenn alle
+  Optionen ausgeuebt werden). Buffett/Graham bevorzugten das.
+• Unser BASIC EPS zeigt hoehere Graham-Number → optimistischer.
+
+━━━━━━━━━━━━━━━━━━
+
+📋 FIX-OPTIONEN:
+A) Umstellen auf DILUTED EPS wenn Finnhub das liefert (~15 Min)
+B) BEHALTEN und dokumentieren dass wir Basic nehmen — konservativ genug
+   weil wir noch die Kriterien c1-c9 pruefen
+
+Empfehlung: A — konservativer ist immer besser bei Value-Investing.
+
+━━━━━━━━━━━━━━━━━━
+
+Ich fange PARALLEL mit Buffett-Tracker an. Wenn du willst mach ich vorher
+noch den Diluted-EPS-Fix (5 Min) — sag "DILUTED" oder "BUFFETT" welches
+zuerst.

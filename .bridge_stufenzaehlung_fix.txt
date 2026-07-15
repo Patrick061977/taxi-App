@@ -1,0 +1,26 @@
+✅ v0.10.58 gepusht — Stufen-Zaehlung stimmt jetzt.
+
+Neue Logik (matcht was du willst):
+• Einstand-Kauf $296.97 = Stufe 0 (100 Aktien)
+• Nachkauf-Stufe 1 = -3% = $288
+• Nachkauf-Stufe 2 = -6% = $279
+• Nachkauf-Stufe 3 = -9% = $270 usw.
+
+Bei DIR (100 Aktien im Depot):
+• Nichts in der Grid-Tabelle gruen (Stufe 0 = Einstand ist implizit)
+• Naechster SP-Strike oben rechts: $288 (Stufe 1) ✓
+• Wenn du bei $288 SP verkaufst → violett 📝 "SP offen"
+• Wenn assigned → 200 Aktien im Depot → Stufe 1 in Grid wird gruen ✓
+
+Bei 200 Aktien (Einstand + 1 Nachkauf):
+• Stufe 1 gruen ✓ eingebucht
+• Naechster SP-Strike: $279 (Stufe 2)
+
+━━━━━━━━━━━━━━━━━━
+
+Deploy in ~2 Min. Danach Hard-Refresh, und du solltest sehen:
+- oben rechts: "Naechster SP-Strike: $288 · -3.0% unter Einstand (Stufe 1)"
+- Grid-Tabelle: alle Stufen grau/Kauf-Stufen (keine gruene)
+- Falls du 1 SP@288 offen hast → Stufe 1 violett
+
+Screenshot 3589 zeigt noch die alte Version — Cache leeren (Strg+Shift+R).

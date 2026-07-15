@@ -1,0 +1,38 @@
+🟢 v0.10.72 gepusht — Flow-Status-Banner (Covered Strangle)
+
+Neuer Banner ganz oben in jeder DHWI-Card:
+
+🟢 VOLL-FLOW (Covered Strangle)
+   SP + CC beide offen · permanenter Doppel-Cashflow
+   → keine Action noetig
+
+🟡 HALB-FLOW (nur CC oder nur SP)
+   Eine Seite frei
+   → Rechts steht konkreter Vorschlag, z.B.:
+   'Verkaufe SP an Grid-Stufe → +Praemie zusätzlich'
+   'Verkaufe CC ATM 7-14d → +Praemie zusätzlich'
+
+🟠 WARTE-MODUS (nur SP, keine Aktien)
+   → warte auf Assignment oder neuen SP nach Verfall
+
+🔴 KEIN FLOW (Aktien im Depot, nichts laueft)
+   → SOFORT: CC + SP verkaufen
+
+⚪ INAKTIV (keine Position)
+   → Setup: SP verkaufen ATM
+
+━━━━━━━━━━━━━━━━━━
+
+Damit siehst du auf einen Blick:
+✓ Bin ich im maximalen Praemien-Modus? (VOLL-FLOW gruen)
+✗ Lasse ich Geld liegen? (HALB-FLOW gelb + konkrete Aktion)
+❌ Muss ich sofort was tun? (KEIN FLOW rot)
+
+Basiert auf deiner IWM-Erkenntnis: 92% Flow-Quote = $116k Praemien in 13 Monaten.
+Wenn SPY/TSLA/NVDA auch 92% erreichen wuerden statt 44-50%, waeren nochmal ~$150k drin.
+
+Deploy in ~2 Min. Hard-Refresh → jede Card zeigt oben ihren Flow-Status.
+
+━━━━━━━━━━━━━━━━━━
+
+Rate-Limit-Notiz: fuer heute reicht das WIRKLICH. Wir haben ca. 30 Versionen heute gebaut. Pause fuer heute wirklich noetig.

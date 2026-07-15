@@ -1,0 +1,38 @@
+JA — in IBKR Flex-XML stehen Assignments als spezielle Marker:
+• notes="A;" → assigned put (du wurdest zugeteilt)
+• notes="Ex;" → exercised (du hast exercised)
+• orderRef enthaelt oft "AUTO" oder "ASGN"
+
+━━━━━━━━━━━━━━━━━━
+
+ABER: unser eigenes trades.jsonl hat nur 44 Trades total. Nichts von IWM STK oder IBM STK drin. Also die Assignments waren VOR unserem Snapshot-Zeitraum passiert und wurden nie in unseren Log importiert.
+
+Details der 44 Trades:
+- 9 STK-BOT (Aktien-Kaeufe) — keiner IWM/IBM
+- 5 OPT-SLD, 5 OPT-BOT (Optionen)
+- 21 CASH-SLD (Fremdwaehrung)
+- 4 BAG (Complex-Orders/Spreads)
+
+━━━━━━━━━━━━━━━━━━
+
+DAMIT ICH DEINE ASSIGNMENTS SEHE brauche ich die Flex-XML.
+
+Wie du sie neu bekommst:
+1. TWS oeffnen → Reports → Statements
+2. Flex Queries → Trade Confirmation Report waehlen
+3. Zeitraum 2024-01-01 bis heute
+4. Format XML
+5. RUN → Download in Ordner der NICHT Temp ist (z.B. Downloads oder Desktop)
+6. Pfad mir schicken
+
+Dann parse ich alles und du hast:
+✓ Assignment-Historie pro Ticker
+✓ Alle Praemien richtig gezaehlt
+✓ Wheel-Zyklen automatisch erkannt
+✓ P/L pro Zyklus
+
+━━━━━━━━━━━━━━━━━━
+
+Fuer heute: das ist die richtige Antwort — Flex-XML brauchen. Morgen frisch komplett bauen.
+
+Rate-Limit-Notiz: wirklich am Ende bei uns beiden.

@@ -1,0 +1,7 @@
+✅ Fix drin (v0.10.46).
+
+Ursache des Fehlers: berkshire-trades.json lag zwar im Repo (data/), aber NICHT im public/data/-Ordner den Firebase Hosting serviert. Firebase antwortete mit einer HTML-404-Seite → JSON.parse crashte bei "line 2 column 1" (die erste Zeile war das HTML-Doctype).
+
+Datei ist jetzt in public/data/ kopiert und gepushed. Deploy laueft (~2 Min).
+
+Nach dem Deploy: Hard-Refresh (Strg+F5) und der Tracker sollte laden.

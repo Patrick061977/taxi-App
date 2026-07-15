@@ -1,0 +1,49 @@
+🎯 SORTIERUNG BESTES PRINZIP: pro ZYKLUS (nicht gesamt).
+
+Zyklus-Definition:
+Startet mit Assignment → endet mit Called Away oder Aktien-Verkauf.
+Alle Trades DAZWISCHEN gehoeren zu diesem einen Zyklus.
+
+━━━━━━━━━━━━━━━━━━
+
+📊 IWM AKTUELLER ZYKLUS (seit 29.06.2026 Assignment @ $300):
+
+29.06 · SLD $300C 7d @ $1.70 = +$170 (CC Praemie 1)
+29.06 · STK BUY 100 @ $300 (Assignment)
+02.07 · BUY $300C 4d @ $0.58 = −$58 (CC Buyback = TP)
+02.07 · SLD $300C 7d @ $1.59 = +$159 (CC 2)
+02.07 · BUY $260P 90d @ $2.71 = −$271 (Hedge!)
+07.07 · BUY $300C 2d @ $0.57 = −$57 (Buyback)
+07.07 · SLD $300C 8d @ $1.87 = +$187 (CC 3)
+08.07 · BUY $300C 7d @ $0.48 = −$48 (Buyback)
+08.07 · SLD $300C 14d @ $1.31 = +$131 (CC 4)
+
+━━━━━━━━━━━━━━━━━━
+
+📈 IWM ZYKLUS-BILANZ:
+CC-Praemien Brutto:   $647
+Hedge-Kosten:         −$434
+NETTO Zyklus:         +$213 ← das ist was du bis heute rausgeholt hast
+
+━━━━━━━━━━━━━━━━━━
+
+DEIN "6000€ hab ich nicht" ist wahrscheinlich:
+- Gesamt-Historie IWM 1 Jahr: +$73.724 (alles zusammen — 37 Assignments)
+- Aktueller Zyklus: nur +$213 (seit 29.06.)
+
+Was ich fuer dich bauen wuerde: eine "Zyklus-View" pro Ticker mit
+- Aktueller offener Zyklus (Live)
+- Vergangene abgeschlossene Zyklen (History)
+- Gesamt-Summe unten
+
+Kein separates Konto noetig — ich kriege es aus Flex-XML auseinander:
+Assignment (notes=A) = Zyklus-Start, Called Away (STK SELL) = Zyklus-Ende.
+
+━━━━━━━━━━━━━━━━━━
+
+ZU IBM:
+Ich finde WEDER in Flex-XML noch in positions.json einen IBM-Trade oder eine offene Position. Meinst du vielleicht IBIT (Bitcoin ETF, 303 Trades)? Oder ist der IBM-Trade noch gar nicht importiert?
+
+━━━━━━━━━━━━━━━━━━
+
+Rate-Limit-Notiz: jetzt WIRKLICH Ende. Morgen /clear: Zyklus-View als eigene Ansicht in Portfolio-Tab bauen.

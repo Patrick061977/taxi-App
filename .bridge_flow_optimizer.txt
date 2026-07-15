@@ -1,0 +1,84 @@
+🎯 DHWI-FLOW-OPTIMIERUNG — Konzept + IST-Analyse
+
+━━━━━━━━━━━━━━━━━━
+
+DAS "FLOW"-PRINZIP:
+Immer SP + CC gleichzeitig offen = permanenter Doppel-Cashflow.
+
+Der Setup ist wie ein "Straddle mit Aktien in der Mitte":
+
+    Kurs steigt ↑
+    ─────────────────────
+     [ CC $310 · 7 DTE ]  ← verdient wenn Kurs stagniert/faellt
+    ─────────────────────
+     100 Aktien @ $300   ← Delta 100 = long
+    ─────────────────────
+     [ SP $291 · 7 DTE ]  ← verdient wenn Kurs stagniert/steigt
+    ─────────────────────
+    Kurs faellt ↓
+
+Beide Praemien laufen. Egal ob Kurs steigt oder faellt (in engem Range),
+du kassierst 2× Theta pro Tag.
+
+━━━━━━━━━━━━━━━━━━
+
+📊 DEINE IST-FLOW-QUOTE aus 12 Monaten:
+
+Ticker  Monate  Beide-offen  Nur-CC  Nur-SP  Praemien
+─────────────────────────────────────────────────────
+IWM     13      12 (92%)     1       0       $116.111 ⭐
+GLD     13      10 (77%)     1       2       $91.723
+IBIT    10       8 (80%)     2       0       $48.704
+SPY     12       6 (50%)     1       5       $52.300
+TSLA    11       5 (45%)     4       2       $55.738
+NVDA     9       4 (44%)     1       4       $15.793
+
+━━━━━━━━━━━━━━━━━━
+
+⭐ IWM ist dein PARADE-BEISPIEL: 92% Monate im vollen Flow!
+Deshalb hoechster Praemien-Ertrag ($116k in 13 Monaten).
+
+⚠️ SPY, TSLA, NVDA: nur 44-50% im Flow. Da laesst du Geld liegen.
+
+━━━━━━━━━━━━━━━━━━
+
+🎯 OPTIMIERUNGS-EMPFEHLUNGEN:
+
+1. NACH JEDEM ASSIGNMENT SOFORT beides:
+   - CC verkaufen (7-14 DTE) ATM oder leicht OTM
+   - SP verkaufen (7-14 DTE) an naechster Grid-Stufe
+
+2. NACH JEDEM CALLED-AWAY (Aktien weg):
+   - Neuer SP an aktueller Grid-Stufe (Wheel neu starten)
+   - Kein CC moeglich (keine Aktien mehr)
+
+3. WENN KURS RANGE-BOUND SEITWAERTS:
+   - CC-Buyback bei 60-70% Praemien-Gewinn
+   - SOFORT neuer CC
+   - SP genauso rollen bei 60-70%
+
+━━━━━━━━━━━━━━━━━━
+
+📈 FEATURE-IDEE: "FLOW-STATUS" pro DHWI-Card
+
+Zeigt oben in der Card:
+🟢 Vollflow · SP + CC beide offen · +$XX/Tag Theta
+🟡 Halbflow · nur CC offen · +$XX/Tag Theta (SP-Position frei)
+🟠 Halbflow · nur SP offen · +$XX/Tag Theta (keine Aktien, warte auf Assignment)
+🔴 KEIN Flow · nichts offen · $0/Tag (Handlung noetig!)
+
+Plus konkrete Vorschlaege:
+"IWM: keine SP offen → verkaufe SP $291 7d fuer +$50-80 Praemie"
+"IWM: kein CC offen → verkaufe CC $306 7d fuer +$60-100 Praemie"
+
+━━━━━━━━━━━━━━━━━━
+
+🔬 BACKTEST-IDEE (spaeter):
+Simuliere jeden Ticker mit verschiedenen Grid-Abstaenden (3/5/7/10%)
+und CC-DTEs (5/7/14/21) → welche Kombi bringt maximalen Cashflow?
+
+Aber jetzt ist RATE-LIMIT knapp. Fuer heute die konkrete Regel:
+IWM-Style auf alle uebertragen: nach Assignment SOFORT SP + CC gleichzeitig.
+Das war 92% Flow-Quote wert. Bei SPY/TSLA/NVDA verpasst du das gerade.
+
+Willst du dass ich den "Flow-Status"-Header in DHWI-Card einbaue (~30 Min)?

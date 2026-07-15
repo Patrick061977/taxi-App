@@ -1,0 +1,25 @@
+✅ v0.10.57 gepusht — jetzt sieht du in jeder DHWI-Card ganz oben:
+
+📊 UEBERSICHTS-KARTE (5 Zellen):
+1. Theta/Tag Netto (SP+CC minus Hedge) + annualisiert p.a.
+2. 💰 SP-Theta pro Tag + Kontrakt-Anzahl
+3. 📈 CC-Theta pro Tag + Kontrakt-Anzahl
+4. 🛡 Hedge-Theta pro Tag (rot, weil Kosten)
+5. 🔄 Roll-Alerts wenn welche faellig:
+   - Hedge < 30 DTE (=neuer 90d fallig)
+   - CC < 7 DTE (Buy-Back+neuer CC)
+   - SP < 3 DTE (Buy-Back+neuer SP)
+
+📂 DETAILS AUFGEKLAPPT (standardmaessig, kein extra Klick):
+- 🛡 HEDGES Liste
+- 💰 SHORT PUTS Liste
+- 📈 COVERED CALLS Liste
+
+Plus die einzelnen Positions-Zeilen haben schon die Roll-Tipps (🔄 ROLL-OUT, ⏳ ITM etc.) aus dem bestehenden Code.
+
+━━━━━━━━━━━━━━━━━━
+
+Deploy in ~2 Min. Hard-Refresh und du siehst pro Underlying-Card sofort:
+"Diese Position bringt $X/Tag netto = ~$Y/Jahr. In Z Tagen naechster Hedge-Roll faellig."
+
+Rate-Limit-Notiz: bei mir Session-Level noch ok, wir sind aber lange dabei.

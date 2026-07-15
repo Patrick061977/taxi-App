@@ -1,0 +1,36 @@
+🎯 SWKS-Diff verstehe ich — genau: bei stabilen Firmen (KBH Bau, LEN Bau, CAG Nahrung) matcht unsere Formel 1:1 mit grahamvalue.com. Bei Zyklikern (SWKS Halbleiter, VZ Telco-Umbau) driftet's, weil wir EPS_5yr-Avg nehmen und grahamvalue.com vermutlich 7yr-Median.
+
+Beispiel SWKS klar:
+Unser EPS_5yr = $5.94 (hohe Boom-Jahre 2020-2022 verzerren den Durchschnitt)
+grahamvalue.com implizit ~$4.30 (Median dampft Extreme)
+→ G# 71.56 vs 61.21 → 17% zu hoch
+
+Konsequenz: Wir sehen Sicherheitsmarge wo keine ist. "In die Scheisse greifen" ist genau richtig.
+
+━━━━━━━━━━━━━━━━━━
+
+3 FIX-VARIANTEN (nach Deploy heute Nachmittag):
+
+A) 7yr-MEDIAN statt 5yr-AVG
+   • ~10 Zeilen in scripts/score.js
+   • ~10 Min Aufwand
+   • Effekt: SWKS G# → ca 61
+   • Ausreisser werden gedaempft, alles bleibt konservativ
+
+B) DAMPFENDES EPS-Cap
+   • Kappe EPS-Jahre auf max 1.5x Median vor Durchschnitt
+   • Aehnlicher Effekt aber wissenschaftlicher
+   • ~30 Min Aufwand
+
+C) HYBRID — Median UND Rezessions-Jahre voll gewichtet
+   • Nimmt Median als Basis, aber negative EPS-Jahre zaehlen doppelt
+   • Am konservativsten
+   • ~1h Aufwand
+
+━━━━━━━━━━━━━━━━━━
+
+Empfehlung: A (7yr-Median). Deckt 80% der Faelle, kaum Ueberkomplex.
+
+Naechster Session-Slot (nach Rate-Limit-Reset): ich bau A ein, dann laufen wir SWKS/VZ/CAG/LEN/KBH nochmal und pruefen ob alle innerhalb 5% von grahamvalue.com liegen.
+
+Rate-Limit-Notiz: heute noch reichlich Kapazitaet, aber wir haben schon viel gemacht. Ich schlage vor: dringende Taxi-Themen jetzt, Graham-Fix in eigener Session mit /clear damit Kontext frisch bleibt.

@@ -1,0 +1,39 @@
+🔍 TRADES-ANALYSE aus unserem trades.jsonl:
+
+━━━━━━━━━━━━━━━━━━
+
+📊 IWM (nur 2 Trades im Log):
+2026-06-12 · SLD IWM $294 Put @ $4.13 → +$413 kassiert (Short Put)
+2026-06-12 · BOT IWM $290 Put @ $1.39 → −$139 Kosten (Long Put Hedge)
+→ NETTO: +$274 ✓ (matcht Screenshot)
+
+Kein STK-Trade (Aktien-Kauf/Assignment) im Log → mein v0.10.65 Fix kann keinen Assignment-Strike ableiten. Er nutzt weiter den Durchschnitts-Einstand.
+
+━━━━━━━━━━━━━━━━━━
+
+📊 IBM: GAR KEINE Trades im Log
+
+━━━━━━━━━━━━━━━━━━
+
+⚠️ ROOT-CAUSE:
+trades.jsonl scheint nur eine kurze Historie zu enthalten (vielleicht 30-90 Tage). Aeltere Trades — inkl. Assignments — fehlen. Deshalb siehst du bei IWM auch bei "Praemien kassiert" nur $274 statt der echten Total-Historie.
+
+━━━━━━━━━━━━━━━━━━
+
+🎯 LOESUNG (dein Vorschlag mit Activity-Flex war goldrichtig):
+
+Option A: Flex-XML-Upload
+Du gehst in TWS → Reports → Flex Queries → "Trade Confirmation Report" (all trades, from 2024-01-01 bis heute) → Runs XML/CSV → sendest mir Pfad. Ich baue Parser der:
+- Alle STK-BOT-Trades → Assignment-Historie
+- Alle OPT-SLD/BOT → Praemien-Summen pro Ticker
+- Full Wheel-Zyklen erkennen (SP → Assignment → CC → Called Away)
+
+Option B: fetch-berkshire-trades.js aehnliches Script fuer IBKR mit gcloud-Token-Auth (falls IB API vorhanden)
+
+━━━━━━━━━━━━━━━━━━
+
+Der Flex-Pfad den du geschickt hast (C:/.../Temp/flex.737688.Tradeviz.20250709.20260708.xml) ist nicht mehr da — Temp wird bereinigt. Lade sie neu runter zu z.B. C:/Users/Taxi/Downloads/ dann sage ich Pfad und ich parse.
+
+━━━━━━━━━━━━━━━━━━
+
+Rate-Limit-Notiz: bei uns beiden wirklich am Limit. Vorschlag: heute Pause. Morgen mit /clear frisch: Activity-Flex-Import komplett bauen inkl. Assignment-Timeline + P/L pro Zyklus.

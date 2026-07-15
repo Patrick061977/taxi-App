@@ -1,0 +1,59 @@
+📊 GLD IST-STAND (KORREKTE Zahlen jetzt):
+
+Aktien-Position: 200 Aktien @ Ø $458.28 (Cost-Basis $91.657)
+Letzter Assignment: 06.02.2026 @ $468 (100 Aktien)
+Aktueller Kurs: $367.13 (Stand 13.07.)
+
+Assignments-Historie letzte 5:
+30.07 @ $312 → 28.10 @ $382 → 31.12 @ $410 → 30.01 @ $468 → 06.02 @ $468
+
+Also du bist bei $458 Ø, Kurs jetzt $367 → -20% Buchverlust.
+Aktueller CC: 2× $388C 45 DTE (mein Roll gestern)
+
+━━━━━━━━━━━━━━━━━━
+
+🎯 "HOCH-ROLL" wenn Kurs steigt:
+
+Aktueller CC $388 ist 5.7% ueber Kurs ($367). Delta ~0.20.
+Wenn Gold auf $380 steigt:
+- CC $388 waere fast ATM (Delta ~0.45)
+- Praemie schiesst hoch, aber: kurz vor Called Away
+- ROLL UP+OUT: Buyback $388C teuer, neuer $400C 30 DTE
+  → +Praemie durch Zeit-Zuschlag, +Strike-Puffer
+
+Wenn Gold auf $400+ steigt:
+- $388 tief ITM, muss du rollen ODER liegen lassen
+- Called Away @ $388 = $77.600 (200×388) minus Einstand $91.657 = -$14.057 REAL
+- ABER: Praemien seit Zyklus-Start abziehen. Ich schau mal.
+
+━━━━━━━━━━━━━━━━━━
+
+📈 GLD-ZYKLUS-BILANZ (seit letzter Assignment 06.02.):
+Praemien SP: ~+$5.700 (aus meiner Zyklus-Analyse gestern)
+Praemien CC: ~+$8.300 (grosszuegige Schaetzung)
+Hedge-Kosten: ~-$2.500
+Netto Praemien: ~+$11.500
+Bei Called Away @ $388: -$14.057 Kapital
+NETTO ZYKLUS: ~-$2.500 (grob) — noch im leichten Minus
+
+Bei Called Away @ $400 (nach hoch-Roll): -$11.657
+Mit +$11.500 Praemien: ca ausgeglichen
+Bei $420 Roll: +$8.343 Gewinn realisiert
+
+━━━━━━━━━━━━━━━━━━
+
+🎯 HOCH-ROLL-STRATEGIE:
+1. Wenn Kurs $380: rolle $388 → $400 (30 DTE), sammle Extra-Praemie
+2. Wenn Kurs $395: rolle $400 → $410
+3. Wenn Kurs $410: rolle $410 → $420 (Ziel: bei Called Away wieder Gewinn)
+4. Jeder Roll bringt +$5-10 pro Aktie durch Zeitwertschub
+
+Sweet Spot: Called Away zwischen $460-480 wieder → Wheel-Zyklus positiv abschliessen
+
+━━━━━━━━━━━━━━━━━━
+
+Willst du dass ich ein "Hoch-Roll-Simulator" pro Ticker baue?
+Zeigt fuer aktuellen CC:
+- Bei Kurs +5% → optimaler neuer Strike + geschaetzte Praemie
+- Bei Kurs +10% → naechster Roll-Kandidat
+- Bei welchem Kurs der Zyklus wieder ins Plus kippt

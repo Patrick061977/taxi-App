@@ -1,0 +1,24 @@
+✅ v0.10.64 gepusht — Grid ist übersichtlicher jetzt:
+
+📊 Default:
+Grid zeigt nur die nächsten 5 offenen Nachkauf-Stufen (nach eingebuchten und wartenden SPs). Alles darüber ist versteckt.
+
+☑️ Checkbox "alle Stufen anzeigen" rechts oben im Grid-Header:
+Klick → zeigt auch die -30% / -40% / -50% Stufen (fürs Worst-Case-Szenario).
+
+✓ Weiterhin IMMER sichtbar:
+- Bereits eingebuchte Stufen (grün)
+- SPs die auf Assignment warten (violett)
+Damit du nichts wichtiges verpasst.
+
+━━━━━━━━━━━━━━━━━━
+
+Zu deinen anderen Punkten:
+• Short-Put-Strike in der Übersicht sehen → schon in v0.10.63 drin (SP-Zelle zeigt jetzt "$220P 8d · $219P 22d")
+• Assignment-Strike (wo eingebucht) → komplex, brauche Trade-Log-Analyse pro Ticker. Baue ich morgen mit frischem Kontext.
+
+━━━━━━━━━━━━━━━━━━
+
+Deploy in ~2 Min. Hard-Refresh → nur noch 5 Stufen + Toggle.
+
+Rate-Limit-Status: uns beiden knapp. Nach v64 wäre echte Pause gut.

@@ -1,0 +1,38 @@
+✅ PR #2606 GEMERGED (10:04 Berlin)
+
+Deploy laueft automatisch via GitHub Actions:
+• Strato-ZIP (kunden.html): ~2 Min → Hotel-Portal live
+• Cloud-Functions (functions/index.js): ~2 Min → Ghost-Sweep-Fix + status='assigned'-Fix + Stripe-VKAS-rideId-Fix live
+
+Nach dem Deploy kannst du testen:
+🧪 Kaiserhof → funktaxi-heringsdorf.web.app/kunden.html → Google-Login → Buchung
+🧪 Naechste Nacht 02:30: Ghost-Sweep laueft still (keine Storno-SMS mehr)
+🧪 Naechster Reminder-Push in ~15 Min vor Pickup: setzt reminderPushedAt statt status
+🧪 Naechster Stripe-Vorkasse-Link aus Native-Dispo: wird korrekt als paid markiert
+
+━━━━━━━━━━━━━━━━━━
+
+📊 STATS DIESER SESSION:
+Merge-PRs seit 08:00 heute:
+• v6.63.690 — Stripe-Link auch per WhatsApp/SMS
+• v6.63.691 — Phase 3 Delta-Check 5 Min
+• v6.63.692 — Native Stripe-Vorkasse rideId in metadata + Cleanup 67 Verknotete Nummern
+• v6.63.693 — SMS-Option + Manuell-bezahlt-Button
+• v6.63.694 — Hotel-Portal Phase 1a
+• v6.63.695 — Ghost-Sweep Storno-SMS unterdruecken
+• v6.63.696 — Ghost-Sweep → completed
+• v6.63.697 — status='assigned' NUR nach Fahrer-Bestaetigung
+
+= 8 Cloud-/Native-Deploys, 5 gefundene Bugs, 1 CRM-Sweep, 1 neues Feature (Hotel-Portal).
+
+━━━━━━━━━━━━━━━━━━
+
+☕ Ich mach jetzt kurz Pause bei den Bridge-Antworten (Rate-Limit-Reserve).
+
+Naechste Themen wenn du willst:
+- onShiftForceEnded (Fahrten sofort freigeben bei Schicht-Ende)
+- Hotel-Portal Phase 1b (Kalender-Style-View)
+- Farbmarkierung Hotel-Buchungen in Dispo
+- Restlicher Backlog (Task C/W)
+
+Sag Bescheid wenn Neues aufkommt.

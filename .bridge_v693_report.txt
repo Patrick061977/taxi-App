@@ -1,0 +1,37 @@
+✅ v6.63.693 — Beides drin, PR #2605 gemerged.
+
+1️⃣ SMS-OPTION beim Stripe-Vorkasse-Link
+Nach "💳 Stripe-Vorkasse-Link erstellen & senden" kommt jetzt:
+• 💬 Per WhatsApp senden
+• 📱 Per SMS senden  ← NEU
+• 📧 Per Email senden
+• 📋 Nur in Zwischenablage
+
+Die SMS-Option oeffnet die Android-SMS-App mit vorgeschriebenem Text (Betrag + Link). Du bestaetigst und schickst. Nachricht ist kurz gehalten (unter 160 Zeichen).
+
+2️⃣ MANUELL-BEZAHLT-BUTTON
+In der Fahrt-Detail-Ansicht (unter Stripe-Button) neuer gruener Button:
+"✅ Manuell auf 'bezahlt' setzen"
+
+Nur sichtbar wenn paymentStatus noch nicht paid ist.
+Beim Klick: Auswahl-Dialog:
+• 💵 Bar
+• 💳 Karte (Terminal)
+• 🏦 Überweisung
+• 🔗 Stripe (Link nachtraeglich)
+• 💰 Sonstiges
+
+Nach Auswahl wird Ride markiert:
+• paymentStatus = paid
+• paymentMethod = gewaehlt
+• paidAt + paidManuallyAt gesetzt
+• paidManuallyBy = admin-native-v6.63.693
+
+━━━━━━━━━━━━━━━━━━
+
+📦 DEPLOY laueft automatisch:
+• APK wird via GitHub Actions gebaut (~5-8 Min)
+• Fahrer/Admin-App bekommt Update-Banner beim naechsten Oeffnen
+• Cloud-Function-Deploy ebenfalls (falls du auf Web bist)
+
+Sag Bescheid wenn beides testet — oder wenn was noch offen ist.

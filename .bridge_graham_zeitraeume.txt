@@ -1,0 +1,52 @@
+🎓 GRAHAM'S 3 vs. 10 JAHRE — die Auflösung:
+
+Graham hat DREI verschiedene Zeitraum-Konzepte im Buch:
+
+━━━━━━━━━━━━━━━━━━
+
+1️⃣ FUER DIE GRAHAM NUMBER (√22.5 × EPS × BVPS):
+   → 3-Jahres-DURCHSCHNITT der EPS
+   → Grund: Kap. 14 Kriterium 5, "Moderate P/E ≤ 15 basierend auf 3-Jahres-Avg-EPS"
+   → Das nutzen wir jetzt (v0.10.35).
+
+2️⃣ FUER DIE EARNINGS STABILITY (Qualitaets-Check):
+   → 10 Jahre — muss ALLE positiv sein (keine Verluste)
+   → Kap. 14 Kriterium 3, "keine Verluste in den letzten 10 Jahren"
+   → Wenn 1-2 Jahre negativ → Aktie disqualifiziert fuer Defensive Grade
+   → Bei uns: c4_earnings_stability Check
+
+3️⃣ FUER DAS EARNINGS GROWTH (Wachstums-Bonus):
+   → 10 Jahre — vergleiche ERSTE 3 Jahre vs. LETZTE 3 Jahre
+   → Kap. 14 Kriterium 6, "min. 33% pro-Aktie-Wachstum ueber 10 Jahre"
+   → Bei uns: c8_earnings_growth Check
+   → Formel: (EPS_last3_avg - EPS_first3_avg) / EPS_first3_avg ≥ 33%
+
+━━━━━━━━━━━━━━━━━━
+
+KEIN MEDIAN nirgendwo — reine DURCHSCHNITTE bei Graham.
+Meine erste Vermutung mit 7-Jahres-Median war falsch. 3-Jahres-Avg
+(v0.10.35) ist Graham-Original.
+
+━━━━━━━━━━━━━━━━━━
+
+📊 UNSERE 3-JAHRES-EPS BEI DEN BUFFET-KAEUFEN:
+
+Ticker  EPS 3yr-Avg
+────────────────
+LEN     14.59  ⭐ (starkes stabiles Ertrag → hohe Sicherheitsmarge)
+DAL      6.72
+GOOG     8.22
+SWKS     4.30
+NYT      1.75
+CAG      1.51
+M        1.52
+VZ       3.65
+
+━━━━━━━━━━━━━━━━━━
+
+Was du im Screener sehen kannst (schon jetzt):
+• Kriterium c4 = Earnings Stability (10 Jahre keine Verluste)
+• Kriterium c8 = Earnings Growth (33%+ Wachstum 10 Jahre)
+
+Willst du ich baue eine Detail-Ansicht die pro Ticker
+"EPS Jahr fuer Jahr" zeigt inkl. Balken/Chart? Waere ~30 Min.

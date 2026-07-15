@@ -1,0 +1,29 @@
+✅ v0.10.65 gepusht — Grid basiert jetzt auf letztem Assignment-Strike (nicht mehr Ø-Einstand)
+
+Logik:
+- Suche letzten STK-BOT-Trade fuer diesen Ticker aus trades.jsonl
+- Wenn gefunden → das ist deine "Grid-Basis" (Label: "Letzter Assignment-Strike")
+- Sub-Info zeigt Ø Cost-Basis fuer Vergleich
+- Fallback: kein Trade gefunden → nutzt weiterhin stockAvg
+
+Beispiel IWM (falls SP@300 assigned): Stufe 1 = 300 × 0.97 = $291 (statt vorher $288 basierend auf $296.97 Durchschnitt)
+
+━━━━━━━━━━━━━━━━━━
+
+Zu deiner Idee mit ACTIVITY-FLEX Upload:
+
+JA — das koennen wir bauen! Wenn du die IB Activity-Flex-XML/CSV lieferst kann ich:
+1. Assignments extrahieren (Ticker, Strike, Datum, Preis)
+2. Praemien-Summen pro Ticker berechnen (SP · CC · Hedge)
+3. P/L pro geschlossenem Zyklus (Wheel: SP → Assignment → CC → Called Away)
+4. Timeline anzeigen: 'am 12.05. SP@300 verkauft, 15 Tage spaeter assigned, 26.05. CC@310 verkauft'
+
+Aber: Rate-Limit ist knapp bei uns beiden (heute 25+ Versionen). Vorschlag:
+1. Heute: heute Abend Pause
+2. Morgen: /clear, dann Activity-Flex Upload + Auswertungs-Feature komplett bauen
+
+Und ja: fuer IBM sollte v0.10.65 den Assignment-Strike zeigen wenn ein STK-BOT-Trade in trades.jsonl ist. Test es und sag ob es passt.
+
+━━━━━━━━━━━━━━━━━━
+
+Deploy in ~2 Min. Hard-Refresh.

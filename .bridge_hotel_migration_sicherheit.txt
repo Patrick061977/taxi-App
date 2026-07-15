@@ -1,0 +1,55 @@
+🔒 MIGRATION + SICHERHEIT — beides einfacher als du denkst:
+
+━━━━━━━━━━━━━━━━━━
+
+1️⃣ MIGRATION Google-Kalender ↔ Portal:
+
+Die Hotels loggen sich in unser Portal mit demselben Google-Konto ein, mit dem sie auch den Kalender pflegen. KEINE Doppel-Anmeldung.
+
+Ablauf:
+• Hotel oeffnet hotel.html
+• Klickt "Mit Google einloggen" → Google-Popup → whitelist-Email erlaubt
+• Wir bekommen von Google ein signiertes Token (Firebase Auth)
+• Wir vergleichen Token-Email vs. /customers (Feld email, customerKind='Hotel')
+• Match → Hotel-ID bekommen → Portal-Dashboard oeffnet
+
+Der bestehende Google-Kalender bleibt UNBERUEHRT.
+Sync-v5.2 pusht Fahrten weiter in den Kalender.
+Portal-Anfragen gehen zusaetzlich in /anfragen → nach Uebernahme auch in Kalender (via existierender Sync).
+
+Kein "Migrieren" im Sinne von Daten umziehen — die Systeme laufen parallel und teilen sich das Google-Konto.
+
+━━━━━━━━━━━━━━━━━━
+
+2️⃣ SICHERHEIT — 4 Schutzschichten:
+
+🔐 SCHICHT 1: Google-Konto ist Firewall
+Wir haben KEIN Passwort in unserer App. Google prueft. Wenn Hotel 2FA aktiviert, gilt das automatisch fuer unser Portal. Kein "Passwort raten"-Angriff moeglich.
+
+🔐 SCHICHT 2: Firebase Auth Token
+Google schickt uns nach Login ein signiertes JWT-Token (10 Min gueltig, automatisch refresh). Kann NICHT gefaelscht werden — signiert mit Googles Private Key. Angreifer kann keine Fahrten anlegen ohne echten Google-Login.
+
+🔐 SCHICHT 3: Email-Whitelist im CRM
+Nur Emails mit customerKind='Hotel' UND hotelPortalEnabled=true kommen rein. Ich hab das Flag gerade fuer Kaiserhof gesetzt. Fuer jeden neuen Hotel setzt du/ich das explizit — kein "irgendwer der irgendein Gmail-Konto hat" kann rein.
+
+🔐 SCHICHT 4: Firebase Security Rules
+Ich schreibe die Rules so, dass in /anfragen nur schreiben darf wer:
+   auth.token.email == existiert-in-/customers[email] mit customerKind='Hotel'
+Andere Cases: read forbidden, write forbidden. Selbst wenn jemand direkt die Firebase-URL kennt.
+
+🛡 ZUSATZ (optional, ~30 Min):
+Firebase App Check — verhindert dass jemand die Firebase-API direkt anspricht ohne unsere Web-App. Bot-Schutz.
+
+━━━━━━━━━━━━━━━━━━
+
+⚠ WAS DU KEIN BOCK DRAUF HABEN SOLLTEST (haben wir NICHT):
+• Passwoerter im Klartext speichern → NEIN, kein Passwort bei uns
+• Sessions in localStorage → NEIN, Firebase Auth managed das
+• Selber-gebaute JWT-Verifikation → NEIN, Firebase macht das
+• Hotel-Fahrten fuer alle sichtbar → NEIN, per-Hotel-ID gefiltert
+
+━━━━━━━━━━━━━━━━━━
+
+Fuer "kaputt machen" waere noetig: Google-Konto komplett hacken (Google-Passwort + 2FA umgehen) UND danach dein hotelPortalEnabled-Flag umgehen. Realistisch: praktisch unmoeglich.
+
+Gruener Punkt fuer GO?

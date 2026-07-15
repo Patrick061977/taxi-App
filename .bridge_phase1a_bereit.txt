@@ -1,0 +1,36 @@
+✅ Phase 1a fertig — PR #2606 wartet auf dein GO zum Mergen
+
+Was drin ist:
+🔐 Kaiserhof loggt sich auf funktaxi-heringsdorf.web.app/kunden.html mit "Mit Google einloggen" ein
+🎯 Code prueft: customerKind='Hotel' + hotelPortalEnabled=true → Hotel-Portal statt Kunden-Ansicht
+🏨 Hotel-Screen zeigt:
+   • Header "🏨 Kaiserhof Usedom" + Login-Email
+   • Info-Banner "Testphase — Kalender folgt"
+   • ➕ Neue Transfer-Anfrage (Button)
+   • 📋 Meine offenen Anfragen (Liste mit Status-Badges)
+📝 Anfrage-Formular:
+   • Gastname, Datum, Uhrzeit, Personen (Pflicht)
+   • Abholort default = Hotel-Adresse aus CRM
+   • Zielort (frei)
+   • Rueckfahrt-Checkbox
+   • Bemerkungen
+✅ Submit legt in /anfragen an mit channel='hotel-portal' + hotelCrmId
+✅ Landet in DEINER Dispo wie eine normale Web-Anfrage
+✅ Existierende Kunden-Login-Logik unveraendert (SMS + Google fuer Privatkunden geht weiter)
+
+━━━━━━━━━━━━━━━━━━
+
+🧪 TEST-PLAN nach Merge:
+1. GitHub Actions deployed kunden.html nach Strato (~2 Min)
+2. Kaiserhof oeffnet funktaxi-heringsdorf.web.app/kunden.html
+3. Klickt "Mit Google einloggen"
+4. Waehlt kaiserhof.usedom@gmail.com
+5. Sieht Hotel-Portal (statt Kunden-Ansicht)
+6. Legt Test-Anfrage an
+7. Du siehst sie in der Dispo mit "hotel-portal"-Channel
+
+━━━━━━━━━━━━━━━━━━
+
+Sag "MERGE" wenn ich zusammen fuegen soll. Oder sag was noch ergaenzt werden soll bevor.
+
+Rate-Limit-Status: Session ok, nicht in Gefahr.

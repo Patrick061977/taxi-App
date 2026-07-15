@@ -1,0 +1,20 @@
+✅ v0.10.77 gepusht — Take-Profit-Badge ⚡TP
+
+Jede SP + CC Zeile in DHWI-Card zeigt jetzt:
+$260P 45d Δ-0.05 ⚡TP  ← grüner Alarm bei Delta ≤ 0.10
+
+Signal: Praemie ist fast verfallen (weit OTM), Zeit fuer:
+1. Buyback (kostet fast nix)
+2. Neuer Short an Delta 0.30-0.45 (Sweet-Spot laut deiner Historie)
+3. Netto: +$40-100/Tag mehr Theta
+
+━━━━━━━━━━━━━━━━━━
+
+Beispiel bei GLD nach Deploy siehst du wahrscheinlich:
+$388C 45d Δ0.08 ⚡TP → dein aktueller Roll ist schon nahe der TP-Zone
+
+━━━━━━━━━━━━━━━━━━
+
+Deploy in ~2 Min via Firebase Hosting. Hard-Refresh → jede DHWI-Card zeigt Delta pro Option + ⚡TP-Badge wo relevant.
+
+Damit siehst du auf einen Blick: "diese SP/CC lohnt sich nicht mehr, rollen!"

@@ -1,0 +1,41 @@
+🐛 URSACHE 02:30-Storno-SMS gefunden + gefixt (v6.63.695)
+
+━━━━━━━━━━━━━━━━━━
+
+DER HERGANG:
+02:30:04 Berlin: Cron `scheduledGhostRideSweep` startet (taeglich)
+02:30:04 → findet 7-8 Rides mit pickupTimestamp > 12h alt UND status non-final (vorbestellt/accepted/etc.) — z.B. wenn Fahrer nach der Fahrt vergisst 'completed' zu tippen
+02:30:05 → setzt sie alle auf `status='cancelled'`, `cancelledBy='cloud-ghost-sweep-v6.63.104'`
+02:30:05 → onRideUpdated feuert Cancel-Branch → verschickt an jeden Kunden:
+   • WhatsApp "Ihre Buchung storniert"
+   • SMS "Ihre Taxi-Buchung wurde storniert"
+
+Kunden waren aber laengst am Ziel! Kriegen um halb drei Nachts eine Storno-Nachricht → verwirrt/nervt.
+
+Betroffene gestern Nacht (7 Kunden):
+Karin Oswald · Hänsel · Patricia Cardoso · Blankenburg · Frisch · Meier Karin · Olaf Elsner
+
+━━━━━━━━━━━━━━━━━━
+
+DER FIX (jetzt drin auf Branch, PR wird gleich upgedated):
+
+In onRideUpdated wird geprueft ob cancelledBy startsWith 'cloud-ghost-sweep' oder ghostSweepReason gesetzt ist. Wenn ja:
+❌ Keine WhatsApp-Cancellation an Kunden
+❌ Keine SMS-Cancellation an Kunden
+❌ Keine Fahrer-Telegram-Notification
+
+✅ Admin-Push (an dich) bleibt — damit du siehst was aufgeraeumt wurde
+✅ Status wird trotzdem auf cancelled gesetzt (Aufraeumen ok)
+
+━━━━━━━━━━━━━━━━━━
+
+ZUSATZ: Hotel-Portal Ride-Status auf 'vorbestellt' geaendert (statt 'new'), wie du gesagt hast.
+
+━━━━━━━━━━━━━━━━━━
+
+WAS DU JETZT VIELLEICHT WILLST:
+Ghost-Sweep macht cancelled aus non-final-Rides. Alternative Interpretation: Wenn Fahrt sicher gefahren wurde (Fahrer war 'on_way'/'arrived'/'picked_up' und dann offline) → sollte eigentlich 'completed' sein, nicht cancelled. Aktuell wirft der Sweep alles in cancelled.
+
+Willst du das ich Ghost-Sweep smarter mache? z.B. status='picked_up' → completed, status='vorbestellt'/'new' → cancelled?
+
+Aber jetzt erst mal: PR bereit zum Mergen mit Ghost-Sweep-Fix + Hotel-Portal-Umbau (siehe PR #2606).

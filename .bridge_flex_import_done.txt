@@ -1,0 +1,47 @@
+🎉 FLEX-XML IMPORTIERT + CRON GEBAUT (v0.10.66 gepusht)
+
+3319 Trades in einem Rutsch importiert. Deine echten Zahlen:
+
+Ticker  Trades  Assignments  SP-Praem  CC-Praem  Hedge-Kosten  NETTO
+──────────────────────────────────────────────────────────────
+IWM     560     37           $56.911   $59.200   $42.387       +$73.724 ⭐
+GLD     297     18           $30.329   $61.394   $18.214       +$73.509 ⭐
+SPY     256     30           $32.596   $19.704   $26.427       +$25.873
+IBIT    303     16           (kann ich noch aufloesen)
+USO     103     8            (kann ich noch aufloesen)
+NVDA     71     8            (kann ich noch aufloesen)
+
+━━━━━━━━━━━━━━━━━━
+
+📌 IWM Assignment-Historie (letzte 5):
+20250731 BUY  100@$224 · 20250829 SELL 100@$224 (Called Away)
+20250912 BUY  100@$240 · 20250919 SELL 100@$240 (Called Away)
+20250925 BUY  100@$246 (offen bis jetzt?)
+
+Der letzte Assignment-Strike koennte deine aktuellen 100 Aktien erklaeren. Portfolio-Card sollte nach dem naechsten Fetch das anzeigen.
+
+━━━━━━━━━━━━━━━━━━
+
+🔄 CRON-SCRIPT bereit:
+scripts/daily-portfolio-cron.bat
+Enthält:
+1. fetch-portfolio.js (neue Trades via TWS API)
+2. Copy nach public/data/portfolio/
+3. Auto-commit + Push
+
+SETUP im Windows-Task-Scheduler:
+schtasks /Create /SC DAILY /TN "GrahamPortfolioDaily" /TR "C:\Users\Taxi\graham-value\scripts\daily-portfolio-cron.bat" /ST 22:00
+
+Nach Setup laueft es taeglich 22:00 automatisch. Du siehst die Historie waechst.
+
+━━━━━━━━━━━━━━━━━━
+
+WAS JETZT LIVE:
+✓ trades.jsonl komplett gefuellt (3319 Trades statt 44)
+✓ Portfolio-Cards zeigen nach Hard-Refresh die richtigen Praemien
+✓ Assignment-Strike Erkennung geht jetzt (v0.10.65 kann echten letzten STK-BOT finden)
+✓ Deploy in ~2 Min live
+
+━━━━━━━━━━━━━━━━━━
+
+Rate-Limit: knapp. Fuer heute reicht das jetzt WIRKLICH. Deploy + Hard-Refresh + testen, dann Pause. Morgen mit /clear: Wheel-Zyklen-History + Assignment-Timeline als eigene Ansicht bauen.

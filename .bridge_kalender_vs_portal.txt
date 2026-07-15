@@ -1,0 +1,31 @@
+✅ Kaiserhof: emailWas (maritim...) komplett entfernt. Nur noch kaiserhof.usedom@gmail.com im Datensatz.
+
+━━━━━━━━━━━━━━━━━━
+
+📅 KALENDER-PARSEN vs. PORTAL — kurz:
+
+Wenn wir Google-Kalender-Events LESEN wuerden (statt Portal):
+✓ Pro: keine neue Login-Seite noetig
+✗ Contra 1: Adressen frei-Text im Event-Titel — Koordinaten muessten wir selbst geocoden (wie du sagst schwierig)
+✗ Contra 2: Kein strukturierter Personen-Zahl / Fahrgastname / Rueckfahrt-Info
+✗ Contra 3: Storno = Event loeschen? Dann verlieren wir die Historie
+✗ Contra 4: Doppel-Sync-Konflikt — wir pushen Fahrten hin, Hotel legt Events an, wer gewinnt bei Konflikt?
+✗ Contra 5: Sekundenlang bis das Hotel-Event bei uns ankommt (Apps Script Timer 5min)
+
+Portal-Weg:
+✓ Formular hat vordefinierte Felder → Personen/Gastname/Rueckfahrt strukturiert
+✓ Adress-Autocomplete via Google Places → Koordinaten sofort
+✓ Sofort in /anfragen → deine Dispo zeigt es in Echtzeit
+✓ Portal-Anfrage laueft durch DIE GLEICHE Cloud-Function wie WA/Email → einheitlich
+
+Empfehlung: Portal. Der Kalender bleibt fuer Rueckwaertsansicht (Sync-v5.2 wie gehabt).
+
+━━━━━━━━━━━━━━━━━━
+
+⚡ BIN BEREIT — sagst du GO, bau ich Phase 1 in ~90 Min:
+• public/hotel.html mit Google-Login
+• Formular fuer neue Transfer-Anfrage
+• Anfragen landen in deiner Dispo mit "🏨 Kaiserhof"-Badge
+• Firebase Rules geschrieben (Sicherheit-Schicht 4)
+
+Danach testen wir mit Kaiserhof konkret.

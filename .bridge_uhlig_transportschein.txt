@@ -1,0 +1,25 @@
+✅ UHLIG-FAHRT auf TRANSPORTSCHEIN umgestellt
+
+Ride: Waldstraße 8b → Monopol Ahlbeck, 10:00 heute
+Vorher: paymentMethod='cash' (falsch)
+Jetzt:
+  paymentMethod: transportschein
+  paymentStatus: transportschein_offen
+  needsInvoice: true
+  transportscheinRequired: true
+  invoiceNumber: 20-26-1416 (bleibt, wird bei Transportschein-Einreichung an AOK gebraucht)
+
+━━━━━━━━━━━━━━━━━━
+
+🚕 ZU DANILO / HOFFMANN:
+Danilo hat gerade Uhlig gemacht (Ückeritz→Ahlbeck 10:00). Deshalb war Vito unterwegs nach Ückeritz zur Abholung.
+
+Hoffmann-Fahrt (Delbrückstraße Heringsdorf 10:00) wurde dem Vito zugewiesen wahrscheinlich WEIL das System dachte er könnte nach Uhlig-Abschluss nach Heringsdorf. Das war unrealistisch (Ückeritz→Ahlbeck+Heringsdorf in unter 10 Min unmöglich).
+
+Der Bug im Auto-Assign: berechnet Anfahrt vom AKTUELLEN Standort, nicht vom Standort nach Abschluss der laufenden Fahrt. Deshalb wurde Vito als "nah genug" für Hoffmann berechnet.
+
+Fix-Idee für später: bei Auto-Assign muss der Ende-Standort der laufenden Fahrt der Ausgangspunkt für neue Fahrt sein — nicht die aktuelle GPS-Position. Bei Fahrer-mit-laufender-Fahrt sollte Ausgangspunkt = destination der laufenden Fahrt + estimated Endzeit.
+
+━━━━━━━━━━━━━━━━━━
+
+Uhlig-Fix ist drin. Jetzt kannst du den Transportschein an AOK einreichen (invoiceNumber 20-26-1416 als Referenz).

@@ -1,0 +1,17 @@
+✅ v0.10.55 gepusht — "Naechster SP-Strike" zeigt jetzt $288 (Stufe 1) bei dir.
+
+Fix-Logik:
+Alt: nutzte dhwiStage (der offene SPs mitgezaehlt hat → $279 fuer Stufe 2)
+Neu: nutzt stockStages (nur ECHTE Aktien) → $288 fuer Stufe 1 wenn 0 Aktien im Depot
+
+Deploy in ~2 Min, dann Hard-Refresh und du siehst:
+"Naechster SP-Strike: $288 · -3.0% unter Einstand (Stufe 1)"
+
+Grid-Tabelle darunter zeigt konsistent:
+Stufe 1: -3% $288.06 · 📝 SP offen (wartet)  ← wenn du schon SP@288 verkauft hast
+oder
+Stufe 1: -3% $288.06 · +100 Aktien ← wenn kein SP offen
+
+━━━━━━━━━━━━━━━━━━
+
+Test-Frage: Nach Deploy check ich mit dir welche Zeile in der Grid violett/📝 ist — das sagt mir welche SP-Strikes du grade offen hast. Dann sehen wir ob die Logik greift.

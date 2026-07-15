@@ -1,0 +1,35 @@
+✅ v0.10.60 gepusht — jetzt siehst du in der Uebersichts-Leiste alle 3 Positions-Typen:
+
+📊 5 ZELLEN pro Position:
+
+1️⃣ Theta/Tag Netto
+   → z.B. "+$45/Tag ≈ $16.400/Jahr"
+
+2️⃣ 💰 SHORT PUTS
+   → "3× · +$28/Tag"
+   → "näc. Roll 7d · Prämien $850"
+
+3️⃣ 📈 SHORT CALLS (CC)
+   → "2× · +$22/Tag"
+   → "näc. Roll 5d · Prämien $420"
+
+4️⃣ 🛡 HEDGE (Long Put)
+   → "1× · −$5/Tag"
+   → "Roll fällig in 12d · Kosten $340"
+
+5️⃣ 📊 CF Netto
+   → "+$930" (kassierte Prämien minus Hedge-Kosten bis heute)
+
+━━━━━━━━━━━━━━━━━━
+
+Was du damit sofort weisst:
+✓ Was hab ich (SP/CC/Hedge Anzahl)
+✓ Was verdient (Theta/Tag + kassierte Prämien)
+✓ Wann muss ich was machen (naec. Roll Xd)
+✓ Rentabel oder nicht (CF Netto)
+
+Darunter kommt dann die Grid-Leiste + Details.
+
+Deploy in ~2 Min. Hard-Refresh testen.
+
+Rate-Limit-Notiz: bei uns beiden knapp. Nach diesem Fix pause fuer heute waer gut.

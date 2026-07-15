@@ -1,0 +1,26 @@
+🔧 v0.10.61 gepusht — Theta-Bug gefunden.
+
+URSACHE: positions.json hat KEINE Greeks (theta/delta) — die liegen in positions-greeks.json. loadDhwiTab hat nur positions geladen.
+
+FIX: Beim Laden werden jetzt positions-greeks.json Werte per conId auf die Options gemergt. Theta zeigt jetzt echte Werte.
+
+━━━━━━━━━━━━━━━━━━
+
+Nach Hard-Refresh solltest du sehen:
+Theta/Tag Netto: +$XX  (echte Zahl statt $0)
+💰 SP: 0× (du hast im Moment 0 offen)
+📈 CC: 1× · +$Y/Tag · näc. Roll 8d
+🛡 Hedge: 2× · −$Z/Tag · Roll in 48d
+
+━━━━━━━━━━━━━━━━━━
+
+KLEINE ERKLAERUNG zu deinen Zahlen:
+• "SP Prämien $413" = kassiert aus SP-Verkaeufen SEIT START (auch wenn heute 0 offen)
+• "CC Prämien $0" = weil dein aktiver CC vor >7 Tagen verkauft wurde. Trade-Log hat kurzen Zeitraum. Fix: allTrades muesste laengeren Zeitraum laden.
+• "CF Netto +$274" = 413 SP + 0 CC - 139 Hedge (bis heute)
+
+━━━━━━━━━━━━━━━━━━
+
+Deploy in ~2 Min. Danach hard-refresh.
+
+Rate-Limit-Notiz: knapp bei uns beiden. Fuer heute waer eine Pause gut.

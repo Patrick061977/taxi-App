@@ -1,0 +1,24 @@
+✅ v0.10.52 gepusht — Grid dynamisch + 500-Aktien-Limit
+
+Neu:
+• Anzahl Stufen jetzt dynamisch nach dropStep-Einstellung:
+   - dropStep=7% → 8 Stufen (bis -56%)
+   - dropStep=5% → 11 Stufen (bis -55%)
+   - dropStep=10% → 6 Stufen (bis -60%)
+• Kauf-Stufen = wieviele passt noch bis 500 Aktien Max
+• Stufen ueber 500-Aktien-Grenze markiert als "watch (500 Max)" ausgegraut
+   - Trigger-Kurs wird gezeigt, aber KEIN Aktien-Kauf mehr
+• Kapital-Reserve-Total = nur Kauf-Stufen (nicht Watch-Stufen)
+
+Beispiel IWM bei dropStep=7%, Stage 0 (0 Aktien):
+Stufe 1: -7%  = trigger $279 · +100 Aktien · Kap $27.900
+Stufe 2: -14% = trigger $258 · +100 Aktien · Kap $25.800
+Stufe 3: -21% = trigger $237 · +100 Aktien · Kap $23.700
+Stufe 4: -28% = trigger $216 · +100 Aktien · Kap $21.600
+Stufe 5: -35% = trigger $195 · +100 Aktien · Kap $19.500 → 500 Aktien Max
+Stufe 6: -42% = trigger $174 · watch (500 Max)
+Stufe 7: -49% = trigger $153 · watch (500 Max)
+Stufe 8: -56% = trigger $132 · watch (500 Max)
+Gesamt-Kapital-Reserve = $118.500 fuer 500 Aktien Full-Grid
+
+Deploy in ~2 Min, dann Hard-Refresh.

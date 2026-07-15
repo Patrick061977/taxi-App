@@ -1,0 +1,24 @@
+👍 Verstanden — Rate-Limit bei dir gegriffen.
+
+Nochmal zum Screenshot: die Bild-Beschreibung per Bridge kam nur teilweise durch ("Aktion: Neu-Käufe, Suche: Tick…"). Ich habe kein "Russisch" geschrieben — das war vermutlich ein Whisper-Fehler beim Bild-Beschreiber.
+
+Was ich JETZT gemacht habe (v0.10.43, gerade gepushed):
+✅ Klick auf jede Zeile → Detail-Modal öffnet
+✅ Modal zeigt: CUSIP, Report-Datum, direkter Link zu Yahoo Finance History (fenster 90 Tage vor Report-Ende → dort siehst du wo Buffett gekauft haben muss)
+✅ Graham-Analyse eingeblendet wenn Ticker in unserer Datenbank
+✅ Quartals-Historie: alle 7 Quartale mit Position + Aktion
+
+Deploy läuft (~2 Min).
+
+━━━━━━━━━━━━━━━━━━
+
+WEGEN "RATE-LIMIT WIEDER GEGRIFFEN":
+Wenn dein Session-Limit gerade voll ist, warte den 1h-Reset ab. Weekly ist bei 58% laut deinem letzten /status.
+
+Falls Bug im Tracker: schreib mir kurz was NICHT geht (leere Tabelle? JS-Fehler? Falsche Zahlen?). Ich brauche keine Screenshot-Beschreibung mehr — Text reicht.
+
+━━━━━━━━━━━━━━━━━━
+
+ANDERE VALUE-INVESTOREN (deine Frage): Ja — Michael Burry, Seth Klarman, Mohnish Pabrai, Bill Ackman, Guy Spier, Prem Watsa. Alle müssen 13F melden (>$100M Verwaltung). Können wir spaeter genauso tracken wie Berkshire — der Fetcher lässt sich pro CIK duplizieren.
+
+Rate-Limit bei uns beiden ist begrenzt heute — ich mach jetzt Pause. Sag Bescheid wenn du weitermachen willst.

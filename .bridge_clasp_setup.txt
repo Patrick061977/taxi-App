@@ -1,0 +1,49 @@
+✅ CLASP AUTO-DEPLOY vorbereitet (PR #2615 gemerged)
+
+Damit's laueft brauche ich EINMALIG von dir 2 kleine Sachen:
+
+━━━━━━━━━━━━━━━━━━
+
+🔑 SCHRITT 1 — clasp Login (bei dir lokal in Terminal):
+
+Tippe in Claude-Code-Terminal:
+    ! clasp login
+
+Browser oeffnet sich → Login mit dem Google-Konto, das dein Apps Script Projekt besitzt (das mit Kalender-Sync-Trigger) → "Zulassen" tippen.
+
+Danach wird eine Datei erstellt: C:\Users\Taxi\.clasprc.json
+
+Mir schicken:
+    ! type C:\Users\Taxi\.clasprc.json
+
+Ich kopiere den Inhalt und lege ihn als GitHub-Secret "CLASP_CREDENTIALS" an.
+
+━━━━━━━━━━━━━━━━━━
+
+🔑 SCHRITT 2 — Script-ID rausfinden:
+
+1. https://script.google.com oeffnen
+2. Dein Kalender-Sync-Projekt oeffnen
+3. Oben URL: script.google.com/home/projects/[LANGE-ID]/edit
+   → Die LANGE-ID (~57 Zeichen) kopieren
+4. Mir schicken
+
+Ich lege sie als GitHub-Secret "CLASP_SCRIPT_ID" an.
+
+━━━━━━━━━━━━━━━━━━
+
+📋 Danach laueft es AUTOMATISCH:
+- Du oder ich aendern kalender-sync-v5.6.js im Repo
+- Push auf main
+- GitHub Actions triggert deploy-apps-script.yml
+- clasp push --force → Code landet in deinem Apps Script Projekt
+- Trigger laueft weiter automatisch mit neuem Code
+
+━━━━━━━━━━━━━━━━━━
+
+Alternativ (wenn du das Kalender-Sync-Konto nicht bei dir hast, sondern ein Kollege):
+- Er macht `clasp login` bei sich
+- Schickt dir .clasprc.json (Inhalt = ein JSON-Token)
+- Du legst es als Secret an
+
+Fang mal mit Schritt 1 an — ich warte auf .clasprc.json + Script-ID.

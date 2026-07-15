@@ -1,0 +1,37 @@
+🚨 SIMONE ZIEBELL (Voice hat's "Ziemel" verstanden) — DRINGEND!
+
+Fahrt: Bansin Bhf → Seebrücke Bansin
+Pickup: HEUTE 09:20 (in wenigen Min!)
+Ride-ID: -OxLDJCSzsgCLlcd-N4i
+Preis: 11,10 €
+Handy: +49 179 2909967
+
+━━━━━━━━━━━━━━━━━━
+
+WAS PASSIERT IST:
+• 12.07. 15:24 → Auto-Assign hat Toyota Prius IK zugewiesen (P1 Score 6)
+• 12.07. 17:24 → nochmal bestaetigt
+• 13.07. 09:05 → Status von 'vorbestellt' auf 'assigned' gewechselt (durch scheduledAutoAssign-Run)
+• 13.07. 09:09 → Departure-Alert wollte losfeuern, hat aber gemerkt: pw-ik-222 shift=forceEnded → Alert unterdrueckt
+
+→ Der Prius-Fahrer hat seine Schicht beendet, die Fahrt haengt in Status "assigned" (nicht in Dispo-Standard-Ansichten sichtbar). Deshalb suchst du sie und findest sie nicht.
+
+━━━━━━━━━━━━━━━━━━
+
+ICH HABE GERADE GEMACHT:
+✅ Status → 'vorbestellt' zurueckgesetzt
+✅ assignedVehicle → entfernt (leer)
+✅ Ride ist jetzt in deiner Dispo wieder sichtbar
+✅ statusResetReason gesetzt fuer Nachvollziehbarkeit
+
+━━━━━━━━━━━━━━━━━━
+
+DU MUSST JETZT:
+1. Fahrt oeffnen in Dispo
+2. Manuell einen Fahrer zuweisen der 09:20 in Bansin sein kann
+3. Falls kein Fahrer verfuegbar: Simone Ziebell (+49 179 2909967) anrufen und Verzoegerung mitteilen
+
+━━━━━━━━━━━━━━━━━━
+
+WEITERE MASSNAHME LATER:
+Bug-Analyse: status='assigned' als Zwischenzustand ist offenbar Problem. Sollte entweder 'vorbestellt' bleiben oder 'accepted' werden — nicht ein hybrider "assigned". Ich schaue mir das nach der Rush-Hour an.

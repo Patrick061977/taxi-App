@@ -1,0 +1,36 @@
+🚨 HOFFMANN-FAHRT — STATUS + BUTTONS-CHECK
+
+✅ HOFFMANN-RIDE JETZT RESET (klick durch, Auto-Assign kann neu wählen):
+
+Ride ID: -OxQRDuK_Hcgiyk1MDhR
+Vorher: status='new', 3 Fahrzeuge hatten rejected (pw-ik-222 · pw-my-222-e · vg-lk-111)
+Jetzt: status='vorbestellt', rejectedVehicles gecleart, kein Vehicle
+
+Auto-Assign versucht in max 10 Min neu zuzuweisen. WICHTIG: Fahrt ist in ~15 Min.
+Wenn Auto-Assign zu langsam → manuell in Dispo Fahrzeug zuweisen. Wenn Web-Dispo nicht ändern lässt → sag mir welchen Fahrer.
+
+━━━━━━━━━━━━━━━━━━
+
+🔴 BUTTON-BUG "Annehmen/Ablehnen vertauscht":
+
+Ich hab Layout-XML + Java-Code gecheckt: KEIN Vertausch im Code.
+btn_reject (❌ Ablehnen, links, grau) → rejectRide()
+btn_accept (✅ Annehmen, rechts, größer/grün) → acceptRide()
+
+WAHRSCHEINLICHE URSACHE:
+Der Crash-Log den ich gerade sah: "App 6.63.643". Das ist ALTE APK.
+
+v6.63.700 (heute morgen) fixt den Multi-Fahrten-Bug: 2 Fahrten übereinander im Banner → Auswahl-Dialog. Vorher wurde immer nur die ERSTE Fahrt geöffnet — man dachte man wählt Fahrt 2, es kam aber Fahrt 1. Das fühlt sich an wie "vertauschte Buttons".
+
+━━━━━━━━━━━━━━━━━━
+
+DRINGEND: Danilos Handy braucht APK-Update.
+Beim nächsten Öffnen sollte der Update-Banner erscheinen (v6.63.706 aktuell).
+Wenn nicht sichtbar → Fahrer-App komplett schließen und neu öffnen.
+
+Ohne Update wird der Multi-Fahrten-Bug weiter auftreten.
+
+━━━━━━━━━━━━━━━━━━
+
+WEGEN "warum kriegt der die nicht weg":
+Er kann die Fahrt jetzt gar nicht sehen weil status auf 'new' war (unsichtbar in accepted/on_way-Listen). Nach Reset sollte sie wieder in Vorbestellungs-Liste erscheinen.

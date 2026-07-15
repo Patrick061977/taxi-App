@@ -1,0 +1,23 @@
+🤔 Nachfrage zur Sicherheit — meinst du:
+
+A) Die Grid-Stufen sind IMMER -3% vom Original-Einstand ($296.97)
+   Stufe 1: $296.97 × 0.97 = $288.06
+   Stufe 2: $296.97 × 0.94 = $279.15
+   Stufe 3: $296.97 × 0.91 = $270.24
+   (das habe ich aktuell gebaut — LINEAR ab Einstand)
+
+B) Die Grid-Stufen sind kaskadierend: jeder Strike ist -3% vom LETZTEN Strike
+   Stufe 1: $296.97 × 0.97 = $288.06
+   Stufe 2: $288.06 × 0.97 = $279.42
+   Stufe 3: $279.42 × 0.97 = $271.04
+   (MULTIPLIKATIV vom letzten Strike)
+
+C) Die Grid-Stufen berechnen sich vom ECHTEN letzten Assignment-Preis
+   z.B. wenn SP@288 assigned wurde: Stufe 2 = $288 × 0.97 = $279.36
+   (aus Trade-Log ableiten)
+
+Unterschied A vs B bei -3% ist marginal (Zahlen sind fast identisch), bei -50% aber schon 5%+.
+
+Was moechtest du? A / B / C?
+
+Ich vermute du meinst C — aber das braucht Trade-Log-Analyse pro Ticker (welcher SP wurde assigned = neuer Kaufpreis). Kann ich morgen mit frischem Kontext bauen.

@@ -1,0 +1,49 @@
+🎯 KEIN EXTRA KONTO NÖTIG — ich kriege alles per Ticker + Zeitstempel auseinander.
+
+Meine Zyklus-Logik pro Ticker (was ich morgen als "Wheel-Zyklen" Tab baue):
+
+━━━━━━━━━━━━━━━━━━
+
+Für JEDES Wheel/ETF ein eigener "virtueller Zyklus":
+
+ZYKLUS-START: Assignment (notes="A") oder erste STK-BOT
+ZYKLUS-ENDE: Called Away (STK SELL nach CC assigned) oder komplett verkauft
+
+INNERHALB DES ZYKLUS zaehle ich pro Position separat:
+• SP-Praemien (SELL P): kassiert
+• CC-Praemien (SELL C): kassiert
+• CC-Buybacks (BUY C): ausgegeben
+• Hedge-Kosten (BUY P mit langer DTE): ausgegeben
+• Hedge-Rueckverkaeufe (SELL P nach BUY): kassiert
+• Kapital-Gewinn/Verlust: (Verkaufs-Kurs − Assignment-Strike) × Aktien
+
+Am Ende: NETTO pro Zyklus = alle Praemien − alle Kosten + Kapital-Gewinn/Verlust
+
+━━━━━━━━━━━━━━━━━━
+
+BEISPIEL IWM aktuell (seit 29.06.):
+SP: $0 (kein SP im Zyklus, alles CCs)
+CC-Brutto: +$647
+CC-Buybacks: -$163 (drei Buybacks fuer Roll)
+Hedge: -$271 ($260P 90d Long)
+Aktien-P/L Live: (296.97 - 300) × 100 = -$303 (Buchverlust)
+
+NETTO OFFEN: 647 - 163 - 271 - 303 = -$90 (aktuell im Minus)
+NETTO REALISIERT (ohne Aktien-Buchverlust): +$213
+
+━━━━━━━━━━━━━━━━━━
+
+CC ist AUCH auf den Short Put gebrannt weil sie zusammengehoeren:
+Der CC wurde verkauft weil du die Aktien HALTEN willst → deshalb ist der Praemien-Ertrag = Gewinn.
+Der SP war die Eintritts-Aktion.
+
+Ich kriege das aus Flex sauber getrennt weil jeder Trade seine time + strike + putCall hat.
+
+━━━━━━━━━━━━━━━━━━
+
+MORGEN:
+1. Wheel-Zyklen-View pro Ticker (aktuell offen + Historie abgeschlossen)
+2. Jede Zyklus als eigene Karte mit: Start-Datum, End-Datum, Alle Trades, Netto-Ertrag
+3. Gesamt-P/L Chart pro Ticker (kumuliert ueber alle Zyklen)
+
+Rate-Limit-Status: knapp aber wir haben's geschafft mit dem Flex-Import heute. Pause fuer heute. Morgen frisch mit /clear.

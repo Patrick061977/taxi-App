@@ -5194,6 +5194,7 @@ public class AdminDashboardActivity extends AppCompatActivity {
     // v6.63.713 (Patrick 15.07.): Quick-Send-Dialog fuer SMS/WA aus Korrespondenz-Ansicht.
     //   Zeigt EditText mit vorformuliertem Text (Fahrt-Details), Send oeffnet nativen SMS-/WA-Intent
     //   UND schreibt Log in smsQueue → erscheint beim naechsten Oeffnen in Korrespondenz-Timeline.
+    // v6.63.714 (Patrick 15.07.): Anrede aus CRM (salutation/anrede) verwenden wenn gesetzt.
     private void _showQuickSendDialog_v713(final Ride r, final boolean isWhatsApp) {
         if (r == null) return;
         final String _phone = r.customerPhone != null ? r.customerPhone : "";
@@ -5201,10 +5202,30 @@ public class AdminDashboardActivity extends AppCompatActivity {
             Toast.makeText(this, "❌ Keine Telefonnummer beim Kunden hinterlegt", Toast.LENGTH_LONG).show();
             return;
         }
+        // v714: Anrede aus CRM laden (async, dann Dialog zeigen)
+        if (r.customerId != null && !r.customerId.isEmpty()) {
+            db.getReference("customers/" + r.customerId).get()
+                .addOnSuccessListener(cs -> {
+                    String _sal = cs.child("salutation").getValue(String.class);
+                    if (_sal == null || _sal.isEmpty()) _sal = cs.child("anrede").getValue(String.class);
+                    String _ln = cs.child("lastName").getValue(String.class);
+                    _showQuickSendDialogInternal_v714(r, isWhatsApp, _sal, _ln);
+                })
+                .addOnFailureListener(_e -> _showQuickSendDialogInternal_v714(r, isWhatsApp, null, null));
+        } else {
+            _showQuickSendDialogInternal_v714(r, isWhatsApp, null, null);
+        }
+    }
+
+    private void _showQuickSendDialogInternal_v714(final Ride r, final boolean isWhatsApp,
+                                                    final String salutation, final String crmLastName) {
+        final String _phone = r.customerPhone != null ? r.customerPhone : "";
         String _pu = r.pickup != null ? r.pickup : "";
         String _dst = r.destination != null ? r.destination : "";
         String _time = r.pickupTime != null ? r.pickupTime : "";
-        String _prefill = "Hallo " + (r.customerName != null ? r.customerName.split(" ")[0] : "")
+        // v714: Anrede-Formatierung
+        String _greeting = _formatGreeting_v714(salutation, crmLastName, r.customerName);
+        String _prefill = _greeting
             + ",\n\nzu Ihrer Fahrt " + (_time.isEmpty() ? "" : "um " + _time + " Uhr ")
             + (_pu.isEmpty() ? "" : "\n📍 " + _pu)
             + (_dst.isEmpty() ? "" : "\n🎯 " + _dst)
@@ -5256,6 +5277,38 @@ public class AdminDashboardActivity extends AppCompatActivity {
             })
             .setNegativeButton("Abbrechen", null)
             .show();
+    }
+
+    // v6.63.714 (Patrick 15.07.): Anrede-Formatierung fuer Textvorlagen.
+    //   salutation im CRM: "Herr" / "Frau" → "Sehr geehrter Herr Meier" / "Sehr geehrte Frau Meier"
+    //   "Klinik" / "Firma" / "Hotel" → "Sehr geehrte Damen und Herren"
+    //   leer/null → "Hallo [Vorname]" (Fallback wie bisher)
+    private String _formatGreeting_v714(String salutation, String crmLastName, String rideCustomerName) {
+        String _sal = salutation != null ? salutation.trim() : "";
+        String _ln = crmLastName != null && !crmLastName.trim().isEmpty()
+            ? crmLastName.trim()
+            : (rideCustomerName != null ? _lastWord_v714(rideCustomerName) : "");
+        // Business-Adressaten (Klinik/Firma/Hotel/Auftraggeber ohne persoenliche Anrede)
+        if (_sal.equalsIgnoreCase("Klinik") || _sal.equalsIgnoreCase("Firma")
+            || _sal.equalsIgnoreCase("Hotel") || _sal.equalsIgnoreCase("Firm")
+            || _sal.equalsIgnoreCase("Unternehmen") || _sal.equalsIgnoreCase("Company")
+            || _sal.equalsIgnoreCase("Behoerde") || _sal.equalsIgnoreCase("Behörde")) {
+            return "Sehr geehrte Damen und Herren";
+        }
+        if (_sal.equalsIgnoreCase("Herr")) return "Sehr geehrter Herr " + _ln;
+        if (_sal.equalsIgnoreCase("Frau")) return "Sehr geehrte Frau " + _ln;
+        if (_sal.equalsIgnoreCase("Divers") || _sal.equalsIgnoreCase("Divers.")) {
+            return "Guten Tag" + (_ln.isEmpty() ? "" : " " + _ln);
+        }
+        // Fallback: "Hallo Vorname" wie bisher
+        String _fn = rideCustomerName != null ? rideCustomerName.split(" ")[0] : "";
+        return "Hallo" + (_fn.isEmpty() ? "" : " " + _fn);
+    }
+
+    private String _lastWord_v714(String s) {
+        if (s == null) return "";
+        String[] parts = s.trim().split("\\s+");
+        return parts.length > 0 ? parts[parts.length - 1] : "";
     }
 
     // v6.63.712: Kurz-Label für Zahlungsart im Button-Text

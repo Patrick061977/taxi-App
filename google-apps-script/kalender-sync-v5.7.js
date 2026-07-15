@@ -806,3 +806,68 @@ function resetLastSync() {
   console.log('✅ Letzter Sync-Timestamp zurückgesetzt!');
   console.log('   Beim nächsten Sync werden alle Termine aktualisiert.');
 }
+// ═══════════════════════════════════════════════════════════════
+// 🧹 v5.7 CLEANUP: Alle Firebase-ID-Duplikate in einem Rutsch löschen
+// Patrick 15.07.: 20+ Duplikate durch startsWith('🚕')-Bug bei 🏷️-Prefix.
+// Diese Funktion:
+//   1. Findet ALLE Events mit "🚕" im Titel (auch mit 🏷️-Prefix)
+//   2. Extrahiert Firebase-ID aus Description
+//   3. Gruppiert nach Firebase-ID
+//   4. Löscht Duplikate — behält den ältesten Event pro Firebase-ID
+// Ausführung: Apps Script Editor → Funktion "cleanupAllDuplicates_v57" → ▶️ Ausführen
+// ═══════════════════════════════════════════════════════════════
+function cleanupAllDuplicates_v57() {
+  console.log('🧹 Duplikat-Cleanup v5.7 gestartet');
+  const calendar = CalendarApp.getCalendarById(CONFIG.CALENDAR_ID);
+  if (!calendar) {
+    console.error('❌ Kalender nicht gefunden — CONFIG.CALENDAR_ID prüfen');
+    return;
+  }
+  const now = new Date();
+  const past = new Date(now.getTime() - 90 * 24 * 3600000);
+  const future = new Date(now.getTime() + 365 * 24 * 3600000);
+  const events = calendar.getEvents(past, future);
+  console.log('📊 Insgesamt geladen:', events.length, 'Events');
+
+  const eventsByFbId = new Map();
+  let taxiEvents = 0;
+  events.forEach(ev => {
+    const title = ev.getTitle() || '';
+    if (!title.includes('🚕')) return;
+    taxiEvents++;
+    const desc = ev.getDescription() || '';
+    const m = desc.match(/🆔 Firebase ID:\s*([^\s\n]+)/);
+    if (!m || !m[1]) return;
+    const fbId = m[1];
+    if (!eventsByFbId.has(fbId)) eventsByFbId.set(fbId, []);
+    eventsByFbId.get(fbId).push(ev);
+  });
+  console.log('🚕 Taxi-Events gefunden:', taxiEvents);
+  console.log('🆔 Unique Firebase-IDs:', eventsByFbId.size);
+
+  let deleted = 0;
+  let dupGroups = 0;
+  eventsByFbId.forEach((evs, fbId) => {
+    if (evs.length <= 1) return;
+    dupGroups++;
+    // Behalte den ältesten (kleinster createdAt, quasi den ursprünglichen)
+    evs.sort((a, b) => a.getStartTime().getTime() - b.getStartTime().getTime());
+    // Fallback: sort by ID (first-created has lowest id lexicographically usually)
+    const keep = evs[0];
+    console.log('🔍 ' + fbId + ': ' + evs.length + ' Events — behalte 1, lösche ' + (evs.length - 1));
+    for (let i = 1; i < evs.length; i++) {
+      try {
+        evs[i].deleteEvent();
+        deleted++;
+      } catch (e) {
+        console.warn('   ⚠️ Löschen fehlgeschlagen:', e.message);
+      }
+    }
+  });
+
+  console.log('');
+  console.log('✅ Cleanup fertig:');
+  console.log('   Duplikat-Gruppen bereinigt: ' + dupGroups);
+  console.log('   Events gelöscht: ' + deleted);
+  console.log('   Verbleibend: 1 Event pro Firebase-ID');
+}

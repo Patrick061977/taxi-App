@@ -4250,50 +4250,76 @@ public class AdminDashboardActivity extends AppCompatActivity {
             }
         }
 
-        // 🆕 v6.63.693 (Patrick 13.07. Bridge #1783924369763):
-        //   "kann ich den auch manuell auf bezahlt setzen wenn jetzt irgendwie ein problem"
-        //   Notfall-Button falls Stripe-Webhook nicht durchkam. Nur sichtbar wenn
-        //   paymentStatus != 'paid'.
+        // 🆕 v6.63.693 (Patrick 13.07. Bridge): Notfall-Button falls Stripe-Webhook nicht durchkam.
+        // 🔧 v6.63.712 (Patrick 15.07.): Button jetzt IMMER sichtbar. Neuer Dialog erlaubt Umstellen der
+        //   Zahlungsart nachträglich (bar → Überweisung wenn Kunde später zahlt) und Zurücksetzen auf
+        //   'unpaid' wenn Zahlung doch nicht kam.
         {
-            boolean _alreadyPaid = "paid".equals(r.paymentStatus) || "bezahlt".equals(r.paymentStatus);
-            if (!_alreadyPaid) {
-                com.google.android.material.button.MaterialButton btnManualPaid =
-                    new com.google.android.material.button.MaterialButton(this);
-                btnManualPaid.setText("✅ Manuell auf 'bezahlt' setzen");
-                btnManualPaid.setTextSize(15);
-                btnManualPaid.setBackgroundColor(android.graphics.Color.parseColor("#10b981"));
-                btnManualPaid.setTextColor(android.graphics.Color.WHITE);
-                LinearLayout.LayoutParams _mpParams = new LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-                _mpParams.setMargins(0, 8, 0, 8);
-                btnManualPaid.setLayoutParams(_mpParams);
-                btnManualPaid.setOnClickListener(_v -> {
-                    // Bezahl-Art abfragen (Bar, Karte, EC, Sonstiges)
-                    final String[] _methods = { "💵 Bar", "💳 Karte (Terminal)", "🏦 Überweisung", "🔗 Stripe (Link nachträglich)", "💰 Sonstiges" };
-                    final String[] _methodKeys = { "bar", "card_terminal", "ueberweisung", "stripe", "sonstiges" };
-                    new androidx.appcompat.app.AlertDialog.Builder(this)
-                        .setTitle("Wie wurde bezahlt?")
-                        .setItems(_methods, (_d, _which) -> {
-                            java.util.Map<String,Object> _upd = new java.util.HashMap<>();
+            final boolean _alreadyPaid = "paid".equals(r.paymentStatus) || "bezahlt".equals(r.paymentStatus);
+            com.google.android.material.button.MaterialButton btnManualPaid =
+                new com.google.android.material.button.MaterialButton(this);
+            String _curMethodLabel = _paymentMethodLabel_v712(r.paymentMethod);
+            btnManualPaid.setText(_alreadyPaid
+                ? "💰 Zahlungsart ändern (aktuell: " + _curMethodLabel + ")"
+                : "✅ Manuell auf 'bezahlt' setzen");
+            btnManualPaid.setTextSize(15);
+            btnManualPaid.setBackgroundColor(android.graphics.Color.parseColor(_alreadyPaid ? "#0891b2" : "#10b981"));
+            btnManualPaid.setTextColor(android.graphics.Color.WHITE);
+            LinearLayout.LayoutParams _mpParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+            _mpParams.setMargins(0, 8, 0, 8);
+            btnManualPaid.setLayoutParams(_mpParams);
+            btnManualPaid.setOnClickListener(_v -> {
+                final String[] _methods;
+                final String[] _methodKeys;
+                if (_alreadyPaid) {
+                    _methods = new String[]{ "💵 Bar", "💳 Karte (Terminal)", "🏦 Überweisung",
+                        "🔗 Stripe (Link nachträglich)", "💰 Sonstiges", "❌ Nicht bezahlt (zurücksetzen)" };
+                    _methodKeys = new String[]{ "bar", "card_terminal", "ueberweisung", "stripe", "sonstiges", "__unpaid__" };
+                } else {
+                    _methods = new String[]{ "💵 Bar", "💳 Karte (Terminal)", "🏦 Überweisung",
+                        "🔗 Stripe (Link nachträglich)", "💰 Sonstiges" };
+                    _methodKeys = new String[]{ "bar", "card_terminal", "ueberweisung", "stripe", "sonstiges" };
+                }
+                new androidx.appcompat.app.AlertDialog.Builder(this)
+                    .setTitle(_alreadyPaid ? "Neue Zahlungsart wählen" : "Wie wurde bezahlt?")
+                    .setItems(_methods, (_d, _which) -> {
+                        String _newKey = _methodKeys[_which];
+                        java.util.Map<String,Object> _upd = new java.util.HashMap<>();
+                        long _now = System.currentTimeMillis();
+                        if ("__unpaid__".equals(_newKey)) {
+                            _upd.put("paymentStatus", "open");
+                            _upd.put("paymentMethod", null);
+                            _upd.put("paidAt", null);
+                            _upd.put("unpaidResetAt", _now);
+                            _upd.put("unpaidResetBy", "admin-native-v6.63.712");
+                        } else {
                             _upd.put("paymentStatus", "paid");
-                            _upd.put("paymentMethod", _methodKeys[_which]);
-                            _upd.put("paidAt", System.currentTimeMillis());
-                            _upd.put("paidManuallyAt", System.currentTimeMillis());
-                            _upd.put("paidManuallyBy", "admin-native-v6.63.693");
-                            _upd.put("updatedAt", System.currentTimeMillis());
-                            db.getReference("rides/" + r.id).updateChildren(_upd, (err, ref) -> {
-                                if (err == null) {
-                                    android.widget.Toast.makeText(this, "✅ Als bezahlt markiert (" + _methods[_which] + ")", android.widget.Toast.LENGTH_LONG).show();
-                                } else {
-                                    android.widget.Toast.makeText(this, "❌ Fehler: " + err.getMessage(), android.widget.Toast.LENGTH_LONG).show();
-                                }
-                            });
-                        })
-                        .setNegativeButton("Abbrechen", null)
-                        .show();
-                });
-                layout.addView(btnManualPaid);
-            }
+                            _upd.put("paymentMethod", _newKey);
+                            _upd.put("paidAt", _now);
+                            _upd.put("paidManuallyAt", _now);
+                            _upd.put("paidManuallyBy", "admin-native-v6.63.712");
+                            if (_alreadyPaid) {
+                                _upd.put("paymentMethodChangedAt", _now);
+                                _upd.put("paymentMethodChangedFrom", r.paymentMethod != null ? r.paymentMethod : "unknown");
+                            }
+                        }
+                        _upd.put("updatedAt", _now);
+                        db.getReference("rides/" + r.id).updateChildren(_upd, (err, ref) -> {
+                            if (err == null) {
+                                String _msg = "__unpaid__".equals(_newKey)
+                                    ? "❌ Zahlung zurückgesetzt — Fahrt gilt wieder als offen"
+                                    : "✅ Zahlungsart: " + _methods[_which];
+                                android.widget.Toast.makeText(this, _msg, android.widget.Toast.LENGTH_LONG).show();
+                            } else {
+                                android.widget.Toast.makeText(this, "❌ Fehler: " + err.getMessage(), android.widget.Toast.LENGTH_LONG).show();
+                            }
+                        });
+                    })
+                    .setNegativeButton("Abbrechen", null)
+                    .show();
+            });
+            layout.addView(btnManualPaid);
         }
 
         // 🆕 v6.63.534: Rechnung an Auftraggeber/Hotel — PDF-Vorschau + Email-Compose nativ
@@ -5158,6 +5184,20 @@ public class AdminDashboardActivity extends AppCompatActivity {
                     .addOnFailureListener(_e -> Toast.makeText(this, "Kunde nicht ladbar: " + _e.getMessage(), Toast.LENGTH_LONG).show());
             })
             .addOnFailureListener(_ex -> Toast.makeText(this, "Fehler Complete: " + _ex.getMessage(), Toast.LENGTH_LONG).show());
+    }
+
+    // v6.63.712: Kurz-Label für Zahlungsart im Button-Text
+    private String _paymentMethodLabel_v712(String key) {
+        if (key == null) return "keine";
+        switch (key.toLowerCase()) {
+            case "bar": case "cash": return "Bar";
+            case "card_terminal": case "card": case "karte": return "Karte";
+            case "ueberweisung": case "invoice": case "rechnung": return "Überweisung";
+            case "stripe": return "Stripe";
+            case "sonstiges": return "Sonstiges";
+            case "transportschein": return "Transportschein";
+            default: return key;
+        }
     }
 
     private void _pollForInvoiceNumber_v711(final String rideId, final int attempt, final Ride refRide) {

@@ -39934,3 +39934,44 @@ exports.onRideEnteredWartepool = onValueUpdated(
         }
     }
 );
+
+// 🆕 v6.63.710 (Patrick 15.07.): Preis-Preview für Native-Vorbestellungs-Maske.
+//   Native CrmSearch ruft das auf sobald Pickup+Ziel gesetzt sind → OSRM-Routing +
+//   Tarif-Berechnung → Preis-Vorschlag im etPrice-Feld. Nutzer kann überschreiben.
+exports.previewRidePrice = onRequest(
+    { region: 'europe-west1', invoker: 'public' },
+    async (req, res) => {
+        res.set('Access-Control-Allow-Origin', '*');
+        res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+        res.set('Access-Control-Allow-Headers', 'Content-Type');
+        if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
+        if (req.method !== 'POST') { res.status(405).json({ error: 'POST only' }); return; }
+        try {
+            const { pickupLat, pickupLon, destLat, destLon, pickupTimestamp, passengers, vehicleCapacity } = req.body || {};
+            const _pLat = parseFloat(pickupLat), _pLon = parseFloat(pickupLon);
+            const _dLat = parseFloat(destLat), _dLon = parseFloat(destLon);
+            if (isNaN(_pLat) || isNaN(_pLon) || isNaN(_dLat) || isNaN(_dLon)) {
+                res.status(400).json({ error: 'pickupLat/pickupLon/destLat/destLon required (numbers)' });
+                return;
+            }
+            const route = await calculateRoute({ lat: _pLat, lon: _pLon }, { lat: _dLat, lon: _dLon });
+            if (!route) { res.status(502).json({ error: 'routing failed' }); return; }
+            const priceInfo = calculatePrice(parseFloat(route.distance), pickupTimestamp ? Number(pickupTimestamp) : null, {
+                persons: passengers ? parseInt(passengers) : 1,
+                vehicleCapacity: vehicleCapacity ? parseInt(vehicleCapacity) : 4
+            });
+            res.status(200).json({
+                success: true,
+                distanceKm: parseFloat(route.distance),
+                durationMin: route.duration,
+                price: parseFloat(priceInfo.total),
+                priceFormatted: priceInfo.total,
+                breakdown: priceInfo.zuschlagText || [],
+                source: route.source
+            });
+        } catch (e) {
+            console.error('previewRidePrice error:', e.message);
+            res.status(500).json({ error: e.message });
+        }
+    }
+);

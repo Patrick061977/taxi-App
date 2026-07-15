@@ -3998,25 +3998,8 @@ public class AdminDashboardActivity extends AppCompatActivity {
             _doneParams.setMargins(0, 0, 0, pad);
             btnDone.setLayoutParams(_doneParams);
             btnDone.setOnClickListener(_v -> {
-                new AlertDialog.Builder(this)
-                    .setTitle("✅ Fahrt abschließen")
-                    .setMessage((r.customerName != null ? r.customerName : "Fahrt") + " als erledigt markieren?")
-                    .setPositiveButton("Ja, erledigt", (_d, _w) -> {
-                        java.util.Map<String, Object> upd = new java.util.HashMap<>();
-                        upd.put("status", "completed");
-                        upd.put("completedAt", System.currentTimeMillis());
-                        upd.put("completedBy", "native_admin_dispo");
-                        upd.put("updatedAt", System.currentTimeMillis());
-                        FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("rides/" + r.id)
-                            .updateChildren(upd)
-                            .addOnSuccessListener(_ok -> {
-                                Toast.makeText(this, "✅ " + (r.customerName != null ? r.customerName : "Fahrt") + " abgeschlossen", Toast.LENGTH_SHORT).show();
-                                if (_dlgRef.get() != null) _dlgRef.get().dismiss();
-                            })
-                            .addOnFailureListener(_ex -> Toast.makeText(this, "Fehler: " + _ex.getMessage(), Toast.LENGTH_LONG).show());
-                    })
-                    .setNegativeButton("Abbrechen", null)
-                    .show();
+                // v6.63.711 (Patrick 15.07.): Complete → Preis-Check → Rechnung + Email-Preview (bei Auftraggeber)
+                _startCompleteFlow_v711(r, _dlgRef);
             });
             layout.addView(btnDone);
         }
@@ -5084,5 +5067,121 @@ public class AdminDashboardActivity extends AppCompatActivity {
             Log.e("AdminDash", "_createRueckfahrtRide: " + e.getMessage(), e);
             Toast.makeText(this, "Fehler beim Parsen des Rückfahrt-Datums", Toast.LENGTH_SHORT).show();
         }
+    }
+
+    // 🆕 v6.63.711 (Patrick 15.07. Bridge): Complete → Preis-Check → Rechnung + Email-Preview.
+    //   Für Auftraggeber-Fahrten (Hotel/Firma/Klinik) läuft der komplette Ablauf durch:
+    //   1. Preis abfragen wenn fehlt (+ Firebase-Update)
+    //   2. status=completed setzen
+    //   3. wenn customer.type ∈ {supplier,hotel,firma,klinik} → invoiceRequested=true, needsInvoice=true
+    //   4. warten bis Cloud die invoiceNumber gesetzt hat (max 15 Sek Poll)
+    //   5. EmailPreviewActivity mit MODE_INVOICE öffnen — PDF ist als prefillPdfUrl dabei,
+    //      Anschreiben "Sehr geehrte Damen und Herren, anbei die Rechnung…" wird dort generiert
+    //   Für Nicht-Auftraggeber: nur completen + Dialog schließen (wie bisher).
+    private void _startCompleteFlow_v711(final Ride r, final java.util.concurrent.atomic.AtomicReference<AlertDialog> _dlgRef) {
+        // Wenn Preis fehlt → zuerst abfragen
+        if (r.price == null || r.price <= 0) {
+            final android.widget.EditText _priceIn = new android.widget.EditText(this);
+            _priceIn.setInputType(android.text.InputType.TYPE_CLASS_NUMBER | android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL);
+            _priceIn.setHint("z.B. 25,00");
+            int _p = (int)(getResources().getDisplayMetrics().density * 16);
+            _priceIn.setPadding(_p, _p, _p, _p);
+            new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("💰 Preis für die Fahrt")
+                .setMessage("Wieviel hat die Fahrt gekostet? (Für Rechnung nötig)")
+                .setView(_priceIn)
+                .setPositiveButton("Weiter →", (_dd, _ww) -> {
+                    try {
+                        double _ent = Double.parseDouble(_priceIn.getText().toString().replace(",", ".").trim());
+                        if (_ent <= 0) { Toast.makeText(this, "❌ Preis muss > 0 sein", Toast.LENGTH_SHORT).show(); return; }
+                        r.price = _ent;
+                        java.util.Map<String,Object> _pUpd = new java.util.HashMap<>();
+                        _pUpd.put("price", _ent);
+                        _pUpd.put("priceUpdatedAt", System.currentTimeMillis());
+                        _pUpd.put("priceUpdatedBy", "admin-native-complete-v6.63.711");
+                        _pUpd.put("updatedAt", System.currentTimeMillis());
+                        db.getReference("rides/" + r.id).updateChildren(_pUpd);
+                        _completeAndMaybeInvoice_v711(r, _dlgRef);
+                    } catch (Throwable _pe) {
+                        Toast.makeText(this, "❌ Ungültiger Preis", Toast.LENGTH_SHORT).show();
+                    }
+                })
+                .setNegativeButton("Abbrechen", null)
+                .show();
+            return;
+        }
+        _completeAndMaybeInvoice_v711(r, _dlgRef);
+    }
+
+    private void _completeAndMaybeInvoice_v711(final Ride r, final java.util.concurrent.atomic.AtomicReference<AlertDialog> _dlgRef) {
+        java.util.Map<String, Object> upd = new java.util.HashMap<>();
+        upd.put("status", "completed");
+        upd.put("completedAt", System.currentTimeMillis());
+        upd.put("completedBy", "native_admin_dispo_v711");
+        upd.put("updatedAt", System.currentTimeMillis());
+        FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("rides/" + r.id)
+            .updateChildren(upd)
+            .addOnSuccessListener(_ok -> {
+                Toast.makeText(this, "✅ Fahrt abgeschlossen — prüfe Rechnungs-Flow…", Toast.LENGTH_SHORT).show();
+                if (_dlgRef.get() != null) _dlgRef.get().dismiss();
+                // Auftraggeber-Check: Customer laden und schauen
+                if (r.customerId == null || r.customerId.isEmpty()) {
+                    Toast.makeText(this, "Fahrt erledigt (kein Kunde für Rechnungs-Auto-Flow)", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                FirebaseDatabase.getInstance(DB_INSTANCE_URL)
+                    .getReference("customers/" + r.customerId).get()
+                    .addOnSuccessListener(cSnap -> {
+                        String _cType = cSnap.child("type").getValue(String.class);
+                        String _cKind = cSnap.child("kind").getValue(String.class);
+                        String _cEmail = cSnap.child("email").getValue(String.class);
+                        String _cBillingEmail = cSnap.child("billingEmail").getValue(String.class);
+                        boolean _isAuftr = _cType != null && (
+                            _cType.equalsIgnoreCase("supplier") || _cType.equalsIgnoreCase("hotel")
+                            || _cType.equalsIgnoreCase("firma") || _cType.equalsIgnoreCase("klinik")
+                            || _cType.equalsIgnoreCase("company"));
+                        if (!_isAuftr) {
+                            Toast.makeText(this, "Fahrt erledigt (Privatkunde — keine Auto-Rechnung)", Toast.LENGTH_SHORT).show();
+                            return;
+                        }
+                        // Auftraggeber → Rechnung triggern + auf invoiceNumber warten + Email-Preview
+                        java.util.Map<String,Object> _invFlags = new java.util.HashMap<>();
+                        _invFlags.put("invoiceRequested", true);
+                        _invFlags.put("needsInvoice", true);
+                        _invFlags.put("invoiceTriggeredBy", "native-complete-v711");
+                        _invFlags.put("invoiceTriggeredAt", System.currentTimeMillis());
+                        db.getReference("rides/" + r.id).updateChildren(_invFlags);
+                        Toast.makeText(this, "⏳ Rechnung wird generiert…", Toast.LENGTH_SHORT).show();
+                        // Poll auf invoiceNumber (max 15s alle 1s)
+                        _pollForInvoiceNumber_v711(r.id, 0, r);
+                    })
+                    .addOnFailureListener(_e -> Toast.makeText(this, "Kunde nicht ladbar: " + _e.getMessage(), Toast.LENGTH_LONG).show());
+            })
+            .addOnFailureListener(_ex -> Toast.makeText(this, "Fehler Complete: " + _ex.getMessage(), Toast.LENGTH_LONG).show());
+    }
+
+    private void _pollForInvoiceNumber_v711(final String rideId, final int attempt, final Ride refRide) {
+        if (attempt > 15) {
+            Toast.makeText(this, "⚠️ Rechnung nicht innerhalb 15s erstellt — bitte manuell öffnen (Bearbeiten → Rechnung an Auftraggeber)", Toast.LENGTH_LONG).show();
+            return;
+        }
+        db.getReference("rides/" + rideId).get()
+            .addOnSuccessListener(rSnap -> {
+                String _inv = rSnap.child("invoiceNumber").getValue(String.class);
+                String _pdf = rSnap.child("invoicePdfUrl").getValue(String.class);
+                if (_inv != null && !_inv.isEmpty() && _pdf != null && !_pdf.isEmpty()) {
+                    Toast.makeText(this, "✅ Rechnung " + _inv + " bereit — Email-Vorschau öffnet…", Toast.LENGTH_LONG).show();
+                    refRide.invoiceNumber = _inv;
+                    refRide.invoicePdfUrl = _pdf;
+                    launchInvoiceEmailFromRide(refRide);
+                } else {
+                    // Erneut versuchen in 1 Sekunde
+                    new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(
+                        () -> _pollForInvoiceNumber_v711(rideId, attempt + 1, refRide),
+                        1000
+                    );
+                }
+            })
+            .addOnFailureListener(_e -> Toast.makeText(this, "Poll-Fehler: " + _e.getMessage(), Toast.LENGTH_SHORT).show());
     }
 }

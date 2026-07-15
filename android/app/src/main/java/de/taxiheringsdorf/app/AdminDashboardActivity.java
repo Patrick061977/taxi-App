@@ -3580,10 +3580,15 @@ public class AdminDashboardActivity extends AppCompatActivity {
             tv.setTextIsSelectable(true);
             android.widget.ScrollView _sv = new android.widget.ScrollView(this);
             _sv.addView(tv);
+            // v6.63.713 (Patrick 15.07.): 📱 SMS + 💚 WhatsApp direkt aus Korrespondenz-Ansicht.
+            //   Nach Send zusätzlich in smsQueue (category=manual_dispo_sms/wa) speichern
+            //   damit's beim nächsten Öffnen in der Timeline erscheint.
             new AlertDialog.Builder(this)
                 .setTitle("📨 Korrespondenz — " + (r.customerName != null ? r.customerName : "?"))
                 .setView(_sv)
                 .setPositiveButton("Schließen", null)
+                .setNeutralButton("📱 SMS", (_d, _w) -> _showQuickSendDialog_v713(r, false))
+                .setNegativeButton("💚 WA", (_d, _w) -> _showQuickSendDialog_v713(r, true))
                 .show();
         };
 
@@ -5184,6 +5189,73 @@ public class AdminDashboardActivity extends AppCompatActivity {
                     .addOnFailureListener(_e -> Toast.makeText(this, "Kunde nicht ladbar: " + _e.getMessage(), Toast.LENGTH_LONG).show());
             })
             .addOnFailureListener(_ex -> Toast.makeText(this, "Fehler Complete: " + _ex.getMessage(), Toast.LENGTH_LONG).show());
+    }
+
+    // v6.63.713 (Patrick 15.07.): Quick-Send-Dialog fuer SMS/WA aus Korrespondenz-Ansicht.
+    //   Zeigt EditText mit vorformuliertem Text (Fahrt-Details), Send oeffnet nativen SMS-/WA-Intent
+    //   UND schreibt Log in smsQueue → erscheint beim naechsten Oeffnen in Korrespondenz-Timeline.
+    private void _showQuickSendDialog_v713(final Ride r, final boolean isWhatsApp) {
+        if (r == null) return;
+        final String _phone = r.customerPhone != null ? r.customerPhone : "";
+        if (_phone.isEmpty()) {
+            Toast.makeText(this, "❌ Keine Telefonnummer beim Kunden hinterlegt", Toast.LENGTH_LONG).show();
+            return;
+        }
+        String _pu = r.pickup != null ? r.pickup : "";
+        String _dst = r.destination != null ? r.destination : "";
+        String _time = r.pickupTime != null ? r.pickupTime : "";
+        String _prefill = "Hallo " + (r.customerName != null ? r.customerName.split(" ")[0] : "")
+            + ",\n\nzu Ihrer Fahrt " + (_time.isEmpty() ? "" : "um " + _time + " Uhr ")
+            + (_pu.isEmpty() ? "" : "\n📍 " + _pu)
+            + (_dst.isEmpty() ? "" : "\n🎯 " + _dst)
+            + "\n\n";
+        final android.widget.EditText et = new android.widget.EditText(this);
+        et.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE);
+        et.setMinLines(4);
+        et.setText(_prefill);
+        et.setSelection(et.getText().length());
+        int _p = (int)(getResources().getDisplayMetrics().density * 12);
+        et.setPadding(_p, _p, _p, _p);
+        String _channel = isWhatsApp ? "WhatsApp" : "SMS";
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle((isWhatsApp ? "💚 " : "📱 ") + _channel + " an " + (r.customerName != null ? r.customerName : "Kunde"))
+            .setView(et)
+            .setPositiveButton("Senden", (_dd, _ww) -> {
+                String _msg = et.getText().toString();
+                if (_msg.trim().isEmpty()) { Toast.makeText(this, "❌ Text ist leer", Toast.LENGTH_SHORT).show(); return; }
+                // Native Intent oeffnen
+                String _ph = _phone.replaceAll("[\\s\\-\\/\\(\\)\\+]", "");
+                if (_ph.startsWith("0")) _ph = "49" + _ph.substring(1);
+                try {
+                    android.content.Intent _si;
+                    if (isWhatsApp) {
+                        _si = new android.content.Intent(android.content.Intent.ACTION_VIEW);
+                        _si.setData(android.net.Uri.parse("https://wa.me/" + _ph + "?text=" + java.net.URLEncoder.encode(_msg, "UTF-8")));
+                        _si.setPackage("com.whatsapp");
+                    } else {
+                        _si = new android.content.Intent(android.content.Intent.ACTION_VIEW);
+                        _si.setData(android.net.Uri.parse("smsto:" + _phone.replaceAll("[\\s\\-\\/\\(\\)]", "")));
+                        _si.putExtra("sms_body", _msg);
+                    }
+                    startActivity(_si);
+                } catch (Throwable _t) {
+                    Toast.makeText(this, "❌ " + _channel + " nicht verfuegbar: " + _t.getMessage(), Toast.LENGTH_LONG).show();
+                    return;
+                }
+                // Log in smsQueue (auch fuer WA-Sends — Korrespondenz-Timeline liest smsQueue)
+                java.util.Map<String,Object> _log = new java.util.HashMap<>();
+                _log.put("rideId", r.id);
+                _log.put("phone", _phone);
+                _log.put("text", _msg);
+                _log.put("category", isWhatsApp ? "manual_dispo_wa" : "manual_dispo_sms");
+                _log.put("status", "manual_sent_native");
+                _log.put("createdAt", System.currentTimeMillis());
+                _log.put("createdBy", "admin-native-korrespondenz-v713");
+                db.getReference("smsQueue").push().setValue(_log);
+                Toast.makeText(this, "✅ " + _channel + " geoeffnet + in Korrespondenz protokolliert", Toast.LENGTH_SHORT).show();
+            })
+            .setNegativeButton("Abbrechen", null)
+            .show();
     }
 
     // v6.63.712: Kurz-Label für Zahlungsart im Button-Text

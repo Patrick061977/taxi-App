@@ -1684,30 +1684,64 @@ public class AdminDashboardActivity extends AppCompatActivity {
     }
 
     // v6.63.625: WhatsApp mit Bestätigungs-Text + optionalem Stripe-Link öffnen
+    // v6.63.708 (Patrick 15.07.: WA-Öffnen fror Handy komplett ein — Fix: UTF-8 explicit,
+    //   NullSafe Telefon, whatsapp:// als 2. Fallback, alles in Try/Catch)
     private void _openWhatsAppBestaetigung(Anfrage a, String stripeUrl) {
-        String _name = a.name != null ? a.name : "Kunde";
-        String _date = (a.date != null ? a.date : "") + (a.time != null ? " um " + a.time + " Uhr" : "");
-        String _priceStr = "";
         try {
-            if (a.price != null && !a.price.isEmpty() && !"—".equals(a.price)) {
-                double _pv = Double.parseDouble(a.price.replace("€","").replace(",",".").trim());
-                if (_pv > 0) _priceStr = "💰 " + String.format(java.util.Locale.GERMANY, "%.2f", _pv) + " €\n";
+            String _name = a.name != null ? a.name : "Kunde";
+            String _date = (a.date != null ? a.date : "") + (a.time != null ? " um " + a.time + " Uhr" : "");
+            String _priceStr = "";
+            try {
+                if (a.price != null && !a.price.isEmpty() && !"—".equals(a.price)) {
+                    double _pv = Double.parseDouble(a.price.replace("€","").replace(",",".").trim());
+                    if (_pv > 0) _priceStr = "💰 " + String.format(java.util.Locale.GERMANY, "%.2f", _pv) + " €\n";
+                }
+            } catch (Throwable _pe) {}
+            String _msg = "Hallo " + _name + ",\n\nIhre Fahrt ist bestätigt ✅\n\n" +
+                (_date.isEmpty() ? "" : "🕐 " + _date + "\n") +
+                "📍 " + (a.pickup != null ? a.pickup : "?") + "\n" +
+                "🎯 " + (a.destination != null ? a.destination : "?") + "\n" +
+                "👥 " + (a.passengers != null ? a.passengers + " Person(en)" : "1 Person") + "\n" +
+                _priceStr +
+                (stripeUrl != null && !stripeUrl.isEmpty() ? "\n💳 Zahlungslink:\n" + stripeUrl + "\n" : "") +
+                "\nFunk Taxi Heringsdorf · 038378 / 22022";
+            if (a.phone == null || a.phone.isEmpty()) {
+                Toast.makeText(this, "❌ Keine Telefonnummer", Toast.LENGTH_SHORT).show();
+                return;
             }
-        } catch (Throwable _pe) {}
-        String _msg = "Hallo " + _name + ",\n\nIhre Fahrt ist bestätigt ✅\n\n" +
-            (_date.isEmpty() ? "" : "🕐 " + _date + "\n") +
-            "📍 " + (a.pickup != null ? a.pickup : "?") + "\n" +
-            "🎯 " + (a.destination != null ? a.destination : "?") + "\n" +
-            "👥 " + (a.passengers != null ? a.passengers + " Person(en)" : "1 Person") + "\n" +
-            _priceStr +
-            (stripeUrl != null && !stripeUrl.isEmpty() ? "\n💳 Zahlungslink:\n" + stripeUrl + "\n" : "") +
-            "\nFunk Taxi Heringsdorf · 038378 / 22022";
-        String _ph = a.phone.replaceAll("[\\s\\-\\/\\(\\)\\+]", "");
-        if (_ph.startsWith("0")) _ph = "49" + _ph.substring(1);
-        android.content.Intent _wi = new android.content.Intent(android.content.Intent.ACTION_VIEW);
-        _wi.setData(android.net.Uri.parse("https://wa.me/" + _ph + "?text=" + java.net.URLEncoder.encode(_msg)));
-        try { startActivity(_wi); }
-        catch (Throwable _t) { Toast.makeText(this, "WhatsApp nicht installiert", Toast.LENGTH_SHORT).show(); }
+            String _ph = a.phone.replaceAll("[\\s\\-\\/\\(\\)\\+]", "");
+            if (_ph.startsWith("0")) _ph = "49" + _ph.substring(1);
+            String _encoded = java.net.URLEncoder.encode(_msg, "UTF-8");
+            // 1. Versuch: wa.me (funktioniert wenn WhatsApp Browser-Intent registriert hat)
+            android.content.Intent _wi = new android.content.Intent(android.content.Intent.ACTION_VIEW);
+            _wi.setData(android.net.Uri.parse("https://wa.me/" + _ph + "?text=" + _encoded));
+            _wi.setPackage("com.whatsapp");
+            try {
+                startActivity(_wi);
+                return;
+            } catch (Throwable _t1) {
+                // 2. Versuch: whatsapp:// scheme direkt (nativer Intent, umgeht Browser-Redirect)
+                try {
+                    android.content.Intent _wi2 = new android.content.Intent(android.content.Intent.ACTION_VIEW);
+                    _wi2.setData(android.net.Uri.parse("whatsapp://send?phone=" + _ph + "&text=" + _encoded));
+                    _wi2.setPackage("com.whatsapp");
+                    startActivity(_wi2);
+                    return;
+                } catch (Throwable _t2) {
+                    // 3. Versuch: ohne Package-Restriktion (Business/Web-WA erlauben)
+                    try {
+                        android.content.Intent _wi3 = new android.content.Intent(android.content.Intent.ACTION_VIEW);
+                        _wi3.setData(android.net.Uri.parse("https://wa.me/" + _ph + "?text=" + _encoded));
+                        startActivity(_wi3);
+                        return;
+                    } catch (Throwable _t3) {
+                        Toast.makeText(this, "WhatsApp nicht verfügbar — bitte manuell öffnen", Toast.LENGTH_LONG).show();
+                    }
+                }
+            }
+        } catch (Throwable _e) {
+            Toast.makeText(this, "❌ WhatsApp-Fehler: " + _e.getClass().getSimpleName(), Toast.LENGTH_LONG).show();
+        }
     }
 
     // v6.63.625: Stripe-Session erstellen, dann WhatsApp öffnen (ein Schritt für den Fahrer)

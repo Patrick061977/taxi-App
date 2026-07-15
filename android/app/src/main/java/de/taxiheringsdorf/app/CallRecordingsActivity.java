@@ -300,21 +300,13 @@ public class CallRecordingsActivity extends AppCompatActivity {
                     String[] phoneFields = {"phone","mobilePhone","mobile","phone1","phone2","phone3"};
                     for (String f : phoneFields) {
                         String p = c.child(f).getValue(String.class);
-                        if (p != null) {
-                            String np = normalizePhone(p);
-                            crmByPhone.put(np, displayName);
-                            if (cid != null) crmIdByPhone.put(np, cid);
-                        }
+                        if (p != null) addAllPhoneVariants_v719(p, displayName, cid);
                     }
                     DataSnapshot addit = c.child("additionalPhones");
                     if (addit.exists()) {
                         for (DataSnapshot ap : addit.getChildren()) {
                             String p = ap.getValue(String.class);
-                            if (p != null) {
-                                String np = normalizePhone(p);
-                                crmByPhone.put(np, displayName);
-                                if (cid != null) crmIdByPhone.put(np, cid);
-                            }
+                            if (p != null) addAllPhoneVariants_v719(p, displayName, cid);
                         }
                     }
                 }
@@ -330,6 +322,44 @@ public class CallRecordingsActivity extends AppCompatActivity {
 
     private String normalizePhone(String p) {
         return p.replaceAll("[^0-9+]", "");
+    }
+
+    // v6.63.719 (Patrick 15.07.): Multi-Format-Indexing wie in CallLogActivity.
+    //   Vorher: nur EINE Variante (normalized) → Aufnahmen-Tab konnte Seeperle & andere nicht matchen
+    //   wenn ACR-Ordner in anderem Format war als CRM-Feld. Anrufe-Tab hatte diese Logik seit v6.62.669.
+    //   Jetzt Symmetrie: beide Tabs indizieren +49/0049/0 + LAST7-Fallback.
+    private void addAllPhoneVariants_v719(String phone, String displayName, String cid) {
+        if (phone == null) return;
+        String norm = normalizePhone(phone);
+        if (norm.isEmpty()) return;
+        crmByPhone.put(norm, displayName);
+        if (cid != null) crmIdByPhone.put(norm, cid);
+        if (norm.startsWith("+49") && norm.length() > 3) {
+            String national = "0" + norm.substring(3);
+            String zeroZero = "00" + norm.substring(1);
+            crmByPhone.put(national, displayName);
+            crmByPhone.put(zeroZero, displayName);
+            if (cid != null) { crmIdByPhone.put(national, cid); crmIdByPhone.put(zeroZero, cid); }
+        } else if (norm.startsWith("0049") && norm.length() > 4) {
+            String plus = "+" + norm.substring(2);
+            String zero = "0" + norm.substring(4);
+            crmByPhone.put(plus, displayName);
+            crmByPhone.put(zero, displayName);
+            if (cid != null) { crmIdByPhone.put(plus, cid); crmIdByPhone.put(zero, cid); }
+        } else if (norm.startsWith("0") && !norm.startsWith("00") && norm.length() > 1) {
+            String plus = "+49" + norm.substring(1);
+            String zeroZero = "0049" + norm.substring(1);
+            crmByPhone.put(plus, displayName);
+            crmByPhone.put(zeroZero, displayName);
+            if (cid != null) { crmIdByPhone.put(plus, cid); crmIdByPhone.put(zeroZero, cid); }
+        }
+        if (norm.length() >= 7) {
+            String last7Key = "LAST7:" + norm.substring(norm.length() - 7);
+            if (!crmByPhone.containsKey(last7Key)) {
+                crmByPhone.put(last7Key, displayName);
+                if (cid != null) crmIdByPhone.put(last7Key, cid);
+            }
+        }
     }
 
     // 🆕 v6.62.895 (Patrick 23.05. 14:54): Verstecken-Set aus SharedPreferences.
@@ -566,6 +596,12 @@ public class CallRecordingsActivity extends AppCompatActivity {
                                 String np = normalizePhone(r.phone);
                                 r.customerName = crmByPhone.get(np);
                                 r.customerId = crmIdByPhone.get(np);
+                                // v6.63.719: LAST7-Fallback wenn direkter Match failed
+                                if (r.customerName == null && np.length() >= 7) {
+                                    String last7Key = "LAST7:" + np.substring(np.length() - 7);
+                                    r.customerName = crmByPhone.get(last7Key);
+                                    r.customerId = crmIdByPhone.get(last7Key);
+                                }
                                 all.add(r);
                             }
                         }

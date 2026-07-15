@@ -634,7 +634,11 @@ public class CallRecordingsActivity extends AppCompatActivity {
                         }
                         cur.close();
                     }
-                    // Für jede Aufnahme: CallLog-Nummern innerhalb 180s suchen
+                    // Für jede Aufnahme: CallLog-Nummern innerhalb Zeitfenster suchen
+                    // v6.63.717 (Patrick 15.07.): Fenster asymmetrisch — bei outgoing (Patrick ruft
+                    //   raus) sucht 15 Min NACH Aufnahme-Start (Anklopf-Anruf kommt mitten im laufenden
+                    //   Gespräch). Vorher 180s: reichte nur wenn Anklopfer sehr früh anrief. Jetzt
+                    //   fangen wir auch die "8-Min-später-Anklopf"-Fälle wie 15.7. 12:39/12:47 ein.
                     for (Recording r : all) {
                         String rNorm = normalizePhone(r.phone != null ? r.phone : "");
                         java.util.Set<String> alreadyPartner = new java.util.HashSet<>();
@@ -642,9 +646,16 @@ public class CallRecordingsActivity extends AppCompatActivity {
                         if (r.parallelPartners != null) {
                             for (String[] pp : r.parallelPartners) if (pp[1] != null) alreadyPartner.add(normalizePhone(pp[1]));
                         }
+                        // Outgoing (direction=1): 15 Min asymmetrisch (Gespräch läuft weiter, Anklopfer kommt mitten drin)
+                        // Incoming (direction=0): symmetrisch ±3 Min (Anklopfer kommt kurz während Kunden-Anruf rein)
+                        final boolean _isOutgoing = r.direction == 1;
+                        final long _windowBefore = 180_000L; // 3 Min
+                        final long _windowAfter = _isOutgoing ? 900_000L : 180_000L; // 15 Min bzw 3 Min
                         for (int ci = 0; ci < callLogTs.size(); ci++) {
-                            long diff = Math.abs(r.timestamp - callLogTs.get(ci)[0]);
-                            if (diff > 180_000) continue;
+                            long ts = callLogTs.get(ci)[0];
+                            long diff = ts - r.timestamp;
+                            // diff negativ = CallLog VOR Aufnahme, positiv = NACH
+                            if (diff < -_windowBefore || diff > _windowAfter) continue;
                             String clNum = callLogNums.get(ci);
                             if (clNum.isEmpty() || alreadyPartner.contains(clNum)) continue;
                             // Neue Nummer aus CallLog — Anklopf-Partner!

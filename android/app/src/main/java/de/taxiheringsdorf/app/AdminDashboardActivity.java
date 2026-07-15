@@ -4257,6 +4257,13 @@ public class AdminDashboardActivity extends AppCompatActivity {
                     }).start();
                 });
                 layout.addView(btnStripe);
+                // v6.63.710 (Patrick 15.07.): Stripe-Button ganz nach oben schieben (direkt nach Speichern),
+                //   damit er sofort sichtbar ist und nicht in der Scroll-Liste untergeht.
+                try {
+                    layout.removeView(btnStripe);
+                    int _targetIdx = Math.min(1, layout.getChildCount());
+                    layout.addView(btnStripe, _targetIdx);
+                } catch (Throwable _rt) { layout.addView(btnStripe); }
             }
         }
 

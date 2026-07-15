@@ -3468,6 +3468,11 @@ public class CrmSearchActivity extends AppCompatActivity {
             }
             // Kein Match → Badge wieder verstecken
             tvFpBadge.setVisibility(View.GONE);
+            // v6.63.710 (Patrick 15.07.): Kein Festpreis → OSRM-Preis-Vorschlag holen
+            //   Nur wenn etPrice leer ist (User-Eingabe nicht überschreiben)
+            if (etPrice.getText().toString().trim().isEmpty()) {
+                _fetchOsrmPricePreview_v710(pickupCoords, destCoords, etPrice);
+            }
         };
         // Trigger nach Picker-Returns: launchPlaces schreibt erst setText(addr) und
         // DANACH die Coords. TextWatcher feuert SYNCHRON im setText → Coords sind dann
@@ -5871,5 +5876,58 @@ addQuickPickChip(row, "🚉 Bf Heringsdorf", "Heringsdorf, Bahnhof, Am Bahnhof, 
         chip.setLayoutParams(chipLp);
         chip.setOnClickListener(v -> handler.onPicked(label, address, lat, lon));
         row.addView(chip);
+    }
+
+    // v6.63.710 (Patrick 15.07.): OSRM-basierter Preis-Vorschlag via Cloud Function previewRidePrice.
+    //   Wird von _checkFestpreis aufgerufen wenn kein Festpreis-Match. Berechnet Route + Tarif und
+    //   schreibt Preis ins etPrice-Feld (nur wenn User noch nichts eingegeben hat).
+    private long _lastOsrmFetch_v710 = 0;
+    private String _lastOsrmKey_v710 = "";
+    private void _fetchOsrmPricePreview_v710(final double[] pickupCoords, final double[] destCoords, final android.widget.EditText etPrice) {
+        if (pickupCoords == null || destCoords == null) return;
+        if (pickupCoords.length < 2 || destCoords.length < 2) return;
+        if (Double.isNaN(pickupCoords[0]) || Double.isNaN(pickupCoords[1])) return;
+        if (Double.isNaN(destCoords[0]) || Double.isNaN(destCoords[1])) return;
+        // Dedupe: gleiche Coords + < 2 Sek → skip (mehrfache TextWatcher-Trigger absorbieren)
+        String _key = pickupCoords[0] + "," + pickupCoords[1] + "→" + destCoords[0] + "," + destCoords[1];
+        long _now = System.currentTimeMillis();
+        if (_key.equals(_lastOsrmKey_v710) && (_now - _lastOsrmFetch_v710) < 2000) return;
+        _lastOsrmKey_v710 = _key;
+        _lastOsrmFetch_v710 = _now;
+        new Thread(() -> {
+            try {
+                org.json.JSONObject body = new org.json.JSONObject();
+                body.put("pickupLat", pickupCoords[0]);
+                body.put("pickupLon", pickupCoords[1]);
+                body.put("destLat", destCoords[0]);
+                body.put("destLon", destCoords[1]);
+                java.net.URL url = new java.net.URL("https://europe-west1-taxi-heringsdorf.cloudfunctions.net/previewRidePrice");
+                java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("POST");
+                conn.setRequestProperty("Content-Type", "application/json; charset=utf-8");
+                conn.setDoOutput(true);
+                conn.setConnectTimeout(6000);
+                conn.setReadTimeout(10000);
+                conn.getOutputStream().write(body.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                int _rc = conn.getResponseCode();
+                if (_rc != 200) { conn.disconnect(); return; }
+                java.io.InputStream _is = conn.getInputStream();
+                java.util.Scanner _sc = new java.util.Scanner(_is, "UTF-8").useDelimiter("\\A");
+                String _resp = _sc.hasNext() ? _sc.next() : "";
+                conn.disconnect();
+                org.json.JSONObject _json = new org.json.JSONObject(_resp);
+                double _price = _json.optDouble("price", 0);
+                if (_price <= 0) return;
+                runOnUiThread(() -> {
+                    // Nochmals prüfen ob Feld noch leer ist (User könnte inzwischen tippen)
+                    if (etPrice.getText().toString().trim().isEmpty()) {
+                        etPrice.setText(String.format(java.util.Locale.GERMANY, "%.2f", _price));
+                        etPrice.setHint("Auto-berechnet — überschreibbar");
+                    }
+                });
+            } catch (Throwable _t) {
+                // Silent-fail: kein Preis-Vorschlag = User tippt manuell wie bisher
+            }
+        }).start();
     }
 }

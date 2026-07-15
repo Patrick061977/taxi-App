@@ -1456,15 +1456,18 @@ public class CrmSearchActivity extends AppCompatActivity {
 
     // 🆕 v6.63.042 (Patrick 30.05. 16:41): "Rechnungen-Uebersicht in der Native-App
     //   wie in der Web-App — was verschickt, was offen." Filtert /invoices nach
-    //   customerName/customerPhone (kein customerId-Feld in Rechnungen vorhanden),
-    //   sortiert nach Datum DESC, zeigt Status-Badge + Betrag + Datum.
+    //   customerId (PRIMÄR seit v6.63.715, Patrick 15.07. — vorher wurden Gast-Rechnungen
+    //   wie 'Küster' nicht gefunden weil sie nicht 'Mütter Gesundheit' im Namen hatten),
+    //   Fallback über customerName/customerPhone-Match.
     private void showCustomerInvoices(CrmEntry e) {
         final ProgressDialog _pd = new ProgressDialog(this);
         _pd.setMessage("Lade Rechnungen…");
         _pd.setCancelable(false);
         _pd.show();
 
-        // Normalisierung fuer Phone-Vergleich
+        // v715: customerId ist der zuverlässigste Match — Rechnung MKK für Gast 'Küster'
+        // hat customerName='Küster' aber customerId='-Of_5Cq5tl9AZN49iNrq' (MKK)
+        final String _cId = e.id != null ? e.id.trim() : "";
         final String _cName = e.name != null ? e.name.toLowerCase().trim() : "";
         final String _cPhone = e.phone != null ? e.phone.replaceAll("[^0-9]", "") : "";
         final String _cMobile = e.mobilePhone != null ? e.mobilePhone.replaceAll("[^0-9]", "") : "";
@@ -1479,18 +1482,22 @@ public class CrmSearchActivity extends AppCompatActivity {
                 // [invoiceNumber, label, status, pdfUrl, dateMs]
                 List<Object[]> matches = new ArrayList<>();
                 for (DataSnapshot s : task.getResult().getChildren()) {
+                    // v715: PRIMÄR customerId — findet auch Gast-Rechnungen
+                    String invCustomerId = s.child("customerId").getValue(String.class);
+                    boolean idMatch = _cId.length() > 3 && invCustomerId != null
+                        && _cId.equals(invCustomerId.trim());
                     String invName = String.valueOf(s.child("customerName").getValue());
                     String invPhone = String.valueOf(s.child("customerPhone").getValue());
-                    boolean nameMatch = invName != null && _cName.length() > 1
+                    boolean nameMatch = !idMatch && invName != null && _cName.length() > 1
                         && invName.toLowerCase().contains(_cName);
                     String invPhoneNorm = invPhone != null ? invPhone.replaceAll("[^0-9]", "") : "";
                     boolean phoneMatch = false;
-                    if (invPhoneNorm.length() >= 6) {
+                    if (!idMatch && !nameMatch && invPhoneNorm.length() >= 6) {
                         String lastInv = invPhoneNorm.substring(Math.max(0, invPhoneNorm.length() - 8));
                         if (_cPhone.length() >= 6 && _cPhone.endsWith(lastInv)) phoneMatch = true;
                         if (_cMobile.length() >= 6 && _cMobile.endsWith(lastInv)) phoneMatch = true;
                     }
-                    if (!nameMatch && !phoneMatch) continue;
+                    if (!idMatch && !nameMatch && !phoneMatch) continue;
                     String num = s.child("invoiceNumber").getValue(String.class);
                     if (num == null) num = s.getKey();
                     String dt = s.child("invoiceDate").getValue(String.class);

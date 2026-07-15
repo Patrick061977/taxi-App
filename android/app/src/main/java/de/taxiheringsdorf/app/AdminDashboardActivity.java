@@ -1741,7 +1741,9 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 } catch (Exception _re) {}
                 conn.disconnect();
 
-                final String _stripeUrl = code == 200 ? new org.json.JSONObject(resp).optString("url","") : "";
+                // v6.63.707: Cloud Function returned "checkoutUrl" — vorher wurde "url" gelesen → Link IMMER leer, WA-Nachricht ohne Link
+                org.json.JSONObject _rj = code == 200 ? new org.json.JSONObject(resp) : new org.json.JSONObject();
+                final String _stripeUrl = _rj.optString("checkoutUrl", _rj.optString("url",""));
                 // Stripe-URL in Firebase speichern
                 if (!_stripeUrl.isEmpty() && rideId != null) {
                     java.util.Map<String,Object> _upd = new java.util.HashMap<>();

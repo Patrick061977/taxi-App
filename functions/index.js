@@ -20880,11 +20880,12 @@ exports.autoResolveConflicts = onSchedule(
                 intervalMs: 5 * 60 * 1000
             }).catch(() => {});
             // v6.47.2: KOSTEN-OPTIMIERUNG — vorher las diese Function ALLE rides bei jedem
-            // Aufruf alle 5 Min (8.640x/Mo × 5MB = 43GB/Mo). Jetzt: nur Pickup-Timestamp
-            // im Bereich [-2h, +24h] — Konflikte können nur in diesem Fenster sein.
+            // Aufruf alle 5 Min. Jetzt: nur Pickup-Timestamp im Bereich [-2h, +48h].
+            // v6.63.720 (Patrick 17.07.): 24h → 48h. Grund: Konflikte am 18.07.19:15 wurden
+            // nicht gesehen weil >24h weg. Jetzt sieht Cron die Fahrten schon einen Tag früher.
             const _now = Date.now();
             const _windowStart = _now - 2 * 60 * 60 * 1000;
-            const _windowEnd = _now + 24 * 60 * 60 * 1000;
+            const _windowEnd = _now + 48 * 60 * 60 * 1000;
             const [ridesSnap, shiftsSnap, settingsSnap, prioritiesSnap, timeslotSnap, prioMalusSnap, optByDaySnap] = await Promise.all([
                 db.ref('rides').orderByChild('pickupTimestamp').startAt(_windowStart).endAt(_windowEnd).once('value'),
                 db.ref('vehicleShifts').once('value'),

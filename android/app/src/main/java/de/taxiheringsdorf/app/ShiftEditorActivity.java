@@ -350,9 +350,13 @@ public class ShiftEditorActivity extends AppCompatActivity {
             VehicleShift vs = data.get(position);
             h.name.setText(vs.name);
             // 🆕 v6.63.616: Datum dieser Woche berechnen → Override-Marker ↺ anzeigen
+            // v6.63.721 (Patrick 17.07.): set(DAY_OF_WEEK, SUNDAY) springt bei Locale.GERMANY
+            //   (firstDayOfWeek=Monday) NACH VORN zum kommenden Sonntag → Override fuer heute
+            //   wird nie geladen. Fix: manuell zurueckrechnen auf den letzten Sonntag.
             SimpleDateFormat _df2 = new SimpleDateFormat("yyyy-MM-dd", Locale.GERMANY);
             Calendar _wc2 = Calendar.getInstance();
-            _wc2.set(Calendar.DAY_OF_WEEK, Calendar.SUNDAY);
+            int _dowNow2 = _wc2.get(Calendar.DAY_OF_WEEK); // 1=So, 7=Sa
+            _wc2.add(Calendar.DAY_OF_MONTH, -(_dowNow2 - Calendar.SUNDAY));
             String[] _weekDates = new String[7];
             for (int i = 0; i < 7; i++) {
                 _weekDates[i] = _df2.format(_wc2.getTime());
@@ -420,11 +424,13 @@ public class ShiftEditorActivity extends AppCompatActivity {
                             vs.todayStartTime = strOrNull(todaySnap.child("startTime").getValue());
                             vs.todayEndTime = strOrNull(todaySnap.child("endTime").getValue());
                             // 🆕 v6.63.616: Datum-Overrides dieser Woche parsen → Tab3-Anzeige
+                            // v6.63.721 (Patrick 17.07.): Fix Wochen-Start (Locale.GERMANY-Bug)
                             vs.weekDateNotes = new java.util.HashMap<>();
                             try {
                                 SimpleDateFormat _wdf = new SimpleDateFormat("yyyy-MM-dd", Locale.GERMANY);
                                 Calendar _wc = Calendar.getInstance();
-                                _wc.set(Calendar.DAY_OF_WEEK, Calendar.SUNDAY);
+                                int _dowNow = _wc.get(Calendar.DAY_OF_WEEK); // 1=So, 7=Sa
+                                _wc.add(Calendar.DAY_OF_MONTH, -(_dowNow - Calendar.SUNDAY));
                                 for (int _wi = 0; _wi < 7; _wi++) {
                                     String _wKey = _wdf.format(_wc.getTime());
                                     DataSnapshot _wSnap = vSnap.child(_wKey);

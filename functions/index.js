@@ -39977,3 +39977,46 @@ exports.previewRidePrice = onRequest(
         }
     }
 );
+
+// v6.63.725 (Patrick 18.07. 08:14 Bridge): CLEAN-Cron.
+// Loescht Shift-Overrides fuer Tage die > 7 Tage in der Vergangenheit liegen.
+// Vermeidet dass sich alte Ausnahmen unter vehicleShifts/{vid}/{YYYY-MM-DD}
+// anhaeufen und bei manuellem Blaettern verwirren.
+exports.scheduledCleanupOldShiftOverrides = onSchedule(
+    {
+        schedule: '0 3 * * *', // taeglich 03:00 Berlin
+        timeZone: 'Europe/Berlin',
+        region: 'europe-west1',
+        timeoutSeconds: 120,
+        memory: '256MiB'
+    },
+    async () => {
+        try {
+            const cutoffDate = new Date(Date.now() - 7 * 86400000);
+            const cutoffKey = cutoffDate.toISOString().slice(0, 10); // YYYY-MM-DD
+            const snap = await db.ref('vehicleShifts').once('value');
+            const vs = snap.val() || {};
+            const updates = {};
+            let deleted = 0;
+            const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+            for (const [vid, obj] of Object.entries(vs)) {
+                if (!obj || typeof obj !== 'object') continue;
+                for (const key of Object.keys(obj)) {
+                    if (!DATE_RE.test(key)) continue;
+                    if (key < cutoffKey) {
+                        updates[`vehicleShifts/${vid}/${key}`] = null;
+                        deleted++;
+                    }
+                }
+            }
+            if (deleted > 0) {
+                await db.ref().update(updates);
+                console.log(`[cleanupOldShiftOverrides] ${deleted} Overrides aelter als ${cutoffKey} entfernt.`);
+            } else {
+                console.log('[cleanupOldShiftOverrides] Keine alten Overrides zum Aufraeumen.');
+            }
+        } catch (e) {
+            console.error('[cleanupOldShiftOverrides] Fehler:', e);
+        }
+    }
+);

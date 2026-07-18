@@ -625,13 +625,22 @@ public class CrmSearchActivity extends AppCompatActivity {
     // mit Intent-Extras "auto_history_customer_id" → direkt nach Load die Fahrt-Historie
     // des Kunden anzeigen. Spart die Code-Duplikation in CallLogActivity.
     private String _pendingHistoryCustomerId = null;
+    // v6.63.735 (Patrick 18.07. Bridge): Direktlink zum Edit-Dialog eines Kunden.
+    //   Wird z.B. aus InvoicesActivity aufgerufen wenn Name/Adresse in der Rechnung
+    //   falsch sind und der User schnell den CRM-Eintrag korrigieren will.
+    private String _pendingEditCustomerId = null;
 
     private void _maybeAutoOpenHistory() {
         String _id = getIntent() != null ? getIntent().getStringExtra("auto_history_customer_id") : null;
-        if (_id == null) return;
-        _pendingHistoryCustomerId = _id;
-        // Intent-Extra entfernen, damit es bei Rotation/Resume nicht wieder feuert
-        getIntent().removeExtra("auto_history_customer_id");
+        if (_id != null) {
+            _pendingHistoryCustomerId = _id;
+            getIntent().removeExtra("auto_history_customer_id");
+        }
+        String _edit = getIntent() != null ? getIntent().getStringExtra("auto_open_edit_customer_id") : null;
+        if (_edit != null) {
+            _pendingEditCustomerId = _edit;
+            getIntent().removeExtra("auto_open_edit_customer_id");
+        }
     }
 
     // v6.62.639: Patrick (12.05. 13:04+13:19): "in der Anrufliste 'Neuen Kunden anlegen'
@@ -654,17 +663,31 @@ public class CrmSearchActivity extends AppCompatActivity {
     }
 
     private void _runPendingHistoryIfReady() {
-        if (_pendingHistoryCustomerId == null) return;
-        for (CrmEntry e : all) {
-            if (_pendingHistoryCustomerId.equals(e.id)) {
+        if (_pendingHistoryCustomerId != null) {
+            for (CrmEntry e : all) {
+                if (_pendingHistoryCustomerId.equals(e.id)) {
+                    _pendingHistoryCustomerId = null;
+                    showCustomerRideHistory(e);
+                    break;
+                }
+            }
+            if (_pendingHistoryCustomerId != null) {
                 _pendingHistoryCustomerId = null;
-                showCustomerRideHistory(e);
-                return;
+                Toast.makeText(this, "❌ Kunde nicht (mehr) im CRM", Toast.LENGTH_LONG).show();
             }
         }
-        // Kunde nicht in der Liste — vermutlich gerade geloescht. Stilles Fehler-Toast.
-        _pendingHistoryCustomerId = null;
-        Toast.makeText(this, "❌ Kunde nicht (mehr) im CRM", Toast.LENGTH_LONG).show();
+        // v6.63.735: Auto-Open Edit-Dialog wenn Extra gesetzt (aus InvoicesActivity o.a.)
+        if (_pendingEditCustomerId != null) {
+            for (CrmEntry e : all) {
+                if (_pendingEditCustomerId.equals(e.id)) {
+                    _pendingEditCustomerId = null;
+                    openEditDialog(e);
+                    return;
+                }
+            }
+            _pendingEditCustomerId = null;
+            Toast.makeText(this, "❌ Kunde nicht (mehr) im CRM (Edit)", Toast.LENGTH_LONG).show();
+        }
     }
 
     // 🆕 v6.62.679: Patrick (13.05. 14:55): AdminDashboard Rueckfahrt-Klick laeuft

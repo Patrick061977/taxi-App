@@ -170,7 +170,15 @@ public class EmailPreviewActivity extends AppCompatActivity {
                     String dest = strVal(snap.child("destination").getValue());
                     Long pickupTs = longVal(snap.child("pickupTimestamp").getValue());
                     Integer pax = intVal(snap.child("passengers").getValue());
-                    String price = strVal(snap.child("price").getValue());
+                    // v6.63.735 (Patrick 18.07. 15:xx Bridge: "10€ eingegeben, im Betreff steht 8,30€"):
+                    //   Prio: actualPrice > paymentAmount > invoice.totalGross > price
+                    //   Vorher: nur ride.price (bleibt bei KI-Schaetzung, wird nach markCompleted
+                    //   nicht mit actualPrice ueberschrieben)
+                    String actualPriceStr = strVal(snap.child("actualPrice").getValue());
+                    String paymentAmountStr = strVal(snap.child("paymentAmount").getValue());
+                    String ridePriceStr = strVal(snap.child("price").getValue());
+                    String price = !actualPriceStr.isEmpty() ? actualPriceStr
+                        : (!paymentAmountStr.isEmpty() ? paymentAmountStr : ridePriceStr);
                     String vehicleName = strVal(snap.child("vehicle").getValue());
                     String vehiclePlate = strVal(snap.child("vehiclePlate").getValue());
                     invoiceNumber = strVal(snap.child("invoiceNumber").getValue());
@@ -180,32 +188,46 @@ public class EmailPreviewActivity extends AppCompatActivity {
                     // v6.63.635: prefillPdfUrl als Fallback wenn ride.invoicePdfUrl leer
                     if (invoicePdfUrl.isEmpty() && !prefillPdfUrl.isEmpty()) invoicePdfUrl = prefillPdfUrl;
 
-                    // prefillEmail-Fallback
+                    // v6.63.735 Email-Kette: Ride > prefillExtra > CRM > Invoice
                     if (email == null || email.isEmpty()) {
                         String prefillE = getIntent().getStringExtra("prefillEmail");
                         if (prefillE != null && !prefillE.isEmpty()) email = prefillE;
                     }
-                    etTo.setText(email);
-
-                    String dateTimeStr = "—";
+                    final String _finalPrice = price;
+                    final String _finalName = name;
+                    final String _finalGuestName = guestName;
+                    final String _finalPickup = pickup;
+                    final String _finalDest = dest;
+                    final String _finalDateTimeStr;
                     if (pickupTs != null && pickupTs > 0) {
                         SimpleDateFormat fmt = new SimpleDateFormat("EEEE, dd.MM.yyyy 'um' HH:mm 'Uhr'", Locale.GERMANY);
                         fmt.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
-                        dateTimeStr = fmt.format(new Date(pickupTs));
+                        _finalDateTimeStr = fmt.format(new Date(pickupTs));
+                    } else _finalDateTimeStr = "—";
+                    final Integer _finalPax = pax;
+                    final String _finalVehName = vehicleName;
+                    final String _finalVehPlate = vehiclePlate;
+                    final Long _finalPickupTs = pickupTs;
+                    // CRM-Email nachladen wenn leer
+                    if ((email == null || email.isEmpty()) && !strVal(snap.child("customerId").getValue()).isEmpty()) {
+                        String _cid = strVal(snap.child("customerId").getValue());
+                        FirebaseDatabase.getInstance(DB_URL).getReference("customers/" + _cid + "/email").get()
+                            .addOnSuccessListener(s -> {
+                                String _crmE = strVal(s.getValue());
+                                etTo.setText(_crmE);
+                                _renderBodyForRide(_finalName, _crmE, _finalGuestName, _finalPickup, _finalDest,
+                                    _finalDateTimeStr, _finalPax, _finalPrice, _finalVehName, _finalVehPlate, _finalPickupTs);
+                            })
+                            .addOnFailureListener(_e -> {
+                                etTo.setText("");
+                                _renderBodyForRide(_finalName, "", _finalGuestName, _finalPickup, _finalDest,
+                                    _finalDateTimeStr, _finalPax, _finalPrice, _finalVehName, _finalVehPlate, _finalPickupTs);
+                            });
+                        return;
                     }
+                    etTo.setText(email);
 
-                    if (isInvoiceMode) {
-                        // v6.63.635: Invoice pdfUrl nachladen wenn aus Ride leer
-                        final String _email = email;
-                        if (invoicePdfUrl.isEmpty() && !invoiceNumber.isEmpty()) {
-                            FirebaseDatabase.getInstance(DB_URL)
-                                .getReference("invoices/" + invoiceNumber + "/pdfUrl").get()
-                                .addOnSuccessListener(s -> { String u = strVal(s.getValue()); if (!u.isEmpty()) invoicePdfUrl = u; });
-                        }
-                        buildInvoiceBody(name, guestName, pickup, dest, dateTimeStr, price, invoiceNumber, _email, pickupTs);
-                    } else {
-                        buildConfirmationBody(name, email, pickup, dest, dateTimeStr, pax, price, vehicleName, vehiclePlate, pickupTs);
-                    }
+                    _renderBodyForRide(name, email, guestName, pickup, dest, _finalDateTimeStr, pax, price, vehicleName, vehiclePlate, pickupTs);
                 }
                 @Override public void onCancelled(DatabaseError err) {
                     tvStatus.setText("⚠️ DB-Fehler: " + err.getMessage());
@@ -213,6 +235,22 @@ public class EmailPreviewActivity extends AppCompatActivity {
             };
         FirebaseDatabase.getInstance(DB_URL).getReference("rides/" + rideId).addValueEventListener(_rideLive);
     }
+
+    // v6.63.735: gemeinsamer Body-Render damit CRM-Email-Nachladen den gleichen Pfad nutzt
+    private void _renderBodyForRide(String name, String email, String guestName, String pickup, String dest,
+            String dateTimeStr, Integer pax, String price, String vehicleName, String vehiclePlate, Long pickupTs) {
+        if (isInvoiceMode) {
+            if (invoicePdfUrl.isEmpty() && !invoiceNumber.isEmpty()) {
+                FirebaseDatabase.getInstance(DB_URL)
+                    .getReference("invoices/" + invoiceNumber + "/pdfUrl").get()
+                    .addOnSuccessListener(s -> { String u = strVal(s.getValue()); if (!u.isEmpty()) invoicePdfUrl = u; });
+            }
+            buildInvoiceBody(name, guestName, pickup, dest, dateTimeStr, price, invoiceNumber, email, pickupTs);
+        } else {
+            buildConfirmationBody(name, email, pickup, dest, dateTimeStr, pax, price, vehicleName, vehiclePlate, pickupTs);
+        }
+    }
+
     @Override protected void onDestroy() {
         super.onDestroy();
         if (_rideLive != null) {

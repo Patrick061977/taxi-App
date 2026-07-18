@@ -3509,23 +3509,70 @@ public class AdminDashboardActivity extends AppCompatActivity {
             .setTitle("👥 Zusammenlegen mit welcher Fahrt?")
             .setItems(labels, (d, which) -> {
                 Ride partner = cand.get(which);
-                String groupId = current.id.substring(1, 9); // Kurze Group-ID aus Firebase-Key
-                String vid = current.assignedVehicle != null ? current.assignedVehicle : partner.assignedVehicle;
-                Map<String, Object> u1 = new HashMap<>();
-                u1.put("linkedGroupId", groupId);
-                u1.put("_linkedAt", System.currentTimeMillis());
-                if (vid != null) { u1.put("assignedVehicle", vid); u1.put("vehicleId", vid); }
-                Map<String, Object> u2 = new HashMap<>(u1);
-                db.getReference("rides/" + current.id).updateChildren(u1);
-                db.getReference("rides/" + partner.id).updateChildren(u2);
-                Toast.makeText(this,
-                    "👥 Sammelfahrt: " + (current.customerName != null ? current.customerName : "?")
-                    + " + " + (partner.customerName != null ? partner.customerName : "?")
-                    + " (Group " + groupId + ")",
-                    Toast.LENGTH_LONG).show();
+                // v6.63.734 (Patrick 18.07. 14:19 Bridge): NACH Partner-Wahl → Fahrzeug-Auswahl.
+                //   Alle Sammel-Rides bekommen dasselbe Fahrzeug + assignmentLocked=true damit
+                //   auto-assign sie nicht mehr umverteilt.
+                _pickSammelVehicleThenLink(current, partner);
             })
             .setNegativeButton("Abbrechen", null)
             .show();
+    }
+
+    // v6.63.734: Fahrzeug-Auswahl fuer Sammelfahrten. Lädt alle aktiven Vehicles aus
+    //   Firebase (nicht deactivated), sortiert nach Priority. Default: aktuell zugewiesenes
+    //   Fahrzeug einer der beiden Rides, sonst erstes aktives.
+    private void _pickSammelVehicleThenLink(Ride current, Ride partner) {
+        db.getReference("vehicles").get().addOnSuccessListener(vSnap -> {
+            java.util.List<String[]> vList = new java.util.ArrayList<>(); // [vid, label]
+            for (com.google.firebase.database.DataSnapshot v : vSnap.getChildren()) {
+                Object dea = v.child("deactivated").getValue();
+                if (dea instanceof Boolean && (Boolean) dea) continue;
+                String vid = v.getKey();
+                String vname = String.valueOf(v.child("name").getValue());
+                if ("null".equals(vname)) vname = vid;
+                String vplate = String.valueOf(v.child("plate").getValue());
+                String label = vname + ("null".equals(vplate) ? "" : " · " + vplate);
+                vList.add(new String[]{vid, label});
+            }
+            if (vList.isEmpty()) {
+                Toast.makeText(this, "Keine aktiven Fahrzeuge verfuegbar", Toast.LENGTH_LONG).show();
+                return;
+            }
+            String[] labels = new String[vList.size()];
+            String preselectVid = current.assignedVehicle != null ? current.assignedVehicle : partner.assignedVehicle;
+            int preselectIdx = 0;
+            for (int i = 0; i < vList.size(); i++) {
+                labels[i] = vList.get(i)[1];
+                if (vList.get(i)[0].equals(preselectVid)) preselectIdx = i;
+            }
+            final int[] chosenIdx = { preselectIdx };
+            new AlertDialog.Builder(this)
+                .setTitle("🚕 Fahrzeug für Sammelfahrt wählen")
+                .setSingleChoiceItems(labels, preselectIdx, (d, w) -> chosenIdx[0] = w)
+                .setPositiveButton("Sperren + Zusammenlegen", (d, w) -> {
+                    String[] pick = vList.get(chosenIdx[0]);
+                    String vid = pick[0];
+                    String groupId = current.id.substring(1, 9);
+                    Map<String, Object> u = new HashMap<>();
+                    u.put("linkedGroupId", groupId);
+                    u.put("_linkedAt", System.currentTimeMillis());
+                    u.put("assignedVehicle", vid);
+                    u.put("vehicleId", vid);
+                    u.put("assignmentLocked", true);
+                    u.put("assignmentLockedBy", "sammelfahrt-native-v734");
+                    u.put("assignedBy", "sammelfahrt-manual-v734");
+                    u.put("assignedAt", System.currentTimeMillis());
+                    u.put("updatedAt", System.currentTimeMillis());
+                    db.getReference("rides/" + current.id).updateChildren(u);
+                    db.getReference("rides/" + partner.id).updateChildren(u);
+                    Toast.makeText(this,
+                        "👥 Sammelfahrt auf " + pick[1] + " gesperrt (" + (current.customerName != null ? current.customerName : "?")
+                        + " + " + (partner.customerName != null ? partner.customerName : "?") + ")",
+                        Toast.LENGTH_LONG).show();
+                })
+                .setNegativeButton("Abbrechen", null)
+                .show();
+        }).addOnFailureListener(e -> Toast.makeText(this, "Fahrzeug-Liste-Fehler: " + e.getMessage(), Toast.LENGTH_LONG).show());
     }
 
     private void unlinkSammelfahrt(Ride r) {
@@ -3535,11 +3582,16 @@ public class AdminDashboardActivity extends AppCompatActivity {
             .setTitle("Sammelfahrt auflösen?")
             .setMessage("Diese Fahrt wird aus der Sammelfahrt-Gruppe entfernt. Die anderen Fahrten der Gruppe bleiben verlinkt.")
             .setPositiveButton("Auflösen", (d, w) -> {
+                // v6.63.734: beim Aufloesen der Sammelfahrt auch das Vehicle-Lock entfernen
+                //   damit auto-assign wieder umverteilen darf.
                 Map<String, Object> u = new HashMap<>();
                 u.put("linkedGroupId", null);
                 u.put("_linkedAt", null);
+                u.put("assignmentLocked", false);
+                u.put("assignmentLockedBy", null);
+                u.put("updatedAt", System.currentTimeMillis());
                 db.getReference("rides/" + r.id).updateChildren(u);
-                Toast.makeText(this, "🔓 " + (r.customerName != null ? r.customerName : "?") + " aus Gruppe " + gid + " entfernt", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "🔓 " + (r.customerName != null ? r.customerName : "?") + " aus Gruppe " + gid + " entfernt · Lock entfernt", Toast.LENGTH_SHORT).show();
             })
             .setNegativeButton("Abbrechen", null)
             .show();

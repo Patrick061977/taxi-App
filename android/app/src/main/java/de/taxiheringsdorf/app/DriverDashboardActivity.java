@@ -3777,13 +3777,23 @@ public class DriverDashboardActivity extends AppCompatActivity {
                         // → Receipt-Screen kommt von dort (renderStripeQrDialog v6.62.316)
                         break;
                     case "invoice_auftraggeber":
-                        // v6.63.730 (Patrick 18.07. 12:48 Bridge: "warum bleibt er nicht in der
-                        //   Native-App, er geht in eine Web-App"): Web-App-Sprung raus.
-                        //   Cloud-Function v6.63.729 macht Rechnung + PDF + Mail automatisch
-                        //   nach dem Preview-Dialog. Kein Chrome-Tab mehr noetig.
-                        showAuftraggeberInvoicePreview(r, amount, hotelName);
-                        // markCompleted wird IM Preview-Dialog erst nach "Jetzt senden" gerufen
-                        // (siehe _renderAuftraggeberInvoicePreview Z4204). Kein doppeltes Complete!
+                        // v6.63.732 (Patrick 18.07. 12:55 Bridge): Statt separatem Preview-Dialog
+                        //   direkt die native EmailPreviewActivity oeffnen — dort sieht Patrick
+                        //   Body-Text + Empfaenger + PDF-Anhang-Button und kann per SMTP senden.
+                        //   Fahrt wird sofort abgeschlossen, EmailPreview wartet auf invoiceNumber.
+                        markCompleted(r.id, "invoice_auftraggeber", amount, hotelName);
+                        Toast.makeText(this, "🧾 Rechnung wird erstellt...", Toast.LENGTH_SHORT).show();
+                        final String _rIdInv = r.id;
+                        final String _rMailInv = r.customerEmail != null && !r.customerEmail.isEmpty()
+                            ? r.customerEmail : "";
+                        // Warte 2s bis Cloud-Function die Rechnung angelegt hat, dann PreviewActivity
+                        new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                            android.content.Intent inv = new android.content.Intent(this, EmailPreviewActivity.class);
+                            inv.putExtra(EmailPreviewActivity.EXTRA_RIDE_ID, _rIdInv);
+                            inv.putExtra(EmailPreviewActivity.EXTRA_MODE, EmailPreviewActivity.MODE_INVOICE);
+                            if (!_rMailInv.isEmpty()) inv.putExtra("prefillEmail", _rMailInv);
+                            startActivity(inv);
+                        }, 2500);
                         break;
                     case "ueberweisung":
                         // 🆕 v6.63.352: Überweisung — Rechnung wird mit 14-Tage-Footer

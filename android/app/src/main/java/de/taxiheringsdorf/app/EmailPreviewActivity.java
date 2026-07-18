@@ -77,8 +77,28 @@ public class EmailPreviewActivity extends AppCompatActivity {
 
         btnCancel.setOnClickListener(v -> finish());
         btnSend.setOnClickListener(v -> sendEmail());
+        // v6.63.732 (Patrick 18.07. 12:55 Bridge): PDF-Vorschau ohne Download.
+        //   Chrome Custom Tab oeffnet die pdfUrl direkt inline (kein separater PDF-Viewer noetig).
+        btnSend.setOnLongClickListener(v -> { openPdfPreview(); return true; });
+        // Zusaetzlich einen dedizierten Button in die Status-TextView anhaengen via Aktion.
+        tvStatus.setOnClickListener(v -> openPdfPreview());
 
         loadRideData();
+    }
+
+    private void openPdfPreview() {
+        if (invoicePdfUrl == null || invoicePdfUrl.isEmpty()) {
+            Toast.makeText(this, "PDF noch nicht bereit — Cloud-Function generiert gerade...", Toast.LENGTH_LONG).show();
+            return;
+        }
+        try {
+            new androidx.browser.customtabs.CustomTabsIntent.Builder()
+                .setShowTitle(true)
+                .build()
+                .launchUrl(this, android.net.Uri.parse(invoicePdfUrl));
+        } catch (android.content.ActivityNotFoundException e) {
+            startActivity(new Intent(Intent.ACTION_VIEW, android.net.Uri.parse(invoicePdfUrl)));
+        }
     }
 
     private void loadRideData() {
@@ -122,9 +142,12 @@ public class EmailPreviewActivity extends AppCompatActivity {
             });
     }
 
+    // v6.63.732 (Patrick 18.07. 12:55 Bridge): live-Listener statt SingleValue.
+    //   Wenn EmailPreview direkt nach Fahrt-Abschluss auf invoiceNumber wartet, muss
+    //   der Listener beim asynchronen Rechnungs-Anlegen (Cloud-Function ~5s) refreshen.
+    private ValueEventListener _rideLive;
     private void loadFromRide() {
-        FirebaseDatabase.getInstance(DB_URL).getReference("rides/" + rideId)
-            .addListenerForSingleValueEvent(new ValueEventListener() {
+        _rideLive = new ValueEventListener() {
                 @Override public void onDataChange(DataSnapshot snap) {
                     if (!snap.exists()) {
                         if (invoiceKey != null) { loadFromInvoice(invoiceKey); return; }
@@ -178,7 +201,14 @@ public class EmailPreviewActivity extends AppCompatActivity {
                 @Override public void onCancelled(DatabaseError err) {
                     tvStatus.setText("⚠️ DB-Fehler: " + err.getMessage());
                 }
-            });
+            };
+        FirebaseDatabase.getInstance(DB_URL).getReference("rides/" + rideId).addValueEventListener(_rideLive);
+    }
+    @Override protected void onDestroy() {
+        super.onDestroy();
+        if (_rideLive != null) {
+            try { FirebaseDatabase.getInstance(DB_URL).getReference("rides/" + rideId).removeEventListener(_rideLive); } catch (Throwable _ignore) {}
+        }
     }
 
     private void buildConfirmationBody(String name, String email, String pickup, String dest,

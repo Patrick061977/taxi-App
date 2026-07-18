@@ -3777,21 +3777,13 @@ public class DriverDashboardActivity extends AppCompatActivity {
                         // → Receipt-Screen kommt von dort (renderStripeQrDialog v6.62.316)
                         break;
                     case "invoice_auftraggeber":
-                        // v6.63.517: Fahrt abschließen + Web-Rechnungs-Modal via Chrome Tab
-                        //   öffnen — gleicher Flow wie CRM: Rechnung anzeigen →
-                        //   Auftraggeber-Tab → Email an Hotel. showAuftraggeberInvoicePreview
-                        //   wurde ersetzt weil Patrick "keine Vorschau" sah (17.06.).
-                        markCompleted(r.id, "invoice_auftraggeber", amount, hotelName);
-                        try {
-                            String _invUrl = "https://umwelt-taxi-insel-usedom.de/index.html?openInvoice=" + r.id;
-                            new androidx.browser.customtabs.CustomTabsIntent.Builder()
-                                .setShowTitle(true)
-                                .build()
-                                .launchUrl(DriverDashboardActivity.this, android.net.Uri.parse(_invUrl));
-                        } catch (android.content.ActivityNotFoundException _e2) {
-                            startActivity(new android.content.Intent(android.content.Intent.ACTION_VIEW,
-                                android.net.Uri.parse("https://umwelt-taxi-insel-usedom.de/index.html?openInvoice=" + r.id)));
-                        }
+                        // v6.63.730 (Patrick 18.07. 12:48 Bridge: "warum bleibt er nicht in der
+                        //   Native-App, er geht in eine Web-App"): Web-App-Sprung raus.
+                        //   Cloud-Function v6.63.729 macht Rechnung + PDF + Mail automatisch
+                        //   nach dem Preview-Dialog. Kein Chrome-Tab mehr noetig.
+                        showAuftraggeberInvoicePreview(r, amount, hotelName);
+                        // markCompleted wird IM Preview-Dialog erst nach "Jetzt senden" gerufen
+                        // (siehe _renderAuftraggeberInvoicePreview Z4204). Kein doppeltes Complete!
                         break;
                     case "ueberweisung":
                         // 🆕 v6.63.352: Überweisung — Rechnung wird mit 14-Tage-Footer

@@ -995,6 +995,17 @@ public class ShiftEditorActivity extends AppCompatActivity {
                 syncCheckboxes.run();
                 String startStr = String.format(Locale.GERMANY, "%02d:%02d", start[0], start[1]);
                 String endStr = String.format(Locale.GERMANY, "%02d:%02d", end[0], end[1]);
+                // v6.63.725 (Patrick 18.07. 08:14 Bridge): VALIDATE — Haerte-Guard.
+                // Blockt Save wenn active-Modus + Zeit ist null/leer/00:00-00:00.
+                boolean _wantsActive = !cbInactive.isChecked();
+                if (_wantsActive && (startStr == null || endStr == null
+                        || startStr.trim().isEmpty() || endStr.trim().isEmpty()
+                        || startStr.equals(endStr))) {
+                    Toast.makeText(this,
+                        "⚠️ Ohne gueltige Zeit kann kein aktiver Override gespeichert werden.",
+                        Toast.LENGTH_LONG).show();
+                    return;
+                }
                 // v6.62.996: Datum-Key aus selDate (statt heute)
                 SimpleDateFormat _df = new SimpleDateFormat("yyyy-MM-dd", Locale.GERMANY);
                 String dateKey = _df.format(selDate.getTime());

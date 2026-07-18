@@ -362,17 +362,34 @@ public class ShiftEditorActivity extends AppCompatActivity {
                 _weekDates[i] = _df2.format(_wc2.getTime());
                 _wc2.add(Calendar.DAY_OF_MONTH, 1);
             }
+            // v6.63.724 (Patrick 18.07. 07:54 Bridge): "unübersichtlich was Override und was normal".
+            //   Neuer Aufbau: Zeile 1 = Wochenplan-Tage-Übersicht mit Zeit-Kurzform.
+            //                 Zeile 2 = HEUTE-Zeile mit klarer Trennung Wochenplan vs Override.
+            //                 Wenn Override existiert: zusätzlich Klartext + [Override löschen]-Hinweis.
+            int dow = todayDow();
             StringBuilder sb = new StringBuilder();
             for (int i = 0; i < 7; i++) {
                 String note = (vs.weekDateNotes != null) ? vs.weekDateNotes.get(_weekDates[i]) : null;
                 sb.append(DAY_LABELS[i]).append(vs.defaults[i] ? " ✅" : " ⬜");
-                if (note != null) sb.append("↺").append(note);
-                sb.append("  ");
+                if (note != null) sb.append("↺");
+                sb.append(" ");
             }
-            int dow = todayDow();
-            boolean activeToday = vs.todayOverride ? (vs.todayActive != null && vs.todayActive) : vs.defaults[dow];
-            sb.append("\nHeute: ").append(activeToday ? "AKTIV" : "INAKTIV");
-            if (vs.todayOverride) sb.append(" (Override)");
+            // HEUTE-Zeile: klar getrennt
+            String _defTime = (vs.defaultTimes != null && vs.defaultTimes[dow] != null && vs.defaultTimes[dow][0] != null)
+                ? vs.defaultTimes[dow][0] + "-" + vs.defaultTimes[dow][1] : null;
+            boolean _defActive = vs.defaults[dow];
+            sb.append("\n📅 Wochenplan Heute: ");
+            if (_defActive && _defTime != null) sb.append(_defTime);
+            else if (_defActive) sb.append("aktiv");
+            else sb.append("frei");
+            if (vs.todayOverride) {
+                boolean actT = (vs.todayActive != null && vs.todayActive);
+                sb.append("\n⚠️ OVERRIDE HEUTE: ");
+                if (!actT) sb.append("OFFLINE");
+                else if (vs.todayStartTime != null) sb.append(vs.todayStartTime + "-" + vs.todayEndTime);
+                else sb.append("aktiv");
+                sb.append("  · Tap+Override-löschen im Dialog");
+            }
             h.days.setText(sb.toString());
         }
         @Override public int getItemCount() { return data.size(); }
@@ -997,7 +1014,15 @@ public class ShiftEditorActivity extends AppCompatActivity {
                     entry.put("isException", true);
                     entry.put("additiveException", false);
                     entry.put("setAt", System.currentTimeMillis());
-                    entry.put("setBy", "native-shift-editor-v999");
+                    entry.put("setBy", "native-shift-editor-v723");
+                    // v6.63.724 (Patrick 18.07. 07:53 Bridge): Standort vom Wochenplan
+                    //   in den Override vererben. Vorher fehlte homeLocation/homeCoords im
+                    //   Override → Cloud-Function fiel manchmal nicht sauber auf defaultTimes
+                    //   zurueck (besonders bei Split-Shift-Ranges).
+                    String _webHomeLoc = (vs.homeLocations != null && vs.homeLocations[dowSel] != null) ? vs.homeLocations[dowSel] : null;
+                    if (_webHomeLoc != null) {
+                        entry.put("homeLocation", _webHomeLoc);
+                    }
                     // 🆕 v6.62.999: Split-Shift-Support — timeRanges-Array wenn Spätschicht aktiv
                     if (hasLate[0]) {
                         String start2Str = String.format(Locale.GERMANY, "%02d:%02d", start2[0], start2[1]);
@@ -1140,6 +1165,22 @@ public class ShiftEditorActivity extends AppCompatActivity {
                         "Fehler: " + e.getMessage(), Toast.LENGTH_LONG).show());
             })
             .setNegativeButton("Abbrechen", null)
+            .setNeutralButton(vs.todayOverride ? "Override HEUTE löschen" : "", vs.todayOverride ? (d, w) -> {
+                // v6.63.724 (Patrick 18.07. 07:54): Override für DAS BEARBEITETE Datum entfernen.
+                SimpleDateFormat _df3 = new SimpleDateFormat("yyyy-MM-dd", Locale.GERMANY);
+                String _delKey = _df3.format(selDate.getTime());
+                FirebaseDatabase.getInstance(DB_URL)
+                    .getReference("vehicleShifts/" + vs.vehicleId + "/" + _delKey)
+                    .removeValue()
+                    .addOnSuccessListener(x -> {
+                        Toast.makeText(this,
+                            "🗑 Override " + vs.name + " für " + _delKey + " gelöscht — Wochenplan gilt wieder",
+                            Toast.LENGTH_LONG).show();
+                        triggerReassignForVehicle(vs.vehicleId, vs.name);
+                    })
+                    .addOnFailureListener(e -> Toast.makeText(this,
+                        "Fehler: " + e.getMessage(), Toast.LENGTH_LONG).show());
+            } : null)
             .show();
     }
 

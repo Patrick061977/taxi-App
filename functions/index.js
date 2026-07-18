@@ -27030,6 +27030,25 @@ exports.onRideCreated = onValueCreated(
 
         console.log(`📱 onRideCreated: ${rideId} — ${ride.customerName || 'Unbekannt'} — source: ${ride.source || 'browser'}`);
 
+        // v6.63.736 (Patrick 18.07. Bridge Wald+See-Fall): Email/Mobil aus CRM in Ride
+        //   nachziehen wenn customerId gesetzt ist aber Ride-Felder leer sind. Sonst muss
+        //   EmailPreview jedes Mal nachladen, und andere Cloud-Calls sehen leere Felder.
+        if (ride.customerId && (!ride.customerEmail || !ride.customerMobile)) {
+            try {
+                const _crmSnap = await db.ref(`customers/${ride.customerId}`).once('value');
+                const _crm = _crmSnap.val() || {};
+                const _fill = {};
+                if (!ride.customerEmail && _crm.email) _fill.customerEmail = _crm.email;
+                if (!ride.customerMobile && _crm.mobilePhone) _fill.customerMobile = _crm.mobilePhone;
+                if (Object.keys(_fill).length > 0) {
+                    _fill.updatedAt = Date.now();
+                    await db.ref(`rides/${rideId}`).update(_fill);
+                    Object.assign(ride, _fill);
+                    console.log(`✉️ v6.63.736 Ride ${rideId}: Kunden-Felder aus CRM nachgezogen: ${Object.keys(_fill).filter(k=>k!=='updatedAt').join(', ')}`);
+                }
+            } catch (_e) { console.warn('v6.63.736 CRM-Backfill Fehler:', _e.message); }
+        }
+
         // 🆕 v6.63.424 (Patrick 19.06. 15:20 + 16:31 Bridge: "die Uhrzeit entscheidet,
         //   nicht der Status — alles >30 Min Vorlauf = Vorbestellung, alles <30 = Sofort"):
         //   onRideCreated normalisiert ride.status nach Pickup-Zeit. User-Auswahl wird
@@ -27098,6 +27117,9 @@ exports.onRideCreated = onValueCreated(
                     if (_matchedCust) {
                         const _upd = { customerId: _matchedCust.customerId, updatedAt: Date.now() };
                         if (_matchedCust.mobilePhone) _upd.customerMobile = _matchedCust.mobilePhone;
+                        // v6.63.736 (Patrick 18.07. Bridge): Email aus CRM in Ride nachziehen.
+                        //   Symptom bei Wald+See: ride.customerEmail leer trotz gesetzter CRM-Email.
+                        if (_matchedCust.email && !ride.customerEmail) _upd.customerEmail = _matchedCust.email;
                         await db.ref('rides/' + rideId).update(_upd);
                         console.log(`🔗 v6.63.542 CRM-Auto-Link: ${_crmName} → ${_matchedCust.customerId}`);
                     } else if (_phoneMatches.length === 0) {

@@ -1332,7 +1332,11 @@ public class CallRecordingsActivity extends AppCompatActivity {
                 seen.add(pPhone);
                 String pLabel = (pName != null && !pName.isEmpty()) ? pName + " (" + pPhone + ")" : pPhone;
                 labels.add("📅 Vorbestellung für " + pLabel);
-                actions.add(() -> openVorbestellungForPhone(pPhone, pName, pId, null));
+                // v6.63.731 (Patrick 18.07. 12:53 Bridge): recording-Path auch fuer Partner
+                //   uebergeben — parallel-Anruf hat dieselbe Aufnahme, damit Media-Player in
+                //   der 2. Vorbestell-Maske ebenso oben erscheint wie beim Haupt-Anrufer.
+                final String _recPath = r.file != null ? r.file.getAbsolutePath() : null;
+                actions.add(() -> openVorbestellungForPhone(pPhone, pName, pId, _recPath));
             }
         }
 

@@ -27666,20 +27666,27 @@ exports.onRideCreated = onValueCreated(
                         }
                     }
                     if (_matched) {
-                        const _fpPrice = parseFloat(_matched.price).toFixed(2);
+                        // v6.63.726 (Patrick 18.07. 08:39 Bridge): Festpreis + Großraumzuschlag
+                        //   Bug: Bei Stammrouten-Match wurde der Personen-Zuschlag NICHT addiert.
+                        //   Mario Krause 6 Pax: Steigenberger-Festpreis 35.10 → müsste 45.10 sein.
+                        const _fpRaw = parseFloat(_matched.price) || 0;
+                        const _persFixed = parseInt(ride.persons || ride.passengers || ride.personenzahl || 1, 10);
+                        const _fpGross = _persFixed >= 5 ? _fpRaw + 10 : _fpRaw;
+                        const _fpPrice = _fpGross.toFixed(2);
                         await db.ref('rides/' + rideId).update({
                             price: _fpPrice,
                             estimatedPrice: _fpPrice,
                             priceCalculatedAt: Date.now(),
-                            priceCalculatedBy: 'fixedRoute-match',
+                            priceCalculatedBy: 'fixedRoute-match+grossraum-v723',
                             fixedRouteMatched: true,
                             fixedRouteName: _matched.name || (_matched.fromName + ' → ' + _matched.toName)
                         });
                         ride.price = _fpPrice;
+                        const _grossNote = _persFixed >= 5 ? ` + Großraumzuschlag (${_persFixed} Pax): +10€` : '';
                         await addRideLog(rideId, '💰',
-                            `Festpreis aus Stammroute: ${_fpPrice}€ (${_matched.fromName || '?'} → ${_matched.toName || '?'})`,
-                            { quelle: 'onRideCreated v6.62.512', match: _matched.name || 'unbenannt' });
-                        console.log(`💰 Festpreis-Match für ${rideId}: ${_fpPrice}€`);
+                            `Festpreis aus Stammroute: ${_fpPrice}€ (${_matched.fromName || '?'} → ${_matched.toName || '?'})${_grossNote}`,
+                            { quelle: 'onRideCreated v6.63.726', match: _matched.name || 'unbenannt', persons: _persFixed });
+                        console.log(`💰 Festpreis-Match für ${rideId}: ${_fpPrice}€ (persons=${_persFixed})`);
                     }
                 }
             } catch (_fpErr) { console.warn('Festpreis-Lookup Fehler:', _fpErr.message); }

@@ -14535,7 +14535,9 @@ async function handleCallback(callback) {
                         const _placeholderNums = ['1701234827', '1701234828', '1731234827', '491701234827', '491701234828'];
                         const _isPlaceholder = _placeholderNums.includes(_phoneDigits);
                         const _safePhoneDigits = _isPlaceholder ? '' : _phoneDigits;
-                        let _nameMatch = null;
+                        // v6.63.728 (Patrick 18.07. Bridge): Name-Duplikate erkennen und
+                        //   NICHT willkuerlich den ersten nehmen. Sammle ALLE Name-Matches.
+                        const _nameMatches = [];
                         let _phoneMatches = [];
                         for (const c of _allCust) {
                             const cNameMatch = (c.name || '').toLowerCase().trim() === _nameLower;
@@ -14545,18 +14547,19 @@ async function handleCallback(callback) {
                                 (cPhoneDigits.length > 5 && cPhoneDigits.endsWith(_safePhoneDigits.slice(-9))) ||
                                 (cPhone2Digits.length > 5 && cPhone2Digits.endsWith(_safePhoneDigits.slice(-9)))
                             );
-                            // Prio 1: Exakter Name-Match → sofort verwenden
-                            if (cNameMatch) {
-                                _nameMatch = c;
-                                break;
-                            }
-                            // Prio 2: Telefon-Match sammeln (erst nach Loop entscheiden)
-                            if (cPhoneMatch) {
-                                _phoneMatches.push(c);
-                            }
+                            if (cNameMatch) _nameMatches.push(c);
+                            if (cPhoneMatch) _phoneMatches.push(c);
                         }
-                        // Entscheidung: Name hat Vorrang, danach Phone NUR wenn GENAU 1 Treffer
-                        const _matchedCustomer = _nameMatch || (_phoneMatches.length === 1 ? _phoneMatches[0] : null);
+                        // Kreuz-Match: gibt es einen Kunden der Name UND Telefon matched?
+                        const _crossMatch = _nameMatches.find(n => _phoneMatches.some(p => p.customerId === n.customerId));
+                        let _matchedCustomer = null;
+                        if (_crossMatch) {
+                            _matchedCustomer = _crossMatch; // eindeutig
+                        } else if (_nameMatches.length === 1 && _phoneMatches.length === 0) {
+                            _matchedCustomer = _nameMatches[0]; // nur 1 Name-Match, kein Phone-Konflikt
+                        } else if (_nameMatches.length === 0 && _phoneMatches.length === 1) {
+                            _matchedCustomer = _phoneMatches[0]; // nur 1 Phone-Match
+                        }
                         if (_matchedCustomer) {
                             _alreadyExists = true;
                             const c = _matchedCustomer;
@@ -14566,12 +14569,25 @@ async function handleCallback(callback) {
                                 _rideUpdate.customerPhone = c.mobilePhone || c.phone;
                             }
                             await db.ref('rides/' + rideData.id).update(_rideUpdate);
-                            await addTelegramLog('🔗', chatId, `CRM-Kunde bereits vorhanden: ${c.name} (${c.customerId}) → Fahrt verknüpft`);
-                            if (_phoneMatches.length > 1 && !_nameMatch) {
-                                await addTelegramLog('⚠️', chatId, `Telefon-Match mehrdeutig (${_phoneMatches.length} Treffer) — nur bei genau 1 Treffer verknüpft`);
-                            }
+                            await addTelegramLog('🔗', chatId, `CRM-Kunde eindeutig: ${c.name} (${c.customerId}) → Fahrt verknüpft`);
+                        } else if (_nameMatches.length > 1) {
+                            // Name mehrdeutig — Admin-Warnung mit Unterscheidungs-Info
+                            const _info = _nameMatches.map(c => {
+                                const _fn = c.firstName || (c.name.split(/\s+/)[0] === c.name ? '' : c.name.split(/\s+/)[0]);
+                                const _addr = c.address ? c.address.slice(0, 40) : '';
+                                const _tel = c.mobilePhone || c.phone || '';
+                                return `${_fn || '?'} · ${_addr || 'keine Adr.'} · ${_tel || 'keine Tel.'}`;
+                            }).join(' | ');
+                            await addTelegramLog('⚠️', chatId,
+                                `CRM: ${_nameMatches.length} Kunden mit Namen "${_nameMatches[0].name}" — kein Auto-Link (mehrdeutig): ${_info}`);
+                            await sendToAllAdmins(
+                                `⚠️ *Namens-Duplikat* im CRM bei Fahrt-Anlage:\n` +
+                                `Name: *${_nameMatches[0].name}*\n\n` +
+                                _nameMatches.map((c, i) => `${i+1}) ${c.firstName || '?'} · ${c.address ? c.address.slice(0,40) : 'keine Adr.'} · ${c.mobilePhone || c.phone || 'keine Tel.'}\nID: \`${c.customerId}\``).join('\n\n') +
+                                `\n\nRide: ${rideData.id}`
+                            );
                         } else if (_phoneMatches.length > 1) {
-                            await addTelegramLog('⚠️', chatId, `CRM: ${_phoneMatches.length} Kunden mit gleicher Nummer gefunden — kein Auto-Link (mehrdeutig): ${_phoneMatches.map(c => c.name).join(', ')}`);
+                            await addTelegramLog('⚠️', chatId, `CRM: ${_phoneMatches.length} Kunden mit gleicher Nummer — kein Auto-Link: ${_phoneMatches.map(c => c.name).join(', ')}`);
                         }
                     } catch (_dupErr) { console.warn('CRM Duplikat-Check Fehler:', _dupErr.message); }
 
@@ -30160,7 +30176,10 @@ exports.onRideUpdated = onValueUpdated(
             // v6.62.314: Auch needsInvoice-Feld erkennen (Web-Driver-Flow nutzt das, Native
             //   v6.62.312+ schreibt beide Felder fuer Backwards-Kompatibilitaet).
             const _invoiceFlagSet = after.invoiceRequested === true || after.needsInvoice === true;
-            const _invoiceWanted = !_isCollectiveBilling || _invoiceFlagSet;
+            // v6.63.729 (Patrick 18.07. Bridge): Auftraggeber-Fahrten IMMER Rechnung anlegen,
+            //   nicht mehr auf Native-Flag warten. Sonst kann eine Auftraggeber-Fahrt ohne
+            //   Preview-Klick nie eine Rechnung erhalten.
+            const _invoiceWanted = true;
             const _invoiceWantedBefore = before.invoiceRequested === true || before.needsInvoice === true;
             // v6.62.598: Retro-Rechnung — Patrick kann nachtraeglich fuer vergangene
             //   completed-Fahrten den invoice-Flag flippen (Native-CRM-Historie).
@@ -30277,11 +30296,21 @@ exports.onRideUpdated = onValueUpdated(
                 const _stripePaid = after.paymentMethod === 'stripe' && (after.stripePaymentStatus === 'paid' || after.paymentStatus === 'bezahlt');
                 const _isPaidNow = (_effectivePaymentMethod === 'cash' || _effectivePaymentMethod === 'bar') || _stripePaid;
 
+                // v6.63.729 (Patrick 18.07. Bridge): Bei Auftraggeber-Buchung (_isAuftraggeberBooking)
+                //   IMMER billingName / CRM-Name als Empfänger, guestName geht in Body.
+                //   Bug-Symptom: 'Neumann' (Gast) stand als Empfänger statt 'Hotel Wald und See'.
+                const _isAuftr = after._isAuftraggeberBooking === true;
+                const _resolvedName = _isAuftr
+                    ? (_billingName || _custData.name || after.customerName || 'Auftraggeber')
+                    : (after.customerName || after.guestName || _billingName || _custData.name || 'Kunde');
+                const _resolvedGuestName = _isAuftr
+                    ? (after.guestName || (after.customerName !== _resolvedName ? after.customerName : ''))
+                    : ((after.customerName && after.guestName && after.customerName !== after.guestName) ? after.guestName : '');
                 const _invoiceData = {
                     invoiceNumber: _belegNr,
                     rideId,
-                    customerName: after.customerName || after.guestName || _billingName || _custData.name || 'Kunde',
-                    guestName: (after.customerName && after.guestName && after.customerName !== after.guestName) ? after.guestName : '',
+                    customerName: _resolvedName,
+                    guestName: _resolvedGuestName,
                     customerAnrede: _custData.anrede || '',
                     // 🆕 v6.63.293 (Patrick 11.06. 19:09): invoiceAddress als oberste Prio.
                     //   CRM-Edit-Dialog hat in v6.63.292 ein 'Rechnungsadresse' Feld bekommen
@@ -30388,6 +30417,52 @@ exports.onRideUpdated = onValueUpdated(
                     await addRideLog(rideId, '⚠️', `Serverseitige PDF-Generation fehlgeschlagen: ${_pdfErr.message} — Admin-Browser-jsPDF kann noch nachholen`, {
                         belegNr: _belegNr, error: _pdfErr.message
                     });
+                }
+
+                // v6.63.729 (Patrick 18.07. 12:08 Bridge): AUTO-MAIL nach Rechnungsanlage.
+                //   Native App setzt invoiceEmail + autoSendMail=true wenn Fahrer 'Rechnung an
+                //   Auftraggeber' bestätigt. Bisher wurden die Felder aber NIRGENDS in der
+                //   Cloud-Function verarbeitet → keine Mail wurde je versendet.
+                //   Fix: nach Rechnungs- + PDF-Anlage prüfen wir die Flags und rufen
+                //   sendInvoiceEmail intern auf (mit PDF-Anhang).
+                if (after.autoSendMail === true && after.invoiceEmail && String(after.invoiceEmail).includes('@')) {
+                    try {
+                        // Fresh pdfUrl nachladen (v6.62.811 setzt in DB)
+                        const _freshInvSnap = await db.ref(`invoices/${_belegNr}`).once('value');
+                        const _freshInv = _freshInvSnap.val() || {};
+                        const _mailUrl = 'https://europe-west1-taxi-heringsdorf.cloudfunctions.net/sendInvoiceEmail';
+                        const _mailResp = await fetch(_mailUrl, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                invoiceNumber: _belegNr,
+                                toEmail: String(after.invoiceEmail).trim(),
+                                toName: _freshInv.customerName || after.customerName || 'Auftraggeber',
+                                subject: `Rechnung ${_belegNr} — Funk Taxi Heringsdorf`,
+                                htmlBody: after.invoiceMessage
+                                    ? String(after.invoiceMessage).replace(/\n/g, '<br>')
+                                    : null,
+                                pdfUrl: _freshInv.pdfUrl || null,
+                                attachPdf: true
+                            })
+                        });
+                        const _mailJson = await _mailResp.json().catch(() => ({}));
+                        if (_mailResp.ok) {
+                            await db.ref(`rides/${rideId}`).update({
+                                invoiceMailSentAt: Date.now(),
+                                invoiceMailSentTo: String(after.invoiceEmail).trim(),
+                                autoSendMail: false
+                            });
+                            await addRideLog(rideId, '📧', `Rechnungs-Mail versendet an ${after.invoiceEmail}`, { belegNr: _belegNr, msgId: _mailJson.messageId });
+                            console.log(`✅ v6.63.729 Auto-Mail versendet: ${_belegNr} → ${after.invoiceEmail}`);
+                        } else {
+                            await addRideLog(rideId, '⚠️', `Rechnungs-Mail-Versand fehlgeschlagen: ${_mailJson.error || 'unbekannter Fehler'}`, { belegNr: _belegNr });
+                            console.error(`❌ v6.63.729 Mail-Fehler:`, _mailJson);
+                        }
+                    } catch (_mailErr) {
+                        console.error('❌ v6.63.729 Auto-Mail Exception:', _mailErr.message);
+                        await addRideLog(rideId, '⚠️', `Rechnungs-Mail-Exception: ${_mailErr.message}`, { belegNr: _belegNr });
+                    }
                 }
 
                 // 🆕 v6.62.980 (Patrick 27.05. 20:51): Vorkasse + Stripe-Auto-Link.

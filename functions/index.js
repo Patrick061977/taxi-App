@@ -2094,7 +2094,12 @@ async function autoAssignRide(rideId, rideData, _excludeVehicleIds = []) {
                 // Bug: allRides enthielt ALLE jemals zugewiesenen Fahrten (auch completed historische).
                 // Fix: nur AKTIVE Fahrten am SELBEN TAG wie Pickup zählen — gleicher Filter wie Browser.
                 const lastverteilungMalusProFahrt = getOptForTimestamp(rideData.pickupTimestamp).lastenmalus;
-                const _activeStatusesForLoad = ['new','vorbestellt','assigned','accepted','on_way','arrived','picked_up','sofort','warteschlange'];
+                // v6.63.727 (Patrick 18.07. 08:47 Bridge): Lastenverteilung nur nach
+                //   ABGESCHLOSSENEN Fahrten (Patrick: "die Entscheidung müsste nach
+                //   Fahrten fallen die schon gewesen sind"). Verhindert Bevorzugung
+                //   von Fahrzeugen die viele geplante Fahrten haben aber real erst
+                //   wenige gefahren sind.
+                const _activeStatusesForLoad = ['completed'];
                 const _pickupDayStr = berlinDateGlobal(rideData.pickupTimestamp);
                 const _isActiveSameDay = (r) => {
                     if (!r || !r.pickupTimestamp) return false;

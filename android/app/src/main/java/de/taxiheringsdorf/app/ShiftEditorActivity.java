@@ -785,10 +785,12 @@ public class ShiftEditorActivity extends AppCompatActivity {
         //   Pill-Buttons als Mode-Switcher. Eine Auswahl, klar getrennt.
         //   modeState: 0=WOCHENPLAN, 1=NUR_HEUTE, 2=AUS
         // v6.63.674 (Patrick 10.07. 13:58 Bridge): Default auf NUR_HEUTE gedreht.
-        // Vorher war WOCHENPLAN Default → jede Zeit-Änderung überschrieb versehentlich
-        // den Wochenplan. Patrick: "wenn ich nur einzelne Tage verändern will, wird's kompliziert".
-        // Jetzt: Einzeltag ist Default (safer). Wer den Wochenplan ändern will, tippt bewusst 📅.
-        final int[] modeState = { 1 };
+        // v6.63.723 (Patrick 18.07. 07:50 Bridge): "silent Overrides" — Default zurueck
+        // auf WOCHENPLAN. Grund: NUR_HEUTE Default fuehrte dazu dass Patrick den Dialog
+        // oeffnete + Speichern druckte, ohne Zeit zu aendern → Override wurde geschrieben,
+        // obwohl gar keine Aenderung gewollt war. Wochenplan = safer Default fuer
+        // "hier stimmt der Wochenplan sowieso schon".
+        final int[] modeState = { 0 };
         android.widget.TextView modeLabel = new android.widget.TextView(this);
         modeLabel.setText("📋 Was tun?");
         modeLabel.setTextSize(13);
@@ -823,7 +825,7 @@ public class ShiftEditorActivity extends AppCompatActivity {
             pillRow.addView(b);
         }
         root.addView(pillRow);
-        updateModePills(pills, 1); // v6.63.674: Default NUR_HEUTE — Pill mit selektiver Highlight
+        updateModePills(pills, 0); // v6.63.723 (Patrick 18.07.): Default WOCHENPLAN
 
         android.widget.TextView modeHint = new android.widget.TextView(this);
         modeHint.setText("📅 = ab kommender Woche jeden " + dayNames[selDate.get(Calendar.DAY_OF_WEEK) - 1] + " · 📌 = nur dieses Datum · ⚫ = Fahrzeug heute offline");
@@ -1076,6 +1078,25 @@ public class ShiftEditorActivity extends AppCompatActivity {
                         .addOnFailureListener(e -> Toast.makeText(this,
                             "Fehler beim Aufräumen: " + e.getMessage(), Toast.LENGTH_LONG).show());
                     return;
+                }
+                // v6.63.723 (Patrick 18.07. 07:50 Bridge): SKIP-IF-IDENTICAL.
+                //   Wenn die eingegebene Zeit identisch zum Wochenplan des Tages ist
+                //   UND kein Split-Shift → keinen Override schreiben. Verhindert
+                //   "silent Overrides" bei versehentlichem Speichern ohne Aenderung.
+                if (!inactive && !hasLate[0] && vs.defaultTimes != null && vs.defaultTimes[dowSel] != null) {
+                    String defStart = vs.defaultTimes[dowSel][0];
+                    String defEnd = vs.defaultTimes[dowSel][1];
+                    if (startStr.equals(defStart) && endStr.equals(defEnd)) {
+                        // Zeit identisch zum Wochenplan — kein Override schreiben.
+                        // Falls doch schon einer existiert: aufraeumen.
+                        FirebaseDatabase.getInstance(DB_URL)
+                            .getReference("vehicleShifts/" + vs.vehicleId + "/" + dateKey)
+                            .removeValue()
+                            .addOnSuccessListener(x -> Toast.makeText(this,
+                                "ℹ️ " + vs.name + ": Zeit identisch zum Wochenplan — kein Override" + _datumWarn,
+                                Toast.LENGTH_LONG).show());
+                        return;
+                    }
                 }
                 // Override-Mode (cbAllSame OFF oder inactive): nur Tag-Exception schreiben
                 FirebaseDatabase.getInstance(DB_URL)

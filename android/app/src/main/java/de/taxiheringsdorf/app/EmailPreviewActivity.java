@@ -91,13 +91,22 @@ public class EmailPreviewActivity extends AppCompatActivity {
             Toast.makeText(this, "PDF noch nicht bereit — Cloud-Function generiert gerade...", Toast.LENGTH_LONG).show();
             return;
         }
+        // v6.63.733 (Patrick 18.07. 13:48 Bridge): Android laedt PDF-URLs automatisch runter.
+        //   Google Docs Viewer wrappt die URL und zeigt PDF inline im Chrome Tab statt
+        //   Download-Aufforderung.
+        String _viewerUrl;
+        try {
+            _viewerUrl = "https://docs.google.com/viewer?url="
+                + java.net.URLEncoder.encode(invoicePdfUrl, "UTF-8")
+                + "&embedded=true";
+        } catch (Exception e) { _viewerUrl = invoicePdfUrl; }
         try {
             new androidx.browser.customtabs.CustomTabsIntent.Builder()
                 .setShowTitle(true)
                 .build()
-                .launchUrl(this, android.net.Uri.parse(invoicePdfUrl));
+                .launchUrl(this, android.net.Uri.parse(_viewerUrl));
         } catch (android.content.ActivityNotFoundException e) {
-            startActivity(new Intent(Intent.ACTION_VIEW, android.net.Uri.parse(invoicePdfUrl)));
+            startActivity(new Intent(Intent.ACTION_VIEW, android.net.Uri.parse(_viewerUrl)));
         }
     }
 

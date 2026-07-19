@@ -1497,6 +1497,77 @@ public class ShiftEditorActivity extends AppCompatActivity {
      * v6.63.260: Tap → Zeit-Edit-Dialog.
      * v6.63.262: Standort (📍 Ortsteil) aus /vehicles/{vid}/lat,lon.
      */
+    // v6.63.746 (Patrick 19.07. 16:07 Bridge): Wochen-Uebersicht
+    //   Zeigt oben pro Wochentag Anzahl aktive Fahrzeuge (defaults[dow]=true).
+    //   Klick auf einen Tag → AlertDialog mit Fahrzeug-Liste + Zeiten.
+    private void _addWeekOverviewRow() {
+        float dp = getResources().getDisplayMetrics().density;
+        int pad = (int)(6 * dp);
+        String[] dowNames = { "So", "Mo", "Di", "Mi", "Do", "Fr", "Sa" };
+        int todayDow = todayDow();
+
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        LinearLayout.LayoutParams rowLp = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        rowLp.setMargins(0, 0, 0, (int)(8 * dp));
+        row.setLayoutParams(rowLp);
+        row.setBackgroundColor(0xFF0F172A);
+        row.setPadding(pad, pad, pad, pad);
+
+        for (int _d = 0; _d < 7; _d++) {
+            final int _dow = _d;
+            java.util.List<VehicleShift> _activeToday = new java.util.ArrayList<>();
+            for (VehicleShift vs : data) {
+                if (vs.defaults != null && vs.defaults[_dow]) _activeToday.add(vs);
+            }
+            int _cnt = _activeToday.size();
+            LinearLayout _col = new LinearLayout(this);
+            _col.setOrientation(LinearLayout.VERTICAL);
+            LinearLayout.LayoutParams _colLp = new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+            _col.setLayoutParams(_colLp);
+            _col.setPadding((int)(2 * dp), (int)(4 * dp), (int)(2 * dp), (int)(4 * dp));
+            _col.setBackgroundColor(_dow == todayDow ? 0xFF1E3A8A : 0xFF1E293B);
+            android.widget.TextView _tvDow = new android.widget.TextView(this);
+            _tvDow.setText(dowNames[_dow]);
+            _tvDow.setTextColor(_dow == todayDow ? 0xFFFBBF24 : 0xFF94A3B8);
+            _tvDow.setTextSize(11);
+            _tvDow.setGravity(android.view.Gravity.CENTER);
+            _col.addView(_tvDow);
+            android.widget.TextView _tvCnt = new android.widget.TextView(this);
+            _tvCnt.setText(String.valueOf(_cnt));
+            _tvCnt.setTextColor(_cnt <= 1 ? 0xFFEF4444 : (_cnt == 2 ? 0xFFF59E0B : 0xFF10B981));
+            _tvCnt.setTextSize(20);
+            _tvCnt.setGravity(android.view.Gravity.CENTER);
+            _tvCnt.setTypeface(null, android.graphics.Typeface.BOLD);
+            _col.addView(_tvCnt);
+            _col.setOnClickListener(_v -> _showWeekDayDetail(_dow, dowNames[_dow], _activeToday));
+            row.addView(_col);
+        }
+        todayCardsContainer.addView(row);
+    }
+
+    private void _showWeekDayDetail(int dow, String dowName, java.util.List<VehicleShift> vsList) {
+        StringBuilder sb = new StringBuilder();
+        if (vsList.isEmpty()) {
+            sb.append("Kein Fahrzeug im Wochenplan aktiv fuer ").append(dowName).append(".");
+        } else {
+            for (VehicleShift vs : vsList) {
+                String _t = (vs.defaultTimes != null && vs.defaultTimes[dow] != null && vs.defaultTimes[dow][0] != null)
+                    ? vs.defaultTimes[dow][0] + " - " + vs.defaultTimes[dow][1]
+                    : "ohne Zeit";
+                sb.append("• ").append(vs.name != null ? vs.name : vs.vehicleId)
+                  .append("   ").append(_t).append("\n");
+            }
+        }
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("📅 " + dowName + " — " + vsList.size() + " Fahrzeuge")
+            .setMessage(sb.toString())
+            .setPositiveButton("OK", null)
+            .show();
+    }
+
     private void renderTodayCards() {
         if (todayCardsContainer == null) return;
         todayCardsContainer.removeAllViews();
@@ -1505,6 +1576,10 @@ public class ShiftEditorActivity extends AppCompatActivity {
             return;
         }
         if (todayEmptyHint != null) todayEmptyHint.setVisibility(View.GONE);
+
+        // v6.63.746 (Patrick 19.07. 16:07 Bridge): Wochen-Uebersicht ganz oben —
+        //   pro Wochentag Anzahl aktive Fahrzeuge. Klick → Popup mit Fahrzeug-Liste.
+        _addWeekOverviewRow();
 
         java.util.Calendar cal = java.util.Calendar.getInstance();
         int dow = cal.get(java.util.Calendar.DAY_OF_WEEK) - 1; // 0=So .. 6=Sa

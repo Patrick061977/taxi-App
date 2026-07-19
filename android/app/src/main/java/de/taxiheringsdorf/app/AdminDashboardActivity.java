@@ -425,55 +425,12 @@ public class AdminDashboardActivity extends AppCompatActivity {
             sectioned.addAll(webRequests);
         }
 
-        // 🆕 v6.63.558: FREIE FAHRTEN — new/sofort ohne Fahrzeug-Zuweisung (Patrick 29.06.
-        //   19:40 Bridge: "Da muss irgendwo am besten oben so ein Fahrradpool sein, wo die
-        //   offenen Fahrten drinnen stehen, wo die jetzt nicht zugeteilt wurden")
-        // v6.63.740 (Patrick 19.07. Bridge): Filter erweitert. Vorher nur new+sofort ohne
-        //   Vehicle. Fahrten mit status='vorbestellt' oder 'assigned' + kein Vehicle
-        //   fielen durchs Raster (Speckmann-Fall: Late-Rescue setzte assignedVehicle=null
-        //   aber status=assigned → in keiner Kategorie sichtbar).
-        //   Jetzt: JEDE aktive Fahrt (nicht completed/cancelled/deleted) ohne Fahrzeug
-        //   wird als 'freie Fahrt' angezeigt.
-        List<Ride> _freieRides = new ArrayList<>();
-        for (Ride _r2 : rest) {
-            String _st = _r2.status != null ? _r2.status.toLowerCase() : "";
-            boolean _isDone = _st.equals("completed") || _st.equals("cancelled") || _st.equals("deleted");
-            if (!_isDone && (_r2.assignedVehicle == null || _r2.assignedVehicle.isEmpty())) {
-                _freieRides.add(_r2);
-            }
-        }
-        if (!_freieRides.isEmpty()) {
-            _freieRides.sort(Comparator.comparingLong(_r3 -> _r3.pickupTimestamp != null ? _r3.pickupTimestamp : Long.MAX_VALUE));
-            sectioned.add("🆓 FREIE FAHRTEN (" + _freieRides.size() + ") — kein Fahrer zugewiesen");
-            sectioned.addAll(_freieRides);
-        }
-
-        // 🆕 v6.63.671 (Patrick 10.07. 11:09 Bridge "Koch war nirgendwo — Fahrt hängt tot",
-        //   "assigned ist nur wenn der Fahrer wirklich bestätigt"):
-        //   Fahrten die formal zugewiesen sind, aber der Fahrer hat NIE bestätigt (acceptedAt=null).
-        //   Diese fallen sonst durchs Netz: nicht im Wartepool (formal zugewiesen), nicht im
-        //   Freie-Fahrten-Block (hat ja ein Fahrzeug), und der Stuck-Watchdog greift nur bei
-        //   Pickup > jetzt (msUntil > 0). Der Koch-Fall (Pickup 10:00, jetzt 10:10, assigned
-        //   an offline-Fahrer seit 06:39) blieb komplett unsichtbar.
-        //
-        //   Kriterium: status='assigned' + acceptedAt=null + (assignedAt älter als 5 Min ODER
-        //     Pickup weniger als 30 Min entfernt/überfällig).
-        List<Ride> _vorgesehenRides = new ArrayList<>();
-        long _nowMs = System.currentTimeMillis();
-        for (Ride _rv : rest) {
-            if (!"assigned".equalsIgnoreCase(_rv.status)) continue;
-            if (_rv.acceptedAt != null) continue; // schon bestätigt → normale Fahrzeug-Kette
-            boolean _oldAssign = _rv.assignedAt != null && (_nowMs - _rv.assignedAt) > 5 * 60_000L;
-            boolean _pickupClose = _rv.pickupTimestamp != null && (_rv.pickupTimestamp - _nowMs) < 30 * 60_000L;
-            if (_oldAssign || _pickupClose) _vorgesehenRides.add(_rv);
-        }
-        if (!_vorgesehenRides.isEmpty()) {
-            _vorgesehenRides.sort(Comparator.comparingLong(_r4 -> _r4.pickupTimestamp != null ? _r4.pickupTimestamp : Long.MAX_VALUE));
-            sectioned.add("🕐 VORGESEHEN — nicht bestätigt (" + _vorgesehenRides.size() + ") — Fahrer hat NICHT angenommen");
-            sectioned.addAll(_vorgesehenRides);
-            // Aus rest entfernen damit sie nicht auch in der Tag-Timeline nochmal auftauchen
-            rest.removeAll(_vorgesehenRides);
-        }
+        // v6.63.742 (Patrick 19.07. Bridge: "das gefaellt mir so nicht. Ich will den
+        //   Kalender so sehen. Freie Fahrten werden ja eh verteilt. Alles nach Uhrzeit
+        //   sortiert."): Separate Sektionen 🆓 FREIE FAHRTEN + 🕐 VORGESEHEN entfernt.
+        //   Alle Rides bleiben in `rest` und werden unten sortiert in EINEM Kalender
+        //   angezeigt. Die Card-Renderer sollten "kein Fahrzeug" / "nicht angenommen"
+        //   inline pro Card kennzeichnen (v6.63.740-Filter im Card-Renderer weiter aktiv).
 
         // v6.63.678 (Patrick 10.07. 16:05 Bridge "der wartepool wird oben angezeigt und
         //   aus der Disposition verschwindet das ist unübersichtlich"):

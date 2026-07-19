@@ -24420,8 +24420,16 @@ exports.scheduledAutoAssign = onSchedule(
             //   Vorher (2h-Fenster) trafen wir IMMER eine Vorbestellung tagsüber = kein Skip.
             const _quickNew = await db.ref('rides').orderByChild('status').equalTo('new').limitToFirst(1).once('value');
             const _quickWP = await db.ref('rides').orderByChild('status').equalTo('warteschlange').limitToFirst(1).once('value');
-            const _futureWindow = now + 25 * 60 * 1000;  // 🔧 v6.63.235: 25 Min statt 2h
-            const _quickVB = await db.ref('rides').orderByChild('pickupTimestamp').startAt(now).endAt(_futureWindow).limitToFirst(5).once('value');
+            // 🔧 v6.63.748 (Patrick 19.07. 19:11 Bridge "warum werden Fahrten nicht automatisch
+            //   verteilt"): Fenster von 25 Min → 24h. Der 25-Min-QUICK-CHECK stammt aus
+            //   der Zeit als "Vorbestellungen erst 15 Min vor Pickup zuweisen" die Regel
+            //   war (v6.38.95 + v6.63.235). Effekt: Sonntag oder sonstige ruhige Phasen —
+            //   ohne Sofort/Warteschlange, ohne pickup-in-25min — wachte der Cron nicht auf
+            //   und ließ Vorbestellungen bis 25 Min vor Fahrt liegen. Patrick will die
+            //   Vorabverteilung schon 24h voraus sehen (Standort-Check +
+            //   Schichtplan-Prüfung passieren dann wenn Vehicles wirklich verfügbar sind).
+            const _futureWindow = now + 24 * 60 * 60 * 1000;
+            const _quickVB = await db.ref('rides').orderByChild('pickupTimestamp').startAt(now).endAt(_futureWindow).limitToFirst(20).once('value');
             let _vbHasPending = false;
             if (_quickVB.exists()) {
                 _quickVB.forEach(c => {
@@ -24430,7 +24438,7 @@ exports.scheduledAutoAssign = onSchedule(
                 });
             }
             if (!_quickNew.exists() && !_quickWP.exists() && !_vbHasPending) {
-                console.log('🌙 v6.63.235: IDLE — keine pending/wartepool/vorbestellt(25min) Rides. Skip.');
+                console.log('🌙 v6.63.748: IDLE — keine pending/wartepool/unzugewiesene-vorbestellt(24h) Rides. Skip.');
                 return;
             }
 

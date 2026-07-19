@@ -1,0 +1,62 @@
+name: Strato Deploy — keinbockzulaufen.de
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'keinbockzulaufen/**'
+  workflow_dispatch:
+
+jobs:
+  deploy-kbzl:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prüfen ob KBZL-Secrets gesetzt sind
+        id: check
+        run: |
+          if [ -n "${{ secrets.STRATO_KBZL_FTP_HOST }}" ] && [ -n "${{ secrets.STRATO_KBZL_FTP_USER }}" ] && [ -n "${{ secrets.STRATO_KBZL_FTP_PASSWORD }}" ]; then
+            echo "ready=true" >> $GITHUB_OUTPUT
+            echo "✅ KBZL-Secrets gesetzt"
+          elif [ -n "${{ secrets.STRATO_FTP_HOST }}" ] && [ "${{ secrets.STRATO_FTP_HOST }}" != "PLACEHOLDER_UPDATE_ME" ]; then
+            echo "ready=fallback" >> $GITHUB_OUTPUT
+            echo "⚠️ KBZL-Secrets fehlen — Fallback auf STRATO_FTP_* mit /keinbockzulaufen/ Unterordner"
+          else
+            echo "ready=false" >> $GITHUB_OUTPUT
+            echo "⏭️ Keine FTP-Secrets — nur Artifact"
+          fi
+
+      - name: FTP-Upload (KBZL-Secrets)
+        if: steps.check.outputs.ready == 'true'
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.STRATO_KBZL_FTP_HOST }}
+          username: ${{ secrets.STRATO_KBZL_FTP_USER }}
+          password: ${{ secrets.STRATO_KBZL_FTP_PASSWORD }}
+          local-dir: ./keinbockzulaufen/
+          server-dir: /
+          dangerous-clean-slate: false
+          state-name: .ftp-deploy-kbzl-sync-state.json
+          log-level: minimal
+
+      - name: FTP-Upload (Fallback via STRATO_FTP_*)
+        if: steps.check.outputs.ready == 'fallback'
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.STRATO_FTP_HOST }}
+          username: ${{ secrets.STRATO_FTP_USER }}
+          password: ${{ secrets.STRATO_FTP_PASSWORD }}
+          local-dir: ./keinbockzulaufen/
+          server-dir: /keinbockzulaufen/
+          dangerous-clean-slate: false
+          state-name: .ftp-deploy-kbzl-fallback-sync-state.json
+          log-level: minimal
+
+      - name: Artifact bei fehlenden Secrets
+        if: steps.check.outputs.ready == 'false'
+        uses: actions/upload-artifact@v4
+        with:
+          name: kbzl-manual-upload
+          path: keinbockzulaufen/
+          retention-days: 30

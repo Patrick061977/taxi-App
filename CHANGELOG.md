@@ -6,6 +6,190 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [6.63.746] - 2026-07-19
+
+### 📅 Wochen-Übersicht im Schicht-Editor
+Neue Zeile ganz oben: pro Wochentag Anzahl aktive Fahrzeuge (rot ≤1, orange 2, grün ≥3). Klick auf einen Tag → Popup mit Fahrzeug-Liste + Zeiten. Heutiger Tag ist blau hervorgehoben.
+
+---
+
+## [6.63.745] - 2026-07-19
+
+### 🚖 Sammelfahrt-Chance direkt in Dispo-Card
+Vorher nur per Telegram. Jetzt inline im Ride-Card wenn Cloud-Function `dispatcherTipSent.sammelfahrt` gesetzt hat.
+
+---
+
+## [6.63.744] - 2026-07-19 (Cloud)
+
+### 🚗 Round-Trip-Duration bei Fern-Zielen (>50 km)
+Fahrten nach Berlin/Rostock/Hamburg/Stettin bekommen automatisch `duration = 2 × oneWay + 30 Min`. Verhindert dass Auto-Assign nach 3h Berlin-Fahrt weitere Vorbestellungen zuweist.
+
+---
+
+## [6.63.742] - 2026-07-19
+
+### 📋 Dispo-Kalender: alles nach Uhrzeit sortiert
+Sektionen "🆓 FREIE FAHRTEN" und "🕐 VORGESEHEN" entfernt. Alle Rides in EINER Kalender-Liste. Inline-Markierungen bleiben.
+
+---
+
+## [6.63.741] - 2026-07-19
+
+### 🐛 assigned + sofort in ACTIVE_STATUSES
+Fahrten mit status='assigned' waren im Kalender komplett unsichtbar (Speckmann-Fall). Fix.
+
+---
+
+## [6.63.740] - 2026-07-19
+
+### 🆓 Freie-Fahrten-Filter erweitert
+Jede aktive Fahrt (nicht completed/cancelled) ohne Vehicle wird in Dispo sichtbar.
+
+---
+
+## [6.63.739] - 2026-07-19
+
+### 🔧 driver-pool-handback Cache + Lock cleanup
+"Fahrt abgeben" leert jetzt auch `assignedVehicleName`, `Plate`, `acceptedByVehicle` und `assignmentLocked`.
+
+---
+
+## [6.63.738] - 2026-07-19
+
+### 📇 Native CRM: strukturierte Rechnungsanschrift + Auftraggeber-Erweiterung
+- CRM-Edit bekommt Felder für empfaengerName / adresszusatz / strasse / plz / ort / land
+- Cloud-Function erkennt jetzt auch **pension, firma, klinik, praxis** als Auftraggeber
+
+---
+
+## [6.63.737] - 2026-07-19 (Cloud)
+
+### 🎨 Rechnungsadresse: adresszusatz als eigene Zeile
+`adresszusatz` immer als eigene Zeile gerendert (nach Empfängername, vor Straße).
+
+---
+
+## [6.63.736] - 2026-07-19 (Cloud)
+
+### 📧 onRideCreated backfillt CRM-Email + Mobil in Ride
+Wenn `customerId` gesetzt aber `customerEmail`/`customerMobile` leer → aus CRM nachladen.
+
+---
+
+## [6.63.735] - 2026-07-18
+
+### 🐛 EmailPreview Preis + Email + CRM-Direktlink
+- Preis-Prio: `actualPrice` > `paymentAmount` > `ride.price`
+- Email-Kette: Ride > prefillExtra > CRM-Fallback
+- Neuer Intent-Extra `auto_open_edit_customer_id` in CrmSearchActivity
+
+---
+
+## [6.63.734] - 2026-07-18
+
+### 👥 Sammelfahrt Fahrzeug-Auswahl + Lock
+Beim Zusammenlegen: Dialog zur Fahrzeug-Wahl, alle Rides bekommen dasselbe Fahrzeug + `assignmentLocked=true`. Beim Auflösen: Lock automatisch entfernt.
+
+---
+
+## [6.63.733] - 2026-07-18
+
+### 📄 PDF-Vorschau inline (Google Docs Viewer)
+Inline im Chrome Tab statt Download.
+
+---
+
+## [6.63.732] - 2026-07-18
+
+### 🧾 Native EmailPreview nach Fahrt-Abschluss + Live-Listener
+- `case invoice_auftraggeber`: öffnet EmailPreviewActivity nach 2s statt Web-App-Sprung
+- Live-Listener statt SingleValue
+- PDF-Vorschau: Long-Press auf Senden
+
+---
+
+## [6.63.731] - 2026-07-18
+
+### 🔊 Media-Player in 2. Vorbestell-Maske (Partner-Anruf)
+recordingPath wird jetzt auch für Partner übergeben.
+
+---
+
+## [6.63.730] - 2026-07-18
+
+### 🚫 Kein Web-App-Sprung mehr bei "Rechnung an Auftraggeber"
+Chrome Custom Tab raus, Native-Preview-Dialog reicht.
+
+---
+
+## [6.63.729] - 2026-07-18 (Cloud)
+
+### 🔴 KRITISCH: Auto-Mail nach Rechnungsanlage war NIE aktiv
+Native App setzte `invoiceEmail` + `autoSendMail=true`, Cloud-Function ignorierte die Felder → keine Mail wurde je versendet. Fix: `sendInvoiceEmail` mit PDF-Anhang. Plus customerName-Prio bei Auftraggeber.
+
+---
+
+## [6.63.728] - 2026-07-17 (Cloud)
+
+### 👥 CRM-Namens-Duplikat-Warnung
+Bei 2+ Kunden mit gleichem Namen → Admin-Push mit Auswahl-Liste statt Auto-Verknüpfung.
+
+---
+
+## [6.63.727] - 2026-07-17 (Cloud)
+
+### 📊 Load-Penalty nur nach abgeschlossenen Fahrten
+Auto-Optimizer zählt nur `status=completed` statt aller aktiven.
+
+---
+
+## [6.63.726] - 2026-07-17 (Cloud)
+
+### 💰 Festpreis-Match beachtet Großraumzuschlag
+Bei Stammrouten-Match wird `persons >= 5` geprüft und +10 € on-top addiert.
+
+---
+
+## [6.63.725] - 2026-07-17
+
+### 🧹 Shift-Override CLEAN-Cron + VALIDATE-Guard
+- Cloud-Cron `scheduledCleanupOldShiftOverrides` — täglich 03:00 löscht Overrides > 7 Tage alt
+- Native VALIDATE-Guard: blockt Save wenn active + Zeit leer
+
+---
+
+## [6.63.724] - 2026-07-17
+
+### 📅 Override erbt homeLocation + klare Anzeige + Löschen-Button
+- Override erbt homeLocation vom Wochenplan
+- Card zeigt Wochenplan-Zeit UND Override-Zeit getrennt
+- Neuer "Override HEUTE löschen"-Button
+
+---
+
+## [6.63.723] - 2026-07-17
+
+### 🎛 Shift-Override Silent-Fix
+- Default-Modus zurück auf WOCHENPLAN
+- SKIP-IF-IDENTICAL: unveränderte Zeit → kein Override
+
+---
+
+## [6.63.722] - 2026-07-17 (Cloud)
+
+### ⏰ Konflikt-Fenster 48h → 12h
+Reduziert Traffic auf autoResolveConflicts-Cron.
+
+---
+
+## [6.63.721] - 2026-07-17
+
+### 🐛 Override-Anzeige Wochen-Start-Bug
+`Calendar.set(DAY_OF_WEEK, SUNDAY)` sprang bei Locale.GERMANY zum kommenden Sonntag statt zum letzten. Fix: manuell zurückrechnen.
+
+---
+
 ## [6.63.687] - 2026-07-12
 
 ### 🎨 Native Schicht-Editor: Vorschau übersichtlich mit 2 Zeilen (Heute + Wochenplan)

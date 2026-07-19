@@ -6,6 +6,20 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [6.63.748] - 2026-07-19 (Cloud)
+
+### 🔧 scheduledAutoAssign QUICK-CHECK-Fenster 25 Min → 24h
+Patrick 19.07. 19:11+19:27 Bridge: „warum werden Fahrten nicht automatisch verteilt". Cron stieg früh aus wenn keine Sofort/Warteschlange UND keine Vorbestellung in den nächsten 25 Min anstand. Werktags kompensierten Sofortfahrten den Skip, Sonntag (still) blieben Vorbestellungen bis 25 Min vor Pickup liegen. Fenster auf 24h erweitert — Cron wacht auf sobald irgendwo eine unzugewiesene Vorbestellung im 24h-Fenster liegt.
+
+---
+
+## [6.63.747] - 2026-07-19 (Native)
+
+### 💰 Preis-Feld im Anfrage-Übernehmen-Dialog
+Patrick 19.07. 19:14 Bridge: „will beim Übernehmen den Preis ändern können". EditText mit vorbelegtem Anfrage-Preis zwischen Details und Buttons. Änderung wird beim Tap in `a.price` geschrieben; Stripe-Link nutzt automatisch den neuen Betrag.
+
+---
+
 ## [6.63.746] - 2026-07-19
 
 ### 📅 Wochen-Übersicht im Schicht-Editor

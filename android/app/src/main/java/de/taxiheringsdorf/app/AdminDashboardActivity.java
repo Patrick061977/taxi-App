@@ -424,10 +424,17 @@ public class AdminDashboardActivity extends AppCompatActivity {
         // 🆕 v6.63.558: FREIE FAHRTEN — new/sofort ohne Fahrzeug-Zuweisung (Patrick 29.06.
         //   19:40 Bridge: "Da muss irgendwo am besten oben so ein Fahrradpool sein, wo die
         //   offenen Fahrten drinnen stehen, wo die jetzt nicht zugeteilt wurden")
+        // v6.63.740 (Patrick 19.07. Bridge): Filter erweitert. Vorher nur new+sofort ohne
+        //   Vehicle. Fahrten mit status='vorbestellt' oder 'assigned' + kein Vehicle
+        //   fielen durchs Raster (Speckmann-Fall: Late-Rescue setzte assignedVehicle=null
+        //   aber status=assigned → in keiner Kategorie sichtbar).
+        //   Jetzt: JEDE aktive Fahrt (nicht completed/cancelled/deleted) ohne Fahrzeug
+        //   wird als 'freie Fahrt' angezeigt.
         List<Ride> _freieRides = new ArrayList<>();
         for (Ride _r2 : rest) {
-            if (("new".equalsIgnoreCase(_r2.status) || "sofort".equalsIgnoreCase(_r2.status))
-                    && (_r2.assignedVehicle == null || _r2.assignedVehicle.isEmpty())) {
+            String _st = _r2.status != null ? _r2.status.toLowerCase() : "";
+            boolean _isDone = _st.equals("completed") || _st.equals("cancelled") || _st.equals("deleted");
+            if (!_isDone && (_r2.assignedVehicle == null || _r2.assignedVehicle.isEmpty())) {
                 _freieRides.add(_r2);
             }
         }

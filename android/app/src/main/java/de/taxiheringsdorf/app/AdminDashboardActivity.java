@@ -110,8 +110,12 @@ public class AdminDashboardActivity extends AppCompatActivity {
     // v6.62.153 + v6.62.705: Active-Statuses fuer Disposition-Liste (alle Fahrten die noch nicht abgeschlossen sind)
     // v6.62.705: "wartepool" hinzu — Patrick (14.05.): "8:45 See-Eck steht gar nicht in meiner Disposition".
     // Fahrten die nach 3× Auto-Assign-Fehlschlag in den Wartepool fallen waren bisher unsichtbar.
+    // v6.63.741 (Patrick 19.07. Bridge): 'assigned' und 'sofort' fehlten — Speckmann-Fahrt
+    //   nach Late-Rescue hatte status='assigned' und war deshalb im Kalender komplett
+    //   unsichtbar. Beide Status ergaenzt.
     private static final List<String> ACTIVE_STATUSES = Arrays.asList(
-        "warteschlange", "wartepool", "vorbestellt", "new", "accepted", "on_way", "picked_up");
+        "warteschlange", "wartepool", "vorbestellt", "new", "sofort", "assigned",
+        "accepted", "on_way", "picked_up");
 
     // v6.62.353: Patrick (06.05. 11:50): "Abholort kann ich nicht bearbeiten, ist nur ein
     // Name kein Geopoint" — Edit-Dialog hat fuer pickup/destination nur EditText. Fix:

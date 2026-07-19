@@ -3401,6 +3401,16 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 u.put("assignedTo", null);
                 u.put("assignedAt", null);
                 u.put("assignedBy", "driver-pool-handback");
+                // v6.63.739 (Patrick 19.07. Bridge Berlin-Fall): Cache-Namen mitraeumen.
+                //   Sonst zeigt die Dispo weiter das alte Fahrzeug (assignedVehicleName),
+                //   aber der Bearbeiten-Dialog liest assignedVehicle und ist leer.
+                //   Zusaetzlich Lock loesen — sonst blockiert die pool-freigegebene
+                //   Fahrt Auto-Assign obwohl kein Vehicle mehr da ist.
+                u.put("assignedVehicleName", null);
+                u.put("assignedVehiclePlate", null);
+                u.put("acceptedByVehicle", null);
+                u.put("assignmentLocked", false);
+                u.put("assignmentLockedBy", null);
                 u.put("acceptedAt", null);
                 u.put("acceptedVia", null);
                 u.put("autoAssignAttempts", 0);

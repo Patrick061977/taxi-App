@@ -4991,13 +4991,56 @@ public class CrmSearchActivity extends AppCompatActivity {
         lblInvAddr.setTextSize(12);
         layout.addView(lblInvAddr);
         final EditText etInvAddr = new EditText(this);
-        etInvAddr.setHint("z.B. Anna Holl\nMusterstrasse 12\n17424 Heringsdorf\nLeer = Stammadresse oben wird genutzt");
+        etInvAddr.setHint("Nur wenn ANDERS als oben (sonst leer lassen)");
         etInvAddr.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE);
-        etInvAddr.setMinLines(3);
-        etInvAddr.setMaxLines(6);
+        etInvAddr.setMinLines(2);
+        etInvAddr.setMaxLines(4);
         etInvAddr.setGravity(android.view.Gravity.TOP | android.view.Gravity.START);
         if (e.invoiceAddress != null && !e.invoiceAddress.isEmpty()) etInvAddr.setText(e.invoiceAddress);
         layout.addView(etInvAddr);
+        // v6.63.738 (Patrick 19.07. Bridge): strukturierte Rechnungsadresse (billingAddresses[0])
+        //   Symmetrie mit Web-CRM. Bevorzugt vor invoiceAddress-Freitext beim Rendern.
+        TextView lblBaHead = new TextView(this);
+        lblBaHead.setText("📇 Rechnungsanschrift (strukturiert — bevorzugt vor Freitext oben)");
+        lblBaHead.setPadding(0, pad, 0, pad / 4);
+        lblBaHead.setTextSize(12);
+        lblBaHead.setTypeface(null, android.graphics.Typeface.BOLD);
+        layout.addView(lblBaHead);
+        final EditText etBaEmpfName = new EditText(this);
+        etBaEmpfName.setHint("Empfaengername (z.B. Inselklinik Heringsdorf GmbH)");
+        etBaEmpfName.setInputType(android.text.InputType.TYPE_CLASS_TEXT);
+        etBaEmpfName.setText(e.baEmpfName != null ? e.baEmpfName : "");
+        layout.addView(etBaEmpfName);
+        final EditText etBaAdrZusatz = new EditText(this);
+        etBaAdrZusatz.setHint("Adresszusatz (z.B. Haus Kulm ODER z.Hd. Buchhaltung) — optional");
+        etBaAdrZusatz.setInputType(android.text.InputType.TYPE_CLASS_TEXT);
+        etBaAdrZusatz.setText(e.baAdrZusatz != null ? e.baAdrZusatz : "");
+        layout.addView(etBaAdrZusatz);
+        final EditText etBaStrasse = new EditText(this);
+        etBaStrasse.setHint("Strasse + Hausnummer");
+        etBaStrasse.setInputType(android.text.InputType.TYPE_CLASS_TEXT);
+        etBaStrasse.setText(e.baStrasse != null ? e.baStrasse : "");
+        layout.addView(etBaStrasse);
+        LinearLayout rowPlzOrt = new LinearLayout(this);
+        rowPlzOrt.setOrientation(LinearLayout.HORIZONTAL);
+        final EditText etBaPlz = new EditText(this);
+        etBaPlz.setHint("PLZ");
+        etBaPlz.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+        etBaPlz.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        etBaPlz.setText(e.baPlz != null ? e.baPlz : "");
+        rowPlzOrt.addView(etBaPlz);
+        final EditText etBaOrt = new EditText(this);
+        etBaOrt.setHint("Ort");
+        etBaOrt.setInputType(android.text.InputType.TYPE_CLASS_TEXT);
+        etBaOrt.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 3f));
+        etBaOrt.setText(e.baOrt != null ? e.baOrt : "");
+        rowPlzOrt.addView(etBaOrt);
+        layout.addView(rowPlzOrt);
+        final EditText etBaLand = new EditText(this);
+        etBaLand.setHint("Land (leer = Deutschland)");
+        etBaLand.setInputType(android.text.InputType.TYPE_CLASS_TEXT);
+        etBaLand.setText(e.baLand != null ? e.baLand : "");
+        layout.addView(etBaLand);
 
         // 🆕 v6.62.544: Bevorzugte Zahlungsart (Web-CRM-Schema: preferredPayment)
         TextView lblPay = new TextView(this);
@@ -5236,9 +5279,39 @@ public class CrmSearchActivity extends AppCompatActivity {
                 upd.put("notes", notes);
                 upd.put("preferredPayment", _preferredPayment);
                 upd.put("additionalPhones", _additionalPhones);
-                // 🆕 v6.63.292: Rechnungsadresse
+                // 🆕 v6.63.292: Rechnungsadresse (Freitext, Legacy)
                 String _invAddr = etInvAddr.getText().toString().trim();
                 upd.put("invoiceAddress", _invAddr.isEmpty() ? null : _invAddr);
+                // v6.63.738 (Patrick 19.07. Bridge): strukturierte billingAddresses.
+                //   Wenn eines der Felder gefuellt ist → Array mit einem Default-Eintrag speichern.
+                //   Andernfalls: Feld leeren (null) damit alte Werte nicht haften.
+                String _baE = etBaEmpfName.getText().toString().trim();
+                String _baZ = etBaAdrZusatz.getText().toString().trim();
+                String _baS = etBaStrasse.getText().toString().trim();
+                String _baP = etBaPlz.getText().toString().trim();
+                String _baO = etBaOrt.getText().toString().trim();
+                String _baL = etBaLand.getText().toString().trim();
+                boolean _hasBa = !_baE.isEmpty() || !_baZ.isEmpty() || !_baS.isEmpty() || !_baP.isEmpty() || !_baO.isEmpty();
+                if (_hasBa) {
+                    Map<String, Object> _ba = new HashMap<>();
+                    _ba.put("id", e.baId != null ? e.baId : System.currentTimeMillis());
+                    _ba.put("label", _baE.isEmpty() ? "Standard" : _baE);
+                    _ba.put("empfaengerName", _baE);
+                    if (!_baZ.isEmpty()) _ba.put("adresszusatz", _baZ);
+                    _ba.put("strasse", _baS);
+                    _ba.put("plz", _baP);
+                    _ba.put("ort", _baO);
+                    if (!_baL.isEmpty()) _ba.put("land", _baL);
+                    _ba.put("isDefault", true);
+                    // Backwards-Kompat: auch address-String setzen damit alter Cloud-Code den Fallback nutzen kann
+                    String _combined = _baS + (_baP.isEmpty() && _baO.isEmpty() ? "" : ", " + (_baP + " " + _baO).trim());
+                    _ba.put("address", _combined);
+                    java.util.List<Map<String, Object>> _baList = new java.util.ArrayList<>();
+                    _baList.add(_ba);
+                    upd.put("billingAddresses", _baList);
+                } else {
+                    upd.put("billingAddresses", null);
+                }
                 // 🆕 v6.62.545: fixedRoutes Array (Festpreise) speichern
                 upd.put("fixedRoutes", _fpList);
                 String addr = tvAddr.getText().toString().replaceFirst("^📍 ", "").trim();
@@ -5638,6 +5711,9 @@ public class CrmSearchActivity extends AppCompatActivity {
         //   ist ein mehrzeiliger Block. Wenn leer: address wird als Rechnungsadresse genommen.
         String invoiceAddress;
         String firstName, lastName;
+        // v6.63.738 (Patrick 19.07. Bridge): strukturierte Rechnungsanschrift aus billingAddresses[isDefault]
+        String baEmpfName, baAdrZusatz, baStrasse, baPlz, baOrt, baLand;
+        Long baId;
         // 🆕 v6.62.545: Festpreise pro Hotel/Kunde — Strecken-Pauschalen.
         // Schema: { id, name, fromName, fromLat, fromLon, toName, toLat, toLon, price }
         java.util.List<Map<String, Object>> fixedRoutes = new java.util.ArrayList<>();
@@ -5659,6 +5735,27 @@ public class CrmSearchActivity extends AppCompatActivity {
                 e.email = s.child("email").getValue(String.class);
                 e.address = s.child("address").getValue(String.class);
                 e.invoiceAddress = s.child("invoiceAddress").getValue(String.class);
+                // v6.63.738: billingAddresses[isDefault] parsen (strukturierte Rechnungsanschrift)
+                DataSnapshot _baSnap = s.child("billingAddresses");
+                if (_baSnap.exists()) {
+                    DataSnapshot _pickBa = null;
+                    for (DataSnapshot _b : _baSnap.getChildren()) {
+                        Object _isD = _b.child("isDefault").getValue();
+                        if (_isD instanceof Boolean && (Boolean) _isD) { _pickBa = _b; break; }
+                        if (_pickBa == null) _pickBa = _b;
+                    }
+                    if (_pickBa != null) {
+                        e.baEmpfName = _pickBa.child("empfaengerName").getValue(String.class);
+                        if (e.baEmpfName == null) e.baEmpfName = _pickBa.child("label").getValue(String.class);
+                        e.baAdrZusatz = _pickBa.child("adresszusatz").getValue(String.class);
+                        e.baStrasse = _pickBa.child("strasse").getValue(String.class);
+                        e.baPlz = _pickBa.child("plz").getValue(String.class);
+                        e.baOrt = _pickBa.child("ort").getValue(String.class);
+                        e.baLand = _pickBa.child("land").getValue(String.class);
+                        Object _idObj = _pickBa.child("id").getValue();
+                        if (_idObj instanceof Number) e.baId = ((Number) _idObj).longValue();
+                    }
+                }
                 e.customerKind = s.child("customerKind").getValue(String.class);
                 // 🆕 v6.62.544: anrede + notes + preferredPayment + type/firstName/lastName
                 e.anrede = s.child("anrede").getValue(String.class);

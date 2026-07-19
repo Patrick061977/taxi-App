@@ -3972,8 +3972,12 @@ function findAllCustomersForSecretary(allCustomers, searchName) {
 
 // 🆕 v6.15.0: Auftraggeber-Erkennung — Hotels, Firmen, Kliniken die für Andere buchen
 // 🆕 v6.15.1: Auch Lieferanten (type='supplier') buchen für Gäste → Gastname + Gast-Telefon abfragen
+// v6.63.738 (Patrick 19.07. Bridge): pension/firma/klinik/praxis auch als Auftraggeber
+//   erkennen. Sie buchen genauso wie Hotels für Gäste, brauchen also Gastname-Pflicht.
 function isAuftraggeber(customerKind, customerType) {
-    return customerKind === 'hotel' || customerKind === 'auftraggeber' || customerType === 'supplier';
+    const _k = String(customerKind || '').toLowerCase();
+    return _k === 'hotel' || _k === 'pension' || _k === 'firma' || _k === 'klinik' || _k === 'praxis'
+        || _k === 'auftraggeber' || customerType === 'supplier';
 }
 
 // 🆕 v6.14.0: Admin — Neuen Kunden im CRM anlegen und Buchung fortsetzen

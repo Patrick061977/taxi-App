@@ -2678,6 +2678,12 @@ public class AdminDashboardActivity extends AppCompatActivity {
         // v6.63.686 (Patrick 12.07. Bridge Sammelfahrt): Verlinkte Fahrten-Gruppen.
         //   linkedGroupId gemeinsam bei allen Fahrten die als Sammelfahrt zusammen fahren.
         String linkedGroupId;
+        // v6.63.745 (Patrick 19.07. Bridge): Sammelfahrt-Chance aus dispatcherTipSent.
+        //   Cloud-Function scheduledDispatcherTips erkennt Kandidaten (2 Vorbestellungen
+        //   <30 Min diff + Ziel im 500m-Radius). Zeigen wir jetzt direkt in der Dispo-Card
+        //   an statt nur per Telegram.
+        String sammelChancePartnerId;
+        Long sammelChanceAt;
 
         static boolean isWebSource(String s) {
             return s != null && (
@@ -2714,6 +2720,13 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 if (_vor instanceof Boolean) r.vorkasseRequested = (Boolean) _vor;
                 r.guestName = s.child("guestName").getValue(String.class);
                 r.notes = s.child("notes").getValue(String.class);
+                // v6.63.745: Sammelfahrt-Chance aus dispatcherTipSent.sammelfahrt lesen
+                com.google.firebase.database.DataSnapshot _sam = s.child("dispatcherTipSent").child("sammelfahrt");
+                if (_sam.exists()) {
+                    r.sammelChancePartnerId = _sam.child("partner").getValue(String.class);
+                    Object _st = _sam.child("t").getValue();
+                    if (_st instanceof Number) r.sammelChanceAt = ((Number) _st).longValue();
+                }
                 Object _pr = s.child("actualPrice").getValue();
                 if (_pr == null) _pr = s.child("price").getValue();
                 if (_pr instanceof Number) { r.actualPrice = ((Number)_pr).doubleValue(); r.price = r.actualPrice; }
@@ -3391,6 +3404,9 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 // v6.63.686: Sammelfahrt-Badge in Card
                 if (r.linkedGroupId != null && !r.linkedGroupId.isEmpty()) {
                     route.append("\n👥 SAMMELFAHRT (Gruppe ").append(r.linkedGroupId).append(")");
+                } else if (r.sammelChancePartnerId != null && !r.sammelChancePartnerId.isEmpty()) {
+                    // v6.63.745 (Patrick 19.07.): Sammelfahrt-Chance direkt in Dispo statt nur Telegram
+                    route.append("\n🚖 SAMMELFAHRT-CHANCE — Partner-Fahrt im 500m-Radius, LongPress → Zusammenlegen");
                 }
                 t2.setText(route.toString());
                 // v6.62.153: Tap → Edit-Dialog (Patrick: 'will Fahrten bearbeiten aus der App')

@@ -5441,6 +5441,17 @@ async function _getRouteMode() {
     return _routeModeCache;
 }
 
+// v6.63.743 (Patrick 19.07. Bridge Berlin-Fall): Fahrten mit weit entferntem Ziel
+//   (>50 km one-way) brauchen fuer Auto-Assign eine ROUND-TRIP-Duration, sonst
+//   glaubt der Cron das Fahrzeug ist nach der Einfach-Fahrt zurueck. Realistisch
+//   +Zeit fuer Rueckfahrt, +30% Puffer (Verkehr, Grenzen, Umwege).
+function applyRoundTripDurationIfRemote(distanceKm, oneWayDuration) {
+    const _d = parseFloat(distanceKm) || 0;
+    const _dur = parseInt(oneWayDuration) || 0;
+    if (_d < 50 || _dur <= 0) return _dur;
+    // >50 km: verdoppeln + 30% Puffer
+    return Math.round(_dur * 2 * 1.3);
+}
 async function calculateRoute(from, to, waypointCoords = []) {
     const _routeMode = await _getRouteMode();
 
@@ -27526,9 +27537,16 @@ exports.onRideCreated = onValueCreated(
                         _updates.estimatedDistance = _dKm;
                         ride.distance = _dKm; ride.estimatedDistance = _dKm;
                         if (_route.duration) {
-                            _updates.duration = _route.duration;
-                            _updates.estimatedDuration = _route.duration;
-                            ride.duration = _route.duration;
+                            // v6.63.743: Round-Trip-Duration bei Fern-Zielen (>50 km)
+                            const _effDur = applyRoundTripDurationIfRemote(_dKm, _route.duration);
+                            _updates.duration = _effDur;
+                            _updates.estimatedDuration = _route.duration; // Einweg-Wert bleibt Referenz
+                            _updates.drivingTimeToDestination = _route.duration;
+                            if (_effDur !== _route.duration) {
+                                _updates._roundTripApplied = true;
+                                _updates._roundTripNote = `Duration ${_route.duration}→${_effDur}min (Round-Trip fuer ${_dKm}km Ziel)`;
+                            }
+                            ride.duration = _effDur;
                         }
                         if (!ride.estimatedPrice) {
                             const _price = calculatePrice(Number(_dKm), ride.pickupTimestamp || Date.now());

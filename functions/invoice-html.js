@@ -136,14 +136,17 @@ function buildInvoiceHtml({ invoiceNumber, ride, customer, settings, invoice }) 
         const _ba = c.billingAddresses.find(b => b && b.isDefault) || c.billingAddresses[0];
         if (_ba) {
             _baName = (_ba.empfaengerName || _ba.label || '').trim();
+            // v6.63.737 (Patrick 19.07. 06:XX Bridge Haus-Kulm): adresszusatz als eigene
+            //   Zeile IMMER rendern (vorher nur inline hinter Strasse angehaengt oder gar
+            //   nicht wenn nur address-Freitext gepflegt war).
             if (_ba.strasse) {
-                // Neues Format: strasse/plz/ort getrennt
-                _baLines.push(_ba.strasse + (_ba.adresszusatz ? ', ' + _ba.adresszusatz : ''));
+                if (_ba.adresszusatz) _baLines.push(_ba.adresszusatz);
+                _baLines.push(_ba.strasse);
                 const _po = [_ba.plz, _ba.ort].filter(Boolean).join(' ').trim();
                 if (_po) _baLines.push(_po);
                 if (_ba.land && _ba.land.toLowerCase() !== 'deutschland') _baLines.push(_ba.land);
             } else if (_ba.address) {
-                // v6.63.527: Altes Format — address als ein String
+                if (_ba.adresszusatz) _baLines.push(_ba.adresszusatz);
                 _ba.address.split(/[,\n]/).map(l => l.trim()).filter(Boolean).forEach(l => _baLines.push(l));
             }
         }

@@ -1346,10 +1346,49 @@ public class AdminDashboardActivity extends AppCompatActivity {
         lp2.setMargins(0, 0, 0, btnPad / 2);
         btnNurUebernehmen.setLayoutParams(lp2);
 
+        // v6.63.747 (Patrick 19.07. 19:14 Bridge): Preis direkt im Anfrage-Dialog editierbar.
+        //   Vorher: Preis war fix aus Anfrage — Änderung ging nur nach dem Übernehmen im
+        //   Fahrt-Editor. Jetzt: Feld vorbelegt mit Anfrage-Preis, änderbar. Beim Tap auf
+        //   Übernehmen wird der neue Wert in a.price geschrieben und _uebernehmeAnfrageImpl
+        //   nimmt ihn wie einen normalen Anfrage-Preis (schreibt price + estimatedPrice +
+        //   priceFromAnfrage=true; Stripe-Link nutzt automatisch den neuen Betrag).
+        TextView tvPreisLabel = new TextView(this);
+        tvPreisLabel.setText("💰 Preis (€) — änderbar:");
+        tvPreisLabel.setTextSize(14);
+        tvPreisLabel.setPadding(btnPad, btnPad, btnPad, 4);
+        final android.widget.EditText etPreis = new android.widget.EditText(this);
+        etPreis.setInputType(android.text.InputType.TYPE_CLASS_NUMBER | android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL);
+        String _preisInit = "";
+        if (a.price != null) {
+            _preisInit = a.price.replace("€","").replace(",",".").trim();
+        }
+        etPreis.setText(_preisInit);
+        etPreis.setPadding(btnPad, btnPad, btnPad, btnPad);
+        android.widget.LinearLayout.LayoutParams lpPreis =
+            new android.widget.LinearLayout.LayoutParams(
+                android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
+        lpPreis.setMargins(0, 0, 0, btnPad);
+        etPreis.setLayoutParams(lpPreis);
+
         btnLayout.addView(tvDetails);
+        btnLayout.addView(tvPreisLabel);
+        btnLayout.addView(etPreis);
         btnLayout.addView(btnVorschau);
         btnLayout.addView(btnNurUebernehmen);
         scroll.addView(btnLayout);
+
+        // Helper: neuen Preis (falls geändert) in a.price schreiben bevor Übernahme läuft
+        final Runnable _applyPriceEdit = () -> {
+            String _neu = etPreis.getText().toString().replace(",", ".").trim();
+            if (_neu.isEmpty()) return;
+            try {
+                double _v = Double.parseDouble(_neu);
+                if (_v > 0) {
+                    a.price = String.format(java.util.Locale.US, "%.2f€", _v);
+                }
+            } catch (Throwable _e) { /* ungueltige Eingabe → alter Preis bleibt */ }
+        };
 
         androidx.appcompat.app.AlertDialog dlg = new androidx.appcompat.app.AlertDialog.Builder(this)
             .setTitle("📥 Anfrage — " + (a.name != null ? a.name : "?"))
@@ -1361,6 +1400,7 @@ public class AdminDashboardActivity extends AppCompatActivity {
             .create();
 
         btnVorschau.setOnClickListener(_v -> {
+            _applyPriceEdit.run();
             dlg.dismiss();
             // 🆕 v6.63.535: Vollständig nativ — kein Browser-Redirect.
             // uebernehmeAnfrage() schreibt Ride in Firebase; onSuccess ruft
@@ -1369,6 +1409,7 @@ public class AdminDashboardActivity extends AppCompatActivity {
             uebernehmeAnfrage(a);
         });
         btnNurUebernehmen.setOnClickListener(_v -> {
+            _applyPriceEdit.run();
             dlg.dismiss();
             uebernehmeAnfrageOhneBestaetigung(a);
         });
@@ -1510,6 +1551,8 @@ public class AdminDashboardActivity extends AppCompatActivity {
             Toast.makeText(this, "❌ Pre-Check-Fehler: " + err.getMessage(), Toast.LENGTH_LONG).show();
         });
     }
+    // v6.63.747: Preis-Edit im Dialog überschreibt a.price vor Aufruf; _uebernehmeAnfrageImpl
+    //   liest ganz normal a.price wie bei einer Web-Anfrage → keine weitere Anpassung nötig.
     private void _uebernehmeAnfrageImpl(Anfrage a) {
         // v6.63.510: Uhrzeit-Pflichtfeld — leere Uhrzeit würde isSofort=true
         // liefern und die Fahrt mit falschem Timestamp (jetzt) anlegen.

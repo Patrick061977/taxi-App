@@ -5449,8 +5449,9 @@ function applyRoundTripDurationIfRemote(distanceKm, oneWayDuration) {
     const _d = parseFloat(distanceKm) || 0;
     const _dur = parseInt(oneWayDuration) || 0;
     if (_d < 50 || _dur <= 0) return _dur;
-    // >50 km: verdoppeln + 30% Puffer
-    return Math.round(_dur * 2 * 1.3);
+    // v6.63.744 (Patrick 19.07. 14:26 Bridge): einfach × 2 + 30 Min Puffer,
+    //   nicht 2 × 1.3 (war zu viel). Rueckfahrt ist ja gleiche Route.
+    return (_dur * 2) + 30;
 }
 async function calculateRoute(from, to, waypointCoords = []) {
     const _routeMode = await _getRouteMode();

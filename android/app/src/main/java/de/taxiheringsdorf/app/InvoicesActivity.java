@@ -308,6 +308,36 @@ public class InvoicesActivity extends AppCompatActivity {
         }
         form.addView(btnRow);
 
+        // v6.63.756 (Patrick 20.07. Bridge: "wo kann man Rechnung neu generieren"):
+        //   Expliziter Regen-Button in eigener Zeile — triggert needsPdfRegeneration=true.
+        //   Bisher lief Regen nur ueber Bearbeiten -> Speichern. Fuer Faelle wo Rechnung
+        //   nicht bearbeitet werden soll (nur Neu-Rendering z.B. nach CRM-Aenderung),
+        //   ist ein eigener Button klarer.
+        LinearLayout btnRow2 = new LinearLayout(this);
+        btnRow2.setOrientation(LinearLayout.HORIZONTAL);
+        LinearLayout.LayoutParams brp2 = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        brp2.setMargins(0, (int)(dp*8), 0, 0); btnRow2.setLayoutParams(brp2);
+        MaterialButton btnRegen = new MaterialButton(this);
+        btnRegen.setText("🔄 PDF neu generieren");
+        btnRegen.setTextSize(12); btnRegen.setTextColor(Color.WHITE);
+        btnRegen.setBackgroundColor(Color.parseColor("#7C3AED"));
+        btnRegen.setLayoutParams(new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+        btnRegen.setOnClickListener(v -> {
+            // paymentTerms=null damit CRM-paymentMethod-Aenderung durchschlaegt
+            java.util.Map<String,Object> _regen = new java.util.HashMap<>();
+            _regen.put("needsPdfRegeneration", true);
+            _regen.put("paymentTerms", null);
+            _regen.put("updatedAt", System.currentTimeMillis());
+            FirebaseDatabase.getInstance(DB_URL).getReference("invoices/" + item.key)
+                .updateChildren(_regen)
+                .addOnSuccessListener(_ok -> Toast.makeText(this, "🔄 PDF wird in ~1 Min neu gebaut", Toast.LENGTH_LONG).show())
+                .addOnFailureListener(_err -> Toast.makeText(this, "⚠️ Fehler: " + _err.getMessage(), Toast.LENGTH_LONG).show());
+        });
+        btnRow2.addView(btnRegen);
+        form.addView(btnRow2);
+
         AlertDialog dlg = new AlertDialog.Builder(this)
             .setView(form)
             .setNegativeButton("Schließen", null)

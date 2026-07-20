@@ -338,6 +338,87 @@ public class InvoicesActivity extends AppCompatActivity {
         btnRow2.addView(btnRegen);
         form.addView(btnRow2);
 
+        // v6.63.757 (Patrick 20.07. Bridge "Aus ride neu befüllen"): Force-Refill.
+        //   Kunde-Name/Personenzahl in der Ride wurden nachtraeglich korrigiert,
+        //   sollen jetzt in die bestehende Rechnung uebernommen werden.
+        //   Native laedt Ride+Customer, ueberschreibt Rechnungs-Felder mit den
+        //   aktuellen Werten und triggert Regen. Der Cloud-Regen macht den
+        //   Rest (PDF neu bauen mit den frischen Feldern).
+        if (item.rideId != null && !item.rideId.isEmpty()) {
+            LinearLayout btnRow3 = new LinearLayout(this);
+            btnRow3.setOrientation(LinearLayout.HORIZONTAL);
+            LinearLayout.LayoutParams brp3 = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+            brp3.setMargins(0, (int)(dp*8), 0, 0); btnRow3.setLayoutParams(brp3);
+            MaterialButton btnRefill = new MaterialButton(this);
+            btnRefill.setText("⚡ Aus Ride + CRM neu befüllen");
+            btnRefill.setTextSize(12); btnRefill.setTextColor(Color.WHITE);
+            btnRefill.setBackgroundColor(Color.parseColor("#0891B2"));
+            btnRefill.setLayoutParams(new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+            btnRefill.setOnClickListener(v -> {
+                // Ride laden
+                FirebaseDatabase.getInstance(DB_URL).getReference("rides/" + item.rideId).get()
+                    .addOnSuccessListener(rs -> {
+                        if (!rs.exists()) {
+                            Toast.makeText(this, "⚠️ Ride nicht gefunden", Toast.LENGTH_LONG).show();
+                            return;
+                        }
+                        String _rideCustName = strVal(rs.child("customerName").getValue());
+                        String _rideGuestName = strVal(rs.child("guestName").getValue());
+                        Object _paxRaw = rs.child("passengers").getValue();
+                        int _pax = _paxRaw instanceof Number ? ((Number)_paxRaw).intValue() : 1;
+                        String _rideCustId = strVal(rs.child("customerId").getValue());
+                        String _pickupIso = strVal(rs.child("pickupTime").getValue());
+                        String _pickup = strVal(rs.child("pickup").getValue());
+                        String _dest = strVal(rs.child("destination").getValue());
+
+                        // CRM laden falls customerId
+                        Runnable _applyFn = () -> {
+                            java.util.Map<String,Object> _upd = new java.util.HashMap<>();
+                            if (!_rideCustName.isEmpty()) _upd.put("customerName", _rideCustName);
+                            _upd.put("guestName", _rideGuestName.isEmpty() ? null : _rideGuestName);
+                            String _desc = "1 Fahrt von " + _pickup + " nach " + _dest
+                                + (_pax > 1 ? " (" + _pax + " Personen)" : "");
+                            _upd.put("positions/0/description", _desc);
+                            _upd.put("positions/0/passengers", _pax);
+                            _upd.put("needsPdfRegeneration", true);
+                            _upd.put("paymentTerms", null);
+                            _upd.put("_refilledFromRide", System.currentTimeMillis());
+                            _upd.put("updatedAt", System.currentTimeMillis());
+                            FirebaseDatabase.getInstance(DB_URL).getReference("invoices/" + item.key)
+                                .updateChildren(_upd)
+                                .addOnSuccessListener(_ok -> Toast.makeText(this, "⚡ Rechnung neu befüllt — PDF in ~1 Min bereit", Toast.LENGTH_LONG).show())
+                                .addOnFailureListener(_err -> Toast.makeText(this, "⚠️ " + _err.getMessage(), Toast.LENGTH_LONG).show());
+                        };
+                        if (!_rideCustId.isEmpty()) {
+                            FirebaseDatabase.getInstance(DB_URL).getReference("customers/" + _rideCustId).get()
+                                .addOnSuccessListener(cs -> {
+                                    // Zusaetzlich CRM-Adresse in Rechnung nachziehen
+                                    java.util.Map<String,Object> _addr = new java.util.HashMap<>();
+                                    String _crmAddr = strVal(cs.child("invoiceAddress").getValue());
+                                    if (_crmAddr.isEmpty()) _crmAddr = strVal(cs.child("billingAddress").getValue());
+                                    if (_crmAddr.isEmpty()) _crmAddr = strVal(cs.child("address").getValue());
+                                    if (!_crmAddr.isEmpty()) _addr.put("customerAddress", _crmAddr);
+                                    String _crmEmail = strVal(cs.child("email").getValue());
+                                    if (!_crmEmail.isEmpty()) _addr.put("customerEmail", _crmEmail);
+                                    if (!_addr.isEmpty()) {
+                                        FirebaseDatabase.getInstance(DB_URL).getReference("invoices/" + item.key)
+                                            .updateChildren(_addr);
+                                    }
+                                    _applyFn.run();
+                                })
+                                .addOnFailureListener(_e -> _applyFn.run());
+                        } else {
+                            _applyFn.run();
+                        }
+                    })
+                    .addOnFailureListener(_e -> Toast.makeText(this, "⚠️ " + _e.getMessage(), Toast.LENGTH_LONG).show());
+            });
+            btnRow3.addView(btnRefill);
+            form.addView(btnRow3);
+        }
+
         AlertDialog dlg = new AlertDialog.Builder(this)
             .setView(form)
             .setNegativeButton("Schließen", null)

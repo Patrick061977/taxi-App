@@ -3247,12 +3247,20 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 // 🆕 v6.62.950 Smart-Scheduler — Konflikt-Hint rendert als ⚠️-Prefix + Tap öffnet Time-Picker
                 final String conflictPrefix = r.conflictHint != null ? "⚠️ ENGPASS  " : "";
                 final String _name = (r.customerName != null ? r.customerName : "?");
+                // v6.63.750 (Patrick 20.07. Bridge): Sammelfahrt-Chance prominent wie Engpass —
+                //   gruener Hintergrund + Prefix in t1. Vorher stand die Chance nur unten klein
+                //   in route.append, wurde uebersehen. Jetzt so auffaellig wie Wartepool/Engpass.
+                final boolean _hasSammelChance = r.sammelChancePartnerId != null && !r.sammelChancePartnerId.isEmpty()
+                    && (r.linkedGroupId == null || r.linkedGroupId.isEmpty());
                 if (_isWartepool) {
                     itemView.setBackgroundColor(Color.parseColor("#7F1D1D"));
                     t1.setText("⚠️ " + when + "  " + _name + paxBadge + payBadge + "  · WARTEPOOL" + vehicleBadge);
                 } else if (r.conflictHint != null) {
                     itemView.setBackgroundColor(Color.parseColor("#7C2D12"));
                     t1.setText(conflictPrefix + when + "  " + _name + paxBadge + payBadge + statusBadge + vehicleBadge);
+                } else if (_hasSammelChance) {
+                    itemView.setBackgroundColor(Color.parseColor("#064E3B"));
+                    t1.setText("🚖 SAMMELFAHRT-CHANCE  " + when + "  " + _name + paxBadge + payBadge + statusBadge + vehicleBadge);
                 } else if (_isSofortWarteschlange) {
                     itemView.setBackgroundColor(Color.parseColor("#78350F"));
                     t1.setText("⚡ SOFORT-WS  " + when + "  " + _name + paxBadge + payBadge + statusBadge + vehicleBadge);
@@ -3448,8 +3456,9 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 if (r.linkedGroupId != null && !r.linkedGroupId.isEmpty()) {
                     route.append("\n👥 SAMMELFAHRT (Gruppe ").append(r.linkedGroupId).append(")");
                 } else if (r.sammelChancePartnerId != null && !r.sammelChancePartnerId.isEmpty()) {
-                    // v6.63.745 (Patrick 19.07.): Sammelfahrt-Chance direkt in Dispo statt nur Telegram
-                    route.append("\n🚖 SAMMELFAHRT-CHANCE — Partner-Fahrt im 500m-Radius, LongPress → Zusammenlegen");
+                    // v6.63.745 + v6.63.750: Chance jetzt schon prominent in t1 (gruener BG + Prefix),
+                    //   trotzdem in route eine Zeile damit LongPress-Hinweis sichtbar bleibt.
+                    route.append("\n💡 LongPress → Zusammenlegen mit Partner-Fahrt im 500m-Radius");
                 }
                 t2.setText(route.toString());
                 // v6.62.153: Tap → Edit-Dialog (Patrick: 'will Fahrten bearbeiten aus der App')

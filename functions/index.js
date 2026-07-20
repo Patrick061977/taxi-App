@@ -25106,6 +25106,60 @@ exports.scheduledAutoAssign = onSchedule(
                 return true;
             });
 
+            // v6.63.760 (Patrick 20.07. Bridge JOHN-Fall): First-Come-First-Served-Neusortierung.
+            //   Vorher: greedy pro Fahrt in Reihenfolge der Anlage — späte Fahrten stahlen der
+            //   frühen Fahrt das beste Fahrzeug (Kaiser 17:36 → IK, JOHN 12:24 dann Tesla).
+            //   Jetzt: JEDER Cron-Lauf gibt alle auto-assigned Vorbestellungen (24h) frei
+            //   die nicht manuell/locked sind → Neu-Sortierung nach pickupTimestamp ASC →
+            //   frühere Fahrt bekommt immer bestes Fahrzeug (Prio + Anfahrt).
+            //   Cooldown: max 1× pro 30 Min, damit kein Ping-Pong.
+            const _lastFcfsRunKey = 'settings/cloudJobs/scheduledAutoAssign/lastFcfsRun';
+            const _lastFcfsSnap = await db.ref(_lastFcfsRunKey).once('value');
+            const _lastFcfsAt = _lastFcfsSnap.val() || 0;
+            if ((now - _lastFcfsAt) >= 30 * 60 * 1000) {
+                // 24h-Fenster First-Come-Reassign
+                const _fcfsWindowEnd = now + 24 * 60 * 60 * 1000;
+                let _fcfsFreedCount = 0;
+                for (const r of allRides) {
+                    if (!r.pickupTimestamp || r.pickupTimestamp < now + 30 * 60000 || r.pickupTimestamp > _fcfsWindowEnd) continue;
+                    if (!r.assignedVehicle && !r.vehicleId) continue;
+                    if (r.assignmentLocked === true) continue;
+                    const _by = r.assignedBy || '';
+                    // Nur Auto-Zuweisungen zurücksetzen — Manual-Locks bleiben
+                    if (!(_by.startsWith('cloud-') || _by === 'cloud-auto-assign' || _by === 'cloud-scheduled-auto-assign' || _by === 'cloud-auto-optimize' || _by === 'cloud-auto-replan')) continue;
+                    if (r.status !== 'vorbestellt' && r.status !== 'assigned') continue;
+                    try {
+                        await db.ref(`rides/${r.firebaseId}`).update({
+                            assignedVehicle: null, vehicleId: null, assignedTo: null,
+                            assignedVehicleName: null, assignedVehiclePlate: null,
+                            assignedBy: null, assignedAt: null,
+                            _fcfsFreedAt: now, _fcfsFreedFrom: `${r.assignedVehicleName || r.assignedVehicle} (${_by})`,
+                            updatedAt: now
+                        });
+                        // Lokale Kopie ebenfalls freigeben damit weitere Assign-Logik sie sieht
+                        r.assignedVehicle = null; r.vehicleId = null; r.assignedTo = null;
+                        r.assignedVehicleName = null; r.assignedBy = null;
+                        _fcfsFreedCount++;
+                    } catch (_fcfsErr) {
+                        console.warn(`v6.63.760 FCFS-Free Fehler für ${r.firebaseId}:`, _fcfsErr.message);
+                    }
+                }
+                if (_fcfsFreedCount > 0) {
+                    console.log(`🔄 v6.63.760 FCFS-Reset: ${_fcfsFreedCount} Vorbestellungen freigegeben — Neu-Sortierung nach pickup-Zeit folgt`);
+                    // unassigned neu bauen — alle freigegebenen kommen jetzt dazu
+                    unassigned.length = 0;
+                    for (const r of allRides) {
+                        if (r.assignedVehicle || r.vehicleId) continue;
+                        if (['deleted','cancelled','storniert','cancelled_pending_driver','completed','on_way','picked_up'].includes(r.status)) continue;
+                        if (r.assignmentLocked) continue;
+                        if (!r.pickupTimestamp) continue;
+                        if (r.pickupTimestamp < now + 5 * 60000) continue;
+                        unassigned.push(r);
+                    }
+                }
+                await db.ref(_lastFcfsRunKey).set(now).catch(() => {});
+            }
+
             if (unassigned.length === 0 && needsReassign.length === 0) {
                 console.log('✅ scheduledAutoAssign: Keine unzugewiesenen Fahrten');
                 return;
@@ -25113,7 +25167,7 @@ exports.scheduledAutoAssign = onSchedule(
 
             console.log(`🎯 ${unassigned.length} unzugewiesene Fahrt(en) gefunden`);
 
-            // Nach Abholzeit sortieren (früheste zuerst)
+            // Nach Abholzeit sortieren (früheste zuerst) — v6.63.760 First-Come-First-Served
             unassigned.sort((a, b) => a.pickupTimestamp - b.pickupTimestamp);
 
             let assignedCount = 0;

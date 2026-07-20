@@ -3246,7 +3246,14 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 final boolean _isSofortWarteschlange = "warteschlange".equalsIgnoreCase(r.status);
                 // 🆕 v6.62.950 Smart-Scheduler — Konflikt-Hint rendert als ⚠️-Prefix + Tap öffnet Time-Picker
                 final String conflictPrefix = r.conflictHint != null ? "⚠️ ENGPASS  " : "";
-                final String _name = (r.customerName != null ? r.customerName : "?");
+                // v6.63.751 (Patrick 20.07. Bridge): Bei Auftraggeber-Buchung (Hotel/Pension/Firma
+                //   bucht fuer Gast) den GASTNAMEN in der Card zeigen, nicht nur den Auftraggeber-
+                //   Namen. Symptom: Pension Kaiser 09:15 Familie Speckmann — Patrick sah nur
+                //   'Pension Kaiser' in der Dispo, keine Ahnung wer wirklich faehrt.
+                final String _custRaw = (r.customerName != null ? r.customerName : "?");
+                final String _name = (r.guestName != null && !r.guestName.isEmpty() && !r.guestName.equals(r.customerName))
+                    ? (_custRaw + " · " + r.guestName)
+                    : _custRaw;
                 // v6.63.750 (Patrick 20.07. Bridge): Sammelfahrt-Chance prominent wie Engpass —
                 //   gruener Hintergrund + Prefix in t1. Vorher stand die Chance nur unten klein
                 //   in route.append, wurde uebersehen. Jetzt so auffaellig wie Wartepool/Engpass.

@@ -1549,22 +1549,112 @@ public class ShiftEditorActivity extends AppCompatActivity {
     }
 
     private void _showWeekDayDetail(int dow, String dowName, java.util.List<VehicleShift> vsList) {
-        StringBuilder sb = new StringBuilder();
+        // v6.63.749 (Patrick 19.07. Bridge): Fahrzeuge im Wochen-Popup klickbar
+        //   damit direkt die Uhrzeit fuer diesen Wochentag geaendert werden kann.
+        //   Vorher: nur Text-Anzeige — jede Aenderung brauchte Umweg via Fahrzeug-Kachel.
+        float dp = getResources().getDisplayMetrics().density;
+        int pad = (int)(12 * dp);
+        android.widget.LinearLayout layout = new android.widget.LinearLayout(this);
+        layout.setOrientation(android.widget.LinearLayout.VERTICAL);
+        layout.setPadding(pad, pad, pad, pad);
+
         if (vsList.isEmpty()) {
-            sb.append("Kein Fahrzeug im Wochenplan aktiv fuer ").append(dowName).append(".");
+            android.widget.TextView _tv = new android.widget.TextView(this);
+            _tv.setText("Kein Fahrzeug im Wochenplan aktiv fuer " + dowName + ".");
+            _tv.setTextSize(14);
+            layout.addView(_tv);
         } else {
             for (VehicleShift vs : vsList) {
                 String _t = (vs.defaultTimes != null && vs.defaultTimes[dow] != null && vs.defaultTimes[dow][0] != null)
                     ? vs.defaultTimes[dow][0] + " - " + vs.defaultTimes[dow][1]
                     : "ohne Zeit";
-                sb.append("• ").append(vs.name != null ? vs.name : vs.vehicleId)
-                  .append("   ").append(_t).append("\n");
+                android.widget.Button _btn = new android.widget.Button(this);
+                _btn.setText("✏️  " + (vs.name != null ? vs.name : vs.vehicleId) + "   " + _t);
+                _btn.setAllCaps(false);
+                _btn.setTextColor(0xFFFFFFFF);
+                _btn.setBackgroundColor(0xFF334155);
+                _btn.setPadding(pad, pad, pad, pad);
+                android.widget.LinearLayout.LayoutParams _lp = new android.widget.LinearLayout.LayoutParams(
+                    android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                    android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
+                _lp.setMargins(0, (int)(4 * dp), 0, (int)(4 * dp));
+                _btn.setLayoutParams(_lp);
+                final VehicleShift _vsRef = vs;
+                _btn.setOnClickListener(_v -> {
+                    // Direkt den Wochenplan-Editor fuer dieses Fahrzeug + Tag oeffnen
+                    _openVehicleWeekdayEditor(_vsRef, dow, dowName);
+                });
+                layout.addView(_btn);
             }
         }
+
+        android.widget.ScrollView _scroll = new android.widget.ScrollView(this);
+        _scroll.addView(layout);
+
         new androidx.appcompat.app.AlertDialog.Builder(this)
-            .setTitle("📅 " + dowName + " — " + vsList.size() + " Fahrzeuge")
-            .setMessage(sb.toString())
-            .setPositiveButton("OK", null)
+            .setTitle("📅 " + dowName + " — " + vsList.size() + " Fahrzeuge (tippen zum Aendern)")
+            .setView(_scroll)
+            .setNegativeButton("Schliessen", null)
+            .show();
+    }
+
+    // v6.63.749: Zeit-Aenderung fuer EIN Fahrzeug an EINEM Wochentag.
+    //   Zeigt zwei EditTexts (Start/Ende) vorbelegt + speichert direkt in defaultTimes.
+    //   Nach Speichern: renderTodayCards() rebuild, Cron sieht neue Zeiten binnen 5 Min.
+    private void _openVehicleWeekdayEditor(VehicleShift vs, int dow, String dowName) {
+        float dp = getResources().getDisplayMetrics().density;
+        int pad = (int)(12 * dp);
+        String _curStart = (vs.defaultTimes != null && vs.defaultTimes[dow] != null && vs.defaultTimes[dow][0] != null)
+            ? vs.defaultTimes[dow][0] : "";
+        String _curEnd = (vs.defaultTimes != null && vs.defaultTimes[dow] != null && vs.defaultTimes[dow][1] != null)
+            ? vs.defaultTimes[dow][1] : "";
+
+        android.widget.LinearLayout _lay = new android.widget.LinearLayout(this);
+        _lay.setOrientation(android.widget.LinearLayout.VERTICAL);
+        _lay.setPadding(pad, pad, pad, pad);
+
+        android.widget.TextView _lblStart = new android.widget.TextView(this);
+        _lblStart.setText("Start (HH:MM):");
+        _lay.addView(_lblStart);
+        final android.widget.EditText _etStart = new android.widget.EditText(this);
+        _etStart.setInputType(android.text.InputType.TYPE_CLASS_DATETIME | android.text.InputType.TYPE_DATETIME_VARIATION_TIME);
+        _etStart.setText(_curStart);
+        _lay.addView(_etStart);
+
+        android.widget.TextView _lblEnd = new android.widget.TextView(this);
+        _lblEnd.setText("Ende (HH:MM):");
+        _lblEnd.setPadding(0, pad, 0, 0);
+        _lay.addView(_lblEnd);
+        final android.widget.EditText _etEnd = new android.widget.EditText(this);
+        _etEnd.setInputType(android.text.InputType.TYPE_CLASS_DATETIME | android.text.InputType.TYPE_DATETIME_VARIATION_TIME);
+        _etEnd.setText(_curEnd);
+        _lay.addView(_etEnd);
+
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("✏️ " + (vs.name != null ? vs.name : vs.vehicleId) + " · " + dowName)
+            .setView(_lay)
+            .setPositiveButton("Speichern", (d, w) -> {
+                String _ns = _etStart.getText().toString().trim();
+                String _ne = _etEnd.getText().toString().trim();
+                if (_ns.isEmpty() || _ne.isEmpty()) {
+                    android.widget.Toast.makeText(this, "Start und Ende muessen ausgefuellt sein", android.widget.Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                if (vs.defaultTimes == null) vs.defaultTimes = new String[7][2];
+                if (vs.defaultTimes[dow] == null) vs.defaultTimes[dow] = new String[2];
+                vs.defaultTimes[dow][0] = _ns;
+                vs.defaultTimes[dow][1] = _ne;
+                // Persist in Firebase
+                java.util.Map<String,Object> _upd = new java.util.HashMap<>();
+                _upd.put("startTime", _ns);
+                _upd.put("endTime", _ne);
+                db.getReference("vehicleShifts/" + vs.vehicleId + "/defaultTimes/" + dow).updateChildren(_upd);
+                // Trigger Re-Assign so Cron/System dem Fahrzeug direkt Fahrten am Tag anbietet
+                triggerReassignForVehicle(vs.vehicleId, vs.name);
+                android.widget.Toast.makeText(this, "✅ " + dowName + ": " + _ns + "-" + _ne + " gespeichert", android.widget.Toast.LENGTH_SHORT).show();
+                renderTodayCards();
+            })
+            .setNegativeButton("Abbrechen", null)
             .show();
     }
 

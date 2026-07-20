@@ -401,6 +401,11 @@ public class InvoicesActivity extends AppCompatActivity {
                     String _newPm = _pmKeys[spPay.getSelectedItemPosition()];
                     upd.put("paymentMethod", _newPm);
                     item.paymentMethod = _newPm;
+                    // v6.63.755 (Patrick 20.07. Bridge Villen-im-Park-Bug): paymentTerms MUSS
+                    //   genullt werden wenn paymentMethod geaendert wird — sonst blockiert der
+                    //   alte Fixtext ("Zahlbar 14 Tage") das paymentMethod-Mapping im PDF.
+                    //   invoice-html.js Z.252: paymentTermsText = inv.paymentTerms || paymentLabel(pm)
+                    upd.put("paymentTerms", null);
                     // Bei Bar → Rechnung als bezahlt markieren (Standard-Erwartung)
                     if ("bar".equals(_newPm)) {
                         upd.put("paymentStatus", "bezahlt");

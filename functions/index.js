@@ -3972,12 +3972,8 @@ function findAllCustomersForSecretary(allCustomers, searchName) {
 
 // 🆕 v6.15.0: Auftraggeber-Erkennung — Hotels, Firmen, Kliniken die für Andere buchen
 // 🆕 v6.15.1: Auch Lieferanten (type='supplier') buchen für Gäste → Gastname + Gast-Telefon abfragen
-// v6.63.738 (Patrick 19.07. Bridge): pension/firma/klinik/praxis auch als Auftraggeber
-//   erkennen. Sie buchen genauso wie Hotels für Gäste, brauchen also Gastname-Pflicht.
 function isAuftraggeber(customerKind, customerType) {
-    const _k = String(customerKind || '').toLowerCase();
-    return _k === 'hotel' || _k === 'pension' || _k === 'firma' || _k === 'klinik' || _k === 'praxis'
-        || _k === 'auftraggeber' || customerType === 'supplier';
+    return customerKind === 'hotel' || customerKind === 'auftraggeber' || customerType === 'supplier';
 }
 
 // 🆕 v6.14.0: Admin — Neuen Kunden im CRM anlegen und Buchung fortsetzen
@@ -5441,18 +5437,6 @@ async function _getRouteMode() {
     return _routeModeCache;
 }
 
-// v6.63.743 (Patrick 19.07. Bridge Berlin-Fall): Fahrten mit weit entferntem Ziel
-//   (>50 km one-way) brauchen fuer Auto-Assign eine ROUND-TRIP-Duration, sonst
-//   glaubt der Cron das Fahrzeug ist nach der Einfach-Fahrt zurueck. Realistisch
-//   +Zeit fuer Rueckfahrt, +30% Puffer (Verkehr, Grenzen, Umwege).
-function applyRoundTripDurationIfRemote(distanceKm, oneWayDuration) {
-    const _d = parseFloat(distanceKm) || 0;
-    const _dur = parseInt(oneWayDuration) || 0;
-    if (_d < 50 || _dur <= 0) return _dur;
-    // v6.63.744 (Patrick 19.07. 14:26 Bridge): einfach × 2 + 30 Min Puffer,
-    //   nicht 2 × 1.3 (war zu viel). Rueckfahrt ist ja gleiche Route.
-    return (_dur * 2) + 30;
-}
 async function calculateRoute(from, to, waypointCoords = []) {
     const _routeMode = await _getRouteMode();
 
@@ -24420,16 +24404,8 @@ exports.scheduledAutoAssign = onSchedule(
             //   Vorher (2h-Fenster) trafen wir IMMER eine Vorbestellung tagsüber = kein Skip.
             const _quickNew = await db.ref('rides').orderByChild('status').equalTo('new').limitToFirst(1).once('value');
             const _quickWP = await db.ref('rides').orderByChild('status').equalTo('warteschlange').limitToFirst(1).once('value');
-            // 🔧 v6.63.748 (Patrick 19.07. 19:11 Bridge "warum werden Fahrten nicht automatisch
-            //   verteilt"): Fenster von 25 Min → 24h. Der 25-Min-QUICK-CHECK stammt aus
-            //   der Zeit als "Vorbestellungen erst 15 Min vor Pickup zuweisen" die Regel
-            //   war (v6.38.95 + v6.63.235). Effekt: Sonntag oder sonstige ruhige Phasen —
-            //   ohne Sofort/Warteschlange, ohne pickup-in-25min — wachte der Cron nicht auf
-            //   und ließ Vorbestellungen bis 25 Min vor Fahrt liegen. Patrick will die
-            //   Vorabverteilung schon 24h voraus sehen (Standort-Check +
-            //   Schichtplan-Prüfung passieren dann wenn Vehicles wirklich verfügbar sind).
-            const _futureWindow = now + 24 * 60 * 60 * 1000;
-            const _quickVB = await db.ref('rides').orderByChild('pickupTimestamp').startAt(now).endAt(_futureWindow).limitToFirst(20).once('value');
+            const _futureWindow = now + 25 * 60 * 1000;  // 🔧 v6.63.235: 25 Min statt 2h
+            const _quickVB = await db.ref('rides').orderByChild('pickupTimestamp').startAt(now).endAt(_futureWindow).limitToFirst(5).once('value');
             let _vbHasPending = false;
             if (_quickVB.exists()) {
                 _quickVB.forEach(c => {
@@ -24438,7 +24414,7 @@ exports.scheduledAutoAssign = onSchedule(
                 });
             }
             if (!_quickNew.exists() && !_quickWP.exists() && !_vbHasPending) {
-                console.log('🌙 v6.63.748: IDLE — keine pending/wartepool/unzugewiesene-vorbestellt(24h) Rides. Skip.');
+                console.log('🌙 v6.63.235: IDLE — keine pending/wartepool/vorbestellt(25min) Rides. Skip.');
                 return;
             }
 
@@ -25106,60 +25082,6 @@ exports.scheduledAutoAssign = onSchedule(
                 return true;
             });
 
-            // v6.63.760 (Patrick 20.07. Bridge JOHN-Fall): First-Come-First-Served-Neusortierung.
-            //   Vorher: greedy pro Fahrt in Reihenfolge der Anlage — späte Fahrten stahlen der
-            //   frühen Fahrt das beste Fahrzeug (Kaiser 17:36 → IK, JOHN 12:24 dann Tesla).
-            //   Jetzt: JEDER Cron-Lauf gibt alle auto-assigned Vorbestellungen (24h) frei
-            //   die nicht manuell/locked sind → Neu-Sortierung nach pickupTimestamp ASC →
-            //   frühere Fahrt bekommt immer bestes Fahrzeug (Prio + Anfahrt).
-            //   Cooldown: max 1× pro 30 Min, damit kein Ping-Pong.
-            const _lastFcfsRunKey = 'settings/cloudJobs/scheduledAutoAssign/lastFcfsRun';
-            const _lastFcfsSnap = await db.ref(_lastFcfsRunKey).once('value');
-            const _lastFcfsAt = _lastFcfsSnap.val() || 0;
-            if ((now - _lastFcfsAt) >= 30 * 60 * 1000) {
-                // 24h-Fenster First-Come-Reassign
-                const _fcfsWindowEnd = now + 24 * 60 * 60 * 1000;
-                let _fcfsFreedCount = 0;
-                for (const r of allRides) {
-                    if (!r.pickupTimestamp || r.pickupTimestamp < now + 30 * 60000 || r.pickupTimestamp > _fcfsWindowEnd) continue;
-                    if (!r.assignedVehicle && !r.vehicleId) continue;
-                    if (r.assignmentLocked === true) continue;
-                    const _by = r.assignedBy || '';
-                    // Nur Auto-Zuweisungen zurücksetzen — Manual-Locks bleiben
-                    if (!(_by.startsWith('cloud-') || _by === 'cloud-auto-assign' || _by === 'cloud-scheduled-auto-assign' || _by === 'cloud-auto-optimize' || _by === 'cloud-auto-replan')) continue;
-                    if (r.status !== 'vorbestellt' && r.status !== 'assigned') continue;
-                    try {
-                        await db.ref(`rides/${r.firebaseId}`).update({
-                            assignedVehicle: null, vehicleId: null, assignedTo: null,
-                            assignedVehicleName: null, assignedVehiclePlate: null,
-                            assignedBy: null, assignedAt: null,
-                            _fcfsFreedAt: now, _fcfsFreedFrom: `${r.assignedVehicleName || r.assignedVehicle} (${_by})`,
-                            updatedAt: now
-                        });
-                        // Lokale Kopie ebenfalls freigeben damit weitere Assign-Logik sie sieht
-                        r.assignedVehicle = null; r.vehicleId = null; r.assignedTo = null;
-                        r.assignedVehicleName = null; r.assignedBy = null;
-                        _fcfsFreedCount++;
-                    } catch (_fcfsErr) {
-                        console.warn(`v6.63.760 FCFS-Free Fehler für ${r.firebaseId}:`, _fcfsErr.message);
-                    }
-                }
-                if (_fcfsFreedCount > 0) {
-                    console.log(`🔄 v6.63.760 FCFS-Reset: ${_fcfsFreedCount} Vorbestellungen freigegeben — Neu-Sortierung nach pickup-Zeit folgt`);
-                    // unassigned neu bauen — alle freigegebenen kommen jetzt dazu
-                    unassigned.length = 0;
-                    for (const r of allRides) {
-                        if (r.assignedVehicle || r.vehicleId) continue;
-                        if (['deleted','cancelled','storniert','cancelled_pending_driver','completed','on_way','picked_up'].includes(r.status)) continue;
-                        if (r.assignmentLocked) continue;
-                        if (!r.pickupTimestamp) continue;
-                        if (r.pickupTimestamp < now + 5 * 60000) continue;
-                        unassigned.push(r);
-                    }
-                }
-                await db.ref(_lastFcfsRunKey).set(now).catch(() => {});
-            }
-
             if (unassigned.length === 0 && needsReassign.length === 0) {
                 console.log('✅ scheduledAutoAssign: Keine unzugewiesenen Fahrten');
                 return;
@@ -25167,7 +25089,7 @@ exports.scheduledAutoAssign = onSchedule(
 
             console.log(`🎯 ${unassigned.length} unzugewiesene Fahrt(en) gefunden`);
 
-            // Nach Abholzeit sortieren (früheste zuerst) — v6.63.760 First-Come-First-Served
+            // Nach Abholzeit sortieren (früheste zuerst)
             unassigned.sort((a, b) => a.pickupTimestamp - b.pickupTimestamp);
 
             let assignedCount = 0;
@@ -25302,41 +25224,20 @@ exports.scheduledAutoAssign = onSchedule(
                     // Zeitkonflikt prüfen
                     // 🆕 v6.33.8: Rückfahrt zur Basis einrechnen!
                     // 🔧 v6.33.7: Sofortfahrt — kein Rückfahrt-Puffer für die neue Fahrt
-                    // 🆕 v6.63.761 (Patrick 20.07. Bridge Gedeik-Fall): Anschluss-Erkennung.
-                    //   Wenn 2 Fahrten aufeinander folgen (nextPickup - prevEnd <15 Min) UND
-                    //   pickup/dest an aehnlicher Position (Distanz <2 km Luftlinie), fahren
-                    //   ohne Rueckkehr zur Basis. Kein 30-Min-Puffer. Gedeik 06:45 Ahlbeck→Bahnhof
-                    //   + Schweitzer 07:00 Ahlbeck→Bahnhof = Anschluss.
                     if (ride.pickupTimestamp) {
                         const newPickup = ride.pickupTimestamp;
                         const newDur = (ride.duration || ride.estimatedDuration || 20) * 60000;
                         const _rueckfahrtMs2 = (pricingSettings.standortRueckkehrPufferMinuten || 30) * 60000;
                         const _newReturnMs2 = isSofort ? 0 : _rueckfahrtMs2;
-                        // Helper: sind zwei Rides ein Anschluss (2. beginnt fast dort wo 1. endet)?
-                        const _isAnschluss = (a, b) => {
-                            const _aDestLat = a.destinationLat || a.destCoords?.lat || a.destinationCoords?.lat;
-                            const _aDestLon = a.destinationLon || a.destCoords?.lon || a.destinationCoords?.lon;
-                            const _bPickLat = b.pickupLat || b.pickupCoords?.lat;
-                            const _bPickLon = b.pickupLon || b.pickupCoords?.lon;
-                            if (!_aDestLat || !_bPickLat) return false;
-                            const _dLat = _aDestLat - _bPickLat;
-                            const _dLon = _aDestLon - _bPickLon;
-                            const _distKm = Math.sqrt(_dLat*_dLat + _dLon*_dLon) * 111;
-                            return _distKm < 2.0;
-                        };
                         const hasConflict = allRides.some(r => {
                             if (r.firebaseId === rideId) return false;
                             if (r.vehicleId !== vehicleId && r.assignedTo !== vehicleId && r.assignedVehicle !== vehicleId) return false;
                             if (!r.pickupTimestamp) return false;
                             if (['deleted','cancelled','storniert','cancelled_pending_driver','completed'].includes(r.status)) return false;
                             const rDur = (r.duration || r.estimatedDuration || 20) * 60000;
-                            // v6.63.761: Kein Rueckfahrt-Puffer wenn Anschluss
-                            const _isAnschlussPrev = _isAnschluss(r, ride);   // r endet dort wo neue startet
-                            const _isAnschlussNext = _isAnschluss(ride, r);   // neue endet dort wo r startet
-                            const _rReturn = _isAnschlussPrev ? 0 : _rueckfahrtMs2;
-                            const _newReturn = _isAnschlussNext ? 0 : _newReturnMs2;
-                            const rEnd = r.pickupTimestamp + rDur + bufferMs + _rReturn;
-                            const newEnd = newPickup + newDur + bufferMs + _newReturn;
+                            // Fahrt belegt = Fahrtdauer + Ein/Aussteigen + Rückfahrt zur Basis
+                            const rEnd = r.pickupTimestamp + rDur + bufferMs + _rueckfahrtMs2;
+                            const newEnd = newPickup + newDur + bufferMs + _newReturnMs2;
                             return (newPickup < rEnd + mindestAbstandMs) && (r.pickupTimestamp < newEnd + mindestAbstandMs);
                         });
                         if (hasConflict) {
@@ -27621,16 +27522,9 @@ exports.onRideCreated = onValueCreated(
                         _updates.estimatedDistance = _dKm;
                         ride.distance = _dKm; ride.estimatedDistance = _dKm;
                         if (_route.duration) {
-                            // v6.63.743: Round-Trip-Duration bei Fern-Zielen (>50 km)
-                            const _effDur = applyRoundTripDurationIfRemote(_dKm, _route.duration);
-                            _updates.duration = _effDur;
-                            _updates.estimatedDuration = _route.duration; // Einweg-Wert bleibt Referenz
-                            _updates.drivingTimeToDestination = _route.duration;
-                            if (_effDur !== _route.duration) {
-                                _updates._roundTripApplied = true;
-                                _updates._roundTripNote = `Duration ${_route.duration}→${_effDur}min (Round-Trip fuer ${_dKm}km Ziel)`;
-                            }
-                            ride.duration = _effDur;
+                            _updates.duration = _route.duration;
+                            _updates.estimatedDuration = _route.duration;
+                            ride.duration = _route.duration;
                         }
                         if (!ride.estimatedPrice) {
                             const _price = calculatePrice(Number(_dKm), ride.pickupTimestamp || Date.now());

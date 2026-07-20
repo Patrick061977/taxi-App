@@ -29,9 +29,17 @@ public class InvoicesActivity extends AppCompatActivity {
     private MaterialButton btnRefresh;
     private EditText etSearch;
     private final List<InvItem> allItems = new ArrayList<>();
+    // v6.63.735 (Patrick 18.07. Bridge): Status-Filter-Chips + KPI-Dashboard.
+    private String _activeFilter = "all"; // all | open | overdue | paid
+    private LinearLayout _chipRow;
+    private LinearLayout _kpiRow;
+    private TextView _chipAll, _chipOpen, _chipOverdue, _chipPaid;
+    private TextView _kpiOpen, _kpiOverdue, _kpiMonth;
 
     private static class InvItem {
         String key, invNr, rideId, custName, custEmail, custId, date, pdfUrl, payStatus;
+        // v6.63.754 (Patrick 20.07. Bridge): Zahlungsart in Rechnung editierbar
+        String paymentMethod;
         double gross;
         long sortTs;
     }
@@ -119,6 +127,7 @@ public class InvoicesActivity extends AppCompatActivity {
         item.payStatus = strVal(c.child("paymentStatus").getValue());
         item.gross    = dblVal(c.child("totalGross").getValue());
         item.custId   = strVal(c.child("customerId").getValue());
+        item.paymentMethod = strVal(c.child("paymentMethod").getValue());
         // Sortier-Timestamp: createdAt > invoiceDate-parsed > autoCreatedAt
         long createdAt = longVal(c.child("createdAt").getValue());
         long autoCreated = longVal(c.child("autoCreatedAt").getValue());
@@ -343,6 +352,29 @@ public class InvoicesActivity extends AppCompatActivity {
         etBetrag.setSelectAllOnFocus(true);
         form.addView(etBetrag);
 
+        // v6.63.754 (Patrick 20.07. Bridge): Zahlungsart-Spinner —
+        //   Rechnungs-Editor konnte bisher nur den Betrag aendern. Text auf der
+        //   PDF ("Zahlbar innerhalb 14 Tage" vs "Betrag in Bar erhalten") wird
+        //   aus invoice.paymentMethod abgeleitet (functions/invoice-html.js Z.44+).
+        //   Ohne dieses Feld musste Patrick den paymentMethod im Web-Editor aendern.
+        TextView lblPay = new TextView(this);
+        lblPay.setText("Zahlungsart:");
+        lblPay.setTextSize(13);
+        LinearLayout.LayoutParams lpPay = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        lpPay.setMargins(0,(int)(dp*12),0,0); lblPay.setLayoutParams(lpPay);
+        form.addView(lblPay);
+        final String[] _pmKeys = { "bar", "rechnung", "vorkasse", "stripe", "karte", "transportschein" };
+        final String[] _pmLabels = { "💶 Bar", "🧾 Auf Rechnung (14 Tage)", "💰 Vorkasse (sofort)", "💳 Stripe (online)", "💳 Karte", "🏥 Transportschein" };
+        Spinner spPay = new Spinner(this);
+        ArrayAdapter<String> _adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, _pmLabels);
+        spPay.setAdapter(_adapter);
+        int _preSel = 0;
+        String _curPm = item.paymentMethod != null ? item.paymentMethod.toLowerCase() : "";
+        for (int i = 0; i < _pmKeys.length; i++) { if (_pmKeys[i].equals(_curPm)) { _preSel = i; break; } }
+        spPay.setSelection(_preSel);
+        form.addView(spPay);
+
         new AlertDialog.Builder(this)
             .setTitle("✏️ Rechnung bearbeiten")
             .setView(form)
@@ -363,6 +395,18 @@ public class InvoicesActivity extends AppCompatActivity {
                     upd.put("updatedAt", System.currentTimeMillis());
                     upd.put("positions/0/amount", newGross);
                     upd.put("needsPdfRegeneration", true);
+                    // v6.63.754: paymentMethod aus Spinner uebernehmen (auch wenn unveraendert
+                    //   — spart einen Zusatzflag). Cloud-Function nutzt paymentMethod fuer
+                    //   Zahlungsbedingung-Text + EPC-QR-Skip bei Bar.
+                    String _newPm = _pmKeys[spPay.getSelectedItemPosition()];
+                    upd.put("paymentMethod", _newPm);
+                    item.paymentMethod = _newPm;
+                    // Bei Bar → Rechnung als bezahlt markieren (Standard-Erwartung)
+                    if ("bar".equals(_newPm)) {
+                        upd.put("paymentStatus", "bezahlt");
+                        upd.put("paidAt", System.currentTimeMillis());
+                        item.payStatus = "bezahlt";
+                    }
                     // v6.63.609: mit Erfolgs-/Fehler-Feedback (vorher silent-fail möglich)
                     final double _savedGross = newGross;
                     FirebaseDatabase.getInstance(DB_URL).getReference("invoices/" + item.key)

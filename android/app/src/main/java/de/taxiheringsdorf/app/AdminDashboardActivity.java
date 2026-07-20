@@ -5043,6 +5043,18 @@ public class AdminDashboardActivity extends AppCompatActivity {
                     upd.put("assignedVehiclePlate", vehPlates[vIdx]);
                     upd.put("assignedAt", System.currentTimeMillis());
                     upd.put("assignedBy", "native_admin_dispo_assign");
+                    // v6.63.758 (Patrick 20.07. Bridge "Loest sich der Wartepool selber auf
+                    //   wenn ich manuell zugewiesen habe"): Bei manueller Zuweisung aus dem
+                    //   Edit-Dialog Wartepool sofort aufloesen. Vorher nur ueber
+                    //   autoResolveConflicts-Cron (alle 15 Min) — hier direkt.
+                    if (r.status != null && ("wartepool".equalsIgnoreCase(r.status)
+                            || "warteschlange".equalsIgnoreCase(r.status))) {
+                        upd.put("status", "vorbestellt");
+                        upd.put("wartepoolReason", null);
+                        upd.put("wartepoolAt", null);
+                        upd.put("wartepoolFreedAt", System.currentTimeMillis());
+                        upd.put("wartepoolFreedReason", "v6.63.758 manuell zugewiesen ueber Edit-Dispo-Dialog");
+                    }
                 }
             } else if (vIdx == 0 && r.assignedVehicle != null) {
                 upd.put("assignedVehicle", null);

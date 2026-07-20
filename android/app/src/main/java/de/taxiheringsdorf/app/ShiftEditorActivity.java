@@ -644,6 +644,15 @@ public class ShiftEditorActivity extends AppCompatActivity {
      *    damit Patrick nicht nur HEUTE sondern beliebige Tage editieren kann. Speichert
      *    in vehicleShifts/{vid}/{YYYY-MM-DD} (gleicher Pfad wie Web-Editor → synchron). */
     private void showTimeEditDialog(VehicleShift vs) {
+        showTimeEditDialog(vs, null);
+    }
+
+    // v6.63.753 (Patrick 20.07. Bridge): Overload mit targetDow-Parameter.
+    //   Wenn nicht null → selDate wird auf naechsten Vorkommen dieses Wochentags gesetzt.
+    //   Verwendet aus Wochen-Uebersicht: Klick auf Fahrzeug am gewaehlten Wochentag oeffnet
+    //   direkt den vollstaendigen Zeit-Editor (mit Override-Modus, Datumspicker, etc.)
+    //   statt separatem Mini-Menue. targetDow: 0=So .. 6=Sa.
+    private void showTimeEditDialog(VehicleShift vs, Integer targetDow) {
         // v6.63.181 (Patrick 05.06.2026 17:06 "egal ob ich Samstag oder Freitag nehme,
         //   springt auf 18 Uhr zurueck"): Default selDate = HEUTE statt morgen. Patrick
         //   hatte ein Override fuer Vito-heute (Vito-Schicht bis 17 statt 18 Uhr) gemacht
@@ -651,6 +660,12 @@ public class ShiftEditorActivity extends AppCompatActivity {
         //   Heute-Default ist intuitiver fuer das "fix-it-now"-Use-Case. Wer morgen planen
         //   will, picked das Datum bewusst.
         final Calendar selDate = Calendar.getInstance();
+        if (targetDow != null) {
+            // Naechsten Vorkommen des Ziel-Wochentags berechnen
+            int _todayDow = selDate.get(Calendar.DAY_OF_WEEK) - 1; // 0=So..6=Sa
+            int _delta = (targetDow - _todayDow + 7) % 7;
+            selDate.add(Calendar.DAY_OF_MONTH, _delta);
+        }
         // 🆕 v6.63.010 (Patrick 29.05. 16:44 "wo ist das Problem den Schichtplan
         //   aufs Handy zu übernehmen"): Pre-Fill aus defaultTimes[dow_of_selDate]
         //   falls vorhanden, statt vs.todayStartTime (= HEUTIGER Tag, falsch wenn
@@ -1581,8 +1596,12 @@ public class ShiftEditorActivity extends AppCompatActivity {
                 _btn.setLayoutParams(_lp);
                 final VehicleShift _vsRef = vs;
                 _btn.setOnClickListener(_v -> {
-                    // Direkt den Wochenplan-Editor fuer dieses Fahrzeug + Tag oeffnen
-                    _openVehicleWeekdayEditor(_vsRef, dow, dowName);
+                    // v6.63.753 (Patrick 20.07. Bridge: "muss direkt in den Tag kommen und
+                    //   da im Menue Zeit verhindern"): Statt separatem Mini-Editor jetzt den
+                    //   vollstaendigen showTimeEditDialog aufrufen — Datum vorbelegt auf naechsten
+                    //   Vorkommen des Wochentags, Override-Modus, Wochenplan-Umschaltung, alles
+                    //   in einem Dialog. Wie beim Klick auf eine "Heute im Dienst"-Card.
+                    showTimeEditDialog(_vsRef, dow);
                 });
                 layout.addView(_btn);
             }

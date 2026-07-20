@@ -1648,7 +1648,9 @@ public class ShiftEditorActivity extends AppCompatActivity {
                 java.util.Map<String,Object> _upd = new java.util.HashMap<>();
                 _upd.put("startTime", _ns);
                 _upd.put("endTime", _ne);
-                db.getReference("vehicleShifts/" + vs.vehicleId + "/defaultTimes/" + dow).updateChildren(_upd);
+                FirebaseDatabase.getInstance(DB_URL)
+                    .getReference("vehicleShifts/" + vs.vehicleId + "/defaultTimes/" + dow)
+                    .updateChildren(_upd);
                 // Trigger Re-Assign so Cron/System dem Fahrzeug direkt Fahrten am Tag anbietet
                 triggerReassignForVehicle(vs.vehicleId, vs.name);
                 android.widget.Toast.makeText(this, "✅ " + dowName + ": " + _ns + "-" + _ne + " gespeichert", android.widget.Toast.LENGTH_SHORT).show();

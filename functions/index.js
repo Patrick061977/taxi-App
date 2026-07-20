@@ -25302,20 +25302,41 @@ exports.scheduledAutoAssign = onSchedule(
                     // Zeitkonflikt prüfen
                     // 🆕 v6.33.8: Rückfahrt zur Basis einrechnen!
                     // 🔧 v6.33.7: Sofortfahrt — kein Rückfahrt-Puffer für die neue Fahrt
+                    // 🆕 v6.63.761 (Patrick 20.07. Bridge Gedeik-Fall): Anschluss-Erkennung.
+                    //   Wenn 2 Fahrten aufeinander folgen (nextPickup - prevEnd <15 Min) UND
+                    //   pickup/dest an aehnlicher Position (Distanz <2 km Luftlinie), fahren
+                    //   ohne Rueckkehr zur Basis. Kein 30-Min-Puffer. Gedeik 06:45 Ahlbeck→Bahnhof
+                    //   + Schweitzer 07:00 Ahlbeck→Bahnhof = Anschluss.
                     if (ride.pickupTimestamp) {
                         const newPickup = ride.pickupTimestamp;
                         const newDur = (ride.duration || ride.estimatedDuration || 20) * 60000;
                         const _rueckfahrtMs2 = (pricingSettings.standortRueckkehrPufferMinuten || 30) * 60000;
                         const _newReturnMs2 = isSofort ? 0 : _rueckfahrtMs2;
+                        // Helper: sind zwei Rides ein Anschluss (2. beginnt fast dort wo 1. endet)?
+                        const _isAnschluss = (a, b) => {
+                            const _aDestLat = a.destinationLat || a.destCoords?.lat || a.destinationCoords?.lat;
+                            const _aDestLon = a.destinationLon || a.destCoords?.lon || a.destinationCoords?.lon;
+                            const _bPickLat = b.pickupLat || b.pickupCoords?.lat;
+                            const _bPickLon = b.pickupLon || b.pickupCoords?.lon;
+                            if (!_aDestLat || !_bPickLat) return false;
+                            const _dLat = _aDestLat - _bPickLat;
+                            const _dLon = _aDestLon - _bPickLon;
+                            const _distKm = Math.sqrt(_dLat*_dLat + _dLon*_dLon) * 111;
+                            return _distKm < 2.0;
+                        };
                         const hasConflict = allRides.some(r => {
                             if (r.firebaseId === rideId) return false;
                             if (r.vehicleId !== vehicleId && r.assignedTo !== vehicleId && r.assignedVehicle !== vehicleId) return false;
                             if (!r.pickupTimestamp) return false;
                             if (['deleted','cancelled','storniert','cancelled_pending_driver','completed'].includes(r.status)) return false;
                             const rDur = (r.duration || r.estimatedDuration || 20) * 60000;
-                            // Fahrt belegt = Fahrtdauer + Ein/Aussteigen + Rückfahrt zur Basis
-                            const rEnd = r.pickupTimestamp + rDur + bufferMs + _rueckfahrtMs2;
-                            const newEnd = newPickup + newDur + bufferMs + _newReturnMs2;
+                            // v6.63.761: Kein Rueckfahrt-Puffer wenn Anschluss
+                            const _isAnschlussPrev = _isAnschluss(r, ride);   // r endet dort wo neue startet
+                            const _isAnschlussNext = _isAnschluss(ride, r);   // neue endet dort wo r startet
+                            const _rReturn = _isAnschlussPrev ? 0 : _rueckfahrtMs2;
+                            const _newReturn = _isAnschlussNext ? 0 : _newReturnMs2;
+                            const rEnd = r.pickupTimestamp + rDur + bufferMs + _rReturn;
+                            const newEnd = newPickup + newDur + bufferMs + _newReturn;
                             return (newPickup < rEnd + mindestAbstandMs) && (r.pickupTimestamp < newEnd + mindestAbstandMs);
                         });
                         if (hasConflict) {

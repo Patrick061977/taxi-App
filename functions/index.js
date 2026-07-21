@@ -26255,6 +26255,90 @@ exports.scheduledWhatsAppPendingCleanup = onSchedule(
 // scheitert. Watchdog prüft alle 3 Min: shift.active=true UND timestamp >5 Min
 // alt → Admin-Push + Fahrer-SMS 'GPS weg, App neu starten'. Dedup per
 // vehicles/{vid}/gpsHeartbeatWarnedAt, max 1 Warnung pro 15 Min.
+// v6.63.769 (Patrick 21.07. Bridge Sreinmetz-Fall): Fahrer hat accepted, aber weder
+//   Losfahren getippt noch losgefahren (kein GPS-Movement). Ride blieb 27 Min in accepted-
+//   Limbo bevor Reject-Detector zuschlug. Kunde nicht abgeholt.
+//   Fix: alle 1 Min pruefen ob accepted-Rides ihren 120s-Timeout ohne Movement ueberschritten
+//   haben. Wenn ja → Wartepool + Admin-Push + assignedVehicle freigeben fuer Reassign.
+exports.scheduledLosfahrCheck = onSchedule(
+    {
+        schedule: 'every 1 minutes',
+        region: 'europe-west1',
+        timeZone: 'Europe/Berlin',
+        timeoutSeconds: 60,
+        memory: '256MiB'
+    },
+    async (event) => {
+        try {
+            const now = Date.now();
+            const TIMEOUT_MS = 120 * 1000;
+            const MOVE_THRESHOLD_M = 100;
+            const acceptedSnap = await db.ref('rides').orderByChild('status').equalTo('accepted').once('value');
+            if (!acceptedSnap.exists()) return;
+            const vehiclesSnap = await db.ref('vehicles').once('value');
+            const vehiclesData = vehiclesSnap.val() || {};
+            let checked = 0, freed = 0;
+            const promises = [];
+            acceptedSnap.forEach(c => {
+                const r = c.val();
+                const rideId = c.key;
+                if (!r || !r.acceptedAt) return;
+                if (r._losfahrTimeoutHandled === true) return;
+                if ((now - r.acceptedAt) < TIMEOUT_MS) return;
+                checked++;
+                const vid = r.assignedVehicle || r.vehicleId || r.acceptedByVehicle;
+                const vData = vid ? vehiclesData[vid] : null;
+                const vLat = parseFloat(vData?.lat);
+                const vLon = parseFloat(vData?.lon);
+                const pLat = parseFloat(r.pickupLat || r.pickupCoords?.lat);
+                const pLon = parseFloat(r.pickupLon || r.pickupCoords?.lon);
+                let movedTowardPickup = false;
+                if (Number.isFinite(vLat) && Number.isFinite(vLon) && Number.isFinite(pLat) && Number.isFinite(pLon)) {
+                    const dLat = (vLat - pLat) * 111000;
+                    const dLon = (vLon - pLon) * 111000 * Math.cos(pLat * Math.PI / 180);
+                    const distM = Math.sqrt(dLat * dLat + dLon * dLon);
+                    if (r._losfahrCheckStartDistM && Math.abs(r._losfahrCheckStartDistM - distM) > MOVE_THRESHOLD_M) {
+                        movedTowardPickup = true;
+                    }
+                    if (!r._losfahrCheckStartDistM) {
+                        db.ref(`rides/${rideId}/_losfahrCheckStartDistM`).set(distM).catch(() => {});
+                    }
+                }
+                if (movedTowardPickup) return;
+                freed++;
+                const _vehName = r.assignedVehicleName || vid || 'Fahrzeug';
+                promises.push((async () => {
+                    const _elapsedMin = Math.round((now - r.acceptedAt) / 60000);
+                    await db.ref(`rides/${rideId}`).update({
+                        status: 'wartepool',
+                        assignedVehicle: null, vehicleId: null, assignedTo: null,
+                        assignedVehicleName: null, assignedVehiclePlate: null,
+                        assignedBy: null, assignedAt: null,
+                        acceptedByVehicle: null, acceptedAt: null,
+                        acceptedVia: null,
+                        wartepoolAt: now,
+                        wartepoolReason: `v6.63.769 Fahrer ${_vehName} hat nach ${_elapsedMin} Min nicht losgefahren (kein Movement)`,
+                        _losfahrTimeoutHandled: true,
+                        rejectedVehicles: [...(r.rejectedVehicles || []), vid].filter(Boolean),
+                        updatedAt: now
+                    });
+                    await addRideLog(rideId, '⏱️', `Losfahr-Timeout: ${_vehName} nach ${_elapsedMin} Min ohne Movement — zurueck in Wartepool`, {
+                        quelle: 'v6.63.769 scheduledLosfahrCheck',
+                        acceptedVor: _elapsedMin
+                    });
+                    try {
+                        await sendToAllAdmins(`⏱️ <b>Losfahr-Timeout</b>\n\n${r.customerName || '?'} · ${new Date(r.pickupTimestamp).toLocaleString('de-DE', { timeZone: 'Europe/Berlin' })}\nFahrer <b>${_vehName}</b> hat nach ${_elapsedMin} Min nicht losgefahren.\n\nFahrt zurueck im Wartepool.`);
+                    } catch (_) {}
+                })());
+            });
+            await Promise.all(promises);
+            if (checked > 0) console.log(`⏱️ v6.63.769 LosfahrCheck: ${checked} accepted-Rides gepruest, ${freed} in Wartepool zurueck`);
+        } catch (e) {
+            console.error('scheduledLosfahrCheck-Fehler:', e.message);
+        }
+    }
+);
+
 exports.scheduledGpsHeartbeatWatchdog = onSchedule(
     {
         // v6.63.443 (Patrick 20.06. 13:31 GO Phase 1): 3 → 5 Min. GPS-Heartbeat-Check

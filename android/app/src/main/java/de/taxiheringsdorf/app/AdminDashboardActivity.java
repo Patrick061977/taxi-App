@@ -702,6 +702,8 @@ public class AdminDashboardActivity extends AppCompatActivity {
         p.getMenu().add(0, 8, 0, "📋 Was ist neu? v" + de.taxiheringsdorf.app.BuildConfig.VERSION_NAME);
         // 🆕 v6.63.598: Rechnungen-Übersicht
         p.getMenu().add(0, 9, 0, "🧾 Rechnungen");
+        // 🆕 v6.63.767 (Patrick 21.07.): Schnell-Adressen verwalten (Bahnhoefe/Flughafen/POIs)
+        p.getMenu().add(0, 10, 0, "⭐ Schnell-Adressen");
         p.getMenu().add(0, 1, 0, "🚗 Zurück zu Fahrzeugauswahl");
         p.getMenu().add(0, 2, 0, "🚪 Logout");
         p.setOnMenuItemClickListener(item -> {
@@ -739,6 +741,11 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 startActivity(new Intent(this, InvoicesActivity.class));
                 return true;
             }
+            if (item.getItemId() == 10) {
+                // v6.63.767: Schnell-Adressen verwalten
+                showQuickPicksManagerDialog();
+                return true;
+            }
             if (item.getItemId() == 1) {
                 getSharedPreferences("admin", MODE_PRIVATE).edit().putBoolean("isAdminMode", false).apply();
                 startActivity(new Intent(this, VehiclePickerActivity.class));
@@ -766,6 +773,143 @@ public class AdminDashboardActivity extends AppCompatActivity {
     //   kann ich Places-Autocomplete + Stecknadel benutzen." Statt eigener String-Dialog
     //   launch'en wir die CrmSearchActivity mit auto_template_ride_id-Extra, die laedt
     //   dann die volle Ride als Template + zeigt die polierte showVorbestellungMaske.
+    // v6.63.767 (Patrick 21.07.): Schnell-Adressen verwalten (POIs für Vorbestellungs-Maske).
+    //   Firebase-Pfad settings/quickPicks[]. Jeder Eintrag: {label, address, lat, lon}.
+    //   Vorbestellungs-Maske (CrmSearchActivity Z.5921) rendert die aus settings/quickPicks
+    //   als horizontale Chip-Reihe. Bisher nur in Web-Console editierbar.
+    private void showQuickPicksManagerDialog() {
+        final String DB_URL_QP = "https://taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.app";
+        final FirebaseDatabase fdb = FirebaseDatabase.getInstance(DB_URL_QP);
+        final DatabaseReference qpRef = fdb.getReference("settings/quickPicks");
+
+        LinearLayout container = new LinearLayout(this);
+        container.setOrientation(LinearLayout.VERTICAL);
+        int pad = (int) (getResources().getDisplayMetrics().density * 12);
+        container.setPadding(pad, pad, pad, pad);
+
+        TextView tvHead = new TextView(this);
+        tvHead.setText("⭐ Schnell-Adressen (in Vorbestellung als Chips sichtbar)");
+        tvHead.setTextSize(13);
+        tvHead.setTextColor(0xFF64748B);
+        tvHead.setPadding(0, 0, 0, pad);
+        container.addView(tvHead);
+
+        LinearLayout listWrap = new LinearLayout(this);
+        listWrap.setOrientation(LinearLayout.VERTICAL);
+        container.addView(listWrap);
+
+        MaterialButton btnAdd = new MaterialButton(this);
+        btnAdd.setText("+ Neue Schnell-Adresse");
+        btnAdd.setTextColor(Color.WHITE);
+        btnAdd.setBackgroundColor(Color.parseColor("#10b981"));
+        LinearLayout.LayoutParams _addLp = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        _addLp.setMargins(0, pad, 0, 0);
+        btnAdd.setLayoutParams(_addLp);
+        container.addView(btnAdd);
+
+        ScrollView sv = new ScrollView(this);
+        sv.addView(container);
+
+        AlertDialog dlg = new AlertDialog.Builder(this)
+            .setTitle("⭐ Schnell-Adressen verwalten")
+            .setView(sv)
+            .setNegativeButton("Schließen", null)
+            .create();
+
+        Runnable reload = () -> qpRef.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override public void onDataChange(@NonNull DataSnapshot snap) {
+                listWrap.removeAllViews();
+                if (!snap.exists() || snap.getChildrenCount() == 0) {
+                    TextView _empty = new TextView(AdminDashboardActivity.this);
+                    _empty.setText("(Keine eigenen Einträge — Standard-Chips: Flughafen / Bf Heringsdorf / Bf Ahlbeck / Bf Bansin / KH Wolgast / UMG Greifswald)");
+                    _empty.setTextSize(12);
+                    _empty.setTextColor(0xFF94A3B8);
+                    _empty.setPadding(0, 0, 0, pad);
+                    listWrap.addView(_empty);
+                    return;
+                }
+                for (DataSnapshot child : snap.getChildren()) {
+                    final String childKey = child.getKey();
+                    String label = strVal(child.child("label").getValue());
+                    String address = strVal(child.child("address").getValue());
+                    LinearLayout row = new LinearLayout(AdminDashboardActivity.this);
+                    row.setOrientation(LinearLayout.HORIZONTAL);
+                    row.setPadding(pad / 2, pad / 2, pad / 2, pad / 2);
+                    row.setBackgroundColor(0xFF1E293B);
+                    LinearLayout.LayoutParams _rlp = new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+                    _rlp.setMargins(0, 0, 0, (int) (getResources().getDisplayMetrics().density * 4));
+                    row.setLayoutParams(_rlp);
+                    TextView txt = new TextView(AdminDashboardActivity.this);
+                    txt.setText(label + "\n" + address);
+                    txt.setTextSize(12);
+                    txt.setTextColor(0xFFF8FAFC);
+                    txt.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+                    row.addView(txt);
+                    MaterialButton btnDel = new MaterialButton(AdminDashboardActivity.this);
+                    btnDel.setText("🗑");
+                    btnDel.setTextColor(Color.WHITE);
+                    btnDel.setBackgroundColor(Color.parseColor("#dc2626"));
+                    btnDel.setOnClickListener(_v -> {
+                        qpRef.child(childKey).removeValue()
+                            .addOnSuccessListener(_ok -> {
+                                Toast.makeText(AdminDashboardActivity.this, "🗑 gelöscht", Toast.LENGTH_SHORT).show();
+                                // Reload
+                                if (dlg.isShowing()) { dlg.dismiss(); showQuickPicksManagerDialog(); }
+                            });
+                    });
+                    row.addView(btnDel);
+                    listWrap.addView(row);
+                }
+            }
+            @Override public void onCancelled(@NonNull DatabaseError err) {
+                Toast.makeText(AdminDashboardActivity.this, "Fehler: " + err.getMessage(), Toast.LENGTH_LONG).show();
+            }
+        });
+
+        btnAdd.setOnClickListener(_v -> {
+            // Add-Dialog: 4 EditTexts
+            LinearLayout addLay = new LinearLayout(this);
+            addLay.setOrientation(LinearLayout.VERTICAL);
+            addLay.setPadding(pad, pad, pad, pad);
+            EditText etL = new EditText(this); etL.setHint("Label (z.B. 🚉 Bf Zinnowitz)"); addLay.addView(etL);
+            EditText etA = new EditText(this); etA.setHint("Adresse (z.B. Bahnhof, 17454 Zinnowitz)"); addLay.addView(etA);
+            EditText etLat = new EditText(this); etLat.setHint("Lat (z.B. 54.075)"); etLat.setInputType(android.text.InputType.TYPE_CLASS_NUMBER | android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL | android.text.InputType.TYPE_NUMBER_FLAG_SIGNED); addLay.addView(etLat);
+            EditText etLon = new EditText(this); etLon.setHint("Lon (z.B. 13.907)"); etLon.setInputType(android.text.InputType.TYPE_CLASS_NUMBER | android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL | android.text.InputType.TYPE_NUMBER_FLAG_SIGNED); addLay.addView(etLon);
+            new AlertDialog.Builder(this)
+                .setTitle("+ Neue Schnell-Adresse")
+                .setView(addLay)
+                .setPositiveButton("Speichern", (d, w) -> {
+                    String _l = etL.getText().toString().trim();
+                    String _a = etA.getText().toString().trim();
+                    double _lat = 0, _lon = 0;
+                    try { _lat = Double.parseDouble(etLat.getText().toString().trim().replace(",", ".")); } catch (Throwable _t) {}
+                    try { _lon = Double.parseDouble(etLon.getText().toString().trim().replace(",", ".")); } catch (Throwable _t) {}
+                    if (_l.isEmpty() || _a.isEmpty() || _lat == 0 || _lon == 0) {
+                        Toast.makeText(this, "Alle 4 Felder ausfüllen", Toast.LENGTH_LONG).show();
+                        return;
+                    }
+                    java.util.Map<String, Object> _entry = new java.util.HashMap<>();
+                    _entry.put("label", _l);
+                    _entry.put("address", _a);
+                    _entry.put("lat", _lat);
+                    _entry.put("lon", _lon);
+                    _entry.put("createdAt", System.currentTimeMillis());
+                    qpRef.push().setValue(_entry).addOnSuccessListener(_ok -> {
+                        Toast.makeText(this, "⭐ hinzugefügt", Toast.LENGTH_SHORT).show();
+                        reload.run();
+                    });
+                })
+                .setNegativeButton("Abbrechen", null)
+                .show();
+        });
+
+        dlg.show();
+        reload.run();
+    }
+    private static String strVal(Object v) { return v == null ? "" : String.valueOf(v); }
+
     // 🆕 v6.62.909 (Patrick 24.05. 09:35): Live-Schichtstatus aller Fahrzeuge.
     //   Patrick: 'jeder so sieht welches Fahrzeug zurzeit aktiv ist'. Schritt 1
     //   nur Anzeige — Editor kommt spaeter (v6.62.910+).

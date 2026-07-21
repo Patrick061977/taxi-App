@@ -395,11 +395,8 @@ async function osrmDrivingMin(fromLat, fromLon, toLat, toLon) {
     const _t1 = parseFloat(toLat),   _t2 = parseFloat(toLon);
     if (!Number.isFinite(_f1) || !Number.isFinite(_f2) ||
         !Number.isFinite(_t1) || !Number.isFinite(_t2)) return null;
-    // v6.63.764 (Patrick 21.07. Bridge): Cache-Key 4 → 3 Dezimalstellen (~11m → ~110m).
-    //   Vorher: 2 Kunden am selben Bahnhof (unterschiedliche Wartepositionen ±10m) → 2
-    //   verschiedene Cache-Keys → 2 OSRM-Calls fuer dieselbe Route. Jetzt: Bahnhofsvorplatz
-    //   komplett in 1 Cache-Bucket (~110m radius). Route-Differenz vernachlaessigbar (<1 Min).
-    const key = `${_f1.toFixed(3)},${_f2.toFixed(3)}>${_t1.toFixed(3)},${_t2.toFixed(3)}`;
+    // v6.63.764 revert (Patrick 21.07. "nein 4 Dezimalstellen ist gut"): zurueck auf 4.
+    const key = `${_f1.toFixed(4)},${_f2.toFixed(4)}>${_t1.toFixed(4)},${_t2.toFixed(4)}`;
     const cached = _osrmCache.get(key);
     if (cached && (Date.now() - cached.t) < _OSRM_CACHE_TTL_MS) return cached.min;
     // 🆕 v6.63.447: Firebase /routeCache lookup VOR jedem Google-Call

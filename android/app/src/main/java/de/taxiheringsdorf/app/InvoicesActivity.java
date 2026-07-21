@@ -394,12 +394,57 @@ public class InvoicesActivity extends AppCompatActivity {
                         if (!_rideCustId.isEmpty()) {
                             FirebaseDatabase.getInstance(DB_URL).getReference("customers/" + _rideCustId).get()
                                 .addOnSuccessListener(cs -> {
-                                    // Zusaetzlich CRM-Adresse in Rechnung nachziehen
+                                    // v6.63.762 (Patrick 21.07. Bridge Anna-Sill-Fall): billingAddresses[]
+                                    //   strukturiert lesen — Zusatz + Straße + PLZ/Ort sauber
+                                    //   zusammenbauen. Alter Code las nur flat customer.address
+                                    //   und verlor dabei adresszusatz (Brinkmannhaus).
                                     java.util.Map<String,Object> _addr = new java.util.HashMap<>();
-                                    String _crmAddr = strVal(cs.child("invoiceAddress").getValue());
+                                    String _crmAddr = "";
+                                    String _crmName = "";
+                                    // Prio 1: billingAddresses[isDefault=true] oder [0] mit strukturierten Feldern
+                                    com.google.firebase.database.DataSnapshot _bas = cs.child("billingAddresses");
+                                    if (_bas.exists()) {
+                                        com.google.firebase.database.DataSnapshot _ba = null;
+                                        for (com.google.firebase.database.DataSnapshot _b : _bas.getChildren()) {
+                                            Object _def = _b.child("isDefault").getValue();
+                                            if (_def instanceof Boolean && (Boolean) _def) { _ba = _b; break; }
+                                        }
+                                        if (_ba == null) {
+                                            java.util.Iterator<com.google.firebase.database.DataSnapshot> _it = _bas.getChildren().iterator();
+                                            if (_it.hasNext()) _ba = _it.next();
+                                        }
+                                        if (_ba != null) {
+                                            _crmName = strVal(_ba.child("empfaengerName").getValue());
+                                            if (_crmName.isEmpty()) _crmName = strVal(_ba.child("label").getValue());
+                                            String _adrZ = strVal(_ba.child("adresszusatz").getValue());
+                                            String _str = strVal(_ba.child("strasse").getValue());
+                                            String _plz = strVal(_ba.child("plz").getValue());
+                                            String _ort = strVal(_ba.child("ort").getValue());
+                                            String _land = strVal(_ba.child("land").getValue());
+                                            java.util.List<String> _parts = new java.util.ArrayList<>();
+                                            if (!_adrZ.isEmpty()) _parts.add(_adrZ);
+                                            if (!_str.isEmpty()) _parts.add(_str);
+                                            String _plzOrt = (_plz + " " + _ort).trim();
+                                            if (!_plzOrt.isEmpty()) _parts.add(_plzOrt);
+                                            if (!_land.isEmpty() && !_land.equalsIgnoreCase("deutschland")) _parts.add(_land);
+                                            if (!_parts.isEmpty()) {
+                                                _crmAddr = android.text.TextUtils.join(", ", _parts);
+                                            } else {
+                                                // billingAddresses[] hat nur address-Freitext (altes Format)
+                                                _crmAddr = strVal(_ba.child("address").getValue());
+                                                // wenn adresszusatz separat, davorstellen
+                                                if (!_adrZ.isEmpty() && !_crmAddr.isEmpty() && !_crmAddr.contains(_adrZ)) {
+                                                    _crmAddr = _adrZ + ", " + _crmAddr;
+                                                }
+                                            }
+                                        }
+                                    }
+                                    // Prio 2: flat invoiceAddress / billingAddress / address (Legacy-Fallback)
+                                    if (_crmAddr.isEmpty()) _crmAddr = strVal(cs.child("invoiceAddress").getValue());
                                     if (_crmAddr.isEmpty()) _crmAddr = strVal(cs.child("billingAddress").getValue());
                                     if (_crmAddr.isEmpty()) _crmAddr = strVal(cs.child("address").getValue());
                                     if (!_crmAddr.isEmpty()) _addr.put("customerAddress", _crmAddr);
+                                    if (!_crmName.isEmpty()) _addr.put("customerName", _crmName);
                                     String _crmEmail = strVal(cs.child("email").getValue());
                                     if (!_crmEmail.isEmpty()) _addr.put("customerEmail", _crmEmail);
                                     if (!_addr.isEmpty()) {

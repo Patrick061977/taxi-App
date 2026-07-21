@@ -31474,6 +31474,48 @@ exports.scheduledOpenRideCheck = onSchedule(
                 }
             });
 
+            // v6.63.770 (Patrick 21.07. Bridge Höhner-Fall): Vorbestellung zugewiesen aber
+            //   Fahrer akzeptiert nie. Bisher gab es KEINE Warnung — Ride blieb 'vorbestellt'
+            //   mit assignedVehicle bis pickup vorbei. Jetzt: <= 15 Min vor Pickup +
+            //   assignedVehicle + kein acceptedAt → wartepool + assignedVehicle freigeben +
+            //   Admin-Push.
+            const _notAcceptedPromises = [];
+            ridesSnap.forEach(child => {
+                const ride = child.val();
+                const rideId = child.key;
+                if (ride.status !== 'vorbestellt') return;
+                if (!ride.assignedVehicle && !ride.vehicleId) return;
+                if (ride.acceptedAt) return; // Schon angenommen
+                if (ride._notAcceptedWarned === true) return; // Schon einmal umgeplant
+                if (ride.assignmentLocked === true) return; // Locked bleibt beim Fahrzeug
+                if (!ride.pickupTimestamp) return;
+                const minsToPickup = (ride.pickupTimestamp - now) / 60000;
+                if (minsToPickup > 15 || minsToPickup < -5) return;
+                const _vName = ride.assignedVehicleName || ride.assignedVehicle;
+                _notAcceptedPromises.push((async () => {
+                    await db.ref(`rides/${rideId}`).update({
+                        status: 'wartepool',
+                        assignedVehicle: null, vehicleId: null, assignedTo: null,
+                        assignedVehicleName: null, assignedVehiclePlate: null,
+                        assignedBy: null, assignedAt: null,
+                        wartepoolAt: now,
+                        wartepoolReason: `v6.63.770 Fahrer ${_vName} hat nicht akzeptiert (${Math.round(minsToPickup)} Min vor Pickup)`,
+                        _notAcceptedWarned: true,
+                        rejectedVehicles: [...(ride.rejectedVehicles || []), ride.assignedVehicle || ride.vehicleId].filter(Boolean),
+                        updatedAt: now
+                    });
+                    await addRideLog(rideId, '⚠️', `Vorbest.-Timeout: ${_vName} hat nicht akzeptiert — Wartepool`, {
+                        quelle: 'v6.63.770 scheduledOpenRideCheck',
+                        minsBisPickup: Math.round(minsToPickup)
+                    });
+                    try {
+                        await sendToAllAdmins(`⚠️ <b>Vorbestellung nicht angenommen</b>\n\n${ride.customerName || '?'} · ${new Date(ride.pickupTimestamp).toLocaleTimeString('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit' })}\nFahrer <b>${_vName}</b> hat nicht akzeptiert.\n\nZurueck im Wartepool.`);
+                    } catch (_) {}
+                })());
+            });
+            await Promise.all(_notAcceptedPromises);
+            if (_notAcceptedPromises.length > 0) console.log(`⚠️ v6.63.770 not-accepted → wartepool: ${_notAcceptedPromises.length}`);
+
             // 🆕 v6.38.97: Timeout für 'sofort' Fahrten — Fahrer hat nicht bestätigt
             ridesSnap.forEach(child => {
                 const ride = child.val();

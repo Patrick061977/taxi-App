@@ -948,21 +948,29 @@ public class DriverDashboardActivity extends AppCompatActivity {
             boolean changed = false;
             for (Ride rr : myAssignedRides) {
                 if (rr.id != null && rr.id.equals(rideId)) {
+                    // v6.63.768 (Patrick 21.07. Bridge "GPS spinnt schon wieder rum"):
+                    //   Anzeige nur updaten wenn Aenderung >= 2 Min. Vorher jede 1-Min-
+                    //   Differenz = Re-Render → Timer zappelte 3/5/1/4 Min-mal.
+                    //   Erste Berechnung (== null) wird immer angezeigt.
                     if ("destination".equals(_mode)) {
-                        if (rr.drivingTimeToDestination == null || rr.drivingTimeToDestination != _durationMin) {
+                        boolean _needTime = rr.drivingTimeToDestination == null
+                            || Math.abs(rr.drivingTimeToDestination - _durationMin) >= 2;
+                        if (_needTime) {
                             rr.drivingTimeToDestination = _durationMin;
                             changed = true;
                         }
-                        if (rr.drivingDistanceToDestKm == null || Math.abs(rr.drivingDistanceToDestKm - _distanceKm) > 0.05) {
+                        if (rr.drivingDistanceToDestKm == null || Math.abs(rr.drivingDistanceToDestKm - _distanceKm) > 0.2) {
                             rr.drivingDistanceToDestKm = _distanceKm;
                             changed = true;
                         }
                     } else {
-                        if (rr.drivingTimeToPickup == null || rr.drivingTimeToPickup != _durationMin) {
+                        boolean _needTime = rr.drivingTimeToPickup == null
+                            || Math.abs(rr.drivingTimeToPickup - _durationMin) >= 2;
+                        if (_needTime) {
                             rr.drivingTimeToPickup = _durationMin;
                             changed = true;
                         }
-                        if (rr.drivingDistanceToPickupKm == null || Math.abs(rr.drivingDistanceToPickupKm - _distanceKm) > 0.05) {
+                        if (rr.drivingDistanceToPickupKm == null || Math.abs(rr.drivingDistanceToPickupKm - _distanceKm) > 0.2) {
                             rr.drivingDistanceToPickupKm = _distanceKm;
                             changed = true;
                         }

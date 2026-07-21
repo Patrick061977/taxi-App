@@ -25224,26 +25224,59 @@ exports.scheduledAutoAssign = onSchedule(
                     // Zeitkonflikt prüfen
                     // 🆕 v6.33.8: Rückfahrt zur Basis einrechnen!
                     // 🔧 v6.33.7: Sofortfahrt — kein Rückfahrt-Puffer für die neue Fahrt
+                    // 🆕 v6.63.763 (Patrick 21.07. Bridge): ECHTE OSRM/Google-Route statt
+                    //   pauschal 30-Min-Rueckkehr-Puffer. Karlsburg-Fall zeigte: 57 Min hin +
+                    //   30 Min pauschal = 87 Min blockiert, aber Realitaet ist 57 hin +
+                    //   ca. 50 zurueck = 107 Min. Cron dachte IK frei fuer 10:00, war er nicht.
+                    //   Jetzt: fuer JEDEN Slot des Vehicles Rueckfahrt-Zeit aus OSRM-Cache
+                    //   (osrmDrivingMin hat 15-Min-Cache + persistent Firebase-Cache).
                     if (ride.pickupTimestamp) {
                         const newPickup = ride.pickupTimestamp;
                         const newDur = (ride.duration || ride.estimatedDuration || 20) * 60000;
-                        const _rueckfahrtMs2 = (pricingSettings.standortRueckkehrPufferMinuten || 30) * 60000;
-                        const _newReturnMs2 = isSofort ? 0 : _rueckfahrtMs2;
-                        const hasConflict = allRides.some(r => {
-                            if (r.firebaseId === rideId) return false;
-                            if (r.vehicleId !== vehicleId && r.assignedTo !== vehicleId && r.assignedVehicle !== vehicleId) return false;
-                            if (!r.pickupTimestamp) return false;
-                            if (['deleted','cancelled','storniert','cancelled_pending_driver','completed'].includes(r.status)) return false;
+                        const newPickLat = ride.pickupLat || ride.pickupCoords?.lat;
+                        const newPickLon = ride.pickupLon || ride.pickupCoords?.lon;
+                        const newDestLat = ride.destinationLat || ride.destCoords?.lat;
+                        const newDestLon = ride.destinationLon || ride.destCoords?.lon;
+                        const _minStandRet = 5 * 60000; // Minimum 5 Min Puffer auch bei sehr nahen Zielen
+                        // Alle relevanten Rides dieses Fahrzeugs vorher sammeln
+                        const _sameVehRides = allRides.filter(r => r.firebaseId !== rideId
+                            && (r.vehicleId === vehicleId || r.assignedTo === vehicleId || r.assignedVehicle === vehicleId)
+                            && r.pickupTimestamp
+                            && !['deleted','cancelled','storniert','cancelled_pending_driver','completed'].includes(r.status));
+                        let hasConflict = false;
+                        for (const r of _sameVehRides) {
                             const rDur = (r.duration || r.estimatedDuration || 20) * 60000;
-                            // Fahrt belegt = Fahrtdauer + Ein/Aussteigen + Rückfahrt zur Basis
-                            const rEnd = r.pickupTimestamp + rDur + bufferMs + _rueckfahrtMs2;
-                            const newEnd = newPickup + newDur + bufferMs + _newReturnMs2;
-                            return (newPickup < rEnd + mindestAbstandMs) && (r.pickupTimestamp < newEnd + mindestAbstandMs);
-                        });
-                        if (hasConflict) {
-                            console.log(`   ⚠️ ${info.name}: Zeitkonflikt`);
-                            continue;
+                            const rDestLat = r.destinationLat || r.destCoords?.lat;
+                            const rDestLon = r.destinationLon || r.destCoords?.lon;
+                            const rPickLat = r.pickupLat || r.pickupCoords?.lat;
+                            const rPickLon = r.pickupLon || r.pickupCoords?.lon;
+                            // Rueckfahrt r→new: von r.dest zu ride.pickup (echt)
+                            let _retToNewMs = _minStandRet;
+                            if (rDestLat && rDestLon && newPickLat && newPickLon) {
+                                try {
+                                    const _rMin = await osrmDrivingMin(rDestLat, rDestLon, newPickLat, newPickLon);
+                                    if (_rMin != null) _retToNewMs = Math.max(_minStandRet, _rMin * 60000);
+                                } catch (_e) { _retToNewMs = 30 * 60000; }
+                            } else {
+                                _retToNewMs = 30 * 60000; // Fallback ohne Coords
+                            }
+                            // Rueckfahrt new→r (falls neue Fahrt VOR bestehender liegt): ride.dest → r.pickup
+                            let _newToRMs = isSofort ? 0 : _minStandRet;
+                            if (!isSofort && newDestLat && newDestLon && rPickLat && rPickLon) {
+                                try {
+                                    const _nMin = await osrmDrivingMin(newDestLat, newDestLon, rPickLat, rPickLon);
+                                    if (_nMin != null) _newToRMs = Math.max(_minStandRet, _nMin * 60000);
+                                } catch (_e) { _newToRMs = 30 * 60000; }
+                            }
+                            const rEnd = r.pickupTimestamp + rDur + bufferMs + _retToNewMs;
+                            const newEnd = newPickup + newDur + bufferMs + _newToRMs;
+                            if ((newPickup < rEnd + mindestAbstandMs) && (r.pickupTimestamp < newEnd + mindestAbstandMs)) {
+                                hasConflict = true;
+                                console.log(`   ⚠️ ${info.name}: Zeitkonflikt mit ${r.customerName || '?'} (Rueckfahrt ${Math.round(_retToNewMs/60000)}min real)`);
+                                break;
+                            }
                         }
+                        if (hasConflict) continue;
                     }
 
                     candidates.push({ vehicleId, name: info.name, priority: getVehiclePrio(vehicleId), telegramChatId: vehiclesData[vehicleId]?.telegramChatId });

@@ -4392,6 +4392,16 @@ public class DriverDashboardActivity extends AppCompatActivity {
         // die laufende Vibration + entfernt die Notification — Patrick hatte gemeldet
         // dass der Push sich nicht wegklicken lässt und Vibration 5,3s weiterlief.
         try { TaxiFCMService.cancelDepartureAlert(this); } catch (Throwable _t) {}
+        // 🆕 v6.63.777 (Patrick 22.07. Bridge "sound geht nicht weg"): Wenn User auf einen
+        //   new_ride Push tippt (statt Annehmen/Ablehnen-Button), landet er via
+        //   onNewIntent hier. Der AlertSoundService MediaPlayer läuft aber weiter bis
+        //   60s Autostop. Fix: Sound + alle offenen Taxi-Push-Notifications sofort killen.
+        try { AlertSoundService.stop(this); } catch (Throwable _t) {}
+        try {
+            android.app.NotificationManager _nnm = (android.app.NotificationManager)
+                getSystemService(Context.NOTIFICATION_SERVICE);
+            if (_nnm != null) _nnm.cancelAll();
+        } catch (Throwable _t) {}
         // v6.63.063 (Patrick 31.05. 19:34): Quick-Win — beim Push-Tap explizit den Kunden-
         // Namen anzeigen ("Push für Hotel Wald und See angekommen") damit du SIEHST wo der
         // Tap gelandet ist und welche Fahrt gemeint war. Auch wenn die App schon offen

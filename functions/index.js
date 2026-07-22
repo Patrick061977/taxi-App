@@ -26286,6 +26286,17 @@ exports.scheduledLosfahrCheck = onSchedule(
                 if (!r || !r.acceptedAt) return;
                 if (r._losfahrTimeoutHandled === true) return;
                 if ((now - r.acceptedAt) < TIMEOUT_MS) return;
+                // 🆕 v6.63.778 (Patrick 22.07. Bridge Kawohl-Fall): Watchdog darf NUR
+                //   greifen wenn Fahrer in der Losfahr-Zone ist. Bei Vorbestellungen mit
+                //   Pickup >15 Min in Zukunft soll der Fahrer NICHT sofort losfahren —
+                //   3 Min ohne Movement ist da normales Verhalten, keine "Nichtreaktion".
+                //   Kawohl-Ride: Vito acceptedAt 10:32:15, Pickup 11:00 (28 Min später).
+                //   Watchdog griff um 10:35:02 falsch — Vito wurde die Fahrt weggenommen
+                //   und in Wartepool geschmissen. Ping-Pong die Folge.
+                //   Grenze: nur wenn Pickup < 15 Min entfernt ist (Losfahr-Zone).
+                const _pickupTs = r.pickupTimestamp || r.pickupTs || 0;
+                const _minsToPickup = _pickupTs ? (_pickupTs - now) / 60000 : 0;
+                if (_pickupTs && _minsToPickup > 15) return;
                 checked++;
                 const vid = r.assignedVehicle || r.vehicleId || r.acceptedByVehicle;
                 const vData = vid ? vehiclesData[vid] : null;

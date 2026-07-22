@@ -23,8 +23,18 @@ import java.util.Map;
 public class TaxiFCMService extends FirebaseMessagingService {
 
     private static final String TAG = "TaxiFCMService";
-    public static final String CHANNEL_ID = "taxi_heringsdorf_rides";
+    // 🆕 v6.63.774 (Patrick 22.07. Bridge S20 FE-Test): CHANNEL-MIGRATION.
+    // Der alte Channel "taxi_heringsdorf_rides" wurde bei Erstinstallationen (vor v6.42.7)
+    // mit notification_sound + bypassDnd=false erstellt. Android friert Sound + BypassDnd
+    // ab Erstellung ein (SDK-Limitation). Neue Sound-URI im Builder wird IGNORIERT.
+    // Konsequenz: kein Alarm-Ton mehr bei neuer Fahrt am S20 FE — bewiesen per dumpsys.
+    // Fix: neuer Channel _v2 mit korrektem ALARM-Sound + BypassDnd + eigener Channel für
+    // Losfahr-Reminder (departure_alert) mit sanftem Notification-Ton.
+    public static final String CHANNEL_ID = "taxi_heringsdorf_rides_v2";
     public static final String CHANNEL_NAME = "Neue Fahrten";
+    public static final String DEPARTURE_CHANNEL_ID = "taxi_heringsdorf_departure";
+    public static final String DEPARTURE_CHANNEL_NAME = "Losfahr-Reminder";
+    private static final String CHANNEL_ID_LEGACY = "taxi_heringsdorf_rides";
     private static final int NOTIFICATION_ID_BASE = 2000;
 
     // 🆕 v6.62.665: Patrick (13.05. 09:56): "Wenn die App auf ist und dann kommt kein Push
@@ -433,7 +443,12 @@ public class TaxiFCMService extends FirebaseMessagingService {
     // 🆕 v6.62.885: Losfahr-Alarm fuer akzeptierte Vorbestellungen.
     // Patrick (23.05. 07:09): 'Mir fehlt eine Vibration wenn ich spaetestens losfahren muss.'
     // Server-side schickt scheduledDepartureAlert dieses FCM 1× pro Ride wenn 'losfahrtAt'
-    // erreicht ist. Nur Vibration (kein Ringtone) — Patrick will keinen doppelten Sound.
+    // erreicht ist.
+    // 🆕 v6.63.774 (Patrick 22.07. Bridge "kein Ton bei Termin am S20 FE"): Kehrtwende
+    //   zur 23.05.-Entscheidung. Jetzt eigener DEPARTURE_CHANNEL_ID mit sanftem
+    //   Notification-Ton (nicht Alarm — Fahrgast-Peinlichkeit vermeiden), aber deutlich
+    //   hoerbar. Vibration bleibt. Der setSound(null) im Builder ist raus — Channel-Sound
+    //   entscheidet ab Android 8.
     private void handleDepartureAlert(Map<String, String> data) {
         String rideId = data.get("rideId");
         String customerName = data.getOrDefault("customerName", "Kunde");
@@ -466,9 +481,10 @@ public class TaxiFCMService extends FirebaseMessagingService {
 
         String title = "🚨 JETZT LOSFAHREN: " + customerName;
         String body = "Pickup um " + pickupTime + (pickup.isEmpty() ? "" : "\n📍 " + pickup);
-        // Langes, deutliches Vibration-Pattern. Kein Sound.
+        // 🆕 v6.63.774: langes Vibration-Pattern + eigener DEPARTURE_CHANNEL_ID mit sanftem
+        //   Notification-Sound (statt setSound(null)). Channel-Sound gilt ab Android 8.
         long[] vibrationPat = new long[]{0, 1000, 400, 1000, 400, 1000, 400, 1500};
-        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, DEPARTURE_CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentTitle(title)
             .setContentText(body.split("\n")[0])
@@ -476,7 +492,6 @@ public class TaxiFCMService extends FirebaseMessagingService {
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setSound(null) // Patrick: kein Sound, nur Vibration
             .setVibrate(vibrationPat)
             .setAutoCancel(true)
             .setContentIntent(pendingIntent);
@@ -581,26 +596,63 @@ public class TaxiFCMService extends FirebaseMessagingService {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return;
         NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         if (nm == null) return;
-        if (nm.getNotificationChannel(CHANNEL_ID) != null) return;
-        // v6.41.98: IMPORTANCE_HIGH ist max programmatisch — User kann's in Settings auf MAX setzen.
-        NotificationChannel channel = new NotificationChannel(
-            CHANNEL_ID, CHANNEL_NAME, NotificationManager.IMPORTANCE_HIGH
-        );
-        channel.setDescription("Benachrichtigungen über neue Fahrt-Aufträge — HOCH wichtig, Sound + Vibration");
-        channel.enableVibration(true);
-        channel.setVibrationPattern(new long[]{0, 800, 300, 800, 300, 800, 300, 800});
-        // v6.42.7: USAGE_ALARM erzwingt MAX-Volume + ignoriert Notifications-Slider.
-        // ALARM-URI ist außerdem noch lauter/länger als Ringtone.
-        AudioAttributes audioAttrs = new AudioAttributes.Builder()
-            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-            .setUsage(AudioAttributes.USAGE_ALARM)
-            .build();
-        Uri channelSound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM);
-        if (channelSound == null) channelSound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE);
-        if (channelSound == null) channelSound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
-        channel.setSound(channelSound, audioAttrs);
-        channel.setBypassDnd(true); // wichtig: durch Nicht-Stören-Modus durchbrechen für Aufträge
-        channel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
-        nm.createNotificationChannel(channel);
+
+        // 🆕 v6.63.774: Legacy-Channel loeschen (falls noch da). Er hat auf Alt-Installationen
+        //   mSound=notification_sound + mBypassDnd=false eingefroren, was der Grund fuer
+        //   "kein Ton bei neuer Fahrt am S20 FE" ist. Neue Channel-IDs werden garantiert
+        //   mit korrekter Konfiguration erstellt.
+        try {
+            if (nm.getNotificationChannel(CHANNEL_ID_LEGACY) != null) {
+                nm.deleteNotificationChannel(CHANNEL_ID_LEGACY);
+                Log.i(TAG, "🗑️ v6.63.774 Legacy-Channel geloescht: " + CHANNEL_ID_LEGACY);
+            }
+        } catch (Throwable t) { Log.w(TAG, "Legacy-Channel-Delete Fehler: " + t.getMessage()); }
+
+        // 🆕 v6.63.774: Rides-Channel v2 — laut, Alarm-URI, BypassDnd. Fuer new_ride /
+        //   new_anfrage / new_web_booking / ride_cancelled / payment_confirmed.
+        if (nm.getNotificationChannel(CHANNEL_ID) == null) {
+            NotificationChannel channel = new NotificationChannel(
+                CHANNEL_ID, CHANNEL_NAME, NotificationManager.IMPORTANCE_HIGH
+            );
+            channel.setDescription("Neue Fahrt-Auftraege — HOCH wichtig, Alarm-Sound + Vibration, ignoriert Nicht-Stoeren");
+            channel.enableVibration(true);
+            channel.setVibrationPattern(new long[]{0, 800, 300, 800, 300, 800, 300, 800});
+            AudioAttributes audioAttrs = new AudioAttributes.Builder()
+                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                .setUsage(AudioAttributes.USAGE_ALARM)
+                .build();
+            Uri channelSound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM);
+            if (channelSound == null) channelSound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE);
+            if (channelSound == null) channelSound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+            channel.setSound(channelSound, audioAttrs);
+            channel.setBypassDnd(true);
+            channel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
+            nm.createNotificationChannel(channel);
+            Log.i(TAG, "✅ v6.63.774 Rides-Channel v2 erstellt (ALARM-Sound, BypassDnd)");
+        }
+
+        // 🆕 v6.63.774: Departure-Channel — sanft, Notification-URI, respektiert Lautlos.
+        //   Fuer Losfahr-Reminder (departure_alert). Patrick 22.07.: "kein Ton bei Termin"
+        //   (Ursache: setSound(null) im Builder + Legacy-Channel-Sound war notification_sound).
+        //   Neu: eigener Channel mit sanftem Notification-Ton + Vibration. Nicht so laut
+        //   wie Alarm (Fahrgast-Peinlichkeit vermeiden), aber deutlich hoerbar.
+        if (nm.getNotificationChannel(DEPARTURE_CHANNEL_ID) == null) {
+            NotificationChannel depCh = new NotificationChannel(
+                DEPARTURE_CHANNEL_ID, DEPARTURE_CHANNEL_NAME, NotificationManager.IMPORTANCE_HIGH
+            );
+            depCh.setDescription("Losfahr-Reminder fuer akzeptierte Vorbestellungen — sanfter Ton + Vibration");
+            depCh.enableVibration(true);
+            depCh.setVibrationPattern(new long[]{0, 1000, 400, 1000, 400, 1000, 400, 1500});
+            AudioAttributes depAttrs = new AudioAttributes.Builder()
+                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+                .build();
+            Uri depSound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+            if (depSound == null) depSound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE);
+            depCh.setSound(depSound, depAttrs);
+            depCh.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
+            nm.createNotificationChannel(depCh);
+            Log.i(TAG, "✅ v6.63.774 Departure-Channel erstellt (sanfter Notification-Sound)");
+        }
     }
 }

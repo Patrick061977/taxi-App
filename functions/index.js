@@ -23918,24 +23918,35 @@ async function estimateVehicleLeerfahrt(vehicleId, targetRide, allRides, vehicle
         return rDateStr === dateStr;
     }).sort((a, b) => b.pickupTimestamp - a.pickupTimestamp);
 
-    // Keine Vorfahrt am selben Tag → Homebase oder GPS
+    // Keine Vorfahrt am selben Tag → GPS-first, dann Homebase
+    // 🆕 v6.63.784 (Patrick 22.07. Bridge Vito-Triller-Bug): AKTUELLES GPS soll VOR
+    //   Home-Standort bewertet werden. Vorher: Home immer zuerst, GPS nur Fallback.
+    //   Fall: Vito hatte Home "Bahnhof Ahlbeck", war aber real in Bansin (GPS <10 Min).
+    //   Cloud rechnete mit Ahlbeck → falsche Anfahrt. Neu: GPS wenn frisch (< 15 Min).
     if (vehicleRides.length === 0) {
+        const driver = vehiclesData[vehicleId];
+        const _gpsAge = driver && driver.timestamp ? (Date.now() - driver.timestamp) / 60000 : Infinity;
+        const _gpsFresh = _gpsAge <= 60 && driver && driver.lat && driver.lon;
+
+        if (_gpsFresh) {
+            const route = await calculateRoute({ lat: driver.lat, lon: driver.lon }, { lat: pickupLat, lon: pickupLon });
+            const _border = _crossesBorder(driver.lat, driver.lon, pickupLat, pickupLon) ? BORDER_BUFFER_MIN : 0;
+            if (route) return { durationMin: route.duration + _border, distKm: parseFloat(route.distance), method: _border ? 'gps-grenze' : 'gps', borderMin: _border, gpsAgeMin: Math.round(_gpsAge) };
+        }
         if (homeLat && homeLon) {
             const route = await calculateRoute({ lat: homeLat, lon: homeLon }, { lat: pickupLat, lon: pickupLon });
-            // 🆕 v6.62.530: Border-Buffer wenn Leerfahrt DE↔PL kreuzt
             const _border = _crossesBorder(homeLat, homeLon, pickupLat, pickupLon) ? BORDER_BUFFER_MIN : 0;
             if (route) return { durationMin: route.duration + _border, distKm: parseFloat(route.distance), method: _border ? 'homebase-grenze' : 'homebase', borderMin: _border };
             const _dist = gpsDistanceKm(homeLat, homeLon, pickupLat, pickupLon);
             return { durationMin: _dist * 2 + _border, distKm: _dist, method: _border ? 'homebase-luftlinie-grenze' : 'homebase-luftlinie', borderMin: _border };
         }
-        // GPS-Fallback
-        const driver = vehiclesData[vehicleId];
+        // GPS-Fallback wenn Home fehlt + GPS aber älter als 60 Min
         if (driver?.lat && driver?.lon) {
             const route = await calculateRoute({ lat: driver.lat, lon: driver.lon }, { lat: pickupLat, lon: pickupLon });
             const _border = _crossesBorder(driver.lat, driver.lon, pickupLat, pickupLon) ? BORDER_BUFFER_MIN : 0;
-            if (route) return { durationMin: route.duration + _border, distKm: parseFloat(route.distance), method: _border ? 'gps-grenze' : 'gps', borderMin: _border };
+            if (route) return { durationMin: route.duration + _border, distKm: parseFloat(route.distance), method: _border ? 'gps-stale-grenze' : 'gps-stale', borderMin: _border, gpsAgeMin: Math.round(_gpsAge) };
         }
-        return { durationMin: 50, distKm: 25, method: 'fallback' };
+        return { durationMin: 50, distKm: 25, method: 'no-position' };
     }
 
     // Vorfahrt vorhanden → Smart Routing

@@ -162,9 +162,15 @@ function buildInvoiceHtml({ invoiceNumber, ride, customer, settings, invoice }) 
             ? _baLines
             : (c.billingAddress || c.address || r.customerAddress || '')
                 .split(/[,\n]/).map(l => l.trim()).filter(Boolean));
+    // 🆕 v6.63.776 (Patrick 22.07. Ostseeblick-Bug): substring(0,4)-Check war zu naiv —
+    //   'Strandhotel Ostseeblick' → Prefix 'stra' → matcht in 'Kulm-STRA-ße 28' → Name
+    //   wurde als 'schon in Adresse' erkannt und NICHT gerendert. Fix: exakter Zeilen-
+    //   Vergleich der 1. Adresszeile mit recipientName. Andrea-Pesch-Duplikat-Schutz
+    //   funktioniert weiter (bei denen ist recipientLines[0]="Andrea Pesch" == recipientName).
+    const _rnLow = recipientName.toLowerCase().trim();
     const nameInAddr = recipientLines.length > 0
         && recipientName.length >= 4
-        && recipientLines[0].toLowerCase().includes(recipientName.toLowerCase().substring(0, 4));
+        && recipientLines[0].toLowerCase().trim() === _rnLow;
 
     // Meta-Daten rechts oben
     const invoiceDate = inv.createdAt || inv.issuedAt || Date.now();

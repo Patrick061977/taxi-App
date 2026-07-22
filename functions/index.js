@@ -23801,10 +23801,23 @@ exports.scheduledReachabilityCheck = onSchedule(
 // 🔧 v6.25.4: Homebase aus Schichtplan ermitteln (wie getVehicleHomeForTime in index.html)
 // Unterstützt: Split-Schicht (timeRanges), Tagesausnahmen, defaultTimes
 // 🔧 v6.38.35: Bekannte Standorte mit Koordinaten (für Schichtplan-Auflösung)
+// 🆕 v6.63.785 (Patrick 22.07. Bridge Vito-Bug): "Bahnhof Ahlbeck" fehlte —
+//   Vito hatte als homeLocation "Bahnhof Ahlbeck" für alle 7 Tage, aber die
+//   Cloud konnte den Text nicht auflösen (nur Heringsdorf war in Liste).
+//   Konsequenz: Vito ohne Home-Coords → bei Sofortfahrt ausgeschlossen, bei
+//   Vorbestellung 'no-coords'-Fallback. Erweitert um Ahlbeck, Bansin, Zinnowitz.
 const KNOWN_HOME_LOCATIONS = {
     'bahnhof heringsdorf': { lat: 53.9498, lon: 14.1592 },
     'bahnhof heringsdorf, am bahnhof 17424 heringsdorf': { lat: 53.9498, lon: 14.1592 },
     'am bahnhof 17424 heringsdorf': { lat: 53.9498, lon: 14.1592 },
+    'bahnhof ahlbeck': { lat: 53.9425, lon: 14.2085 },
+    'ahlbeck bahnhof': { lat: 53.9425, lon: 14.2085 },
+    'bahnhof ahlbeck, bahnhofstraße, 17419 ahlbeck': { lat: 53.9425, lon: 14.2085 },
+    'bahnhof bansin': { lat: 53.9767, lon: 14.1259 },
+    'bansin bahnhof': { lat: 53.9767, lon: 14.1259 },
+    'bahnhof zinnowitz': { lat: 54.0705, lon: 13.9137 },
+    'zinnowitz bahnhof': { lat: 54.0705, lon: 13.9137 },
+    'flughafen heringsdorf': { lat: 53.8785, lon: 14.1510 },
     'home base patrick': { lat: 53.9659, lon: 14.1523 },
     'im mühlenkamp 19': { lat: 53.9659, lon: 14.1523 },
     'im mühlenkamp 19, 17424 heringsdorf': { lat: 53.9659, lon: 14.1523 }

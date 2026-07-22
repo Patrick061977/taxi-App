@@ -6,6 +6,60 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [6.63.776] - 2026-07-22 (Cloud)
+
+### 🧾 Rechnungs-Empfängername fehlte bei „Str"-Prefix + Straßen-Adresse
+Patrick 22.07. Bridge: „ostseeblick rechnung nur die adresse zeigt aber nicht strandhotel ostseeblick".
+
+**Bug in `invoice-html.js:167`:** Duplikat-Schutz (Name nicht doppelt drucken wenn er in Adresse steht) nutzte `substring(0, 4)`. Bei „Strandhotel Ostseeblick" + „Kulmstraße 28" matched `"stra"` in „kulm**STRA**ße" → `nameInAddr=true` → Name wurde NICHT gerendert. **Betroffen: fast jede Rechnung wo Name mit „Str", „Str.", „Straße" beginnt UND Adresse ein Straßen-Wort enthält.**
+
+**Fix:** exakter Zeilen-Vergleich statt Substring-Include. Andrea-Pesch-Duplikat-Schutz (v6.62.812) funktioniert weiter.
+
+**Nachlese:** 9 Rechnungen der letzten 100 waren betroffen — alle 8 Ostseeblick + Golfhotel Balmersee. Alle regeneriert.
+
+---
+
+## [6.63.775] - 2026-07-22 (Native)
+
+### 🔇 Alarm-Sound stoppt sofort bei Annehmen/Ablehnen
+Patrick 22.07. Bridge: „der ton muss aber ausgehen wenn man annimmt oder ableht".
+
+**Bug nach v6.63.774:** v2-Channel hat USAGE_ALARM + Alarm-URI (30-60s Loop). RideActionReceiver rief zwar `AlertSoundService.stop()` für den MediaPlayer, aber die Notification wurde nur ge-UPDATED (gleicher notifId). Android stoppt Channel-Sound bei Update NICHT — nur `nm.cancel(notifId)` tut das. Ergebnis: Alarm brummte weiter obwohl Fahrer schon reagiert hat.
+
+**Fix:**
+- `nm.cancel(notifId)` sofort in `onReceive()`
+- ⏳ Progress- und ✅/❌ Final-Notification unter neuer ID (`notifId + 1000`)
+- Progress/Final laufen auf DEPARTURE_CHANNEL_ID (sanft) mit `PRIORITY_LOW` + `setSound(null)` + `setOnlyAlertOnce(true)`
+
+### 🩺 Channel-Health-Repair (Absicherung neue Handys)
+Patrick fragte ob der v1-Legacy-Bug bei anderen Handys reproduzierbar ist. `ensureNotificationChannel()` prüft jetzt bei App-Start ob v2 die erwartete Alarm-URI + IMPORTANCE_HIGH hat. Wenn nicht → `deleteNotificationChannel(v2)` → neu anlegen. **Self-healing** — wir können künftig am v2-Channel Sound/Importance ändern ohne v3, v4, v5 einzuführen.
+
+---
+
+## [6.63.774] - 2026-07-22 (Native)
+
+### 🔊 FCM-Channel-Migration: Sound am S20 FE endlich hörbar
+Patrick 22.07. Bridge: „am s 20 fe gar kein sound bei termin" trotz Alarm-Volume 11/15 + DND aus.
+
+**Diagnose per `adb dumpsys notification`:**
+```
+NotificationChannel{mId='taxi_heringsdorf_rides',
+  mSound = notification_sound   ← FALSCH, Code sagt TYPE_ALARM
+  mBypassDnd = false            ← FALSCH, Code sagt true
+```
+Der Channel wurde bei Erst-Install (vor v6.42.7) mit `notification_sound` erstellt. Ab Android 8 friert das SDK Sound + BypassDnd bei `createNotificationChannel()` **ein**. Späteres `channel.setSound(ALARM)` im Code wird ignoriert.
+
+**Fix (3 Sachen):**
+
+1. **Neuer Channel `taxi_heringsdorf_rides_v2`** — ALARM-URI + BypassDnd. Legacy-Channel wird beim App-Start gelöscht. Für `new_ride` / `new_anfrage` / `new_web_booking` / `ride_cancelled` / `payment_confirmed`.
+2. **Neuer Channel `taxi_heringsdorf_departure`** — sanfter Notification-Sound für Losfahr-Reminder. Vorher `setSound(null)` (v6.62.885 Entscheidung 23.05.: „nur Vibration"), jetzt hörbar aber nicht Wecker-Alarm (Fahrgast-Peinlichkeit vermeiden, siehe 03.06.-Vorfall).
+3. **AlertSoundService 5s → 60s** — [KURZ-B] Bug: Sound verschwand zu schnell zum Reagieren. Power-Knopf stoppt weiterhin sofort.
+
+### 📲 WhatsApp-Fallback in Korrespondenz-Ansicht
+Patrick: „kann kein WA versenden, sendet SMS". `setPackage("com.whatsapp")` hart-codiert schlug fehl weil Patrick **WhatsApp Business** (`com.whatsapp.w4b`) hat. Fix: erst Standard-WA prüfen, dann Business, sonst Chooser.
+
+---
+
 ## [6.63.748] - 2026-07-19 (Cloud)
 
 ### 🔧 scheduledAutoAssign QUICK-CHECK-Fenster 25 Min → 24h

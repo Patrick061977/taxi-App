@@ -32681,8 +32681,19 @@ exports.scheduledLateCheck = onSchedule(
 
                 let best = null;
                 const altCheckResults = [];
+                // 🆕 v6.63.780 (Patrick 22.07. Bridge Strandhotel-Ping-Pong): Late-Rescue
+                //   darf NIE zu einem Fahrzeug zurueckschicken das die Fahrt gerade
+                //   abgelehnt hat. Sonst: Vito lehnt ab → Cron gibt an Prius → Prius nimmt
+                //   an → Late-Rescue "spart 6 Min mit Vito" → gibt an Vito zurueck.
+                //   Kulpa sieht die Fahrt kurz + verliert sie sofort wieder, Danilo
+                //   bekommt sie zurueck obwohl er wollte sie nicht.
+                const _rejected = Array.isArray(ride.rejectedVehicles) ? ride.rejectedVehicles : [];
                 for (const altVid of Object.keys(OFFICIAL_VEHICLES)) {
                     if (altVid === currentVid) continue;
+                    if (_rejected.includes(altVid)) {
+                        altCheckResults.push({ vid: altVid, skipReason: 'in rejectedVehicles (Fahrer hat abgelehnt)' });
+                        continue;
+                    }
                     const info = OFFICIAL_VEHICLES[altVid];
                     if (!info) continue;
                     if ((info.capacity || 4) < (ride.passengers || 1)) {

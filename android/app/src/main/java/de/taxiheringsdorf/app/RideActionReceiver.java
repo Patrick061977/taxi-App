@@ -40,6 +40,18 @@ public class RideActionReceiver extends BroadcastReceiver {
 
         // 🆕 v6.62.935: Lautlos-Override-Alarm sofort stoppen — Fahrer hat reagiert.
         try { AlertSoundService.stop(context); } catch (Throwable _ignore) {}
+        // 🆕 v6.63.775 (Patrick 22.07. Bridge "ton muss ausgehen wenn man annimmt"):
+        //   Notification SOFORT cancel — sonst spielt der Channel-Alarm-Sound (30-60s Loop
+        //   via USAGE_ALARM auf taxi_heringsdorf_rides_v2) weiter, obwohl der MediaPlayer
+        //   des AlertSoundService gestoppt ist. Beim Update via nm.notify() stoppt Android
+        //   den Sound NICHT — nur nm.cancel(notifId) tut es. Danach neue Notification unter
+        //   +1000-offset ID damit die ⏳/final Notification nicht mit der Ursprungs-ID
+        //   kollidiert (sonst wuerde Android sie als Sound-triggerndes Neu-Notify werten).
+        try {
+            NotificationManager _snm = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+            if (_snm != null) _snm.cancel(notifId);
+        } catch (Throwable _ignore) {}
+        final int progressNotifId = notifId + 1000;
 
         // v6.62.5: Patrick: 'wenn ich auf Annehmen klicke, muss ich sofort in die App reinkommen'.
         // Bei ACCEPT direkt DriverDashboardActivity launchen — HTTP-Call läuft async daneben.
@@ -59,13 +71,17 @@ public class RideActionReceiver extends BroadcastReceiver {
 
         // Sofort Notification aktualisieren (UI-Feedback)
         NotificationManager nm = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
-        NotificationCompat.Builder building = new NotificationCompat.Builder(context, TaxiFCMService.CHANNEL_ID)
+        // 🆕 v6.63.775: eigener silent Progress-Channel damit kein Alarm-Sound bei Fortschritts-Update
+        NotificationCompat.Builder building = new NotificationCompat.Builder(context, TaxiFCMService.DEPARTURE_CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentTitle(isAccept ? "⏳ Akzeptiere Auftrag…" : "⏳ Lehne Auftrag ab…")
             .setContentText("Wird verarbeitet")
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setOnlyAlertOnce(true)
+            .setSound(null)
             .setAutoCancel(false)
             .setOngoing(true);
-        if (nm != null) nm.notify(notifId, building.build());
+        if (nm != null) nm.notify(progressNotifId, building.build());
 
         // HTTP-Call in Background-Thread
         new Thread(() -> {
@@ -83,11 +99,14 @@ public class RideActionReceiver extends BroadcastReceiver {
                 finalTitle = "⚠️ Aktion fehlgeschlagen";
                 finalText = "Bitte App öffnen + manuell bestätigen. (" + result + ")";
             }
-            NotificationCompat.Builder finalB = new NotificationCompat.Builder(context, TaxiFCMService.CHANNEL_ID)
+            NotificationCompat.Builder finalB = new NotificationCompat.Builder(context, TaxiFCMService.DEPARTURE_CHANNEL_ID)
                 .setSmallIcon(android.R.drawable.ic_dialog_info)
                 .setContentTitle(finalTitle)
                 .setContentText(finalText)
                 .setStyle(new NotificationCompat.BigTextStyle().bigText(finalText))
+                .setPriority(NotificationCompat.PRIORITY_LOW)
+                .setOnlyAlertOnce(true)
+                .setSound(null)
                 .setAutoCancel(true)
                 .setTimeoutAfter(10_000);
             // v6.43.2: Tipp auf Bestätigungs-Notification öffnet DriverDashboardActivity (nicht WebView).
@@ -97,7 +116,7 @@ public class RideActionReceiver extends BroadcastReceiver {
             android.app.PendingIntent pi = android.app.PendingIntent.getActivity(context, 0, openIntent,
                 android.app.PendingIntent.FLAG_UPDATE_CURRENT | android.app.PendingIntent.FLAG_IMMUTABLE);
             finalB.setContentIntent(pi);
-            if (nm != null) nm.notify(notifId, finalB.build());
+            if (nm != null) nm.notify(progressNotifId, finalB.build());
         }).start();
     }
 

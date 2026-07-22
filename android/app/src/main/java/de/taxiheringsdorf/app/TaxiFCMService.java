@@ -608,6 +608,25 @@ public class TaxiFCMService extends FirebaseMessagingService {
             }
         } catch (Throwable t) { Log.w(TAG, "Legacy-Channel-Delete Fehler: " + t.getMessage()); }
 
+        // 🆕 v6.63.775 (Patrick 22.07. Bridge "kann der Fehler beim neuen Handy wieder kommen"):
+        //   Channel-Health-Check. Prueft ob v2-Channel den korrekten Alarm-Sound hat.
+        //   Wenn nicht (z.B. weil in Zukunft am Code geaendert und Channel-Config eingefroren
+        //   ist) → alten Channel loeschen + neu anlegen. Ohne dieses Auto-Repair haetten
+        //   wir bei jeder Sound-Aenderung eine neue Channel-Version einfuehren muessen.
+        try {
+            NotificationChannel _existing = nm.getNotificationChannel(CHANNEL_ID);
+            if (_existing != null) {
+                Uri _expectedSound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM);
+                Uri _actualSound = _existing.getSound();
+                boolean _soundOk = _expectedSound != null && _expectedSound.equals(_actualSound);
+                boolean _importanceOk = _existing.getImportance() >= NotificationManager.IMPORTANCE_HIGH;
+                if (!_soundOk || !_importanceOk) {
+                    nm.deleteNotificationChannel(CHANNEL_ID);
+                    Log.i(TAG, "🔧 v6.63.775 Channel-Health-Repair: v2 geloescht — Sound=" + _actualSound + " (erwartet " + _expectedSound + "), Importance=" + _existing.getImportance());
+                }
+            }
+        } catch (Throwable t) { Log.w(TAG, "Channel-Health-Check v2 Fehler: " + t.getMessage()); }
+
         // 🆕 v6.63.774: Rides-Channel v2 — laut, Alarm-URI, BypassDnd. Fuer new_ride /
         //   new_anfrage / new_web_booking / ride_cancelled / payment_confirmed.
         if (nm.getNotificationChannel(CHANNEL_ID) == null) {

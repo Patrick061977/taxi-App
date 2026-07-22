@@ -122,9 +122,13 @@ public class RideAlertActivity extends AppCompatActivity {
         //   → HTTP-Call sendete immer action:"reject", auch bei ANNEHMEN-Tap.
         btnAccept.setOnClickListener(v -> {
             Log.i(TAG, "✅ ANNEHMEN tapped, rideId=" + rideId + " vehicleId=" + vehicleId);
+            // 🆕 v6.63.777 (Patrick 22.07. Bridge "sound geht nicht weg"): Sound SYNCHRON
+            //   stoppen bevor Broadcast + finish(). sendBroadcast war async → Sound lief
+            //   0.5-2s weiter bis RideActionReceiver.onReceive greifen konnte.
+            _killAllAlarmSounds();
             if (rideId != null) {
                 Intent action = new Intent(this, RideActionReceiver.class);
-                action.setAction(RideActionReceiver.ACTION_ACCEPT); // fix: war "...ACTION_ACCEPT" ohne _RIDE
+                action.setAction(RideActionReceiver.ACTION_ACCEPT);
                 action.putExtra(RideActionReceiver.EXTRA_RIDE_ID, rideId);
                 action.putExtra(RideActionReceiver.EXTRA_VEHICLE_ID, vehicleId);
                 sendBroadcast(action);
@@ -139,14 +143,36 @@ public class RideAlertActivity extends AppCompatActivity {
 
         btnReject.setOnClickListener(v -> {
             Log.i(TAG, "❌ ABLEHNEN tapped, rideId=" + rideId);
+            _killAllAlarmSounds();
             if (rideId != null) {
                 Intent action = new Intent(this, RideActionReceiver.class);
-                action.setAction(RideActionReceiver.ACTION_REJECT); // fix: war "...ACTION_REJECT" ohne _RIDE
+                action.setAction(RideActionReceiver.ACTION_REJECT);
                 action.putExtra(RideActionReceiver.EXTRA_RIDE_ID, rideId);
                 action.putExtra(RideActionReceiver.EXTRA_VEHICLE_ID, vehicleId);
                 sendBroadcast(action);
             }
             finish();
         });
+    }
+
+    // 🆕 v6.63.777: Sound + Notifications sofort killen — SYNCHRON, damit der User
+    //   nicht 0.5-2s Alarm hört bevor Broadcast beim RideActionReceiver ankommt.
+    //   3 Ebenen: (1) AlertSoundService MediaPlayer, (2) diese Ride's Notification,
+    //   (3) alle offenen Taxi-Push-Notifications als Sicherheitsnetz.
+    private void _killAllAlarmSounds() {
+        try { AlertSoundService.stop(this); } catch (Throwable _ignore) {}
+        try {
+            android.app.NotificationManager nm = (android.app.NotificationManager)
+                getSystemService(Context.NOTIFICATION_SERVICE);
+            if (nm != null) {
+                if (rideId != null) {
+                    int nid = 9000 + (rideId.hashCode() & 0x7FFF);
+                    nm.cancel(nid);
+                    nm.cancel(nid + 1000);
+                }
+                // Sicherheitsnetz: alle Taxi-Push-Notifications
+                nm.cancelAll();
+            }
+        } catch (Throwable _ignore) {}
     }
 }

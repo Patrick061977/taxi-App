@@ -26285,18 +26285,17 @@ exports.scheduledLosfahrCheck = onSchedule(
                 const rideId = c.key;
                 if (!r || !r.acceptedAt) return;
                 if (r._losfahrTimeoutHandled === true) return;
+                // 🆕 v6.63.779 (Patrick 22.07. Bridge Praezisierung Kawohl): Watchdog
+                //   greift NUR wenn der Losfahr-Reminder (departure_alert) schon
+                //   gefeuert hat. Erst dann bekommt der Fahrer die "JETZT LOSFAHREN"-
+                //   Notification, erst dann ist Nicht-Reaktion ein Signal.
+                //   Vorher (v6.63.778): "Pickup <15 Min entfernt" reichte — aber der
+                //   Fahrer sieht die Losfahr-Aufforderung erst wenn scheduledDepartureAlert
+                //   gefeuert hat (pickupTs - drivingTime - 7 Min, cap 12 Min vor Pickup).
+                //   Neu: nur wenn `departureAlertSent === true` UND 3 Min danach ohne
+                //   Movement. Timer laueft ab acceptedAt aber Filter ist Alert-Trigger.
+                if (r.departureAlertSent !== true) return;
                 if ((now - r.acceptedAt) < TIMEOUT_MS) return;
-                // 🆕 v6.63.778 (Patrick 22.07. Bridge Kawohl-Fall): Watchdog darf NUR
-                //   greifen wenn Fahrer in der Losfahr-Zone ist. Bei Vorbestellungen mit
-                //   Pickup >15 Min in Zukunft soll der Fahrer NICHT sofort losfahren —
-                //   3 Min ohne Movement ist da normales Verhalten, keine "Nichtreaktion".
-                //   Kawohl-Ride: Vito acceptedAt 10:32:15, Pickup 11:00 (28 Min später).
-                //   Watchdog griff um 10:35:02 falsch — Vito wurde die Fahrt weggenommen
-                //   und in Wartepool geschmissen. Ping-Pong die Folge.
-                //   Grenze: nur wenn Pickup < 15 Min entfernt ist (Losfahr-Zone).
-                const _pickupTs = r.pickupTimestamp || r.pickupTs || 0;
-                const _minsToPickup = _pickupTs ? (_pickupTs - now) / 60000 : 0;
-                if (_pickupTs && _minsToPickup > 15) return;
                 checked++;
                 const vid = r.assignedVehicle || r.vehicleId || r.acceptedByVehicle;
                 const vData = vid ? vehiclesData[vid] : null;

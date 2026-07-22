@@ -1720,7 +1720,17 @@ public class DriverDashboardActivity extends AppCompatActivity {
                     if (!dup) _upcoming.add(r);
                 }
             }
-            if (_upcoming.isEmpty()) return;
+            // 🆕 v6.63.791 (Patrick 22.07. Bridge: "die Fahrt stand noch oben bis ich
+            //   unterwegs geklickt hab"): Banner MUSS ausgeblendet werden wenn keine freien
+            //   Fahrten mehr da sind. Vorher: early-return ohne visibility-Update ließ den
+            //   alten Banner (mit gerade übernommener Fahrt) sichtbar. Nach Übernahme:
+            //   newUnassignedRides ist reduziert → upcoming leer → alter Banner blieb
+            //   sichtbar mit stalen Daten. Fix: banner.setVisibility(GONE) beim Empty-Case.
+            if (_upcoming.isEmpty()) {
+                banner.setVisibility(View.GONE);
+                nextText.setVisibility(View.GONE);
+                return;
+            }
             _upcoming.sort((a, b) -> {
                 long ta = a.pickupTimestamp != null ? a.pickupTimestamp : Long.MAX_VALUE;
                 long tb = b.pickupTimestamp != null ? b.pickupTimestamp : Long.MAX_VALUE;

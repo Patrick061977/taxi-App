@@ -1812,6 +1812,16 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 u.put("wartepoolAt", null);
                 db.getReference("rides/" + ride.id).updateChildren(u);
                 logLifecycleTap(ride.id, "✅", "Banner-Tap: Fahrt übernommen (wartepool/new → accepted)", "accepted");
+                // 🆕 v6.63.781 (Patrick 22.07. Bridge "wenn ich die fahrt aus dem banner
+                //   uebernehme geht der ton nicht aus"): Sound + alle offenen Push-
+                //   Notifications sofort killen, auch beim Wartepool-Banner-Tap. v6.63.777
+                //   deckte nur Notification-Buttons + Push-Body + Vollbild-Alarm ab.
+                try { AlertSoundService.stop(this); } catch (Throwable _t) {}
+                try {
+                    android.app.NotificationManager _nnm = (android.app.NotificationManager)
+                        getSystemService(Context.NOTIFICATION_SERVICE);
+                    if (_nnm != null) _nnm.cancelAll();
+                } catch (Throwable _t) {}
                 android.widget.Toast.makeText(this, "✓ Fahrt übernommen!", android.widget.Toast.LENGTH_LONG).show();
             });
         // Bei überfälligen Fahrten: '✔ Erledigt'-Option statt Abbrechen
@@ -5259,6 +5269,13 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 u.put("wartepoolCheckResult", null);
                 db.getReference("rides/" + rideId).updateChildren(u);
                 logLifecycleTap(rideId, "✅", "Fahrer-Tap: ANGENOMMEN (aus Warteschlange/Wartepool)", "accepted");
+                // 🆕 v6.63.781: auch bei acceptRide() aus Warteschlange Sound killen
+                try { AlertSoundService.stop(this); } catch (Throwable _t) {}
+                try {
+                    android.app.NotificationManager _nnm = (android.app.NotificationManager)
+                        getSystemService(Context.NOTIFICATION_SERVICE);
+                    if (_nnm != null) _nnm.cancelAll();
+                } catch (Throwable _t) {}
             } catch (Throwable t) {
                 logLifecycleTap(rideId, "⚠️", "acceptRide-Crash: " + t.getMessage(), null);
             }

@@ -23823,15 +23823,53 @@ const KNOWN_HOME_LOCATIONS = {
     'im mühlenkamp 19, 17424 heringsdorf': { lat: 53.9659, lon: 14.1523 }
 };
 
+// 🆕 v6.63.787 (Patrick 22.07. Bridge "ist doch alles hinterlegt"): dynamischer
+//   Cache von settings/taxiStands als Home-Standort-Auflösung. Patrick hatte
+//   "Karl Heinz zu Hause" nur in taxiStands aber nicht in Code-Liste — Cloud
+//   konnte den Text nicht auflösen. Jetzt: bei jedem Cold-Start werden die
+//   TaxiStand-Namen + Coords in den Cache geladen und mit KNOWN_HOME_LOCATIONS
+//   gemerged. Damit funktionieren alle im Web-Editor angelegten Standorte
+//   automatisch — kein Code-Change mehr nötig.
+let _taxiStandsCache = null;
+let _taxiStandsCacheTs = 0;
+const _TAXISTANDS_TTL_MS = 5 * 60 * 1000; // 5 Min Cache
+
+async function _loadTaxiStandsIntoCache() {
+    const now = Date.now();
+    if (_taxiStandsCache && (now - _taxiStandsCacheTs) < _TAXISTANDS_TTL_MS) return _taxiStandsCache;
+    try {
+        const snap = await db.ref('settings/taxiStands').once('value');
+        const raw = snap.val() || {};
+        const merged = { ...KNOWN_HOME_LOCATIONS };
+        for (const entry of Object.values(raw)) {
+            if (!entry || !entry.name || !Number.isFinite(entry.lat) || !Number.isFinite(entry.lon)) continue;
+            merged[String(entry.name).toLowerCase().trim()] = { lat: entry.lat, lon: entry.lon };
+        }
+        _taxiStandsCache = merged;
+        _taxiStandsCacheTs = now;
+    } catch (e) {
+        console.warn('v6.63.787 taxiStands-Cache Fehler:', e.message);
+        _taxiStandsCache = { ...KNOWN_HOME_LOCATIONS };
+        _taxiStandsCacheTs = now;
+    }
+    return _taxiStandsCache;
+}
+
 function resolveHomeLocationToCoords(locationName) {
     if (!locationName) return null;
     const key = locationName.toLowerCase().trim();
-    if (KNOWN_HOME_LOCATIONS[key]) return KNOWN_HOME_LOCATIONS[key];
+    // Sync-Pfad: nur KNOWN_HOME_LOCATIONS + evtl. schon geladener Cache
+    const lookup = _taxiStandsCache || KNOWN_HOME_LOCATIONS;
+    if (lookup[key]) return lookup[key];
     // Teilwort-Match
-    for (const [k, coords] of Object.entries(KNOWN_HOME_LOCATIONS)) {
+    for (const [k, coords] of Object.entries(lookup)) {
         if (key.includes(k) || k.includes(key)) return coords;
     }
     return null;
+}
+async function resolveHomeLocationToCoordsAsync(locationName) {
+    await _loadTaxiStandsIntoCache();
+    return resolveHomeLocationToCoords(locationName);
 }
 
 function getVehicleHomeCoords(vehicleId, shiftsData, dateStr, timeStr) {
@@ -23899,6 +23937,8 @@ function _crossesBorder(fromLat, fromLon, toLat, toLon) {
 const BORDER_BUFFER_MIN = 5;
 
 async function estimateVehicleLeerfahrt(vehicleId, targetRide, allRides, vehiclesData, shiftsData, dateStr, pricingSettings) {
+    // 🆕 v6.63.787: TaxiStands-Cache aufwärmen für resolveHomeLocationToCoords
+    try { await _loadTaxiStandsIntoCache(); } catch (_) {}
     const pickupLat = targetRide.pickupCoords?.lat || targetRide.pickupLat;
     const pickupLon = targetRide.pickupCoords?.lon || targetRide.pickupLon;
     if (!pickupLat || !pickupLon) return { durationMin: 999, distKm: 999, method: 'no-coords' };

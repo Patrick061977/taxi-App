@@ -5501,9 +5501,28 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 try {
                     android.content.Intent _si;
                     if (isWhatsApp) {
-                        _si = new android.content.Intent(android.content.Intent.ACTION_VIEW);
-                        _si.setData(android.net.Uri.parse("https://wa.me/" + _ph + "?text=" + java.net.URLEncoder.encode(_msg, "UTF-8")));
-                        _si.setPackage("com.whatsapp");
+                        // 🆕 v6.63.774 (Patrick 22.07. Bridge "kann kein WA versenden, sendet SMS"):
+                        //   Package NICHT mehr hart auf com.whatsapp — Patrick hat WhatsApp Business
+                        //   (com.whatsapp.w4b). Neuer Ansatz: erst Standard versuchen, dann Business,
+                        //   dann ohne Package (Chooser). Vermeidet ActivityNotFoundException.
+                        android.net.Uri _waUri = android.net.Uri.parse(
+                            "https://wa.me/" + _ph + "?text=" + java.net.URLEncoder.encode(_msg, "UTF-8"));
+                        _si = new android.content.Intent(android.content.Intent.ACTION_VIEW, _waUri);
+                        android.content.pm.PackageManager _pm = getPackageManager();
+                        String _wapkg = null;
+                        try {
+                            _pm.getPackageInfo("com.whatsapp", 0);
+                            _wapkg = "com.whatsapp";
+                        } catch (android.content.pm.PackageManager.NameNotFoundException _n1) {
+                            try {
+                                _pm.getPackageInfo("com.whatsapp.w4b", 0);
+                                _wapkg = "com.whatsapp.w4b";
+                            } catch (android.content.pm.PackageManager.NameNotFoundException _n2) {
+                                _wapkg = null;
+                            }
+                        }
+                        if (_wapkg != null) _si.setPackage(_wapkg);
+                        // wenn beides fehlt: Chooser zeigt WhatsApp Web / Browser / etc.
                     } else {
                         _si = new android.content.Intent(android.content.Intent.ACTION_VIEW);
                         _si.setData(android.net.Uri.parse("smsto:" + _phone.replaceAll("[\\s\\-\\/\\(\\)]", "")));

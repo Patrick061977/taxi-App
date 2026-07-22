@@ -42,12 +42,17 @@ public class AlertSoundService extends Service {
     public static final String ACTION_START = "de.taxiheringsdorf.app.ACTION_ALERT_START";
     public static final String ACTION_STOP = "de.taxiheringsdorf.app.ACTION_ALERT_STOP";
     private static final int NOTIF_ID = 9112; // unique
-    private static final long AUTO_STOP_MS = 5_000L; // v6.63.126: 30s → 5s
+    // v6.63.126: 30s → 5s (Uber-Style)
+    // 🆕 v6.63.774 (Patrick 22.07. Bridge "[KURZ-B] Sound verschwindet zu schnell"):
+    //   5s → 60s. Reicht damit Patrick das Handy aus der Tasche holen + gucken kann.
+    //   ScreenOff-Receiver stoppt weiterhin sofort — kein peinliches Endlos-Klingeln,
+    //   ein Druck auf Power-Knopf beendet den Ton.
+    private static final long AUTO_STOP_MS = 60_000L;
 
     private MediaPlayer player;
     private final Handler autoStopHandler = new Handler(Looper.getMainLooper());
     private final Runnable autoStopRunnable = () -> {
-        Log.i(TAG, "Auto-Stop nach 5s");
+        Log.i(TAG, "Auto-Stop nach " + (AUTO_STOP_MS/1000) + "s");
         stopSelf();
     };
 

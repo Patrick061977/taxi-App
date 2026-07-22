@@ -30051,6 +30051,14 @@ exports.onRideUpdated = onValueUpdated(
                         console.warn('silent-Re-Assign cancel FCM-Fehler:', _cancelErr.message);
                     }
                 }
+            } else if (['native_dashboard_grab','native_wartepool_banner','manual-admin'].includes(after.assignedBy) || (after.assignedBy || '').startsWith('claude-manual-')) {
+                // 🆕 v6.63.790 (Patrick 22.07. Bridge "wenn ich Fahrt oben selber schnappe,
+                //   braucht der Push nicht nochmal kommen"): Bei manueller Selbst-Übernahme
+                //   via Wartepool-Banner / Dashboard-Grab / Admin-Assign kein new_ride Push
+                //   zurück an den Fahrer — er weiß es ja schon (hat gerade selber getippt).
+                //   Losfahr-Reminder (departure_alert) kommt weiter zur richtigen Zeit.
+                console.log(`🤫 v6.63.790 Kein new_ride-Push — Selbst-Übernahme via ${after.assignedBy}`);
+                try { await addRideLog(rideId, '🤫', `Kein Push (Selbst-Übernahme via ${after.assignedBy})`, { quelle: 'onRideUpdated v6.63.790', vehicleId: newVehicle }); } catch(_) {}
             } else {
                 try {
                     const _pickupLabel = after.pickupTime || 'Sofort';

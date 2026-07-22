@@ -2209,22 +2209,26 @@ async function autoAssignRide(rideId, rideData, _excludeVehicleIds = []) {
                 const _prevHome = getVehicleHomeCoords(best.vehicleId, shiftsData, dateStr, timeStr);
                 const _prevDestLat = _prevRide.destCoords?.lat || _prevRide.destinationLat;
                 const _prevDestLon = _prevRide.destCoords?.lon || _prevRide.destinationLon;
-                const _prevMaxMs = (pricingSettings.standortRueckkehrPufferMinuten || 30) * 60000;
-                const _prevMinMs = 5 * 60000;
-                let _prevReturnMs = _prevMaxMs;
-                if (_prevDestLat && _prevDestLon && _prevHome?.lat && _prevHome?.lon) {
-                    const _prevOsrmMin = await osrmDrivingMin(_prevDestLat, _prevDestLon, _prevHome.lat, _prevHome.lon);
-                    if (_prevOsrmMin != null) _prevReturnMs = Math.max(_prevMinMs, _prevOsrmMin * 60000);
-                }
-                const _prevEndMs = _prevRide.pickupTimestamp + _prevDurMs + _bufferMs + _prevReturnMs;
 
                 // Leerfahrt vom Ziel der Vorfahrt zum neuen Abholort berechnen
-                let _leerfahrtToNewMs = drivingTimeMin * 60000; // Nutze bereits berechnete Leerfahrt
+                let _leerfahrtToNewMs = drivingTimeMin * 60000;
                 if (drivingTimeMin === 0) {
-                    // Fallback: Leerfahrt aus der Scoring-Phase nutzen oder schätzen
                     const _vs = vehicleScores[best.vehicleId];
                     _leerfahrtToNewMs = (_vs?.leerfahrtMin || 10) * 60000;
                 }
+
+                // 🆕 v6.63.788 (Patrick 22.07. Bridge Triller-Vito-Ursache): DOPPELZÄHLUNG BEHOBEN.
+                //   Vorher: _prevEndMs = pickupTs + duration + buffer + RÜCKWEG-zum-Home.
+                //   Dann + Leerfahrt-vom-prev.dest-zum-Triller-pickup dazu → Fahrer wurde
+                //   gleichzeitig "erst zum Home zurück" UND "direkt zum nächsten Pickup"
+                //   gerechnet — doppelte Zeit. Triller-Fall: Arndt endet 13:43 in Dworcowa,
+                //   Cloud rechnete +18 Min Rückweg zum Bahnhof Ahlbeck (14:01) + 20 Min
+                //   Anschluss-Leerfahrt = 14:31. Real: 13:43 + 8 Min Anschluss = 13:51 ⇒
+                //   19 Min ZU FRÜH statt 16 Min zu spät.
+                //   Fix: Rückweg NUR wenn Leerfahrt ungewöhnlich lang (>Rückweg + Puffer),
+                //   dann würde der Fahrer wirklich lieber zum Home fahren + neu starten.
+                //   Standard: KEIN Rückweg, nur direkte Anschluss-Leerfahrt.
+                const _prevEndMs = _prevRide.pickupTimestamp + _prevDurMs + _bufferMs;
 
                 const _earliestArrivalMs = _prevEndMs + _leerfahrtToNewMs + _mindestAbstandMs;
                 const _delayMs = _earliestArrivalMs - rideData.pickupTimestamp;

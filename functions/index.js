@@ -2088,6 +2088,17 @@ async function autoAssignRide(rideId, rideData, _excludeVehicleIds = []) {
                         console.warn(`   ⚠️ ${cand.name}: Leerfahrt-Berechnung fehlgeschlagen`);
                     }
                 }
+                // 🆕 v6.63.783 (Patrick 22.07. Bridge Triller-Vito-Bug): GPS-Alter-Malus.
+                //   Wenn Fahrzeug keinen aktuellen GPS-Standort hat (kein driver.timestamp
+                //   ODER >15 Min alt), rechnet estimateVehicleLeerfahrt mit veraltetem
+                //   lat/lon → falsche kurze Leerfahrt. Beispiel Triller 21.07: Vito war
+                //   in Polen, aber lat/lon zeigte Heringsdorf → Score 3 (0.9km) statt
+                //   real 25+ km. Malus +20 damit Fahrzeuge mit aktuellem GPS bevorzugt
+                //   werden.
+                const _driver = vehicles[cand.vehicleId];
+                const _gpsAge = _driver && _driver.timestamp ? (Date.now() - _driver.timestamp) / 60000 : Infinity;
+                const _gpsStale = _gpsAge > 15;
+                const _gpsMalus = _gpsStale ? 20 : 0;
 
                 // 🆕 v6.32.0: LASTVERTEILUNG — Fahrzeuge mit vielen Fahrten werden benachteiligt
                 // 🆕 v6.62.520: Pro-Wochentag-Override beachten
@@ -2128,7 +2139,7 @@ async function autoAssignRide(rideId, rideData, _excludeVehicleIds = []) {
                 const _candCap = (OFFICIAL_VEHICLES[cand.vehicleId] || {}).capacity || 4;
                 const _paxReservePenalty = (_largeReserveActive && _candCap >= _LARGE_VEHICLE_CAPACITY)
                     ? ((_candCap - passengers) * 8) : 0;
-                const totalScore = Math.round(leerfahrtMin + prioPenalty + loadPenalty + anschlussBonus + _paxReservePenalty);
+                const totalScore = Math.round(leerfahrtMin + prioPenalty + loadPenalty + anschlussBonus + _paxReservePenalty + _gpsMalus);
 
                 Object.assign(vehicleScores[cand.vehicleId] || {}, {
                     status: 'available',
@@ -2139,6 +2150,8 @@ async function autoAssignRide(rideId, rideData, _excludeVehicleIds = []) {
                     loadPenalty,
                     vehicleRideCount,
                     anschlussBonus,
+                    gpsAgeMin: _gpsAge === Infinity ? null : Math.round(_gpsAge),
+                    gpsStalePenalty: _gpsMalus,
                     paxReservePenalty: _paxReservePenalty,
                     totalScore
                 });

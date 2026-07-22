@@ -475,6 +475,9 @@ public class ShiftEditorActivity extends AppCompatActivity {
                                         vs.defaultTimes[dow][0] = strOrNull(dtChild.child("startTime").getValue());
                                         vs.defaultTimes[dow][1] = strOrNull(dtChild.child("endTime").getValue());
                                         vs.homeLocations[dow] = strOrNull(dtChild.child("homeLocation").getValue());
+                                        // v6.63.786: homeCoords Präsenz-Flag
+                                        DataSnapshot _hcSnap = dtChild.child("homeCoords");
+                                        vs.homeCoordsSet[dow] = _hcSnap.exists() && _hcSnap.child("lat").exists() && _hcSnap.child("lon").exists();
                                         // 🆕 v6.63.572: timeRanges lesen (Pause/Split-Shift)
                                         DataSnapshot _trSnap = dtChild.child("timeRanges");
                                         if (_trSnap.exists() && _trSnap.getChildrenCount() > 1) {
@@ -1471,6 +1474,11 @@ public class ShiftEditorActivity extends AppCompatActivity {
         //   Ahlbeck / Bhf Heringsdorf etc). Patrick will diese als PRIO sehen statt
         //   nur das Live-GPS (das oft veraltet ist wenn Fahrer offline).
         String[] homeLocations = new String[7]; // null = kein Eintrag im Web
+        // 🆕 v6.63.786 (Patrick 22.07. Bridge Vito-Home-Bug): Koordinaten-Flag pro Tag.
+        //   true = homeCoords {lat, lon} ist in Firebase gesetzt. false = nur Text oder
+        //   nichts. Ohne Coords kann Cloud-Auto-Assign den Home nicht als Startpunkt
+        //   nutzen — UI zeigt ⚠️ als Warnung damit Patrick den Standort neu wählt.
+        boolean[] homeCoordsSet = new boolean[7];
         // 🆕 v6.63.572: timeRanges pro Wochentag (Pause/Split-Shift aus Web-Editor)
         // Format: [dow][rangeIndex] → {"startTime": "09:00", "endTime": "12:30"}
         @SuppressWarnings("unchecked")
@@ -1814,11 +1822,25 @@ public class ShiftEditorActivity extends AppCompatActivity {
 
             // 🆕 v6.63.584: Standort = nur konfig. Warteplatz (kein GPS-Fallback — Patrick 02.07.)
             //   Direkt antippbar → MapPicker öffnet sich sofort.
+            // 🆕 v6.63.786 (Patrick 22.07. Bridge): ⚠️ wenn Home-Text da aber keine Koordinaten.
+            //   Cloud-Score braucht Koordinaten — ohne die wird das Fahrzeug bei Auto-Assign
+            //   ausgeschlossen. Patrick soll auf Blick sehen wo was fehlt.
             final TextView ortText = new TextView(this);
             String _webHome = vs.homeLocations != null ? vs.homeLocations[dow] : null;
+            boolean _hasCoords = vs.homeCoordsSet != null && vs.homeCoordsSet[dow];
             if (_webHome != null && !_webHome.isEmpty()) {
-                ortText.setText("📍 " + _webHome);
-                ortText.setTextColor(0xFF94A3B8);
+                if (_hasCoords) {
+                    ortText.setText("📍 " + _webHome);
+                    ortText.setTextColor(0xFF94A3B8);
+                } else {
+                    ortText.setText("⚠️ " + _webHome + " (keine Koord!)");
+                    ortText.setTextColor(0xFFF59E0B);
+                    ortText.setTypeface(null, android.graphics.Typeface.BOLD);
+                }
+            } else if (activeToday) {
+                ortText.setText("⚠️ Kein Standort — tippen!");
+                ortText.setTextColor(0xFFEF4444);
+                ortText.setTypeface(null, android.graphics.Typeface.BOLD);
             } else {
                 ortText.setText("📍 Standort wählen…");
                 ortText.setTextColor(0xFF475569);

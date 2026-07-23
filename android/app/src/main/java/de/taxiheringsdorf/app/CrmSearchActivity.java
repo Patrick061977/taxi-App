@@ -3314,7 +3314,10 @@ public class CrmSearchActivity extends AppCompatActivity {
         //   Cloud-Funktion (v6.63.263 schon live) macht den Rest.
         final android.widget.CheckBox cbStripeVorkasse = new android.widget.CheckBox(this);
         boolean _initialStripe = isEdit && "stripe".equals(String.valueOf(editRide.get("paymentMethod")));
-        cbStripeVorkasse.setText("💳 Stripe-Vorkasse — Link wird per SMS verschickt, BEZAHLT-Badge wenn bezahlt");
+        // 🔧 v6.63.810 (Patrick 23.07. 13:55): Text aktualisiert — Cloud v6.63.808
+        //   sendet KEIN Auto-SMS mehr, sondern Patrick sendet manuell im Rechnungstab
+        //   oder direkt in der Vorbestellung (Send-Buttons unten)
+        cbStripeVorkasse.setText("💳 Stripe-Vorkasse — Rechnung + Zahlungslink werden erstellt (Versand manuell)");
         cbStripeVorkasse.setChecked(_initialStripe);
         cbStripeVorkasse.setTextSize(13);
         cbStripeVorkasse.setPadding(padHalf, padHalf, padHalf, padHalf);
@@ -3331,6 +3334,131 @@ public class CrmSearchActivity extends AppCompatActivity {
             if (isChecked && cbStripeVorkasse.isChecked()) cbStripeVorkasse.setChecked(false);
         });
         layout.addView(cbStripeVorkasse);
+
+        // 🆕 v6.63.810 (Patrick 23.07. Bridge 13:55 "ich will hier nicht 1000 mal
+        //   rumklicken und ich weiß immer noch nicht ob jetzt die whatsapp verschickt
+        //   wurde oder nicht"):
+        //   Inline-Status + Send-Buttons in der Vorbestellungsmaske. Wenn Ride bereits
+        //   eine invoiceNumber hat (Vorkasse-Rechnung wurde von Cloud v6.63.808 angelegt),
+        //   zeige direkt in dieser Maske:
+        //   - "✅ Rechnung 20-26-XXXX bereits erstellt · Stripe-Link vorhanden"
+        //   - Buttons: 💬 WhatsApp senden · 💳 Link kopieren · 📄 PDF öffnen
+        //   - Status-Zeile "WhatsApp gesendet am HH:MM an +49XXX" wenn schon versendet
+        if (isEdit && editRide != null) {
+            final String _invNr810 = editRide.get("invoiceNumber") != null ? String.valueOf(editRide.get("invoiceNumber")) : "";
+            final String _stripeUrl810 = editRide.get("stripeCheckoutUrl") != null ? String.valueOf(editRide.get("stripeCheckoutUrl")) : "";
+            if (!_invNr810.isEmpty() && !"null".equals(_invNr810)) {
+                LinearLayout _rechnungBox = new LinearLayout(this);
+                _rechnungBox.setOrientation(LinearLayout.VERTICAL);
+                _rechnungBox.setPadding(padHalf, padHalf, padHalf, padHalf);
+                _rechnungBox.setBackgroundColor(0xFFF0FDF4);
+                LinearLayout.LayoutParams _bp = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+                _bp.setMargins(0, padHalf, 0, 0);
+                _rechnungBox.setLayoutParams(_bp);
+
+                TextView _lblInv = new TextView(this);
+                _lblInv.setText("✅ Rechnung " + _invNr810 + (_stripeUrl810.isEmpty() ? "" : " · Stripe-Link vorhanden"));
+                _lblInv.setTextSize(13);
+                _lblInv.setTextColor(0xFF065F46);
+                _lblInv.setTypeface(_lblInv.getTypeface(), android.graphics.Typeface.BOLD);
+                _rechnungBox.addView(_lblInv);
+
+                // WhatsApp-Send-Status (async aus /invoices/{nr}/whatsappSentAt lesen)
+                final TextView _tvWaStatus = new TextView(this);
+                _tvWaStatus.setText("⏳ Lade Send-Status...");
+                _tvWaStatus.setTextSize(11);
+                _tvWaStatus.setTextColor(0xFF6B7280);
+                _tvWaStatus.setPadding(0, padHalf/2, 0, padHalf/2);
+                _rechnungBox.addView(_tvWaStatus);
+
+                FirebaseDatabase.getInstance(DB_INSTANCE_URL)
+                    .getReference("invoices/" + _invNr810).get()
+                    .addOnSuccessListener(_snap -> {
+                        Object _sentAt = _snap.child("whatsappSentAt").getValue();
+                        Object _sentTo = _snap.child("whatsappSentTo").getValue();
+                        Object _pdfUrlObj = _snap.child("pdfUrl").getValue();
+                        if (_sentAt instanceof Number) {
+                            long _sentMs = ((Number)_sentAt).longValue();
+                            String _timeStr = new java.text.SimpleDateFormat("HH:mm", java.util.Locale.GERMAN).format(new java.util.Date(_sentMs));
+                            _tvWaStatus.setText("✅ WhatsApp gesendet um " + _timeStr + (_sentTo != null ? " an " + _sentTo : ""));
+                            _tvWaStatus.setTextColor(0xFF059669);
+                        } else {
+                            _tvWaStatus.setText("⚠️ WhatsApp noch nicht gesendet");
+                            _tvWaStatus.setTextColor(0xFFDC2626);
+                        }
+                        final String _pdfUrl810 = _pdfUrlObj != null ? String.valueOf(_pdfUrlObj) : "";
+                        // Buttons dazu
+                        LinearLayout _btnRowInv = new LinearLayout(this);
+                        _btnRowInv.setOrientation(LinearLayout.HORIZONTAL);
+                        LinearLayout.LayoutParams _brp = new LinearLayout.LayoutParams(
+                            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+                        _brp.setMargins(0, padHalf/2, 0, 0);
+                        _btnRowInv.setLayoutParams(_brp);
+
+                        // 💬 WhatsApp
+                        final String _mob810 = editRide.get("customerMobile") != null && !String.valueOf(editRide.get("customerMobile")).isEmpty()
+                            ? String.valueOf(editRide.get("customerMobile"))
+                            : (editRide.get("customerPhone") != null ? String.valueOf(editRide.get("customerPhone")) : "");
+                        if (!_mob810.isEmpty() && !_pdfUrl810.isEmpty()) {
+                            MaterialButton _btnWa810 = new MaterialButton(this);
+                            _btnWa810.setText("💬 WhatsApp senden");
+                            _btnWa810.setTextSize(11);
+                            _btnWa810.setTextColor(android.graphics.Color.WHITE);
+                            _btnWa810.setBackgroundColor(0xFF25D366);
+                            _btnWa810.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
+                            _btnWa810.setOnClickListener(v -> {
+                                new android.app.AlertDialog.Builder(this)
+                                    .setTitle("💬 WhatsApp senden?")
+                                    .setMessage("An " + editRide.get("customerName") + "\n" + _mob810 + "\n\nRechnung " + _invNr810 + " als PDF + " + (_stripeUrl810.isEmpty() ? "" : "Stripe-Zahlungslink"))
+                                    .setPositiveButton("Senden", (d, w) -> _sendWhatsAppInline810(_invNr810, _mob810, String.valueOf(editRide.get("customerName")), _pdfUrl810, _stripeUrl810, _tvWaStatus))
+                                    .setNegativeButton("Abbrechen", null)
+                                    .show();
+                            });
+                            _btnRowInv.addView(_btnWa810);
+                        }
+
+                        // 💳 Link kopieren
+                        if (!_stripeUrl810.isEmpty()) {
+                            MaterialButton _btnCpy810 = new MaterialButton(this);
+                            _btnCpy810.setText("💳 Link kopieren");
+                            _btnCpy810.setTextSize(11);
+                            _btnCpy810.setTextColor(android.graphics.Color.WHITE);
+                            _btnCpy810.setBackgroundColor(0xFF7C3AED);
+                            LinearLayout.LayoutParams _cp = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1);
+                            _cp.setMargins(padHalf/2, 0, 0, 0);
+                            _btnCpy810.setLayoutParams(_cp);
+                            _btnCpy810.setOnClickListener(v -> {
+                                android.content.ClipboardManager _cm = (android.content.ClipboardManager) getSystemService(android.content.Context.CLIPBOARD_SERVICE);
+                                if (_cm != null) {
+                                    _cm.setPrimaryClip(android.content.ClipData.newPlainText("Stripe-Link", _stripeUrl810));
+                                    Toast.makeText(this, "✅ Zahlungslink kopiert", Toast.LENGTH_SHORT).show();
+                                }
+                            });
+                            _btnRowInv.addView(_btnCpy810);
+                        }
+
+                        // 📄 PDF
+                        if (!_pdfUrl810.isEmpty()) {
+                            MaterialButton _btnPdf810 = new MaterialButton(this);
+                            _btnPdf810.setText("📄 PDF");
+                            _btnPdf810.setTextSize(11);
+                            _btnPdf810.setTextColor(android.graphics.Color.WHITE);
+                            _btnPdf810.setBackgroundColor(0xFF1D4ED8);
+                            LinearLayout.LayoutParams _pp = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1);
+                            _pp.setMargins(padHalf/2, 0, 0, 0);
+                            _btnPdf810.setLayoutParams(_pp);
+                            _btnPdf810.setOnClickListener(v -> {
+                                try { startActivity(new android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(_pdfUrl810))); }
+                                catch (Throwable t) { Toast.makeText(this, "Kein PDF-Viewer", Toast.LENGTH_SHORT).show(); }
+                            });
+                            _btnRowInv.addView(_btnPdf810);
+                        }
+                        _rechnungBox.addView(_btnRowInv);
+                    });
+                layout.addView(_rechnungBox);
+            }
+        }
 
         // 🆕 v6.62.608: Live-Konflikt-Check unter dem Datum-Picker
         // Patrick (11.05. 12:44): "baue das mal ein, dass ich zumindest weiss, ob der
@@ -6106,6 +6234,56 @@ addQuickPickChip(row, "🚉 Bf Heringsdorf", "Heringsdorf, Bahnhof, Am Bahnhof, 
                 });
             } catch (Throwable _t) {
                 // Silent-fail: kein Preis-Vorschlag = User tippt manuell wie bisher
+            }
+        }).start();
+    }
+
+    // 🆕 v6.63.810 (Patrick 23.07. 13:55): Inline-WhatsApp-Send aus Vorbestellungsmaske
+    //   Ruft sendInvoiceWhatsApp und updated Status-Label direkt in der Maske.
+    private void _sendWhatsAppInline810(String invNr, String phone, String custName, String pdfUrl, String stripeUrl, final TextView tvStatus) {
+        tvStatus.setText("⏳ Sende WhatsApp...");
+        tvStatus.setTextColor(0xFF6B7280);
+        new Thread(() -> {
+            try {
+                java.net.HttpURLConnection conn = (java.net.HttpURLConnection) new java.net.URL(
+                    "https://europe-west1-taxi-heringsdorf.cloudfunctions.net/sendInvoiceWhatsApp").openConnection();
+                conn.setRequestMethod("POST");
+                conn.setRequestProperty("Content-Type", "application/json");
+                conn.setDoOutput(true);
+                conn.setConnectTimeout(15000);
+                conn.setReadTimeout(30000);
+                org.json.JSONObject body = new org.json.JSONObject();
+                body.put("invoiceNumber", invNr);
+                body.put("phone", phone);
+                body.put("customerName", custName);
+                body.put("pdfUrl", pdfUrl);
+                if (stripeUrl != null && !stripeUrl.isEmpty()) {
+                    body.put("stripeCheckoutUrl", stripeUrl);
+                    body.put("isPrepayment", true);
+                }
+                try (java.io.OutputStream os = conn.getOutputStream()) {
+                    os.write(body.toString().getBytes("UTF-8"));
+                }
+                int rc = conn.getResponseCode();
+                final int rcFinal = rc;
+                runOnUiThread(() -> {
+                    if (rcFinal >= 200 && rcFinal < 300) {
+                        String _now = new java.text.SimpleDateFormat("HH:mm", java.util.Locale.GERMAN).format(new java.util.Date());
+                        tvStatus.setText("✅ WhatsApp gesendet um " + _now + " an " + phone);
+                        tvStatus.setTextColor(0xFF059669);
+                        Toast.makeText(this, "✅ WhatsApp versendet", Toast.LENGTH_LONG).show();
+                    } else {
+                        tvStatus.setText("❌ WhatsApp-Fehler HTTP " + rcFinal);
+                        tvStatus.setTextColor(0xFFDC2626);
+                        Toast.makeText(this, "❌ Fehler HTTP " + rcFinal, Toast.LENGTH_LONG).show();
+                    }
+                });
+            } catch (Throwable t) {
+                Log.e(TAG, "v6.63.810 WA-Send", t);
+                runOnUiThread(() -> {
+                    tvStatus.setText("❌ " + t.getMessage());
+                    tvStatus.setTextColor(0xFFDC2626);
+                });
             }
         }).start();
     }

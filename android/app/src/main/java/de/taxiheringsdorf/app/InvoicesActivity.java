@@ -373,10 +373,20 @@ public class InvoicesActivity extends AppCompatActivity {
                         String _pickup = strVal(rs.child("pickup").getValue());
                         String _dest = strVal(rs.child("destination").getValue());
 
-                        // CRM laden falls customerId
+                        // v6.63.792 (Patrick 23.07. Bridge Südhöhl-Fall): _applyFn nimmt jetzt
+                        //   das AUS CRM ERMITTELTE Name/Email als Prio. Vorher wurde immer
+                        //   Ride.customerName='Gast' übernommen und CRM-Wert überschrieben.
+                        //   Neu: wenn CRM einen Namen liefert (billingAddresses.empfaengerName
+                        //   ODER customer.name ODER lastName), gewinnt der.
+                        final String[] _crmNameHolder = new String[]{""};
+                        final String[] _crmEmailHolder = new String[]{""};
                         Runnable _applyFn = () -> {
                             java.util.Map<String,Object> _upd = new java.util.HashMap<>();
-                            if (!_rideCustName.isEmpty()) _upd.put("customerName", _rideCustName);
+                            // v6.63.792: CRM-Name gewinnt, Ride-Name (oft 'Gast') nur Fallback
+                            String _finalName = !_crmNameHolder[0].isEmpty() ? _crmNameHolder[0] : _rideCustName;
+                            if (!_finalName.isEmpty()) _upd.put("customerName", _finalName);
+                            // v6.63.792: E-Mail aus CRM (falls da) — sonst nicht anfassen
+                            if (!_crmEmailHolder[0].isEmpty()) _upd.put("customerEmail", _crmEmailHolder[0]);
                             _upd.put("guestName", _rideGuestName.isEmpty() ? null : _rideGuestName);
                             String _desc = "1 Fahrt von " + _pickup + " nach " + _dest
                                 + (_pax > 1 ? " (" + _pax + " Personen)" : "");
@@ -443,10 +453,17 @@ public class InvoicesActivity extends AppCompatActivity {
                                     if (_crmAddr.isEmpty()) _crmAddr = strVal(cs.child("invoiceAddress").getValue());
                                     if (_crmAddr.isEmpty()) _crmAddr = strVal(cs.child("billingAddress").getValue());
                                     if (_crmAddr.isEmpty()) _crmAddr = strVal(cs.child("address").getValue());
+                                    // 🆕 v6.63.792 (Patrick 23.07. Bridge Südhöhl-Bug): flat customer.name als
+                                    //   Fallback wenn kein billingAddresses.empfaengerName. Sonst blieb Ride-'Gast'.
+                                    if (_crmName.isEmpty()) _crmName = strVal(cs.child("name").getValue());
+                                    if (_crmName.isEmpty()) _crmName = strVal(cs.child("lastName").getValue());
                                     if (!_crmAddr.isEmpty()) _addr.put("customerAddress", _crmAddr);
                                     if (!_crmName.isEmpty()) _addr.put("customerName", _crmName);
                                     String _crmEmail = strVal(cs.child("email").getValue());
                                     if (!_crmEmail.isEmpty()) _addr.put("customerEmail", _crmEmail);
+                                    // v6.63.792: Werte für _applyFn zwischenspeichern damit sie NICHT überschrieben werden
+                                    _crmNameHolder[0] = _crmName;
+                                    _crmEmailHolder[0] = _crmEmail;
                                     if (!_addr.isEmpty()) {
                                         FirebaseDatabase.getInstance(DB_URL).getReference("invoices/" + item.key)
                                             .updateChildren(_addr);

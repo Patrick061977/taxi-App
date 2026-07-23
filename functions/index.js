@@ -36395,7 +36395,11 @@ exports.sendInvoiceWhatsApp = onRequest(
         }
 
         try {
-            const { invoiceNumber, phone, customerName, amount, pdfUrl } = req.body;
+            // 🆕 v6.63.809: stripeCheckoutUrl + isPrepayment optional — bei Vorkasse
+            //   sendet der Endpoint eine ZUSÄTZLICHE Text-Nachricht mit Zahlungslink
+            //   VOR dem PDF-Attachment.
+            const { invoiceNumber, phone, customerName, amount, pdfUrl,
+                    stripeCheckoutUrl, isPrepayment } = req.body;
 
             if (!invoiceNumber || !phone || !pdfUrl) {
                 res.status(400).json({ error: 'invoiceNumber, phone und pdfUrl sind erforderlich' });
@@ -36422,6 +36426,33 @@ exports.sendInvoiceWhatsApp = onRequest(
             }
 
             const waApiUrl = `https://graph.facebook.com/v21.0/${apiPhoneId}/messages`;
+
+            // 🆕 v6.63.809: Wenn Vorkasse + stripeCheckoutUrl → Text-Nachricht ZUERST
+            //   mit Betrag + Stripe-Link. Danach kommt PDF-Attachment.
+            if (isPrepayment && stripeCheckoutUrl) {
+                const _greet = (customerName || '').trim() ? `Sehr geehrte/r ${customerName.split(' ').slice(-1)[0]}` : 'Guten Tag';
+                const _prepayMsg = `${_greet},\n\nvielen Dank für Ihre Buchung bei Funk Taxi Heringsdorf!\n\nRechnung Nr. ${invoiceNumber} · ${parseFloat(amount || 0).toFixed(2).replace('.', ',')} €\n\nZahlungslink (Vorkasse):\n${stripeCheckoutUrl}\n\nDie Rechnung folgt gleich als PDF.\nBei Fragen: 038378 22022`;
+                try {
+                    const _prepayResp = await fetch(waApiUrl, {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${apiToken}`, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            messaging_product: 'whatsapp',
+                            to: formattedPhone,
+                            type: 'text',
+                            text: { body: _prepayMsg }
+                        })
+                    });
+                    const _prepayJson = await _prepayResp.json();
+                    if (_prepayResp.ok) {
+                        console.log('✅ v6.63.809 Vorkasse-Text-WA gesendet:', _prepayJson.messages?.[0]?.id);
+                    } else {
+                        console.error('❌ v6.63.809 Vorkasse-Text-WA Fehler:', JSON.stringify(_prepayJson));
+                    }
+                } catch (_prepayErr) {
+                    console.error('❌ v6.63.809 Vorkasse-Text-WA Exception:', _prepayErr.message);
+                }
+            }
 
             // Schritt 1: PDF als Dokument senden
             console.log(`📤 Sende PDF an ${formattedPhone}...`);

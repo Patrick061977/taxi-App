@@ -40,6 +40,9 @@ public class InvoicesActivity extends AppCompatActivity {
         String key, invNr, rideId, custName, custEmail, custId, date, pdfUrl, payStatus;
         // v6.63.754 (Patrick 20.07. Bridge): Zahlungsart in Rechnung editierbar
         String paymentMethod;
+        // 🆕 v6.63.809 (Patrick 23.07. Bridge 13:45 'Ja und auch versenden'):
+        //   Vorkasse-Felder für WhatsApp+Stripe-Link Buttons.
+        String customerPhone, customerMobile, stripeCheckoutUrl;
         double gross;
         long sortTs;
     }
@@ -128,6 +131,10 @@ public class InvoicesActivity extends AppCompatActivity {
         item.gross    = dblVal(c.child("totalGross").getValue());
         item.custId   = strVal(c.child("customerId").getValue());
         item.paymentMethod = strVal(c.child("paymentMethod").getValue());
+        // 🆕 v6.63.809
+        item.customerPhone = strVal(c.child("customerPhone").getValue());
+        item.customerMobile = strVal(c.child("customerMobile").getValue());
+        item.stripeCheckoutUrl = strVal(c.child("stripeCheckoutUrl").getValue());
         // Sortier-Timestamp: createdAt > invoiceDate-parsed > autoCreatedAt
         long createdAt = longVal(c.child("createdAt").getValue());
         long autoCreated = longVal(c.child("autoCreatedAt").getValue());
@@ -307,6 +314,62 @@ public class InvoicesActivity extends AppCompatActivity {
             btnRow.addView(btnPdf);
         }
         form.addView(btnRow);
+
+        // 🆕 v6.63.809 (Patrick 23.07. Bridge 13:45 "Ja und auch versenden"):
+        //   Zweite Button-Zeile — WhatsApp + Stripe-Link
+        //   WhatsApp: nur wenn Mobilnummer + PDF verfügbar
+        //   Stripe-Link: nur wenn Vorkasse mit stripeCheckoutUrl
+        final String _mob = !item.customerMobile.isEmpty() ? item.customerMobile
+            : (!item.customerPhone.isEmpty() ? item.customerPhone : "");
+        final boolean _hasWa = !_mob.isEmpty() && !item.pdfUrl.isEmpty();
+        final boolean _hasStripe = !item.stripeCheckoutUrl.isEmpty();
+        if (_hasWa || _hasStripe) {
+            LinearLayout btnRow2 = new LinearLayout(this);
+            btnRow2.setOrientation(LinearLayout.HORIZONTAL);
+            LinearLayout.LayoutParams row2Params = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+            row2Params.setMargins(0, (int)(dp*8), 0, 0);
+            btnRow2.setLayoutParams(row2Params);
+
+            if (_hasWa) {
+                MaterialButton btnWa = new MaterialButton(this);
+                btnWa.setText("💬 WhatsApp");
+                btnWa.setTextSize(12); btnWa.setTextColor(Color.WHITE);
+                btnWa.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
+                btnWa.setBackgroundColor(Color.parseColor("#25D366"));
+                btnWa.setOnClickListener(v -> {
+                    new android.app.AlertDialog.Builder(this)
+                        .setTitle("💬 Rechnung per WhatsApp senden?")
+                        .setMessage("An " + item.custName + "\n" + _mob + "\n\nPDF + " + (_hasStripe ? "Stripe-Zahlungslink" : "Rechnungs-Info") + " werden gesendet.")
+                        .setPositiveButton("Senden", (d, w) -> {
+                            if (dlgRef[0] != null) dlgRef[0].dismiss();
+                            _sendInvoiceViaWhatsApp(item, _mob);
+                        })
+                        .setNegativeButton("Abbrechen", null)
+                        .show();
+                });
+                btnRow2.addView(btnWa);
+            }
+
+            if (_hasStripe) {
+                MaterialButton btnStripe = new MaterialButton(this);
+                btnStripe.setText("💳 Zahlungslink");
+                btnStripe.setTextSize(12); btnStripe.setTextColor(Color.WHITE);
+                LinearLayout.LayoutParams sp2 = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1);
+                if (_hasWa) sp2.setMargins((int)(dp*6), 0, 0, 0);
+                btnStripe.setLayoutParams(sp2);
+                btnStripe.setBackgroundColor(Color.parseColor("#7C3AED"));
+                btnStripe.setOnClickListener(v -> {
+                    android.content.ClipboardManager cm = (android.content.ClipboardManager) getSystemService(android.content.Context.CLIPBOARD_SERVICE);
+                    if (cm != null) {
+                        cm.setPrimaryClip(android.content.ClipData.newPlainText("Stripe-Link", item.stripeCheckoutUrl));
+                        Toast.makeText(this, "✅ Zahlungslink kopiert", Toast.LENGTH_SHORT).show();
+                    }
+                });
+                btnRow2.addView(btnStripe);
+            }
+            form.addView(btnRow2);
+        }
 
         // v6.63.756 (Patrick 20.07. Bridge: "wo kann man Rechnung neu generieren"):
         //   Expliziter Regen-Button in eigener Zeile — triggert needsPdfRegeneration=true.
@@ -646,5 +709,60 @@ public class InvoicesActivity extends AppCompatActivity {
         if (v == null) return 0;
         try { return v instanceof Number ? ((Number)v).longValue() : Long.parseLong(String.valueOf(v)); }
         catch (Throwable t) { return 0; }
+    }
+
+    // 🆕 v6.63.809 (Patrick 23.07. 13:45 'Ja und auch versenden'):
+    //   Ruft Cloud-Endpoint sendInvoiceWhatsApp — schickt PDF-Attachment.
+    //   Bei Vorkasse-Rechnungen (stripeCheckoutUrl gesetzt): der Endpoint
+    //   bekommt zusätzlich stripeCheckoutUrl übergeben, damit die Text-
+    //   Vorab-Nachricht den Zahlungslink enthält (v6.63.809 Cloud-Erweiterung).
+    private void _sendInvoiceViaWhatsApp(InvItem item, String phone) {
+        Toast.makeText(this, "📤 Sende...", Toast.LENGTH_SHORT).show();
+        new Thread(() -> {
+            try {
+                java.net.HttpURLConnection conn = (java.net.HttpURLConnection) new java.net.URL(
+                    "https://europe-west1-taxi-heringsdorf.cloudfunctions.net/sendInvoiceWhatsApp").openConnection();
+                conn.setRequestMethod("POST");
+                conn.setRequestProperty("Content-Type", "application/json");
+                conn.setDoOutput(true);
+                conn.setConnectTimeout(15000);
+                conn.setReadTimeout(30000);
+                org.json.JSONObject body = new org.json.JSONObject();
+                body.put("invoiceNumber", item.invNr);
+                body.put("phone", phone);
+                body.put("customerName", item.custName);
+                body.put("amount", item.gross);
+                body.put("pdfUrl", item.pdfUrl);
+                if (item.stripeCheckoutUrl != null && !item.stripeCheckoutUrl.isEmpty()) {
+                    body.put("stripeCheckoutUrl", item.stripeCheckoutUrl);
+                    body.put("isPrepayment", true);
+                }
+                try (java.io.OutputStream os = conn.getOutputStream()) {
+                    os.write(body.toString().getBytes("UTF-8"));
+                }
+                int rc = conn.getResponseCode();
+                java.io.InputStream is = rc >= 400 ? conn.getErrorStream() : conn.getInputStream();
+                String respStr = "";
+                if (is != null) {
+                    java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+                    byte[] buf = new byte[1024]; int n;
+                    while ((n = is.read(buf)) != -1) out.write(buf, 0, n);
+                    respStr = out.toString("UTF-8");
+                }
+                final int rcFinal = rc;
+                final String respFinal = respStr;
+                runOnUiThread(() -> {
+                    if (rcFinal >= 200 && rcFinal < 300) {
+                        Toast.makeText(this, "✅ WhatsApp versendet an " + phone, Toast.LENGTH_LONG).show();
+                    } else {
+                        Log.e("InvoicesActivity", "WhatsApp-Send Fehler HTTP " + rcFinal + ": " + respFinal);
+                        Toast.makeText(this, "❌ WhatsApp-Fehler HTTP " + rcFinal, Toast.LENGTH_LONG).show();
+                    }
+                });
+            } catch (Throwable t) {
+                Log.e("InvoicesActivity", "WhatsApp-Send Exception", t);
+                runOnUiThread(() -> Toast.makeText(this, "❌ Fehler: " + t.getMessage(), Toast.LENGTH_LONG).show());
+            }
+        }).start();
     }
 }

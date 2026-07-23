@@ -3311,6 +3311,42 @@ async function sendWhatsAppMessage(toPhone, text) {
     }
 }
 
+// 🆕 v6.63.804 (Patrick 23.07. Bridge 12:14): WhatsApp-Dokument-Attachment
+//   für Rechnungs-PDF im Vorkasse-Flow. WhatsApp Graph API akzeptiert
+//   öffentlich erreichbare URLs (Firebase Storage) — keine Media-Upload nötig.
+async function _sendWhatsAppDocument(toPhone, docUrl, filename, caption) {
+    const config = await loadWhatsAppConfig();
+    if (!config.enabled || !config.apiToken || !config.phoneNumberId) return null;
+    let formattedPhone = String(toPhone).replace(/[\s\-\/\(\)\+]/g, '');
+    if (formattedPhone.startsWith('0')) formattedPhone = '49' + formattedPhone.substring(1);
+    if (!formattedPhone.match(/^49(1[5-7]\d{8,11})$/)) return null;
+    try {
+        const resp = await fetch(`https://graph.facebook.com/v22.0/${config.phoneNumberId}/messages`, {
+            method: 'POST',
+            headers: {
+                'Authorization': 'Bearer ' + config.apiToken,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                messaging_product: 'whatsapp',
+                to: formattedPhone,
+                type: 'document',
+                document: { link: docUrl, filename: filename || 'dokument.pdf', caption: caption || '' }
+            })
+        });
+        const data = await resp.json();
+        if (resp.ok && data.messages && data.messages.length > 0) {
+            console.log(`✅ v6.63.804 WhatsApp-Dokument an ${formattedPhone}: ${data.messages[0].id}`);
+            return data.messages[0].id;
+        }
+        console.error('❌ v6.63.804 WhatsApp-Dokument Fehler:', JSON.stringify(data.error || data));
+        return null;
+    } catch (e) {
+        console.error('❌ v6.63.804 WhatsApp-Dokument Exception:', e.message);
+        return null;
+    }
+}
+
 // Hilfsfunktion: Kunden-Mobilnummer für WhatsApp ermitteln
 // 🆕 v6.34.2: WhatsApp wa.me Link für Telegram-Nachrichten
 function formatWhatsAppLink(phone) {
@@ -30873,6 +30909,168 @@ exports.onRideUpdated = onValueUpdated(
             }
         } catch (_invErr) {
             console.warn(`⚠️ v6.62.312 Auto-Rechnung Fehler ${rideId}:`, _invErr.message);
+        }
+
+        // 🆕 v6.63.804 (Patrick 23.07. Bridge 12:14 + 12:50 'Ok'):
+        //   VORKASSE-FLOW eigenständig — vorher lief das nur INNERHALB des
+        //   _justCompleted-Blocks, also erst nach Fahrt-Ende. Bug: Kundin bekam
+        //   den Zahlungslink nie vor der Fahrt. Jetzt: sobald _vorkasseRequested
+        //   auf true flippt (Native-App-Long-Press) + paymentMethod=stripe,
+        //   erzeugen wir:
+        //   1. Stripe-Checkout-URL
+        //   2. Rechnung + PDF (Erstelldatum = heute, nicht Fahrt-Datum)
+        //   3. WhatsApp an Kundin: Link + PDF-Attachment
+        //   4. SMS-Fallback nur wenn WhatsApp nicht möglich
+        try {
+            const _vkNow = after._vorkasseRequested === true && after.paymentMethod === 'stripe';
+            const _vkBefore = before._vorkasseRequested === true;
+            const _alreadyDone = !!after.stripeCheckoutUrl;
+            if (_vkNow && !_vkBefore && !_alreadyDone) {
+                const _gross804 = parseFloat(after.price) || parseFloat(after.estimatedPrice) || parseFloat(after.actualPrice) || 0;
+                if (_gross804 > 0) {
+                    console.log(`💳 v6.63.804 Vorkasse-Standalone-Trigger ${rideId}: ${_gross804}€`);
+                    // Kunde-Daten
+                    let _cust804 = {};
+                    if (after.customerId) {
+                        try { _cust804 = (await db.ref(`customers/${after.customerId}`).once('value')).val() || {}; } catch(_){}
+                    }
+                    // Belegnummer generieren (heute-Datum)
+                    const _bd804 = new Date().toISOString().slice(0, 10);
+                    const _by804 = parseInt(_bd804.slice(0, 4), 10);
+                    const _cRef804 = db.ref(`invoiceCounter/${_by804}`);
+                    const _cTx804 = await _cRef804.transaction(curr => (curr || 0) + 1);
+                    const _cVal804 = _cTx804.snapshot.val() || 1;
+                    const _sy804 = String(_by804).slice(2);
+                    const _bn804 = `20-${_sy804}-${String(_cVal804).padStart(3, '0')}`;
+                    // Stripe-Checkout
+                    const _sr804 = await fetch(`https://europe-west1-taxi-heringsdorf.cloudfunctions.net/createStripeCheckout`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            invoiceNumber: _bn804,
+                            amount: _gross804,
+                            customerName: after.customerName || '',
+                            customerEmail: after.customerEmail || _cust804.email || '',
+                            description: `Vorkasse Taxifahrt ${after.pickup || ''} → ${after.destination || ''}`
+                        })
+                    });
+                    if (!_sr804.ok) {
+                        await addRideLog(rideId, '⚠️', `v6.63.804 Stripe-Checkout HTTP ${_sr804.status}`, { belegNr: _bn804 });
+                        return;
+                    }
+                    const _sj804 = await _sr804.json();
+                    const _url804 = _sj804.checkoutUrl;
+                    // Rechnung schreiben
+                    const _net804 = +(_gross804 / 1.07).toFixed(2);
+                    const _ust804 = +(_gross804 - _net804).toFixed(2);
+                    const _pu804 = after.pickup || '';
+                    const _de804 = after.destination || '';
+                    const _pickupDateStr = after.pickupTimestamp
+                        ? new Date(after.pickupTimestamp).toLocaleDateString('de-DE', { timeZone: 'Europe/Berlin' })
+                        : '';
+                    await db.ref(`invoices/${_bn804}`).set({
+                        belegNr: _bn804,
+                        rideId,
+                        date: _bd804,
+                        displayDate: new Date().toLocaleDateString('de-DE', { timeZone: 'Europe/Berlin' }),
+                        customerName: after.customerName || '',
+                        customerAddress: _cust804.address || '',
+                        customerPhone: after.customerPhone || after.customerMobile || '',
+                        customerEmail: after.customerEmail || _cust804.email || '',
+                        route: `${_pu804} → ${_de804}`,
+                        pickupDate: after.pickupTimestamp ? new Date(after.pickupTimestamp).toISOString().slice(0, 10) : '',
+                        pickupTime: after.pickupTime || '',
+                        notes: `Vorkasse — Fahrt am ${_pickupDateStr} ${after.pickupTime || ''}. Zahlung per Stripe.`,
+                        paymentMethod: 'stripe',
+                        isPrepayment: true,
+                        status: 'offen',
+                        positions: [{
+                            description: `Taxifahrt ${_pu804} → ${_de804} (Vorkasse)`,
+                            quantity: 1,
+                            unit: 'Fahrt',
+                            amount: _gross804,
+                            netAmount: _net804,
+                            vatAmount: _ust804,
+                            vatRate: 7
+                        }],
+                        totalNet: _net804,
+                        totalVat: _ust804,
+                        totalGross: _gross804,
+                        vatRate: 7,
+                        skr03Konto: 8400,
+                        physOrdner: `${_bd804.slice(0, 7)}-AUSR`,
+                        physPosition: _cVal804,
+                        autoCreated: true,
+                        autoCreatedAt: Date.now(),
+                        autoCreatedBy: 'cloud-v6.63.804-vorkasse',
+                        pdfUrl: null
+                    });
+                    // Ride verlinken
+                    await db.ref(`rides/${rideId}`).update({
+                        invoiceNumber: _bn804,
+                        invoiceCreatedAt: Date.now(),
+                        invoiceCreatedBy: 'cloud-v6.63.804-vorkasse',
+                        invoiceAmount: _gross804,
+                        stripeCheckoutUrl: _url804,
+                        stripeSessionId: _sj804.sessionId,
+                        stripeBelegNr: _bn804,
+                        stripePaymentStatus: 'pending',
+                        stripeCreatedAt: Date.now()
+                    });
+                    await addRideLog(rideId, '🧾', `v6.63.804 Vorkasse-Rechnung + Stripe erstellt: ${_bn804}`, {
+                        belegNr: _bn804, gross: _gross804, checkoutUrl: _url804
+                    });
+                    // PDF regenerieren (async — nicht blockieren)
+                    try {
+                        const _tgTok804 = (await db.ref('settings/telegram/botToken').once('value')).val();
+                        if (_tgTok804) {
+                            fetch(`https://europe-west1-taxi-heringsdorf.cloudfunctions.net/regenerateInvoicePdf?invoice=${_bn804}&token=${encodeURIComponent(_tgTok804)}`)
+                                .then(r => r.json())
+                                .then(async j => {
+                                    if (j && j.ok && j.pdfUrl) {
+                                        await db.ref(`invoices/${_bn804}/pdfUrl`).set(j.pdfUrl);
+                                        // WhatsApp senden — Nachricht 1 (Link) + Nachricht 2 (PDF)
+                                        try {
+                                            const _mob804 = after.customerMobile || after.customerPhone;
+                                            if (_mob804 && isMobileNumber(_mob804)) {
+                                                const _greet = _cust804.anrede === 'Frau' ? 'Sehr geehrte Frau' : (_cust804.anrede === 'Herr' ? 'Sehr geehrter Herr' : 'Guten Tag');
+                                                const _nachname = (after.customerName || '').split(' ').slice(-1)[0] || '';
+                                                const _waMsg = `${_greet} ${_nachname},\n\nvielen Dank für Ihre Buchung bei Funk Taxi Heringsdorf!\n\n📅 ${_pickupDateStr} · ${after.pickupTime || ''}\n📍 ${_pu804}\n🎯 ${_de804}\n💶 ${_gross804.toFixed(2).replace('.', ',')} €\n\nZahlungslink (Vorkasse):\n${_url804}\n\nRechnung folgt gleich als PDF.\nBei Fragen: 038378 22022\n\nMit freundlichen Grüßen\nFunk Taxi Heringsdorf`;
+                                                await sendWhatsAppMessage(_mob804, _waMsg);
+                                                // PDF als Attachment
+                                                await _sendWhatsAppDocument(_mob804, j.pdfUrl, `Rechnung-${_bn804}.pdf`, `Ihre Vorkasse-Rechnung ${_bn804} · ${_gross804.toFixed(2).replace('.', ',')} €`);
+                                                await addRideLog(rideId, '💬', 'v6.63.804 WhatsApp: Zahlungslink + PDF-Rechnung', { phone: _mob804, belegNr: _bn804 });
+                                                await db.ref(`rides/${rideId}`).update({
+                                                    customerWhatsAppSent: true,
+                                                    customerWhatsAppSentAt: Date.now()
+                                                });
+                                            } else {
+                                                // SMS-Fallback (Festnetz)
+                                                await db.ref('smsQueue').push({
+                                                    phone: after.customerPhone || after.customerMobile,
+                                                    text: `Funk Taxi: Rechnung ${_bn804} ueber ${_gross804.toFixed(2).replace('.', ',')}€ — bitte per Stripe bezahlen: ${_url804}\nFragen: 038378 22022`,
+                                                    rideId,
+                                                    purpose: 'vorkasse_stripe_link_v6.63.804',
+                                                    createdAt: Date.now()
+                                                });
+                                                await addRideLog(rideId, '📲', 'v6.63.804 SMS-Fallback (kein Handy für WhatsApp)', { belegNr: _bn804 });
+                                            }
+                                        } catch (_waErr804) {
+                                            console.error(`❌ v6.63.804 WhatsApp Fehler ${rideId}:`, _waErr804.message);
+                                            await addRideLog(rideId, '⚠️', `v6.63.804 WhatsApp Fehler: ${_waErr804.message}`, { belegNr: _bn804 });
+                                        }
+                                    }
+                                })
+                                .catch(_pdfErr => console.error(`❌ v6.63.804 PDF-Gen Fehler ${rideId}:`, _pdfErr.message));
+                        }
+                    } catch (_pdfOuter) {
+                        console.error(`❌ v6.63.804 PDF-Trigger Fehler ${rideId}:`, _pdfOuter.message);
+                    }
+                }
+            }
+        } catch (_v804Err) {
+            console.error(`❌ v6.63.804 Vorkasse-Standalone Fehler ${rideId}:`, _v804Err.message);
+            try { await addRideLog(rideId, '⚠️', `v6.63.804 Fehler: ${_v804Err.message}`); } catch(_){}
         }
 
         // 🆕 v6.62.311: Pending Invoice-Request → Re-Trigger nach Rechnungs-Erstellung.

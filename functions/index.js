@@ -26342,6 +26342,119 @@ exports.scheduledWhatsAppPendingCleanup = onSchedule(
 //   Limbo bevor Reject-Detector zuschlug. Kunde nicht abgeholt.
 //   Fix: alle 1 Min pruefen ob accepted-Rides ihren 120s-Timeout ohne Movement ueberschritten
 //   haben. Wenn ja → Wartepool + Admin-Push + assignedVehicle freigeben fuer Reassign.
+// 🆕 v6.63.802 (Patrick 23.07. Bridge Schweitzer-Nachlese): Früh-Check für Fahrer-
+//   Offline. Alle 5 Min prüft alle vorbestellt-Rides mit assignedVehicle für die
+//   nächsten 3h — wenn Fahrzeug offline (shift.status != 'active' ODER kein
+//   FCM-Token), staffeln:
+//   - Pickup >1h weg: nur Log (Fahrer könnte sich noch anmelden)
+//   - Pickup 30 Min - 1h weg: 🚨 Admin-Push "Fahrer XY nicht online — bitte klären"
+//   - Pickup <30 Min: automatisch Wartepool + autoAssignRide (andere Fahrer probieren)
+//   Idempotenz via _fruehCheckWarnedAt Flag (nur 1× pro Ride Warning).
+exports.scheduledFruehCheckOffline = onSchedule(
+    {
+        schedule: 'every 5 minutes',
+        region: 'europe-west1',
+        timeZone: 'Europe/Berlin',
+        timeoutSeconds: 60,
+        memory: '256MiB'
+    },
+    async (event) => {
+        try {
+            const now = Date.now();
+            const HORIZON_MS = 3 * 60 * 60 * 1000; // 3h
+            const [ridesSnap, vehiclesSnap] = await Promise.all([
+                db.ref('rides').orderByChild('status').equalTo('vorbestellt').once('value'),
+                db.ref('vehicles').once('value')
+            ]);
+            if (!ridesSnap.exists()) return;
+            const vehicles = vehiclesSnap.val() || {};
+            let checked = 0, warned = 0, movedToWartepool = 0;
+            const promises = [];
+            ridesSnap.forEach(child => {
+                const ride = child.val();
+                const rideId = child.key;
+                if (!ride || !ride.pickupTimestamp) return;
+                const vid = ride.assignedVehicle || ride.vehicleId;
+                if (!vid) return;
+                if (ride.acceptedAt) return; // Schon akzeptiert
+                if (ride.assignmentLocked === true) return; // Lock respektieren
+                const minsToPickup = (ride.pickupTimestamp - now) / 60000;
+                if (minsToPickup > 180 || minsToPickup < 0) return; // Nur nächste 3h
+                const v = vehicles[vid] || {};
+                const shiftActive = (v.shift && v.shift.status === 'active');
+                const tokenObj = v.fcmToken;
+                const tokenStr = tokenObj && (tokenObj.token || (typeof tokenObj === 'string' ? tokenObj : ''));
+                const hasToken = tokenStr && tokenStr.length > 20;
+                if (shiftActive && hasToken) return; // Alles ok
+                checked++;
+                const _vName = ride.assignedVehicleName || vid;
+                const _reason = !shiftActive
+                    ? `Fahrer ${_vName} nicht im Dienst (Schicht=${v.shift ? v.shift.status : 'null'})`
+                    : `Fahrer ${_vName} App nicht offen (kein FCM-Token)`;
+                // Staffeln
+                if (minsToPickup > 60) {
+                    // >1h: nur Log, kein Push
+                    console.log(`⏰ v6.63.802 Log ${rideId}: ${_reason} (${Math.round(minsToPickup)} Min bis Pickup)`);
+                    return;
+                }
+                if (minsToPickup > 30) {
+                    // 30-60 Min: Admin-Push, aber nur 1× pro Ride
+                    if (ride._fruehCheckWarnedAt) return;
+                    warned++;
+                    promises.push((async () => {
+                        try {
+                            await db.ref(`rides/${rideId}/_fruehCheckWarnedAt`).set(Date.now());
+                            await addRideLog(rideId, '⏰', `v6.63.802 Früh-Warnung: ${_reason} (${Math.round(minsToPickup)} Min bis Pickup)`, {
+                                quelle: 'scheduledFruehCheckOffline',
+                                minsBisPickup: Math.round(minsToPickup)
+                            });
+                            await sendToAllAdmins(`⏰ <b>Fahrer offline — Vorbestellung in ${Math.round(minsToPickup)} Min</b>\n\n${ride.customerName || '?'} · ${new Date(ride.pickupTimestamp).toLocaleTimeString('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit' })}\n${_reason}\n\nBitte klären oder manuell umverteilen.`);
+                        } catch (_) {}
+                    })());
+                    return;
+                }
+                // <30 Min: Wartepool + Auto-Reassign
+                movedToWartepool++;
+                promises.push((async () => {
+                    try {
+                        const _newRejected = [...(ride.rejectedVehicles || []), vid].filter(Boolean);
+                        await db.ref(`rides/${rideId}`).update({
+                            status: 'wartepool',
+                            assignedVehicle: null, vehicleId: null, assignedTo: null,
+                            assignedVehicleName: null, assignedVehiclePlate: null,
+                            assignedBy: null, assignedAt: null,
+                            wartepoolAt: now,
+                            wartepoolReason: `v6.63.802 ${_reason}`,
+                            _notAcceptedWarned: true,
+                            openRideWarned: true,
+                            rejectedVehicles: _newRejected,
+                            updatedAt: now
+                        });
+                        await addRideLog(rideId, '🚨', `v6.63.802 Auto-Wartepool: ${_reason} (${Math.round(minsToPickup)} Min bis Pickup)`, {
+                            quelle: 'scheduledFruehCheckOffline'
+                        });
+                        try {
+                            const _reassign = await autoAssignRide(rideId, { ...ride, rejectedVehicles: _newRejected, status: 'sofort' });
+                            if (_reassign && _reassign.vehicleId) {
+                                console.log(`✅ v6.63.802 Auto-Reassign ${rideId} → ${_reassign.name || _reassign.vehicleId}`);
+                            }
+                        } catch (_reErr) {
+                            console.warn(`v6.63.802 Auto-Reassign fail ${rideId}: ${_reErr.message}`);
+                        }
+                        await sendToAllAdmins(`🚨 <b>Fahrer offline — Ride umgeplant</b>\n\n${ride.customerName || '?'} · ${new Date(ride.pickupTimestamp).toLocaleTimeString('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit' })}\n${_reason}\n\nSystem sucht anderen Fahrer.`);
+                    } catch (_e) {
+                        console.warn(`v6.63.802 update fail ${rideId}: ${_e.message}`);
+                    }
+                })());
+            });
+            await Promise.all(promises);
+            if (checked > 0) console.log(`⏰ v6.63.802 FruehCheck: ${checked} offline-Assignments, ${warned} Warnungen, ${movedToWartepool} → Wartepool`);
+        } catch (e) {
+            console.error('scheduledFruehCheckOffline-Fehler:', e.message);
+        }
+    }
+);
+
 exports.scheduledLosfahrCheck = onSchedule(
     {
         schedule: 'every 1 minutes',

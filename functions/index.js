@@ -26476,6 +26476,7 @@ exports.scheduledFruehCheckOffline = onSchedule(
                         const _newRejected = [...(ride.rejectedVehicles || []), vid].filter(Boolean);
                         await db.ref(`rides/${rideId}`).update({
                             status: 'wartepool',
+                            statusBeforeWartepool: ride.status || 'vorbestellt',  // v6.63.815
                             assignedVehicle: null, vehicleId: null, assignedTo: null,
                             assignedVehicleName: null, assignedVehiclePlate: null,
                             assignedBy: null, assignedAt: null,
@@ -26572,6 +26573,7 @@ exports.scheduledLosfahrCheck = onSchedule(
                     const _elapsedMin = Math.round((now - r.acceptedAt) / 60000);
                     await db.ref(`rides/${rideId}`).update({
                         status: 'wartepool',
+                        statusBeforeWartepool: r.status || 'vorbestellt',  // v6.63.815
                         assignedVehicle: null, vehicleId: null, assignedTo: null,
                         assignedVehicleName: null, assignedVehiclePlate: null,
                         assignedBy: null, assignedAt: null,
@@ -31930,6 +31932,13 @@ exports.scheduledOpenRideCheck = onSchedule(
                 _notAcceptedPromises.push((async () => {
                     await db.ref(`rides/${rideId}`).update({
                         status: 'wartepool',
+                        // 🆕 v6.63.815 (Patrick 23.07. Bridge Antje-Fall):
+                        //   statusBeforeWartepool speichern damit v6.63.814-Reassign-Fix
+                        //   greift und Status auf 'vorbestellt' hält, nicht auf 'sofort'.
+                        //   v6.63.814 hatte nur scheduledAutoAssign-Pfad gepatcht; dieser
+                        //   v6.63.770-Pfad war übersehen — deshalb ging Antje trotzdem
+                        //   auf 'sofort'.
+                        statusBeforeWartepool: ride.status || 'vorbestellt',
                         assignedVehicle: null, vehicleId: null, assignedTo: null,
                         assignedVehicleName: null, assignedVehiclePlate: null,
                         assignedBy: null, assignedAt: null,
@@ -32296,6 +32305,7 @@ exports.scheduledDepartureAlert = onSchedule(
                                     const _newRejected = [...(ride.rejectedVehicles || []), _vid].filter(Boolean);
                                     await db.ref(`rides/${rideId}`).update({
                                         status: 'wartepool',
+                                        statusBeforeWartepool: ride.status || 'vorbestellt',  // v6.63.815
                                         assignedVehicle: null, vehicleId: null, assignedTo: null,
                                         assignedVehicleName: null, assignedVehiclePlate: null,
                                         assignedBy: null, assignedAt: null,

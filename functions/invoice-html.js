@@ -449,13 +449,6 @@ table.pos tr.zebra td { background: #f8f8f8; }
         <div class="payment-terms">${esc(paymentTermsText)}</div>
         ${buildEpcQrSection(r, s, totalGross, invoiceNumber, inv)}
         <div class="closing">${esc(closingNote)}</div>
-        <!-- v6.63.759 (Patrick 20.07. Bridge): Kundenportal-Hinweis auf jeder Rechnung.
-             Kurze URL keinbockzulaufen.de/kunden ist kürzer als /Taxi-App/kunden.html
-             und geht per Landing-Redirect zum Portal. Kunden können sich mit Handy-Nr
-             einloggen und ALLE ihre Rechnungen (auch aus dem Archiv) herunterladen. -->
-        <div class="portal-hint" style="margin-top:14px;padding:10px 14px;background:#f0fdf4;border-left:3px solid #10b981;border-radius:4px;font-size:11px;color:#374151;">
-            🌐 <strong>Alle Ihre Rechnungen jederzeit online:</strong> keinbockzulaufen.de/kunden — Login mit Ihrer Handynummer + SMS-Code.
-        </div>
     </div>
 
     ${stempelHtml}

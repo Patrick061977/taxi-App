@@ -31024,13 +31024,20 @@ exports.onRideUpdated = onValueUpdated(
                         autoCreatedBy: 'cloud-v6.63.808-vorkasse',
                         pdfUrl: null
                     });
+                    // 🆕 v6.63.813 (Patrick 23.07. 14:56 Bridge — Leon Schurz Bug bestätigt:
+                    //   "Link kopieren + neu einfügen hat funktioniert"): STATT der direkten
+                    //   Stripe-URL speichern wir den Wrapper-Link. Wrapper (v6.63.812) erzeugt
+                    //   bei jedem Klick eine frische Session — WhatsApp-Preview-Bot kann sie
+                    //   nicht mehr verbrauchen.
+                    const _wrapperUrl813 = `https://europe-west1-taxi-heringsdorf.cloudfunctions.net/pay?nr=${_bn804}`;
                     // Ride verlinken
                     await db.ref(`rides/${rideId}`).update({
                         invoiceNumber: _bn804,
                         invoiceCreatedAt: Date.now(),
-                        invoiceCreatedBy: 'cloud-v6.63.804-vorkasse',
+                        invoiceCreatedBy: 'cloud-v6.63.813-vorkasse',
                         invoiceAmount: _gross804,
-                        stripeCheckoutUrl: _url804,
+                        stripeCheckoutUrl: _wrapperUrl813,  // v6.63.813 Wrapper-URL
+                        stripeDirectUrl: _url804,           // v6.63.813 Original zum Debug
                         stripeSessionId: _sj804.sessionId,
                         stripeBelegNr: _bn804,
                         stripePaymentStatus: 'pending',

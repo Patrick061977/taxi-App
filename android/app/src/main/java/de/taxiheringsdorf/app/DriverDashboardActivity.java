@@ -134,6 +134,33 @@ public class DriverDashboardActivity extends AppCompatActivity {
         //   (Fahrer hat die Notification getippt oder App selbst geoeffnet).
         try { AlertSoundService.stop(this); } catch (Throwable _ignore) {}
 
+        // 🆕 v6.63.803 (Patrick 23.07. Bridge: 'IK ist online aber Cloud sagt kein Token'):
+        //   FCM-Token bei jedem Dashboard-Start frisch in Firebase schreiben. Bisher wurde
+        //   das nur bei VehiclePickerActivity gemacht — wenn Fahrer die App direkt öffnet
+        //   ohne Vehicle-Wahl (weil Pairing gecacht), blieb Token in DB null. Push kam nie
+        //   an. Cron v6.63.802 warnte fälschlich 'App nicht offen'.
+        try {
+            String _cachedVid = getSharedPreferences("driver", MODE_PRIVATE).getString("vehicleId", null);
+            if (_cachedVid != null && !_cachedVid.isEmpty()) {
+                final String _vid = _cachedVid;
+                com.google.firebase.messaging.FirebaseMessaging.getInstance().getToken()
+                    .addOnSuccessListener(_token -> {
+                        if (_token != null && _token.length() > 20) {
+                            java.util.Map<String, Object> _tokMap = new java.util.HashMap<>();
+                            _tokMap.put("token", _token);
+                            _tokMap.put("updatedAt", System.currentTimeMillis());
+                            _tokMap.put("device", android.os.Build.MODEL);
+                            _tokMap.put("via", "DriverDashboard.onCreate v6.63.803");
+                            com.google.firebase.database.FirebaseDatabase.getInstance(DB_INSTANCE_URL)
+                                .getReference("vehicles/" + _vid + "/fcmToken")
+                                .setValue(_tokMap);
+                            Log.d(TAG, "✅ v6.63.803 FCM-Token frisch geschrieben für " + _vid);
+                        }
+                    })
+                    .addOnFailureListener(_e -> Log.w(TAG, "v6.63.803 FCM-Token fetch fail: " + _e.getMessage()));
+            }
+        } catch (Throwable _t) { Log.w(TAG, "v6.63.803 Token-Refresh Fehler: " + _t.getMessage()); }
+
         // 🆕 v6.62.937 (Patrick 25.05. 14:41 'B - zweimal druecken zum Ablehnen'):
         //   Wenn der Intent confirmReject=true mitbringt, wurde die Ablehnen-Notification
         //   getippt. Statt direkt abzulehnen: AlertDialog 'Wirklich ablehnen?' anzeigen.

@@ -26386,11 +26386,17 @@ exports.scheduledFruehCheckOffline = onSchedule(
                 const tokenStr = tokenObj && (tokenObj.token || (typeof tokenObj === 'string' ? tokenObj : ''));
                 const hasToken = tokenStr && tokenStr.length > 20;
                 if (shiftActive && hasToken) return; // Alles ok
+                // 🆕 v6.63.803 (Patrick 23.07. Bridge): kein-Token allein reicht nicht als
+                //   Alarm — Fahrer könnte die Ride via Wartepool-Banner-Polling sehen.
+                //   Nur echter Alarm wenn shift.status != active (Fahrer nicht im Dienst).
+                //   Bei active-shift ohne Token: nur Log, kein Admin-Push.
+                if (shiftActive && !hasToken) {
+                    console.log(`⏰ v6.63.803 ${rideId}: shift=active aber kein FCM-Token für ${ride.assignedVehicleName || vid} — kein Alarm (Fahrer sieht Banner)`);
+                    return;
+                }
                 checked++;
                 const _vName = ride.assignedVehicleName || vid;
-                const _reason = !shiftActive
-                    ? `Fahrer ${_vName} nicht im Dienst (Schicht=${v.shift ? v.shift.status : 'null'})`
-                    : `Fahrer ${_vName} App nicht offen (kein FCM-Token)`;
+                const _reason = `Fahrer ${_vName} nicht im Dienst (Schicht=${v.shift ? v.shift.status : 'null'})`;
                 // Staffeln
                 if (minsToPickup > 60) {
                     // >1h: nur Log, kein Push

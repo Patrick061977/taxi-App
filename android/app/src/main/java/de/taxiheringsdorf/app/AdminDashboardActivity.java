@@ -962,9 +962,48 @@ public class AdminDashboardActivity extends AppCompatActivity {
                     org.json.JSONObject o = arr.getJSONObject(i);
                     double lat = Double.parseDouble(o.getString("lat"));
                     double lon = Double.parseDouble(o.getString("lon"));
+                    // 🆕 v6.63.797 (Patrick 23.07. Bridge: "Landkreis + Bundesland weg"):
+                    //   Kurze Adresse aus addressdetails bauen:
+                    //   "Straße HN, PLZ Ort" — ohne Landkreis/Bundesland/Land.
+                    //   Fallback: display_name stripped von den Region-Teilen.
                     String disp = o.optString("display_name", "");
+                    org.json.JSONObject ad = o.optJSONObject("address");
+                    String shortLabel = disp;
+                    if (ad != null) {
+                        String road = ad.optString("road", "");
+                        String hn = ad.optString("house_number", "");
+                        String plz = ad.optString("postcode", "");
+                        String ort = ad.optString("city", "");
+                        if (ort.isEmpty()) ort = ad.optString("town", "");
+                        if (ort.isEmpty()) ort = ad.optString("village", "");
+                        if (ort.isEmpty()) ort = ad.optString("suburb", "");
+                        String name = ad.optString("amenity", "");
+                        if (name.isEmpty()) name = ad.optString("shop", "");
+                        if (name.isEmpty()) name = ad.optString("tourism", "");
+                        if (name.isEmpty()) name = ad.optString("building", "");
+                        if (name.isEmpty()) name = ad.optString("railway", "");
+                        StringBuilder sb2 = new StringBuilder();
+                        if (!name.isEmpty() && !name.equalsIgnoreCase("yes")) sb2.append(name).append(", ");
+                        if (!road.isEmpty()) {
+                            sb2.append(road);
+                            if (!hn.isEmpty()) sb2.append(" ").append(hn);
+                            sb2.append(", ");
+                        }
+                        if (!plz.isEmpty()) sb2.append(plz).append(" ");
+                        sb2.append(ort);
+                        String built = sb2.toString().replaceAll(",\\s*$", "").trim();
+                        if (!built.isEmpty()) shortLabel = built;
+                    }
+                    // Fallback-Bereinigung: falls addressdetails leer waren
+                    shortLabel = shortLabel
+                        .replaceAll(",?\\s*Vorpommern-Greifswald", "")
+                        .replaceAll(",?\\s*Mecklenburg-Vorpommern", "")
+                        .replaceAll(",?\\s*Kaiserbäder", "")
+                        .replaceAll(",?\\s*Deutschland", "")
+                        .replaceAll("\\s{2,}", " ")
+                        .trim();
                     _coords.add(new double[]{lat, lon});
-                    _labels.add(disp);
+                    _labels.add(shortLabel);
                 }
                 runOnUiThread(() -> {
                     suggBox.removeAllViews();

@@ -40806,3 +40806,122 @@ exports.scheduledCleanupOldShiftOverrides = onSchedule(
         }
     }
 );
+
+// ═══════════════════════════════════════════════════════════════
+// 🆕 v6.63.812 (Patrick 23.07. Bridge 14:25 'Der Link geht nicht — Warum'):
+//   STRIPE-PAY-WRAPPER — löst das 24h-Expiry-Problem von Checkout-Sessions.
+//   Kunde bekommt statt direkter Stripe-URL einen Link wie
+//     https://europe-west1-taxi-heringsdorf.cloudfunctions.net/pay?nr=20-26-1563
+//   Beim Klick: Cloud prüft ob existierende Session noch valid, sonst
+//   erzeugt frische. HTML-Seite mit "Jetzt bezahlen"-Button + Auto-Redirect
+//   nur für echte User (Preview-Bots wie WhatsApp bekommen NUR das HTML).
+// ═══════════════════════════════════════════════════════════════
+exports.pay = onRequest(
+    { region: 'europe-west1', invoker: 'public' },
+    async (req, res) => {
+        try {
+            const invoiceNumber = req.query.nr || req.query.invoice;
+            if (!invoiceNumber) {
+                res.status(400).send('<html><body style="font-family:sans-serif;padding:30px;text-align:center;"><h2>❌ Kein Beleg angegeben</h2></body></html>');
+                return;
+            }
+            const invSnap = await db.ref('invoices/' + invoiceNumber).once('value');
+            const inv = invSnap.val();
+            if (!inv) {
+                res.status(404).send('<html><body style="font-family:sans-serif;padding:30px;text-align:center;"><h2>❌ Rechnung ' + invoiceNumber + ' nicht gefunden</h2></body></html>');
+                return;
+            }
+            if (inv.stripePaymentStatus === 'paid' || inv.paymentStatus === 'paid' || inv.status === 'bezahlt') {
+                res.status(200).send('<html><body style="font-family:sans-serif;padding:30px;text-align:center;"><h2>✅ Rechnung ' + invoiceNumber + ' bereits bezahlt</h2><p>Vielen Dank!</p><p style="color:#6b7280;font-size:12px;margin-top:30px;">Funk Taxi Heringsdorf · 038378 22022</p></body></html>');
+                return;
+            }
+            const gross = parseFloat(inv.totalGross || inv.gross || 0);
+            const custName = inv.customerName || '';
+            const custEmail = inv.customerEmail || '';
+            const routeText = inv.route || '';
+            // Session-Reuse wenn < 23h alt
+            let checkoutUrl = null;
+            if (inv.stripeCheckoutUrl && inv.stripeCreatedAt) {
+                const ageMs = Date.now() - inv.stripeCreatedAt;
+                if (ageMs < 23 * 60 * 60 * 1000) {
+                    checkoutUrl = inv.stripeCheckoutUrl;
+                    console.log('[pay] Reuse existing session for ' + invoiceNumber);
+                }
+            }
+            if (!checkoutUrl) {
+                try {
+                    const stripe = await getStripe();
+                    const amountInCents = Math.round(gross * 100);
+                    if (amountInCents < 50) {
+                        res.status(400).send('<html><body style="font-family:sans-serif;padding:30px;"><h2>Ungültiger Betrag</h2></body></html>');
+                        return;
+                    }
+                    const sessionParams = {
+                        mode: 'payment',
+                        line_items: [{
+                            price_data: {
+                                currency: 'eur',
+                                product_data: {
+                                    name: 'Rechnung ' + invoiceNumber,
+                                    description: routeText || 'Funk Taxi Heringsdorf'
+                                },
+                                unit_amount: amountInCents
+                            },
+                            quantity: 1
+                        }],
+                        metadata: { invoiceNumber: invoiceNumber, source: 'v6.63.812-wrapper' },
+                        success_url: 'https://taxi-heringsdorf.web.app/payment-success?invoice=' + invoiceNumber,
+                        cancel_url: 'https://taxi-heringsdorf.web.app/payment-cancel?invoice=' + invoiceNumber,
+                        locale: 'de'
+                    };
+                    if (custEmail) sessionParams.customer_email = custEmail;
+                    const session = await stripe.checkout.sessions.create(sessionParams);
+                    checkoutUrl = session.url;
+                    await db.ref('invoices/' + invoiceNumber).update({
+                        stripeSessionId: session.id,
+                        stripeCheckoutUrl: session.url,
+                        stripeCreatedAt: Date.now(),
+                        stripeRegeneratedAt: Date.now(),
+                        stripeRegenCount: (inv.stripeRegenCount || 0) + 1
+                    });
+                    console.log('[pay] NEW session for ' + invoiceNumber + ': ' + session.id);
+                } catch (e) {
+                    console.error('[pay] Stripe-Create-Fehler:', e.message);
+                    res.status(500).send('<html><body style="font-family:sans-serif;padding:30px;text-align:center;"><h2>❌ Zahlung derzeit nicht möglich</h2><p>Bitte kontaktieren Sie uns: 038378 22022</p></body></html>');
+                    return;
+                }
+            }
+            const grossStr = gross.toFixed(2).replace('.', ',');
+            const html = '<!DOCTYPE html>\n<html lang="de"><head>' +
+                '<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
+                '<title>Rechnung ' + invoiceNumber + ' · Funk Taxi</title>' +
+                '<meta property="og:title" content="Rechnung ' + invoiceNumber + ' · Funk Taxi Heringsdorf">' +
+                '<meta property="og:description" content="' + grossStr + ' € · Bitte antippen zum Bezahlen">' +
+                '<style>' +
+                'body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;margin:0;padding:20px;background:#f8fafc;color:#1e293b;}' +
+                '.card{max-width:480px;margin:40px auto;background:white;border-radius:12px;padding:30px;box-shadow:0 4px 20px rgba(0,0,0,0.1);text-align:center;}' +
+                'h1{color:#1e40af;margin-top:0;}' +
+                '.amount{font-size:32px;font-weight:bold;color:#059669;margin:20px 0;}' +
+                '.pay-btn{display:inline-block;background:#635bff;color:white;padding:16px 32px;border-radius:8px;text-decoration:none;font-weight:bold;font-size:18px;margin-top:20px;}' +
+                '.info{color:#6b7280;font-size:13px;margin-top:20px;line-height:1.5;}' +
+                '</style></head><body>' +
+                '<div class="card">' +
+                '<h1>💳 Zahlung</h1>' +
+                '<p>Rechnung <strong>' + invoiceNumber + '</strong><br>' + custName + '</p>' +
+                '<div class="amount">' + grossStr + ' €</div>' +
+                (routeText ? '<p style="color:#6b7280;font-size:14px;">' + routeText + '</p>' : '') +
+                '<a href="' + checkoutUrl + '" class="pay-btn" id="pay-link">Jetzt sicher bezahlen &rarr;</a>' +
+                '<p class="info">Weiterleitung zu Stripe (sicherer Zahlungsanbieter).<br>Kreditkarte, SEPA oder PayPal möglich.</p>' +
+                '<p class="info" style="margin-top:30px;">Funk Taxi Heringsdorf<br>Tel. 038378 22022</p>' +
+                '</div>' +
+                '<script>if(!navigator.userAgent.match(/(bot|crawl|spider|WhatsApp|facebookexternalhit|Slackbot|Telegram)/i)){setTimeout(function(){document.getElementById("pay-link").click();},1500);}</script>' +
+                '</body></html>';
+            res.set('Content-Type', 'text/html; charset=utf-8');
+            res.set('Cache-Control', 'no-store');
+            res.status(200).send(html);
+        } catch (err) {
+            console.error('[pay] Unhandled:', err.message);
+            res.status(500).send('<html><body style="font-family:sans-serif;padding:30px;"><h2>❌ Fehler</h2><p>' + err.message + '</p></body></html>');
+        }
+    }
+);

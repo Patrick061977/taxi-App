@@ -869,32 +869,61 @@ public class AdminDashboardActivity extends AppCompatActivity {
         });
 
         btnAdd.setOnClickListener(_v -> {
-            // Add-Dialog: 4 EditTexts
+            // 🆕 v6.63.796 (Patrick 23.07. Bridge: "Woher soll ich die Koordinaten wissen?"):
+            //   Nominatim-Autocomplete beim Adresse-Tippen. User tippt Adresse → Vorschlags-
+            //   Liste erscheint → Klick auf Vorschlag → Adresse + Lat/Lon automatisch gesetzt.
             LinearLayout addLay = new LinearLayout(this);
             addLay.setOrientation(LinearLayout.VERTICAL);
             addLay.setPadding(pad, pad, pad, pad);
-            EditText etL = new EditText(this); etL.setHint("Label (z.B. 🚉 Bf Zinnowitz)"); addLay.addView(etL);
-            EditText etA = new EditText(this); etA.setHint("Adresse (z.B. Bahnhof, 17454 Zinnowitz)"); addLay.addView(etA);
-            EditText etLat = new EditText(this); etLat.setHint("Lat (z.B. 54.075)"); etLat.setInputType(android.text.InputType.TYPE_CLASS_NUMBER | android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL | android.text.InputType.TYPE_NUMBER_FLAG_SIGNED); addLay.addView(etLat);
-            EditText etLon = new EditText(this); etLon.setHint("Lon (z.B. 13.907)"); etLon.setInputType(android.text.InputType.TYPE_CLASS_NUMBER | android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL | android.text.InputType.TYPE_NUMBER_FLAG_SIGNED); addLay.addView(etLon);
+            EditText etL = new EditText(this);
+            etL.setHint("Label (z.B. 🚉 Bf Zinnowitz)");
+            addLay.addView(etL);
+            EditText etA = new EditText(this);
+            etA.setHint("Adresse tippen — Vorschläge erscheinen unten");
+            addLay.addView(etA);
+            final LinearLayout suggBox = new LinearLayout(this);
+            suggBox.setOrientation(LinearLayout.VERTICAL);
+            suggBox.setBackgroundColor(0xFFF3F4F6);
+            addLay.addView(suggBox);
+            TextView tvHint = new TextView(this);
+            tvHint.setText("💡 Ab 3 Buchstaben kommen Vorschläge — antippen zum Übernehmen");
+            tvHint.setTextSize(11);
+            tvHint.setTextColor(0xFF6B7280);
+            tvHint.setPadding(0, 4, 0, 0);
+            addLay.addView(tvHint);
+
+            final double[] _pickedCoords = new double[]{0, 0};
+            final String[] _pickedAddr = new String[]{""};
+            final android.os.Handler _h = new android.os.Handler(android.os.Looper.getMainLooper());
+            final Runnable[] _pending = new Runnable[]{null};
+            etA.addTextChangedListener(new android.text.TextWatcher() {
+                @Override public void beforeTextChanged(CharSequence s, int a, int b, int c) {}
+                @Override public void onTextChanged(CharSequence s, int a, int b, int c) {}
+                @Override public void afterTextChanged(android.text.Editable e) {
+                    _pickedCoords[0] = 0; _pickedCoords[1] = 0; _pickedAddr[0] = "";
+                    if (_pending[0] != null) _h.removeCallbacks(_pending[0]);
+                    final String _q = e.toString().trim();
+                    if (_q.length() < 3) { suggBox.removeAllViews(); return; }
+                    _pending[0] = () -> _nominatimSuggest(_q, suggBox, etA, _pickedCoords, _pickedAddr, tvHint);
+                    _h.postDelayed(_pending[0], 400);
+                }
+            });
+
             new AlertDialog.Builder(this)
                 .setTitle("+ Neue Schnell-Adresse")
                 .setView(addLay)
                 .setPositiveButton("Speichern", (d, w) -> {
                     String _l = etL.getText().toString().trim();
-                    String _a = etA.getText().toString().trim();
-                    double _lat = 0, _lon = 0;
-                    try { _lat = Double.parseDouble(etLat.getText().toString().trim().replace(",", ".")); } catch (Throwable _t) {}
-                    try { _lon = Double.parseDouble(etLon.getText().toString().trim().replace(",", ".")); } catch (Throwable _t) {}
-                    if (_l.isEmpty() || _a.isEmpty() || _lat == 0 || _lon == 0) {
-                        Toast.makeText(this, "Alle 4 Felder ausfüllen", Toast.LENGTH_LONG).show();
+                    String _a = !_pickedAddr[0].isEmpty() ? _pickedAddr[0] : etA.getText().toString().trim();
+                    if (_l.isEmpty() || _a.isEmpty() || _pickedCoords[0] == 0 || _pickedCoords[1] == 0) {
+                        Toast.makeText(this, "Label + Adresse eintippen + Vorschlag antippen", Toast.LENGTH_LONG).show();
                         return;
                     }
                     java.util.Map<String, Object> _entry = new java.util.HashMap<>();
                     _entry.put("label", _l);
                     _entry.put("address", _a);
-                    _entry.put("lat", _lat);
-                    _entry.put("lon", _lon);
+                    _entry.put("lat", _pickedCoords[0]);
+                    _entry.put("lon", _pickedCoords[1]);
                     _entry.put("createdAt", System.currentTimeMillis());
                     qpRef.push().setValue(_entry).addOnSuccessListener(_ok -> {
                         Toast.makeText(this, "⭐ hinzugefügt", Toast.LENGTH_SHORT).show();
@@ -909,6 +938,84 @@ public class AdminDashboardActivity extends AppCompatActivity {
         reload.run();
     }
     private static String strVal(Object v) { return v == null ? "" : String.valueOf(v); }
+
+    // 🆕 v6.63.796: Nominatim-Autocomplete-Helper für Schnell-Adresse-Dialog.
+    //   Async Query → rendert Vorschläge in suggBox. Tap auf Vorschlag setzt Adress-Feld
+    //   + speichert Coords in _pickedCoords/_pickedAddr.
+    private void _nominatimSuggest(String query, LinearLayout suggBox, EditText etA,
+                                    double[] pickedCoords, String[] pickedAddr, TextView tvHint) {
+        new Thread(() -> {
+            try {
+                String url = "https://nominatim.openstreetmap.org/search?format=json&limit=6&addressdetails=1&q="
+                    + java.net.URLEncoder.encode(query, "UTF-8");
+                java.net.HttpURLConnection conn = (java.net.HttpURLConnection) new java.net.URL(url).openConnection();
+                conn.setRequestProperty("User-Agent", "TaxiApp/v6.63.796 patrick@funktaxi-heringsdorf.de");
+                conn.setConnectTimeout(6000); conn.setReadTimeout(6000);
+                java.io.BufferedReader br = new java.io.BufferedReader(new java.io.InputStreamReader(conn.getInputStream(), "UTF-8"));
+                StringBuilder sb = new StringBuilder(); String line;
+                while ((line = br.readLine()) != null) sb.append(line);
+                br.close();
+                org.json.JSONArray arr = new org.json.JSONArray(sb.toString());
+                final java.util.List<double[]> _coords = new java.util.ArrayList<>();
+                final java.util.List<String> _labels = new java.util.ArrayList<>();
+                for (int i = 0; i < arr.length() && i < 6; i++) {
+                    org.json.JSONObject o = arr.getJSONObject(i);
+                    double lat = Double.parseDouble(o.getString("lat"));
+                    double lon = Double.parseDouble(o.getString("lon"));
+                    String disp = o.optString("display_name", "");
+                    _coords.add(new double[]{lat, lon});
+                    _labels.add(disp);
+                }
+                runOnUiThread(() -> {
+                    suggBox.removeAllViews();
+                    if (_labels.isEmpty()) {
+                        TextView tv = new TextView(this);
+                        tv.setText("❌ Nichts gefunden");
+                        tv.setTextSize(12); tv.setPadding(12, 8, 12, 8);
+                        tv.setTextColor(0xFF991B1B);
+                        suggBox.addView(tv);
+                        return;
+                    }
+                    for (int i = 0; i < _labels.size(); i++) {
+                        final int _idx = i;
+                        TextView tv = new TextView(this);
+                        String _l = _labels.get(i);
+                        tv.setText("📍 " + (_l.length() > 90 ? _l.substring(0, 87) + "…" : _l));
+                        tv.setTextSize(12);
+                        tv.setPadding(12, 10, 12, 10);
+                        tv.setTextColor(0xFF1F2937);
+                        tv.setBackgroundColor(0xFFFFFFFF);
+                        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+                        lp.setMargins(0, 0, 0, 2);
+                        tv.setLayoutParams(lp);
+                        tv.setClickable(true);
+                        tv.setOnClickListener(cv -> {
+                            double[] c = _coords.get(_idx);
+                            String lbl = _labels.get(_idx);
+                            pickedCoords[0] = c[0]; pickedCoords[1] = c[1];
+                            pickedAddr[0] = lbl;
+                            etA.setText(lbl);
+                            etA.setSelection(lbl.length());
+                            suggBox.removeAllViews();
+                            tvHint.setText("✅ Übernommen: " + c[0] + " / " + c[1]);
+                            tvHint.setTextColor(0xFF16A34A);
+                        });
+                        suggBox.addView(tv);
+                    }
+                });
+            } catch (Throwable t) {
+                runOnUiThread(() -> {
+                    TextView tv = new TextView(this);
+                    tv.setText("❌ Fehler: " + t.getMessage());
+                    tv.setTextSize(11); tv.setPadding(12, 8, 12, 8);
+                    tv.setTextColor(0xFF991B1B);
+                    suggBox.removeAllViews();
+                    suggBox.addView(tv);
+                });
+            }
+        }).start();
+    }
 
     // 🆕 v6.62.909 (Patrick 24.05. 09:35): Live-Schichtstatus aller Fahrzeuge.
     //   Patrick: 'jeder so sieht welches Fahrzeug zurzeit aktiv ist'. Schritt 1

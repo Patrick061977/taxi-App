@@ -218,6 +218,47 @@ public class CrmSearchActivity extends AppCompatActivity {
                 }
             });
 
+    // 🆕 v6.63.798 (Patrick 23.07. Bridge): Long-Press auf Pickup/Dest → als
+    //   Schnelladresse speichern (settings/quickPicks). Braucht Adresse+Coords.
+    private void _saveAsQuickPickPrompt(String rawText, double[] coords) {
+        if (coords == null || coords[0] == 0 || coords[1] == 0) {
+            Toast.makeText(this, "⚠️ Erst Adresse mit Vorschlag/Karte wählen (Koordinaten fehlen)", Toast.LENGTH_LONG).show();
+            return;
+        }
+        final String addr = rawText.replaceFirst("^📍\\s*", "").replaceFirst("^🎯\\s*", "").trim();
+        if (addr.isEmpty() || addr.contains("wählen…")) {
+            Toast.makeText(this, "⚠️ Erst eine Adresse eintragen", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        // Vorschlags-Label: erstes Wort oder POI-artige Kürzung
+        String defLabel = "⭐ " + (addr.length() > 30 ? addr.substring(0, 28) + "…" : addr);
+        final EditText etL = new EditText(this);
+        etL.setHint("Label (z.B. 🚉 Bf Zinnowitz)");
+        etL.setText(defLabel);
+        etL.setSelection(etL.getText().length());
+        new AlertDialog.Builder(this)
+            .setTitle("⭐ Als Schnelladresse speichern")
+            .setMessage("Adresse: " + addr + "\nLat/Lon: " + coords[0] + " / " + coords[1] + "\n\nWie soll der Chip heißen?")
+            .setView(etL)
+            .setPositiveButton("Speichern", (d, w) -> {
+                String label = etL.getText().toString().trim();
+                if (label.isEmpty()) { Toast.makeText(this, "Label leer", Toast.LENGTH_SHORT).show(); return; }
+                java.util.Map<String, Object> entry = new java.util.HashMap<>();
+                entry.put("label", label);
+                entry.put("address", addr);
+                entry.put("lat", coords[0]);
+                entry.put("lon", coords[1]);
+                entry.put("createdAt", System.currentTimeMillis());
+                com.google.firebase.database.FirebaseDatabase.getInstance(
+                    "https://taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.app")
+                    .getReference("settings/quickPicks").push().setValue(entry)
+                    .addOnSuccessListener(_ok -> Toast.makeText(this, "⭐ '" + label + "' als Schnelladresse gespeichert", Toast.LENGTH_LONG).show())
+                    .addOnFailureListener(_e -> Toast.makeText(this, "⚠️ " + _e.getMessage(), Toast.LENGTH_LONG).show());
+            })
+            .setNegativeButton("Abbrechen", null)
+            .show();
+    }
+
     private void launchPlaces(TextView field, double[] coordsOut) {
         // v6.62.220: OSM-Map-Picker statt Places-SDK (9011) oder Manual-Dialog.
         // Patrick: "Stecknadel-Picker einbauen". Tap auf Karte → Reverse-Geocode.
@@ -2877,6 +2918,12 @@ public class CrmSearchActivity extends AppCompatActivity {
         }
         tvPickup.setPadding(pad / 2, pad, pad / 2, pad);
         tvPickup.setOnClickListener(v -> launchPlaces(tvPickup, pickupCoords));
+        // 🆕 v6.63.798 (Patrick 23.07. Bridge): Long-Press auf Adress-Feld → als
+        //   Schnelladresse speichern. Braucht Adresse + Coords bereits gesetzt.
+        tvPickup.setOnLongClickListener(v -> {
+            _saveAsQuickPickPrompt(tvPickup.getText().toString(), pickupCoords);
+            return true;
+        });
         layout.addView(tvPickup);
 
         // 🆕 v6.62.769 (Patrick 16.05. 09:09): Globale Quick-Picks fuer Pickup
@@ -2916,6 +2963,11 @@ public class CrmSearchActivity extends AppCompatActivity {
         }
         tvDest.setPadding(pad / 2, pad, pad / 2, pad);
         tvDest.setOnClickListener(v -> launchPlaces(tvDest, destCoords));
+        // 🆕 v6.63.798: Long-Press auf Ziel → als Schnelladresse speichern
+        tvDest.setOnLongClickListener(v -> {
+            _saveAsQuickPickPrompt(tvDest.getText().toString(), destCoords);
+            return true;
+        });
         layout.addView(tvDest);
 
         // 🆕 v6.62.769: Globale Quick-Picks fuer Zielort

@@ -2500,8 +2500,16 @@ async function autoAssignRide(rideId, rideData, _excludeVehicleIds = []) {
 
         // 🔧 v6.38.97: Sofortfahrt → 'sofort' (Fahrer muss erst bestätigen!)
         // Erst wenn Fahrer im App "Annehmen" klickt → status wird 'assigned'
+        // 🆕 v6.63.814 (Patrick 23.07. 15:13 Bridge): Wartepool-Rides die als 'vorbestellt'
+        //   angelegt waren, sollen beim Reassign NICHT auf 'sofort' umgestellt werden.
+        //   Selbst wenn pickupTs schon in Vergangenheit ist. Ivonne König: Fahrt war
+        //   14:00, Kulpa rejected → Wartepool → 14:27 reassign wurde 'sofort'. Patrick:
+        //   "Vorbestellung bleibt Vorbestellung mit gleicher Uhrzeit."
+        const _wasVorbestellung = rideData.statusBeforeWartepool === 'vorbestellt'
+            || (rideData.status === 'wartepool' && rideData.statusBeforeWartepool !== 'sofort');
+        const _finalStatus = _wasVorbestellung ? 'vorbestellt' : (isSofort ? 'sofort' : 'vorbestellt');
         const rideUpdate = {
-            status: isSofort ? 'sofort' : 'vorbestellt',
+            status: _finalStatus,
             assignedTo: best.vehicleId,
             vehicleId: best.vehicleId,
             vehicle: best.name,
@@ -21178,6 +21186,12 @@ exports.autoResolveConflicts = onSchedule(
                                     // 🆕 v6.63.024: konkretester Reason statt generischem Fail
                                     _upd.wartepoolReason = ride.autoAssignLastReason || 'auto-assign-3x-failed';
                                     _upd.wartepoolAt = Date.now();
+                                    // 🆕 v6.63.814 (Patrick 23.07. 15:13 Bridge):
+                                    //   Original-Status speichern damit Reassign nicht auf 'sofort'
+                                    //   umstellt. Ivonne König: war 'vorbestellt' → wartepool 13:47
+                                    //   → 14:27 reassign machte 'sofort'. Falsch — muss vorbestellt
+                                    //   mit ursprünglicher Uhrzeit bleiben.
+                                    _upd.statusBeforeWartepool = ride.status || 'vorbestellt';
                                     _wartepoolJustEntered = true;
                                     // 🆕 v6.63.380: Audit-Log Eintritt
                                     await wartepoolAuditPush(ride.firebaseId, 'entry', {

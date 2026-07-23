@@ -30588,7 +30588,16 @@ exports.onRideUpdated = onValueUpdated(
             //   ALTE completed Rides und erstellte Rechnungen + Abschluss-SMS rückwirkend.
             //   FIX: Nur Rides bearbeiten deren completedAt < 24h alt ist — sonst ist es
             //   ein nachträgliches Update einer alten Fahrt, kein frischer Abschluss.
-            const _completedRecently = after.completedAt && after.completedAt > Date.now() - 24 * 60 * 60 * 1000;
+            // 🆕 v6.63.806 (Patrick 23.07. Bridge 13:11 'Ja'): OR-Bedingung — wenn die
+            //   Ride selbst erst < 24h angelegt wurde (createdAt frisch), zählt das auch
+            //   als "frisch" — auch wenn completedAt in der Vergangenheit liegt (nachträglich
+            //   erstellte Fahrt). Beispiel: Budde-Fahrt vom 09.07. am 23.07. angelegt →
+            //   completedAt=09.07. blockte Auto-Rechnung; createdAt=23.07. löst jetzt aus.
+            //   Bulk-Update-Schutz bleibt erhalten: Bulk-Updates ändern nur einzelne Felder,
+            //   createdAt der alten Rides bleibt alt → Trigger feuert dort nicht.
+            const _createdRecently = after.createdAt && after.createdAt > Date.now() - 24 * 60 * 60 * 1000;
+            const _completedRecently = (after.completedAt && after.completedAt > Date.now() - 24 * 60 * 60 * 1000)
+                || _createdRecently;
             // 🆕 v6.63.096 (Patrick 03.06. 07:27 "Bei Transportschein braucht man gar keine
             //   Rechnung schreiben"): Auto-Rechnung skippen bei Krankenfahrt mit Transportschein.
             //   Abrechnung läuft über DMRZ, nicht über Patrick-Rechnung.

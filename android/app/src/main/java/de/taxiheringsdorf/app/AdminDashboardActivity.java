@@ -1877,7 +1877,16 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 ride.put("customerMobile", a.phone);
             }
             if (a.email != null) ride.put("customerEmail", a.email);
-            if (a.pickup != null) ride.put("pickup", a.pickup);
+            // 🆕 v6.63.805 (Patrick 23.07. Bridge 12:56 'Delbrückstraße 58'):
+            //   Wenn Kunde im anfrage.html Formular eine genaue Festpreis-Adresse
+            //   eingegeben hat (a.festpreisAdresse — z.B. "Delbrückstraße 58, 17424..."),
+            //   diese IMMER als pickup verwenden. Die a.pickup war nur die Kurzform
+            //   ("Heringsdorf") die für die Preiskalkulation reichte, aber der Fahrer
+            //   braucht die genaue Adresse. Bisher wurde a.pickup gesetzt → Cloud
+            //   geocodierte auf Ortsmitte → Fahrer landete am falschen Ort.
+            String _effectivePickup = (a.festpreisAdresse != null && !a.festpreisAdresse.trim().isEmpty())
+                ? a.festpreisAdresse.trim() : a.pickup;
+            if (_effectivePickup != null) ride.put("pickup", _effectivePickup);
             if (a.destination != null) ride.put("destination", a.destination);
             if (a.stopp != null && !a.stopp.isEmpty()) ride.put("zwischenstopp", a.stopp);
             ride.put("passengers", a.passengers != null ? a.passengers : 1);

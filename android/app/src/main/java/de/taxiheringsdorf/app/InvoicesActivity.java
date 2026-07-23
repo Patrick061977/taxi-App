@@ -400,6 +400,20 @@ public class InvoicesActivity extends AppCompatActivity {
                                 .updateChildren(_upd)
                                 .addOnSuccessListener(_ok -> Toast.makeText(this, "⚡ Rechnung neu befüllt — PDF in ~1 Min bereit", Toast.LENGTH_LONG).show())
                                 .addOnFailureListener(_err -> Toast.makeText(this, "⚠️ " + _err.getMessage(), Toast.LENGTH_LONG).show());
+                            // 🆕 v6.63.795 (Patrick 23.07. Bridge SMS+Email-Karte-Problem):
+                            //   Ride auch aktualisieren — sonst zeigen SMS-Vorschau + Email-
+                            //   Vorschau + Korrespondenz-Karte weiter alten 'gast'. Sie lesen
+                            //   ride.customerName / ride.customerEmail (nicht invoice-Felder).
+                            if (item.rideId != null && !item.rideId.isEmpty()) {
+                                java.util.Map<String,Object> _rideUpd = new java.util.HashMap<>();
+                                if (!_finalName.isEmpty()) _rideUpd.put("customerName", _finalName);
+                                if (!_crmEmailHolder[0].isEmpty()) _rideUpd.put("customerEmail", _crmEmailHolder[0]);
+                                _rideUpd.put("updatedAt", System.currentTimeMillis());
+                                if (!_rideUpd.isEmpty()) {
+                                    FirebaseDatabase.getInstance(DB_URL).getReference("rides/" + item.rideId)
+                                        .updateChildren(_rideUpd);
+                                }
+                            }
                         };
                         if (!_rideCustId.isEmpty()) {
                             FirebaseDatabase.getInstance(DB_URL).getReference("customers/" + _rideCustId).get()

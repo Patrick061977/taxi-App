@@ -31938,6 +31938,48 @@ exports.scheduledDepartureAlert = onSchedule(
                     const _arrivalAlertAt = ride.pickupTimestamp - (10 + _driveMin) * 60_000;
                     // Fenster: [arrivalAlertAt, arrivalAlertAt + 2 Min] — 2 Min Puffer
                     if (now >= _arrivalAlertAt && now <= _arrivalAlertAt + 120_000) {
+                        // 🆕 v6.63.800 (Patrick 23.07. Bridge Schweitzer-Fall): Post-Push Fahrer-
+                        //   Offline-Check. Nach dem synchronen Update prüft ein async-Task ob das
+                        //   Fahrzeug wirklich online ist (shift=active + fcmToken). Wenn nicht →
+                        //   status wird von 'assigned' zurück auf 'wartepool' überschrieben +
+                        //   assignedVehicle freigegeben + Admin-Push. Läuft parallel zum Push,
+                        //   überschreibt danach. Verhindert Silent-Fail-Verlust.
+                        arrivalAlertPromises.push((async () => {
+                            try {
+                                const _vSnap = await db.ref(`vehicles/${_vid}`).once('value');
+                                const _v = _vSnap.val() || {};
+                                const _shiftActive = (_v.shift && _v.shift.status === 'active');
+                                const _tokenObj = _v.fcmToken;
+                                const _tokenStr = _tokenObj && (_tokenObj.token || (typeof _tokenObj === 'string' ? _tokenObj : ''));
+                                const _hasToken = _tokenStr && _tokenStr.length > 20;
+                                if (!_shiftActive || !_hasToken) {
+                                    const _reason = !_shiftActive
+                                        ? `Fahrer ${_v.name || _vid} nicht im Dienst (Schicht=${_v.shift ? _v.shift.status : 'null'})`
+                                        : `Fahrer ${_v.name || _vid} App nicht offen (kein FCM-Token)`;
+                                    console.warn(`🚨 v6.63.800 ${rideId}: ${_reason} — Wartepool + Admin-Push`);
+                                    await db.ref(`rides/${rideId}`).update({
+                                        status: 'wartepool',
+                                        assignedVehicle: null, vehicleId: null, assignedTo: null,
+                                        assignedVehicleName: null, assignedVehiclePlate: null,
+                                        assignedBy: null, assignedAt: null,
+                                        wartepoolAt: Date.now(),
+                                        wartepoolReason: `v6.63.800 ${_reason}`,
+                                        _notAcceptedWarned: true,
+                                        rejectedVehicles: [...(ride.rejectedVehicles || []), _vid].filter(Boolean),
+                                        updatedAt: Date.now()
+                                    });
+                                    await addRideLog(rideId, '🚨', `v6.63.800 Fahrer offline nach Akzeptanz-Alarm — Wartepool`, {
+                                        quelle: 'scheduledDepartureAlert Pass1 post-check',
+                                        reason: _reason
+                                    });
+                                    try {
+                                        await sendToAllAdmins(`🚨 <b>Fahrer offline — Ride im Wartepool</b>\n\n${ride.customerName || '?'} · ${new Date(ride.pickupTimestamp).toLocaleTimeString('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit' })}\n${_reason}\n\nBitte manuell zuweisen.`);
+                                    } catch (_) {}
+                                }
+                            } catch (_preErr) {
+                                console.warn(`v6.63.800 post-check Fehler ${rideId}: ${_preErr.message}`);
+                            }
+                        })());
                         const _wasVorbestellt = ride.status === 'vorbestellt';
                         const _isIsoPickup = typeof ride.pickupTime === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(ride.pickupTime);
                         const _pickupLabel = (ride.pickupTime && !_isIsoPickup)

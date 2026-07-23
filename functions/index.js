@@ -30977,15 +30977,23 @@ exports.onRideUpdated = onValueUpdated(
                     const _pickupDateStr = after.pickupTimestamp
                         ? new Date(after.pickupTimestamp).toLocaleDateString('de-DE', { timeZone: 'Europe/Berlin' })
                         : '';
+                    // 🆕 v6.63.808 (Patrick 23.07. 13:36 'Rechnung nicht im Tab'):
+                    //   Native-InvoicesActivity sucht `invoiceDate` und `createdAt` als
+                    //   Sortier-Felder. Vorher schrieb v6.63.804 `date` und `autoCreatedAt`
+                    //   → Rechnung war unsichtbar. Jetzt beide Felder-Sets schreiben.
+                    const _now808 = Date.now();
                     await db.ref(`invoices/${_bn804}`).set({
                         belegNr: _bn804,
+                        invoiceNumber: _bn804,   // v6.63.808 Native-Feld
                         rideId,
                         date: _bd804,
+                        invoiceDate: _bd804,     // v6.63.808 Native-Feld
                         displayDate: new Date().toLocaleDateString('de-DE', { timeZone: 'Europe/Berlin' }),
                         customerName: after.customerName || '',
                         customerAddress: _cust804.address || '',
                         customerPhone: after.customerPhone || after.customerMobile || '',
                         customerEmail: after.customerEmail || _cust804.email || '',
+                        customerId: after.customerId || null,
                         route: `${_pu804} → ${_de804}`,
                         pickupDate: after.pickupTimestamp ? new Date(after.pickupTimestamp).toISOString().slice(0, 10) : '',
                         pickupTime: after.pickupTime || '',
@@ -30993,6 +31001,7 @@ exports.onRideUpdated = onValueUpdated(
                         paymentMethod: 'stripe',
                         isPrepayment: true,
                         status: 'offen',
+                        paymentStatus: 'pending',  // v6.63.808 Native-Feld
                         positions: [{
                             description: `Taxifahrt ${_pu804} → ${_de804} (Vorkasse)`,
                             quantity: 1,
@@ -31010,8 +31019,9 @@ exports.onRideUpdated = onValueUpdated(
                         physOrdner: `${_bd804.slice(0, 7)}-AUSR`,
                         physPosition: _cVal804,
                         autoCreated: true,
-                        autoCreatedAt: Date.now(),
-                        autoCreatedBy: 'cloud-v6.63.804-vorkasse',
+                        autoCreatedAt: _now808,
+                        createdAt: _now808,      // v6.63.808 Native-Feld
+                        autoCreatedBy: 'cloud-v6.63.808-vorkasse',
                         pdfUrl: null
                     });
                     // Ride verlinken
@@ -31026,54 +31036,27 @@ exports.onRideUpdated = onValueUpdated(
                         stripePaymentStatus: 'pending',
                         stripeCreatedAt: Date.now()
                     });
-                    await addRideLog(rideId, '🧾', `v6.63.804 Vorkasse-Rechnung + Stripe erstellt: ${_bn804}`, {
+                    await addRideLog(rideId, '🧾', `v6.63.808 Vorkasse-Rechnung + Stripe erstellt: ${_bn804} (KEIN Auto-Send)`, {
                         belegNr: _bn804, gross: _gross804, checkoutUrl: _url804
                     });
-                    // PDF regenerieren (async — nicht blockieren)
+                    // 🆕 v6.63.808 (Patrick 23.07. Bridge 13:27 "wenn ich rausschicke, mache
+                    //   ich das selber"): PDF wird noch async gerendert, ABER KEIN Auto-
+                    //   Send an Kunde. Patrick versendet manuell aus dem Rechnungstab.
                     try {
-                        const _tgTok804 = (await db.ref('settings/telegram/botToken').once('value')).val();
-                        if (_tgTok804) {
-                            fetch(`https://europe-west1-taxi-heringsdorf.cloudfunctions.net/regenerateInvoicePdf?invoice=${_bn804}&token=${encodeURIComponent(_tgTok804)}`)
+                        const _tgTok808 = (await db.ref('settings/telegram/botToken').once('value')).val();
+                        if (_tgTok808) {
+                            fetch(`https://europe-west1-taxi-heringsdorf.cloudfunctions.net/regenerateInvoicePdf?invoice=${_bn804}&token=${encodeURIComponent(_tgTok808)}`)
                                 .then(r => r.json())
                                 .then(async j => {
                                     if (j && j.ok && j.pdfUrl) {
                                         await db.ref(`invoices/${_bn804}/pdfUrl`).set(j.pdfUrl);
-                                        // WhatsApp senden — Nachricht 1 (Link) + Nachricht 2 (PDF)
-                                        try {
-                                            const _mob804 = after.customerMobile || after.customerPhone;
-                                            if (_mob804 && isMobileNumber(_mob804)) {
-                                                const _greet = _cust804.anrede === 'Frau' ? 'Sehr geehrte Frau' : (_cust804.anrede === 'Herr' ? 'Sehr geehrter Herr' : 'Guten Tag');
-                                                const _nachname = (after.customerName || '').split(' ').slice(-1)[0] || '';
-                                                const _waMsg = `${_greet} ${_nachname},\n\nvielen Dank für Ihre Buchung bei Funk Taxi Heringsdorf!\n\n📅 ${_pickupDateStr} · ${after.pickupTime || ''}\n📍 ${_pu804}\n🎯 ${_de804}\n💶 ${_gross804.toFixed(2).replace('.', ',')} €\n\nZahlungslink (Vorkasse):\n${_url804}\n\nRechnung folgt gleich als PDF.\nBei Fragen: 038378 22022\n\nMit freundlichen Grüßen\nFunk Taxi Heringsdorf`;
-                                                await sendWhatsAppMessage(_mob804, _waMsg);
-                                                // PDF als Attachment
-                                                await _sendWhatsAppDocument(_mob804, j.pdfUrl, `Rechnung-${_bn804}.pdf`, `Ihre Vorkasse-Rechnung ${_bn804} · ${_gross804.toFixed(2).replace('.', ',')} €`);
-                                                await addRideLog(rideId, '💬', 'v6.63.804 WhatsApp: Zahlungslink + PDF-Rechnung', { phone: _mob804, belegNr: _bn804 });
-                                                await db.ref(`rides/${rideId}`).update({
-                                                    customerWhatsAppSent: true,
-                                                    customerWhatsAppSentAt: Date.now()
-                                                });
-                                            } else {
-                                                // SMS-Fallback (Festnetz)
-                                                await db.ref('smsQueue').push({
-                                                    phone: after.customerPhone || after.customerMobile,
-                                                    text: `Funk Taxi: Rechnung ${_bn804} ueber ${_gross804.toFixed(2).replace('.', ',')}€ — bitte per Stripe bezahlen: ${_url804}\nFragen: 038378 22022`,
-                                                    rideId,
-                                                    purpose: 'vorkasse_stripe_link_v6.63.804',
-                                                    createdAt: Date.now()
-                                                });
-                                                await addRideLog(rideId, '📲', 'v6.63.804 SMS-Fallback (kein Handy für WhatsApp)', { belegNr: _bn804 });
-                                            }
-                                        } catch (_waErr804) {
-                                            console.error(`❌ v6.63.804 WhatsApp Fehler ${rideId}:`, _waErr804.message);
-                                            await addRideLog(rideId, '⚠️', `v6.63.804 WhatsApp Fehler: ${_waErr804.message}`, { belegNr: _bn804 });
-                                        }
+                                        await addRideLog(rideId, '📄', `v6.63.808 PDF gerendert: ${_bn804}`, { pdfUrl: j.pdfUrl });
                                     }
                                 })
-                                .catch(_pdfErr => console.error(`❌ v6.63.804 PDF-Gen Fehler ${rideId}:`, _pdfErr.message));
+                                .catch(_pdfErr => console.error(`❌ v6.63.808 PDF-Gen Fehler ${rideId}:`, _pdfErr.message));
                         }
                     } catch (_pdfOuter) {
-                        console.error(`❌ v6.63.804 PDF-Trigger Fehler ${rideId}:`, _pdfOuter.message);
+                        console.error(`❌ v6.63.808 PDF-Trigger Fehler ${rideId}:`, _pdfOuter.message);
                     }
                 }
             }

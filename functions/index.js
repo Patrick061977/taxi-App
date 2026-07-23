@@ -31944,42 +31944,61 @@ exports.scheduledDepartureAlert = onSchedule(
                         //   status wird von 'assigned' zurück auf 'wartepool' überschrieben +
                         //   assignedVehicle freigegeben + Admin-Push. Läuft parallel zum Push,
                         //   überschreibt danach. Verhindert Silent-Fail-Verlust.
-                        arrivalAlertPromises.push((async () => {
-                            try {
-                                const _vSnap = await db.ref(`vehicles/${_vid}`).once('value');
-                                const _v = _vSnap.val() || {};
-                                const _shiftActive = (_v.shift && _v.shift.status === 'active');
-                                const _tokenObj = _v.fcmToken;
-                                const _tokenStr = _tokenObj && (_tokenObj.token || (typeof _tokenObj === 'string' ? _tokenObj : ''));
-                                const _hasToken = _tokenStr && _tokenStr.length > 20;
-                                if (!_shiftActive || !_hasToken) {
-                                    const _reason = !_shiftActive
-                                        ? `Fahrer ${_v.name || _vid} nicht im Dienst (Schicht=${_v.shift ? _v.shift.status : 'null'})`
-                                        : `Fahrer ${_v.name || _vid} App nicht offen (kein FCM-Token)`;
-                                    console.warn(`🚨 v6.63.800 ${rideId}: ${_reason} — Wartepool + Admin-Push`);
+                        // 🆕 v6.63.801 (Patrick 23.07. Bridge Test-Race-Condition): pre-check
+                        //   und post-updates hatten Race — post überschrieb pre-Wartepool
+                        //   mit assigned. Neu: SYNCHRONE Cache-Prüfung (vehicles-Snapshot
+                        //   ist bereits im vehiclesData verfügbar), assigned-Update wird
+                        //   NUR gesetzt wenn Fahrer wirklich online. Sonst direkt Wartepool.
+                        const _v = vehiclesData[_vid] || {};
+                        const _shiftActive = (_v.shift && _v.shift.status === 'active');
+                        const _tokenObj = _v.fcmToken;
+                        const _tokenStr = _tokenObj && (_tokenObj.token || (typeof _tokenObj === 'string' ? _tokenObj : ''));
+                        const _hasToken = _tokenStr && _tokenStr.length > 20;
+                        const _fahrerOnline = _shiftActive && _hasToken;
+                        if (!_fahrerOnline) {
+                            const _reason = !_shiftActive
+                                ? `Fahrer ${_v.name || _vid} nicht im Dienst (Schicht=${_v.shift ? _v.shift.status : 'null'})`
+                                : `Fahrer ${_v.name || _vid} App nicht offen (kein FCM-Token)`;
+                            console.warn(`🚨 v6.63.801 ${rideId}: ${_reason} — sofort Wartepool + Auto-Reassign`);
+                            _block1FiredThisTick.add(rideId);
+                            arrivalAlertPromises.push((async () => {
+                                try {
+                                    const _newRejected = [...(ride.rejectedVehicles || []), _vid].filter(Boolean);
                                     await db.ref(`rides/${rideId}`).update({
                                         status: 'wartepool',
                                         assignedVehicle: null, vehicleId: null, assignedTo: null,
                                         assignedVehicleName: null, assignedVehiclePlate: null,
                                         assignedBy: null, assignedAt: null,
                                         wartepoolAt: Date.now(),
-                                        wartepoolReason: `v6.63.800 ${_reason}`,
+                                        wartepoolReason: `v6.63.801 ${_reason}`,
                                         _notAcceptedWarned: true,
-                                        rejectedVehicles: [...(ride.rejectedVehicles || []), _vid].filter(Boolean),
+                                        openRideWarned: true,
+                                        rejectedVehicles: _newRejected,
                                         updatedAt: Date.now()
                                     });
-                                    await addRideLog(rideId, '🚨', `v6.63.800 Fahrer offline nach Akzeptanz-Alarm — Wartepool`, {
-                                        quelle: 'scheduledDepartureAlert Pass1 post-check',
+                                    await addRideLog(rideId, '🚨', `v6.63.801 Fahrer offline — Wartepool + andere Fahrer probieren`, {
+                                        quelle: 'scheduledDepartureAlert Pass1 sync-check',
                                         reason: _reason
                                     });
+                                    // Direkter Re-Assign-Versuch (Patrick 23.07.: 'muss an mich als
+                                    //   einzigen Online-Fahrer sofort kommen')
                                     try {
-                                        await sendToAllAdmins(`🚨 <b>Fahrer offline — Ride im Wartepool</b>\n\n${ride.customerName || '?'} · ${new Date(ride.pickupTimestamp).toLocaleTimeString('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit' })}\n${_reason}\n\nBitte manuell zuweisen.`);
+                                        const _reassign = await autoAssignRide(rideId, { ...ride, rejectedVehicles: _newRejected, status: 'sofort' });
+                                        if (_reassign && _reassign.vehicleId) {
+                                            console.log(`✅ v6.63.801 Auto-Reassign: ${rideId} → ${_reassign.name || _reassign.vehicleId}`);
+                                        }
+                                    } catch (_reErr) {
+                                        console.warn(`v6.63.801 Auto-Reassign fail ${rideId}: ${_reErr.message}`);
+                                    }
+                                    try {
+                                        await sendToAllAdmins(`🚨 <b>Fahrer offline — umgeplant</b>\n\n${ride.customerName || '?'} · ${new Date(ride.pickupTimestamp).toLocaleTimeString('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit' })}\n${_reason}\n\nSystem sucht anderen Fahrer.`);
                                     } catch (_) {}
+                                } catch (_e) {
+                                    console.warn(`v6.63.801 update fail ${rideId}: ${_e.message}`);
                                 }
-                            } catch (_preErr) {
-                                console.warn(`v6.63.800 post-check Fehler ${rideId}: ${_preErr.message}`);
-                            }
-                        })());
+                            })());
+                            return; // KEIN status='assigned', KEIN Push an offline-Fahrer
+                        }
                         const _wasVorbestellt = ride.status === 'vorbestellt';
                         const _isIsoPickup = typeof ride.pickupTime === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(ride.pickupTime);
                         const _pickupLabel = (ride.pickupTime && !_isIsoPickup)

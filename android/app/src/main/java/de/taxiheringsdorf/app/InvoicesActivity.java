@@ -457,18 +457,10 @@ public class InvoicesActivity extends AppCompatActivity {
                                     //   Fallback wenn kein billingAddresses.empfaengerName. Sonst blieb Ride-'Gast'.
                                     if (_crmName.isEmpty()) _crmName = strVal(cs.child("name").getValue());
                                     if (_crmName.isEmpty()) _crmName = strVal(cs.child("lastName").getValue());
-                                    // 🆕 v6.63.793 (Patrick 23.07. Bridge 'Frau Süd-Höhe'): Anrede voranstellen
-                                    //   wenn im CRM gepflegt und noch nicht im Namen enthalten. So wird aus
-                                    //   name='Süd-Höhe' + anrede='Frau' → customerName='Frau Süd-Höhe'.
-                                    String _crmAnrede = strVal(cs.child("anrede").getValue());
-                                    if (_crmAnrede.isEmpty()) _crmAnrede = strVal(cs.child("salutation").getValue());
-                                    if (!_crmAnrede.isEmpty() && !_crmName.isEmpty()
-                                        && !_crmName.toLowerCase().startsWith(_crmAnrede.toLowerCase())
-                                        && !"hotel".equalsIgnoreCase(_crmAnrede)
-                                        && !"firma".equalsIgnoreCase(_crmAnrede)
-                                        && !"klinik".equalsIgnoreCase(_crmAnrede)) {
-                                        _crmName = _crmAnrede + " " + _crmName;
-                                    }
+                                    // 🆕 v6.63.794 (Patrick 23.07. Bridge REVERT): Anrede NICHT automatisch
+                                    //   voranstellen. Patrick: 'übernimm 1:1 was im CRM steht, halluzinier
+                                    //   nichts dazu'. Wenn er 'Frau Süd-Höhe' will → im CRM.name so
+                                    //   eintragen. Sonst wird Süd-Höhe genommen wie es ist.
                                     if (!_crmAddr.isEmpty()) _addr.put("customerAddress", _crmAddr);
                                     if (!_crmName.isEmpty()) _addr.put("customerName", _crmName);
                                     String _crmEmail = strVal(cs.child("email").getValue());

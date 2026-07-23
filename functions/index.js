@@ -31583,7 +31583,12 @@ exports.scheduledOpenRideCheck = onSchedule(
             ridesSnap.forEach(child => {
                 const ride = child.val();
                 const rideId = child.key;
-                if (ride.status !== 'vorbestellt') return;
+                // 🆕 v6.63.799 (Patrick 23.07. Bridge Schweitzer-Fall): 'assigned' auch
+                //   berücksichtigen. Nach Losfahr-Alarm setzt scheduledDepartureAlert
+                //   status='vorbestellt' → 'assigned'. v6.63.770 kickte dann raus
+                //   und feuerte nie das Warn/Wartepool → Fahrer weg, Ride blieb hängen,
+                //   kein roter Banner, kein anderer Fahrer bekam mit.
+                if (ride.status !== 'vorbestellt' && ride.status !== 'assigned') return;
                 if (!ride.assignedVehicle && !ride.vehicleId) return;
                 if (ride.acceptedAt) return; // Schon angenommen
                 if (ride._notAcceptedWarned === true) return; // Schon einmal umgeplant

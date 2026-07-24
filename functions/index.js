@@ -32558,6 +32558,7 @@ exports.scheduledDepartureAlert = onSchedule(
                 if (_ageMs < 90_000) return; // < 90s → warten
                 if (_ageMs > 10 * 60_000) return; // > 10 Min → skip (v6.63.770 15-Min-Timeout übernimmt)
                 const _vName = r.assignedVehicleName || r.assignedVehicle;
+                const _oldVehicle = r.assignedVehicle || r.vehicleId;
                 _reassignPromises818.push((async () => {
                     try {
                         await db.ref(`rides/${rid}`).update({
@@ -32577,6 +32578,18 @@ exports.scheduledDepartureAlert = onSchedule(
                         await addRideLog(rid, '⚡', `v6.63.818 90s-Reassign: ${_vName} hat nicht innerhalb 1 Min gedrückt`, {
                             ageMs: _ageMs, quelle: 'scheduledDepartureAlert v6.63.818'
                         });
+                        // 🆕 v6.63.820 (Patrick 24.07. Bridge "es billemt noch bei kulpa"):
+                        //   Cancel-Push an alten Fahrer sodass sein Alarm-Sound stoppt und
+                        //   die Notification aus dem System entfernt wird. Sonst bimmelt
+                        //   Ex-Fahrer weiter obwohl Ride längst bei neuem Fahrer ist.
+                        if (_oldVehicle) {
+                            try {
+                                await sendFCMToVehicle(_oldVehicle, { type: 'cancel_notification', rideId: rid });
+                                console.log(`📵 v6.63.820 cancel_notification → ${_oldVehicle} (${_vName})`);
+                            } catch (_cancelErr) {
+                                console.warn(`v6.63.820 cancel-Push Fehler:`, _cancelErr.message);
+                            }
+                        }
                         _reassigned818++;
                         // Admin-Alarm (Bridge) über pushBridge/sendToAllAdmins
                         try {

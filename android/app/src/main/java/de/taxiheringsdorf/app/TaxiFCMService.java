@@ -97,6 +97,11 @@ public class TaxiFCMService extends FirebaseMessagingService {
                 if (_nm != null) _nm.cancel(_nid);
                 Log.d(TAG, "Notification cancelled fuer rideId=" + _rid + " (id=" + _nid + ")");
             }
+            // 🆕 v6.63.822 (Patrick 24.07. Bridge "bimmelt immer noch"):
+            //   Auch AlertSoundService stoppen — sonst läuft der 60s-Alarm weiter obwohl
+            //   Ride längst weg ist. Test 4 hat gezeigt: Notification wurde entfernt,
+            //   aber Handy klingelte weiter bis 60s um waren.
+            try { AlertSoundService.stop(this); } catch (Throwable _ignore) {}
             return;
         }
 

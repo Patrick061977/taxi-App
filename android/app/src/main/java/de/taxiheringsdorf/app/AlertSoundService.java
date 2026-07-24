@@ -47,11 +47,12 @@ public class AlertSoundService extends Service {
     //   5s → 60s. Reicht damit Patrick das Handy aus der Tasche holen + gucken kann.
     //   ScreenOff-Receiver stoppt weiterhin sofort — kein peinliches Endlos-Klingeln,
     //   ein Druck auf Power-Knopf beendet den Ton.
-    // 🆕 v6.63.817 (Patrick 24.07. Bridge 09:53 "wenn dran ist möchte ich den Termin
-    //   hören"): 60s → 300s (5 Min). Patrick hat Residenz-Termin verpennt weil Alarm
-    //   nach 1 Min still. Bleibt bis Accept/Reject an (RideActionReceiver stoppt);
-    //   Power-Knopf stoppt weiterhin; ScreenOff stoppt weiterhin.
-    private static final long AUTO_STOP_MS = 300_000L;
+    // 🔄 v6.63.818 (Patrick 24.07. Bridge 11:03 Korrektur: "bei 5 Min darf das ja gar
+    //   nicht klingeln. Das darf ja maximal bloß 1 Min klingeln, dann geht's ja zum
+    //   nächsten weiter"): v6.63.817 Fehler zurück — Alarm bleibt bei 60s. Danach greift
+    //   der neue Cloud-Trigger v6.63.818 in scheduledDepartureAlert: 90s nach Push ohne
+    //   Accept → sofort Wartepool + Reassign.
+    private static final long AUTO_STOP_MS = 60_000L;
 
     private MediaPlayer player;
     private final Handler autoStopHandler = new Handler(Looper.getMainLooper());

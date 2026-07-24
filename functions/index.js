@@ -32556,6 +32556,60 @@ exports.scheduledDepartureAlert = onSchedule(
             }
             if (alerted > 0) console.log(`🚨 scheduledDepartureAlert: ${alerted} Vibration-Alerts dispatched`);
             if (arrivalAlerts > 0) console.log(`📲 v6.62.928 scheduledDepartureAlert: ${arrivalAlerts} Akzeptanz-Alarm(e) (15+Anfahrt vor Pickup) dispatched`);
+
+            // 🆕 v6.63.818 (Patrick 24.07. Bridge 11:03 "1 Min bimmeln dann weiter"):
+            //   90s nach Push ohne Accept → Ride in Wartepool + Reassign.
+            //   Vorher hat v6.63.770 erst pickup-15 Min gewartet — viel zu lang.
+            //   Cron läuft alle 2 Min → Worst-Case-Verzögerung 120s statt 90s.
+            const _reassignPromises818 = [];
+            let _reassigned818 = 0;
+            ridesSnap.forEach(child => {
+                const r = child.val();
+                const rid = child.key;
+                if (!r || r.acceptedAt) return; // schon angenommen
+                if (r.status !== 'vorbestellt' && r.status !== 'assigned') return;
+                if (!r.assignedVehicle && !r.vehicleId) return;
+                if (r.assignmentLocked === true) return;
+                if (r._reassign818Warned === true) return; // schon einmal umgeplant
+                const _sentAt = r.departureAlertSentAt || 0;
+                if (!_sentAt) return; // Push noch nicht gesendet
+                const _ageMs = Date.now() - _sentAt;
+                if (_ageMs < 90_000) return; // < 90s → warten
+                if (_ageMs > 10 * 60_000) return; // > 10 Min → skip (v6.63.770 15-Min-Timeout übernimmt)
+                const _vName = r.assignedVehicleName || r.assignedVehicle;
+                _reassignPromises818.push((async () => {
+                    try {
+                        await db.ref(`rides/${rid}`).update({
+                            status: 'wartepool',
+                            statusBeforeWartepool: r.status || 'vorbestellt',
+                            assignedVehicle: null, vehicleId: null, assignedTo: null,
+                            assignedVehicleName: null, assignedVehiclePlate: null,
+                            assignedBy: null, assignedAt: null,
+                            wartepoolAt: Date.now(),
+                            wartepoolReason: `v6.63.818 ${_vName} 90s ohne Accept — sofort umverteilt`,
+                            _reassign818Warned: true,
+                            rejectedVehicles: [...(r.rejectedVehicles || []), r.assignedVehicle || r.vehicleId].filter(Boolean),
+                            departureAlertSent: null,
+                            departureAlertSentAt: null,
+                            updatedAt: Date.now()
+                        });
+                        await addRideLog(rid, '⚡', `v6.63.818 90s-Reassign: ${_vName} hat nicht innerhalb 1 Min gedrückt`, {
+                            ageMs: _ageMs, quelle: 'scheduledDepartureAlert v6.63.818'
+                        });
+                        _reassigned818++;
+                        // Admin-Alarm (Bridge) über pushBridge/sendToAllAdmins
+                        try {
+                            await sendToAllAdmins(`⚡ <b>90s-Reassign</b>\n\n${r.customerName || '?'} · ${new Date(r.pickupTimestamp).toLocaleTimeString('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit' })}\nFahrer <b>${_vName}</b> hat 1 Min nicht reagiert.\n\nSuche neuen Fahrer.`);
+                        } catch(_){}
+                    } catch (_e818) {
+                        console.error(`v6.63.818 Reassign-Fehler ${rid}:`, _e818.message);
+                    }
+                })());
+            });
+            if (_reassignPromises818.length > 0) {
+                await Promise.allSettled(_reassignPromises818);
+                console.log(`⚡ v6.63.818 90s-Reassign: ${_reassigned818} Rides umverteilt.`);
+            }
         } catch (e) {
             console.error('❌ scheduledDepartureAlert Fehler:', e.message);
         }

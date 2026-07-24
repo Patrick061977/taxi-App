@@ -32551,7 +32551,12 @@ exports.scheduledDepartureAlert = onSchedule(
                 if (r.status !== 'vorbestellt' && r.status !== 'assigned') return;
                 if (!r.assignedVehicle && !r.vehicleId) return;
                 if (r.assignmentLocked === true) return;
-                if (r._reassign818Warned === true) return; // schon einmal umgeplant
+                // 🔄 v6.63.823 (Patrick 24.07. Bridge "weitergeben bis einer annimmt
+                //   oder Kunde storniert"): _reassign818Warned-Sperre ENTFERNT.
+                //   Vorher: Ride wurde nach 1x Reassign nie mehr weitergegeben — hing
+                //   beim 3. Fahrer für immer. Jetzt: bei JEDER Zuweisung neuer 90s-Timer
+                //   (basiert auf assignedAt = frisch bei jedem Assign). Ride bleibt in
+                //   Rotation bis Accept oder Kunden-Stornierung.
                 // 🆕 v6.63.821 (Patrick 24.07. Bridge "wir haben doch 1 Min gesagt"):
                 //   Reassign greift jetzt auch bei assignedAt (nicht nur departureAlertSentAt).
                 //   Vorher wartete Timer erst auf den LOSFAHR-Alarm (pickup-15-drivingTime) —
@@ -32576,7 +32581,7 @@ exports.scheduledDepartureAlert = onSchedule(
                             assignedBy: null, assignedAt: null,
                             wartepoolAt: Date.now(),
                             wartepoolReason: `v6.63.818 ${_vName} 90s ohne Accept — sofort umverteilt`,
-                            _reassign818Warned: true,
+                            _reassign818Warned: null,  // v6.63.823: freigeben damit nächster Fahrer auch weiter kann
                             rejectedVehicles: [...(r.rejectedVehicles || []), r.assignedVehicle || r.vehicleId].filter(Boolean),
                             departureAlertSent: null,
                             departureAlertSentAt: null,

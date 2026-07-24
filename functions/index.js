@@ -32552,9 +32552,16 @@ exports.scheduledDepartureAlert = onSchedule(
                 if (!r.assignedVehicle && !r.vehicleId) return;
                 if (r.assignmentLocked === true) return;
                 if (r._reassign818Warned === true) return; // schon einmal umgeplant
+                // 🆕 v6.63.821 (Patrick 24.07. Bridge "wir haben doch 1 Min gesagt"):
+                //   Reassign greift jetzt auch bei assignedAt (nicht nur departureAlertSentAt).
+                //   Vorher wartete Timer erst auf den LOSFAHR-Alarm (pickup-15-drivingTime) —
+                //   deshalb saß eine Ride nach Zuweisung ohne 1-Min-Deadline. Jetzt: jeder
+                //   assign startet 90s-Timer sofort.
                 const _sentAt = r.departureAlertSentAt || 0;
-                if (!_sentAt) return; // Push noch nicht gesendet
-                const _ageMs = Date.now() - _sentAt;
+                const _assignedAt821 = r.assignedAt || 0;
+                const _startTs = _sentAt || _assignedAt821;
+                if (!_startTs) return; // weder push noch assign
+                const _ageMs = Date.now() - _startTs;
                 if (_ageMs < 90_000) return; // < 90s → warten
                 if (_ageMs > 10 * 60_000) return; // > 10 Min → skip (v6.63.770 15-Min-Timeout übernimmt)
                 const _vName = r.assignedVehicleName || r.assignedVehicle;

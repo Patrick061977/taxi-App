@@ -26245,40 +26245,21 @@ exports.onAnfrageStatusChanged = onValueUpdated(
                     (_stripeUrl ? `\n💳 Sicher per Karte/PayPal vorab bezahlen:\n${_stripeUrl}\n(Optional — Sie koennen auch bar beim Fahrer zahlen)\n` : '') +
                     `\nBei Fragen erreichen Sie uns unter 038378/22022.\n\n` +
                     `Mit freundlichen Gruessen\nPatrick Wydra\nFunk Taxi Heringsdorf`;
-                // v6.63.338 (Patrick 14.06. 15:51): Email-Vorschau-Modal vor Send.
-                //   Erstmal status='pending_approval', Bridge-Push mit Inline-Buttons
-                //   [✅ Senden] [❌ Abbrechen]. personalMailSender skipt pending → Mail
-                //   geht erst raus nach Patrick-Tap.
-                const _mailRef = await db.ref('personalMailQueue').push({
+                // 🔄 v6.63.819 (Patrick 24.07. Bridge 11:23 "das ist doch schon uralt,
+                //   brauchen wir nicht mehr, wir haben SMTP-Sender"): v6.63.338 Preview
+                //   entfernt. Buchungsbestätigungen gehen jetzt direkt via SMTP raus.
+                //   personalMailSender triggert auf status='send' → sofort nodemailer.
+                await db.ref('personalMailQueue').push({
                     to: _email,
                     subject: `Bestaetigung Ihrer Taxi-Buchung${_zeit}`,
                     text: _emailBody,
-                    status: 'pending_approval',
+                    status: 'send',
                     createdAt: Date.now(),
-                    source: 'cloud-onAnfrageStatusChanged-v6.63.338-preview',
+                    source: 'cloud-onAnfrageStatusChanged-v6.63.819-direct',
                     rideId: after.rideId || null,
                     anfrageId: anfrageId,
                     stripeUrl: _stripeUrl
                 });
-                try {
-                    const _mailId = _mailRef.key;
-                    const _previewText = _emailBody.length > 600 ? _emailBody.slice(0, 600) + '\n…(gekuerzt)' : _emailBody;
-                    const _msg =
-                        `📩 <b>EMAIL-VORSCHAU vor Send</b>\n\n` +
-                        `An: ${_email}\n` +
-                        `Betreff: Bestaetigung Ihrer Taxi-Buchung${_zeit}\n\n` +
-                        `<pre>${_previewText.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>\n` +
-                        `<i>Mail wartet auf deine Freigabe.</i>`;
-                    const _keyboard = {
-                        inline_keyboard: [
-                            [
-                                { text: '✅ Senden', callback_data: `mail_approve_${_mailId}` },
-                                { text: '❌ Abbrechen', callback_data: `mail_cancel_${_mailId}` }
-                            ]
-                        ]
-                    };
-                    await sendToAllAdmins(_msg, 'mail-preview', { reply_markup: _keyboard });
-                } catch (_pErr) { console.warn('mail-preview Push fehlgeschlagen:', _pErr.message); }
                 await db.ref(`anfragen/${anfrageId}`).update({
                     confirmSent: true, confirmChannel: 'email',
                     confirmSentAt: Date.now(), confirmSentBy: 'cloud-onAnfrageStatusChanged-v6.62.900'

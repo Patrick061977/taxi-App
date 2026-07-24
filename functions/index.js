@@ -24581,6 +24581,71 @@ exports.scheduledAutoAssign = onSchedule(
             const optimizationByDay = optByDaySnap.val() || {};  // 🆕 v6.62.520
             const priorityAdvantageMin = pricingSettings.priorityAdvantageMinutes || 0;
 
+            // 🆕 v6.63.816 (Patrick 24.07. 08:22 Bridge: "er muss doch alle 10 Min
+            //   kontrollieren ob Fahrer noch offline ist. Wenn ich eine Stunde vorher das
+            //   Telefon anmache, muss er nicht sagen ich bin offline"):
+            //   ZWEI STATE-REPARATUREN VOR dem Assign-Loop:
+            //   (a) Zombie-Schicht: wenn shift.endedAt gesetzt UND status='active' UND
+            //       endedAt > 12h alt → status auf 'ended' setzen (dann fällt Fahrzeug
+            //       aus dem Kandidaten-Pool)
+            //   (b) rejectedVehicles auto-clear: wenn ein Fahrzeug jetzt wieder online
+            //       ist (shift.status=active + Heartbeat < 10 Min), entferne es aus
+            //       rejectedVehicles der pending-Rides. Damit greift Auto-Reassign wenn
+            //       Fahrer nach Timeout-Offline wieder online kommt.
+            try {
+                const _now816 = Date.now();
+                const _zombieUpdates = {};
+                let _zombieCount = 0;
+                for (const [vid, vData] of Object.entries(vehiclesData)) {
+                    const sh = vData.shift;
+                    if (!sh || sh.status !== 'active') continue;
+                    if (!sh.endedAt || typeof sh.endedAt !== 'number') continue;
+                    const _endedAgo = _now816 - sh.endedAt;
+                    if (_endedAgo > 12 * 60 * 60 * 1000) {
+                        // Zombie: endedAt >12h aber status=active
+                        _zombieUpdates[`vehicles/${vid}/shift/status`] = 'ended';
+                        _zombieUpdates[`vehicles/${vid}/shift/endedReason`] = 'v6.63.816-zombie-repair';
+                        _zombieCount++;
+                        // In-memory update damit weitere Logik dieser Cron-Runde ihn schon sieht
+                        vData.shift.status = 'ended';
+                    }
+                }
+                if (_zombieCount > 0) {
+                    await db.ref().update(_zombieUpdates);
+                    console.log(`🧟 v6.63.816 Zombie-Schicht-Repair: ${_zombieCount} Fahrzeuge auf 'ended' gesetzt.`);
+                }
+                // rejectedVehicles auto-clear für online-Fahrzeuge
+                const _rejectUpdates = {};
+                let _rejectCleanupCount = 0;
+                if (ridesWindowSnap.exists()) {
+                    ridesWindowSnap.forEach(child => {
+                        const r = child.val();
+                        const rid = child.key;
+                        if (!r || !r.rejectedVehicles || !Array.isArray(r.rejectedVehicles) || r.rejectedVehicles.length === 0) return;
+                        if (!_RELEVANT_STATUSES.has(String(r.status || '').toLowerCase())) return;
+                        const _cleaned = r.rejectedVehicles.filter(vid => {
+                            const v = vehiclesData[vid];
+                            if (!v || !v.shift) return true; // ohne Shift-Info stehen lassen
+                            if (v.shift.status !== 'active') return true; // offline → drin lassen
+                            const hb = v.shift.lastHeartbeat || 0;
+                            if (hb === 0 || (_now816 - hb) > 10 * 60 * 1000) return true; // >10min ohne HB → drin lassen
+                            _rejectCleanupCount++;
+                            return false; // online + HB frisch → raus aus rejected
+                        });
+                        if (_cleaned.length !== r.rejectedVehicles.length) {
+                            _rejectUpdates[`rides/${rid}/rejectedVehicles`] = _cleaned.length > 0 ? _cleaned : null;
+                            _rejectUpdates[`rides/${rid}/_notAcceptedWarned`] = null; // damit v6.63.770 Timeout erneut greift wenn nötig
+                        }
+                    });
+                }
+                if (_rejectCleanupCount > 0) {
+                    await db.ref().update(_rejectUpdates);
+                    console.log(`🔄 v6.63.816 rejectedVehicles-Cleanup: ${_rejectCleanupCount} Einträge entfernt (Fahrzeuge wieder online).`);
+                }
+            } catch (_e816) {
+                console.error('v6.63.816 State-Repair Fehler:', _e816.message);
+            }
+
             // 🆕 v6.38.46: STALE-VEHICLE-CLEANUP — Fahrzeuge ohne GPS-Update > 15 Min offline setzen
             // 🔧 v6.38.50 BUG-13 FIX: NIEMALS Fahrzeuge löschen die auf aktiver Fahrt sind!
             // 🆕 v6.62.946 (Patrick 25.05. 18:14 'OK' fuer Cost-Detox):

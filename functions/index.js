@@ -24635,6 +24635,12 @@ exports.scheduledAutoAssign = onSchedule(
                         if (_cleaned.length !== r.rejectedVehicles.length) {
                             _rejectUpdates[`rides/${rid}/rejectedVehicles`] = _cleaned.length > 0 ? _cleaned : null;
                             _rejectUpdates[`rides/${rid}/_notAcceptedWarned`] = null; // damit v6.63.770 Timeout erneut greift wenn nötig
+                            // 🆕 v6.63.817 (Patrick 24.07. 09:52 Residenz-Fall):
+                            //   Auch Push-Flags leeren — sonst denkt scheduledDepartureAlert
+                            //   "schon alarmt" und sendet keinen Push an neuen Fahrer.
+                            _rejectUpdates[`rides/${rid}/departureAlertSent`] = null;
+                            _rejectUpdates[`rides/${rid}/departureAlertPushedAt`] = null;
+                            _rejectUpdates[`rides/${rid}/openRideWarned`] = null;
                         }
                     });
                 }

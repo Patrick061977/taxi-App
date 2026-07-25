@@ -2030,8 +2030,13 @@ async function autoAssignRide(rideId, rideData, _excludeVehicleIds = []) {
                 const estDrivingMin = cand.distance >= 999 ? 10 : Math.max(3, Math.round((cand.distance / 40) * 60));
                 // 🆕 v6.63.021: Großraum-Reserve-Bias bei Sofortfahrten
                 const _candCap = (OFFICIAL_VEHICLES[cand.vehicleId] || {}).capacity || 4;
-                const _paxReservePenalty = (_largeReserveActive && _candCap >= _LARGE_VEHICLE_CAPACITY)
-                    ? ((_candCap - passengers) * 8) : 0;
+                // 🔄 v6.63.828 (Patrick 25.07. Bridge "die Fahrzeuge dürfen nicht blockiert
+                //   werden durch erhöhte Punktzahlen"): paxReserve-Malus komplett auf 0.
+                //   8-Sitzer werden gleich behandelt wie 4-Sitzer. Wenn kleinere Fahrzeuge
+                //   verfügbar sind, greift Anfahrt/Anschluss-Vorteil sowieso. 8-Sitzer werden
+                //   nicht mehr für kleine Gruppen "geschont" — sie sollen fahren wenn sie
+                //   günstig sind.
+                const _paxReservePenalty = 0;
                 const score = estDrivingMin + prioPenalty + _paxReservePenalty;
 
                 // vehicleScores aktualisieren
@@ -2143,8 +2148,13 @@ async function autoAssignRide(rideId, rideData, _excludeVehicleIds = []) {
 
                 // 🆕 v6.63.021: Großraum-Reserve-Bias bei Vorbestellungen
                 const _candCap = (OFFICIAL_VEHICLES[cand.vehicleId] || {}).capacity || 4;
-                const _paxReservePenalty = (_largeReserveActive && _candCap >= _LARGE_VEHICLE_CAPACITY)
-                    ? ((_candCap - passengers) * 8) : 0;
+                // 🔄 v6.63.828 (Patrick 25.07. Bridge "die Fahrzeuge dürfen nicht blockiert
+                //   werden durch erhöhte Punktzahlen"): paxReserve-Malus komplett auf 0.
+                //   8-Sitzer werden gleich behandelt wie 4-Sitzer. Wenn kleinere Fahrzeuge
+                //   verfügbar sind, greift Anfahrt/Anschluss-Vorteil sowieso. 8-Sitzer werden
+                //   nicht mehr für kleine Gruppen "geschont" — sie sollen fahren wenn sie
+                //   günstig sind.
+                const _paxReservePenalty = 0;
                 const totalScore = Math.round(leerfahrtMin + prioPenalty + loadPenalty + anschlussBonus + _paxReservePenalty + _gpsMalus);
 
                 Object.assign(vehicleScores[cand.vehicleId] || {}, {

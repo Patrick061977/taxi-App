@@ -24623,14 +24623,22 @@ exports.scheduledAutoAssign = onSchedule(
                         const rid = child.key;
                         if (!r || !r.rejectedVehicles || !Array.isArray(r.rejectedVehicles) || r.rejectedVehicles.length === 0) return;
                         if (!_RELEVANT_STATUSES.has(String(r.status || '').toLowerCase())) return;
+                        // 🚨 v6.63.826 (Patrick 25.07. "Dauerschleife muss aufhören —
+                        //   wenn ich einmal abgelehnt hab dann brauchst du mir das nicht
+                        //   wiedergeben"): Aktive Rejects PERMANENT — nur wer via
+                        //   Timeout in rejected gelandet ist (kein rejectedByActive-Eintrag)
+                        //   darf gecleart werden. Aktiver Reject-Tap (native_dashboard oder
+                        //   fcm-notification-action) füllt jetzt rejectedByActive[] zusätzlich.
+                        const _activeRejects = Array.isArray(r.rejectedByActive) ? r.rejectedByActive : [];
                         const _cleaned = r.rejectedVehicles.filter(vid => {
+                            if (_activeRejects.includes(vid)) return true; // permanent: aktiv abgelehnt
                             const v = vehiclesData[vid];
                             if (!v || !v.shift) return true; // ohne Shift-Info stehen lassen
                             if (v.shift.status !== 'active') return true; // offline → drin lassen
                             const hb = v.shift.lastHeartbeat || 0;
                             if (hb === 0 || (_now816 - hb) > 10 * 60 * 1000) return true; // >10min ohne HB → drin lassen
                             _rejectCleanupCount++;
-                            return false; // online + HB frisch → raus aus rejected
+                            return false; // online + HB frisch + KEIN aktiver Reject → raus
                         });
                         if (_cleaned.length !== r.rejectedVehicles.length) {
                             _rejectUpdates[`rides/${rid}/rejectedVehicles`] = _cleaned.length > 0 ? _cleaned : null;
@@ -39581,6 +39589,14 @@ exports.rideAction = onRequest(
                 const newRejected = vehicleId && !existingRejected.includes(vehicleId)
                     ? [...existingRejected, vehicleId]
                     : existingRejected;
+                // 🆕 v6.63.826 (Patrick 25.07. "Dauerschleife muss aufhören"):
+                //   rejectedByActive[] — permanent-Marker für AKTIVE Reject-Taps.
+                //   v6.63.816-Cleanup lässt diese Fahrzeuge in Rotation. Sonst würde
+                //   Kulpa nach Ablehnen sofort wieder dieselbe Fahrt bekommen.
+                const _existingActive = Array.isArray(_curRide.rejectedByActive) ? _curRide.rejectedByActive : [];
+                const _newActive = vehicleId && !_existingActive.includes(vehicleId)
+                    ? [..._existingActive, vehicleId]
+                    : _existingActive;
                 await db.ref(`rides/${rideId}`).update({
                     assignedVehicle: null,
                     vehicleId: null,
@@ -39594,6 +39610,7 @@ exports.rideAction = onRequest(
                     rejectedAt: now,
                     rejectedVia: 'fcm-notification-action',
                     rejectedVehicles: newRejected,
+                    rejectedByActive: _newActive,  // v6.63.826
                     updatedAt: now
                 });
                 console.log(`❌ rideAction: ${rideId} → rejected by ${vehicleId}. Rejected-List: ${newRejected.join(', ')}. Versuche Re-Assign…`);

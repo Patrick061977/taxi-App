@@ -5355,6 +5355,16 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 u.put("rejectedAt", now);
                 u.put("rejectedVia", "native_dashboard");
                 u.put("rejectedVehicles", existingRejected);
+                // 🆕 v6.63.826: Aktiver Reject-Marker (permanent, wird nicht vom Cron gecleart)
+                java.util.List<String> _existingActive = new java.util.ArrayList<>();
+                Object _rawActive = snap.child("rejectedByActive").getValue();
+                if (_rawActive instanceof java.util.List) {
+                    for (Object o : (java.util.List<?>) _rawActive) {
+                        if (o instanceof String) _existingActive.add((String) o);
+                    }
+                }
+                if (myVid != null && !_existingActive.contains(myVid)) _existingActive.add(myVid);
+                u.put("rejectedByActive", _existingActive);
                 u.put("updatedAt", now);
                 db.getReference("rides/" + rideId).updateChildren(u);
             } catch (Throwable t) {

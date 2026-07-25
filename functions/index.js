@@ -1732,7 +1732,7 @@ async function autoAssignRide(rideId, rideData, _excludeVehicleIds = []) {
                 //   sicherer (sichtbar) als 4 Min verstecktes Polster.
                 const boardingTime = pricingSettings.boardingTime != null ? pricingSettings.boardingTime : 0;
                 const alightingTime = pricingSettings.alightingTime != null ? pricingSettings.alightingTime : 0;
-                const bufferMs = (boardingTime + alightingTime) * 60000;
+                const bufferMs = (boardingTime + alightingTime + (pricingSettings.trafficBufferMin != null ? pricingSettings.trafficBufferMin : 3)) * 60000; // v6.63.831 +Verkehrspuffer
                 const _rueckfahrtMaxMs = (pricingSettings.standortRueckkehrPufferMinuten || 30) * 60000;
                 const _rueckfahrtMinMs = 5 * 60000; // Minimum 5 Min Rückfahrt
 
@@ -2208,7 +2208,7 @@ async function autoAssignRide(rideId, rideData, _excludeVehicleIds = []) {
             // 🆕 v6.63.450: Default 0 statt 2 — settings sind die Quelle der Wahrheit
             const boardingTime = pricingSettings.boardingTime != null ? pricingSettings.boardingTime : 0;
             const alightingTime = pricingSettings.alightingTime != null ? pricingSettings.alightingTime : 0;
-            const _bufferMs = (boardingTime + alightingTime) * 60000;
+            const _bufferMs = (boardingTime + alightingTime + (pricingSettings.trafficBufferMin != null ? pricingSettings.trafficBufferMin : 3)) * 60000; // v6.63.831
             const _mindestAbstandMs = (pricingSettings.mindestAbstandMin || 0) * 60000;
             const _maxVerschiebungMin = pricingSettings.maxAutoVerschiebungMin || 15;
 
@@ -21024,7 +21024,7 @@ exports.autoResolveConflicts = onSchedule(
             //   Default 0 statt 3/2 — settings/pricing ist Quelle der Wahrheit.
             const boardingTime = pricingSettings.boardingTime != null ? pricingSettings.boardingTime : 0;
             const alightingTime = pricingSettings.alightingTime != null ? pricingSettings.alightingTime : 0;
-            const bufferMs = (boardingTime + alightingTime) * 60000;
+            const bufferMs = (boardingTime + alightingTime + (pricingSettings.trafficBufferMin != null ? pricingSettings.trafficBufferMin : 3)) * 60000; // v6.63.831 +Verkehrspuffer
             const mindestAbstandMs = (pricingSettings.mindestAbstandMin || 0) * 60000;
             const priorityAdvantageMin = pricingSettings.priorityAdvantageMinutes || 0;
 
@@ -24186,7 +24186,7 @@ function findAlternativeVehicle(ride, excludeVehicleId, allRides, shiftsData, da
     // 🆕 v6.63.450: Default 0 statt 3+2=5 Min Hidden Buffer
     const boardingTime = pricingSettings.boardingTime != null ? pricingSettings.boardingTime : 0;
     const alightingTime = pricingSettings.alightingTime != null ? pricingSettings.alightingTime : 0;
-    const bufferMs = (boardingTime + alightingTime) * 60000;
+    const bufferMs = (boardingTime + alightingTime + (pricingSettings.trafficBufferMin != null ? pricingSettings.trafficBufferMin : 3)) * 60000; // v6.63.831 +Verkehrspuffer
     const mindestAbstandMs = (pricingSettings.mindestAbstandMin || 0) * 60000;
 
     const berlinTime = (ts) => {
@@ -25395,7 +25395,7 @@ exports.scheduledAutoAssign = onSchedule(
                 // 🆕 v6.63.450: Default 0 statt 2+2=4 Min Hidden Buffer
                 const boardingTime = pricingSettings.boardingTime != null ? pricingSettings.boardingTime : 0;
                 const alightingTime = pricingSettings.alightingTime != null ? pricingSettings.alightingTime : 0;
-                const bufferMs = (boardingTime + alightingTime) * 60000;
+                const bufferMs = (boardingTime + alightingTime + (pricingSettings.trafficBufferMin != null ? pricingSettings.trafficBufferMin : 3)) * 60000; // v6.63.831 +Verkehrspuffer
                 const mindestAbstandMs = (pricingSettings.mindestAbstandMin || 0) * 60000;
 
                 for (const [vehicleId, info] of Object.entries(OFFICIAL_VEHICLES)) {

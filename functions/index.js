@@ -2095,10 +2095,16 @@ async function autoAssignRide(rideId, rideData, _excludeVehicleIds = []) {
                 //   in Polen, aber lat/lon zeigte Heringsdorf → Score 3 (0.9km) statt
                 //   real 25+ km. Malus +20 damit Fahrzeuge mit aktuellem GPS bevorzugt
                 //   werden.
+                // 🔄 v6.63.827 (Patrick 25.07. Bridge "GPS-Alt darf keine Rolle spielen
+                //   bei Vorbestellungen"): Malus NUR bei Sofortfahrten (Pickup <30 Min).
+                //   Bei Vorbestellungen weit in Zukunft ist Fahrer sowieso woanders wenn
+                //   Pickup dran ist — aktueller GPS-Standort irrelevant.
                 const _driver = vehicles[cand.vehicleId];
                 const _gpsAge = _driver && _driver.timestamp ? (Date.now() - _driver.timestamp) / 60000 : Infinity;
                 const _gpsStale = _gpsAge > 15;
-                const _gpsMalus = _gpsStale ? 20 : 0;
+                const _isImminent827 = rideData.pickupTimestamp
+                    && (rideData.pickupTimestamp - Date.now()) <= 30 * 60_000;
+                const _gpsMalus = (_gpsStale && _isImminent827) ? 20 : 0;
 
                 // 🆕 v6.32.0: LASTVERTEILUNG — Fahrzeuge mit vielen Fahrten werden benachteiligt
                 // 🆕 v6.62.520: Pro-Wochentag-Override beachten

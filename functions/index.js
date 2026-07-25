@@ -1609,10 +1609,22 @@ async function autoAssignRide(rideId, rideData, _excludeVehicleIds = []) {
                     continue;
                 }
                 const _shiftInactive = _shiftStatus === 'ended' || _shiftStatus === 'auto-ended';
-                if (_shiftInactive && _msUntilPickup < 4 * 60 * 60 * 1000 && _msUntilPickup > -30 * 60 * 1000) {
+                // 🆕 v6.63.830 (Patrick 25.07. Bridge "wenn Fahrer kurz Update macht, nicht
+                //   gleich alle Vorbestellungen wegnehmen"): Bei shift='auto-ended' UND
+                //   autoEndedAt < 15 Min alt → als Grace-Period behandeln, NICHT rejecten.
+                //   Fahrer könnte gerade App neu starten (Update, Handy-Restart etc.) und
+                //   in wenigen Min wieder online sein. v6.62.963 REACTIVATE-Check greift
+                //   dann und stellt shift.status=active zurück.
+                const _autoEndedAt = _vData.shift && _vData.shift.autoEndedAt;
+                const _autoEndedAgeMs = _autoEndedAt ? (Date.now() - _autoEndedAt) : Infinity;
+                const _inGracePeriod = _shiftStatus === 'auto-ended' && _autoEndedAgeMs < 15 * 60 * 1000;
+                if (_shiftInactive && !_inGracePeriod && _msUntilPickup < 4 * 60 * 60 * 1000 && _msUntilPickup > -30 * 60 * 1000) {
                     console.log(`   ❌ ${info.name}: Vorbestellung in <4h — shift.status=${_shiftStatus}, kein aktiver Fahrer`);
                     vehicleScores[vehicleId] = { status: 'rejected', reason: `Schicht ${_shiftStatus}, kein Fahrer aktiv`, check: 'shift-inactive-near-pickup' };
                     continue;
+                }
+                if (_inGracePeriod) {
+                    console.log(`   ⏸️ v6.63.830 ${info.name}: shift=auto-ended aber erst ${Math.round(_autoEndedAgeMs/60000)}min alt — Grace-Period, Fahrzeug bleibt Kandidat`);
                 }
             }
 

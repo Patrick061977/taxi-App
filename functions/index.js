@@ -32551,12 +32551,16 @@ exports.scheduledDepartureAlert = onSchedule(
                 if (r.status !== 'vorbestellt' && r.status !== 'assigned') return;
                 if (!r.assignedVehicle && !r.vehicleId) return;
                 if (r.assignmentLocked === true) return;
+                // 🚨 v6.63.825 (Patrick 25.07. 07:53 Bridge "was soll der Quatsch"):
+                //   90s-Reassign nur bei Pickup <30 Min (dringend). Vorbestellungen
+                //   die Stunden in Zukunft sind — Fahrer hat Zeit, keine Deadline.
+                //   Ohne diesen Check hat v6.63.821 heute morgen Vorbestellungen 3h
+                //   vor Pickup fälschlich in Wartepool geschmissen (Vanessa 10:45 um
+                //   07:53 assigned → 07:54:30 Reassign).
+                if (r.pickupTimestamp && (r.pickupTimestamp - Date.now()) > 30 * 60_000) return;
                 // 🔄 v6.63.823 (Patrick 24.07. Bridge "weitergeben bis einer annimmt
                 //   oder Kunde storniert"): _reassign818Warned-Sperre ENTFERNT.
-                //   Vorher: Ride wurde nach 1x Reassign nie mehr weitergegeben — hing
-                //   beim 3. Fahrer für immer. Jetzt: bei JEDER Zuweisung neuer 90s-Timer
-                //   (basiert auf assignedAt = frisch bei jedem Assign). Ride bleibt in
-                //   Rotation bis Accept oder Kunden-Stornierung.
+                //   Bei JEDER Zuweisung neuer 90s-Timer (basiert auf assignedAt).
                 // 🆕 v6.63.821 (Patrick 24.07. Bridge "wir haben doch 1 Min gesagt"):
                 //   Reassign greift jetzt auch bei assignedAt (nicht nur departureAlertSentAt).
                 //   Vorher wartete Timer erst auf den LOSFAHR-Alarm (pickup-15-drivingTime) —

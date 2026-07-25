@@ -28973,6 +28973,51 @@ exports.onRideUpdated = onValueUpdated(
         const after = event.data.after.val();
         if (!before || !after) return;
 
+        // 🚨 v6.63.829 (Patrick 25.07. Bridge "5 Personen darf nie auf 4-Personen-Fahrzeug"):
+        //   Kapazitäts-Guard bei JEDER Zuweisung. Auch manuelle native_admin_dispo_assign
+        //   muss geblockt werden wenn Fahrzeug zu klein.
+        //   Vetter Touristik 25.07 08:23 wurde manuell Tesla MY (4-Sitzer) für 5 Pax
+        //   zugewiesen — kein Cloud-Check greift dort. Fix: bei assign-Diff prüfen +
+        //   revertieren wenn Kapazität nicht reicht.
+        try {
+            const _beforeVeh = before.assignedVehicle || before.vehicleId;
+            const _afterVeh = after.assignedVehicle || after.vehicleId;
+            if (_afterVeh && _afterVeh !== _beforeVeh) {
+                const _pax = parseInt(after.passengers || 1);
+                const _vInfo = OFFICIAL_VEHICLES[_afterVeh] || {};
+                const _cap = _vInfo.capacity || 4;
+                if (_pax > _cap) {
+                    console.warn(`🚨 v6.63.829 CAPACITY-BLOCK ${rideId}: ${_afterVeh} (cap ${_cap}) < ${_pax} Pax — REVERT`);
+                    // Revertieren: alte Zuweisung zurück
+                    await db.ref(`rides/${rideId}`).update({
+                        assignedVehicle: _beforeVeh || null,
+                        vehicleId: _beforeVeh || null,
+                        assignedTo: before.assignedTo || null,
+                        assignedVehicleName: before.assignedVehicleName || null,
+                        assignedVehiclePlate: before.assignedVehiclePlate || null,
+                        assignedBy: before.assignedBy || null,
+                        assignedAt: before.assignedAt || null,
+                        assignmentLocked: before.assignmentLocked || null,
+                        capacityRejectedAt: Date.now(),
+                        capacityRejectedReason: `${_vInfo.name || _afterVeh} hat nur ${_cap} Sitze, benötigt ${_pax}`
+                    });
+                    await addRideLog(rideId, '🚨', `v6.63.829 Kapazitäts-Block: ${_vInfo.name || _afterVeh} (${_cap} Sitze) < ${_pax} Pax — Zuweisung zurückgesetzt`, {
+                        vorherigesFahrzeug: _beforeVeh,
+                        versuchtesFahrzeug: _afterVeh,
+                        kapazität: _cap,
+                        pax: _pax,
+                        assignedBy: after.assignedBy
+                    });
+                    try {
+                        await sendToAllAdmins(`🚨 <b>Kapazitäts-Block</b>\n\n${after.customerName || '?'} · ${_pax} Pax\n${_vInfo.name || _afterVeh} hat nur ${_cap} Sitze.\n\nZuweisung wurde zurückgesetzt — bitte 8-Sitzer wählen.`);
+                    } catch(_) {}
+                    return; // Kein weiterer Verarbeitungs-Schritt
+                }
+            }
+        } catch (_capErr) {
+            console.error('v6.63.829 Kapazitäts-Guard Fehler:', _capErr.message);
+        }
+
         // 🛑 v6.62.625: LOOP-BREAKER — onRideUpdated feuert auf JEDES Kind-Feld inkl. lifecycleLog.
         // addRideLog pusht in lifecycleLog → triggert onRideUpdated → ggf. neuer addRideLog → ∞.
         // Beobachtet: Hasbargen/Emina/Werner/Villen-Park mit je 2400+ Log-Einträgen → 1MB Rides

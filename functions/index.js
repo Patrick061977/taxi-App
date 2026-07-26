@@ -24699,6 +24699,49 @@ exports.scheduledAutoAssign = onSchedule(
                 console.error('v6.63.816 State-Repair Fehler:', _e816.message);
             }
 
+            // 🆕 v6.63.834 (Patrick 26.07. Bridge "ich bin immer grau"): STALE-RECOVERY —
+            //   Wenn Fahrzeug staleAt gesetzt hat ABER lastUpdate < 5 Min alt ist → GPS
+            //   kommt wieder rein, also stale-Marker cleanen. Vorher wurde staleAt gesetzt
+            //   aber NIE gecleaned wenn GPS zurückkam → Fahrzeug blieb dauerhaft "grau".
+            try {
+                const _RECOVERY_FRESH_MS = 5 * 60 * 1000;
+                const _recoveryUpdates = {};
+                let _recoveryCount = 0;
+                for (const [vid, vData] of Object.entries(vehiclesData)) {
+                    if (!vData.staleAt) continue;
+                    if (!vData.lastUpdate) continue;
+                    const _gpsAge = now - vData.lastUpdate;
+                    if (_gpsAge < _RECOVERY_FRESH_MS) {
+                        _recoveryUpdates[`vehicles/${vid}/staleAt`] = null;
+                        _recoveryUpdates[`vehicles/${vid}/staleReason`] = null;
+                        _recoveryUpdates[`vehicles/${vid}/staleAgeMin`] = null;
+                        _recoveryUpdates[`vehicles/${vid}/restoredAt`] = now;
+                        _recoveryUpdates[`vehicles/${vid}/restoredBy`] = 'cloud-auto-stale-recovery-v6.63.834';
+                        // Wenn shift.status='stale' → zurück auf active (falls Heartbeat auch frisch)
+                        if (vData.shift && vData.shift.status === 'stale' && vData.shift.lastHeartbeat && (now - vData.shift.lastHeartbeat) < _RECOVERY_FRESH_MS) {
+                            _recoveryUpdates[`vehicles/${vid}/shift/status`] = 'active';
+                            _recoveryUpdates[`vehicles/${vid}/shift/staleEndedAt`] = null;
+                            _recoveryUpdates[`vehicles/${vid}/shift/staleEndedReason`] = null;
+                        }
+                        // dispatchStatus auf 'online' wenn vorher 'offline'
+                        if (vData.dispatchStatus === 'offline') {
+                            _recoveryUpdates[`vehicles/${vid}/dispatchStatus`] = 'online';
+                            _recoveryUpdates[`vehicles/${vid}/online`] = true;
+                            _recoveryUpdates[`vehicles/${vid}/available`] = true;
+                        }
+                        _recoveryCount++;
+                        // In-memory update
+                        vData.staleAt = null;
+                    }
+                }
+                if (_recoveryCount > 0) {
+                    await db.ref().update(_recoveryUpdates);
+                    console.log(`✅ v6.63.834 STALE-RECOVERY: ${_recoveryCount} Fahrzeuge zurück online (GPS wieder frisch).`);
+                }
+            } catch (_recErr) {
+                console.error('v6.63.834 STALE-RECOVERY Fehler:', _recErr.message);
+            }
+
             // 🆕 v6.38.46: STALE-VEHICLE-CLEANUP — Fahrzeuge ohne GPS-Update > 15 Min offline setzen
             // 🔧 v6.38.50 BUG-13 FIX: NIEMALS Fahrzeuge löschen die auf aktiver Fahrt sind!
             // 🆕 v6.62.946 (Patrick 25.05. 18:14 'OK' fuer Cost-Detox):
@@ -34249,7 +34292,7 @@ exports.scheduledShiftHeartbeatCheck = onSchedule(
                 const shiftDurationMs = now - (v.shift.startTime || now);
                 await db.ref(`vehicles/${vid}/shift`).set({
                     status: 'auto-ended',
-                    endedAt: new Date().toISOString(),
+                    endedAt: now, // 🔧 v6.63.834: number statt ISO-String (Konsistenz mit Native App + Zombie-Repair-Guard)
                     endedReason: 'heartbeat_timeout',
                     durationMs: shiftDurationMs,
                     lastHeartbeat: lastBeat,
@@ -34264,7 +34307,7 @@ exports.scheduledShiftHeartbeatCheck = onSchedule(
                         await db.ref(`shiftHistory/${vid}/${shiftId}`).update({
                             status: 'auto-ended',
                             endTime: now,
-                            endedAt: new Date().toISOString(),
+                            endedAt: now, // 🔧 v6.63.834: number statt ISO-String
                             endedReason: 'heartbeat_timeout',
                             durationMs: shiftDurationMs,
                             _autoEnded: true,
@@ -34550,7 +34593,11 @@ exports.scheduledDailyMailBriefing = onSchedule(
     }
 );
 
-exports.scheduledMorningBriefing = onSchedule(
+// 🔧 v6.63.834 (Audit-Report 26.07.): Doppel-Export von scheduledMorningBriefing
+//   (hier + Zeile 39167). Firebase Functions nutzte den letzten Export → dieser
+//   Wartepool-Report lief seit dem Doppel-Deploy nie mehr. Umbenannt auf
+//   scheduledMorningWartepoolBriefing damit beide Cron-Jobs koexistieren.
+exports.scheduledMorningWartepoolBriefing = onSchedule(
     {
         schedule: '30 7 * * *',
         timeZone: 'Europe/Berlin',

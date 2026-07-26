@@ -80,7 +80,9 @@ const markers = {};
 let _firstLoad = true;
 
 function statusColor(status) {
-    if (!status || status === 'frei' || status === 'idle') return '#22c55e';
+    // v6.63.833 (Patrick 26.07. Bridge "ich bin immer grau"): dispatchStatus='online'
+    //   ist frei — vorher fiel es in den Grau-Fallback weil die Farb-Map ihn nicht kannte.
+    if (!status || status === 'frei' || status === 'idle' || status === 'online') return '#22c55e';
     if (status === 'accepted' || status === 'assigned') return '#3b82f6';
     if (status === 'on_way') return '#06b6d4';
     if (status === 'picked_up' || status === 'arrived') return '#ef4444';
@@ -89,7 +91,7 @@ function statusColor(status) {
 
 function statusLabel(status) {
     if (!status) return 'Frei';
-    const map = { frei:'Frei', idle:'Frei', assigned:'Zugew.', accepted:'Akzept.', on_way:'Unterwegs', picked_up:'Besetzt', arrived:'Wartet', stale:'GPS alt' };
+    const map = { frei:'Frei', idle:'Frei', online:'Frei', assigned:'Zugew.', accepted:'Akzept.', on_way:'Unterwegs', picked_up:'Besetzt', arrived:'Wartet', stale:'GPS alt' };
     return map[status] || status;
 }
 
@@ -116,7 +118,7 @@ function render() {
         const v = _vehicles[vid];
         if (!v) continue;
         if (v.activeRideStatus) vehicleStatus[vid] = v.activeRideStatus;
-        else if (v.dispatchStatus && v.dispatchStatus !== 'frei' && v.dispatchStatus !== 'idle') {
+        else if (v.dispatchStatus && v.dispatchStatus !== 'frei' && v.dispatchStatus !== 'idle' && v.dispatchStatus !== 'online') {
             vehicleStatus[vid] = v.dispatchStatus;
         }
     }

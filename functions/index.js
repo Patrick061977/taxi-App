@@ -29065,6 +29065,49 @@ exports.onRideUpdated = onValueUpdated(
         const oldVehicle = before.assignedVehicle || before.vehicleId;
         const newVehicle = after.assignedVehicle || after.vehicleId;
 
+        // 🆕 v6.63.833 (Patrick 26.07. Bridge "ich bin immer grau auf der karte"):
+        //   Schreibe vehicles/{vid}/activeRideStatus + activeRideId bei jeder
+        //   Ride-Statusänderung. Die Kollegen-Karte (fahrer-map.html) liest dieses
+        //   Feld um Fahrzeuge farbig zu zeigen. Ohne dieses Update blieben alle
+        //   auf 'grau' (Fallback auf dispatchStatus).
+        try {
+            const _ACTIVE_STATUSES = new Set(['accepted', 'on_way', 'arrived', 'picked_up']);
+            const _CLEAR_STATUSES = new Set(['completed', 'cancelled', 'storniert', 'deleted', 'rejected', 'vorbestellt', 'new', 'wartepool', 'warteschlange']);
+            // Wenn Fahrzeug gewechselt: altes Fahrzeug clear
+            if (oldVehicle && oldVehicle !== newVehicle) {
+                const _oldVehSnap = await db.ref(`vehicles/${oldVehicle}/activeRideId`).once('value');
+                if (_oldVehSnap.val() === rideId) {
+                    await db.ref(`vehicles/${oldVehicle}`).update({
+                        activeRideStatus: null,
+                        activeRideId: null,
+                        activeRideStatusUpdatedAt: Date.now()
+                    });
+                }
+            }
+            // Aktives Fahrzeug: setzen oder clearen
+            if (newVehicle) {
+                if (_ACTIVE_STATUSES.has(newStatus)) {
+                    await db.ref(`vehicles/${newVehicle}`).update({
+                        activeRideStatus: newStatus,
+                        activeRideId: rideId,
+                        activeRideStatusUpdatedAt: Date.now()
+                    });
+                } else if (_CLEAR_STATUSES.has(newStatus)) {
+                    // Nur clearen wenn dieses Fahrzeug gerade dieser Ride als active hat
+                    const _vehSnap = await db.ref(`vehicles/${newVehicle}/activeRideId`).once('value');
+                    if (_vehSnap.val() === rideId) {
+                        await db.ref(`vehicles/${newVehicle}`).update({
+                            activeRideStatus: null,
+                            activeRideId: null,
+                            activeRideStatusUpdatedAt: Date.now()
+                        });
+                    }
+                }
+            }
+        } catch (_activeErr) {
+            console.error('v6.63.833 activeRideStatus-Sync Fehler:', _activeErr.message);
+        }
+
         // 🆕 v6.63.329 (Patrick 14.06.2026 10:00 Nayef-Phantom-Vorfall):
         //   Status-Audit-Log fuer jeden Wechsel. Schreibt in /rideStatusAudit/{rideId}/{ts}
         //   die alte+neue Werte + welche Quelle das geaendert hat. Hilft 'wer hat das gesetzt'

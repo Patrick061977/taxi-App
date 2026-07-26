@@ -24565,6 +24565,10 @@ exports.scheduledAutoAssign = onSchedule(
             //   Vorher (2h-Fenster) trafen wir IMMER eine Vorbestellung tagsüber = kein Skip.
             const _quickNew = await db.ref('rides').orderByChild('status').equalTo('new').limitToFirst(1).once('value');
             const _quickWP = await db.ref('rides').orderByChild('status').equalTo('warteschlange').limitToFirst(1).once('value');
+            // 🆕 v6.63.832 (Patrick 26.07. Bridge "Wartepool wird nicht mehr angefasst"):
+            //   Quick-Check hatte den Status 'wartepool' vergessen — Cron hat alle 5 Min
+            //   "IDLE" gemeldet obwohl Wartepool-Rides warteten. Krause-Bug reloaded.
+            const _quickWartepool = await db.ref('rides').orderByChild('status').equalTo('wartepool').limitToFirst(1).once('value');
             const _futureWindow = now + 25 * 60 * 1000;  // 🔧 v6.63.235: 25 Min statt 2h
             const _quickVB = await db.ref('rides').orderByChild('pickupTimestamp').startAt(now).endAt(_futureWindow).limitToFirst(5).once('value');
             let _vbHasPending = false;
@@ -24574,7 +24578,7 @@ exports.scheduledAutoAssign = onSchedule(
                     if (r && r.status === 'vorbestellt' && !r.assignedVehicle) { _vbHasPending = true; }
                 });
             }
-            if (!_quickNew.exists() && !_quickWP.exists() && !_vbHasPending) {
+            if (!_quickNew.exists() && !_quickWP.exists() && !_quickWartepool.exists() && !_vbHasPending) {
                 console.log('🌙 v6.63.235: IDLE — keine pending/wartepool/vorbestellt(25min) Rides. Skip.');
                 return;
             }
@@ -24628,6 +24632,13 @@ exports.scheduledAutoAssign = onSchedule(
                     const sh = vData.shift;
                     if (!sh || sh.status !== 'active') continue;
                     if (!sh.endedAt || typeof sh.endedAt !== 'number') continue;
+                    // 🆕 v6.63.832 (Patrick 26.07. "Schichten werden immer beendet"):
+                    //   Neue Schicht nach Login → startTime > endedAt heißt: das endedAt gehört
+                    //   zur VORHERIGEN Schicht, die neue ist echt aktiv. NICHT als Zombie killen.
+                    //   Zusätzlich: frischer Heartbeat (<15 Min) ist auch ein Beweis dass die
+                    //   Schicht lebt — dann kein Zombie-Kill.
+                    if (sh.startTime && sh.startTime > sh.endedAt) continue;
+                    if (sh.lastHeartbeat && (_now816 - sh.lastHeartbeat) < 15 * 60 * 1000) continue;
                     const _endedAgo = _now816 - sh.endedAt;
                     if (_endedAgo > 12 * 60 * 60 * 1000) {
                         // Zombie: endedAt >12h aber status=active
@@ -33499,9 +33510,12 @@ exports.scheduledLateCheck = onSchedule(
                         ? settings.customerNotifyThresholdMin : 10;
                     const _customerSmsEnabled = settings.customerSmsEnabled !== false;
                     // 🆕 v6.62.570: Per-Ride-Toggle (Patrick 10.05. 15:46): "SMS verschicken
-                    // muesste man auch anwaehlen koennen". Default true wenn nicht gesetzt;
-                    // explicitly false → kein SMS.
-                    const _rideSmsAllowed = ride.notifyLateSms !== false;
+                    // muesste man auch anwaehlen koennen".
+                    // 🔧 v6.63.832 (Patrick 26.07. Bridge "im Default keine Auto-SMS wird
+                    //   später"): Default umgestellt von opt-out auf opt-in. Nur wenn
+                    //   notifyLateSms === true wird eine Verspaetungs-SMS an den Kunden
+                    //   verschickt. Undefined/false/null → keine SMS.
+                    const _rideSmsAllowed = ride.notifyLateSms === true;
                     if (_customerSmsEnabled && _rideSmsAllowed && Math.round(delayMin) >= _customerNotifyThreshold && !ride.lateCustomerNotifiedAt) {
                         const _custPhone = ride.customerMobile || ride.customerPhone;
                         if (_custPhone && /[0-9]/.test(_custPhone)) {

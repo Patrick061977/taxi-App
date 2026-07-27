@@ -29151,6 +29151,138 @@ exports.onRideUpdated = onValueUpdated(
             console.error('v6.63.833 activeRideStatus-Sync Fehler:', _activeErr.message);
         }
 
+        // 🆕 v6.63.835 P1-13 (Patrick 27.07. Marion-Bug):
+        //   Bei Status-Wechsel accepted/on_way/picked_up für Vehicle X:
+        //   Prüfe ANDERE Vorbestellungen für Vehicle X in nächsten 6h ob durch
+        //   diese neue Fahrt jetzt ein Zeit-Konflikt entsteht → wenn ja, auto-reassign.
+        //
+        //   Grund: onRideUpdated triggert nur für die geänderte Fahrt (Haufe), nicht
+        //   für die Nachbarn (Marion). Marion war an YM assigned, YM grabbte Haufe
+        //   06:21, ab da war Marion 07:15 auf YM unmöglich — kein Cloud-Code prüfte
+        //   diesen neuen Konflikt.
+        try {
+            const _NEW_ACCEPTED = new Set(['accepted', 'on_way', 'picked_up', 'arrived']);
+            if (newVehicle && _NEW_ACCEPTED.has(newStatus) && !_NEW_ACCEPTED.has(oldStatus)) {
+                const _newDurMin = after.duration || after.estimatedDuration || 30;
+                const _newEndMs = after.pickupTimestamp + _newDurMin * 60000 + 5 * 60000; // 5 Min Puffer
+                const _horizonMs = Date.now() + 6 * 60 * 60 * 1000; // 6h Fenster nach vorn
+                const _startMs = Date.now();
+                // Alle Rides für dieses Fahrzeug in nächsten 6h
+                const _neighSnap = await db.ref('rides').orderByChild('assignedVehicle').equalTo(newVehicle).once('value');
+                const _conflictedRides = [];
+                _neighSnap.forEach(_c => {
+                    const _r = _c.val();
+                    if (!_r || _c.key === rideId) return;
+                    if (!['vorbestellt', 'assigned'].includes(_r.status)) return;
+                    if (!_r.pickupTimestamp || _r.pickupTimestamp < _startMs || _r.pickupTimestamp > _horizonMs) return;
+                    const _rDur = _r.duration || _r.estimatedDuration || 30;
+                    const _rEndMs = _r.pickupTimestamp + _rDur * 60000 + 5 * 60000;
+                    // Overlap-Check (klassisch): a.start < b.end && b.start < a.end
+                    if (after.pickupTimestamp < _rEndMs && _r.pickupTimestamp < _newEndMs) {
+                        _conflictedRides.push({ id: _c.key, r: _r });
+                    }
+                });
+                if (_conflictedRides.length > 0) {
+                    for (const { id: _cId, r: _cRide } of _conflictedRides) {
+                        console.warn(`🚨 v6.63.835 P1-13 Konflikt-Nachverdrängung: ${newVehicle} nimmt ${rideId} → verdrängt ${_cId} (${_cRide.customerName || '?'} ${new Date(_cRide.pickupTimestamp).toLocaleTimeString('de-DE', { timeZone: 'Europe/Berlin' })})`);
+                        // Verdrängte Fahrt in Wartepool schieben — autoAssign findet neues Fahrzeug
+                        await db.ref(`rides/${_cId}`).update({
+                            status: 'wartepool',
+                            statusBeforeWartepool: _cRide.status,
+                            assignedVehicle: null,
+                            vehicleId: null,
+                            assignedTo: null,
+                            assignedVehicleName: null,
+                            assignedVehiclePlate: null,
+                            wartepoolReason: `v6.63.835 P1-13: ${OFFICIAL_VEHICLES[newVehicle]?.name || newVehicle} hat ${rideId} akzeptiert → Zeit-Konflikt`,
+                            wartepoolAt: Date.now(),
+                            rejectedVehicles: [..._cRide.rejectedVehicles || [], newVehicle]
+                        });
+                        try {
+                            await addRideLog(_cId, '🚨', `v6.63.835 Konflikt-Nachverdrängung: ${newVehicle} nahm andere Fahrt → in Wartepool`, {
+                                verdraengendeFahrtId: rideId,
+                                verdraengendeFahrt: after.customerName || '?',
+                                verdraengendeZeit: new Date(after.pickupTimestamp).toLocaleTimeString('de-DE', { timeZone: 'Europe/Berlin' }),
+                                vehicle: newVehicle
+                            });
+                        } catch (_) {}
+                        try {
+                            await sendToAllAdmins(`🚨 <b>Konflikt-Nachverdrängung</b>\n\n${OFFICIAL_VEHICLES[newVehicle]?.name || newVehicle} nahm ${after.customerName || '?'} (${new Date(after.pickupTimestamp).toLocaleTimeString('de-DE', { timeZone: 'Europe/Berlin' })}) an.\n\n<b>Verdrängt:</b> ${_cRide.customerName || '?'} um ${new Date(_cRide.pickupTimestamp).toLocaleTimeString('de-DE', { timeZone: 'Europe/Berlin' })} → in Wartepool.\n\nAuto-Assign sucht neues Fahrzeug.`, 'conflict_displacement');
+                        } catch (_) {}
+                    }
+                }
+            }
+        } catch (_p113Err) {
+            console.error('v6.63.835 P1-13 Konflikt-Nachverdrängung Fehler:', _p113Err.message);
+        }
+
+        // 🆕 v6.63.835 P1-7 (Patrick 27.07.):
+        //   Bei Ride completed für Vehicle X: prüfe offene Vorbestellungen für
+        //   Vehicle X in nächsten 60 Min. Wenn eine passt (Fahrzeug ist frei UND
+        //   Fahrt passt zeitlich) → reassign + Push.
+        //
+        //   Grund: Wenn Patrick Payer completed hatte 07:01, hätte Marion 07:15
+        //   sofort zu ihm umziehen müssen mit Push — statt zufällig zu sehen.
+        try {
+            if (newStatus === 'completed' && oldStatus !== 'completed' && newVehicle) {
+                const _startMs = Date.now();
+                const _horizonMs = _startMs + 60 * 60 * 1000; // 60 Min voraus
+                // Suche offene Vorbestellungen in nächster Stunde
+                const _openSnap = await db.ref('rides').orderByChild('status').equalTo('vorbestellt').once('value');
+                const _candidates = [];
+                _openSnap.forEach(_c => {
+                    const _r = _c.val();
+                    if (!_r || _c.key === rideId) return;
+                    if (!_r.pickupTimestamp || _r.pickupTimestamp < _startMs || _r.pickupTimestamp > _horizonMs) return;
+                    // Nur Fahrten die NICHT bereits am completed-Fahrzeug hängen (die sind schon dort)
+                    if (_r.assignedVehicle === newVehicle) return;
+                    _candidates.push({ id: _c.key, r: _r });
+                });
+                if (_candidates.length > 0) {
+                    console.log(`✅ v6.63.835 P1-7 Ride-Completed-Retry: ${newVehicle} frei, ${_candidates.length} offene Vorbestellungen im 60-Min-Fenster — Prüfung ob passend`);
+                    // Für JEDE Kandidaten-Fahrt: prüfen ob altes Fahrzeug ein Problem hat (nicht akzeptiert / kein FCM-Token / etc.)
+                    // Simpler Ansatz: wenn Vorbestellung bereits an ein Fahrzeug hängt, das nicht in aktiver Schicht ist → reassign
+                    const _vehSnap = await db.ref('vehicles').once('value');
+                    const _vehData = _vehSnap.val() || {};
+                    for (const { id: _cId, r: _cRide } of _candidates) {
+                        const _oldVeh = _cRide.assignedVehicle;
+                        if (!_oldVeh) continue; // Wartepool oder unassigned — Auto-Assign macht das eh
+                        const _oldVehShift = _vehData[_oldVeh]?.shift;
+                        // Nur wenn altes Fahrzeug NICHT im Dienst ist (ended/auto-ended/forceEnded/stale) UND freies Fahrzeug ist
+                        const _oldVehOK = _oldVehShift && _oldVehShift.status === 'active';
+                        if (_oldVehOK) continue; // altes Fahrzeug ist ok — nichts tun
+                        // Reassign zu newVehicle
+                        console.log(`   → Reassign ${_cId} (${_cRide.customerName}) von ${_oldVeh} (shift=${_oldVehShift?.status || '-'}) auf ${newVehicle} (frei)`);
+                        await db.ref(`rides/${_cId}`).update({
+                            assignedVehicle: newVehicle,
+                            vehicleId: newVehicle,
+                            assignedTo: newVehicle,
+                            assignedVehicleName: OFFICIAL_VEHICLES[newVehicle]?.name || newVehicle,
+                            assignedVehiclePlate: OFFICIAL_VEHICLES[newVehicle]?.plate || null,
+                            assignedBy: 'cloud-completed-retry-v6.63.835',
+                            assignedAt: Date.now(),
+                            rejectedVehicles: [..._cRide.rejectedVehicles || [], _oldVeh]
+                        });
+                        try {
+                            await addRideLog(_cId, '🎯', `v6.63.835 Completed-Retry: ${newVehicle} frei geworden → übernimmt von ${_oldVeh} (nicht im Dienst)`, {
+                                vorherigesFahrzeug: _oldVeh,
+                                neuesFahrzeug: newVehicle,
+                                grundVorher: `${_oldVehShift?.status || 'kein Shift'}`
+                            });
+                        } catch (_) {}
+                        // Fahrer-FCM-Push
+                        try {
+                            await sendFCMToVehicle(newVehicle, _cId, _cRide, 'ride_reassigned');
+                        } catch (_fcmErr) {
+                            console.warn(`   ⚠️ FCM-Push für ${_cId} an ${newVehicle} fehlgeschlagen:`, _fcmErr.message);
+                        }
+                    }
+                }
+            }
+        } catch (_p17Err) {
+            console.error('v6.63.835 P1-7 Ride-Completed-Retry Fehler:', _p17Err.message);
+        }
+
         // 🆕 v6.63.329 (Patrick 14.06.2026 10:00 Nayef-Phantom-Vorfall):
         //   Status-Audit-Log fuer jeden Wechsel. Schreibt in /rideStatusAudit/{rideId}/{ts}
         //   die alte+neue Werte + welche Quelle das geaendert hat. Hilft 'wer hat das gesetzt'

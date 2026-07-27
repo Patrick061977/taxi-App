@@ -29151,6 +29151,138 @@ exports.onRideUpdated = onValueUpdated(
             console.error('v6.63.833 activeRideStatus-Sync Fehler:', _activeErr.message);
         }
 
+        // 🆕 v6.63.835 P1-13 (Patrick 27.07. Marion-Bug):
+        //   Bei Status-Wechsel accepted/on_way/picked_up für Vehicle X:
+        //   Prüfe ANDERE Vorbestellungen für Vehicle X in nächsten 6h ob durch
+        //   diese neue Fahrt jetzt ein Zeit-Konflikt entsteht → wenn ja, auto-reassign.
+        //
+        //   Grund: onRideUpdated triggert nur für die geänderte Fahrt (Haufe), nicht
+        //   für die Nachbarn (Marion). Marion war an YM assigned, YM grabbte Haufe
+        //   06:21, ab da war Marion 07:15 auf YM unmöglich — kein Cloud-Code prüfte
+        //   diesen neuen Konflikt.
+        try {
+            const _NEW_ACCEPTED = new Set(['accepted', 'on_way', 'picked_up', 'arrived']);
+            if (newVehicle && _NEW_ACCEPTED.has(newStatus) && !_NEW_ACCEPTED.has(oldStatus)) {
+                const _newDurMin = after.duration || after.estimatedDuration || 30;
+                const _newEndMs = after.pickupTimestamp + _newDurMin * 60000 + 5 * 60000; // 5 Min Puffer
+                const _horizonMs = Date.now() + 6 * 60 * 60 * 1000; // 6h Fenster nach vorn
+                const _startMs = Date.now();
+                // Alle Rides für dieses Fahrzeug in nächsten 6h
+                const _neighSnap = await db.ref('rides').orderByChild('assignedVehicle').equalTo(newVehicle).once('value');
+                const _conflictedRides = [];
+                _neighSnap.forEach(_c => {
+                    const _r = _c.val();
+                    if (!_r || _c.key === rideId) return;
+                    if (!['vorbestellt', 'assigned'].includes(_r.status)) return;
+                    if (!_r.pickupTimestamp || _r.pickupTimestamp < _startMs || _r.pickupTimestamp > _horizonMs) return;
+                    const _rDur = _r.duration || _r.estimatedDuration || 30;
+                    const _rEndMs = _r.pickupTimestamp + _rDur * 60000 + 5 * 60000;
+                    // Overlap-Check (klassisch): a.start < b.end && b.start < a.end
+                    if (after.pickupTimestamp < _rEndMs && _r.pickupTimestamp < _newEndMs) {
+                        _conflictedRides.push({ id: _c.key, r: _r });
+                    }
+                });
+                if (_conflictedRides.length > 0) {
+                    for (const { id: _cId, r: _cRide } of _conflictedRides) {
+                        console.warn(`🚨 v6.63.835 P1-13 Konflikt-Nachverdrängung: ${newVehicle} nimmt ${rideId} → verdrängt ${_cId} (${_cRide.customerName || '?'} ${new Date(_cRide.pickupTimestamp).toLocaleTimeString('de-DE', { timeZone: 'Europe/Berlin' })})`);
+                        // Verdrängte Fahrt in Wartepool schieben — autoAssign findet neues Fahrzeug
+                        await db.ref(`rides/${_cId}`).update({
+                            status: 'wartepool',
+                            statusBeforeWartepool: _cRide.status,
+                            assignedVehicle: null,
+                            vehicleId: null,
+                            assignedTo: null,
+                            assignedVehicleName: null,
+                            assignedVehiclePlate: null,
+                            wartepoolReason: `v6.63.835 P1-13: ${OFFICIAL_VEHICLES[newVehicle]?.name || newVehicle} hat ${rideId} akzeptiert → Zeit-Konflikt`,
+                            wartepoolAt: Date.now(),
+                            rejectedVehicles: [..._cRide.rejectedVehicles || [], newVehicle]
+                        });
+                        try {
+                            await addRideLog(_cId, '🚨', `v6.63.835 Konflikt-Nachverdrängung: ${newVehicle} nahm andere Fahrt → in Wartepool`, {
+                                verdraengendeFahrtId: rideId,
+                                verdraengendeFahrt: after.customerName || '?',
+                                verdraengendeZeit: new Date(after.pickupTimestamp).toLocaleTimeString('de-DE', { timeZone: 'Europe/Berlin' }),
+                                vehicle: newVehicle
+                            });
+                        } catch (_) {}
+                        try {
+                            await sendToAllAdmins(`🚨 <b>Konflikt-Nachverdrängung</b>\n\n${OFFICIAL_VEHICLES[newVehicle]?.name || newVehicle} nahm ${after.customerName || '?'} (${new Date(after.pickupTimestamp).toLocaleTimeString('de-DE', { timeZone: 'Europe/Berlin' })}) an.\n\n<b>Verdrängt:</b> ${_cRide.customerName || '?'} um ${new Date(_cRide.pickupTimestamp).toLocaleTimeString('de-DE', { timeZone: 'Europe/Berlin' })} → in Wartepool.\n\nAuto-Assign sucht neues Fahrzeug.`, 'conflict_displacement');
+                        } catch (_) {}
+                    }
+                }
+            }
+        } catch (_p113Err) {
+            console.error('v6.63.835 P1-13 Konflikt-Nachverdrängung Fehler:', _p113Err.message);
+        }
+
+        // 🆕 v6.63.835 P1-7 (Patrick 27.07.):
+        //   Bei Ride completed für Vehicle X: prüfe offene Vorbestellungen für
+        //   Vehicle X in nächsten 60 Min. Wenn eine passt (Fahrzeug ist frei UND
+        //   Fahrt passt zeitlich) → reassign + Push.
+        //
+        //   Grund: Wenn Patrick Payer completed hatte 07:01, hätte Marion 07:15
+        //   sofort zu ihm umziehen müssen mit Push — statt zufällig zu sehen.
+        try {
+            if (newStatus === 'completed' && oldStatus !== 'completed' && newVehicle) {
+                const _startMs = Date.now();
+                const _horizonMs = _startMs + 60 * 60 * 1000; // 60 Min voraus
+                // Suche offene Vorbestellungen in nächster Stunde
+                const _openSnap = await db.ref('rides').orderByChild('status').equalTo('vorbestellt').once('value');
+                const _candidates = [];
+                _openSnap.forEach(_c => {
+                    const _r = _c.val();
+                    if (!_r || _c.key === rideId) return;
+                    if (!_r.pickupTimestamp || _r.pickupTimestamp < _startMs || _r.pickupTimestamp > _horizonMs) return;
+                    // Nur Fahrten die NICHT bereits am completed-Fahrzeug hängen (die sind schon dort)
+                    if (_r.assignedVehicle === newVehicle) return;
+                    _candidates.push({ id: _c.key, r: _r });
+                });
+                if (_candidates.length > 0) {
+                    console.log(`✅ v6.63.835 P1-7 Ride-Completed-Retry: ${newVehicle} frei, ${_candidates.length} offene Vorbestellungen im 60-Min-Fenster — Prüfung ob passend`);
+                    // Für JEDE Kandidaten-Fahrt: prüfen ob altes Fahrzeug ein Problem hat (nicht akzeptiert / kein FCM-Token / etc.)
+                    // Simpler Ansatz: wenn Vorbestellung bereits an ein Fahrzeug hängt, das nicht in aktiver Schicht ist → reassign
+                    const _vehSnap = await db.ref('vehicles').once('value');
+                    const _vehData = _vehSnap.val() || {};
+                    for (const { id: _cId, r: _cRide } of _candidates) {
+                        const _oldVeh = _cRide.assignedVehicle;
+                        if (!_oldVeh) continue; // Wartepool oder unassigned — Auto-Assign macht das eh
+                        const _oldVehShift = _vehData[_oldVeh]?.shift;
+                        // Nur wenn altes Fahrzeug NICHT im Dienst ist (ended/auto-ended/forceEnded/stale) UND freies Fahrzeug ist
+                        const _oldVehOK = _oldVehShift && _oldVehShift.status === 'active';
+                        if (_oldVehOK) continue; // altes Fahrzeug ist ok — nichts tun
+                        // Reassign zu newVehicle
+                        console.log(`   → Reassign ${_cId} (${_cRide.customerName}) von ${_oldVeh} (shift=${_oldVehShift?.status || '-'}) auf ${newVehicle} (frei)`);
+                        await db.ref(`rides/${_cId}`).update({
+                            assignedVehicle: newVehicle,
+                            vehicleId: newVehicle,
+                            assignedTo: newVehicle,
+                            assignedVehicleName: OFFICIAL_VEHICLES[newVehicle]?.name || newVehicle,
+                            assignedVehiclePlate: OFFICIAL_VEHICLES[newVehicle]?.plate || null,
+                            assignedBy: 'cloud-completed-retry-v6.63.835',
+                            assignedAt: Date.now(),
+                            rejectedVehicles: [..._cRide.rejectedVehicles || [], _oldVeh]
+                        });
+                        try {
+                            await addRideLog(_cId, '🎯', `v6.63.835 Completed-Retry: ${newVehicle} frei geworden → übernimmt von ${_oldVeh} (nicht im Dienst)`, {
+                                vorherigesFahrzeug: _oldVeh,
+                                neuesFahrzeug: newVehicle,
+                                grundVorher: `${_oldVehShift?.status || 'kein Shift'}`
+                            });
+                        } catch (_) {}
+                        // Fahrer-FCM-Push
+                        try {
+                            await sendFCMToVehicle(newVehicle, _cId, _cRide, 'ride_reassigned');
+                        } catch (_fcmErr) {
+                            console.warn(`   ⚠️ FCM-Push für ${_cId} an ${newVehicle} fehlgeschlagen:`, _fcmErr.message);
+                        }
+                    }
+                }
+            }
+        } catch (_p17Err) {
+            console.error('v6.63.835 P1-7 Ride-Completed-Retry Fehler:', _p17Err.message);
+        }
+
         // 🆕 v6.63.329 (Patrick 14.06.2026 10:00 Nayef-Phantom-Vorfall):
         //   Status-Audit-Log fuer jeden Wechsel. Schreibt in /rideStatusAudit/{rideId}/{ts}
         //   die alte+neue Werte + welche Quelle das geaendert hat. Hilft 'wer hat das gesetzt'
@@ -41285,3 +41417,282 @@ exports.pay = onRequest(
         }
     }
 );
+
+
+// 🆕 v6.63.835 (Patrick 27.07. Marion-Session): Täglicher Deep-Dive-Report
+//   Patrick will jeden Tag am Ende einen kompletten Report ALLER Fahrten +
+//   Bewegungen + Score-Verteilungen + Konflikte, damit er + Claude prüfen
+//   können ob das System richtig entschieden hat.
+//
+//   Läuft täglich 21:30 CET, sammelt Rides des Tages, rendert HTML, uploaded
+//   nach Firebase Storage, Push an Admin mit Link + Kurz-Zusammenfassung.
+exports.scheduledDailyReport = onSchedule(
+    {
+        schedule: '30 21 * * *',
+        timeZone: 'Europe/Berlin',
+        region: 'europe-west1',
+        timeoutSeconds: 300,
+        memory: '1GiB'
+    },
+    async () => {
+        try {
+            await generateDailyReport(new Date());
+        } catch (e) {
+            console.error('scheduledDailyReport Fehler:', e.message);
+            try { await sendToAllAdmins('⚠️ Tages-Report fehlgeschlagen: ' + e.message); } catch (_) {}
+        }
+    }
+);
+
+// HTTP-Endpoint um Report manuell zu generieren (für Testlauf / historische Tage)
+exports.generateDailyReportManual = onRequest(
+    { region: 'europe-west1', timeoutSeconds: 300, memory: '1GiB' },
+    async (req, res) => {
+        try {
+            const dateStr = req.query.date; // YYYY-MM-DD, optional
+            const targetDate = dateStr ? new Date(dateStr + 'T12:00:00+02:00') : new Date();
+            const result = await generateDailyReport(targetDate);
+            res.set('Content-Type', 'application/json');
+            res.status(200).json(result);
+        } catch (e) {
+            res.status(500).json({ error: e.message });
+        }
+    }
+);
+
+async function generateDailyReport(refDate) {
+    const dateStr = refDate.toLocaleDateString('sv-SE', { timeZone: 'Europe/Berlin' });
+    const dateDE = refDate.toLocaleDateString('de-DE', { timeZone: 'Europe/Berlin' });
+    const dayStartMs = Date.parse(dateStr + 'T00:00:00+02:00');
+    const dayEndMs = dayStartMs + 24 * 60 * 60 * 1000;
+
+    console.log(`📊 v6.63.835 Daily-Report für ${dateStr} (${dayStartMs}..${dayEndMs})`);
+
+    const [ridesToday, archiveToday] = await Promise.all([
+        db.ref('rides').orderByChild('pickupTimestamp').startAt(dayStartMs).endAt(dayEndMs).once('value'),
+        db.ref('archiveRides').orderByChild('pickupTimestamp').startAt(dayStartMs).endAt(dayEndMs).once('value').catch(() => ({ val: () => ({}) }))
+    ]);
+    const rides = { ...(ridesToday.val() || {}), ...(archiveToday.val() || {}) };
+    const rideIds = Object.keys(rides);
+
+    const auditData = {};
+    await Promise.all(rideIds.slice(0, 200).map(async (rid) => {
+        try {
+            const snap = await db.ref(`rideStatusAudit/${rid}`).once('value');
+            const val = snap.val();
+            if (val) auditData[rid] = val;
+        } catch (_) {}
+    }));
+
+    const optSnap = await db.ref('optimierungsLog').orderByChild('timestamp').startAt(dayStartMs).endAt(dayEndMs).once('value').catch(() => ({ val: () => ({}) }));
+    const optLog = optSnap.val() || {};
+
+    const vehSnap = await db.ref('vehicles').once('value');
+    const vehicles = vehSnap.val() || {};
+
+    const stats = { total: 0, completed: 0, cancelled: 0, wartepool: 0, still_open: 0, sofort: 0, vorbestellung: 0, umsatz: 0, kmTotal: 0 };
+    const rideAnalysis = [];
+    for (const rid of rideIds) {
+        const r = rides[rid];
+        if (!r) continue;
+        stats.total++;
+        if (r.status === 'completed') stats.completed++;
+        else if (r.status === 'cancelled' || r.status === 'storniert') stats.cancelled++;
+        else if (r.status === 'wartepool') stats.wartepool++;
+        else stats.still_open++;
+        if (r.source && r.source.includes('sofort')) stats.sofort++;
+        else stats.vorbestellung++;
+        if (r.status === 'completed' && r.actualPrice) stats.umsatz += parseFloat(r.actualPrice) || 0;
+        if (r.distance) stats.kmTotal += parseFloat(r.distance) || 0;
+
+        let bewertung = '✅';
+        const auffaelligkeiten = [];
+        const audit = auditData[rid] || {};
+        const auditEntries = Object.values(audit).sort((a, b) => (a.ts || 0) - (b.ts || 0));
+        const wpEvents = auditEntries.filter(e => e.newStatus === 'wartepool');
+        if (wpEvents.length > 0) {
+            bewertung = '⚠️';
+            auffaelligkeiten.push(`${wpEvents.length}× Wartepool`);
+        }
+        if (r.status === 'cancelled' && !r.cancelReason) {
+            bewertung = '❌';
+            auffaelligkeiten.push('Cancelled ohne Grund');
+        }
+        const acceptedAt = r.acceptedAt || auditEntries.find(e => e.newStatus === 'accepted')?.ts;
+        if (acceptedAt && r.pickupTimestamp && (r.pickupTimestamp - acceptedAt) < 15 * 60 * 1000 && r.status === 'completed') {
+            const minsBefore = Math.round((r.pickupTimestamp - acceptedAt) / 60000);
+            bewertung = bewertung === '✅' ? '⚠️' : bewertung;
+            auffaelligkeiten.push(`Erst ${minsBefore} Min vor Pickup akzeptiert`);
+        }
+        const vehChanges = auditEntries.filter(e => e.newVehicle && e.newVehicle !== e.oldVehicle);
+        if (vehChanges.length >= 3) {
+            bewertung = '🚨';
+            auffaelligkeiten.push(`${vehChanges.length}× Fahrzeug gewechselt (Ping-Pong)`);
+        }
+        const optEvent = Object.values(optLog).find(o => o.rideId === rid && o.type !== 'phase2-abort-conflict');
+        if (optEvent && wpEvents.length > 0) {
+            bewertung = '🚨';
+            auffaelligkeiten.push(`Marion-Muster: optimiert → dann Wartepool`);
+        }
+
+        rideAnalysis.push({
+            id: rid,
+            customerName: r.customerName || '?',
+            pickup: r.pickup || '?',
+            destination: r.destination || '?',
+            pickupTime: r.pickupTime || (r.pickupTimestamp ? new Date(r.pickupTimestamp).toLocaleTimeString('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit' }) : '?'),
+            pickupTimestamp: r.pickupTimestamp,
+            status: r.status,
+            vehicle: r.assignedVehicle,
+            vehicleName: r.assignedVehicleName || (vehicles[r.assignedVehicle]?.name) || r.assignedVehicle,
+            assignedBy: r.assignedBy,
+            distance: r.distance,
+            price: r.actualPrice || r.estimatedPrice,
+            source: r.source,
+            audit: auditEntries,
+            vehicleScores: r.vehicleScores || {},
+            autoAssignLastReason: r.autoAssignLastReason,
+            bewertung,
+            auffaelligkeiten,
+            optimierung: optEvent
+        });
+    }
+    rideAnalysis.sort((a, b) => (a.pickupTimestamp || 0) - (b.pickupTimestamp || 0));
+
+    const bewCount = { '✅': 0, '⚠️': 0, '🚨': 0, '❌': 0 };
+    rideAnalysis.forEach(r => bewCount[r.bewertung] = (bewCount[r.bewertung] || 0) + 1);
+    const sauberProzent = stats.total > 0 ? Math.round((bewCount['✅'] / stats.total) * 100) : 0;
+
+    const html = renderDailyReportHtml({ dateDE, dateStr, stats, bewCount, sauberProzent, rideAnalysis, optLog, vehicles });
+
+    const bucket = admin.storage().bucket();
+    const filePath = `daily-reports/tages-report-${dateStr}.html`;
+    const file = bucket.file(filePath);
+    await file.save(html, {
+        contentType: 'text/html; charset=utf-8',
+        metadata: { cacheControl: 'no-cache' },
+        public: true
+    });
+    await file.makePublic().catch(() => {});
+    const publicUrl = `https://storage.googleapis.com/${bucket.name}/${filePath}`;
+
+    const critical = rideAnalysis.filter(r => r.bewertung === '🚨' || r.bewertung === '❌');
+    let summary = `📊 <b>Tages-Report ${dateDE}</b>\n\n`;
+    summary += `🚗 <b>${stats.total} Fahrten</b> — ✅ ${bewCount['✅']} sauber · ⚠️ ${bewCount['⚠️']} grenzwertig · 🚨 ${bewCount['🚨']} Fehler · ❌ ${bewCount['❌']} verloren\n`;
+    summary += `💰 ${stats.umsatz.toFixed(2)}€ · ${stats.kmTotal.toFixed(1)} km · Sauber-Quote: <b>${sauberProzent}%</b>\n\n`;
+    if (critical.length > 0) {
+        summary += `<b>🚨 KRITISCH:</b>\n`;
+        critical.slice(0, 5).forEach(r => {
+            summary += `• ${r.customerName} ${r.pickupTime}: ${r.auffaelligkeiten.join('; ')}\n`;
+        });
+        summary += '\n';
+    }
+    summary += `📎 ${publicUrl}`;
+    try { await sendToAllAdmins(summary, 'daily_report'); } catch (_) {}
+
+    console.log(`✅ v6.63.835 Daily-Report ${dateStr}: ${stats.total} Fahrten, ${bewCount['🚨']} kritisch, URL: ${publicUrl}`);
+    return { url: publicUrl, stats, bewCount, sauberProzent, criticalCount: critical.length };
+}
+
+function renderDailyReportHtml({ dateDE, dateStr, stats, bewCount, sauberProzent, rideAnalysis, optLog, vehicles }) {
+    const escape = (s) => String(s || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const timeStr = (ts) => ts ? new Date(ts).toLocaleTimeString('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '-';
+
+    const critical = rideAnalysis.filter(r => r.bewertung === '🚨' || r.bewertung === '❌');
+    const warnings = rideAnalysis.filter(r => r.bewertung === '⚠️');
+    const gaugeColor = sauberProzent >= 90 ? '#16a34a' : sauberProzent >= 70 ? '#f59e0b' : '#dc2626';
+
+    let html = `<!DOCTYPE html><html lang="de"><head><meta charset="utf-8"><title>Tages-Report ${escape(dateDE)}</title>
+<style>
+body{font-family:-apple-system,Segoe UI,sans-serif;margin:0;padding:20px;background:#f5f5f5;color:#222;line-height:1.4}
+.container{max-width:1200px;margin:0 auto;background:white;padding:30px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.08)}
+h1{margin:0 0 4px 0;color:#0066cc}
+h2{border-bottom:2px solid #0066cc;padding-bottom:6px;margin-top:32px}
+.summary{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin:16px 0}
+.summary .box{background:#f0f4f8;padding:12px;border-radius:6px;text-align:center}
+.summary .box .num{font-size:28px;font-weight:bold;color:#0066cc}
+.summary .box .lbl{font-size:11px;color:#666;text-transform:uppercase}
+.ride{border:1px solid #ddd;border-radius:6px;padding:12px;margin:8px 0;background:white}
+.ride.crit{border-left:4px solid #dc2626;background:#fef2f2}
+.ride.warn{border-left:4px solid #f59e0b;background:#fffbeb}
+.ride .head{font-weight:bold;font-size:16px;margin-bottom:6px}
+.ride .meta{color:#666;font-size:13px;margin:4px 0}
+.ride .auffaellig{background:#fee;padding:6px 10px;border-radius:4px;margin:6px 0;color:#a00}
+.timeline{font-family:monospace;font-size:11px;background:#f8f8f8;padding:8px;border-radius:4px;margin-top:6px;white-space:pre-wrap}
+.scores{font-size:11px;color:#666;margin-top:4px}
+table{width:100%;border-collapse:collapse;margin:10px 0}
+th,td{padding:6px 8px;text-align:left;border-bottom:1px solid #eee;font-size:13px}
+th{background:#f0f4f8;font-weight:600}
+.gauge{font-size:48px;font-weight:bold;color:${gaugeColor}}
+</style></head><body><div class="container">
+<h1>📊 Tages-Report Funk-Taxi</h1>
+<div style="color:#666;font-size:14px">${escape(dateDE)} · v6.63.835 · generiert ${escape(new Date().toLocaleString('de-DE', { timeZone: 'Europe/Berlin' }))}</div>
+<h2>Executive Summary</h2>
+<div class="summary">
+<div class="box"><div class="num">${stats.total}</div><div class="lbl">Fahrten total</div></div>
+<div class="box"><div class="num">${stats.completed}</div><div class="lbl">Completed</div></div>
+<div class="box"><div class="num">${stats.wartepool}</div><div class="lbl">Wartepool</div></div>
+<div class="box"><div class="num">${stats.cancelled}</div><div class="lbl">Cancelled</div></div>
+<div class="box"><div class="num">${stats.umsatz.toFixed(0)}€</div><div class="lbl">Umsatz</div></div>
+<div class="box"><div class="num">${stats.kmTotal.toFixed(0)}</div><div class="lbl">km total</div></div>
+</div>
+<div style="text-align:center;margin:20px 0"><div class="gauge">${sauberProzent}%</div><div style="color:#666">Sauber-Quote (✅ ${bewCount['✅']} · ⚠️ ${bewCount['⚠️']} · 🚨 ${bewCount['🚨']} · ❌ ${bewCount['❌']})</div></div>
+`;
+
+    if (critical.length > 0) {
+        html += `<h2>🚨 Kritische Auffälligkeiten (${critical.length})</h2>`;
+        for (const r of critical) html += renderRideCard(r, escape, timeStr, vehicles, 'crit');
+    }
+    if (warnings.length > 0) {
+        html += `<h2>⚠️ Grenzwertige Fahrten (${warnings.length})</h2>`;
+        for (const r of warnings) html += renderRideCard(r, escape, timeStr, vehicles, 'warn');
+    }
+
+    html += `<h2>📋 Alle Fahrten (${rideAnalysis.length})</h2>`;
+    html += '<table><tr><th>Bew.</th><th>Zeit</th><th>Kunde</th><th>Route</th><th>Fahrzeug</th><th>Status</th><th>km</th><th>€</th></tr>';
+    for (const r of rideAnalysis) {
+        html += `<tr><td>${r.bewertung}</td><td>${escape(r.pickupTime)}</td><td>${escape(r.customerName)}</td><td style="font-size:11px">${escape((r.pickup || '').split(',')[0])} → ${escape((r.destination || '').split(',')[0])}</td><td>${escape(r.vehicleName || '-')}</td><td>${escape(r.status || '-')}</td><td>${r.distance ? Number(r.distance).toFixed(1) : '-'}</td><td>${r.price ? Number(r.price).toFixed(2) : '-'}</td></tr>`;
+    }
+    html += '</table>';
+
+    const optArr = Object.values(optLog).sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+    if (optArr.length > 0) {
+        html += `<h2>⚙️ Optimierungs-Aktionen (${optArr.length})</h2><table><tr><th>Zeit</th><th>Typ</th><th>Ride</th><th>Details</th></tr>`;
+        for (const o of optArr.slice(0, 100)) {
+            html += `<tr><td>${escape(timeStr(o.timestamp))}</td><td>${escape(o.type || '-')}</td><td>${escape(o.rideName || o.rideId || '-')}</td><td style="font-size:11px">${escape(JSON.stringify(o).slice(0, 200))}</td></tr>`;
+        }
+        html += '</table>';
+    }
+
+    html += `<div style="margin-top:40px;padding-top:20px;border-top:1px solid #eee;color:#999;font-size:12px;text-align:center">Funk-Taxi Heringsdorf · Daily-Report v6.63.835</div></div></body></html>`;
+    return html;
+}
+
+function renderRideCard(r, escape, timeStr, vehicles, cls) {
+    let html = `<div class="ride ${cls}"><div class="head">${r.bewertung} ${escape(r.customerName)} · ${escape(r.pickupTime)} · ${escape(r.vehicleName || '-')}</div>`;
+    html += `<div class="meta">📍 ${escape(r.pickup)} → ${escape(r.destination)}</div>`;
+    html += `<div class="meta">Status: <b>${escape(r.status)}</b> · assignedBy: ${escape(r.assignedBy || '-')} · ${r.distance || '-'} km · ${r.price || '-'}€</div>`;
+    if (r.auffaelligkeiten.length > 0) {
+        html += `<div class="auffaellig">⚠️ ${r.auffaelligkeiten.map(escape).join(' · ')}</div>`;
+    }
+    if (r.audit && r.audit.length > 0) {
+        html += `<div class="timeline"><b>Timeline:</b>\n`;
+        for (const e of r.audit) {
+            html += `${timeStr(e.ts)}  ${escape(e.oldStatus || '?')} → ${escape(e.newStatus || '?')}${e.newVehicle ? '  [' + escape(e.newVehicle) + ']' : ''}${e.assignedBy ? '  by ' + escape(e.assignedBy) : ''}\n`;
+        }
+        html += `</div>`;
+    }
+    if (r.vehicleScores && Object.keys(r.vehicleScores).length > 0) {
+        html += `<div class="scores"><b>Score-Verteilung:</b><br>`;
+        for (const [vid, s] of Object.entries(r.vehicleScores)) {
+            const vName = vehicles[vid]?.name || vid;
+            html += `${escape(vName)}: ${escape(s.status || '-')} — ${escape(s.reason || '-')}<br>`;
+        }
+        html += `</div>`;
+    }
+    if (r.autoAssignLastReason) {
+        html += `<div class="meta" style="font-size:11px;font-style:italic">Auto-Assign: ${escape(r.autoAssignLastReason)}</div>`;
+    }
+    html += `</div>`;
+    return html;
+}

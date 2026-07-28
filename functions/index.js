@@ -1628,6 +1628,38 @@ async function autoAssignRide(rideId, rideData, _excludeVehicleIds = []) {
                 }
             }
 
+            // 🆕 v6.63.837 (Patrick 28.07. "wird GPS bei Vorbestellungen mit einbezogen"):
+            //   NEIN — bis heute nur bei Sofortfahrten. Bug: Marion 07:15 wurde YM zugewiesen
+            //   obwohl YM zu diesem Zeitpunkt real unterwegs nach Greifswald war (weit weg).
+            //   Fix: GPS-Anfahrts-Reality-Check auch für Vorbestellungen, wenn Pickup <2h weg
+            //   und Fahrzeug frisches GPS hat. Wenn Faustregel-Anfahrt > Zeit-bis-Pickup + 10 Min
+            //   Puffer → Kandidat ablehnen.
+            if (!isSofort && rideData.pickupTimestamp) {
+                const _msUntilPickup2 = rideData.pickupTimestamp - Date.now();
+                const _hasVehGps = _vData.lat && _vData.lon && _vData.timestamp && (Date.now() - _vData.timestamp) < 30 * 60000;
+                const _hasRidePickupGps = rideData.pickupLat && rideData.pickupLon;
+                // Nur wenn Pickup in nächsten 2h, GPS beider Seiten frisch/vorhanden, und nicht überfällig
+                if (_msUntilPickup2 > 0 && _msUntilPickup2 < 2 * 60 * 60 * 1000 && _hasVehGps && _hasRidePickupGps) {
+                    // Haversine-Distanz km
+                    const _R = 6371;
+                    const _lat1 = Number(_vData.lat) * Math.PI / 180;
+                    const _lat2 = Number(rideData.pickupLat) * Math.PI / 180;
+                    const _dLat = (Number(rideData.pickupLat) - Number(_vData.lat)) * Math.PI / 180;
+                    const _dLon = (Number(rideData.pickupLon) - Number(_vData.lon)) * Math.PI / 180;
+                    const _a = Math.sin(_dLat/2)**2 + Math.cos(_lat1) * Math.cos(_lat2) * Math.sin(_dLon/2)**2;
+                    const _distKm = _R * 2 * Math.atan2(Math.sqrt(_a), Math.sqrt(1-_a));
+                    // Faustregel: 1.5 Min/km auf Insel Usedom + Umland (Landstraßen, Ort, etc.)
+                    const _estAnfahrtMin = Math.ceil(_distKm * 1.5);
+                    const _minsUntilPickup = Math.floor(_msUntilPickup2 / 60000);
+                    const _bufferMin = 10; // Sicherheits-Puffer
+                    if (_estAnfahrtMin > _minsUntilPickup + _bufferMin) {
+                        console.log(`   ❌ ${info.name}: GPS-Reality-Check — ~${_estAnfahrtMin} Min Anfahrt für ${_distKm.toFixed(1)}km, Pickup in ${_minsUntilPickup} Min → schafft es nicht (Puffer ${_bufferMin} Min)`);
+                        vehicleScores[vehicleId] = { status: 'rejected', reason: `GPS-zu-weit: ~${_estAnfahrtMin} Min Anfahrt (${_distKm.toFixed(1)}km), Pickup in ${_minsUntilPickup} Min`, check: 'gps-reality-check', distKm: Math.round(_distKm * 10) / 10, estAnfahrtMin: _estAnfahrtMin, minsUntilPickup: _minsUntilPickup };
+                        continue;
+                    }
+                }
+            }
+
             // 🆕 v6.26.0: Schichtende-Prüfung — Fahrtende darf Schicht nicht überschreiten
             // 🔧 v6.41.78: Bei manuell gestarteter Schicht (shift.status='active') überspringen.
             // Sonst blockiert der Wochenplan-Schichtende eine aktive Überstunden-Schicht:

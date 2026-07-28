@@ -595,6 +595,35 @@ public class TaxiFCMService extends FirebaseMessagingService {
             .putString("current_token", token)
             .putString("pending_token", token)
             .apply();
+
+        // 🆕 v6.63.836 (Audit-Report P1-3 — Patrick 26.07. "Danilo hat kein FCM-Token in DB"):
+        //   Token-Rotation nach App-Update oder Play-Service-Update: alter Token wird
+        //   ungueltig, neuer kommt via onNewToken. Vorher wurde er nur in SharedPreferences
+        //   gespeichert, NICHT in Firebase — sendFCMToVehicle las weiter den alten Token,
+        //   FCM antwortete UNREGISTERED, Cloud-Function loeschte Token komplett → keine
+        //   Pushes mehr fuer diesen Fahrer bis er die App neu einloggt.
+        //   Fix: Token zusaetzlich in vehicles/{vid}/fcmToken persistieren wenn vehicleId
+        //   in SharedPreferences bekannt.
+        try {
+            String vehicleId = getSharedPreferences("driver", MODE_PRIVATE).getString("vehicleId", null);
+            if (vehicleId != null && !vehicleId.isEmpty()) {
+                java.util.Map<String, Object> upd = new java.util.HashMap<>();
+                upd.put("token", token);
+                upd.put("updatedAt", System.currentTimeMillis());
+                upd.put("device", Build.MODEL);
+                upd.put("updatedBy", "onNewToken-v6.63.836");
+                com.google.firebase.database.FirebaseDatabase
+                    .getInstance("https://taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.app")
+                    .getReference("vehicles/" + vehicleId + "/fcmToken")
+                    .updateChildren(upd)
+                    .addOnSuccessListener(_v -> Log.i(TAG, "✅ v6.63.836 FCM-Token in Firebase geschrieben fuer " + vehicleId))
+                    .addOnFailureListener(e -> Log.w(TAG, "⚠️ FCM-Token-Firebase-Write fehlgeschlagen: " + e.getMessage()));
+            } else {
+                Log.w(TAG, "⚠️ onNewToken: keine vehicleId in SharedPrefs — Token nur lokal gespeichert (Login via VehiclePicker triggert Sync)");
+            }
+        } catch (Throwable e) {
+            Log.w(TAG, "onNewToken Firebase-Write Fehler: " + e.getMessage());
+        }
     }
 
     private void ensureNotificationChannel() {

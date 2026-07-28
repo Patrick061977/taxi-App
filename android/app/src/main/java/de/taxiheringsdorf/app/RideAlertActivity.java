@@ -155,6 +155,71 @@ public class RideAlertActivity extends AppCompatActivity {
         });
     }
 
+    // 🆕 v6.63.836 (Audit-Report P1-2 — Patrick 26.07. "Danilo kann keine 2. Fahrt annehmen"):
+    //   Activity läuft im launchMode="singleTask" (AndroidManifest). Wenn Fahrer den
+    //   1. FullScreen-Alert offen hat und ein 2. FCM-Push für andere Ride kommt, wird
+    //   dieselbe Task neu getriggered — aber OHNE onNewIntent() bleibt setIntent(newIntent)
+    //   nicht bestehen. rideId/vehicleId halten alte Werte, Buttons feuern gegen die alte
+    //   Ride. Die 2. Fahrt "kommt an" laut FCM-Log, ist aber für den Fahrer nicht bedienbar.
+    //
+    //   Fix: onNewIntent() Override → setIntent(intent) + Extras neu lesen + View neu binden
+    //   + Firebase-Lookup nochmal für frische Daten.
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        Log.i(TAG, "🔄 onNewIntent: neuer Push während RideAlert offen — rebind mit neuer rideId");
+        String newRideId = intent.getStringExtra("rideId");
+        String newVehicleId = intent.getStringExtra("vehicleId");
+        if (newRideId != null && !newRideId.equals(rideId)) {
+            // Alte Sound-Notification für vorherige Ride killen
+            _killAllAlarmSounds();
+        }
+        rideId = newRideId;
+        vehicleId = newVehicleId;
+
+        TextView tvCustomer = findViewById(R.id.alert_customer);
+        TextView tvPickup = findViewById(R.id.alert_pickup);
+        TextView tvDest = findViewById(R.id.alert_destination);
+        TextView tvTime = findViewById(R.id.alert_time);
+
+        // Fallback aus Intent-Extras
+        String preTitle = intent.getStringExtra("title");
+        String preBody = intent.getStringExtra("body");
+        if (preTitle != null) tvCustomer.setText(preTitle.replace("🚨 NEUER AUFTRAG: ", "").trim());
+        if (preBody != null) tvPickup.setText(preBody);
+        tvDest.setText("");
+        tvTime.setText("");
+
+        // Firebase-Lookup für saubere Anzeige der neuen Ride
+        if (rideId != null && !rideId.isEmpty()) {
+            FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("rides/" + rideId)
+                .addListenerForSingleValueEvent(new ValueEventListener() {
+                    @Override public void onDataChange(@NonNull DataSnapshot s) {
+                        String customerName = s.child("customerName").getValue(String.class);
+                        String guestName = s.child("guestName").getValue(String.class);
+                        String pickup = s.child("pickup").getValue(String.class);
+                        String dest = s.child("destination").getValue(String.class);
+                        String pickupTime = s.child("pickupTime").getValue(String.class);
+                        Boolean isJetzt = s.child("isJetzt").getValue(Boolean.class);
+                        StringBuilder cust = new StringBuilder();
+                        if (customerName != null) cust.append(customerName);
+                        if (guestName != null && !guestName.equals(customerName)) cust.append(" — ").append(guestName);
+                        if (cust.length() > 0) tvCustomer.setText(cust.toString());
+                        if (pickup != null) tvPickup.setText("📍 " + pickup);
+                        if (dest != null) tvDest.setText("🎯 " + dest);
+                        StringBuilder t = new StringBuilder();
+                        if (Boolean.TRUE.equals(isJetzt)) t.append("⚡ SOFORT");
+                        else if (pickupTime != null) t.append("⏰ ").append(pickupTime);
+                        if (t.length() > 0) tvTime.setText(t.toString());
+                    }
+                    @Override public void onCancelled(@NonNull DatabaseError e) {
+                        Log.w(TAG, "Firebase-Lookup-Fehler onNewIntent: " + e.getMessage());
+                    }
+                });
+        }
+    }
+
     // 🆕 v6.63.777: Sound + Notifications sofort killen — SYNCHRON, damit der User
     //   nicht 0.5-2s Alarm hört bevor Broadcast beim RideActionReceiver ankommt.
     //   3 Ebenen: (1) AlertSoundService MediaPlayer, (2) diese Ride's Notification,

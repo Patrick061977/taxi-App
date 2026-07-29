@@ -41567,6 +41567,9 @@ async function generateDailyReport(refDate) {
             auffaelligkeiten.push(`Marion-Muster: optimiert → dann Wartepool`);
         }
 
+        // 🆕 v6.63.838: alle Optimierungs-Events für diesen Ride sammeln (nicht nur erste)
+        const optEventsForRide = Object.values(optLog).filter(o => o.rideId === rid).sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+
         rideAnalysis.push({
             id: rid,
             customerName: r.customerName || '?',
@@ -41574,19 +41577,26 @@ async function generateDailyReport(refDate) {
             destination: r.destination || '?',
             pickupTime: r.pickupTime || (r.pickupTimestamp ? new Date(r.pickupTimestamp).toLocaleTimeString('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit' }) : '?'),
             pickupTimestamp: r.pickupTimestamp,
+            createdAt: r.createdAt,
+            createdBy: r.createdBy,
+            source: r.source,
             status: r.status,
             vehicle: r.assignedVehicle,
             vehicleName: r.assignedVehicleName || (vehicles[r.assignedVehicle]?.name) || r.assignedVehicle,
             assignedBy: r.assignedBy,
+            assignedAt: r.assignedAt,
             distance: r.distance,
             price: r.actualPrice || r.estimatedPrice,
-            source: r.source,
+            passengers: r.passengers,
             audit: auditEntries,
             vehicleScores: r.vehicleScores || {},
             autoAssignLastReason: r.autoAssignLastReason,
+            rejectedVehicles: r.rejectedVehicles || [],
             bewertung,
             auffaelligkeiten,
-            optimierung: optEvent
+            optimierung: optEvent,
+            allOptimierungen: optEventsForRide,
+            manualEdits: auditEntries.filter(e => (e.assignedBy || e.updatedBy || '').match(/native_admin|native_dashboard_grab|claude-manual|manual/i))
         });
     }
     rideAnalysis.sort((a, b) => (a.pickupTimestamp || 0) - (b.pickupTimestamp || 0));
@@ -41701,21 +41711,59 @@ th{background:#f0f4f8;font-weight:600}
 }
 
 function renderRideCard(r, escape, timeStr, vehicles, cls) {
-    let html = `<div class="ride ${cls}"><div class="head">${r.bewertung} ${escape(r.customerName)} · ${escape(r.pickupTime)} · ${escape(r.vehicleName || '-')}</div>`;
+    const dtStr = (ts) => ts ? new Date(ts).toLocaleString('de-DE', { timeZone: 'Europe/Berlin', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '-';
+    let html = `<div class="ride ${cls}"><div class="head">${r.bewertung} ${escape(r.customerName)} · ${escape(r.pickupTime)} · ${escape(r.vehicleName || '-')}${r.passengers ? ' · ' + r.passengers + ' Pax' : ''}</div>`;
     html += `<div class="meta">📍 ${escape(r.pickup)} → ${escape(r.destination)}</div>`;
     html += `<div class="meta">Status: <b>${escape(r.status)}</b> · assignedBy: ${escape(r.assignedBy || '-')} · ${r.distance || '-'} km · ${r.price || '-'}€</div>`;
+
+    // 🆕 v6.63.838: Anlage-Info + Vorlaufzeit
+    if (r.createdAt) {
+        const _leadMin = r.pickupTimestamp ? Math.round((r.pickupTimestamp - r.createdAt) / 60000) : 0;
+        const _leadStr = _leadMin < 60 ? `${_leadMin} Min` : _leadMin < 1440 ? `${(_leadMin / 60).toFixed(1)} h` : `${(_leadMin / 1440).toFixed(1)} d`;
+        html += `<div class="meta" style="color:#0066cc"><b>📥 Angelegt:</b> ${escape(dtStr(r.createdAt))} (${_leadStr} Vorlauf) · Quelle: ${escape(r.source || '?')}${r.createdBy ? ' · createdBy: ' + escape(r.createdBy) : ''}</div>`;
+    }
+
     if (r.auffaelligkeiten.length > 0) {
         html += `<div class="auffaellig">⚠️ ${r.auffaelligkeiten.map(escape).join(' · ')}</div>`;
     }
-    if (r.audit && r.audit.length > 0) {
-        html += `<div class="timeline"><b>Timeline:</b>\n`;
-        for (const e of r.audit) {
-            html += `${timeStr(e.ts)}  ${escape(e.oldStatus || '?')} → ${escape(e.newStatus || '?')}${e.newVehicle ? '  [' + escape(e.newVehicle) + ']' : ''}${e.assignedBy ? '  by ' + escape(e.assignedBy) : ''}\n`;
+
+    // 🆕 v6.63.838: KOMBINIERTE Timeline aus rideStatusAudit + optimierungsLog + createdAt
+    const timelineEvents = [];
+    if (r.createdAt) timelineEvents.push({ ts: r.createdAt, type: '📥', label: `ANGELEGT (source=${r.source || '?'})` });
+    (r.audit || []).forEach(e => {
+        const isManual = (e.assignedBy || e.updatedBy || '').match(/native_admin|native_dashboard_grab|claude-manual|manual/i);
+        const icon = isManual ? '👤' : '🤖';
+        const via = e.assignedBy || e.updatedBy || '';
+        const vehPart = e.newVehicle ? `  [${vehicles[e.newVehicle]?.name || e.newVehicle}]` : '';
+        timelineEvents.push({ ts: e.ts, type: icon, label: `${e.oldStatus || '?'} → ${e.newStatus || '?'}${vehPart}${via ? '  by ' + via : ''}` });
+    });
+    (r.allOptimierungen || []).forEach(o => {
+        timelineEvents.push({ ts: o.timestamp, type: '⚙️', label: `OPTIMIERUNG (${o.type || '-'}): ${o.rideName || ''} ${o.bestAltVehicle ? '→ ' + (vehicles[o.bestAltVehicle]?.name || o.bestAltVehicle) : ''}${o.conflictWith ? ' (Konflikt mit ' + o.conflictWith + ')' : ''}` });
+    });
+    timelineEvents.sort((a, b) => (a.ts || 0) - (b.ts || 0));
+    if (timelineEvents.length > 0) {
+        html += `<div class="timeline"><b>🕐 Vollständige Timeline (Anlage → Optimierungen → Status-Wechsel):</b>\n`;
+        for (const e of timelineEvents) {
+            html += `${timeStr(e.ts)}  ${e.type}  ${escape(e.label)}\n`;
         }
         html += `</div>`;
     }
+
+    // Manuelle Eingriffe hervorheben
+    if (r.manualEdits && r.manualEdits.length > 0) {
+        html += `<div class="meta" style="background:#fff3cd;padding:6px 10px;border-radius:4px;color:#856404"><b>👤 ${r.manualEdits.length} manuelle Eingriff${r.manualEdits.length > 1 ? 'e' : ''} durch Admin/Dispo:</b><br>`;
+        for (const e of r.manualEdits) {
+            html += `  ${timeStr(e.ts)} ${escape(e.oldStatus || '?')}→${escape(e.newStatus || '?')} ${e.newVehicle ? '[' + escape(vehicles[e.newVehicle]?.name || e.newVehicle) + ']' : ''} by ${escape(e.assignedBy || e.updatedBy || '')}<br>`;
+        }
+        html += `</div>`;
+    }
+
+    if (r.rejectedVehicles && r.rejectedVehicles.length > 0) {
+        html += `<div class="meta"><b>❌ Abgelehnte Fahrzeuge:</b> ${r.rejectedVehicles.map(vid => escape(vehicles[vid]?.name || vid)).join(', ')}</div>`;
+    }
+
     if (r.vehicleScores && Object.keys(r.vehicleScores).length > 0) {
-        html += `<div class="scores"><b>Score-Verteilung:</b><br>`;
+        html += `<div class="scores"><b>Score-Verteilung beim letzten Auto-Assign:</b><br>`;
         for (const [vid, s] of Object.entries(r.vehicleScores)) {
             const vName = vehicles[vid]?.name || vid;
             html += `${escape(vName)}: ${escape(s.status || '-')} — ${escape(s.reason || '-')}<br>`;
@@ -41723,7 +41771,7 @@ function renderRideCard(r, escape, timeStr, vehicles, cls) {
         html += `</div>`;
     }
     if (r.autoAssignLastReason) {
-        html += `<div class="meta" style="font-size:11px;font-style:italic">Auto-Assign: ${escape(r.autoAssignLastReason)}</div>`;
+        html += `<div class="meta" style="font-size:11px;font-style:italic">Auto-Assign-Grund: ${escape(r.autoAssignLastReason)}</div>`;
     }
     html += `</div>`;
     return html;

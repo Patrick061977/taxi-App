@@ -3008,16 +3008,19 @@ async function describeImageForClaudeBridge(botTokenForFile, fileId, caption = '
 
         const prompt = `Beschreibe dieses Bild für einen Entwickler-Assistenten der den Code des Taxi-Apps weiterentwickelt.
 ${caption ? `Zusatz-Text vom Sender: "${caption}"\n` : ''}
-Lies ALLEN sichtbaren Text wortgenau. Beschreibe:
-- Was für ein Bildschirm/App das ist (Firebase Console, Telegram, Browser, Fahrer-App, etc.)
-- Welcher Bereich/Tab/Menü
-- Sichtbare Buttons (mit Text)
-- Fehlermeldungen, Stack-Traces, Code-Zeilen WORTGENAU
-- Tabellen-Inhalte zeilenweise
-- Status-Anzeigen, Zähler, Warnungen
-- Visuelle Auffälligkeiten
 
-Antworte als reine Beschreibung in Deutsch, knapp aber vollständig. Maximal 1500 Zeichen.`;
+WICHTIGSTE REGEL: Text-Inhalt IMMER ZUERST wortgenau transkribieren. Layout/UI-Deko (App-Typ, Header, Kontakt-Info, Sicherheitstools-Bereich, Buttons, Design) NUR AM ENDE — und nur falls noch Platz.
+
+Prio-Reihenfolge:
+1. Chat-/Messaging-Screenshots: JEDE Nachricht wortgenau (Absender · Zeit · Text) — chronologisch von oben nach unten
+2. Buchungs-/Termin-Daten wortgenau: Name, Telefon, Datum, Uhrzeit, Abholort, Zielort, Personenzahl
+3. Tabellen-/Formular-Inhalte zeilenweise wortgenau
+4. Fehlermeldungen, Stack-Traces, Code-Zeilen wortgenau
+5. Zahlenwerte, Preise, Zähler wortgenau
+6. ERST DANN falls Platz: App-Typ, Bereich/Tab, sichtbare Buttons
+7. ERST DANN falls Platz: visuelle Auffälligkeiten
+
+Antworte als reine Beschreibung in Deutsch. Maximal 1500 Zeichen. Bei Chat-Screenshots MUSS der Nachrichten-Text den Großteil ausmachen — NICHT die Layout-Beschreibung.`;
 
         const visionResp = await callAnthropicAPI(anthropicKey, 'claude-haiku-4-5-20251001', 1500, [{
             role: 'user',

@@ -30041,6 +30041,9 @@ exports.onRideUpdated = onValueUpdated(
                 // v6.62.656: Patrick (13.05. 07:44): Push klingelt nach Annehmen weiter.
                 // Cloud-Function sendet jetzt FCM type=cancel_notification an das zugewiesene
                 // Fahrzeug, damit TaxiFCMService die persistente Notification cancelt.
+                // v6.63.842 (Patrick 31.07. 10:23 Bridge Marion-Bimmeln): Admin-Push
+                //   bimmelte weiter nach Annehmen — cancel ging nur an Fahrzeug, nicht Admin.
+                //   Jetzt zusaetzlich Admin-Cancel via sendFCMToAdmins.
                 const _accVid = after.vehicleId || after.assignedVehicle;
                 if (_accVid) {
                     try {
@@ -30051,6 +30054,14 @@ exports.onRideUpdated = onValueUpdated(
                         console.log(`📵 cancel_notification → ${_accVid} fuer ride ${rideId}`);
                     } catch (_e) { console.warn('cancel_notification FCM err:', _e.message); }
                 }
+                // NEU v6.63.842: auch Admin-Alarm cancellen
+                try {
+                    await sendFCMToAdmins({
+                        type: 'cancel_notification',
+                        rideId: rideId
+                    });
+                    console.log(`📵 cancel_notification → Admins fuer ride ${rideId}`);
+                } catch (_e) { console.warn('admin cancel_notification FCM err:', _e.message); }
                 message = `✅ <b>FAHRER ZUGEWIESEN!</b>\n` +
                     `🆔 <b>ID:</b> <code>${rideId}</code>\n\n` +
                     `🚗 <b>Fahrzeug:</b> ${after.vehicle || 'Unbekannt'}${after.vehiclePlate ? ` (${after.vehiclePlate})` : ''}\n` +

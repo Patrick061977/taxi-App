@@ -24369,6 +24369,26 @@ async function sendToAllAdmins(message, category, extraParams) {
             const result = await sendTelegramMessage(chatId, message, _params);
             if (!result) console.error(`❌ sendToAllAdmins: Nachricht an ${chatId} fehlgeschlagen`);
         }
+        // 🆕 v6.63.840 (Patrick 31.07. 09:50 Bridge Steiner-Root-Cause): Patrick nutzt
+        //   die Native-App und bekommt Telegram-Bot-Nachrichten NICHT. sendToAllAdmins
+        //   wurde 128x im Code aufgerufen und alle Alerts gingen ins Leere.
+        //   Fix: parallel zu Telegram-Bot auch FCM-Push an Native-App-Admins schicken.
+        try {
+            const _bodyText = String(message || '').replace(/<[^>]+>/g, '').trim().slice(0, 300);
+            const _fcmPayload = {
+                title: (category === 'new_ride' ? '🚕 Neue Fahrt'
+                    : category === 'cancellation' ? '❌ Stornierung'
+                    : category === 'spam_block' ? '⛔ Spam blockiert'
+                    : category === 'wa-abort' ? '📱 WA abgebrochen'
+                    : '📢 Funk-Taxi Admin'),
+                body: _bodyText,
+                type: category || 'admin_generic',
+            };
+            if (extraParams && extraParams.rideId) _fcmPayload.rideId = extraParams.rideId;
+            await sendFCMToAdmins(_fcmPayload);
+        } catch (_fcmErr) {
+            console.warn('sendToAllAdmins → sendFCMToAdmins fehlgeschlagen:', _fcmErr.message);
+        }
     } catch (e) {
         console.error('❌ sendToAllAdmins Fehler:', e.message, e.stack);
     }

@@ -760,7 +760,14 @@ async function sendFCMToAdmins(payload) {
             console.log('📵 sendFCMToAdmins: Keine Admin-Tokens registriert (oder alle silent)');
             return 0;
         }
-        const data = Object.fromEntries(Object.entries(payload || {}).map(([k, v]) => [k, String(v == null ? '' : v)]));
+        // 🆕 v6.63.841 (Patrick 31.07. 09:52 Bridge 'kerstin eberhard ist da aber ohne ton'):
+        //   Severity ins data-Payload damit TaxiFCMService in der Native-App weiss welchen
+        //   Ton abspielen. Analog zu sendFCMToVehicle-Mapping (Zeile ~834).
+        const _t = (payload && payload.type) || 'admin_generic';
+        let _severity = 'reminder'; // Default: mit Ton, nicht silent
+        if (_t === 'new_ride' || _t === 'new_ride_immediate' || _t.startsWith('wartepool')) _severity = 'alarm';
+        else if (_t === 'losfahren_reminder' || _t === 'new_ride_reminder' || _t === 'replan_notification' || _t === 'cancel_notification') _severity = 'reminder';
+        const data = Object.fromEntries(Object.entries({ ...(payload || {}), severity: _severity }).map(([k, v]) => [k, String(v == null ? '' : v)]));
         let sent = 0;
         for (const t of tokens) {
             try {

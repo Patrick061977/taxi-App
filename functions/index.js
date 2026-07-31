@@ -28434,29 +28434,47 @@ exports.onRideCreated = onValueCreated(
 
         console.log(`📢 onRideCreated: Sende Admin-Benachrichtigung für ${rideId}...`);
         let _adminNotifResult = 'unbekannt';
-        // 🆕 v6.62.908 (Patrick 24.05. 09:15): Admin-Push nur fuer Web-Quellen,
-        //   NICHT fuer manuell erstellte Vorbestellungen (Native-Admin/Telegram-Admin).
-        //   Patrick: 'Warum kam von Frau Wonka jetzt ein Push? Den brauche ich nicht.
-        //   Web-Anfrage ist okay'. → Admin der die Fahrt SELBST anlegt sieht sie eh,
-        //   braucht keine doppelte Notification.
-        const _webOrAnfrageSources = ['web-booking', 'qr-aufsteller', 'web-anfrage', 'berlin-shuttle-anfrage', 'whatsapp', 'sms-anfrage'];
-        const _isFromWebOrAnfrage = _webOrAnfrageSources.includes(ride.source);
-        if (_isFromWebOrAnfrage) {
+        // 🆕 v6.62.908 (Patrick 24.05. 09:15): Wonka-Fall: "Warum kam von Frau Wonka
+        //   jetzt ein Push? Den brauche ich nicht" → wenn Patrick sich SELBST eine
+        //   Sofortfahrt zuteilt braucht er keinen Push.
+        // 🔧 v6.63.839 (Patrick 31.07. 08:40 Bridge Steiner-Fall): "Vorbestellungen
+        //   muessen IMMER einen Push bekommen. Sofortfahrten auch. Es sei denn ich
+        //   gebe sie mir selber."
+        //   → Alte source-basierte Skip-Regel (native_vorbestellung_crmsearch etc.)
+        //     hat Vorbestellungen faelschlich geskippt. Neue Regel:
+        //     - Vorbestellung (pickup > jetzt+30min) → IMMER Push
+        //     - Sofortfahrt mit bei-Anlage-Zuweisung durch Admin → SKIP (Wonka)
+        //     - Sofortfahrt ohne bei-Anlage-Zuweisung → Push
+        //     - Sofortfahrt mit assignedBy=cloud-auto-assign → Push
+        const _pickupTs = ride.pickupTimestamp || 0;
+        const _minsToPickup = (_pickupTs - Date.now()) / 60000;
+        const _isVorbestellung = _minsToPickup > 30; // >30 Min = Vorbestellung, sonst Sofort
+        const _hasImmediateAssign = !!ride.assignedVehicle;
+        const _isAdminSelfGrab = _hasImmediateAssign
+            && ride.assignedBy
+            && (ride.assignedBy.startsWith('manual-admin')
+                || ride.assignedBy.startsWith('claude-manual-')
+                || ride.assignedBy === 'native_dashboard_grab'
+                || ride.assignedBy === 'admin-manual');
+        // Skip NUR bei Sofortfahrt die Admin sich selbst gegriffen hat (Wonka-Fall).
+        // Alle Vorbestellungen und alle nicht-selbst-gegrabbten Sofortfahrten → Push.
+        const _skipAdminPush = !_isVorbestellung && _isAdminSelfGrab;
+        if (!_skipAdminPush) {
             try {
                 const _adminChatsSnap = await db.ref('settings/telegram/adminChats').once('value');
                 const _rawAdmChats = _adminChatsSnap.val();
                 const _admChatList = Array.isArray(_rawAdmChats) ? _rawAdmChats : (typeof _rawAdmChats === 'object' && _rawAdmChats !== null ? Object.values(_rawAdmChats) : (_rawAdmChats ? [_rawAdmChats] : []));
                 await sendToAllAdmins(message, 'new_ride');
                 _adminNotifResult = `gesendet an ${_admChatList.length} Admin(s): ${_admChatList.join(', ')}`;
-                console.log(`✅ onRideCreated: Admin-Push gesendet für ${rideId} (source=${ride.source})`);
+                console.log(`✅ onRideCreated: Admin-Push gesendet für ${rideId} (source=${ride.source}, ${_isVorbestellung ? 'Vorbestellung' : 'Sofortfahrt'})`);
             } catch (_notifErr) {
                 _adminNotifResult = `FEHLER: ${_notifErr.message}`;
                 console.error(`❌ onRideCreated: sendToAllAdmins FEHLER für ${rideId}:`, _notifErr.message);
             }
             await sendToSystemChannel(message, 'new_ride');
         } else {
-            _adminNotifResult = `SKIP — source=${ride.source} (kein Web/Anfrage, vermutlich manuell)`;
-            console.log(`⏭️ onRideCreated: Admin-Push SKIP für ${rideId} — source=${ride.source} (manuell erstellt, kein Push noetig)`);
+            _adminNotifResult = `SKIP — Sofortfahrt Admin-Self-Grab (assignedBy=${ride.assignedBy})`;
+            console.log(`⏭️ onRideCreated: Admin-Push SKIP für ${rideId} — Wonka-Fall (Sofortfahrt+Self-Grab, assignedBy=${ride.assignedBy})`);
         }
 
         // 🆕 v6.38.96 + v6.63.368 (Patrick 16.06. 17:03 Bridge: "Bestätigungen per

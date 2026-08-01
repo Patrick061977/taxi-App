@@ -30644,24 +30644,28 @@ exports.onRideUpdated = onValueUpdated(
                 //   komplett-skippen jetzt ride_changed-Push (leiser Standard-Notification-
                 //   Channel, keine Annehmen-Buttons, keinen full-screen). cancel_notification
                 //   an oldVehicle bleibt aktiv.
+                // 🔧 v6.63.856 (Patrick 01.08. 14:55 Bridge Selders "brauche Alarm bei
+                //   neuer Zuweisung"): type=new_ride (Vollalarm) statt ride_changed (silent)
+                //   wenn Umplanung an ANDERES Vehicle. TaxiFCMService severity=alarm.
+                //   Fahrer hoert dass er neue Fahrt hat, egal ob 'neu' oder 'umgeplant'.
                 try {
                     const _pickupLabel = after.pickupTime || (after.pickupTimestamp ? new Date(after.pickupTimestamp).toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit',timeZone:'Europe/Berlin'}) : 'Sofort');
                     await sendFCMToVehicle(newVehicle, {
-                        type: 'ride_changed',
+                        type: 'new_ride',
                         rideId,
                         vehicleId: newVehicle,
                         pickup: after.pickup || '',
                         destination: after.destination || '',
                         pickupTime: _pickupLabel,
                         customerName: after.customerName || 'Kunde',
-                        changes: '🚗 Fahrzeug umgeplant auf Dich',
+                        changes: '🚗 Umgeplant auf Dich',
                         isReminder: 'false',
-                        reason: 'silent-reassign'
+                        reason: 'reassign-with-alarm'
                     });
-                    console.log(`🤫 v6.63.190 silentReassign=true — leiser ride_changed-Push an ${newVehicle}`);
-                    try { await addRideLog(rideId, '🤫', `Leise Umplanung an ${newVehicle} (kein Annehmen-Druck)`, { quelle: 'onRideUpdated v6.63.190', neuesVehicle: newVehicle, altesVehicle: oldVehicle || null }); } catch(_) {}
+                    console.log(`🔔 v6.63.856 Umplanung mit Alarm an ${newVehicle}`);
+                    try { await addRideLog(rideId, '🔔', `Umplanung mit ALARM an ${newVehicle}`, { quelle: 'onRideUpdated v6.63.856', neuesVehicle: newVehicle, altesVehicle: oldVehicle || null }); } catch(_) {}
                 } catch (_qFcm) {
-                    console.warn('silent-Re-Assign ride_changed FCM-Fehler:', _qFcm.message);
+                    console.warn('reassign-alarm FCM-Fehler:', _qFcm.message);
                 }
                 if (oldVehicle && oldVehicle !== newVehicle) {
                     try {

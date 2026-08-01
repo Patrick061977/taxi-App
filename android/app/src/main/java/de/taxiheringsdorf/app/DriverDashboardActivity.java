@@ -1655,6 +1655,11 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 if (r.pickupTimestamp < now - 30L * 60L * 1000L) continue; // 30 Min Vergangenheit OK
                 if (r.pickupTimestamp > maxFuture) continue;
             }
+            // 🆕 v6.63.848 (Patrick 01.08. 07:02 Bridge "darf gar nicht im Bedienfeld sehen"):
+            //   Wartepool-Rides mit pax > eigene Vehicle-Kapazitaet KOMPLETT ausblenden.
+            //   Fahrer soll sie gar nicht erst sehen. (Warnung reicht nicht — Fahrer
+            //   koennten sie trotzdem klicken).
+            if (r.passengers != null && r.passengers > getMyVehicleCapacity()) continue;
             pool.add(r);
         }
         wartepoolRides = pool;

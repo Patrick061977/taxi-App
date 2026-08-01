@@ -41041,7 +41041,9 @@ async function handleVideo(message) {
 //   - Anomalien (autoCompleted, stuck rides)
 //
 //   Speichert /dailyReports/{YYYY-MM-DD} + Bridge-Push der Zusammenfassung.
-exports.scheduledDailyReport = onSchedule(
+// v6.63.851 (Patrick 01.08.): Dieser Export ist Duplikat — die 2. scheduledDailyReport
+//   Definition unten (Zeile ~41574) gewinnt in JS. Kommentiere diese aus damit klar ist.
+exports.scheduledDailyReport_DEPRECATED_v449 = onSchedule(
     {
         // 🆕 v6.63.449 (Patrick 20.06. 20:49 Bridge: "Tagesablauf wollte ich auch noch
         //   haben, was im Wartepool war, warum... wann kommt das, 22 Uhr"):
@@ -41573,7 +41575,8 @@ exports.pay = onRequest(
 //   nach Firebase Storage, Push an Admin mit Link + Kurz-Zusammenfassung.
 exports.scheduledDailyReport = onSchedule(
     {
-        schedule: '30 21 * * *',
+        // v6.63.851 (Patrick 01.08. 09:34 Bridge "ab 21 Uhr den Bericht"): 21:30 → 21:00
+        schedule: '0 21 * * *',
         timeZone: 'Europe/Berlin',
         region: 'europe-west1',
         timeoutSeconds: 300,

@@ -79,6 +79,17 @@ public class DriverDashboardActivity extends AppCompatActivity {
     private Query todayCompletedQuery;
     private Query openRidesQuery;
     // v6.63.334 (Patrick 14.06.2026 13:30): Wartepool fuer Fahrer sichtbar — zweiter Query
+    // 🆕 v6.63.847 (Patrick 01.08.): Kapazitaets-Map fuer Client-side Filter (spiegelt
+    //   OFFICIAL_VEHICLES aus functions/index.js). Falls Vehicle unbekannt → 4 default.
+    private static final java.util.Map<String, Integer> VEHICLE_CAP = new java.util.HashMap<String, Integer>() {{
+        put("pw-ik-222", 4); put("pw-my-222-e", 4); put("pw-ki-222", 4); put("pw-ym-222-e", 4);
+        put("pw-sk-222", 8); put("vg-lk-111", 8);
+    }};
+    private int getMyVehicleCapacity() {
+        Integer cap = VEHICLE_CAP.get(currentVehicleId);
+        return cap != null ? cap : 4;
+    }
+
     private Query wartepoolRidesQuery;
     private ValueEventListener wartepoolRidesListener;
     private List<Ride> wartepoolRides = new ArrayList<>();
@@ -5165,6 +5176,20 @@ public class DriverDashboardActivity extends AppCompatActivity {
                     btnAccept.setText("✏️ Bearbeiten");
                     btnReject.setOnClickListener(v -> { /* nichts — bleibt im Pool */ });
                     btnAccept.setOnClickListener(v -> showWartepoolResolverDialog(r));
+                    // 🆕 v6.63.847 (Patrick 01.08. 06:50 Bridge "Töpfer 5P wird MY 4P angeboten"):
+                    //   Kapazitaets-Check — wenn die Ride mehr Personen hat als das aktive
+                    //   Vehicle transportieren kann, Accept-Button disable + rote Warnung.
+                    int _myCap = getMyVehicleCapacity();
+                    int _ridePax = (r.passengers != null) ? r.passengers : 1;
+                    if (_ridePax > _myCap) {
+                        btnAccept.setEnabled(false);
+                        btnAccept.setAlpha(0.4f);
+                        btnAccept.setText("⚠️ " + _ridePax + "P > " + _myCap + "P");
+                        btnAccept.setOnClickListener(v -> android.widget.Toast.makeText(
+                            DriverDashboardActivity.this,
+                            "Dieses Fahrzeug hat nur " + _myCap + " Sitze — Ride braucht " + _ridePax + " Personen.",
+                            android.widget.Toast.LENGTH_LONG).show());
+                    }
                 }
 
                 // 🆕 v6.62.924 (Patrick 25.05. 10:00): "kann ich die Fahrt auch wieder

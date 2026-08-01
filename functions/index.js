@@ -28463,16 +28463,19 @@ exports.onRideCreated = onValueCreated(
         const _minsToPickup = (_pickupTs - Date.now()) / 60000;
         const _isVorbestellung = _minsToPickup > 30; // >30 Min = Vorbestellung, sonst Sofort
         const _hasImmediateAssign = !!ride.assignedVehicle;
-        // 🔧 v6.63.852 (Patrick 01.08. 09:47 Bridge "Self-Grab rausnehmen"):
-        //   native_dashboard_grab ist NIE bei onRideCreated (nur bei Update). Nur echter
-        //   Wonka-Fall: Admin legt Sofortfahrt an + weist SICH direkt bei Anlage zu.
-        //   Alle anderen Zuweisungen → Push.
+        // 🔧 v6.63.852+853 (Patrick 01.08. 09:48 Bridge "nur im gleichen Atemzug"):
+        //   Skip nur wenn Ride wirklich SOFORT beim Anlegen sich selbst zugewiesen
+        //   wurde (max 5 Min zwischen createdAt und assignedAt). Sonst = separater
+        //   Entschluss, Push noetig.
+        const _createdAt = ride.createdAt || Date.now();
+        const _assignedAt = ride.assignedAt || _createdAt;
+        const _msBetween = Math.abs(_assignedAt - _createdAt);
+        const _atemzug = _msBetween <= 5 * 60 * 1000; // 5 Min
         const _isAdminSelfGrab = _hasImmediateAssign
             && ride.assignedBy
             && (ride.assignedBy.startsWith('manual-admin')
-                || ride.assignedBy === 'admin-manual');
-        // Skip NUR bei Sofortfahrt die Admin bei Anlage sich selbst zugewiesen hat.
-        // Alle Vorbestellungen, alle nicht-selbst-gegrabbten Sofortfahrten → Push.
+                || ride.assignedBy === 'admin-manual')
+            && _atemzug;
         const _skipAdminPush = !_isVorbestellung && _isAdminSelfGrab;
         if (!_skipAdminPush) {
             try {

@@ -32370,6 +32370,63 @@ exports.onFeedbackCreated = onValueCreated(
 // 🆕 v6.20.0: OFFENE FAHRTEN PRÜFUNG (alle 1 Minute)
 // Warnt Admins wenn Vorbestellungen < 10 Min vor Abholzeit ohne Fahrer sind
 // ═══════════════════════════════════════════════════════════════
+// 🆕 v6.63.854 (Patrick 01.08. 09:51 Bridge "Reussner keinen Alarm bekommen"):
+//   Losfahrt-Reminder-Cron: prueft alle 2 Min ob zugewiesene Rides innerhalb der
+//   naechsten 15 Min anstehen. Sendet FCM-Push an assignedVehicle mit type=losfahren_reminder.
+//   Setzt Flag departureReminderSent damit nicht doppelt. Loop-frei weil nur 1 Flag + Send.
+exports.scheduledDepartureReminder = onSchedule(
+    {
+        schedule: 'every 2 minutes',
+        region: 'europe-west1',
+        timeoutSeconds: 60,
+        memory: '256MiB'
+    },
+    async () => {
+        try {
+            const now = Date.now();
+            const horizon = now + 15 * 60 * 1000; // 15 Min voraus
+            const ridesSnap = await db.ref('rides')
+                .orderByChild('pickupTimestamp')
+                .startAt(now)
+                .endAt(horizon)
+                .once('value');
+            if (!ridesSnap.val()) return;
+            let sent = 0;
+            const promises = [];
+            ridesSnap.forEach(child => {
+                const r = child.val();
+                const rid = child.key;
+                if (!r || !r.assignedVehicle) return;
+                if (!['accepted', 'assigned', 'vorbestellt'].includes(r.status)) return;
+                if (r.departureReminderSent === true) return;
+                const mins = Math.round((r.pickupTimestamp - now) / 60000);
+                if (mins < 0 || mins > 15) return;
+                // Send FCM
+                promises.push((async () => {
+                    try {
+                        const _dest = (r.destination || '').substring(0, 50);
+                        const _cust = r.customerName || 'Kunde';
+                        await sendFCMToVehicle(r.assignedVehicle, {
+                            type: 'losfahren_reminder',
+                            rideId: rid,
+                            title: `⏰ ${mins} Min bis Pickup`,
+                            body: `${_cust} · ${_dest}`,
+                            isReminder: 'true'
+                        });
+                        await db.ref('rides/' + rid + '/departureReminderSent').set(true);
+                        try { await addRideLog(rid, '⏰', `Losfahrt-Reminder gesendet (${mins} Min bis Pickup)`, { quelle: 'scheduledDepartureReminder v6.63.854', vehicle: r.assignedVehicle }); } catch (_) {}
+                        sent++;
+                    } catch (_e) { console.warn(`scheduledDepartureReminder ${rid} err:`, _e.message); }
+                })());
+            });
+            await Promise.all(promises);
+            if (sent > 0) console.log(`⏰ scheduledDepartureReminder: ${sent} Losfahrt-Push(es) versendet`);
+        } catch (e) {
+            console.error('scheduledDepartureReminder Fehler:', e.message);
+        }
+    }
+);
+
 exports.scheduledOpenRideCheck = onSchedule(
     {
         // v6.47.1: 1 → 2 Min — halbiert Cloud-Function-Aufrufe ohne Funktions-Verlust

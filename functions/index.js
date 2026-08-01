@@ -30675,15 +30675,13 @@ exports.onRideUpdated = onValueUpdated(
                         console.warn('silent-Re-Assign cancel FCM-Fehler:', _cancelErr.message);
                     }
                 }
-            } else if (['native_dashboard_grab','native_wartepool_banner','manual-admin'].includes(after.assignedBy) || (after.assignedBy || '').startsWith('claude-manual-')) {
-                // 🆕 v6.63.790 (Patrick 22.07. Bridge "wenn ich Fahrt oben selber schnappe,
-                //   braucht der Push nicht nochmal kommen"): Bei manueller Selbst-Übernahme
-                //   via Wartepool-Banner / Dashboard-Grab / Admin-Assign kein new_ride Push
-                //   zurück an den Fahrer — er weiß es ja schon (hat gerade selber getippt).
-                //   Losfahr-Reminder (departure_alert) kommt weiter zur richtigen Zeit.
-                console.log(`🤫 v6.63.790 Kein new_ride-Push — Selbst-Übernahme via ${after.assignedBy}`);
-                try { await addRideLog(rideId, '🤫', `Kein Push (Selbst-Übernahme via ${after.assignedBy})`, { quelle: 'onRideUpdated v6.63.790', vehicleId: newVehicle }); } catch(_) {}
-            } else {
+            // 🔧 v6.63.857 (Patrick 01.08. 15:48 Bridge "Fahrer immer Alarm"):
+            //   v6.63.790-Regel entfernt. Patrick: "der Fahrer moechte einfach einen
+            //   Alarmton haben. Da ist es egal, ob ich den Termin selber eingestellt
+            //   habe oder nicht. Wenn eine Fahrt zugeteilt wird, dann Alarm."
+            //   → ALLE Zuweisungen triggern Alarm — auch Selbst-Grab / Wartepool-Banner /
+            //     Admin-Assign / Claude-Manual.
+            else {
                 try {
                     const _pickupLabel = after.pickupTime || 'Sofort';
                     // 🆕 v6.62.785 (Patrick 16.05. 16:29): 'reason' fuer FCM-Push damit

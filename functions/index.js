@@ -28470,7 +28470,8 @@ exports.onRideCreated = onValueCreated(
         const _createdAt = ride.createdAt || Date.now();
         const _assignedAt = ride.assignedAt || _createdAt;
         const _msBetween = Math.abs(_assignedAt - _createdAt);
-        const _atemzug = _msBetween <= 5 * 60 * 1000; // 5 Min
+        // v6.63.855 (Patrick 01.08. 09:52): nicht 5 Min sondern UNMITTELBAR — 30s
+        const _atemzug = _msBetween <= 30 * 1000; // 30 Sekunden
         const _isAdminSelfGrab = _hasImmediateAssign
             && ride.assignedBy
             && (ride.assignedBy.startsWith('manual-admin')

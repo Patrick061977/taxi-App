@@ -29772,30 +29772,6 @@ exports.onRideUpdated = onValueUpdated(
             }
         }
 
-        // 🆕 v6.63.850 (Patrick 01.08. 08:00 Bridge Töpfer 9.30 statt 19.30):
-        //   Grossraum-Zuschlag retro-fix: wenn passengers >= 5 gesetzt/geaendert wird
-        //   UND Preis noch keinen Grossraum enthaelt → +10 EUR draufaddieren.
-        try {
-            const _newPax = parseInt(after.passengers || 0, 10);
-            const _oldPax = parseInt(before.passengers || 0, 10);
-            const _crossed5 = _newPax >= 5 && _oldPax < 5;
-            const _priceNow = parseFloat(after.price || after.estimatedPrice || 0);
-            const _hasGrossraum = after.priceNote && String(after.priceNote).toLowerCase().includes('grossraum')
-                                || (Array.isArray(after.zuschlagText) && after.zuschlagText.some(t => String(t).toLowerCase().includes('großraum')));
-            const _isFixed = after.isFixedPrice === true || after.priceSource === 'fixedRoute' || after.priceSource === 'manual';
-            if ((_crossed5 || (_newPax >= 5 && _priceNow > 0 && !_hasGrossraum)) && !_isFixed) {
-                const _newPrice = (_priceNow + 10).toFixed(2);
-                await db.ref('rides/' + rideId).update({
-                    price: _newPrice,
-                    estimatedPrice: parseFloat(_newPrice),
-                    priceNote: (after.priceNote ? after.priceNote + ' + ' : '') + 'Großraumzuschlag +10€ (5+ Pax)',
-                    grossraumAppliedAt: Date.now()
-                });
-                console.log(`💰 v6.63.850 Grossraum-Retro-Fix ${rideId}: ${_priceNow} → ${_newPrice} (${_newPax} Pax)`);
-                try { await addRideLog(rideId, '🚐', `Grossraumzuschlag +10€ retro (${_newPax} Pax) → ${_newPrice}€`); } catch(_) {}
-            }
-        } catch (_grossErr) { console.warn('v6.63.850 grossraum-fix err:', _grossErr.message); }
-
         // ─── 🆕 v6.62.223: ÄNDERUNGS-PUSH bei Vorbestellungen ───
         // Patrick (03.05. 18:20): "bei jeder Vorbestellung-Änderung würde ich gerne neuen Push haben,
         // weil sonst vergisst man das". FCM an Fahrer + Telegram an Admins wenn Schlüsselfelder

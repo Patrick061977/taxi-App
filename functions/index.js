@@ -30023,7 +30023,11 @@ exports.onRideUpdated = onValueUpdated(
                     await addRideLog(rideId, '🚨', `Wartepool-Status gesetzt nach ${after.autoAssignAttempts || 0} Auto-Assign-Fehlschlaegen`);
                 } catch (_) {}
             }
-            if (newStatus === 'accepted') {
+            // v6.63.845 (Patrick 01.08. 06:29 Bridge 'Gebimmel nicht aus'):
+            //   cancel_notification bei accepted UND on_way — Fahrer kann direkt 'bin
+            //   unterwegs' klicken ohne accepted-Zwischenschritt. Ohne cancel bei on_way
+            //   blieb der Alarm bimmeln bis 60s AlertSoundService-Timeout.
+            if (newStatus === 'accepted' || newStatus === 'on_way') {
                 // v6.62.656: Patrick (13.05. 07:44): Push klingelt nach Annehmen weiter.
                 // Cloud-Function sendet jetzt FCM type=cancel_notification an das zugewiesene
                 // Fahrzeug, damit TaxiFCMService die persistente Notification cancelt.
@@ -31885,6 +31889,70 @@ exports.onVehicleShiftPlanChanged = onValueUpdated(
             }
         } catch (err) {
             console.error('onVehicleShiftPlanChanged Fehler:', err.message);
+        }
+    }
+);
+
+// 🆕 v6.63.846 (Patrick 01.08. 06:31 Bridge Schaeffert-Bug): Wenn ein Fahrer online
+//   geht (shift.status wechselt auf 'active') → sofort Wartepool-Fahrten checken die
+//   fuer sein Vehicle passen. Ohne diesen Trigger wartet der Fahrer bis zu 10 Min auf
+//   den naechsten scheduledAutoAssign-Lauf. rejectedVehicles wird ignoriert wenn das
+//   Vehicle seit >30 Min offline war (der Grund fuer die Ablehnung ist stale).
+exports.onVehicleShiftActive = onValueUpdated(
+    {
+        ref: '/vehicles/{vehicleId}/shift',
+        region: 'europe-west1',
+        instance: 'taxi-heringsdorf-default-rtdb',
+        memory: '256MiB',
+        timeoutSeconds: 60
+    },
+    async (event) => {
+        const vid = event.params.vehicleId;
+        const before = event.data.before.val() || {};
+        const after = event.data.after.val() || {};
+        // Nur triggern wenn Status ZU 'active' wechselt (Fahrer geht online)
+        if (before.status === 'active' || after.status !== 'active') return;
+        console.log(`🚦 onVehicleShiftActive: ${vid} online — Wartepool-Check + rejectedVehicles-Reset`);
+        try {
+            // 1. rejectedVehicles fuer dieses Vehicle aus allen unassigned rides entfernen
+            const now = Date.now();
+            const REJECT_STALE_MS = 30 * 60 * 1000; // 30 Min
+            const ridesSnap = await db.ref('rides').orderByChild('status').equalTo('vorbestellt').once('value');
+            const updates = {};
+            const candidateRides = [];
+            ridesSnap.forEach(c => {
+                const r = c.val();
+                if (!r || r.assignedVehicle) return;
+                const rej = r.rejectedVehicles || {};
+                const rejTs = rej[vid];
+                if (rejTs && typeof rejTs === 'number' && (now - rejTs) > REJECT_STALE_MS) {
+                    updates[`rides/${c.key}/rejectedVehicles/${vid}`] = null;
+                    candidateRides.push(c.key);
+                } else if (!rejTs) {
+                    candidateRides.push(c.key);
+                }
+            });
+            if (Object.keys(updates).length > 0) {
+                await db.ref().update(updates);
+                console.log(`✅ ${Object.keys(updates).length} stale rejectedVehicles-Eintraege fuer ${vid} zurueckgesetzt`);
+            }
+            // 2. Fuer jede Kandidaten-Ride: autoAssign versuchen
+            let assigned = 0;
+            for (const rid of candidateRides.slice(0, 20)) { // Max 20 pro Trigger, sonst timeout
+                try {
+                    const rs = await db.ref('rides/' + rid).once('value');
+                    const r = rs.val();
+                    if (!r || r.assignedVehicle || r.status !== 'vorbestellt') continue;
+                    // Nur wenn pickup <= 6h in Zukunft
+                    if (r.pickupTimestamp && r.pickupTimestamp > now + 6 * 3600000) continue;
+                    // Bevorzugt-Vehicle mitschicken
+                    await autoAssignRide(rid, r, [vid]);
+                    if ((await db.ref('rides/' + rid + '/assignedVehicle').once('value')).val() === vid) assigned++;
+                } catch (_e) { console.warn(`autoAssign ${rid} err:`, _e.message); }
+            }
+            console.log(`🎯 onVehicleShiftActive: ${vid} = ${assigned} neue Zuweisung(en)`);
+        } catch (err) {
+            console.error('onVehicleShiftActive Fehler:', err.message);
         }
     }
 );

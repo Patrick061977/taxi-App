@@ -2717,20 +2717,24 @@ async function autoAssignRide(rideId, rideData, _excludeVehicleIds = []) {
 
         // 🚫 v6.62.927 (Patrick 25.05. 10:30, KORRIGIERT v6.62.921):
         //   Vorbestellungs-Push VOLL entfernt, Losfahr-Alarm uebernimmt 15 Min + Anfahrt vor Pickup.
-        // ✅ v6.63.865 (Patrick 02.08. 18:34 "warum kommt er nicht immer fuer einen neuen Termin"):
-        //   Kompromiss — HEUTIGE Vorbest-Zuweisungen kriegen sofort Push, morgen+ bleibt stumm.
+        // ✅ v6.63.865 (Patrick 02.08. 18:37 "wenn ich eine Fahrt zugewiesen bekomme,
+        //   dann moechte ich wissen, dass ich sie zugewiesen bekommen habe, sofort"):
+        //   JEDE Zuweisung → sofort LAUTER FCM-Push (nicht nur heute). Native-App zeigt
+        //   RideAlertActivity mit Sound/Vibration. Verhindert Ping-Pong-Wartepool weil
+        //   Fahrer nicht merkt.
         try {
-            const _now = Date.now();
-            const _diffH = (rideData.pickupTimestamp - _now) / 3600000;
-            if (_diffH >= 0 && _diffH < 24 && !isSofort) {
-                const _mins = Math.round((rideData.pickupTimestamp - _now) / 60000);
+            if (rideData.pickupTimestamp && rideData.pickupTimestamp >= Date.now() - 60000) {
+                const _mins = Math.round((rideData.pickupTimestamp - Date.now()) / 60000);
                 await sendFCMToVehicle(best.vehicleId, {
                     type: 'new_ride_assigned',
                     rideId: rideId,
                     title: `🆕 Neue Fahrt zugewiesen (${_mins} Min bis Pickup)`,
                     body: `${rideData.customerName || 'Kunde'} · ${(rideData.pickup || '').substring(0, 50)}`,
+                    priority: 'high',
+                    sound: 'alarm',
+                    isReminder: 'true',
                 });
-                console.log(`📲 v6.63.865 autoAssignRide sofort-Push an ${best.name} (${_mins} Min)`);
+                console.log(`📲 v6.63.865 sofort-Push an ${best.name} (${_mins} Min)`);
             }
         } catch (_pushErr) { console.warn('v6.63.865 push err:', _pushErr.message); }
 
@@ -25965,22 +25969,23 @@ exports.scheduledAutoAssign = onSchedule(
                 //   FCM-Push an Fahrer-Native — nicht erst beim 7-15-Min-Reminder.
                 // 🚫 v6.62.927 (Patrick 25.05. 10:30): KEIN FCM-Push bei Vorbest-Zuweisung,
                 //   Losfahr-Alarm uebernimmt 15 Min + drivingTimeToPickup vor Pickup.
-                // ✅ v6.63.865 (Patrick 02.08. 18:34 "warum kommt er nicht immer fuer einen
-                //   neuen Termin"): Kompromiss — HEUTIGE Vorbest-Zuweisungen kriegen sofort
-                //   Push. Vorbest fuer morgen+ bleiben stumm (Losfahr-Alarm reicht).
-                //   So sieht der Fahrer die Fahrt bevor er sie annehmen muss.
+                // ✅ v6.63.865 (Patrick 02.08. 18:37 "wenn ich eine Fahrt zugewiesen bekomme,
+                //   dann moechte ich wissen, dass ich sie zugewiesen bekommen habe, sofort"):
+                //   JEDE Zuweisung → sofort LAUTER FCM-Push. Priority high + sound=alarm.
+                //   Native-App zeigt RideAlertActivity mit Sound/Vibration.
                 try {
-                    const _now = Date.now();
-                    const _diffH = (ride.pickupTimestamp - _now) / 3600000;
-                    if (_diffH >= 0 && _diffH < 24) {
-                        const _mins = Math.round((ride.pickupTimestamp - _now) / 60000);
+                    if (ride.pickupTimestamp && ride.pickupTimestamp >= Date.now() - 60000) {
+                        const _mins = Math.round((ride.pickupTimestamp - Date.now()) / 60000);
                         await sendFCMToVehicle(bestCandidate.vehicleId, {
                             type: 'new_ride_assigned',
                             rideId: rideId,
                             title: `🆕 Neue Fahrt zugewiesen (${_mins} Min bis Pickup)`,
                             body: `${ride.customerName || 'Kunde'} · ${(ride.pickup || '').substring(0, 50)}`,
+                            priority: 'high',
+                            sound: 'alarm',
+                            isReminder: 'true',
                         });
-                        console.log(`📲 v6.63.865 sofort-Push an ${bestCandidate.name} fuer ${ride.customerName || rideId} (${_mins} Min bis Pickup)`);
+                        console.log(`📲 v6.63.865 scheduledAutoAssign sofort-Push an ${bestCandidate.name} (${_mins} Min)`);
                     }
                 } catch (_pushErr) {
                     console.warn('v6.63.865 sofort-Push Fehler:', _pushErr.message);

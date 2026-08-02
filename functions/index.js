@@ -7,7 +7,7 @@
  */
 
 // 🆕 v6.25.5: Cloud Function Version — wird in Firebase gespeichert für App-Anzeige
-const CLOUD_FUNCTIONS_VERSION = '6.62.625';
+const CLOUD_FUNCTIONS_VERSION = '6.63.864';
 const CLOUD_FUNCTIONS_BUILD = '21.04.2026 14:35';
 
 const { onRequest } = require('firebase-functions/v2/https');
@@ -2662,6 +2662,12 @@ async function autoAssignRide(rideId, rideData, _excludeVehicleIds = []) {
                 console.log(`🛡️ v6.63.071 Vorbestellung (${rideData.source || rideData.status}) — pickupTimestamp NICHT auf Sofort-Puffer geändert (war ${rideData.pickupTimestamp})`);
             }
         }
+        // 🔒 v6.63.864 Lock-Guard vor jedem Assign
+        const _lg = await lockGuardCheck(rideId, best.vehicleId, 'autoAssignRide/cloud-auto-assign');
+        if (!_lg.ok) {
+            console.log(`🔒 v6.63.864 autoAssignRide ABBRUCH ${rideId} — Ride ist gelockt auf ${_lg.currentVehicle || 'null'}, targetVehicle war ${best.vehicleId}`);
+            return { success: false, reason: 'locked', currentVehicle: _lg.currentVehicle };
+        }
         await db.ref('rides/' + rideId).update(rideUpdate);
 
         console.log(`✅ ${rideId} → ${best.name} (${isSofort ? best.distance.toFixed(1) + ' km, ~' + drivingTimeMin + ' Min' : 'Score ' + (vehicleScores[best.vehicleId]?.totalScore || '?') + ', Prio ' + best.priority}) [${isSofort ? 'Sofort' : 'Vorbestellung'}]`);
@@ -3678,6 +3684,44 @@ async function addRideLog(rideId, icon, action, details = null) {
         };
         await _logRef.push(entry);
     } catch (e) { /* Log-Fehler ignorieren */ }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 🔒 v6.63.864 LOCK-GUARD (Patrick 02.08. "Lock ist Lock")
+// ═══════════════════════════════════════════════════════════════
+// Zentraler Guard vor JEDEM Cloud-Function-Setzen von rides/*/assignedVehicle.
+// Verhindert dass Cron/Trigger eine gelockte Ride auf ein ANDERES Fahrzeug
+// umverteilen — auch nicht wenn der aktuell zugewiesene Fahrer abgelehnt hat.
+//
+// Verhalten:
+//   - Fresh-Read der Ride (keine stale-cache Race-Condition)
+//   - assignmentLocked === true UND targetVehicle != aktueller assignedVehicle
+//     → { ok: false, reason: 'locked', currentVehicle, ride }
+//   - Alles andere → { ok: true, ride }
+//
+// WICHTIG: Bei { ok: false } NUR console.log — KEIN addRideLog / kein DB-Write
+// im rides/*-Bereich. Sonst triggert onRideUpdated → Loop wie v6.63.862.
+//
+// Aufrufer entscheiden ob Admin-Manual-Sources (native_admin_*, manual-admin,
+// native_dashboard_grab) den Guard uebergehen duerfen — Default: guard blockt
+// ALLES gleich (Cron soll gar nicht auf Idee kommen, Admin-Locks umzugehen).
+async function lockGuardCheck(rideId, targetVehicleId, source) {
+    if (!rideId || !targetVehicleId) return { ok: true, ride: null };
+    try {
+        const snap = await db.ref(`rides/${rideId}`).once('value');
+        const ride = snap.val();
+        if (!ride) return { ok: true, ride: null };
+        if (ride.assignmentLocked !== true) return { ok: true, ride };
+        const current = ride.assignedVehicle || null;
+        if (current === targetVehicleId) return { ok: true, ride };
+        // BLOCK
+        console.log(`🔒 v6.63.864 lockGuard BLOCK — ride=${rideId} source=${source || '?'} tried ${current || 'null'} → ${targetVehicleId}, lockedBy=${ride.lockedBy || '?'}`);
+        return { ok: false, reason: 'locked', currentVehicle: current, ride };
+    } catch (e) {
+        // Fresh-Read schlug fehl — im Zweifel durchlassen (kein neuer Bug), aber loggen.
+        console.warn(`v6.63.864 lockGuard read-fail ${rideId}: ${e.message}`);
+        return { ok: true, ride: null, guardError: e.message };
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -21797,6 +21841,10 @@ exports.autoResolveConflicts = onSchedule(
                 console.log(`   ✅ Schicht-Korrektur: ${ride.firebaseId} → ${altInfo.name}`);
                 debugPhase0Lines.push(`   → ✅ Umplanung: ${altInfo.name}`);
 
+                // 🔒 v6.63.864 lockGuard vor Reassign (Fresh-Read gegen Race)
+                const _lgP0 = await lockGuardCheck(ride.firebaseId, altVehicle, 'phase0-schicht-korrektur');
+                if (!_lgP0.ok) { debugPhase0Lines.push(`   → 🔒 lockGuard block (Ride wurde zwischenzeitlich gelockt)`); continue; }
+
                 await db.ref(`rides/${ride.firebaseId}`).update({
                     assignedVehicle: altVehicle,
                     vehicleId: altVehicle,
@@ -22327,6 +22375,10 @@ exports.autoResolveConflicts = onSchedule(
                     const altInfo = OFFICIAL_VEHICLES[altVehicle] || {};
                     console.log(`   ✅ Umplanung: ${next.firebaseId} → ${altInfo.name || altVehicle}`);
 
+                    // 🔒 v6.63.864 lockGuard Phase 1 (Zeitkonflikt-Umplanung)
+                    const _lgP1 = await lockGuardCheck(next.firebaseId, altVehicle, 'phase1-zeitkonflikt-umplanung');
+                    if (!_lgP1.ok) continue;
+
                     // In Firebase aktualisieren
                     await db.ref(`rides/${next.firebaseId}`).update({
                         assignedVehicle: altVehicle,
@@ -22801,6 +22853,10 @@ exports.autoResolveConflicts = onSchedule(
                     totalScore: Math.round(bestScore)
                 };
 
+                // 🔒 v6.63.864 lockGuard Phase 2 (Smart-Routing Optimizer)
+                const _lgP2 = await lockGuardCheck(ride.firebaseId, bestAlt, 'phase2-smart-routing');
+                if (!_lgP2.ok) continue;
+
                 // Umplanen in Firebase
                 // 🐛 v6.63.250 (Patrick 09.06.): assignedTo MUSS auch gesetzt werden,
                 // sonst sieht Consistency-Healer (Z. 24514) v1=neu/v2=alt/v3=neu, distinct=2 →
@@ -23155,6 +23211,10 @@ exports.autoResolveConflicts = onSchedule(
                             phase3DebugLines.push(`🚨 ${timeStr} ${ride.customerName || '?'} → ${(OFFICIAL_VEHICLES[oldVehicle] || {}).name} hat Konflikt (durch frueheres Re-Assign), MUSS umgelegt auf ${(OFFICIAL_VEHICLES[bestVehicle] || {}).name} (P${newPrio})`);
                         }
 
+                        // 🔒 v6.63.864 lockGuard Phase 3 (Prio-Time-Resort)
+                        const _lgP3 = await lockGuardCheck(ride.firebaseId, bestVehicle, 'phase3-prio-time-resort');
+                        if (!_lgP3.ok) { phase3DebugLines.push(`🔒 ${timeStr} ${ride.customerName || '?'}: lockGuard block`); continue; }
+
                         // RE-ASSIGN auf hoeher-priorisiertes Fahrzeug
                         const newVInfo = OFFICIAL_VEHICLES[bestVehicle] || {};
                         const oldVInfo = OFFICIAL_VEHICLES[oldVehicle] || {};
@@ -23318,6 +23378,11 @@ exports.autoResolveConflicts = onSchedule(
                         const { vid, later, altVid } = bestSwap;
                         const vInfo = OFFICIAL_VEHICLES[vid];
                         const altInfo = OFFICIAL_VEHICLES[altVid];
+
+                        // 🔒 v6.63.864 lockGuard Phase 5 (Swap-Later + Swap-Earlier)
+                        const _lgP5a = await lockGuardCheck(later.firebaseId, altVid, 'phase5-swap-later');
+                        const _lgP5b = await lockGuardCheck(earlier.firebaseId, vid, 'phase5-swap-earlier');
+                        if (!_lgP5a.ok || !_lgP5b.ok) continue;
 
                         await db.ref(`rides/${later.firebaseId}`).update({
                             assignedVehicle: altVid,
@@ -25828,6 +25893,13 @@ exports.scheduledAutoAssign = onSchedule(
                 // 🆕 v6.25.5: Verschobene Abholzeit eintragen
                 if (_shiftInfo) {
                     Object.assign(rideUpdate, _shiftInfo);
+                }
+
+                // 🔒 v6.63.864 lockGuard scheduledAutoAssign (Cron alle 10 Min)
+                const _lgSAA = await lockGuardCheck(rideId, bestCandidate.vehicleId, 'scheduled-auto-assign');
+                if (!_lgSAA.ok) {
+                    console.log(`🔒 v6.63.864 scheduledAutoAssign SKIP ${rideId} — locked auf ${_lgSAA.currentVehicle}, target war ${bestCandidate.vehicleId}`);
+                    continue;
                 }
 
                 await db.ref('rides/' + rideId).update(rideUpdate);
@@ -29323,10 +29395,11 @@ exports.onRideUpdated = onValueUpdated(
                         //   assignmentLocked=true = kompromissloser Respekt. Selbst wenn altes
                         //   Vehicle nicht im Dienst — NICHT umverteilen. Fahrer/Admin muss selbst
                         //   entscheiden ob umverteilen.
-                        if (_cRide.assignmentLocked === true) {
-                            try { await addRideLog(_cId, '🔒', `v6.63.858 Completed-Retry SKIP — assignmentLocked=true`, { alterVeh: _oldVeh, freiesVeh: newVehicle }); } catch(_) {}
-                            continue;
-                        }
+                        // 🔒 v6.63.864 (Patrick 02.08. "Lock ist Lock"): Fresh-Read via lockGuardCheck,
+                        //   damit stale _cRide-Daten aus dem 60-Min-Snapshot uns nicht taeuschen.
+                        //   KEIN addRideLog beim Skip → sonst Loop wie v6.63.862.
+                        const _lgP17 = await lockGuardCheck(_cId, newVehicle, 'completed-retry-v6.63.835');
+                        if (!_lgP17.ok) continue;
                         const _oldVehShift = _vehData[_oldVeh]?.shift;
                         // Nur wenn altes Fahrzeug NICHT im Dienst ist (ended/auto-ended/forceEnded/stale) UND freies Fahrzeug ist
                         const _oldVehOK = _oldVehShift && _oldVehShift.status === 'active';
@@ -33911,6 +33984,12 @@ exports.scheduledLateCheck = onSchedule(
 
                 if (best) {
                     console.log(`🚨 LATE-RESCUE: ${ride.customerName||'?'} ${oldName} (${Math.round(delayMin)}min spaet) → ${best.name} (${Math.round(best.delayMin)}min)`);
+                    // 🔒 v6.63.864 lockGuard Late-Rescue
+                    const _lgLR = await lockGuardCheck(ride.firebaseId, best.vid, 'late-rescue');
+                    if (!_lgLR.ok) {
+                        console.log(`🔒 v6.63.864 Late-Rescue SKIP ${ride.firebaseId} — locked auf ${_lgLR.currentVehicle}`);
+                        continue;
+                    }
                     const bestInfo = OFFICIAL_VEHICLES[best.vid] || {};
                     await db.ref('rides/' + ride.firebaseId).update({
                         assignedVehicle: best.vid,

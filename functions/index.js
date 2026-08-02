@@ -7,7 +7,7 @@
  */
 
 // 🆕 v6.25.5: Cloud Function Version — wird in Firebase gespeichert für App-Anzeige
-const CLOUD_FUNCTIONS_VERSION = '6.63.864';
+const CLOUD_FUNCTIONS_VERSION = '6.63.865';
 const CLOUD_FUNCTIONS_BUILD = '21.04.2026 14:35';
 
 const { onRequest } = require('firebase-functions/v2/https');
@@ -2716,12 +2716,23 @@ async function autoAssignRide(rideId, rideData, _excludeVehicleIds = []) {
         }
 
         // 🚫 v6.62.927 (Patrick 25.05. 10:30, KORRIGIERT v6.62.921):
-        //   "Nein, es soll überhaupt nichts gepusht werden bei der Vorbestellung. Es soll
-        //   einfach nur abgelegt werden. Der Push soll kommen, kurz bevor die Fahrt ist.
-        //   Der Alarm soll kommen 15 Min + Anfahrt. Vorher soll überhaupt nichts passieren,
-        //   weil wir wissen ja gar nicht, wer GPS online ist."
-        //   v6.62.921 hatte hier FCM-Push direkt bei Vorbest-Zuweisung — wird entfernt.
-        //   Losfahr-Alarm (Native, 15 Min + drivingTimeToPickup vor Pickup) uebernimmt.
+        //   Vorbestellungs-Push VOLL entfernt, Losfahr-Alarm uebernimmt 15 Min + Anfahrt vor Pickup.
+        // ✅ v6.63.865 (Patrick 02.08. 18:34 "warum kommt er nicht immer fuer einen neuen Termin"):
+        //   Kompromiss — HEUTIGE Vorbest-Zuweisungen kriegen sofort Push, morgen+ bleibt stumm.
+        try {
+            const _now = Date.now();
+            const _diffH = (rideData.pickupTimestamp - _now) / 3600000;
+            if (_diffH >= 0 && _diffH < 24 && !isSofort) {
+                const _mins = Math.round((rideData.pickupTimestamp - _now) / 60000);
+                await sendFCMToVehicle(best.vehicleId, {
+                    type: 'new_ride_assigned',
+                    rideId: rideId,
+                    title: `🆕 Neue Fahrt zugewiesen (${_mins} Min bis Pickup)`,
+                    body: `${rideData.customerName || 'Kunde'} · ${(rideData.pickup || '').substring(0, 50)}`,
+                });
+                console.log(`📲 v6.63.865 autoAssignRide sofort-Push an ${best.name} (${_mins} Min)`);
+            }
+        } catch (_pushErr) { console.warn('v6.63.865 push err:', _pushErr.message); }
 
         best.drivingTimeMin = drivingTimeMin;
         return best;
@@ -25952,15 +25963,28 @@ exports.scheduledAutoAssign = onSchedule(
 
                 // 🆕 v6.62.921 (Patrick 25.05. 07:53): Bei Vorbestellungs-Zuweisung SOFORT
                 //   FCM-Push an Fahrer-Native — nicht erst beim 7-15-Min-Reminder.
-                //   Vorher kam der Push erst wenn die Cloud-Function die Status-Transition
-                //   vorbestellt→assigned kurz vor Pickup gemacht hat. Patrick: "Push muss
-                //   schon kommen wenn die Fahrt in die Native-App auflaeuft" — sprich:
-                //   beim assignedAt-Zeitpunkt (also jetzt).
-                //   Sofortfahrten: erhalten den FCM via onRideUpdated wenn Status='assigned'
-                //   wechselt — dort schon vorhanden. Hier brauchen wir den Vorbest-Pfad.
                 // 🚫 v6.62.927 (Patrick 25.05. 10:30): KEIN FCM-Push bei Vorbest-Zuweisung,
                 //   Losfahr-Alarm uebernimmt 15 Min + drivingTimeToPickup vor Pickup.
-                //   v6.62.921-Pfad hier wurde entfernt — analog autoAssignRide Z1587.
+                // ✅ v6.63.865 (Patrick 02.08. 18:34 "warum kommt er nicht immer fuer einen
+                //   neuen Termin"): Kompromiss — HEUTIGE Vorbest-Zuweisungen kriegen sofort
+                //   Push. Vorbest fuer morgen+ bleiben stumm (Losfahr-Alarm reicht).
+                //   So sieht der Fahrer die Fahrt bevor er sie annehmen muss.
+                try {
+                    const _now = Date.now();
+                    const _diffH = (ride.pickupTimestamp - _now) / 3600000;
+                    if (_diffH >= 0 && _diffH < 24) {
+                        const _mins = Math.round((ride.pickupTimestamp - _now) / 60000);
+                        await sendFCMToVehicle(bestCandidate.vehicleId, {
+                            type: 'new_ride_assigned',
+                            rideId: rideId,
+                            title: `🆕 Neue Fahrt zugewiesen (${_mins} Min bis Pickup)`,
+                            body: `${ride.customerName || 'Kunde'} · ${(ride.pickup || '').substring(0, 50)}`,
+                        });
+                        console.log(`📲 v6.63.865 sofort-Push an ${bestCandidate.name} fuer ${ride.customerName || rideId} (${_mins} Min bis Pickup)`);
+                    }
+                } catch (_pushErr) {
+                    console.warn('v6.63.865 sofort-Push Fehler:', _pushErr.message);
+                }
             }
 
             // v6.61.2: Wartezeit-Schätzung für noch-unzugewiesene Fahrten aktualisieren.

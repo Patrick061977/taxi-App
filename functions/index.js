@@ -29319,6 +29319,14 @@ exports.onRideUpdated = onValueUpdated(
                     for (const { id: _cId, r: _cRide } of _candidates) {
                         const _oldVeh = _cRide.assignedVehicle;
                         if (!_oldVeh) continue; // Wartepool oder unassigned — Auto-Assign macht das eh
+                        // 🔒 v6.63.858 (Patrick 02.08. 07:51 Bridge "gesperrte bleiben zugeteilt"):
+                        //   assignmentLocked=true = kompromissloser Respekt. Selbst wenn altes
+                        //   Vehicle nicht im Dienst — NICHT umverteilen. Fahrer/Admin muss selbst
+                        //   entscheiden ob umverteilen.
+                        if (_cRide.assignmentLocked === true) {
+                            try { await addRideLog(_cId, '🔒', `v6.63.858 Completed-Retry SKIP — assignmentLocked=true`, { alterVeh: _oldVeh, freiesVeh: newVehicle }); } catch(_) {}
+                            continue;
+                        }
                         const _oldVehShift = _vehData[_oldVeh]?.shift;
                         // Nur wenn altes Fahrzeug NICHT im Dienst ist (ended/auto-ended/forceEnded/stale) UND freies Fahrzeug ist
                         const _oldVehOK = _oldVehShift && _oldVehShift.status === 'active';

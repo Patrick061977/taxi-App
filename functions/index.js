@@ -2715,26 +2715,23 @@ async function autoAssignRide(rideId, rideData, _excludeVehicleIds = []) {
             });
         }
 
-        // 🚫 v6.62.927 (Patrick 25.05. 10:30, KORRIGIERT v6.62.921):
-        //   Vorbestellungs-Push VOLL entfernt, Losfahr-Alarm uebernimmt 15 Min + Anfahrt vor Pickup.
-        // ✅ v6.63.865 (Patrick 02.08. 18:37 "wenn ich eine Fahrt zugewiesen bekomme,
-        //   dann moechte ich wissen, dass ich sie zugewiesen bekommen habe, sofort"):
-        //   JEDE Zuweisung → sofort LAUTER FCM-Push (nicht nur heute). Native-App zeigt
-        //   RideAlertActivity mit Sound/Vibration. Verhindert Ping-Pong-Wartepool weil
-        //   Fahrer nicht merkt.
+        // ✅ v6.63.865 (Patrick 02.08. 19:50 "wenn ich eine Fahrt annehmen muss muss
+        //   ich diese Fahrt auch mitbekommen"): Bei JEDER Zuweisung sofort lauter Alarm.
+        //   priority=high + sound=alarm → Native RideAlertActivity mit Ton+Vibration.
+        //   Zusaetzlich 30-Min-Reminder (siehe scheduledDepartureReminder).
         try {
             if (rideData.pickupTimestamp && rideData.pickupTimestamp >= Date.now() - 60000) {
                 const _mins = Math.round((rideData.pickupTimestamp - Date.now()) / 60000);
                 await sendFCMToVehicle(best.vehicleId, {
                     type: 'new_ride_assigned',
                     rideId: rideId,
-                    title: `🆕 Neue Fahrt zugewiesen (${_mins} Min bis Pickup)`,
+                    title: `🆕 Neue Fahrt zugewiesen (${_mins} Min bis Pickup) — bitte annehmen!`,
                     body: `${rideData.customerName || 'Kunde'} · ${(rideData.pickup || '').substring(0, 50)}`,
                     priority: 'high',
                     sound: 'alarm',
                     isReminder: 'true',
                 });
-                console.log(`📲 v6.63.865 sofort-Push an ${best.name} (${_mins} Min)`);
+                console.log(`📲 v6.63.865 autoAssignRide Push an ${best.name} (${_mins} Min)`);
             }
         } catch (_pushErr) { console.warn('v6.63.865 push err:', _pushErr.message); }
 
@@ -32508,7 +32505,9 @@ exports.scheduledDepartureReminder = onSchedule(
     async () => {
         try {
             const now = Date.now();
-            const horizon = now + 15 * 60 * 1000; // 15 Min voraus
+            // v6.63.865 (Patrick 02.08. 19:49): 15 → 30 Min. Fahrer soll 30 Min vor Pickup
+            // den Alarm hoeren und Zeit haben die Fahrt anzunehmen.
+            const horizon = now + 30 * 60 * 1000;
             const ridesSnap = await db.ref('rides')
                 .orderByChild('pickupTimestamp')
                 .startAt(now)
@@ -32524,7 +32523,7 @@ exports.scheduledDepartureReminder = onSchedule(
                 if (!['accepted', 'assigned', 'vorbestellt'].includes(r.status)) return;
                 if (r.departureReminderSent === true) return;
                 const mins = Math.round((r.pickupTimestamp - now) / 60000);
-                if (mins < 0 || mins > 15) return;
+                if (mins < 0 || mins > 30) return;
                 // Send FCM
                 promises.push((async () => {
                     try {
@@ -32533,8 +32532,10 @@ exports.scheduledDepartureReminder = onSchedule(
                         await sendFCMToVehicle(r.assignedVehicle, {
                             type: 'losfahren_reminder',
                             rideId: rid,
-                            title: `⏰ ${mins} Min bis Pickup`,
+                            title: `⏰ ${mins} Min bis Pickup${r.status === 'vorbestellt' ? ' — bitte annehmen!' : ''}`,
                             body: `${_cust} · ${_dest}`,
+                            priority: 'high',
+                            sound: 'alarm',
                             isReminder: 'true'
                         });
                         await db.ref('rides/' + rid + '/departureReminderSent').set(true);

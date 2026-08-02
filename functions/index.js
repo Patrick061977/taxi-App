@@ -33823,6 +33823,14 @@ exports.scheduledLateCheck = onSchedule(
                 const currentVid = ride.assignedVehicle || ride.vehicleId;
                 if (!currentVid) continue;
 
+                // 🔒 v6.63.860 (Patrick 02.08. 08:27 Bridge Jenny Friese): assignmentLocked
+                //   respektieren. LATE-RESCUE hatte Locked=true bei Jenny Friese ignoriert
+                //   und Prius IK -> Vito zurueckgewechselt trotz Admin-Lock von 16:39.
+                if (ride.assignmentLocked === true) {
+                    console.log(`🔒 LATE-RESCUE: ${ride.customerName || '?'} SKIP — assignmentLocked=true`);
+                    continue;
+                }
+
                 // Bounce-Schutz
                 if (ride.lastLateRescueAt && (now - ride.lastLateRescueAt < cooldownMs)) continue;
 

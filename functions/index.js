@@ -29454,7 +29454,15 @@ exports.onRideUpdated = onValueUpdated(
             const _noAssign = !_curVehicle || _rejectedCurrentVehicle;
             // v6.63.631: 'accepted' ebenfalls erlauben — Fahrer kann accepted Fahrt ablehnen
             const _validStatus = !after.status || ['new', 'vorbestellt', 'warteschlange', 'accepted'].includes(after.status);
-            if (_newReject && _noAssign && _validStatus) {
+            // 🔒 v6.63.862 (Patrick 02.08. 09:17 Bridge Residenz-Koch): assignmentLocked
+            //   respektieren. Bug: v6.63.631 hat trotz Lock=true (native_admin_edit) auf
+            //   Tesla MY re-assigned nach Prius IK-Reject. Patrick musste 2x ablehnen.
+            const _lockedSkip = after.assignmentLocked === true;
+            if (_lockedSkip) {
+                console.log(`🔒 v6.63.862 v6.63.631 Sofort-Re-Assign SKIP — ${rideId} ist assignmentLocked=true`);
+                try { await addRideLog(rideId, '🔒', `v6.63.862 v6.63.631 Sofort-Re-Assign SKIP — assignmentLocked=true`, { quelle: 'onRideUpdated v6.63.862' }); } catch(_) {}
+            }
+            if (_newReject && _noAssign && _validStatus && !_lockedSkip) {
                 console.log(`🔄 v6.63.631 onRideUpdated: Reject erkannt fuer ${rideId} (rejectedVehicles ${_wasLen}→${_isLen}, curVehicle=${_curVehicle}, status=${after.status}), sofort Re-Assign...`);
                 const _result = await autoAssignRide(rideId, after);
                 if (_result && _result.vehicleId) {

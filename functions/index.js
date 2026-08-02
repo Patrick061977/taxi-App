@@ -30683,6 +30683,7 @@ exports.onRideUpdated = onValueUpdated(
                         console.warn('silent-Re-Assign cancel FCM-Fehler:', _cancelErr.message);
                     }
                 }
+            }
             // 🔧 v6.63.857 (Patrick 01.08. 15:48 Bridge "Fahrer immer Alarm"):
             //   v6.63.790-Regel entfernt. Patrick: "der Fahrer moechte einfach einen
             //   Alarmton haben. Da ist es egal, ob ich den Termin selber eingestellt

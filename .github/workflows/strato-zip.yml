@@ -23,6 +23,7 @@ on:
       - 'landing-v2.html'
       - 'fahrer-map.html'
       - 'urlaub.html'
+      - 'reise-radar.html'
       - 'berlin.html'
       - 'berlin-uebersicht.html'
       - 'tagesplan.html'

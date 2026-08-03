@@ -1660,18 +1660,9 @@ public class DriverDashboardActivity extends AppCompatActivity {
             //   Fahrer soll sie gar nicht erst sehen. (Warnung reicht nicht — Fahrer
             //   koennten sie trotzdem klicken).
             if (r.passengers != null && r.passengers > getMyVehicleCapacity()) continue;
-            // 🆕 v6.63.849: analog fuer bereits abgelehnte Rides — nicht doppelt ablehnen muessen.
-            if (currentVehicleId != null) {
-                DataSnapshot _rbySnap = child.child("rejectedByActive");
-                boolean _iRejected = false;
-                if (_rbySnap.exists()) {
-                    for (DataSnapshot _rb : _rbySnap.getChildren()) {
-                        String _v = _rb.getValue(String.class);
-                        if (currentVehicleId.equals(_v)) { _iRejected = true; break; }
-                    }
-                }
-                if (_iRejected) continue;
-            }
+            // v6.63.849: rejectedByActive-Filter fuer wartepool ENTFERNT (v6.63.866, Patrick
+            // 03.08. 10:18): abgelehnte Fahrten sollen sichtbar bleiben damit Fahrer/Admin sie
+            // doch noch selbst nehmen kann. Klick auf die Ride raeumt den eigenen Reject.
             pool.add(r);
         }
         wartepoolRides = pool;
@@ -1696,21 +1687,11 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 if (r.pickupTimestamp < now - 2L * 3600L * 1000L) continue;
                 if (r.pickupTimestamp > maxFuture) continue;
             }
-            // 🆕 v6.63.849 (Patrick 01.08. 07:08 Bridge "musste 2x ablehnen"):
-            //   Wenn dieses Vehicle die Ride bereits abgelehnt hat (rejectedByActive),
-            //   soll sie NICHT nochmal im Bedienfeld erscheinen. Sonst muesste Fahrer
-            //   zweimal ablehnen (1x Alarm, 1x Bedienfeld).
-            if (currentVehicleId != null) {
-                DataSnapshot _rbySnap = child.child("rejectedByActive");
-                boolean _iRejected = false;
-                if (_rbySnap.exists()) {
-                    for (DataSnapshot _rb : _rbySnap.getChildren()) {
-                        String _v = _rb.getValue(String.class);
-                        if (currentVehicleId.equals(_v)) { _iRejected = true; break; }
-                    }
-                }
-                if (_iRejected) continue;
-            }
+            // v6.63.849 → v6.63.866 (Patrick 03.08. 10:18 Bridge "auch selbst abgelehnte
+            // Fahrten oben im Banner sehen, dass ich mit jemand noch selber graben kann"):
+            // Filter komplett entfernt. Abgelehnte Fahrten bleiben sichtbar damit Fahrer/Admin
+            // sie doch noch selbst nehmen kann. Klick auf die Ride sollte kuenftig den eigenen
+            // Reject aufheben (v6.63.867 baut den 'Doch annehmen'-Dialog dazu).
             // Kapazitaets-Filter analog v6.63.848
             if (r.passengers != null && r.passengers > getMyVehicleCapacity()) continue;
             list.add(r);

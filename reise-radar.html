@@ -46,6 +46,10 @@
   <button class="filter-btn" data-cat="Städte">🏛️ Städte</button>
   <button class="filter-btn" data-cat="Fern">✈️ Fernreisen</button>
   <button class="filter-btn" data-cat="Ski">⛷️ Ski</button>
+  <span style="border-left:1px solid #334155;height:24px;margin:0 4px"></span>
+  <label style="color:#94a3b8;font-size:12px">💰 max Budget p.P.:</label>
+  <input id="budget" type="number" value="9999" min="100" step="100" style="width:80px;background:#0a1020;color:#e2e8f0;border:1px solid #334155;padding:4px 8px;border-radius:6px;font-size:13px">
+  <button id="budget-btn" style="background:#10b981;color:white;border:0;padding:5px 12px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600">Filter</button>
 </div>
 
 <div id="globe"></div>
@@ -166,14 +170,23 @@ const globe = Globe()
     panel.style.display = 'block';
   });
 
+function applyFilters() {
+  const budget = parseFloat(document.getElementById('budget').value) || 9999;
+  let filtered = DESTINATIONS.filter(d => d.current <= budget);
+  if (currentFilter !== 'all') filtered = filtered.filter(d => d.cat === currentFilter);
+  globe.pointsData(filtered);
+  // Info-Overlay wieviele Ziele passen
+  const legendEl = document.querySelector('.legend div:last-child');
+  if (legendEl) legendEl.innerHTML = `<span style="color:#10b981">${filtered.length} von ${DESTINATIONS.length} Zielen im Budget</span> · Stand: ${new Date().toLocaleDateString('de-DE')}`;
+}
 document.querySelectorAll('.filter-btn').forEach(btn => btn.addEventListener('click', () => {
   document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
-  const cat = btn.dataset.cat;
-  currentFilter = cat;
-  const filtered = cat === 'all' ? DESTINATIONS : DESTINATIONS.filter(d => d.cat === cat);
-  globe.pointsData(filtered);
+  currentFilter = btn.dataset.cat;
+  applyFilters();
 }));
+document.getElementById('budget-btn').addEventListener('click', applyFilters);
+document.getElementById('budget').addEventListener('keypress', e => { if (e.key === 'Enter') applyFilters(); });
 
 // Auto-rotate
 let controls = globe.controls();

@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>🌍 Reise-Radar — Wo lohnt es sich gerade?</title>
+<style>
+  html,body{margin:0;padding:0;background:#0a0e1a;color:#e2e8f0;font-family:-apple-system,Segoe UI,sans-serif;overflow:hidden;height:100vh}
+  #globe{width:100vw;height:100vh}
+  header{position:absolute;top:0;left:0;right:0;padding:14px 20px;background:linear-gradient(180deg,rgba(15,23,42,0.95),rgba(15,23,42,0));z-index:10;pointer-events:none}
+  h1{margin:0;font-size:22px;color:#fbbf24;pointer-events:auto}
+  .sub{color:#94a3b8;font-size:12px;margin-top:2px}
+  .legend{position:absolute;bottom:20px;left:20px;background:rgba(15,23,42,0.9);padding:12px 16px;border-radius:10px;font-size:13px;z-index:10;line-height:1.6}
+  .legend-item{display:flex;align-items:center;gap:8px}
+  .dot{width:14px;height:14px;border-radius:50%;flex-shrink:0}
+  .dot.green{background:#10b981}
+  .dot.yellow{background:#fbbf24}
+  .dot.red{background:#ef4444}
+  #panel{position:absolute;top:100px;right:20px;width:340px;background:rgba(15,23,42,0.95);border:1px solid #334155;border-radius:12px;padding:16px;z-index:10;display:none;max-height:70vh;overflow-y:auto}
+  #panel h2{margin:0 0 6px 0;font-size:18px;color:#fbbf24}
+  #panel .close{position:absolute;top:8px;right:12px;background:transparent;color:#94a3b8;border:0;cursor:pointer;font-size:20px}
+  #panel .price{font-size:24px;font-weight:700;color:#10b981;margin:8px 0}
+  #panel .avg{color:#94a3b8;font-size:12px}
+  #panel .diff{display:inline-block;padding:2px 8px;border-radius:6px;font-weight:600;font-size:12px;margin-left:6px}
+  #panel .diff.green{background:rgba(16,185,129,0.2);color:#10b981}
+  #panel .diff.yellow{background:rgba(251,191,36,0.2);color:#fbbf24}
+  #panel .diff.red{background:rgba(239,68,68,0.2);color:#ef4444}
+  #panel .info{font-size:13px;margin:10px 0;line-height:1.5}
+  #panel .links{margin-top:10px;padding-top:10px;border-top:1px solid #334155}
+  #panel .links a{display:block;color:#3b82f6;text-decoration:none;padding:4px 0;font-size:13px}
+  #panel .links a:hover{text-decoration:underline}
+  .filter-bar{position:absolute;top:70px;left:20px;background:rgba(15,23,42,0.9);padding:8px 12px;border-radius:8px;z-index:10;display:flex;gap:8px;flex-wrap:wrap}
+  .filter-bar button{background:#1e293b;color:#e2e8f0;border:1px solid #334155;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px}
+  .filter-bar button.active{background:#3b82f6;border-color:#3b82f6}
+</style>
+</head>
+<body>
+<header>
+  <h1>🌍 Reise-Radar — Wo lohnt es sich gerade?</h1>
+  <div class="sub">Grüne Punkte = deutlich günstiger als Jahresdurchschnitt · Rote Punkte = teurer als üblich · Klick auf Punkt für Details</div>
+</header>
+
+<div class="filter-bar">
+  <button class="filter-btn active" data-cat="all">Alle</button>
+  <button class="filter-btn" data-cat="Sonne">🏖️ Sonne</button>
+  <button class="filter-btn" data-cat="Städte">🏛️ Städte</button>
+  <button class="filter-btn" data-cat="Fern">✈️ Fernreisen</button>
+  <button class="filter-btn" data-cat="Ski">⛷️ Ski</button>
+  <span style="border-left:1px solid #334155;height:24px;margin:0 4px"></span>
+  <label style="color:#94a3b8;font-size:12px">💰 max Budget p.P.:</label>
+  <input id="budget" type="number" value="9999" min="100" step="100" style="width:80px;background:#0a1020;color:#e2e8f0;border:1px solid #334155;padding:4px 8px;border-radius:6px;font-size:13px">
+  <button id="budget-btn" style="background:#10b981;color:white;border:0;padding:5px 12px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600">Filter</button>
+</div>
+
+<div id="globe"></div>
+
+<div class="legend">
+  <div class="legend-item"><div class="dot green"></div>Deal (>15% unter Durchschnitt)</div>
+  <div class="legend-item"><div class="dot yellow"></div>Normal (±15%)</div>
+  <div class="legend-item"><div class="dot red"></div>Teuer (>15% über Durchschnitt)</div>
+  <div style="margin-top:8px;padding-top:8px;border-top:1px solid #334155;color:#94a3b8;font-size:11px">Preise pro Person 1 Woche · Stand: <span id="stand">wird geladen…</span></div>
+</div>
+
+<div id="panel">
+  <button class="close" onclick="document.getElementById('panel').style.display='none'">✕</button>
+  <div id="panel-content"></div>
+</div>
+
+<script src="https://unpkg.com/globe.gl@2.32.6/dist/globe.gl.min.js"></script>
+<script>
+// temp = aktuelle Wetter-Range fuer August. saison = Warnhinweise (Orkan, Regenzeit, Peak).
+const DESTINATIONS = [
+  // SONNE Europa
+  { city:'Kreta', country:'GR', lat:35.15, lng:25.14, cat:'Sonne', current:450, avg:600, weeks:1, temp:'28-32°C', wasser:'25°C', saison:'✅ Beste Zeit', note:'September Sweetspot', hotels:'Grecotel Meli Palace, Aquila Rithymna', flug:'Direkt HAM/HAJ/BER ~3h' },
+  { city:'Rhodos', country:'GR', lat:36.44, lng:28.22, cat:'Sonne', current:440, avg:590, weeks:1, temp:'29-32°C', wasser:'26°C', saison:'✅ Beste Zeit', note:'Sonnigste GR-Insel', hotels:'Mitsis Rodos Village', flug:'Direkt DUS/HAM ~3h 30' },
+  { city:'Mallorca', country:'ES', lat:39.57, lng:2.65, cat:'Sonne', current:550, avg:520, weeks:1, temp:'30-33°C', wasser:'26°C', saison:'⚠️ Peak/voll', note:'ab Sept billiger', hotels:'Iberostar Playa de Muro', flug:'Direkt aus jedem DE-Flughafen 2h30' },
+  { city:'Antalya', country:'TR', lat:36.90, lng:30.71, cat:'Sonne', current:400, avg:530, weeks:1, temp:'34-38°C', wasser:'28°C', saison:'⚠️ Sehr heiß', note:'Sept ideal (30°C)', hotels:'Club Ali Bey Park, Rixos', flug:'Direkt ~3h 15' },
+  { city:'Hurghada', country:'EG', lat:27.26, lng:33.81, cat:'Sonne', current:500, avg:580, weeks:1, temp:'35-40°C', wasser:'28°C', saison:'⚠️ Sehr heiß', note:'Nov-Apr besser', hotels:'Steigenberger, Jaz Aquamarine', flug:'Direkt ~4h 30' },
+  { city:'Marrakesch', country:'MA', lat:31.63, lng:-7.99, cat:'Städte', current:420, avg:520, weeks:1, temp:'36-40°C', wasser:'—', saison:'🔴 Zu heiß Aug', note:'Okt/Nov ideal', hotels:'Riad Yasmine, Palais Amani', flug:'Direkt ~3h 45' },
+  { city:'Kap Verden', country:'CV', lat:16.53, lng:-23.05, cat:'Sonne', current:850, avg:1000, weeks:1, temp:'26-28°C', wasser:'26°C', saison:'✅ Ganzjährig', note:'Wenig Touristen', hotels:'Meliá Dunas Beach, Riu', flug:'Direkt ~6h TUI-Charter' },
+
+  // STÄDTE Europa (4 Tage)
+  { city:'Lissabon', country:'PT', lat:38.72, lng:-9.14, cat:'Städte', current:320, avg:430, weeks:0.6, temp:'22-28°C', wasser:'19°C', saison:'✅ Perfekt', note:'Herbst-Sweetspot', hotels:'Sana Malhoa, Vincci Baixa', flug:'TAP direkt ~3h' },
+  { city:'Porto', country:'PT', lat:41.16, lng:-8.63, cat:'Städte', current:290, avg:400, weeks:0.6, temp:'20-26°C', wasser:'18°C', saison:'✅ Perfekt', note:'Portwein+Meer', hotels:'InterContinental Palácio', flug:'Direkt ab FRA ~3h' },
+  { city:'Athen', country:'GR', lat:37.98, lng:23.73, cat:'Städte', current:340, avg:480, weeks:0.6, temp:'30-34°C', wasser:'26°C', saison:'⚠️ Heiß', note:'Sept 26-28°C ideal', hotels:'Athens Marriott', flug:'Direkt ~3h' },
+  { city:'Prag', country:'CZ', lat:50.08, lng:14.44, cat:'Städte', current:230, avg:290, weeks:0.6, temp:'19-25°C', wasser:'—', saison:'✅ Angenehm', note:'Bier+Kultur billig', hotels:'Hotel Paris, Emblem Prague', flug:'Direkt ~1h 20' },
+  { city:'Krakau', country:'PL', lat:50.06, lng:19.94, cat:'Städte', current:180, avg:240, weeks:0.6, temp:'17-24°C', wasser:'—', saison:'✅ Angenehm', note:'beste PL-Stadt', hotels:'Hotel Stary, PURO', flug:'Direkt ~2h' },
+  { city:'Malta', country:'MT', lat:35.90, lng:14.51, cat:'Städte', current:380, avg:490, weeks:0.6, temp:'28-32°C', wasser:'26°C', saison:'⚠️ Heiß, gut', note:'Sept ideal', hotels:'The Phoenicia, Juliani', flug:'Air Malta direkt ~2h 45' },
+  { city:'Wien', country:'AT', lat:48.21, lng:16.37, cat:'Städte', current:420, avg:450, weeks:0.6, temp:'20-28°C', wasser:'—', saison:'✅ Angenehm', note:'wenig Preisbewegung', hotels:'Sacher, Park Hyatt', flug:'Direkt ~1h 15' },
+  { city:'Reykjavik', country:'IS', lat:64.14, lng:-21.94, cat:'Städte', current:640, avg:700, weeks:0.6, temp:'9-13°C', wasser:'11°C', saison:'✅ Beste Zeit', note:'Herbst Nordlichter', hotels:'Ion City, 101 Hotel', flug:'Icelandair ~4h' },
+
+  // FERN
+  { city:'Bangkok', country:'TH', lat:13.75, lng:100.50, cat:'Fern', current:680, avg:850, weeks:2, temp:'29-33°C', wasser:'—', saison:'🌧️ Regenzeit', note:'Ab Nov trocken', hotels:'The Sukosol, Pathumwan', flug:'Qatar/Etihad Umstieg ~13h' },
+  { city:'Phuket', country:'TH', lat:7.88, lng:98.39, cat:'Fern', current:720, avg:900, weeks:2, temp:'28-31°C', wasser:'29°C', saison:'🌧️ Monsun', note:'Ab Nov perfekt', hotels:'Katathani Beach, Kata Rocks', flug:'via BKK ~15h' },
+  { city:'Bali', country:'ID', lat:-8.65, lng:115.22, cat:'Fern', current:900, avg:1100, weeks:2, temp:'27-30°C', wasser:'28°C', saison:'✅ Trockenzeit', note:'Peak jetzt, gut', hotels:'The Mulia, Alila Ubud', flug:'via SIN/DXB ~17h' },
+  { city:'Ho-Chi-Minh', country:'VN', lat:10.82, lng:106.63, cat:'Fern', current:680, avg:800, weeks:2, temp:'27-32°C', wasser:'—', saison:'🌧️ Regenzeit Sued', note:'Nov-Apr besser', hotels:'Rex Hotel, InterContinental', flug:'via DOH/DXB ~14h' },
+  { city:'New York', country:'US', lat:40.71, lng:-74.01, cat:'Städte', current:290, avg:520, weeks:0.6, temp:'24-30°C', wasser:'—', saison:'⚠️ Heiß+voll', note:'November DEAL', hotels:'Pod 51, The Roosevelt', flug:'Condor FRA-JFK ~8h 40' },
+  { city:'Miami', country:'US', lat:25.76, lng:-80.19, cat:'Sonne', current:750, avg:900, weeks:1, temp:'29-33°C', wasser:'30°C', saison:'🌀 ORKAN-Saison Jun-Nov', note:'Dez-Apr sicher', hotels:'W South Beach, Delano', flug:'via JFK oder direkt ~10h' },
+  { city:'Cancún', country:'MX', lat:21.16, lng:-86.85, cat:'Sonne', current:900, avg:1200, weeks:1, temp:'30-33°C', wasser:'29°C', saison:'🌀 ORKAN-Saison Jun-Nov', note:'Ab Dez sicher+trocken', hotels:'Iberostar, Riu Palace', flug:'Condor direkt ~12h' },
+  { city:'Dubai', country:'AE', lat:25.20, lng:55.27, cat:'Städte', current:550, avg:700, weeks:0.6, temp:'37-42°C', wasser:'32°C', saison:'🔴 Extrem heiß', note:'Nov-Mrz 25°C ideal', hotels:'Atlantis The Palm, JW', flug:'EK direkt ~6h' },
+  { city:'Kapstadt', country:'ZA', lat:-33.92, lng:18.42, cat:'Fern', current:1100, avg:1300, weeks:2, temp:'12-18°C', wasser:'15°C', saison:'❄️ Winter Süd', note:'Nov-Mrz Sommer', hotels:'The Silo, One&Only', flug:'via DOH/DXB ~15h' },
+
+  // SKI
+  { city:'Zermatt', country:'CH', lat:46.02, lng:7.75, cat:'Ski', current:1400, avg:1500, weeks:1, temp:'8-15°C', wasser:'—', saison:'❄️ Nov wenig Schnee', note:'Dez-Apr Ski', hotels:'Mont Cervin Palace', flug:'Bahn ab DE' },
+  { city:'St. Anton', country:'AT', lat:47.13, lng:10.27, cat:'Ski', current:1200, avg:1350, weeks:1, temp:'10-18°C', wasser:'—', saison:'❄️ Sommer-Bergwandern', note:'Ski ab Dez', hotels:'Hotel Post St. Anton', flug:'Bahn/Auto ab DE' },
+];
+
+document.getElementById('stand').textContent = new Date().toLocaleDateString('de-DE', {day:'2-digit', month:'2-digit', year:'numeric'});
+
+function colorForRatio(current, avg) {
+  const ratio = current / avg;
+  if (ratio < 0.85) return '#10b981'; // Deal
+  if (ratio > 1.15) return '#ef4444'; // Teuer
+  return '#fbbf24'; // Normal
+}
+function ratioLabel(current, avg) {
+  const ratio = current / avg;
+  const pct = Math.round((ratio - 1) * 100);
+  if (ratio < 0.85) return { text: `${pct}% GÜNSTIG`, cls: 'green' };
+  if (ratio > 1.15) return { text: `+${pct}% TEUER`, cls: 'red' };
+  return { text: `${pct >= 0 ? '+' : ''}${pct}% normal`, cls: 'yellow' };
+}
+
+let currentFilter = 'all';
+const globe = Globe()
+  (document.getElementById('globe'))
+  .globeImageUrl('https://unpkg.com/three-globe/example/img/earth-night.jpg')
+  .backgroundColor('#0a0e1a')
+  .pointOfView({ lat: 30, lng: 10, altitude: 2.5 })
+  .pointsData(DESTINATIONS)
+  .pointLat('lat').pointLng('lng')
+  .pointColor(d => colorForRatio(d.current, d.avg))
+  .pointRadius(0.5)
+  .pointAltitude(0.02)
+  .pointLabel(d => `<div style="background:#1e293b;padding:6px 10px;border-radius:6px;color:#fff;font-family:sans-serif;font-size:12px">
+    <b style="color:#fbbf24">${d.city}</b> (${d.country})<br>
+    ab <b>${d.current}€</b> · ${ratioLabel(d.current, d.avg).text}
+  </div>`)
+  .onPointClick(d => {
+    const r = ratioLabel(d.current, d.avg);
+    const panel = document.getElementById('panel');
+    document.getElementById('panel-content').innerHTML = `
+      <h2>${d.city}, ${d.country}</h2>
+      <div style="color:#94a3b8;font-size:12px">${d.cat} · ${d.weeks * 7 | 0} Tage · pro Person</div>
+      <div class="price">ab ${d.current}€ <span class="diff ${r.cls}">${r.text}</span></div>
+      <div class="avg">Jahresdurchschnitt: ${d.avg}€</div>
+
+      <div style="margin:12px 0;padding:10px;background:#0f172a;border-radius:8px;font-size:13px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span>🌡️ Aktuell (Aug):</span><b>${d.temp}</b></div>
+        ${d.wasser !== '—' ? `<div style="display:flex;justify-content:space-between;margin-bottom:4px"><span>🌊 Wasser:</span><b>${d.wasser}</b></div>` : ''}
+        <div style="display:flex;justify-content:space-between"><span>📅 Saison:</span><b>${d.saison}</b></div>
+      </div>
+
+      <div class="info"><b>💡 Reisetipp:</b> ${d.note}</div>
+      <div class="info"><b>🏨 Top-Hotels:</b> ${d.hotels}</div>
+      <div class="info"><b>✈️ Anreise:</b> ${d.flug}</div>
+
+      <div class="links">
+        <div style="color:#fbbf24;font-weight:600;font-size:12px;margin-bottom:4px">📌 Direkte Buchungs-Links:</div>
+        <a href="https://www.tui.de/pauschalreisen/?destination=${encodeURIComponent(d.city)}" target="_blank">🏨 TUI Pauschal ${d.city}</a>
+        <a href="https://www.check24.de/pauschalreisen/${encodeURIComponent(d.city.toLowerCase())}/" target="_blank">🔍 Check24 Pauschal + Preisvergleich</a>
+        <a href="https://www.dertour.de/suche?q=${encodeURIComponent(d.city)}" target="_blank">🌐 DERTOUR Pauschal</a>
+        <a href="https://www.ab-in-den-urlaub.de/pauschalreisen/${encodeURIComponent(d.city.toLowerCase())}" target="_blank">💸 ab-in-den-urlaub Deals</a>
+        <a href="https://www.skyscanner.de/transport/fluege/${encodeURIComponent(d.city.toLowerCase().slice(0,3))}" target="_blank">✈️ Skyscanner Flug-Suche</a>
+        <a href="https://www.booking.com/searchresults.html?ss=${encodeURIComponent(d.city)}&group_adults=5" target="_blank">🛏️ Booking Hotels (5 Pers)</a>
+        <a href="https://www.google.com/travel/hotels?q=${encodeURIComponent(d.city)}" target="_blank">🔎 Google Hotels</a>
+        <a href="https://www.holidaycheck.de/dh/reisen-${encodeURIComponent(d.city.toLowerCase())}" target="_blank">⭐ HolidayCheck Bewertungen</a>
+      </div>
+    `;
+    panel.style.display = 'block';
+  });
+
+function applyFilters() {
+  const budget = parseFloat(document.getElementById('budget').value) || 9999;
+  let filtered = DESTINATIONS.filter(d => d.current <= budget);
+  if (currentFilter !== 'all') filtered = filtered.filter(d => d.cat === currentFilter);
+  globe.pointsData(filtered);
+  // Info-Overlay wieviele Ziele passen
+  const legendEl = document.querySelector('.legend div:last-child');
+  if (legendEl) legendEl.innerHTML = `<span style="color:#10b981">${filtered.length} von ${DESTINATIONS.length} Zielen im Budget</span> · Stand: ${new Date().toLocaleDateString('de-DE')}`;
+}
+document.querySelectorAll('.filter-btn').forEach(btn => btn.addEventListener('click', () => {
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  currentFilter = btn.dataset.cat;
+  applyFilters();
+}));
+document.getElementById('budget-btn').addEventListener('click', applyFilters);
+document.getElementById('budget').addEventListener('keypress', e => { if (e.key === 'Enter') applyFilters(); });
+
+// Auto-rotate
+let controls = globe.controls();
+controls.autoRotate = true;
+controls.autoRotateSpeed = 0.5;
+document.getElementById('globe').addEventListener('mousedown', () => controls.autoRotate = false);
+</script>
+</body>
+</html>

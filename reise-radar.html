@@ -63,6 +63,17 @@
   <input id="personen" type="number" value="2" min="1" max="10" style="width:45px;background:#0a1020;color:#e2e8f0;border:1px solid #334155;padding:4px 8px;border-radius:6px;font-size:13px">
   <label style="color:#94a3b8;font-size:12px">🧒 Kinder-Alter:</label>
   <input id="kinderAlter" type="text" value="" placeholder="z.B. 13,10,16" style="width:110px;background:#0a1020;color:#e2e8f0;border:1px solid #334155;padding:4px 8px;border-radius:6px;font-size:12px">
+  <label style="color:#94a3b8;font-size:12px">✈️ Ab:</label>
+  <select id="abflughafen" style="background:#0a1020;color:#e2e8f0;border:1px solid #334155;padding:4px 8px;border-radius:6px;font-size:12px">
+    <option value="BER">BER (Berlin — 4h von Usedom)</option>
+    <option value="HAM">HAM (Hamburg — 3h30 westlich)</option>
+    <option value="RLG">RLG (Rostock-Laage — 2h)</option>
+    <option value="LEJ">LEJ (Leipzig-Halle)</option>
+    <option value="HDF">HDF (Heringsdorf, Ferienflieger)</option>
+    <option value="FRA">FRA (Frankfurt)</option>
+    <option value="MUC">MUC (München)</option>
+    <option value="DUS">DUS (Düsseldorf)</option>
+  </select>
   <button id="budget-btn" style="background:#10b981;color:white;border:0;padding:5px 12px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600">Anwenden</button>
   <label style="color:#94a3b8;font-size:12px;margin-left:8px">📊 Sortierung:</label>
   <select id="sortBy" style="background:#0a1020;color:#e2e8f0;border:1px solid #334155;padding:4px 8px;border-radius:6px;font-size:12px">
@@ -194,7 +205,7 @@ const globe = Globe()
         <a href="https://www.dertour.de/suche?q=${encodeURIComponent(d.city)}" target="_blank">🌐 DERTOUR Pauschal</a>
         <a href="https://www.ab-in-den-urlaub.de/pauschalreisen/${encodeURIComponent(d.city.toLowerCase())}" target="_blank">💸 ab-in-den-urlaub Deals</a>
         <a href="https://www.skyscanner.de/transport/fluege/${encodeURIComponent(d.city.toLowerCase().slice(0,3))}" target="_blank">✈️ Skyscanner Flug-Suche</a>
-        <a href="https://www.booking.com/searchresults.html?ss=${encodeURIComponent(d.city)}&group_adults=5" target="_blank">🛏️ Booking Hotels (5 Pers)</a>
+        <a href="${(function(){const p=document.getElementById('personen').value||'2';const f=document.getElementById('dateFrom').value;const t=document.getElementById('dateTo').value;const dp=(f&&t)?`&checkin=${f}&checkout=${t}`:'';return `https://www.booking.com/searchresults.html?ss=${encodeURIComponent(d.city)}&group_adults=${p}${dp}&order=class_and_price`;})()}" target="_blank">🛏️ Booking Hotels (${document.getElementById('personen').value||'2'} Pers, dein Datum, TOP-sortiert)</a>
         <a href="https://www.google.com/travel/hotels?q=${encodeURIComponent(d.city)}" target="_blank">🔎 Google Hotels</a>
         <a href="https://www.holidaycheck.de/dh/reisen-${encodeURIComponent(d.city.toLowerCase())}" target="_blank">⭐ HolidayCheck Bewertungen</a>
       </div>
@@ -227,6 +238,7 @@ function buildReviewLinks(d) {
   const pers = document.getElementById('personen').value || '2';
   const kids = document.getElementById('kinderAlter').value.trim();
   const kidsArr = kids ? kids.split(',').map(x => x.trim()).filter(x => x) : [];
+  const _ab = (document.getElementById('abflughafen') || {}).value || 'BER';
   // Booking-Params
   const dateParams = (from && to) ? `&checkin=${from}&checkout=${to}` : '';
   const guestParams = `&group_adults=${pers}${kidsArr.length ? `&group_children=${kidsArr.length}&age=${kidsArr.join('&age=')}` : ''}`;
@@ -236,9 +248,11 @@ function buildReviewLinks(d) {
   return `
     <div style="margin-top:6px;padding:8px;background:#0f172a;border-radius:6px">
       <div style="font-size:11px;color:#fbbf24;font-weight:600;margin-bottom:4px">🏆 GEFILTERTE HOTEL-VORSCHLAEGE (nur Top-Bewertung)</div>
-      <a href="https://www.booking.com/searchresults.html?ss=${city}${dateParams}${guestParams}&order=review_score_and_price${filterTop}" target="_blank" style="display:block;margin:3px 0;padding:5px 8px;background:#065f46;color:#a7f3d0;border-radius:4px;font-size:11px;text-decoration:none">🏆 Nur 4-5★ + Bewertung ≥8.0 (Booking)</a>
+      <a href="https://www.booking.com/searchresults.html?ss=${city}${dateParams}${guestParams}&order=class_and_price" target="_blank" style="display:block;margin:3px 0;padding:5px 8px;background:#065f46;color:#a7f3d0;border-radius:4px;font-size:11px;text-decoration:none">⭐ TOP-Hotels sortiert nach Bewertung (Booking, ohne Filter)</a>
+      <a href="https://www.booking.com/searchresults.html?ss=${city}${dateParams}${guestParams}&order=review_score_and_price${filterTop}" target="_blank" style="display:block;margin:3px 0;padding:5px 8px;background:#0f766e;color:#5eead4;border-radius:4px;font-size:11px;text-decoration:none">🏆 Nur 4-5★ + Bewertung ≥8.0 (falls Filter geht)</a>
       <a href="https://www.booking.com/searchresults.html?ss=${city}${dateParams}${guestParams}&order=review_score_and_price${filterFamily}" target="_blank" style="display:block;margin:3px 0;padding:5px 8px;background:#7c2d12;color:#fdba74;border-radius:4px;font-size:11px;text-decoration:none">👨‍👩‍👧 Nur Familien-Hotels + Bewertung ≥8.0</a>
-      <a href="https://www.booking.com/searchresults.html?ss=${city}${dateParams}${guestParams}&order=review_score_and_price" target="_blank" style="display:block;margin:3px 0;padding:5px 8px;background:#164e63;color:#67e8f9;border-radius:4px;font-size:11px;text-decoration:none">💰 Sortiert nach bestem Preis-Leistungs-Verhaeltnis</a>
+      <a href="https://www.booking.com/searchresults.html?ss=${city}${dateParams}${guestParams}&order=price" target="_blank" style="display:block;margin:3px 0;padding:5px 8px;background:#164e63;color:#67e8f9;border-radius:4px;font-size:11px;text-decoration:none">💰 Nach Preis günstigst zuerst</a>
+      <a href="https://www.google.com/travel/hotels?q=${city}${from ? '&checkin=' + from : ''}${to ? '&checkout=' + to : ''}" target="_blank" style="display:block;margin:3px 0;padding:5px 8px;background:#4c1d95;color:#c4b5fd;border-radius:4px;font-size:11px;text-decoration:none">🔎 Google Hotels (mit Bilder-Preview + Karten)</a>
       <div style="font-size:11px;color:#fbbf24;font-weight:600;margin-top:8px;margin-bottom:4px">📝 EXTERNE REVIEWS</div>
       <a href="https://www.tripadvisor.de/Search?q=${city}" target="_blank" style="display:inline-block;margin:2px 4px 2px 0;padding:3px 8px;background:#0d5c4f;color:#4ade80;border-radius:4px;font-size:11px;text-decoration:none">TripAdvisor</a>
       <a href="https://www.google.com/search?q=${city}+Hotels+bewertung" target="_blank" style="display:inline-block;margin:2px 4px 2px 0;padding:3px 8px;background:#1e40af;color:#93c5fd;border-radius:4px;font-size:11px;text-decoration:none">Google Reviews</a>
@@ -251,9 +265,9 @@ function buildReviewLinks(d) {
       <a href="https://www.holidaycheck.de/newsletter-abo" target="_blank" style="display:inline-block;margin:2px 4px 2px 0;padding:3px 8px;background:#7c2d12;color:#fdba74;border-radius:4px;font-size:11px;text-decoration:none">HolidayCheck Newsletter</a>
       <a href="https://www.urlaubspiraten.de/suche?query=${city}" target="_blank" style="display:inline-block;margin:2px 4px 2px 0;padding:3px 8px;background:#831843;color:#fbcfe8;border-radius:4px;font-size:11px;text-decoration:none">Urlaubspiraten</a>
       <div style="font-size:11px;color:#fbbf24;font-weight:600;margin-top:8px;margin-bottom:4px">📉 PREIS-VERLAUF + BESTER BUCHUNGS-ZEITPUNKT</div>
-      <a href="https://www.google.com/travel/flights?q=Flights%20to%20${city}%20from%20FRA" target="_blank" style="display:block;margin:3px 0;padding:5px 8px;background:#1e3a8a;color:#bfdbfe;border-radius:4px;font-size:11px;text-decoration:none">✈️ Google Flights (mit Preis-Kalender+Vorhersage)</a>
-      <a href="https://www.kayak.de/explore?origin=FRA&destination=${city}" target="_blank" style="display:block;margin:3px 0;padding:5px 8px;background:#4c1d95;color:#c4b5fd;border-radius:4px;font-size:11px;text-decoration:none">🗓️ Kayak Explore (guenstigster Monat)</a>
-      <a href="https://www.kayak.de/flights/FRA-${city}" target="_blank" style="display:block;margin:3px 0;padding:5px 8px;background:#831843;color:#fbcfe8;border-radius:4px;font-size:11px;text-decoration:none">📊 Kayak Preistrend-Chart FRA → ${d.city}</a>
+      <a href="https://www.google.com/travel/flights?q=Flights%20to%20${city}%20from%20${_ab}" target="_blank" style="display:block;margin:3px 0;padding:5px 8px;background:#1e3a8a;color:#bfdbfe;border-radius:4px;font-size:11px;text-decoration:none">✈️ Google Flights ${_ab}→${d.city} (Preis-Kalender)</a>
+      <a href="https://www.kayak.de/explore?origin=${_ab}&destination=${city}" target="_blank" style="display:block;margin:3px 0;padding:5px 8px;background:#4c1d95;color:#c4b5fd;border-radius:4px;font-size:11px;text-decoration:none">🗓️ Kayak Explore ${_ab} (guenstigster Monat)</a>
+      <a href="https://www.kayak.de/flights/${_ab}-${city}" target="_blank" style="display:block;margin:3px 0;padding:5px 8px;background:#831843;color:#fbcfe8;border-radius:4px;font-size:11px;text-decoration:none">📊 Kayak Preistrend-Chart FRA → ${d.city}</a>
       <a href="https://www.google.com/search?q=${city}+beste+Reisezeit+Preistrend" target="_blank" style="display:block;margin:3px 0;padding:5px 8px;background:#7c2d12;color:#fed7aa;border-radius:4px;font-size:11px;text-decoration:none">🔍 Google: beste Reisezeit + Preistrend</a>
       <div style="margin-top:8px;padding:8px;background:#1e1b16;border-radius:6px;border-left:3px solid #fbbf24;font-size:11px;line-height:1.5">
         <b style="color:#fbbf24">💡 So faellst du nicht auf die Schnauze:</b><br>
@@ -298,6 +312,12 @@ function openFreeSearch() {
       <b>💡 Kein statisches Preis-Profil vorhanden</b> — dieses Ziel ist nicht in den 27 Radar-Standard-Zielen.<br>
       Nutze die Bewertungs+Buchungslinks unten fuer aktuelle Preise+Reviews.
     </div>
+    <div class="info" style="margin-top:8px;padding:10px;background:#0f172a;border-radius:8px;border-left:3px solid #fbbf24">
+      <b style="color:#fbbf24">🏨 Beste Hotels für „${q}" — direkt sehen:</b>
+      <div style="margin-top:6px;font-size:12px;line-height:1.6">
+        Klick unten auf <b>⭐ TOP-Hotels sortiert nach Bewertung</b> — Booking zeigt dir die höchstbewerteten Hotels für <b>${q}</b> mit deinen Datum+Personen-Angaben. Für konkrete Empfehlungen füge einen Zielort aus der 27er-Liste an oder schau in HolidayCheck-Testberichte.
+      </div>
+    </div>
     ${buildReviewLinks(fakeD)}
     <div class="info" style="margin-top:12px"><a href="${buildDealUrl(fakeD)}" target="_blank" style="color:#10b981">📦 Direkt zu Pauschal-Angeboten fuer ${q} →</a></div>
   `;
@@ -305,6 +325,14 @@ function openFreeSearch() {
 }
 document.getElementById('freeSearchBtn').addEventListener('click', openFreeSearch);
 document.getElementById('freeSearch').addEventListener('keypress', e => { if (e.key === 'Enter') openFreeSearch(); });
+
+// v0.7 (Patrick 05.08.): Abflughafen speichern (Default BER = nächste Großstadt zu Usedom)
+(function initAbflughafen() {
+  const sel = document.getElementById('abflughafen');
+  const saved = localStorage.getItem('reiseRadar_ab') || 'BER';
+  sel.value = saved;
+  sel.addEventListener('change', () => localStorage.setItem('reiseRadar_ab', sel.value));
+})();
 
 // v0.6 (Patrick 05.08. "wenn ich auf Mallorca klicke passiert nichts"):
 // Zusaetzliche sichtbare LISTE aller Ziele — Klick auf Namen oeffnet Panel.

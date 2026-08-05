@@ -198,6 +198,8 @@ const globe = Globe()
       <div class="info"><b>🏨 Top-Hotels (Reiseblog-Empfehlung):</b> ${d.hotels}</div>
       <div class="info"><b>✈️ Anreise:</b> ${d.flug}</div>
 
+      <div style="margin:10px 0"><a href="#" onclick="addToWatchlist(${JSON.stringify(d).replace(/"/g, '&quot;')}); return false;" style="display:inline-block;padding:8px 14px;background:#10b981;color:#fff;border-radius:6px;font-size:12px;font-weight:600;text-decoration:none">➕ Zur Urlaubs-Watchlist hinzufügen</a></div>
+
       <div class="links">
         <div style="color:#fbbf24;font-weight:600;font-size:12px;margin-bottom:4px">📌 Direkte Buchungs-Links:</div>
         <a href="https://www.tui.de/pauschalreisen/?destination=${encodeURIComponent(d.city)}" target="_blank">🏨 TUI Pauschal ${d.city}</a>
@@ -328,8 +330,33 @@ function openFreeSearch() {
     </div>
     ${buildReviewLinks(fakeD)}
     <div class="info" style="margin-top:12px"><a href="${buildDealUrl(fakeD)}" target="_blank" style="color:#10b981">📦 Direkt zu Pauschal-Angeboten fuer ${q} →</a></div>
+    <div style="margin-top:10px"><a href="#" onclick="addToWatchlist(${JSON.stringify(fakeD).replace(/"/g, '&quot;')}); return false;" style="display:inline-block;padding:8px 14px;background:#10b981;color:#fff;border-radius:6px;font-size:12px;font-weight:600;text-decoration:none">➕ „${q}" zur Watchlist</a></div>
   `;
   document.getElementById('panel').style.display = 'block';
+}
+
+// v0.9: In Watchlist speichern — leitet zu urlaub.html mit ?add=<JSON> weiter,
+// urlaub.html liest den Param und schreibt in Firebase.
+function addToWatchlist(d) {
+  const hotel = prompt('Optional: Hotel-Name (leer lassen für nur Ziel):', d.hotels ? d.hotels.split(',')[0].trim() : '');
+  const from = document.getElementById('dateFrom').value;
+  const to = document.getElementById('dateTo').value;
+  const adults = document.getElementById('personen').value || '2';
+  const kids = document.getElementById('kinderAlter').value.trim();
+  const payload = {
+    title: (hotel ? hotel + ' — ' : '') + d.city,
+    destination: d.city,
+    hotel: hotel || '',
+    dateFrom: from,
+    dateTo: to,
+    adults: parseInt(adults) || 2,
+    kinderAlter: kids,
+    priceHint: d.current || null,
+    priceAvgHint: d.avg || null,
+    airports: getSelectedAirports(),
+    createdAt: Date.now()
+  };
+  location.href = 'urlaub.html?add=' + encodeURIComponent(JSON.stringify(payload));
 }
 document.getElementById('freeSearchBtn').addEventListener('click', openFreeSearch);
 document.getElementById('freeSearch').addEventListener('keypress', e => { if (e.key === 'Enter') openFreeSearch(); });

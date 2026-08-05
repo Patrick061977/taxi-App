@@ -186,6 +186,7 @@
                     <div class="card-current-price">ab ${fmtEUR(last.priceFrom)}${last.priceTo ? ' bis ' + fmtEUR(last.priceTo) : ''}</div>
                     ${last.summary ? escapeHtmlWithLinks(last.summary) : ''}
                 </div>` : ''}
+                ${buildMetaPriceBlock(entry)}
                 ${snaps.length > 1 ? `
                     <div class="card-snapshots">
                         <button class="snapshot-toggle">📊 ${snaps.length} Snapshots — anzeigen</button>
@@ -215,6 +216,28 @@
                 }
             });
             return card;
+        }
+
+        // v0.9 (Patrick 05.08.): Meta-Preisvergleichs-Block wenn Watchlist-Eintrag
+        //   hotel + dateFrom hat — 4 Portale (Google Hotels / Trivago / Kayak /
+        //   HotelsCombined) mit voraufgefuellten Params.
+        function buildMetaPriceBlock(entry) {
+            const hotel = entry.hotel || entry.hotelName;
+            const dest = entry.destination || entry.title;
+            if (!hotel && !dest) return '';
+            const q = encodeURIComponent(hotel || dest);
+            const from = entry.dateFrom || '';
+            const to = entry.dateTo || '';
+            const adults = entry.adults || 2;
+            const dp = (from && to) ? `&checkin=${from}&checkout=${to}` : '';
+            const googleParams = (from && to) ? `&checkin=${from}&checkout=${to}` : '';
+            return `<div style="margin-top:10px;padding:10px;background:#0f172a;border-radius:8px;border-left:3px solid #10b981">
+                <div style="font-size:12px;color:#fbbf24;font-weight:600;margin-bottom:6px">🔍 Beste Preise vergleichen ${hotel ? 'für <b>'+escapeHtml(hotel)+'</b>' : ''}</div>
+                <a href="https://www.google.com/travel/hotels?q=${q}${googleParams}" target="_blank" style="display:block;margin:3px 0;padding:5px 8px;background:#065f46;color:#a7f3d0;border-radius:4px;font-size:11px;text-decoration:none">🥇 Google Hotels — Preiskalender + billigster Anbieter</a>
+                <a href="https://www.trivago.de/de/srl?query=${q}" target="_blank" style="display:block;margin:3px 0;padding:5px 8px;background:#164e63;color:#67e8f9;border-radius:4px;font-size:11px;text-decoration:none">🥈 Trivago — deutscher Meta-Vergleicher</a>
+                <a href="https://www.kayak.de/hotels/${q}" target="_blank" style="display:block;margin:3px 0;padding:5px 8px;background:#7c2d12;color:#fdba74;border-radius:4px;font-size:11px;text-decoration:none">🥉 Kayak Hotels — 40+ Anbieter</a>
+                <a href="https://www.booking.com/searchresults.html?ss=${q}${dp}&group_adults=${adults}&order=price" target="_blank" style="display:block;margin:3px 0;padding:5px 8px;background:#4c1d95;color:#c4b5fd;border-radius:4px;font-size:11px;text-decoration:none">🛏️ Booking — direkt (billigst zuerst)</a>
+            </div>`;
         }
 
         function escapeHtml(s) {
@@ -277,7 +300,46 @@
             status.innerHTML = '';
             if (submitSection) submitSection.style.display = 'block';
             db.ref('urlaubWatchlist').on('value', render);
+            // v0.9: Reise-Radar-Deep-Link ?add=<json> → Watchlist-Eintrag anlegen
+            handleAddParam();
         });
+
+        // v0.9: Watchlist-Eintrag aus URL-Param ?add=<json> anlegen (kommt aus reise-radar.html)
+        function handleAddParam() {
+            const params = new URLSearchParams(location.search);
+            const raw = params.get('add');
+            if (!raw) return;
+            let payload;
+            try { payload = JSON.parse(decodeURIComponent(raw)); }
+            catch (e) { console.warn('add-Param nicht parsebar', e); return; }
+            const id = (payload.hotel ? payload.hotel.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 30) + '-' : '')
+                + (payload.destination || 'reise').toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 20)
+                + '-' + Date.now();
+            const entry = {
+                title: payload.title || payload.destination,
+                destination: payload.destination || '',
+                hotel: payload.hotel || '',
+                dateFrom: payload.dateFrom || '',
+                dateTo: payload.dateTo || '',
+                adults: payload.adults || 2,
+                kinderAlter: payload.kinderAlter || '',
+                personen: (payload.adults || 2) + ' Erw' + (payload.kinderAlter ? ' + Kinder ' + payload.kinderAlter : ''),
+                airports: payload.airports || ['BER'],
+                createdAt: payload.createdAt || Date.now(),
+                snapshots: payload.priceHint ? [{
+                    priceFrom: payload.priceHint,
+                    priceTo: payload.priceAvgHint || null,
+                    summary: 'Aus Reise-Radar hinzugefügt (Ziel-Preis-Hinweis pro Person)',
+                    quelle: 'reise-radar-static',
+                    ts: Date.now()
+                }] : []
+            };
+            db.ref('urlaubWatchlist/' + id).set(entry).then(() => {
+                // Param aus URL entfernen (kein doppelter Insert bei Reload)
+                history.replaceState({}, '', location.pathname);
+                alert('✅ „' + entry.title + '" zur Watchlist hinzugefügt');
+            }).catch(e => alert('❌ Fehler beim Speichern: ' + e.message));
+        }
 
         window.signInWithGoogle = function() {
             const provider = new firebase.auth.GoogleAuthProvider();

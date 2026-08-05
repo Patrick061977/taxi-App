@@ -198,7 +198,7 @@ const globe = Globe()
       <div class="info"><b>🏨 Top-Hotels (Reiseblog-Empfehlung):</b> ${d.hotels}</div>
       <div class="info"><b>✈️ Anreise:</b> ${d.flug}</div>
 
-      <div style="margin:10px 0"><a href="#" onclick="addToWatchlist(${JSON.stringify(d).replace(/"/g, '&quot;')}); return false;" style="display:inline-block;padding:8px 14px;background:#10b981;color:#fff;border-radius:6px;font-size:12px;font-weight:600;text-decoration:none">➕ Zur Urlaubs-Watchlist hinzufügen</a></div>
+      <div style="margin:10px 0"><a href="#" onclick="addToWatchlist('${d.city.replace(/'/g, "\\'")}'); return false;" style="display:inline-block;padding:8px 14px;background:#10b981;color:#fff;border-radius:6px;font-size:12px;font-weight:600;text-decoration:none">➕ Zur Urlaubs-Watchlist hinzufügen</a></div>
 
       <div class="links">
         <div style="color:#fbbf24;font-weight:600;font-size:12px;margin-bottom:4px">📌 Direkte Buchungs-Links:</div>
@@ -330,29 +330,33 @@ function openFreeSearch() {
     </div>
     ${buildReviewLinks(fakeD)}
     <div class="info" style="margin-top:12px"><a href="${buildDealUrl(fakeD)}" target="_blank" style="color:#10b981">📦 Direkt zu Pauschal-Angeboten fuer ${q} →</a></div>
-    <div style="margin-top:10px"><a href="#" onclick="addToWatchlist(${JSON.stringify(fakeD).replace(/"/g, '&quot;')}); return false;" style="display:inline-block;padding:8px 14px;background:#10b981;color:#fff;border-radius:6px;font-size:12px;font-weight:600;text-decoration:none">➕ „${q}" zur Watchlist</a></div>
+    <div style="margin-top:10px"><a href="#" onclick="addToWatchlist('${q.replace(/'/g, "\\'")}'); return false;" style="display:inline-block;padding:8px 14px;background:#10b981;color:#fff;border-radius:6px;font-size:12px;font-weight:600;text-decoration:none">➕ „${q}" zur Watchlist</a></div>
   `;
   document.getElementById('panel').style.display = 'block';
 }
 
 // v0.9: In Watchlist speichern — leitet zu urlaub.html mit ?add=<JSON> weiter,
 // urlaub.html liest den Param und schreibt in Firebase.
-function addToWatchlist(d) {
-  const hotel = prompt('Optional: Hotel-Name (leer lassen für nur Ziel):', d.hotels ? d.hotels.split(',')[0].trim() : '');
+// Nimmt City-Name string statt globe.gl-Meta-Objekt — schlanker onclick
+function addToWatchlist(cityOrObj) {
+  const city = typeof cityOrObj === 'string' ? cityOrObj : (cityOrObj && cityOrObj.city);
+  if (!city) return;
+  const meta = (typeof cityOrObj === 'object') ? cityOrObj : (DESTINATIONS.find(x => x.city === city) || {});
+  const hotel = prompt('Optional: Hotel-Name (leer lassen für nur Ziel):', meta.hotels ? meta.hotels.split(',')[0].trim() : '');
   const from = document.getElementById('dateFrom').value;
   const to = document.getElementById('dateTo').value;
   const adults = document.getElementById('personen').value || '2';
   const kids = document.getElementById('kinderAlter').value.trim();
   const payload = {
-    title: (hotel ? hotel + ' — ' : '') + d.city,
-    destination: d.city,
+    title: (hotel ? hotel + ' — ' : '') + city,
+    destination: city,
     hotel: hotel || '',
     dateFrom: from,
     dateTo: to,
     adults: parseInt(adults) || 2,
     kinderAlter: kids,
-    priceHint: d.current || null,
-    priceAvgHint: d.avg || null,
+    priceHint: meta.current || null,
+    priceAvgHint: meta.avg || null,
     airports: getSelectedAirports(),
     createdAt: Date.now()
   };
@@ -393,6 +397,7 @@ function openZiel(city) {
       ${d.enthaelt ? `<span class="price-includes">enthält: ${d.enthaelt} · Klick öffnet Buchungsportal</span>` : ''}
     </div>
     <div class="avg">Jahresdurchschnitt: ${d.avg}€ · Preise variieren tagesaktuell</div>
+    <div style="margin:10px 0"><a href="#" onclick="addToWatchlist('${d.city.replace(/'/g, "\\'")}'); return false;" style="display:inline-block;padding:10px 16px;background:#10b981;color:#fff;border-radius:6px;font-size:13px;font-weight:600;text-decoration:none">➕ „${d.city}" zur Urlaubs-Watchlist</a></div>
     <div style="margin:12px 0;padding:10px;background:#0f172a;border-radius:8px;font-size:13px">
       <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span>🌡️ Aktuell:</span><b>${d.temp}</b></div>
       ${d.wasser !== '—' ? `<div style="display:flex;justify-content:space-between;margin-bottom:4px"><span>🌊 Wasser:</span><b>${d.wasser}</b></div>` : ''}
@@ -405,7 +410,7 @@ function openZiel(city) {
     ${buildReviewLinks(d)}
     <div class="info"><b>🏨 Top-Hotels (Reiseblog-Empfehlung):</b> ${d.hotels}</div>
     <div class="info"><b>✈️ Anreise:</b> ${d.flug}</div>
-    <div style="margin-top:12px"><a href="#" onclick="addToWatchlist(${JSON.stringify(d).replace(/"/g, '&quot;')}); return false;" style="display:inline-block;padding:10px 16px;background:#10b981;color:#fff;border-radius:6px;font-size:13px;font-weight:600;text-decoration:none">➕ „${d.city}" zur Urlaubs-Watchlist</a></div>
+    <div style="margin-top:12px"><a href="#" onclick="addToWatchlist('${d.city.replace(/'/g, "\\'")}'); return false;" style="display:inline-block;padding:10px 16px;background:#10b981;color:#fff;border-radius:6px;font-size:13px;font-weight:600;text-decoration:none">➕ „${d.city}" zur Urlaubs-Watchlist</a></div>
   `;
   document.getElementById('panel').style.display = 'block';
 }

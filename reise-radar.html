@@ -405,6 +405,7 @@ function openZiel(city) {
     ${buildReviewLinks(d)}
     <div class="info"><b>🏨 Top-Hotels (Reiseblog-Empfehlung):</b> ${d.hotels}</div>
     <div class="info"><b>✈️ Anreise:</b> ${d.flug}</div>
+    <div style="margin-top:12px"><a href="#" onclick="addToWatchlist(${JSON.stringify(d).replace(/"/g, '&quot;')}); return false;" style="display:inline-block;padding:10px 16px;background:#10b981;color:#fff;border-radius:6px;font-size:13px;font-weight:600;text-decoration:none">➕ „${d.city}" zur Urlaubs-Watchlist</a></div>
   `;
   document.getElementById('panel').style.display = 'block';
 }

@@ -7,7 +7,7 @@
  */
 
 // 🆕 v6.25.5: Cloud Function Version — wird in Firebase gespeichert für App-Anzeige
-const CLOUD_FUNCTIONS_VERSION = '6.63.864';
+const CLOUD_FUNCTIONS_VERSION = '6.63.867';
 const CLOUD_FUNCTIONS_BUILD = '21.04.2026 14:35';
 
 const { onRequest } = require('firebase-functions/v2/https');
@@ -1632,6 +1632,30 @@ async function autoAssignRide(rideId, rideData, _excludeVehicleIds = []) {
                 }
                 if (_inGracePeriod) {
                     console.log(`   ⏸️ v6.63.830 ${info.name}: shift=auto-ended aber erst ${Math.round(_autoEndedAgeMs/60000)}min alt — Grace-Period, Fahrzeug bleibt Kandidat`);
+                }
+            }
+
+            // 🚨 v6.63.867 (Patrick 04.08. 11:51 Bridge: "60 km entfernt in Greifswald,
+            //   das ist Quatsch"): HARTE 30km-Grenze — wenn Fahrer laut aktuellem GPS
+            //   weiter als 30km vom Pickup entfernt ist, KOMPROMISSLOS ablehnen, egal wann
+            //   Pickup ist. Der v6.63.837-Zeit-Check unten greift nur bei Pickup <2h, aber
+            //   Höhner Maxim-Gorki 12:00 wurde 09:00 zugewiesen (3h vorher) → nicht im
+            //   Fenster → System hat 60km-Fahrer akzeptiert. Jetzt gilt: 30km hard cap.
+            if (rideData.pickupLat && rideData.pickupLon && _vData.lat && _vData.lon && _vData.timestamp) {
+                const _gpsAgeMin = (Date.now() - _vData.timestamp) / 60000;
+                if (_gpsAgeMin < 15) {
+                    const _R = 6371;
+                    const _lat1 = Number(_vData.lat) * Math.PI / 180;
+                    const _lat2 = Number(rideData.pickupLat) * Math.PI / 180;
+                    const _dLat = (Number(rideData.pickupLat) - Number(_vData.lat)) * Math.PI / 180;
+                    const _dLon = (Number(rideData.pickupLon) - Number(_vData.lon)) * Math.PI / 180;
+                    const _a = Math.sin(_dLat/2)**2 + Math.cos(_lat1) * Math.cos(_lat2) * Math.sin(_dLon/2)**2;
+                    const _hardDistKm = _R * 2 * Math.atan2(Math.sqrt(_a), Math.sqrt(1-_a));
+                    if (_hardDistKm > 30) {
+                        console.log(`   ❌ ${info.name}: v6.63.867 GPS-Hardlimit — ${_hardDistKm.toFixed(1)}km entfernt (>30km), egal welche Pickup-Zeit → reject`);
+                        vehicleScores[vehicleId] = { status: 'rejected', reason: `GPS-Hardlimit v6.63.867: Fahrer ${_hardDistKm.toFixed(1)}km entfernt (>30km) — nicht zuweisbar`, check: 'gps-hardlimit-30km', distKm: Math.round(_hardDistKm * 10) / 10 };
+                        continue;
+                    }
                 }
             }
 

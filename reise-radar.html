@@ -243,11 +243,18 @@ function buildReviewLinks(d) {
       <a href="https://www.tripadvisor.de/Search?q=${city}" target="_blank" style="display:inline-block;margin:2px 4px 2px 0;padding:3px 8px;background:#0d5c4f;color:#4ade80;border-radius:4px;font-size:11px;text-decoration:none">TripAdvisor</a>
       <a href="https://www.google.com/search?q=${city}+Hotels+bewertung" target="_blank" style="display:inline-block;margin:2px 4px 2px 0;padding:3px 8px;background:#1e40af;color:#93c5fd;border-radius:4px;font-size:11px;text-decoration:none">Google Reviews</a>
       <a href="https://www.holidaycheck.de/dh/search?query=${city}" target="_blank" style="display:inline-block;margin:2px 4px 2px 0;padding:3px 8px;background:#7c2d12;color:#fdba74;border-radius:4px;font-size:11px;text-decoration:none">HolidayCheck (DE)</a>
+      <div style="font-size:11px;color:#fbbf24;font-weight:600;margin-top:8px;margin-bottom:4px">🎟️ GUTSCHEINE + DEAL-CODES</div>
+      <a href="https://www.mydealz.de/gruppe/reise-und-urlaub" target="_blank" style="display:inline-block;margin:2px 4px 2px 0;padding:3px 8px;background:#7f1d1d;color:#fecaca;border-radius:4px;font-size:11px;text-decoration:none">mydealz Reise</a>
+      <a href="https://www.mydealz.de/search?q=${city}" target="_blank" style="display:inline-block;margin:2px 4px 2px 0;padding:3px 8px;background:#7f1d1d;color:#fecaca;border-radius:4px;font-size:11px;text-decoration:none">mydealz "${d.city}"</a>
+      <a href="https://www.gutscheinsammler.de/reise-gutscheine" target="_blank" style="display:inline-block;margin:2px 4px 2px 0;padding:3px 8px;background:#4c1d95;color:#c4b5fd;border-radius:4px;font-size:11px;text-decoration:none">Gutscheinsammler</a>
+      <a href="https://www.groupon.de/browse/reisen" target="_blank" style="display:inline-block;margin:2px 4px 2px 0;padding:3px 8px;background:#065f46;color:#a7f3d0;border-radius:4px;font-size:11px;text-decoration:none">Groupon Reise-Deals</a>
+      <a href="https://www.holidaycheck.de/newsletter-abo" target="_blank" style="display:inline-block;margin:2px 4px 2px 0;padding:3px 8px;background:#7c2d12;color:#fdba74;border-radius:4px;font-size:11px;text-decoration:none">HolidayCheck Newsletter</a>
+      <a href="https://www.urlaubspiraten.de/reise/${city.toLowerCase()}" target="_blank" style="display:inline-block;margin:2px 4px 2px 0;padding:3px 8px;background:#831843;color:#fbcfe8;border-radius:4px;font-size:11px;text-decoration:none">Urlaubspiraten</a>
       <div style="font-size:11px;color:#fbbf24;font-weight:600;margin-top:8px;margin-bottom:4px">📉 PREIS-VERLAUF + BESTER BUCHUNGS-ZEITPUNKT</div>
       <a href="https://www.google.com/travel/flights?q=Flights%20to%20${city}%20from%20FRA" target="_blank" style="display:block;margin:3px 0;padding:5px 8px;background:#1e3a8a;color:#bfdbfe;border-radius:4px;font-size:11px;text-decoration:none">✈️ Google Flights (mit Preis-Kalender+Vorhersage)</a>
       <a href="https://www.kayak.de/explore?origin=FRA&destination=${city}" target="_blank" style="display:block;margin:3px 0;padding:5px 8px;background:#4c1d95;color:#c4b5fd;border-radius:4px;font-size:11px;text-decoration:none">🗓️ Kayak Explore (guenstigster Monat)</a>
-      <a href="https://www.momondo.de/fluge/frankfurt/${city.toLowerCase()}" target="_blank" style="display:block;margin:3px 0;padding:5px 8px;background:#831843;color:#fbcfe8;border-radius:4px;font-size:11px;text-decoration:none">📊 Momondo Preishistorie</a>
-      <a href="https://www.hotels.com/de/de/${city.toLowerCase()}" target="_blank" style="display:block;margin:3px 0;padding:5px 8px;background:#7c2d12;color:#fed7aa;border-radius:4px;font-size:11px;text-decoration:none">🏨 Hotels.com (Preistrend-Chart pro Hotel)</a>
+      <a href="https://www.kayak.de/flights/FRA-${city}" target="_blank" style="display:block;margin:3px 0;padding:5px 8px;background:#831843;color:#fbcfe8;border-radius:4px;font-size:11px;text-decoration:none">📊 Kayak Preistrend-Chart FRA → ${d.city}</a>
+      <a href="https://www.google.com/search?q=${city}+beste+Reisezeit+Preistrend" target="_blank" style="display:block;margin:3px 0;padding:5px 8px;background:#7c2d12;color:#fed7aa;border-radius:4px;font-size:11px;text-decoration:none">🔍 Google: beste Reisezeit + Preistrend</a>
       <div style="margin-top:8px;padding:8px;background:#1e1b16;border-radius:6px;border-left:3px solid #fbbf24;font-size:11px;line-height:1.5">
         <b style="color:#fbbf24">💡 So faellst du nicht auf die Schnauze:</b><br>
         1. Nur Hotels mit <b>&gt;100 Bewertungen</b> nehmen (weniger = zu unsicher)<br>
@@ -292,7 +299,7 @@ function openFreeSearch() {
       Nutze die Bewertungs+Buchungslinks unten fuer aktuelle Preise+Reviews.
     </div>
     ${buildReviewLinks(fakeD)}
-    <div class="info" style="margin-top:12px"><a href="${fakeD.deal_url}" target="_blank" style="color:#10b981">📦 Direkt zu Pauschal-Angeboten fuer ${q} →</a></div>
+    <div class="info" style="margin-top:12px"><a href="${buildDealUrl(fakeD)}" target="_blank" style="color:#10b981">📦 Direkt zu Pauschal-Angeboten fuer ${q} →</a></div>
   `;
   document.getElementById('panel').style.display = 'block';
 }
@@ -350,6 +357,38 @@ let controls = globe.controls();
 controls.autoRotate = true;
 controls.autoRotateSpeed = 0.5;
 document.getElementById('globe').addEventListener('mousedown', () => controls.autoRotate = false);
+
+// v0.8 (Patrick 05.08. "auf die weltkugel klicken und orte raussuchen"):
+// Klick auf beliebige Stelle der Kugel → Reverse-Geocoding via Nominatim (OSM, gratis)
+// → oeffnet Freitext-Panel fuer diesen Ort mit allen Bewertungs+Preis-Links
+globe.onGlobeClick(async ({ lat, lng }) => {
+  // Panel schon offen? Erst schliessen fuer Loading-Feedback
+  document.getElementById('panel-content').innerHTML = `<h2>🌍 Suche Ort...</h2><div style="color:#94a3b8;font-size:12px">Reverse-Geocoding via OpenStreetMap...</div>`;
+  document.getElementById('panel').style.display = 'block';
+  try {
+    const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=10&accept-language=de`;
+    const r = await fetch(url, { headers: { 'User-Agent': 'FunkTaxi-ReiseRadar/1.0' } });
+    const j = await r.json();
+    const a = j.address || {};
+    const name = a.city || a.town || a.village || a.county || a.state || a.country || 'Unbekannt';
+    const country = a.country_code ? a.country_code.toUpperCase() : '';
+    // Fake-Ziel bauen fuer buildReviewLinks
+    const fakeD = { city: name, country, cat: 'Städte', current: 500, avg: 600, weeks: 0.6,
+      hotels: '(recherchieren via Booking-Links unten)', flug: '(recherchieren via Skyscanner)',
+      enthaelt: 'Suche via Portale unten', deal_url: 'https://www.ab-in-den-urlaub.de/pauschalreisen/suche?destination=' + encodeURIComponent(name),
+      note: `${name} in ${a.country || '?'} — Klick auf Kugel-Punkt reverse-geocoded`, beste_zeit: 'siehe Portale', sights: 'siehe TripAdvisor', tipps: 'siehe Reviews' };
+    document.getElementById('panel-content').innerHTML = `
+      <h2>🌍 ${name}${country ? ' ('+country+')' : ''}</h2>
+      <div style="color:#94a3b8;font-size:12px">Klick-Position: ${lat.toFixed(3)}°N, ${lng.toFixed(3)}°E</div>
+      <div style="margin:10px 0;padding:10px;background:#0f172a;border-radius:8px;font-size:13px">
+        <b>💡 Klick-Suche</b> — kein statisches Profil, aber Live-Reviews + Preise via Deep-Links.
+      </div>
+      ${buildReviewLinks(fakeD)}
+    `;
+  } catch (e) {
+    document.getElementById('panel-content').innerHTML = `<h2>❌ Fehler</h2><div>${e.message}</div>`;
+  }
+});
 </script>
 </body>
 </html>

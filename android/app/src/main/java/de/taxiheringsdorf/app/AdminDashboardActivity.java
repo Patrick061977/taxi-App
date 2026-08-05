@@ -2058,8 +2058,8 @@ public class AdminDashboardActivity extends AppCompatActivity {
                         //   im Dialog gesetzter Rückfahrt-Uhrzeit → automatisch zweiten Ride
                         //   mit vertauschten Adressen anlegen (nutzt bestehende Rückfahrt-Logik).
                         String _pendingRt = _pendingReturnRide.remove(a.id);
-                        RueckfahrtHint _rfHint = _detectRueckfahrt(a.notes);
-                        if (_rfHint == null && _pendingRt != null && a.dateReturn != null) {
+                        RueckfahrtHint _tmpHint = _detectRueckfahrt(a.notes);
+                        if (_tmpHint == null && _pendingRt != null && a.dateReturn != null) {
                             RueckfahrtHint _bs = new RueckfahrtHint();
                             try {
                                 String[] _p = a.dateReturn.split("-"); // yyyy-mm-dd → dd.mm.yyyy
@@ -2067,8 +2067,10 @@ public class AdminDashboardActivity extends AppCompatActivity {
                                 else _bs.dateStr = a.dateReturn;
                             } catch (Throwable _tex) { _bs.dateStr = a.dateReturn; }
                             _bs.timeStr = _pendingRt;
-                            _rfHint = _bs;
+                            _tmpHint = _bs;
                         }
+                        // v6.63.870: effectively-final Kopie fuer Lambda-Access unten
+                        final RueckfahrtHint _rfHint = _tmpHint;
                         if (_rfHint != null) {
                             String _pickup40 = a.destination != null ? (a.destination.length() > 45 ? a.destination.substring(0, 45) + "…" : a.destination) : "?";
                             String _dest40  = a.pickup != null    ? (a.pickup.length()    > 45 ? a.pickup.substring(0, 45)    + "…" : a.pickup)    : "?";

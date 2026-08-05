@@ -3555,20 +3555,13 @@ public class AdminDashboardActivity extends AppCompatActivity {
                     });
                 } else {
                     tvRueckfahrt.setVisibility(View.GONE);
-                    // v6.63.670 (Patrick 10.07. 07:08): Tap zeigt jetzt Auswahl-Dialog statt sofort zu uebernehmen.
-                    //   Vorher (v6.63.629) landete jeder Fehl-Tap sofort als accepted Ride — Ablehnen ging nur
-                    //   per LongPress. Patrick: "kann ja gar nicht mehr ablehnen".
-                    itemView.setOnClickListener(_v -> {
-                        new AlertDialog.Builder(AdminDashboardActivity.this)
-                            .setTitle("📥 " + (a.name != null ? a.name : "Anfrage") + " — was tun?")
-                            .setPositiveButton("✅ Übernehmen + bestätigen", (d2, w2) -> _uebernehmeAnfrageImpl(a))
-                            .setNeutralButton("⚪ Nur übernehmen", (d2, w2) -> uebernehmeAnfrageOhneBestaetigung(a))
-                            .setNegativeButton("❌ Ablehnen", (d2, w2) -> {
-                                db.getReference("anfragen/" + a.id + "/status").setValue("abgelehnt");
-                                Toast.makeText(AdminDashboardActivity.this, "Anfrage abgelehnt", Toast.LENGTH_SHORT).show();
-                            })
-                            .show();
-                    });
+                    // v6.63.872 (Patrick 05.08. 11:11 Bridge "gibt nix zum Übernehmen wo ich
+                    //   Zeit eintragen kann"): Tap öffnet jetzt den vollen Übernehmen-Dialog
+                    //   (showAnfrageUebernehmenDialog) statt Minimal-Auswahl. Der volle Dialog
+                    //   hat Zeit-Feld + Preis-Feld + bei berlin-shuttle auch Rückfahrt-Zeit.
+                    //   Ohne diesen Fix landete berlin-shuttle-Anfragen direkt im Impl der
+                    //   mit "Uhrzeit fehlt" blockte, weil das Zeit-Feld nie gezeigt wurde.
+                    itemView.setOnClickListener(_v -> showAnfrageUebernehmenDialog(a));
                 }
                 itemView.setOnLongClickListener(_v -> {
                     new AlertDialog.Builder(AdminDashboardActivity.this)

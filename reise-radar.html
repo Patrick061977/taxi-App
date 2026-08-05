@@ -44,6 +44,9 @@
 </header>
 
 <div class="filter-bar">
+  <input id="freeSearch" type="text" placeholder="🔍 Ziel suchen: Zypern, Ibiza, Tokyo..." style="background:#0a1020;color:#e2e8f0;border:1px solid #10b981;padding:5px 10px;border-radius:6px;font-size:13px;width:220px">
+  <button id="freeSearchBtn" style="background:#10b981;color:white;border:0;padding:5px 12px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600">Suchen</button>
+  <span style="border-left:1px solid #334155;height:24px;margin:0 4px"></span>
   <button class="filter-btn active" data-cat="all">Alle</button>
   <button class="filter-btn" data-cat="Sonne">🏖️ Sonne</button>
   <button class="filter-btn" data-cat="Städte">🏛️ Städte</button>
@@ -70,6 +73,10 @@
 </div>
 
 <div id="globe"></div>
+
+<div id="ziel-liste" style="position:absolute;bottom:20px;left:50%;transform:translateX(-50%);background:rgba(15,23,42,0.95);padding:10px 14px;border-radius:10px;max-width:80vw;max-height:180px;overflow-y:auto;z-index:10;text-align:center;border:1px solid #334155">
+  <div style="color:#94a3b8;font-size:11px;margin-bottom:6px">📍 <b>Alternative</b> — Klick auf einen Ziel-Namen (falls Kugel-Punkt schwer trifft):</div>
+</div>
 
 <div class="legend">
   <div class="legend-item"><div class="dot green"></div>Deal (>15% unter Durchschnitt)</div>
@@ -147,7 +154,7 @@ const globe = Globe()
   .pointsData(DESTINATIONS)
   .pointLat('lat').pointLng('lng')
   .pointColor(d => colorForRatio(d.current, d.avg))
-  .pointRadius(0.5)
+  .pointRadius(1.2)
   .pointAltitude(0.02)
   .pointLabel(d => `<div style="background:#1e293b;padding:6px 10px;border-radius:6px;color:#fff;font-family:sans-serif;font-size:12px">
     <b style="color:#fbbf24">${d.city}</b> (${d.country})<br>
@@ -236,6 +243,11 @@ function buildReviewLinks(d) {
       <a href="https://www.tripadvisor.de/Search?q=${city}" target="_blank" style="display:inline-block;margin:2px 4px 2px 0;padding:3px 8px;background:#0d5c4f;color:#4ade80;border-radius:4px;font-size:11px;text-decoration:none">TripAdvisor</a>
       <a href="https://www.google.com/search?q=${city}+Hotels+bewertung" target="_blank" style="display:inline-block;margin:2px 4px 2px 0;padding:3px 8px;background:#1e40af;color:#93c5fd;border-radius:4px;font-size:11px;text-decoration:none">Google Reviews</a>
       <a href="https://www.holidaycheck.de/dh/search?query=${city}" target="_blank" style="display:inline-block;margin:2px 4px 2px 0;padding:3px 8px;background:#7c2d12;color:#fdba74;border-radius:4px;font-size:11px;text-decoration:none">HolidayCheck (DE)</a>
+      <div style="font-size:11px;color:#fbbf24;font-weight:600;margin-top:8px;margin-bottom:4px">📉 PREIS-VERLAUF + BESTER BUCHUNGS-ZEITPUNKT</div>
+      <a href="https://www.google.com/travel/flights?q=Flights%20to%20${city}%20from%20FRA" target="_blank" style="display:block;margin:3px 0;padding:5px 8px;background:#1e3a8a;color:#bfdbfe;border-radius:4px;font-size:11px;text-decoration:none">✈️ Google Flights (mit Preis-Kalender+Vorhersage)</a>
+      <a href="https://www.kayak.de/explore?origin=FRA&destination=${city}" target="_blank" style="display:block;margin:3px 0;padding:5px 8px;background:#4c1d95;color:#c4b5fd;border-radius:4px;font-size:11px;text-decoration:none">🗓️ Kayak Explore (guenstigster Monat)</a>
+      <a href="https://www.momondo.de/fluge/frankfurt/${city.toLowerCase()}" target="_blank" style="display:block;margin:3px 0;padding:5px 8px;background:#831843;color:#fbcfe8;border-radius:4px;font-size:11px;text-decoration:none">📊 Momondo Preishistorie</a>
+      <a href="https://www.hotels.com/de/de/${city.toLowerCase()}" target="_blank" style="display:block;margin:3px 0;padding:5px 8px;background:#7c2d12;color:#fed7aa;border-radius:4px;font-size:11px;text-decoration:none">🏨 Hotels.com (Preistrend-Chart pro Hotel)</a>
       <div style="margin-top:8px;padding:8px;background:#1e1b16;border-radius:6px;border-left:3px solid #fbbf24;font-size:11px;line-height:1.5">
         <b style="color:#fbbf24">💡 So faellst du nicht auf die Schnauze:</b><br>
         1. Nur Hotels mit <b>&gt;100 Bewertungen</b> nehmen (weniger = zu unsicher)<br>
@@ -243,7 +255,9 @@ function buildReviewLinks(d) {
         3. Neueste Reviews zuerst lesen (die letzten 3-6 Monate)<br>
         4. Sprache-Filter <b>Deutsch</b> setzen — deutsche Gaeste beschweren sich ehrlicher<br>
         5. Achte auf Foto-Bewertungen (Original-Zimmer statt Hotel-Prospekt)<br>
-        6. Familienzimmer-Beschwerden lesen (Bett-Groesse, Rollkinderbett, Balkon-Schutz)
+        6. Familienzimmer-Beschwerden lesen (Bett-Groesse, Rollkinderbett, Balkon-Schutz)<br>
+        7. <b>Google Flights</b> zeigt gruen/gelb/rot je nach Preis vs Durchschnitt<br>
+        8. <b>Kayak Explore</b> zeigt guenstigsten Reisemonat aus deinem Flughafen
       </div>
     </div>`;
 }
@@ -262,6 +276,73 @@ document.querySelectorAll('.filter-btn').forEach(btn => btn.addEventListener('cl
   applyFilters();
 }));
 document.getElementById('budget-btn').addEventListener('click', applyFilters);
+
+// v0.5 Freitext-Suche: bei Ziel das nicht im Radar ist → als Panel mit Booking-Filter-Links oeffnen
+function openFreeSearch() {
+  const q = document.getElementById('freeSearch').value.trim();
+  if (!q) return;
+  // Fake-Ziel bauen fuer buildReviewLinks
+  const fakeD = { city: q, country: '?', cat: 'Städte', current: 500, avg: 600, weeks: 0.6, hotels: '—', flug: '—', enthaelt: 'Suche via Booking', deal_url: 'https://www.ab-in-den-urlaub.de/pauschalreisen/suche?destination=' + encodeURIComponent(q), note: 'Freitext-Suche — kein statisches Profil, direkt Live-Suche in Booking/HolidayCheck/TripAdvisor', beste_zeit: 'Recherchiere unten in den Reviews-Links', sights: 'siehe TripAdvisor-Link unten', tipps: 'Sortiere Bewertungen nach neuesten + filtere ≥8.0 fuer sichere Wahl' };
+  const r = { text: 'Freitext', cls: 'yellow' };
+  document.getElementById('panel-content').innerHTML = `
+    <h2>🔍 ${q}</h2>
+    <div style="color:#94a3b8;font-size:12px">Freitext-Suche — nutze die Buttons unten fuer echte Live-Ergebnisse</div>
+    <div style="margin:12px 0;padding:10px;background:#0f172a;border-radius:8px;font-size:13px">
+      <b>💡 Kein statisches Preis-Profil vorhanden</b> — dieses Ziel ist nicht in den 27 Radar-Standard-Zielen.<br>
+      Nutze die Bewertungs+Buchungslinks unten fuer aktuelle Preise+Reviews.
+    </div>
+    ${buildReviewLinks(fakeD)}
+    <div class="info" style="margin-top:12px"><a href="${fakeD.deal_url}" target="_blank" style="color:#10b981">📦 Direkt zu Pauschal-Angeboten fuer ${q} →</a></div>
+  `;
+  document.getElementById('panel').style.display = 'block';
+}
+document.getElementById('freeSearchBtn').addEventListener('click', openFreeSearch);
+document.getElementById('freeSearch').addEventListener('keypress', e => { if (e.key === 'Enter') openFreeSearch(); });
+
+// v0.6 (Patrick 05.08. "wenn ich auf Mallorca klicke passiert nichts"):
+// Zusaetzliche sichtbare LISTE aller Ziele — Klick auf Namen oeffnet Panel.
+// Falls Kugel-Klick schwer (Punkte klein), Liste als Fallback.
+function openZiel(city) {
+  const d = DESTINATIONS.find(x => x.city === city);
+  if (!d) return;
+  // Simuliere onPointClick-Logik manuell:
+  const r = ratioLabel(d.current, d.avg);
+  document.getElementById('panel-content').innerHTML = `
+    <h2>${d.city}, ${d.country}</h2>
+    <div style="color:#94a3b8;font-size:12px">${d.cat} · ${d.weeks * 7 | 0} Tage · pro Person</div>
+    <div class="price">
+      ${d.deal_url ? `<a href="${buildDealUrl(d)}" target="_blank">ab ${d.current}€ →</a>` : `ab ${d.current}€`}
+      <span class="diff ${r.cls}">${r.text}</span>
+      ${d.enthaelt ? `<span class="price-includes">enthält: ${d.enthaelt} · Klick öffnet Buchungsportal</span>` : ''}
+    </div>
+    <div class="avg">Jahresdurchschnitt: ${d.avg}€ · Preise variieren tagesaktuell</div>
+    <div style="margin:12px 0;padding:10px;background:#0f172a;border-radius:8px;font-size:13px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span>🌡️ Aktuell:</span><b>${d.temp}</b></div>
+      ${d.wasser !== '—' ? `<div style="display:flex;justify-content:space-between;margin-bottom:4px"><span>🌊 Wasser:</span><b>${d.wasser}</b></div>` : ''}
+      <div style="display:flex;justify-content:space-between"><span>📅 Saison:</span><b>${d.saison}</b></div>
+    </div>
+    <div class="info"><b>💡 Kurz:</b> ${d.note}</div>
+    ${d.beste_zeit ? `<div class="info"><b>📅 Beste Reisezeit:</b> ${d.beste_zeit}</div>` : ''}
+    ${d.sights ? `<div class="info"><b>🎯 Top-Sehenswürdigkeiten:</b> ${d.sights}</div>` : ''}
+    ${d.tipps ? `<div class="info" style="background:#0f172a;padding:8px;border-radius:6px;border-left:3px solid #10b981"><b>🧠 Insider-Tipps:</b> ${d.tipps}</div>` : ''}
+    ${buildReviewLinks(d)}
+    <div class="info"><b>🏨 Top-Hotels (Reiseblog-Empfehlung):</b> ${d.hotels}</div>
+    <div class="info"><b>✈️ Anreise:</b> ${d.flug}</div>
+  `;
+  document.getElementById('panel').style.display = 'block';
+}
+// Render Liste unter dem Globus als Fallback (immer sichtbar)
+function renderZielListe() {
+  const listEl = document.getElementById('ziel-liste');
+  if (!listEl) return;
+  const sorted = [...DESTINATIONS].sort((a,b) => a.city.localeCompare(b.city, 'de'));
+  listEl.innerHTML = sorted.map(d => {
+    const ratio = d.current / d.avg;
+    const color = ratio < 0.85 ? '#10b981' : ratio > 1.15 ? '#ef4444' : '#fbbf24';
+    return `<span style="display:inline-block;margin:3px;padding:5px 10px;background:#1e293b;border-left:3px solid ${color};border-radius:4px;cursor:pointer;font-size:12px" onclick="openZiel('${d.city.replace(/'/g,"\\'")}')">${d.city} <b style="color:${color}">${d.current}€</b></span>`;
+  }).join('');
+}
+setTimeout(renderZielListe, 500);
 document.getElementById('budget').addEventListener('keypress', e => { if (e.key === 'Enter') applyFilters(); });
 
 // Auto-rotate

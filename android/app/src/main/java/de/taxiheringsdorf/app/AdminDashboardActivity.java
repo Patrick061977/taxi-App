@@ -1661,7 +1661,57 @@ public class AdminDashboardActivity extends AppCompatActivity {
         lpPreis.setMargins(0, 0, 0, btnPad);
         etPreis.setLayoutParams(lpPreis);
 
+        // v6.63.870 (Patrick 05.08. 09:25 Bridge): Wenn Anfrage KEINE Uhrzeit hat
+        //   (z.B. berlin-shuttle-Anfrage vom Kunden ohne Zeit-Angabe), muss Patrick
+        //   beim Übernehmen selbst eine pauschale Circa-Zeit setzen können — sonst
+        //   blockt _uebernehmeAnfrageImpl mit "Uhrzeit fehlt!"-Dialog und die Anfrage
+        //   kann gar nicht übernommen werden.
+        final boolean _isBerlinShuttle = "berlin-shuttle".equalsIgnoreCase(a.type);
+        final boolean _hatRueckfahrt = _isBerlinShuttle && a.dateReturn != null && !a.dateReturn.isEmpty();
+
+        TextView tvZeitLabel = new TextView(this);
+        tvZeitLabel.setText(_hatRueckfahrt
+            ? "🕐 Uhrzeit HINFAHRT (" + (a.dateHin != null ? a.dateHin : a.date) + ") — z.B. 09:00:"
+            : "🕐 Uhrzeit (z.B. 09:00) — änderbar:");
+        tvZeitLabel.setTextSize(14);
+        tvZeitLabel.setPadding(btnPad, btnPad, btnPad, 4);
+        final android.widget.EditText etZeit = new android.widget.EditText(this);
+        etZeit.setInputType(android.text.InputType.TYPE_CLASS_DATETIME | android.text.InputType.TYPE_DATETIME_VARIATION_TIME);
+        etZeit.setHint("HH:MM");
+        etZeit.setText(a.time != null ? a.time : "");
+        etZeit.setPadding(btnPad, btnPad, btnPad, btnPad);
+        android.widget.LinearLayout.LayoutParams lpZeit =
+            new android.widget.LinearLayout.LayoutParams(
+                android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
+        lpZeit.setMargins(0, 0, 0, btnPad);
+        etZeit.setLayoutParams(lpZeit);
+
+        // v6.63.870: Rueckfahrt-Zeitfeld nur bei berlin-shuttle mit dateReturn
+        final TextView tvZeitReturnLabel;
+        final android.widget.EditText etZeitReturn;
+        if (_hatRueckfahrt) {
+            tvZeitReturnLabel = new TextView(this);
+            tvZeitReturnLabel.setText("🕐 Uhrzeit RÜCKFAHRT (" + a.dateReturn + ") — z.B. 14:00:");
+            tvZeitReturnLabel.setTextSize(14);
+            tvZeitReturnLabel.setPadding(btnPad, btnPad, btnPad, 4);
+            etZeitReturn = new android.widget.EditText(this);
+            etZeitReturn.setInputType(android.text.InputType.TYPE_CLASS_DATETIME | android.text.InputType.TYPE_DATETIME_VARIATION_TIME);
+            etZeitReturn.setHint("HH:MM");
+            etZeitReturn.setPadding(btnPad, btnPad, btnPad, btnPad);
+            etZeitReturn.setLayoutParams(lpZeit);
+        } else {
+            tvZeitReturnLabel = null;
+            etZeitReturn = null;
+        }
+
         btnLayout.addView(tvDetails);
+        btnLayout.addView(tvZeitLabel);
+        btnLayout.addView(etZeit);
+        if (_hatRueckfahrt) {
+            btnLayout.addView(tvZeitReturnLabel);
+            btnLayout.addView(etZeitReturn);
+        }
         btnLayout.addView(tvPreisLabel);
         btnLayout.addView(etPreis);
         btnLayout.addView(btnVorschau);
@@ -1679,6 +1729,20 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 }
             } catch (Throwable _e) { /* ungueltige Eingabe → alter Preis bleibt */ }
         };
+        // v6.63.870: Zeit-Eingabe validieren + in a.time schreiben. Bei Rueckfahrt zusaetzlich
+        //   a.dateReturn+returnTime als "queue" merken damit _uebernehmeAnfrageImpl 2 Rides anlegt.
+        final String[] _returnTimeHolder = new String[1];
+        final Runnable _applyZeitEdit = () -> {
+            String _z = etZeit.getText().toString().trim();
+            if (!_z.isEmpty()) {
+                // Normalisieren: "9" → "09:00", "9:5" → "09:05"
+                a.time = _normalizeTime(_z);
+            }
+            if (_hatRueckfahrt && etZeitReturn != null) {
+                String _r = etZeitReturn.getText().toString().trim();
+                if (!_r.isEmpty()) _returnTimeHolder[0] = _normalizeTime(_r);
+            }
+        };
 
         androidx.appcompat.app.AlertDialog dlg = new androidx.appcompat.app.AlertDialog.Builder(this)
             .setTitle("📥 Anfrage — " + (a.name != null ? a.name : "?"))
@@ -1690,21 +1754,47 @@ public class AdminDashboardActivity extends AppCompatActivity {
             .create();
 
         btnVorschau.setOnClickListener(_v -> {
+            _applyZeitEdit.run();
             _applyPriceEdit.run();
+            // v6.63.870: Rueckfahrt-Trigger — wenn Berlin-Shuttle mit dateReturn +
+            //   Rueckfahrt-Uhrzeit gesetzt: nach dem regulaeren Uebernehmen einen
+            //   zweiten Ride mit vertauschten Adressen und dateReturn anlegen.
+            if (_hatRueckfahrt && _returnTimeHolder[0] != null) {
+                _pendingReturnRide.put(a.id, _returnTimeHolder[0]);
+            }
             dlg.dismiss();
-            // 🆕 v6.63.535: Vollständig nativ — kein Browser-Redirect.
-            // uebernehmeAnfrage() schreibt Ride in Firebase; onSuccess ruft
-            // showVorkasseEmailDialog() auf wenn email+price vorhanden → Stripe-Link
-            // wird erstellt + Email/WA/SMS nativ versendet.
             uebernehmeAnfrage(a);
         });
         btnNurUebernehmen.setOnClickListener(_v -> {
+            _applyZeitEdit.run();
             _applyPriceEdit.run();
+            if (_hatRueckfahrt && _returnTimeHolder[0] != null) {
+                _pendingReturnRide.put(a.id, _returnTimeHolder[0]);
+            }
             dlg.dismiss();
             uebernehmeAnfrageOhneBestaetigung(a);
         });
         dlg.show();
     }
+
+    // v6.63.870: Helper — "9" → "09:00", "9:5" → "09:05", "12:30" bleibt
+    private static String _normalizeTime(String raw) {
+        if (raw == null) return null;
+        String s = raw.trim().replace(".", ":");
+        if (s.isEmpty()) return null;
+        try {
+            if (!s.contains(":")) return String.format(java.util.Locale.US, "%02d:00", Integer.parseInt(s));
+            String[] p = s.split(":");
+            int h = Integer.parseInt(p[0]);
+            int m = p.length > 1 ? Integer.parseInt(p[1]) : 0;
+            if (h < 0 || h > 23 || m < 0 || m > 59) return raw;
+            return String.format(java.util.Locale.US, "%02d:%02d", h, m);
+        } catch (Throwable t) { return raw; }
+    }
+
+    // v6.63.870: anfrageId → Rueckfahrt-Zeit — wird nach erfolgreichem Hinfahrt-Ride
+    //   ausgewertet um automatisch einen zweiten Ride anzulegen.
+    private final java.util.Map<String, String> _pendingReturnRide = new java.util.HashMap<>();
 
     // v6.63.069: Variante von uebernehmeAnfrage die confirmSkipped=true setzt,
     // damit die Cloud-Function-Bestätigung nicht ausgelöst wird.
@@ -1846,11 +1936,15 @@ public class AdminDashboardActivity extends AppCompatActivity {
     private void _uebernehmeAnfrageImpl(Anfrage a) {
         // v6.63.510: Uhrzeit-Pflichtfeld — leere Uhrzeit würde isSofort=true
         // liefern und die Fahrt mit falschem Timestamp (jetzt) anlegen.
+        // v6.63.870 (Patrick 05.08. 09:25): berlin-shuttle-Anfragen kommen ohne
+        //   Uhrzeit — der Übernehmen-Dialog hat jetzt ein Zeit-Feld. Wenn Patrick
+        //   trotzdem nichts einträgt und übernimmt: sanfter Hinweis (nicht "Web-
+        //   Verwaltung ergänzen" — er kann es direkt im Dialog nachtragen).
         if (a.time == null || a.time.trim().isEmpty()) {
             synchronized (_uebernahmeInFlight) { _uebernahmeInFlight.remove(a.id); }
             runOnUiThread(() -> new android.app.AlertDialog.Builder(this)
                 .setTitle("⚠️ Uhrzeit fehlt!")
-                .setMessage("Die Anfrage von " + (a.name != null ? a.name : "?") + " hat keine Uhrzeit.\n\nBitte die Uhrzeit in der Web-Verwaltung ergänzen, dann erneut übernehmen.")
+                .setMessage("Die Anfrage von " + (a.name != null ? a.name : "?") + " hat keine Uhrzeit.\n\nBitte im Übernehmen-Dialog eine ca.-Uhrzeit im Feld 🕐 eintragen (z.B. 09:00) und erneut auf Übernehmen tippen.")
                 .setPositiveButton("OK", null)
                 .show());
             return;
@@ -1960,7 +2054,21 @@ public class AdminDashboardActivity extends AppCompatActivity {
                                 showVorkasseEmailDialog(rideId, a, pickupTime);
                             }
                         };
+                        // v6.63.870 (Patrick 05.08. Bridge): berlin-shuttle mit dateReturn +
+                        //   im Dialog gesetzter Rückfahrt-Uhrzeit → automatisch zweiten Ride
+                        //   mit vertauschten Adressen anlegen (nutzt bestehende Rückfahrt-Logik).
+                        String _pendingRt = _pendingReturnRide.remove(a.id);
                         RueckfahrtHint _rfHint = _detectRueckfahrt(a.notes);
+                        if (_rfHint == null && _pendingRt != null && a.dateReturn != null) {
+                            RueckfahrtHint _bs = new RueckfahrtHint();
+                            try {
+                                String[] _p = a.dateReturn.split("-"); // yyyy-mm-dd → dd.mm.yyyy
+                                if (_p.length == 3) _bs.dateStr = _p[2] + "." + _p[1] + "." + _p[0];
+                                else _bs.dateStr = a.dateReturn;
+                            } catch (Throwable _tex) { _bs.dateStr = a.dateReturn; }
+                            _bs.timeStr = _pendingRt;
+                            _rfHint = _bs;
+                        }
                         if (_rfHint != null) {
                             String _pickup40 = a.destination != null ? (a.destination.length() > 45 ? a.destination.substring(0, 45) + "…" : a.destination) : "?";
                             String _dest40  = a.pickup != null    ? (a.pickup.length()    > 45 ? a.pickup.substring(0, 45)    + "…" : a.pickup)    : "?";
@@ -3210,6 +3318,8 @@ public class AdminDashboardActivity extends AppCompatActivity {
     //   in der Native-App?". Felder spiegeln das in dms-Code etablierte Schema:
     static class Anfrage {
         String id, name, phone, email, pickup, destination, stopp, date, time, notes, channel, type, status, festpreisAdresse;
+        // v6.63.870: Berlin-Shuttle-Felder — Hin + Rueckfahrt
+        String dateHin, dateReturn, returnPickup, returnDest;
         Integer passengers;
         Long createdAt;
         String price; // kann String '—' oder Zahl sein
@@ -3231,8 +3341,19 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 a.type = s.child("type").getValue(String.class);
                 a.status = s.child("status").getValue(String.class);
                 a.festpreisAdresse = s.child("festpreisAdresse").getValue(String.class);
+                // v6.63.870: Berlin-Shuttle-Felder + String-Fallback fuer date
+                a.dateHin = s.child("dateHin").getValue(String.class);
+                a.dateReturn = s.child("dateReturn").getValue(String.class);
+                a.returnPickup = s.child("returnPickup").getValue(String.class);
+                a.returnDest = s.child("returnDest").getValue(String.class);
+                if (a.date == null && a.dateHin != null) a.date = a.dateHin;
+                // v6.63.870: passengers als Number ODER String parsen (berlin.html schreibt String)
                 Object px = s.child("passengers").getValue();
                 if (px instanceof Number) a.passengers = ((Number) px).intValue();
+                else if (px instanceof String) {
+                    try { a.passengers = Integer.parseInt(((String) px).trim()); }
+                    catch (Throwable _ignore) {}
+                }
                 Object ct = s.child("createdAt").getValue();
                 if (ct instanceof Number) a.createdAt = ((Number) ct).longValue();
                 Object pr = s.child("price").getValue();

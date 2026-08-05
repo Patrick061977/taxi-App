@@ -5637,11 +5637,25 @@ public class AdminDashboardActivity extends AppCompatActivity {
             ride.put("passengers",        a.passengers != null ? a.passengers : 1);
             ride.put("customerName",      a.name);
             ride.put("customerPhone",     a.phone != null ? a.phone : "");
-            ride.put("notes",             "Rückfahrt zu Anfrage " + (hinfahrtRideId != null ? hinfahrtRideId : ""));
             ride.put("createdAt",         System.currentTimeMillis());
             ride.put("updatedAt",         System.currentTimeMillis());
             ride.put("source",            "native_admin_rueckfahrt");
             ride.put("linkedHinfahrtId",  hinfahrtRideId);
+            // v6.63.874 (Patrick 05.08. 13:03 Bridge): Bei berlin-shuttle ist der Preis
+            //   ein Komplettpaket-Preis der komplett auf der Hinfahrt sitzt. Rueckfahrt
+            //   bekommt price=0 damit die Cloud-Function NICHT selbst Nominatim-basiert
+            //   einen Zweitpreis schaetzt (506,40€-Bug am 05.08.). Note zeigt Fahrer
+            //   das der Preis bereits in Hinfahrt inkludiert ist.
+            boolean _isBerlinShuttle = "berlin-shuttle".equalsIgnoreCase(a.type);
+            if (_isBerlinShuttle) {
+                ride.put("price",                     0);
+                ride.put("estimatedPrice",            0);
+                ride.put("priceFromAnfrage",          true);
+                ride.put("priceBundledInHinfahrt",    hinfahrtRideId != null ? hinfahrtRideId : "");
+                ride.put("notes",                     "Rueckfahrt zum Berlin-Shuttle. Preis im Gesamtpaket auf Hinfahrt " + (hinfahrtRideId != null ? hinfahrtRideId : "?") + " gebuendelt.");
+            } else {
+                ride.put("notes",             "Rückfahrt zu Anfrage " + (hinfahrtRideId != null ? hinfahrtRideId : ""));
+            }
             FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("rides/" + newKey)
                 .setValue(ride)
                 .addOnSuccessListener(_v -> runOnUiThread(() ->

@@ -1669,48 +1669,85 @@ public class AdminDashboardActivity extends AppCompatActivity {
         final boolean _isBerlinShuttle = "berlin-shuttle".equalsIgnoreCase(a.type);
         final boolean _hatRueckfahrt = _isBerlinShuttle && a.dateReturn != null && !a.dateReturn.isEmpty();
 
+        // v6.63.873 (Patrick 05.08. 12:54): Statt EditText jetzt Button der TimePickerDialog
+        //   oeffnet — Patrick hatte "830" eingetippt und mein _normalizeTime hat daraus
+        //   "830:00" gemacht, Ride landete am 09.09.2026 statt 06.08.2026.
+        //   TimePickerDialog erlaubt keine ungueltige Eingabe.
         TextView tvZeitLabel = new TextView(this);
         tvZeitLabel.setText(_hatRueckfahrt
-            ? "🕐 Uhrzeit HINFAHRT (" + (a.dateHin != null ? a.dateHin : a.date) + ") — z.B. 09:00:"
-            : "🕐 Uhrzeit (z.B. 09:00) — änderbar:");
+            ? "🕐 Uhrzeit HINFAHRT (" + (a.dateHin != null ? a.dateHin : a.date) + "):"
+            : "🕐 Uhrzeit:");
         tvZeitLabel.setTextSize(14);
         tvZeitLabel.setPadding(btnPad, btnPad, btnPad, 4);
-        final android.widget.EditText etZeit = new android.widget.EditText(this);
-        etZeit.setInputType(android.text.InputType.TYPE_CLASS_DATETIME | android.text.InputType.TYPE_DATETIME_VARIATION_TIME);
-        etZeit.setHint("HH:MM");
-        etZeit.setText(a.time != null ? a.time : "");
-        etZeit.setPadding(btnPad, btnPad, btnPad, btnPad);
+        final android.widget.Button btnZeit = new android.widget.Button(this);
+        btnZeit.setAllCaps(false);
+        btnZeit.setText(a.time != null && !a.time.isEmpty() ? "🕐 " + a.time : "🕐 Uhrzeit wählen…");
+        btnZeit.setPadding(btnPad, btnPad, btnPad, btnPad);
+        btnZeit.setBackgroundColor(0xFFDDE9FB);
+        btnZeit.setTextColor(0xFF1e40af);
         android.widget.LinearLayout.LayoutParams lpZeit =
             new android.widget.LinearLayout.LayoutParams(
                 android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
                 android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
         lpZeit.setMargins(0, 0, 0, btnPad);
-        etZeit.setLayoutParams(lpZeit);
+        btnZeit.setLayoutParams(lpZeit);
+        final String[] _zeitHinHolder = new String[]{ a.time };
+        btnZeit.setOnClickListener(_v -> {
+            int _initH = 9, _initM = 0;
+            if (_zeitHinHolder[0] != null && _zeitHinHolder[0].contains(":")) {
+                try {
+                    String[] _pp = _zeitHinHolder[0].split(":");
+                    _initH = Integer.parseInt(_pp[0]);
+                    _initM = Integer.parseInt(_pp[1]);
+                } catch (Throwable _ig) {}
+            }
+            new android.app.TimePickerDialog(AdminDashboardActivity.this, (tp, h, m) -> {
+                _zeitHinHolder[0] = String.format(java.util.Locale.US, "%02d:%02d", h, m);
+                btnZeit.setText("🕐 " + _zeitHinHolder[0]);
+            }, _initH, _initM, true).show();
+        });
 
-        // v6.63.870: Rueckfahrt-Zeitfeld nur bei berlin-shuttle mit dateReturn
+        // v6.63.870/873: Rueckfahrt-Zeit-Button nur bei berlin-shuttle mit dateReturn
         final TextView tvZeitReturnLabel;
-        final android.widget.EditText etZeitReturn;
+        final android.widget.Button btnZeitReturn;
+        final String[] _zeitReturnHolder = new String[]{ null };
         if (_hatRueckfahrt) {
             tvZeitReturnLabel = new TextView(this);
-            tvZeitReturnLabel.setText("🕐 Uhrzeit RÜCKFAHRT (" + a.dateReturn + ") — z.B. 14:00:");
+            tvZeitReturnLabel.setText("🕐 Uhrzeit RÜCKFAHRT (" + a.dateReturn + "):");
             tvZeitReturnLabel.setTextSize(14);
             tvZeitReturnLabel.setPadding(btnPad, btnPad, btnPad, 4);
-            etZeitReturn = new android.widget.EditText(this);
-            etZeitReturn.setInputType(android.text.InputType.TYPE_CLASS_DATETIME | android.text.InputType.TYPE_DATETIME_VARIATION_TIME);
-            etZeitReturn.setHint("HH:MM");
-            etZeitReturn.setPadding(btnPad, btnPad, btnPad, btnPad);
-            etZeitReturn.setLayoutParams(lpZeit);
+            btnZeitReturn = new android.widget.Button(this);
+            btnZeitReturn.setAllCaps(false);
+            btnZeitReturn.setText("🕐 Uhrzeit wählen…");
+            btnZeitReturn.setPadding(btnPad, btnPad, btnPad, btnPad);
+            btnZeitReturn.setBackgroundColor(0xFFDDE9FB);
+            btnZeitReturn.setTextColor(0xFF1e40af);
+            btnZeitReturn.setLayoutParams(lpZeit);
+            btnZeitReturn.setOnClickListener(_v -> {
+                int _initH = 14, _initM = 0;
+                if (_zeitReturnHolder[0] != null && _zeitReturnHolder[0].contains(":")) {
+                    try {
+                        String[] _pp = _zeitReturnHolder[0].split(":");
+                        _initH = Integer.parseInt(_pp[0]);
+                        _initM = Integer.parseInt(_pp[1]);
+                    } catch (Throwable _ig) {}
+                }
+                new android.app.TimePickerDialog(AdminDashboardActivity.this, (tp, h, m) -> {
+                    _zeitReturnHolder[0] = String.format(java.util.Locale.US, "%02d:%02d", h, m);
+                    btnZeitReturn.setText("🕐 " + _zeitReturnHolder[0]);
+                }, _initH, _initM, true).show();
+            });
         } else {
             tvZeitReturnLabel = null;
-            etZeitReturn = null;
+            btnZeitReturn = null;
         }
 
         btnLayout.addView(tvDetails);
         btnLayout.addView(tvZeitLabel);
-        btnLayout.addView(etZeit);
+        btnLayout.addView(btnZeit);
         if (_hatRueckfahrt) {
             btnLayout.addView(tvZeitReturnLabel);
-            btnLayout.addView(etZeitReturn);
+            btnLayout.addView(btnZeitReturn);
         }
         btnLayout.addView(tvPreisLabel);
         btnLayout.addView(etPreis);
@@ -1729,18 +1766,12 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 }
             } catch (Throwable _e) { /* ungueltige Eingabe → alter Preis bleibt */ }
         };
-        // v6.63.870: Zeit-Eingabe validieren + in a.time schreiben. Bei Rueckfahrt zusaetzlich
-        //   a.dateReturn+returnTime als "queue" merken damit _uebernehmeAnfrageImpl 2 Rides anlegt.
+        // v6.63.873: TimePickerDialog liefert immer sauberes "HH:MM" — kein Normalisieren nötig
         final String[] _returnTimeHolder = new String[1];
         final Runnable _applyZeitEdit = () -> {
-            String _z = etZeit.getText().toString().trim();
-            if (!_z.isEmpty()) {
-                // Normalisieren: "9" → "09:00", "9:5" → "09:05"
-                a.time = _normalizeTime(_z);
-            }
-            if (_hatRueckfahrt && etZeitReturn != null) {
-                String _r = etZeitReturn.getText().toString().trim();
-                if (!_r.isEmpty()) _returnTimeHolder[0] = _normalizeTime(_r);
+            if (_zeitHinHolder[0] != null && !_zeitHinHolder[0].isEmpty()) a.time = _zeitHinHolder[0];
+            if (_hatRueckfahrt && _zeitReturnHolder[0] != null && !_zeitReturnHolder[0].isEmpty()) {
+                _returnTimeHolder[0] = _zeitReturnHolder[0];
             }
         };
 
@@ -1960,6 +1991,7 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 if (a.date != null && a.time != null) {
                     SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.GERMANY);
                     sdf.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
+                    sdf.setLenient(false); // v6.63.873: "830:00" wirft dann Exception statt +34 Tage rechnet
                     pickupTs = sdf.parse(a.date + " " + a.time).getTime();
                 }
             } catch (Throwable _t) { Log.w(TAG, "Anfrage-Datum-Parse: " + _t.getMessage()); }

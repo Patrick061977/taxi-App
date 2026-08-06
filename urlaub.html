@@ -219,24 +219,34 @@
         }
 
         // v0.9 (Patrick 05.08.): Meta-Preisvergleichs-Block wenn Watchlist-Eintrag
-        //   hotel + dateFrom hat — 4 Portale (Google Hotels / Trivago / Kayak /
-        //   HotelsCombined) mit voraufgefuellten Params.
+        //   hotel + dateFrom hat — 4 Portale (Google Hotels / Trivago / Kayak / Booking).
+        // v0.10 (Patrick 06.08. per Playwright verifiziert): Trivago + Kayak URL-Format
+        //   repariert. Alt: `?query=X` (nur Ziel) und `/hotels/X` (Redirect nach /stays
+        //   ohne Params). Neu: Datum + Personen werden mit übernommen.
         function buildMetaPriceBlock(entry) {
             const hotel = entry.hotel || entry.hotelName;
             const dest = entry.destination || entry.title;
             if (!hotel && !dest) return '';
-            const q = encodeURIComponent(hotel || dest);
+            const rawQuery = hotel || dest;
+            const q = encodeURIComponent(rawQuery);
+            const qHyphen = encodeURIComponent(rawQuery.replace(/\s+/g, '-'));
             const from = entry.dateFrom || '';
             const to = entry.dateTo || '';
             const adults = entry.adults || 2;
-            const dp = (from && to) ? `&checkin=${from}&checkout=${to}` : '';
-            const googleParams = (from && to) ? `&checkin=${from}&checkout=${to}` : '';
+            const hasDates = !!(from && to);
+            const bookingDates = hasDates ? `&checkin=${from}&checkout=${to}` : '';
+            const googleDates = hasDates ? `&checkin=${from}&checkout=${to}` : '';
+            const trivagoDates = hasDates ? `&checkin=${from}&checkout=${to}&adults=${adults}` : '';
+            // Kayak baut City-Code selbst dran (redirected auf hyphen-cXXXX/... URL)
+            const kayakUrl = hasDates
+                ? `https://www.kayak.de/hotels/${qHyphen}/${from}/${to}/${adults}-adults`
+                : `https://www.kayak.de/stays?destination=${q}`;
             return `<div style="margin-top:10px;padding:10px;background:#0f172a;border-radius:8px;border-left:3px solid #10b981">
                 <div style="font-size:12px;color:#fbbf24;font-weight:600;margin-bottom:6px">🔍 Beste Preise vergleichen ${hotel ? 'für <b>'+escapeHtml(hotel)+'</b>' : ''}</div>
-                <a href="https://www.google.com/travel/hotels?q=${q}${googleParams}" target="_blank" style="display:block;margin:3px 0;padding:5px 8px;background:#065f46;color:#a7f3d0;border-radius:4px;font-size:11px;text-decoration:none">🥇 Google Hotels — Preiskalender + billigster Anbieter</a>
-                <a href="https://www.trivago.de/de/srl?query=${q}" target="_blank" style="display:block;margin:3px 0;padding:5px 8px;background:#164e63;color:#67e8f9;border-radius:4px;font-size:11px;text-decoration:none">🥈 Trivago — deutscher Meta-Vergleicher</a>
-                <a href="https://www.kayak.de/hotels/${q}" target="_blank" style="display:block;margin:3px 0;padding:5px 8px;background:#7c2d12;color:#fdba74;border-radius:4px;font-size:11px;text-decoration:none">🥉 Kayak Hotels — 40+ Anbieter</a>
-                <a href="https://www.booking.com/searchresults.html?ss=${q}${dp}&group_adults=${adults}&order=price" target="_blank" style="display:block;margin:3px 0;padding:5px 8px;background:#4c1d95;color:#c4b5fd;border-radius:4px;font-size:11px;text-decoration:none">🛏️ Booking — direkt (billigst zuerst)</a>
+                <a href="https://www.google.com/travel/hotels?q=${q}${googleDates}" target="_blank" style="display:block;margin:3px 0;padding:5px 8px;background:#065f46;color:#a7f3d0;border-radius:4px;font-size:11px;text-decoration:none">🥇 Google Hotels — Preiskalender + billigster Anbieter</a>
+                <a href="https://www.trivago.de/de/srl?query=${q}${trivagoDates}" target="_blank" style="display:block;margin:3px 0;padding:5px 8px;background:#164e63;color:#67e8f9;border-radius:4px;font-size:11px;text-decoration:none">🥈 Trivago — deutscher Meta-Vergleicher</a>
+                <a href="${kayakUrl}" target="_blank" style="display:block;margin:3px 0;padding:5px 8px;background:#7c2d12;color:#fdba74;border-radius:4px;font-size:11px;text-decoration:none">🥉 Kayak Hotels — 40+ Anbieter</a>
+                <a href="https://www.booking.com/searchresults.html?ss=${q}${bookingDates}&group_adults=${adults}&order=price" target="_blank" style="display:block;margin:3px 0;padding:5px 8px;background:#4c1d95;color:#c4b5fd;border-radius:4px;font-size:11px;text-decoration:none">🛏️ Booking — direkt (billigst zuerst)</a>
             </div>`;
         }
 

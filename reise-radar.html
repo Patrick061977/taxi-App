@@ -347,6 +347,7 @@ function addToWatchlist(cityOrObj) {
   const to = document.getElementById('dateTo').value;
   const adults = document.getElementById('personen').value || '2';
   const kids = document.getElementById('kinderAlter').value.trim();
+  const budget = parseInt(document.getElementById('budget').value) || null;
   const payload = {
     title: (hotel ? hotel + ' — ' : '') + city,
     destination: city,
@@ -355,6 +356,7 @@ function addToWatchlist(cityOrObj) {
     dateTo: to,
     adults: parseInt(adults) || 2,
     kinderAlter: kids,
+    budget,
     priceHint: meta.current || null,
     priceAvgHint: meta.avg || null,
     airports: getSelectedAirports(),

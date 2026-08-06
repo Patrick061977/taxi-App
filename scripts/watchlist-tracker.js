@@ -79,17 +79,30 @@ const PORTALS = [
             `https://www.booking.com/searchresults.html?ss=${q}&checkin=${from}&checkout=${to}&group_adults=${adults}&order=price`,
         extract: () => {
             const prices = [];
-            document.querySelectorAll('[data-testid="price-and-discounted-price"]').forEach(el => {
-                const m = el.innerText.match(/(\d[\d.,]*)\s*€/);
-                if (m) prices.push(parseInt(m[1].replace(/[.,]/g, '')));
+            const hotels = [];
+            document.querySelectorAll('[data-testid="property-card"]').forEach((card, i) => {
+                const nameEl = card.querySelector('[data-testid="title"]');
+                const priceEl = card.querySelector('[data-testid="price-and-discounted-price"]');
+                const scoreEl = card.querySelector('[data-testid="review-score"]');
+                const linkEl = card.querySelector('a[data-testid="title-link"], a[href*="/hotel/"]');
+                const name = nameEl ? nameEl.innerText.trim() : null;
+                const priceM = priceEl ? priceEl.innerText.match(/(\d[\d.,]*)\s*€/) : null;
+                const price = priceM ? parseInt(priceM[1].replace(/[.,]/g, '')) : null;
+                if (price) prices.push(price);
+                if (name && i < 10) {
+                    const scoreText = scoreEl ? scoreEl.innerText : '';
+                    const scoreM = scoreText.match(/(\d+[.,]\d+)/);
+                    const reviewsM = scoreText.match(/(\d[\d.,]*)\s*(Bewert|review)/i);
+                    hotels.push({
+                        name,
+                        price,
+                        score: scoreM ? parseFloat(scoreM[1].replace(',', '.')) : null,
+                        reviews: reviewsM ? parseInt(reviewsM[1].replace(/[.,]/g, '')) : null,
+                        url: linkEl ? linkEl.href.split('?')[0] : null,
+                    });
+                }
             });
-            if (prices.length === 0) {
-                document.querySelectorAll('[data-testid="property-card"]').forEach(card => {
-                    const m = card.innerText.match(/(\d[\d.,]*)\s*€/);
-                    if (m) prices.push(parseInt(m[1].replace(/[.,]/g, '')));
-                });
-            }
-            return { count: prices.length, min: prices.length ? Math.min(...prices) : null, sample: prices.slice(0, 5) };
+            return { count: prices.length, min: prices.length ? Math.min(...prices) : null, sample: prices.slice(0, 5), hotels };
         },
     },
     {
@@ -205,8 +218,14 @@ function pushBridge(message) {
         };
         console.log(`     ▶ Snapshot: min ${overallMin}€ (vorher: ${prevMin != null ? prevMin + '€' : 'neu'})`);
 
-        const newSnaps = [...prevSnaps, snapshot].slice(-30); // max 30 Snapshots pro Eintrag
-        fbUpdate(`/urlaubWatchlist/${id}`, { snapshots: newSnaps });
+        // v1.1 (Phase 1c): Top-10 Hotels aus Booking-Suchergebnis speichern
+        const bookingHotels = (results.find(r => r.portal === 'Booking') || {}).hotels || [];
+        const patch = { snapshots: [...prevSnaps, snapshot].slice(-30) };
+        if (bookingHotels.length > 0) {
+            patch.topHotels = bookingHotels.map(h => ({ ...h, ts: Date.now(), source: 'booking' }));
+            console.log(`     ▶ Top-Hotels: ${bookingHotels.length} (best: "${bookingHotels[0].name}" @ ${bookingHotels[0].price}€, score ${bookingHotels[0].score || 'n/a'})`);
+        }
+        fbUpdate(`/urlaubWatchlist/${id}`, patch);
 
         // Preis-Drop erkennen: nur pushen wenn deutlicher Rückgang
         if (prevMin != null && overallMin < prevMin) {

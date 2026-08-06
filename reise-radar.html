@@ -342,7 +342,10 @@ function addToWatchlist(cityOrObj) {
   const city = typeof cityOrObj === 'string' ? cityOrObj : (cityOrObj && cityOrObj.city);
   if (!city) return;
   const meta = (typeof cityOrObj === 'object') ? cityOrObj : (DESTINATIONS.find(x => x.city === city) || {});
-  const hotel = prompt('Optional: Hotel-Name (leer lassen für nur Ziel):', meta.hotels ? meta.hotels.split(',')[0].trim() : '');
+  // v0.11 (Patrick 06.08.): Abbrechen im Prompt = KEIN Eintrag anlegen.
+  // Vorher: prompt-Abbrechen (null) fiel per `hotel || ''` durch → leerer Geist-Eintrag.
+  const hotel = prompt('Optional: Hotel-Name (leer lassen für nur Ziel; oder Abbrechen um komplett zu stornieren):', meta.hotels ? meta.hotels.split(',')[0].trim() : '');
+  if (hotel === null) return; // User hat abgebrochen
   const from = document.getElementById('dateFrom').value;
   const to = document.getElementById('dateTo').value;
   const adults = document.getElementById('personen').value || '2';

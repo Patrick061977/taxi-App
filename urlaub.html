@@ -275,6 +275,7 @@
                     ${last.summary ? escapeHtmlWithLinks(last.summary) : ''}
                 </div>` : ''}
                 ${buildMetaPriceBlock(entry)}
+                ${buildTopHotelsBlock(id, entry)}
                 ${snaps.length > 1 ? `
                     <div class="card-snapshots">
                         <button class="snapshot-toggle">📊 ${snaps.length} Snapshots — anzeigen</button>
@@ -301,6 +302,36 @@
                     ? '📊 ' + snaps.length + ' Snapshots — verbergen'
                     : '📊 ' + snaps.length + ' Snapshots — anzeigen';
             });
+            const topHotelsToggle = card.querySelector('.top-hotels-toggle');
+            const topHotelsList = card.querySelector('.top-hotels-list');
+            if (topHotelsToggle && topHotelsList) topHotelsToggle.addEventListener('click', () => {
+                const open = topHotelsList.style.display !== 'none';
+                topHotelsList.style.display = open ? 'none' : 'block';
+                topHotelsToggle.textContent = open ? `📋 Alle ${(entry.topHotels||[]).length} anzeigen` : `📋 Zuklappen`;
+            });
+            card.querySelectorAll('.track-hotel-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const hotelName = btn.dataset.hotel;
+                    const newId = hotelName.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 40) + '-' + Date.now();
+                    const newEntry = {
+                        title: hotelName + ' — ' + (entry.destination || entry.title),
+                        hotel: hotelName,
+                        destination: entry.destination || '',
+                        dateFrom: entry.dateFrom || '',
+                        dateTo: entry.dateTo || '',
+                        adults: entry.adults || 2,
+                        kinderAlter: entry.kinderAlter || '',
+                        personen: (entry.adults || 2) + ' Erw' + (entry.kinderAlter ? ' + Kinder ' + entry.kinderAlter : ''),
+                        airports: entry.airports || ['BER'],
+                        budget: entry.budget || null,
+                        createdAt: Date.now(),
+                        snapshots: [],
+                    };
+                    db.ref('urlaubWatchlist/' + newId).set(newEntry).then(() => {
+                        alert('🎯 „' + hotelName + '" wird ab jetzt einzeln getrackt (in der Watchlist ganz oben).');
+                    }).catch(e => alert('❌ ' + e.message));
+                });
+            });
             card.querySelector('.edit-btn').addEventListener('click', () => openEditModal(id, entry));
             card.querySelector('.delete-btn').addEventListener('click', () => {
                 if (confirm('Watchlist-Eintrag "' + (entry.title || id) + '" wirklich löschen?')) {
@@ -308,6 +339,44 @@
                 }
             });
             return card;
+        }
+
+        // v0.12 (Phase 1c, Patrick 06.08.): Top-10 Hotels aus Booking-Scrape anzeigen
+        //   + Track-Button pro Hotel → macht neuen Watchlist-Eintrag speziell für dieses Hotel
+        //   (übernimmt Datum/Personen/Kinderalter vom Parent-Eintrag).
+        function buildTopHotelsBlock(parentId, entry) {
+            const hotels = entry.topHotels || [];
+            if (hotels.length === 0) {
+                // Nur zeigen wenn Eintrag trackbar aber noch nicht gescraped
+                if (entry.destination || entry.hotel) {
+                    return `<div style="margin-top:10px;padding:8px;background:#0f172a;border-radius:6px;font-size:11px;color:#94A3B8">
+                        ⏳ Top-Hotels werden beim nächsten Tracker-Run (06:00 / 18:00 Berlin) geholt. Bis dahin: manuell via GitHub Actions "Watchlist Preis-Tracker" → Run workflow → only_id=<code style="color:#FCD34D">${parentId}</code>
+                    </div>`;
+                }
+                return '';
+            }
+            // Best-Rating + Best-Price highlight
+            const byRating = [...hotels].filter(h => h.score).sort((a, b) => b.score - a.score);
+            const byPrice = [...hotels].filter(h => h.price).sort((a, b) => a.price - b.price);
+            const bestRating = byRating[0];
+            const bestPrice = byPrice[0];
+            return `<div style="margin-top:10px;padding:10px;background:#0f172a;border-radius:8px;border-left:3px solid #FCD34D">
+                <div style="font-size:12px;color:#FCD34D;font-weight:600;margin-bottom:8px">🏨 Top-Hotels im Zeitraum (Booking, ${hotels.length})</div>
+                ${bestPrice ? `<div style="font-size:12px;color:#a7f3d0;margin-bottom:3px">💰 <b>Bester Preis:</b> ${escapeHtml(bestPrice.name)} — ${fmtEUR(bestPrice.price)}${bestPrice.score ? ' · ⭐ '+bestPrice.score : ''}</div>` : ''}
+                ${bestRating && bestRating.name !== (bestPrice && bestPrice.name) ? `<div style="font-size:12px;color:#fbbf24;margin-bottom:8px">⭐ <b>Beste Bewertung:</b> ${escapeHtml(bestRating.name)} — ${fmtEUR(bestRating.price)} · ⭐ ${bestRating.score}${bestRating.reviews ? ' ('+bestRating.reviews+' Bewertungen)' : ''}</div>` : ''}
+                <button class="top-hotels-toggle" style="background:none;border:none;color:#60A5FA;cursor:pointer;font-size:11px;padding:0;font-weight:600">📋 Alle ${hotels.length} anzeigen</button>
+                <div class="top-hotels-list" style="display:none;margin-top:8px">
+                    ${hotels.map((h, i) => `
+                        <div style="padding:6px 0;border-bottom:1px solid #334155;font-size:12px;display:flex;justify-content:space-between;align-items:center;gap:8px">
+                            <div style="flex:1;min-width:0">
+                                <div style="color:#F8FAFC;font-weight:600;overflow:hidden;text-overflow:ellipsis">${escapeHtml(h.name)}</div>
+                                <div style="color:#94A3B8;font-size:11px">${h.price ? fmtEUR(h.price) : '—'}${h.score ? ' · ⭐ '+h.score : ''}${h.reviews ? ' · '+h.reviews+' Rev' : ''}${h.url ? ' · <a href="'+h.url+'" target="_blank" style="color:#60A5FA">→ Booking</a>' : ''}</div>
+                            </div>
+                            <button class="track-hotel-btn" data-parent="${parentId}" data-hotel="${escapeHtml(h.name)}" style="background:#10B981;border:none;color:white;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:10px;white-space:nowrap">🎯 Tracken</button>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>`;
         }
 
         // v0.11 (Patrick 06.08.): Edit-Modal für alle Felder — auch alte Einträge

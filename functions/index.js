@@ -1589,49 +1589,29 @@ async function autoAssignRide(rideId, rideData, _excludeVehicleIds = []) {
                     vehicleScores[vehicleId] = { status: 'rejected', reason: _verifyOk.reason || _shiftInfo.reason || 'Kein Dienst', check: 'shift', shiftDetails: _shiftInfo };
                     continue;
                 }
-                // 🔧 v6.63.568 (01.07. IK-222/MY-222-Bug): Wenn Vorbestellung HEUTE innerhalb
-                // 4h Vorlauf ist UND das Fahrzeug shift.status='auto-ended' hat (Heartbeat-Timeout),
-                // dann blockieren. Ein auto-ended Fahrzeug hat keinen aktiven Fahrer — auch wenn
-                // der Wochenplan es erlaubt. Fahrzeuge mit live-aktiver Schicht bekommen Vorrang.
-                // Hintergrund: Patrick in MY-222 eingeloggt, IK-222 per Heartbeat-Timeout auto-ended
-                // → scheduledAutoAssign weist Fahrten trotzdem IK-222 zu → Patrick sieht sie nicht.
+                // 🆕 v6.63.875 (Patrick 06.08. 10:01 Bridge — Jährig-Bug 10:00 Mercedes):
+                //   "Wenn im Schichtplan drin steht, er soll das machen, dann soll er das
+                //   erstmal machen. Ich weiß ja selber, ob er da ist oder nicht da ist."
+                //   Schichtplan-Trumpf: `ended`/`auto-ended` blockiert NICHT mehr, sobald der
+                //   Wochenplan die Pickup-Zeit abdeckt (wir sind hier nur wenn _shiftOk &&
+                //   _verifyOk.ok). `force-ended` (bewusst gesetzt) bleibt Block.
                 //
-                // 🆕 v6.63.672 (Patrick 10.07. 11:27 Koch-Fall): 'ended' + 'force-ended'
-                //   sollten geblockt werden. Aber v6.63.677 (Patrick 10.07. 15:48 Bridge:
-                //   "MY ist eingeteilt ab 5.45, warum kein Fahrzeug"): HART geblockt war
-                //   ZU STRENG. Patrick hatte heute Nachmittag seine MY-Schicht ended, das
-                //   auto-assign für morgen 07:50 lief danach → MY komplett aus dem Pool.
-                //   Aber morgen früh startet er ja wieder Schicht (steht im Wochenplan).
+                //   ERSETZT die 4h-Cutoff-Regel v6.63.677 + 15min-Grace v6.63.830 — war zu streng.
+                //   Beispiel-Bug (heute 06.08.): Jährig-Fahrt 10:00 Ahlbeck, Mercedes vg-lk-111
+                //   Wochenplan Do 09-16 aber Shift 04.08. 22:55 auto-ended (Heartbeat-Timeout
+                //   vom Vortag). Auto-Assign 07:25 für Pickup 10:00 → 2.6h Vorlauf → <4h Cutoff
+                //   → hart geblockt trotz gültigem Wochenplan. Jetzt: Wochenplan gilt.
                 //
-                //   Neue Regel:
-                //   - 'force-ended' → HART blocken (bewusst gesetzt, kein Fahrer geplant)
-                //   - 'ended' / 'auto-ended' + Pickup <4h → blocken (unmittelbar → sonst hängt)
-                //   - 'ended' / 'auto-ended' + Pickup >=4h → durchlassen (Fahrer kann morgen
-                //     wieder in Schicht, Wochenplan ist Autorität für Vorbestellungen)
-                const _msUntilPickup = rideData.pickupTimestamp - Date.now();
+                //   Nice-to-have später (Patrick 06.08. 10:01): Opt-Out "Fahrer hat Handy
+                //   vergessen — ignoriere alles, ich weise selbst zu". Backlog.
                 const _shiftStatus = _vData.shift && _vData.shift.status;
                 if (_shiftStatus === 'force-ended') {
                     console.log(`   ❌ ${info.name}: Schicht 'force-ended' — hart blockiert`);
                     vehicleScores[vehicleId] = { status: 'rejected', reason: 'Schicht force-ended, kein Fahrer aktiv', check: 'shift-force-ended' };
                     continue;
                 }
-                const _shiftInactive = _shiftStatus === 'ended' || _shiftStatus === 'auto-ended';
-                // 🆕 v6.63.830 (Patrick 25.07. Bridge "wenn Fahrer kurz Update macht, nicht
-                //   gleich alle Vorbestellungen wegnehmen"): Bei shift='auto-ended' UND
-                //   autoEndedAt < 15 Min alt → als Grace-Period behandeln, NICHT rejecten.
-                //   Fahrer könnte gerade App neu starten (Update, Handy-Restart etc.) und
-                //   in wenigen Min wieder online sein. v6.62.963 REACTIVATE-Check greift
-                //   dann und stellt shift.status=active zurück.
-                const _autoEndedAt = _vData.shift && _vData.shift.autoEndedAt;
-                const _autoEndedAgeMs = _autoEndedAt ? (Date.now() - _autoEndedAt) : Infinity;
-                const _inGracePeriod = _shiftStatus === 'auto-ended' && _autoEndedAgeMs < 15 * 60 * 1000;
-                if (_shiftInactive && !_inGracePeriod && _msUntilPickup < 4 * 60 * 60 * 1000 && _msUntilPickup > -30 * 60 * 1000) {
-                    console.log(`   ❌ ${info.name}: Vorbestellung in <4h — shift.status=${_shiftStatus}, kein aktiver Fahrer`);
-                    vehicleScores[vehicleId] = { status: 'rejected', reason: `Schicht ${_shiftStatus}, kein Fahrer aktiv`, check: 'shift-inactive-near-pickup' };
-                    continue;
-                }
-                if (_inGracePeriod) {
-                    console.log(`   ⏸️ v6.63.830 ${info.name}: shift=auto-ended aber erst ${Math.round(_autoEndedAgeMs/60000)}min alt — Grace-Period, Fahrzeug bleibt Kandidat`);
+                if (_shiftStatus === 'ended' || _shiftStatus === 'auto-ended') {
+                    console.log(`   ⏸️ v6.63.875 ${info.name}: shift.status=${_shiftStatus} — aber Wochenplan hat Vorrang (Schichtplan-Trumpf), Fahrzeug bleibt Kandidat`);
                 }
             }
 

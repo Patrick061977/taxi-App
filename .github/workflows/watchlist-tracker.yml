@@ -1,0 +1,52 @@
+name: Watchlist Preis-Tracker (alle 12h)
+
+# Patrick 06.08.2026 Bridge: "Kannst du im Internet recherchieren wo das
+# günstigste Angebot zu finden ist... kann man da einen Tracker einbinden
+# der die Preise vergleicht und sagt hier ich hab was gefunden."
+#
+# Phase 1: alle 12h werden alle /urlaubWatchlist-Einträge mit
+# hotel+dateFrom+dateTo gescraped (Booking + Google Hotels), Snapshot in
+# Firebase gespeichert, bei Preisdrop >=10% Telegram-Push via Claude-Bot.
+
+on:
+  schedule:
+    # 04:00 UTC = 06:00 Berlin (CEST), 16:00 UTC = 18:00 Berlin
+    - cron: '0 4,16 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Nur Log, kein Write, kein Push'
+        required: false
+        default: 'false'
+      only_id:
+        description: 'Nur diesen Watchlist-Eintrag verarbeiten (optional)'
+        required: false
+        default: ''
+
+jobs:
+  track:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Playwright + Firebase CLI
+        run: |
+          npm install --no-audit --no-fund playwright
+          npx playwright install --with-deps chromium
+          npm install -g firebase-tools
+
+      - name: Run Watchlist-Tracker
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+          TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+        run: |
+          ARGS=""
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then ARGS="$ARGS --dry-run"; fi
+          if [ -n "${{ github.event.inputs.only_id }}" ]; then ARGS="$ARGS --only=${{ github.event.inputs.only_id }}"; fi
+          node scripts/watchlist-tracker.js $ARGS

@@ -196,6 +196,7 @@ const globe = Globe()
       ${d.tipps ? `<div class="info" style="background:#0f172a;padding:8px;border-radius:6px;border-left:3px solid #10b981"><b>🧠 Insider-Tipps:</b> ${d.tipps}</div>` : ''}
       ${buildReviewLinks(d)}
       ${buildSubregionsBlock(d.city)}
+      ${buildTopHotelsPreviewBlock(d.city)}
       ${buildReisetippsBlock(d.city)}
       <div class="info"><b>🏨 Top-Hotels (Reiseblog-Empfehlung):</b> ${d.hotels}</div>
       <div class="info"><b>✈️ Anreise:</b> ${d.flug}</div>
@@ -335,6 +336,7 @@ function openFreeSearch(overrideQ) {
     </div>
     ${buildReviewLinks(fakeD)}
     ${buildSubregionsBlock(q)}
+    ${buildTopHotelsPreviewBlock(q)}
     ${buildReisetippsBlock(q)}
     <div class="info" style="margin-top:12px"><a href="${buildDealUrl(fakeD)}" target="_blank" style="color:#10b981">📦 Direkt zu Pauschal-Angeboten fuer ${q} →</a></div>
     <div style="margin-top:10px"><a href="#" onclick="addToWatchlist('${q.replace(/'/g, "\\'")}'); return false;" style="display:inline-block;padding:8px 14px;background:#10b981;color:#fff;border-radius:6px;font-size:12px;font-weight:600;text-decoration:none">➕ „${q}" zur Watchlist</a></div>
@@ -424,6 +426,101 @@ function buildSubregionsBlock(city) {
       <div style="display:flex;flex-wrap:wrap;gap:6px">${chips}</div>
     </div>
   `;
+}
+
+// v0.16 (Patrick 07.08. Bridge): TOP-Hotels-Vorschau direkt im Ziel-Panel.
+//   Google Places Text Search mit includedType='lodging' + Filter ≥1000 Rev.
+//   Klick auf Hotel → sofort Watchlist-Eintrag SPEZIFISCH für dieses Hotel
+//   (via urlaub.html?add=<payload>, kein Warten auf Tracker-Run).
+function buildTopHotelsPreviewBlock(city) {
+  const uid = 'th_' + city.replace(/[^a-zA-Z0-9]+/g, '_') + '_' + Date.now();
+  return `
+    <div id="${uid}" style="margin-top:12px;padding:12px;background:#0a1020;border-radius:8px;border-left:3px solid #10b981">
+      <div style="color:#10b981;font-weight:600;font-size:13px;margin-bottom:8px">🏨 Top-Hotels in „${city}" (Google, ≥1000 Bewertungen)</div>
+      <div class="th-list" style="font-size:12px;color:#94a3b8">⏳ lade Hotels...</div>
+      <div style="font-size:11px;color:#6b7280;margin-top:6px">Klick auf ein Hotel → wird SOFORT als Watchlist-Eintrag angelegt (mit Google-Rating + Website).</div>
+    </div>
+  `;
+}
+
+async function loadTopHotelsPreview(city, containerId) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  const listEl = container.querySelector('.th-list');
+  try {
+    const gRes = await fetch('https://places.googleapis.com/v1/places:searchText', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Goog-Api-Key': GOOGLE_PLACES_KEY,
+        'X-Goog-FieldMask': 'places.displayName,places.rating,places.userRatingCount,places.id,places.websiteUri,places.formattedAddress'
+      },
+      body: JSON.stringify({ textQuery: 'Hotel ' + city, languageCode: 'de', includedType: 'lodging', maxResultCount: 20 })
+    });
+    if (!gRes.ok) {
+      listEl.innerHTML = '<span style="color:#6b7280">Google Places ' + gRes.status + '. Manuell suchen: <a href="https://www.google.com/travel/hotels?q=' + encodeURIComponent(city) + '" target="_blank" style="color:#60a5fa">→ Google Hotels</a></span>';
+      return;
+    }
+    const g = await gRes.json();
+    let hotels = (g.places || [])
+      .filter(p => p.rating && (p.userRatingCount || 0) >= 1000)
+      .sort((a, b) => (b.rating || 0) - (a.rating || 0));
+    if (hotels.length < 5) {
+      const soft = (g.places || [])
+        .filter(p => p.rating && (p.userRatingCount || 0) >= 200 && (p.userRatingCount || 0) < 1000 && !hotels.includes(p))
+        .sort((a, b) => (b.rating || 0) - (a.rating || 0));
+      hotels = [...hotels, ...soft].slice(0, 10);
+    } else {
+      hotels = hotels.slice(0, 10);
+    }
+    if (hotels.length === 0) {
+      listEl.innerHTML = '<span style="color:#6b7280">Keine renommierten Hotels mit ≥200 Bewertungen gefunden. <a href="https://www.google.com/travel/hotels?q=' + encodeURIComponent(city) + '" target="_blank" style="color:#60a5fa">→ Google Hotels manuell</a></span>';
+      return;
+    }
+    listEl.innerHTML = hotels.map((p, i) => {
+      const name = (p.displayName && p.displayName.text) || '?';
+      const nameSafe = name.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+      return `
+        <div style="padding:6px 0;border-bottom:1px solid #1e293b;display:flex;justify-content:space-between;align-items:center;gap:8px">
+          <div style="flex:1;min-width:0">
+            <div style="color:#e2e8f0;font-weight:600;overflow:hidden;text-overflow:ellipsis">${i + 1}. ${name}</div>
+            <div style="color:#94a3b8;font-size:11px">⭐ ${p.rating} · ${(p.userRatingCount || 0).toLocaleString('de-DE')} Rev${p.websiteUri ? ' · <a href="' + p.websiteUri + '" target="_blank" style="color:#60a5fa">→ Website</a>' : ''}</div>
+          </div>
+          <button onclick="addSpecificHotelToWatchlist(${JSON.stringify({ n: name, r: p.rating, c: p.userRatingCount || 0, w: p.websiteUri || null, i: p.id || null }).replace(/"/g, '&quot;')}, '${city.replace(/'/g, "\\'")}'); return false;" style="background:#10b981;border:none;color:white;padding:5px 10px;border-radius:4px;cursor:pointer;font-size:11px;white-space:nowrap;font-weight:600">🎯 Tracken</button>
+        </div>
+      `;
+    }).join('');
+  } catch(e) {
+    listEl.innerHTML = '<span style="color:#6b7280">Fehler: ' + e.message.slice(0, 60) + '</span>';
+  }
+}
+
+function addSpecificHotelToWatchlist(hotelObj, city) {
+  const from = document.getElementById('dateFrom').value;
+  const to = document.getElementById('dateTo').value;
+  const adults = parseInt(document.getElementById('personen').value) || 2;
+  const kids = document.getElementById('kinderAlter').value.trim();
+  const budget = parseInt(document.getElementById('budget').value) || null;
+  const payload = {
+    title: hotelObj.n + ' — ' + city,
+    destination: city,
+    hotel: hotelObj.n,
+    googlePlace: {
+      rating: hotelObj.r,
+      userRatingCount: hotelObj.c,
+      websiteUri: hotelObj.w,
+      placeId: hotelObj.i,
+      ts: Date.now(),
+    },
+    dateFrom: from,
+    dateTo: to,
+    adults,
+    kinderAlter: kids,
+    budget,
+    airports: getSelectedAirports(),
+    createdAt: Date.now(),
+  };
+  location.href = 'urlaub.html?add=' + encodeURIComponent(JSON.stringify(payload));
 }
 
 // v0.13 (Patrick 07.08. Bridge): Reisetipps-Sektion — Wikipedia + Google Places
@@ -517,6 +614,14 @@ function triggerAllReisetipps() {
       if (city[1]) loadReisetippsData(city[1], el.id);
     }
   });
+  // v0.16: auch Top-Hotels-Vorschau async laden
+  document.querySelectorAll('[id^="th_"]').forEach(el => {
+    if (!el.dataset.loaded) {
+      el.dataset.loaded = 'true';
+      const city = el.querySelector('div').textContent.match(/„([^"]+)"/) || [];
+      if (city[1]) loadTopHotelsPreview(city[1], el.id);
+    }
+  });
 }
 
 // v0.8 (Patrick 05.08.): Flughafen-Mehrauswahl — Checkboxes, alle gewählten
@@ -578,6 +683,7 @@ function openZiel(city) {
     ${d.tipps ? `<div class="info" style="background:#0f172a;padding:8px;border-radius:6px;border-left:3px solid #10b981"><b>🧠 Insider-Tipps:</b> ${d.tipps}</div>` : ''}
     ${buildReviewLinks(d)}
     ${buildSubregionsBlock(d.city)}
+    ${buildTopHotelsPreviewBlock(d.city)}
     ${buildReisetippsBlock(d.city)}
     <div class="info"><b>🏨 Top-Hotels (Reiseblog-Empfehlung):</b> ${d.hotels}</div>
     <div class="info"><b>✈️ Anreise:</b> ${d.flug}</div>

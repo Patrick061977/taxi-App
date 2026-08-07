@@ -522,6 +522,45 @@ Patrick`;
             }).catch(e => alert('❌ Speichern fehlgeschlagen: ' + e.message));
         }
 
+        // v0.18 (Patrick 07.08.): Hotel-Kette erkennen + Loyalty-Programm-Link.
+        //   Automatisch aus Hotel-Name/Google-Place-Name geraten.
+        function detectHotelChain(name) {
+            if (!name) return null;
+            const n = name.toLowerCase();
+            if (n.includes('marriott') || n.includes('leonardo limited') || n.includes('luxury collection') || n.includes('sheraton') || n.includes('westin') || n.includes('renaissance')) return { chain: 'Marriott Bonvoy', url: 'https://www.marriott.com/loyalty.mi', color: '#f39c12' };
+            if (n.includes('hilton') || n.includes('conrad') || n.includes('waldorf') || n.includes('doubletree') || n.includes('hampton inn')) return { chain: 'Hilton Honors', url: 'https://www.hilton.com/en/hilton-honors/', color: '#3498db' };
+            if (n.includes('accor') || n.includes('novotel') || n.includes('sofitel') || n.includes('mgallery') || n.includes('ibis') || n.includes('pullman') || n.includes('mercure')) return { chain: 'Accor ALL', url: 'https://all.accor.com/loyalty-program/', color: '#e74c3c' };
+            if (n.includes('holiday inn') || n.includes('crowne plaza') || n.includes('intercontinental') || n.includes('ihg') || n.includes('kimpton')) return { chain: 'IHG One Rewards', url: 'https://www.ihg.com/rewardsclub/', color: '#5d6d7e' };
+            if (n.includes('radisson') || n.includes('park inn') || n.includes('park plaza')) return { chain: 'Radisson Rewards', url: 'https://www.radissonhotels.com/en-us/rewards', color: '#9b59b6' };
+            if (n.includes('best western')) return { chain: 'Best Western Rewards', url: 'https://www.bestwestern.com/en_US/rewards.html', color: '#2ecc71' };
+            if (n.includes('four seasons')) return { chain: 'Four Seasons Private', url: 'https://www.fourseasons.com/private-retreats/', color: '#8e44ad' };
+            if (n.includes('hyatt')) return { chain: 'World of Hyatt', url: 'https://world.hyatt.com', color: '#16a085' };
+            return null;
+        }
+
+        // v0.18: Rabatt-Checkliste pro Card
+        function buildRabattChecklist(entry) {
+            const chainName = detectHotelChain(entry.hotel || (entry.googlePlace && entry.googlePlace.name));
+            const nights = (entry.dateFrom && entry.dateTo) ? Math.round((new Date(entry.dateTo) - new Date(entry.dateFrom)) / 864e5) : 0;
+            const items = [];
+            if (chainName) {
+                items.push(`<div>🎁 <b style="color:${chainName.color}">${chainName.chain}</b> (kostenlos anmelden) → 5-15% Members-Rate + Punkte + Upgrades<br><a href="${chainName.url}" target="_blank" style="color:#60A5FA;font-size:11px">→ ${chainName.chain} Konto anlegen</a></div>`);
+            } else {
+                items.push('<div>🎁 <b>Loyalty-Programm der Kette</b> (falls Kette bekannt) — meist 5-15% Rabatt + Punkte. Auf Hotel-Website nach "Rewards"/"Loyalty" suchen.</div>');
+            }
+            items.push('<div>💯 <b>Best-Rate-Garantie</b> — findest du Booking billiger als Hotel-Website? Melden → Hotel matcht + oft 20-25% Extra-Rabatt (Marriott, Hilton, IHG haben das)</div>');
+            if (nights >= 7) items.push(`<div>📅 <b>Langer Aufenthalt (${nights} Nächte)</b> — bei Direkt-Anfrage nach 'Long-Stay-Rate' fragen. Oft 10-15% ab 7 Nächten</div>`);
+            items.push('<div>💳 <b>Amex Platinum FHR</b> (nur wenn Luxus 300€+/Nacht) → 100$ Hotel-Credit + Frühstück + Upgrade. Rechnet sich ab 4 Nächten/Jahr.</div>');
+            items.push('<div>🚗 <b>ADAC-Mitglied</b> → 5-10% Rabatt bei ADAC-Partnerhotels (auf ADAC-Website prüfen)</div>');
+            items.push('<div>🏢 <b>Firmen-/Corporate-Rate</b> — Funk Taxi Heringsdorf als Firma: manche Ketten geben 5-10% wenn per Firmen-Konto gebucht</div>');
+            return `<div style="margin-top:8px;padding:8px;background:rgba(59,130,246,0.08);border-radius:6px;border-left:2px solid #3B82F6">
+                <div style="font-size:12px;color:#60A5FA;font-weight:600;margin-bottom:6px">🎯 Rabatt-Checkliste (vor Direktbuchung durchgehen)</div>
+                <div style="font-size:11px;color:#94A3B8;line-height:1.6;display:flex;flex-direction:column;gap:6px">
+                    ${items.join('')}
+                </div>
+            </div>`;
+        }
+
         // v0.16 (Patrick 07.08.): Zimmertyp-Empfehlung aus Personen + Kinderalter.
         //   Regel-Logik ohne KI. Wird in Verhandlungs-Zentrale angezeigt.
         function recommendRoomType(entry) {
@@ -604,8 +643,9 @@ Patrick`;
                         Verhandlungs-Tipp: „Ich habe bei Booking ${fmtEUR(auth)} gesehen. Was ist Ihr bester Preis bei Direktbuchung?"
                     </div>
                 ` : ''}
+                ${buildRabattChecklist(entry)}
                 ${from && to ? `
-                    <div style="font-size:12px;color:#94A3B8;margin-bottom:4px">✈️ Flüge separat suchen (${airport} → ${escapeHtml(entry.destination || '')}):</div>
+                    <div style="font-size:12px;color:#94A3B8;margin-bottom:4px;margin-top:8px">✈️ Flüge separat suchen (${airport} → ${escapeHtml(entry.destination || '')}):</div>
                     <div style="display:flex;gap:6px;flex-wrap:wrap">
                         <a href="${skyscanner}" target="_blank" style="padding:5px 10px;background:#0770e3;color:#fff;border-radius:4px;font-size:11px;text-decoration:none">✈️ Skyscanner</a>
                         <a href="${googleFlights}" target="_blank" style="padding:5px 10px;background:#4285f4;color:#fff;border-radius:4px;font-size:11px;text-decoration:none">✈️ Google Flights</a>

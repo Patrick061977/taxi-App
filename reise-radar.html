@@ -195,6 +195,7 @@ const globe = Globe()
       ${d.sights ? `<div class="info"><b>🎯 Top-Sehenswürdigkeiten:</b> ${d.sights}</div>` : ''}
       ${d.tipps ? `<div class="info" style="background:#0f172a;padding:8px;border-radius:6px;border-left:3px solid #10b981"><b>🧠 Insider-Tipps:</b> ${d.tipps}</div>` : ''}
       ${buildReviewLinks(d)}
+      ${buildReisetippsBlock(d.city)}
       <div class="info"><b>🏨 Top-Hotels (Reiseblog-Empfehlung):</b> ${d.hotels}</div>
       <div class="info"><b>✈️ Anreise:</b> ${d.flug}</div>
 
@@ -213,6 +214,7 @@ const globe = Globe()
       </div>
     `;
     panel.style.display = 'block';
+    triggerAllReisetipps();
   });
 
 // v0.4: deal_url dynamisch mit User-Daten (Datum + Personen + Kinder-Alter)
@@ -329,10 +331,12 @@ function openFreeSearch() {
       </div>
     </div>
     ${buildReviewLinks(fakeD)}
+    ${buildReisetippsBlock(q)}
     <div class="info" style="margin-top:12px"><a href="${buildDealUrl(fakeD)}" target="_blank" style="color:#10b981">📦 Direkt zu Pauschal-Angeboten fuer ${q} →</a></div>
     <div style="margin-top:10px"><a href="#" onclick="addToWatchlist('${q.replace(/'/g, "\\'")}'); return false;" style="display:inline-block;padding:8px 14px;background:#10b981;color:#fff;border-radius:6px;font-size:12px;font-weight:600;text-decoration:none">➕ „${q}" zur Watchlist</a></div>
   `;
   document.getElementById('panel').style.display = 'block';
+  triggerAllReisetipps();
 }
 
 // v0.9: In Watchlist speichern — leitet zu urlaub.html mit ?add=<JSON> weiter,
@@ -369,6 +373,99 @@ function addToWatchlist(cityOrObj) {
 }
 document.getElementById('freeSearchBtn').addEventListener('click', openFreeSearch);
 document.getElementById('freeSearch').addEventListener('keypress', e => { if (e.key === 'Enter') openFreeSearch(); });
+
+// v0.13 (Patrick 07.08. Bridge): Reisetipps-Sektion — Wikipedia + Google Places
+//   'tourist_attraction' + externe Deep-Links (TripAdvisor / HolidayCheck /
+//   GetYourGuide / Reddit / Google Maps). Async-Load, Fallback bei API-Fehler.
+const GOOGLE_PLACES_KEY = 'AIzaSyCEL-wtoIrVm0-PXpILLabGQXfuFaA17lg';
+
+function buildReisetippsBlock(city) {
+  const cityId = 'rt_' + city.replace(/[^a-zA-Z0-9]+/g, '_') + '_' + Date.now();
+  const q = encodeURIComponent(city);
+  return `
+    <div id="${cityId}" style="margin-top:12px;padding:12px;background:#0a1020;border-radius:8px;border-left:3px solid #f59e0b">
+      <div style="color:#f59e0b;font-weight:600;font-size:13px;margin-bottom:8px">🗺️ Reisetipps für „${city}"</div>
+      <div class="rt-wiki" style="font-size:12px;color:#cbd5e1;margin-bottom:10px;line-height:1.5">⏳ Wikipedia-Kurzinfo lädt...</div>
+      <div class="rt-attractions" style="font-size:12px;margin-bottom:10px">
+        <div style="color:#a7f3d0;font-weight:600;margin-bottom:4px">🎯 Top-Sehenswürdigkeiten (Google, ≥1000 Reviews):</div>
+        <div class="rt-attractions-list" style="color:#94a3b8">⏳ lädt...</div>
+      </div>
+      <div style="font-size:11px;display:flex;flex-wrap:wrap;gap:6px;margin-top:10px">
+        <a href="https://www.tripadvisor.de/Search?q=${q}" target="_blank" style="padding:6px 10px;background:#00af87;color:#fff;border-radius:4px;text-decoration:none">🌍 TripAdvisor</a>
+        <a href="https://www.holidaycheck.de/dh/reisen-${q.toLowerCase()}" target="_blank" style="padding:6px 10px;background:#003399;color:#fff;border-radius:4px;text-decoration:none">⭐ HolidayCheck</a>
+        <a href="https://www.getyourguide.de/s/?q=${q}" target="_blank" style="padding:6px 10px;background:#ff5533;color:#fff;border-radius:4px;text-decoration:none">🎫 GetYourGuide (Touren)</a>
+        <a href="https://www.reddit.com/r/travel/search/?q=${q}&restrict_sr=on" target="_blank" style="padding:6px 10px;background:#ff4500;color:#fff;border-radius:4px;text-decoration:none">💬 Reddit r/travel</a>
+        <a href="https://www.google.com/maps/search/${q}" target="_blank" style="padding:6px 10px;background:#4285f4;color:#fff;border-radius:4px;text-decoration:none">🗺️ Google Maps</a>
+      </div>
+    </div>
+  `;
+}
+
+async function loadReisetippsData(city, containerId) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  const wikiEl = container.querySelector('.rt-wiki');
+  const attrEl = container.querySelector('.rt-attractions-list');
+  // Wikipedia (kostenlos)
+  try {
+    const wRes = await fetch('https://de.wikipedia.org/api/rest_v1/page/summary/' + encodeURIComponent(city));
+    if (wRes.ok) {
+      const w = await wRes.json();
+      const thumb = w.thumbnail && w.thumbnail.source ? `<img src="${w.thumbnail.source}" style="float:right;max-width:80px;max-height:80px;border-radius:6px;margin-left:8px">` : '';
+      const extract = (w.extract || '').slice(0, 400);
+      wikiEl.innerHTML = thumb + '<b>📖 Wikipedia:</b> ' + extract + (extract.length >= 400 ? '...' : '') + `<br><a href="https://de.wikipedia.org/wiki/${encodeURIComponent(w.title || city)}" target="_blank" style="color:#60a5fa;font-size:11px">→ Ganzer Artikel</a>`;
+    } else {
+      wikiEl.innerHTML = `<span style="color:#6b7280">Wikipedia: kein Eintrag für „${city}" gefunden. <a href="https://de.wikipedia.org/wiki/Special:Search?search=${encodeURIComponent(city)}" target="_blank" style="color:#60a5fa">→ Suche</a></span>`;
+    }
+  } catch(e) {
+    wikiEl.innerHTML = `<span style="color:#6b7280">Wikipedia offline. <a href="https://de.wikipedia.org/wiki/Special:Search?search=${encodeURIComponent(city)}" target="_blank" style="color:#60a5fa">→ Suche</a></span>`;
+  }
+  // Google Places tourist_attraction
+  try {
+    const gRes = await fetch('https://places.googleapis.com/v1/places:searchText', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Goog-Api-Key': GOOGLE_PLACES_KEY,
+        'X-Goog-FieldMask': 'places.displayName,places.rating,places.userRatingCount,places.googleMapsUri,places.formattedAddress'
+      },
+      body: JSON.stringify({ textQuery: 'Sehenswürdigkeiten ' + city, languageCode: 'de', includedType: 'tourist_attraction', maxResultCount: 20 })
+    });
+    if (gRes.ok) {
+      const g = await gRes.json();
+      const attractions = (g.places || [])
+        .filter(p => p.rating && (p.userRatingCount || 0) >= 1000)
+        .sort((a, b) => (b.rating || 0) - (a.rating || 0))
+        .slice(0, 10);
+      if (attractions.length === 0) {
+        attrEl.innerHTML = '<span style="color:#6b7280">Keine Attraktionen mit ≥1000 Google-Reviews gefunden — <a href="https://www.google.com/maps/search/Sehenswürdigkeiten+' + encodeURIComponent(city) + '" target="_blank" style="color:#60a5fa">→ Google Maps</a></span>';
+      } else {
+        attrEl.innerHTML = attractions.map(p => `
+          <div style="padding:4px 0;border-bottom:1px solid #1e293b">
+            <a href="${p.googleMapsUri || 'https://www.google.com/maps/search/' + encodeURIComponent((p.displayName && p.displayName.text) || '')}" target="_blank" style="color:#e2e8f0;text-decoration:none;font-weight:600">${(p.displayName && p.displayName.text) || '?'}</a>
+            <span style="color:#94a3b8;font-size:11px"> · ${p.rating}★ · ${p.userRatingCount.toLocaleString('de-DE')} Rev</span>
+          </div>
+        `).join('');
+      }
+    } else {
+      const errText = await gRes.text();
+      attrEl.innerHTML = '<span style="color:#6b7280">Google Places API: ' + gRes.status + '. Manuell: <a href="https://www.google.com/maps/search/Sehenswürdigkeiten+' + encodeURIComponent(city) + '" target="_blank" style="color:#60a5fa">→ Google Maps</a></span>';
+    }
+  } catch(e) {
+    attrEl.innerHTML = '<span style="color:#6b7280">Google Places offline: ' + e.message.slice(0, 40) + '</span>';
+  }
+}
+// Panel-open-Trigger: MutationObserver ist Overkill. Wir rufen loadReisetippsData
+// direkt nach jedem Panel-Render auf (im onPointClick / openZiel / openFreeSearch).
+function triggerAllReisetipps() {
+  document.querySelectorAll('[id^="rt_"]').forEach(el => {
+    if (!el.dataset.loaded) {
+      el.dataset.loaded = 'true';
+      const city = el.querySelector('div').textContent.match(/„([^"]+)"/) || [];
+      if (city[1]) loadReisetippsData(city[1], el.id);
+    }
+  });
+}
 
 // v0.8 (Patrick 05.08.): Flughafen-Mehrauswahl — Checkboxes, alle gewählten
 // Flughäfen erzeugen je eigene Google-Flights / Kayak-Links im Panel.
@@ -413,11 +510,13 @@ function openZiel(city) {
     ${d.sights ? `<div class="info"><b>🎯 Top-Sehenswürdigkeiten:</b> ${d.sights}</div>` : ''}
     ${d.tipps ? `<div class="info" style="background:#0f172a;padding:8px;border-radius:6px;border-left:3px solid #10b981"><b>🧠 Insider-Tipps:</b> ${d.tipps}</div>` : ''}
     ${buildReviewLinks(d)}
+    ${buildReisetippsBlock(d.city)}
     <div class="info"><b>🏨 Top-Hotels (Reiseblog-Empfehlung):</b> ${d.hotels}</div>
     <div class="info"><b>✈️ Anreise:</b> ${d.flug}</div>
     <div style="margin-top:12px"><a href="#" onclick="addToWatchlist('${d.city.replace(/'/g, "\\'")}'); return false;" style="display:inline-block;padding:10px 16px;background:#10b981;color:#fff;border-radius:6px;font-size:13px;font-weight:600;text-decoration:none">➕ „${d.city}" zur Urlaubs-Watchlist</a></div>
   `;
   document.getElementById('panel').style.display = 'block';
+  triggerAllReisetipps();
 }
 // Render Liste unter dem Globus als Fallback (immer sichtbar)
 function renderZielListe() {

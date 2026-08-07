@@ -589,9 +589,106 @@
                 `;
                 return;
             }
+            // v0.15 (Patrick 07.08. Phase 3 K1): Vergleichs-Tabellen pro Ziel
+            //   Gruppiert Watchlist-Einträge mit HOTEL nach destination. Wenn ein
+            //   Ziel ≥2 Hotels hat → Tabelle oben zeigen (Preis · Rating · Rev · €/★)
+            const byDestination = {};
+            entries.forEach(e => {
+                if (!e.hotel || !e.destination) return;
+                (byDestination[e.destination] = byDestination[e.destination] || []).push(e);
+            });
+            Object.entries(byDestination)
+                .filter(([_, list]) => list.length >= 2)
+                .sort((a, b) => b[1].length - a[1].length)
+                .forEach(([dest, list]) => {
+                    wrap.appendChild(buildComparisonTable(dest, list));
+                });
             for (const e of entries) {
                 wrap.appendChild(renderCard(e.id, e));
             }
+        }
+
+        // v0.15: Phase 3 Vergleichs-Tabelle (K1)
+        const CMP_STATE = {}; // dest → 'price' | 'rating' | 'per-rating' | 'reviews'
+        function buildComparisonTable(destination, list) {
+            const wrap = document.createElement('div');
+            wrap.className = 'card';
+            wrap.style.borderLeft = '4px solid #10B981';
+            const sortKey = CMP_STATE[destination] || 'per-rating';
+            const rows = list.map(e => {
+                const snaps = e.snapshots || [];
+                const last = snaps[snaps.length - 1] || {};
+                const price = last.authoritativeMin || last.priceFrom || null;
+                const gp = e.googlePlace || {};
+                const rating = gp.rating || null;
+                const reviews = gp.userRatingCount || 0;
+                const perRating = (price && rating) ? Math.round(price / rating) : null;
+                return { id: e.id, hotel: e.hotel, price, rating, reviews, perRating, website: gp.websiteUri };
+            });
+            // Sortierung
+            rows.sort((a, b) => {
+                if (sortKey === 'price') return (a.price || Infinity) - (b.price || Infinity);
+                if (sortKey === 'rating') return (b.rating || 0) - (a.rating || 0);
+                if (sortKey === 'reviews') return (b.reviews || 0) - (a.reviews || 0);
+                // default per-rating: kleinster €/★ zuerst = beste Preisleistung
+                return (a.perRating || Infinity) - (b.perRating || Infinity);
+            });
+            // Marker
+            const cheapest = rows.filter(r => r.price).sort((a,b) => a.price - b.price)[0];
+            const highestRating = rows.filter(r => r.rating).sort((a,b) => b.rating - a.rating)[0];
+            const bestPerRating = rows.filter(r => r.perRating).sort((a,b) => a.perRating - b.perRating)[0];
+            const btn = (key, label) => `<button data-sort="${key}" style="background:${sortKey===key?'#10B981':'#0F172A'};color:${sortKey===key?'#fff':'#94A3B8'};border:1px solid #334155;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">${label}</button>`;
+            wrap.innerHTML = `
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px">
+                    <div>
+                        <div style="color:#10B981;font-weight:700;font-size:14px">🎯 Vergleich: ${escapeHtml(destination)} (${list.length} Hotels)</div>
+                        <div style="color:#94A3B8;font-size:11px">Klick Sortierung — 🏆 beste Preisleistung, 💰 günstigster, ⭐ höchstbewertet</div>
+                    </div>
+                    <div style="display:flex;gap:4px;flex-wrap:wrap">
+                        ${btn('per-rating', '🏆 €/★')}${btn('price', '💰 Preis')}${btn('rating', '⭐ Rating')}${btn('reviews', '📊 Reviews')}
+                    </div>
+                </div>
+                <div style="overflow-x:auto">
+                    <table style="width:100%;border-collapse:collapse;font-size:12px">
+                        <thead>
+                            <tr style="color:#94A3B8;text-align:left;border-bottom:1px solid #334155">
+                                <th style="padding:6px 8px">Hotel</th>
+                                <th style="padding:6px 8px;text-align:right">Preis</th>
+                                <th style="padding:6px 8px;text-align:right">⭐</th>
+                                <th style="padding:6px 8px;text-align:right">Reviews</th>
+                                <th style="padding:6px 8px;text-align:right">€/★</th>
+                                <th style="padding:6px 8px"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${rows.map(r => {
+                                const marker = [];
+                                if (bestPerRating && r.id === bestPerRating.id) marker.push('🏆');
+                                if (cheapest && r.id === cheapest.id) marker.push('💰');
+                                if (highestRating && r.id === highestRating.id) marker.push('⭐');
+                                return `
+                                <tr style="border-bottom:1px solid #1e293b;color:#F8FAFC">
+                                    <td style="padding:6px 8px">${marker.join(' ')} <b>${escapeHtml(r.hotel)}</b></td>
+                                    <td style="padding:6px 8px;text-align:right;color:#FCD34D">${r.price ? fmtEUR(r.price) : '—'}</td>
+                                    <td style="padding:6px 8px;text-align:right;color:#4ade80">${r.rating || '—'}</td>
+                                    <td style="padding:6px 8px;text-align:right;color:#94A3B8">${r.reviews ? r.reviews.toLocaleString('de-DE') : '—'}</td>
+                                    <td style="padding:6px 8px;text-align:right;color:#a7f3d0">${r.perRating ? fmtEUR(r.perRating) : '—'}</td>
+                                    <td style="padding:6px 8px">${r.website ? `<a href="${r.website}" target="_blank" style="color:#60A5FA;font-size:11px">🏨</a>` : ''}</td>
+                                </tr>
+                            `;}).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+            // Sort-Button-Events
+            wrap.querySelectorAll('button[data-sort]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    CMP_STATE[destination] = btn.dataset.sort;
+                    // Kompletter Re-Render via Firebase-Listener
+                    db.ref('urlaubWatchlist').once('value').then(snap => render(snap));
+                });
+            });
+            return wrap;
         }
 
         auth.onAuthStateChanged(user => {

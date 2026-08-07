@@ -535,24 +535,30 @@ Patrick`;
             const adults = entry.adults || 2;
             const kids = (entry.kinderAlter || '').split(',').map(s => s.trim()).filter(Boolean);
             const airport = (entry.airports && entry.airports[0]) || 'BER';
+            // v0.20 (Patrick 07.08. Link-Check): Nur bestätigt funktionierende URLs.
+            //   Playwright-Test 07.08. 19:xx zeigte:
+            //   ✅ TUI + ab-in-den-urlaub liefern Ziel-Suche vorausgefüllt
+            //   ❌ FTI/Sonnenklar/schauinsland/DER/weg.de/ITS/Neckermann/Check24 = 404 oder falsche Sektion
+            //   → für die kaputten: Basis-Suchseite (User sucht manuell weiter)
             const links = [
-                { name: 'TUI', color: '#c8102e', url: `https://www.tui.com/pauschalreisen/?keyword=${q}&startDate=${from}&endDate=${to}&adults=${adults}&children=${kids.length}` },
-                { name: 'ab-in-den-urlaub', color: '#f47216', url: `https://www.ab-in-den-urlaub.de/pauschalreisen/suche?destination=${q}${from && to ? '&departureDate=' + from + '&returnDate=' + to : ''}&adults=${adults}${kids.length ? '&children=' + kids.length : ''}` },
-                { name: 'Check24 Pauschal', color: '#005ea8', url: `https://reise.check24.de/pauschalreisen/${qLow}` },
-                { name: 'FTI', color: '#e50043', url: `https://www.fti.de/pauschalreisen/suche.html?query=${q}` },
-                { name: 'Sonnenklar', color: '#ffcc00', url: `https://www.sonnenklar.tv/pauschalreisen/?ziel=${q}${from ? '&reisezeitraum=' + from.replace(/-/g, '') : ''}&erwachsene=${adults}` },
-                { name: 'schauinsland', color: '#004a99', url: `https://www.schauinsland-reisen.de/urlaub/pauschalreisen?destination=${q}` },
-                { name: 'DER Touristik', color: '#00a1e0', url: `https://www.dertour.de/suche?q=${q}` },
-                { name: 'weg.de', color: '#ff6600', url: `https://www.weg.de/pauschalreisen/${qLow}` },
-                { name: 'ITS Reisen', color: '#003580', url: `https://www.its.de/pauschalreisen/suche/?destination=${q}` },
-                { name: 'Neckermann Reisen', color: '#e30613', url: `https://www.neckermann-reisen.de/pauschalreisen/${qLow}` },
+                { name: 'TUI', color: '#c8102e', url: `https://www.tui.com/pauschalreisen/?keyword=${q}&startDate=${from}&endDate=${to}&adults=${adults}&children=${kids.length}`, working: true },
+                { name: 'ab-in-den-urlaub', color: '#f47216', url: `https://www.ab-in-den-urlaub.de/pauschalreisen/suche?destination=${q}${from && to ? '&departureDate=' + from + '&returnDate=' + to : ''}&adults=${adults}${kids.length ? '&children=' + kids.length : ''}`, working: true },
+                { name: 'Check24 Reise', color: '#005ea8', url: `https://reise.check24.de/pauschalreisen`, working: false },
+                { name: 'FTI', color: '#e50043', url: `https://www.fti.de/`, working: false },
+                { name: 'Sonnenklar', color: '#ffcc00', url: `https://www.sonnenklar.tv/`, working: false },
+                { name: 'schauinsland', color: '#004a99', url: `https://www.schauinsland-reisen.de/`, working: false },
+                { name: 'DER Touristik', color: '#00a1e0', url: `https://www.dertour.de/`, working: false },
+                { name: 'weg.de', color: '#ff6600', url: `https://www.weg.de/`, working: false },
+                { name: 'ITS Reisen', color: '#003580', url: `https://www.its.de/`, working: false },
+                { name: 'Neckermann Reisen', color: '#e30613', url: `https://www.neckermann-reisen.de/`, working: false },
             ];
             return `<div style="margin-top:8px;padding:8px;background:rgba(245,158,11,0.06);border-radius:6px;border-left:2px solid #f59e0b">
                 <div style="font-size:12px;color:#f59e0b;font-weight:600;margin-bottom:6px">🎒 Pauschal-Angebote (Hotel + Flug + Transfer)</div>
                 <div style="font-size:11px;color:#94A3B8;margin-bottom:6px">Ideal wenn Ali Bey-artige Hotels, die kein Booking-Partner sind. Manche Portale liefern Komplettpakete zu deinem Datum.</div>
                 <div style="display:flex;flex-wrap:wrap;gap:5px">
-                    ${links.map(l => `<a href="${l.url}" target="_blank" style="padding:5px 9px;background:${l.color};color:#fff;border-radius:4px;font-size:11px;text-decoration:none;font-weight:600">${l.name}</a>`).join('')}
+                    ${links.map(l => `<a href="${l.url}" target="_blank" title="${l.working ? 'Suche vorausgefüllt' : 'Startseite — dort manuell nachsuchen (Deep-Link-URL des Portals kaputt)'}" style="padding:5px 9px;background:${l.color};color:#fff;border-radius:4px;font-size:11px;text-decoration:none;font-weight:600;opacity:${l.working ? 1 : 0.55}">${l.working ? '✓ ' : ''}${l.name}</a>`).join('')}
                 </div>
+                <div style="font-size:10px;color:#6B7280;margin-top:6px">✓ = Suche vorausgefüllt (getestet 07.08.). Grau = nur Startseite (Portal-URL-Struktur ändert sich).</div>
             </div>`;
         }
 

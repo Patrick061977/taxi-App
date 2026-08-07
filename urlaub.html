@@ -290,11 +290,14 @@
                         </div>
                     </div>
                 ` : ''}
-                <div style="display:flex;gap:6px;flex-wrap:wrap">
+                <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
                     <button class="edit-btn" data-id="${id}">✏️ Bearbeiten</button>
+                    <button class="email-btn" data-id="${id}" style="background:none;border:1px solid #6B7280;color:#94A3B8;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:11px">📧 E-Mail an Hotel</button>
+                    <button class="archive-btn" data-id="${id}" style="background:none;border:1px solid #6B7280;color:#94A3B8;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:11px">${entry.archived ? '↩️ Reaktivieren' : '📦 Archivieren'}</button>
                     <button class="delete-btn" data-id="${id}">🗑️ Löschen</button>
                 </div>
             `;
+            if (entry.archived) card.style.opacity = '0.55';
             const toggle = card.querySelector('.snapshot-toggle');
             const list = card.querySelector('.snapshot-list');
             if (toggle) toggle.addEventListener('click', () => {
@@ -338,12 +341,79 @@
                 });
             });
             card.querySelector('.edit-btn').addEventListener('click', () => openEditModal(id, entry));
+            card.querySelector('.email-btn').addEventListener('click', () => openEmailModal(entry));
+            card.querySelector('.archive-btn').addEventListener('click', () => {
+                db.ref('urlaubWatchlist/' + id).update({ archived: !entry.archived });
+            });
             card.querySelector('.delete-btn').addEventListener('click', () => {
-                if (confirm('Watchlist-Eintrag "' + (entry.title || id) + '" wirklich löschen?')) {
+                if (confirm('Watchlist-Eintrag "' + (entry.title || id) + '" wirklich löschen?\n\nHistorie geht verloren. Für "später parken" nutze lieber 📦 Archivieren.')) {
                     db.ref('urlaubWatchlist/' + id).remove();
                 }
             });
             return card;
+        }
+
+        // v0.17 (Patrick 07.08.): E-Mail-Vorlage für Hotel-Direkt-Anfrage
+        //   Auto-Text DE+EN mit Datum/Personen/Kinderalter/Zimmer-Typ/Booking-Ref
+        function openEmailModal(entry) {
+            const room = recommendRoomType(entry);
+            const snaps = entry.snapshots || [];
+            const last = snaps[snaps.length - 1] || {};
+            const ref = last.authoritativeMin;
+            const kidsList = (entry.kinderAlter || '').split(',').map(s => s.trim()).filter(Boolean);
+            const nights = (entry.dateFrom && entry.dateTo)
+                ? Math.max(1, Math.round((new Date(entry.dateTo) - new Date(entry.dateFrom)) / 864e5))
+                : '?';
+            const kidsDe = kidsList.length ? ' und ' + kidsList.length + ' Kinder (' + kidsList.join(', ') + ' Jahre)' : '';
+            const kidsEn = kidsList.length ? ' and ' + kidsList.length + ' children (ages ' + kidsList.join(', ') + ')' : '';
+            const roomHintDe = room ? ' Wir bevorzugen ' + room.type + '.' : '';
+            const roomHintEn = room ? ' We would prefer ' + room.type + '.' : '';
+            const refDe = ref ? ' Bei Booking.com sehen wir aktuell ' + fmtEUR(ref) + '.' : '';
+            const refEn = ref ? ' At Booking.com we currently see ' + fmtEUR(ref) + '.' : '';
+            const bodyDe = `Sehr geehrte Damen und Herren,
+
+wir möchten für ${entry.adults || 2} Erwachsene${kidsDe} vom ${entry.dateFrom} bis ${entry.dateTo} (${nights} Nächte) in Ihrem Hotel buchen.
+
+${roomHintDe.trim()}
+
+Bitte teilen Sie uns Ihren besten Direktbuchungspreis mit.${refDe}
+
+Vielen Dank für Ihre Rückmeldung.
+
+Mit freundlichen Grüßen
+Patrick`;
+            const bodyEn = `Dear Sir or Madam,
+
+we would like to book at your hotel for ${entry.adults || 2} adults${kidsEn} from ${entry.dateFrom} to ${entry.dateTo} (${nights} nights).
+
+${roomHintEn.trim()}
+
+Please let us know your best direct-booking rate.${refEn}
+
+Thank you for your reply.
+
+Best regards
+Patrick`;
+            const modalId = 'email-modal-' + Date.now();
+            const html = `
+                <div id="${modalId}" class="modal-backdrop open" style="align-items:center">
+                    <div class="modal" style="max-width:640px">
+                        <h2>📧 E-Mail-Anfrage: ${escapeHtml(entry.hotel || entry.destination || entry.title || '')}</h2>
+                        <div style="font-size:12px;color:#94A3B8;margin-bottom:6px">Kopiere den Text und schick ihn an die Hotel-Adresse. Auf der Hotel-Website (Google-Places-Link) findest du die E-Mail.</div>
+                        <label>🇩🇪 Deutsch</label>
+                        <textarea style="width:100%;background:#0F172A;border:1px solid #334155;color:#F8FAFC;padding:8px;border-radius:6px;font-size:12px;min-height:180px;font-family:inherit">${bodyDe}</textarea>
+                        <button onclick="navigator.clipboard.writeText(this.previousElementSibling.value);this.innerText='✓ kopiert';setTimeout(()=>this.innerText='📋 Deutsch kopieren',2000);" style="margin-top:4px;background:#10B981;border:none;color:white;padding:6px 12px;border-radius:4px;cursor:pointer;font-size:12px">📋 Deutsch kopieren</button>
+                        <label style="margin-top:14px;display:block">🇬🇧 English</label>
+                        <textarea style="width:100%;background:#0F172A;border:1px solid #334155;color:#F8FAFC;padding:8px;border-radius:6px;font-size:12px;min-height:180px;font-family:inherit">${bodyEn}</textarea>
+                        <button onclick="navigator.clipboard.writeText(this.previousElementSibling.value);this.innerText='✓ copied';setTimeout(()=>this.innerText='📋 English copy',2000);" style="margin-top:4px;background:#10B981;border:none;color:white;padding:6px 12px;border-radius:4px;cursor:pointer;font-size:12px">📋 English copy</button>
+                        <div class="btn-row" style="margin-top:16px">
+                            <button class="btn-cancel" onclick="document.getElementById('${modalId}').remove()">Schließen</button>
+                        </div>
+                    </div>
+                </div>`;
+            const wrap = document.createElement('div');
+            wrap.innerHTML = html;
+            document.body.appendChild(wrap.firstElementChild);
         }
 
         // v0.12 (Phase 1c, Patrick 06.08.): Top-10 Hotels aus Booking-Scrape anzeigen
@@ -620,6 +690,8 @@
             const entries = Object.entries(data)
                 .map(([id, v]) => ({ id, ...v }))
                 .sort((a, b) => {
+                    // v0.17: archivierte ans Ende
+                    if (!!a.archived !== !!b.archived) return a.archived ? 1 : -1;
                     const aT = (a.snapshots && a.snapshots.length) ? a.snapshots[a.snapshots.length - 1].ts : a.createdAt || 0;
                     const bT = (b.snapshots && b.snapshots.length) ? b.snapshots[b.snapshots.length - 1].ts : b.createdAt || 0;
                     return bT - aT;
@@ -639,7 +711,7 @@
             //   Ziel ≥2 Hotels hat → Tabelle oben zeigen (Preis · Rating · Rev · €/★)
             const byDestination = {};
             entries.forEach(e => {
-                if (!e.hotel || !e.destination) return;
+                if (!e.hotel || !e.destination || e.archived) return;
                 (byDestination[e.destination] = byDestination[e.destination] || []).push(e);
             });
             Object.entries(byDestination)

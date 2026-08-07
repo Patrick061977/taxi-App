@@ -305,6 +305,7 @@ function pushBridge(message) {
 
     const tracked = entries.filter(([id, e]) => {
         if (ONLY && id !== ONLY) return false;
+        if (e.archived) return false; // v0.17: archivierte skippen (spart Kosten)
         const hasQuery = e.hotel || e.destination;
         const hasDates = e.dateFrom && e.dateTo;
         if (!hasQuery || !hasDates) return false;

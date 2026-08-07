@@ -148,16 +148,27 @@ const PORTALS = [
                     });
                 }
             });
-            // Top-10 sortiert: renommierte Hotels zuerst (reviews>=100 UND score, sonst nur score)
-            const scored = hotels.filter(h => h.score != null);
-            scored.sort((a, b) => {
-                const aQualified = (a.reviews || 0) >= 100 ? 1 : 0;
-                const bQualified = (b.reviews || 0) >= 100 ? 1 : 0;
-                if (aQualified !== bQualified) return bQualified - aQualified;
+            // v1.2 (Patrick 07.08. Bridge): Threshold 100→1000 Reviews.
+            //   Test mit Malta zeigte: bayesian_review_score liefert oben Airbnbs mit
+            //   6-69 Reviews (hoher Score, unbedeutend). Marken-Hotels haben >=1000
+            //   Reviews (Radisson 3522, Novotel 2065, Azur 9407). Threshold 1000
+            //   filtert Klein-Anbieter aus und liefert echte Kandidaten.
+            //   HARDER Filter: Hotels UNTER 1000 Reviews raus (nicht nur nachrangig)
+            //   damit Top-10 wirklich renommiert ist.
+            const MIN_REVIEWS = 1000;
+            const qualified = hotels.filter(h => h.score != null && (h.reviews || 0) >= MIN_REVIEWS);
+            qualified.sort((a, b) => {
                 if (b.score !== a.score) return b.score - a.score;
                 return (b.reviews || 0) - (a.reviews || 0);
             });
-            const topHotels = scored.slice(0, 10);
+            // Fallback wenn zu wenig qualifizierte (kleine Ziele): mit >=100 auffüllen
+            let topHotels = qualified.slice(0, 10);
+            if (topHotels.length < 5) {
+                const softQualified = hotels
+                    .filter(h => h.score != null && (h.reviews || 0) >= 100 && !qualified.includes(h))
+                    .sort((a, b) => (b.score !== a.score ? b.score - a.score : (b.reviews || 0) - (a.reviews || 0)));
+                topHotels = [...topHotels, ...softQualified].slice(0, 10);
+            }
             // Bei Ziel-Suche mit hotelName-Filter: nur Preise aus passenden Cards nehmen
             let filteredPrices = prices;
             if (hotelNameLower) {

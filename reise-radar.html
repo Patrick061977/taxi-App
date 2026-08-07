@@ -534,6 +534,21 @@ function triggerAllReisetipps() {
   boxes.forEach(b => b.addEventListener('change', persist));
 })();
 
+// v0.15 (Patrick 07.08.): Formular-State persistieren — Personen/Datum/
+//   Kinderalter/Budget bleiben zwischen Sessions. Beim Öffnen aus localStorage
+//   restauriert, bei jeder Änderung sofort gespeichert.
+(function initFormPersist() {
+  const fields = ['budget', 'dateFrom', 'dateTo', 'personen', 'kinderAlter'];
+  fields.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const saved = localStorage.getItem('reiseRadar_' + id);
+    if (saved != null && saved !== '') el.value = saved;
+    el.addEventListener('change', () => localStorage.setItem('reiseRadar_' + id, el.value));
+    el.addEventListener('input', () => localStorage.setItem('reiseRadar_' + id, el.value));
+  });
+})();
+
 // v0.6 (Patrick 05.08. "wenn ich auf Mallorca klicke passiert nichts"):
 // Zusaetzliche sichtbare LISTE aller Ziele — Klick auf Namen oeffnet Panel.
 // Falls Kugel-Klick schwer (Punkte klein), Liste als Fallback.

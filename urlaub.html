@@ -522,6 +522,40 @@ Patrick`;
             }).catch(e => alert('❌ Speichern fehlgeschlagen: ' + e.message));
         }
 
+        // v0.19 (Patrick 07.08.): Pauschal-Anbieter-Links (Hotel + Flug in einem)
+        //   Wichtig für Kunden ohne Booking-Partner-Hotel (z.B. Ali Bey Manavgat).
+        //   URL-Formate approximiert — Portale erwarten oft Freitext-Suche im Ziel.
+        function buildPauschalLinks(entry) {
+            const dest = entry.destination || entry.hotel || '';
+            if (!dest) return '';
+            const q = encodeURIComponent(dest);
+            const qLow = encodeURIComponent(dest.toLowerCase());
+            const from = entry.dateFrom || '';
+            const to = entry.dateTo || '';
+            const adults = entry.adults || 2;
+            const kids = (entry.kinderAlter || '').split(',').map(s => s.trim()).filter(Boolean);
+            const airport = (entry.airports && entry.airports[0]) || 'BER';
+            const links = [
+                { name: 'TUI', color: '#c8102e', url: `https://www.tui.com/pauschalreisen/?keyword=${q}&startDate=${from}&endDate=${to}&adults=${adults}&children=${kids.length}` },
+                { name: 'ab-in-den-urlaub', color: '#f47216', url: `https://www.ab-in-den-urlaub.de/pauschalreisen/suche?destination=${q}${from && to ? '&departureDate=' + from + '&returnDate=' + to : ''}&adults=${adults}${kids.length ? '&children=' + kids.length : ''}` },
+                { name: 'Check24 Pauschal', color: '#005ea8', url: `https://reise.check24.de/pauschalreisen/${qLow}` },
+                { name: 'FTI', color: '#e50043', url: `https://www.fti.de/pauschalreisen/suche.html?query=${q}` },
+                { name: 'Sonnenklar', color: '#ffcc00', url: `https://www.sonnenklar.tv/pauschalreisen/?ziel=${q}${from ? '&reisezeitraum=' + from.replace(/-/g, '') : ''}&erwachsene=${adults}` },
+                { name: 'schauinsland', color: '#004a99', url: `https://www.schauinsland-reisen.de/urlaub/pauschalreisen?destination=${q}` },
+                { name: 'DER Touristik', color: '#00a1e0', url: `https://www.dertour.de/suche?q=${q}` },
+                { name: 'weg.de', color: '#ff6600', url: `https://www.weg.de/pauschalreisen/${qLow}` },
+                { name: 'ITS Reisen', color: '#003580', url: `https://www.its.de/pauschalreisen/suche/?destination=${q}` },
+                { name: 'Neckermann Reisen', color: '#e30613', url: `https://www.neckermann-reisen.de/pauschalreisen/${qLow}` },
+            ];
+            return `<div style="margin-top:8px;padding:8px;background:rgba(245,158,11,0.06);border-radius:6px;border-left:2px solid #f59e0b">
+                <div style="font-size:12px;color:#f59e0b;font-weight:600;margin-bottom:6px">🎒 Pauschal-Angebote (Hotel + Flug + Transfer)</div>
+                <div style="font-size:11px;color:#94A3B8;margin-bottom:6px">Ideal wenn Ali Bey-artige Hotels, die kein Booking-Partner sind. Manche Portale liefern Komplettpakete zu deinem Datum.</div>
+                <div style="display:flex;flex-wrap:wrap;gap:5px">
+                    ${links.map(l => `<a href="${l.url}" target="_blank" style="padding:5px 9px;background:${l.color};color:#fff;border-radius:4px;font-size:11px;text-decoration:none;font-weight:600">${l.name}</a>`).join('')}
+                </div>
+            </div>`;
+        }
+
         // v0.18 (Patrick 07.08.): Hotel-Kette erkennen + Loyalty-Programm-Link.
         //   Automatisch aus Hotel-Name/Google-Place-Name geraten.
         function detectHotelChain(name) {
@@ -644,6 +678,7 @@ Patrick`;
                     </div>
                 ` : ''}
                 ${buildRabattChecklist(entry)}
+                ${buildPauschalLinks(entry)}
                 ${from && to ? `
                     <div style="font-size:12px;color:#94A3B8;margin-bottom:4px;margin-top:8px">✈️ Flüge separat suchen (${airport} → ${escapeHtml(entry.destination || '')}):</div>
                     <div style="display:flex;gap:6px;flex-wrap:wrap">

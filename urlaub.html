@@ -360,25 +360,44 @@
                 return '';
             }
             // Best-Rating + Best-Price highlight
-            const byRating = [...hotels].filter(h => h.score).sort((a, b) => b.score - a.score);
+            // v1.3: bevorzugt Google-Rating (mit Reviews ≥1000), Fallback Booking-Score
+            const byRating = [...hotels]
+                .filter(h => (h.googlePlace && h.googlePlace.rating) || h.score)
+                .sort((a, b) => {
+                    const aG = a.googlePlace && (a.googlePlace.userRatingCount || 0) >= 1000 ? 1 : 0;
+                    const bG = b.googlePlace && (b.googlePlace.userRatingCount || 0) >= 1000 ? 1 : 0;
+                    if (aG !== bG) return bG - aG;
+                    const aR = (a.googlePlace && a.googlePlace.rating) || (a.score/2) || 0;
+                    const bR = (b.googlePlace && b.googlePlace.rating) || (b.score/2) || 0;
+                    return bR - aR;
+                });
             const byPrice = [...hotels].filter(h => h.price).sort((a, b) => a.price - b.price);
             const bestRating = byRating[0];
             const bestPrice = byPrice[0];
             return `<div style="margin-top:10px;padding:10px;background:#0f172a;border-radius:8px;border-left:3px solid #FCD34D">
                 <div style="font-size:12px;color:#FCD34D;font-weight:600;margin-bottom:8px">🏨 Top-Hotels im Zeitraum (Booking, ${hotels.length})</div>
-                ${bestPrice ? `<div style="font-size:12px;color:#a7f3d0;margin-bottom:3px">💰 <b>Bester Preis:</b> ${escapeHtml(bestPrice.name)} — ${fmtEUR(bestPrice.price)}${bestPrice.score ? ' · ⭐ '+bestPrice.score : ''}</div>` : ''}
-                ${bestRating && bestRating.name !== (bestPrice && bestPrice.name) ? `<div style="font-size:12px;color:#fbbf24;margin-bottom:8px">⭐ <b>Beste Bewertung:</b> ${escapeHtml(bestRating.name)} — ${fmtEUR(bestRating.price)} · ⭐ ${bestRating.score}${bestRating.reviews ? ' ('+bestRating.reviews+' Bewertungen)' : ''}</div>` : ''}
+                ${bestPrice ? `<div style="font-size:12px;color:#a7f3d0;margin-bottom:3px">💰 <b>Bester Preis:</b> ${escapeHtml(bestPrice.name)} — ${fmtEUR(bestPrice.price)}${bestPrice.googlePlace ? ' · 🌐 '+bestPrice.googlePlace.rating+'★ '+(bestPrice.googlePlace.userRatingCount||0).toLocaleString('de-DE')+' Rev' : (bestPrice.score ? ' · 🛏️ '+bestPrice.score : '')}</div>` : ''}
+                ${bestRating && bestRating.name !== (bestPrice && bestPrice.name) ? `<div style="font-size:12px;color:#fbbf24;margin-bottom:8px">⭐ <b>Beste Bewertung:</b> ${escapeHtml(bestRating.name)} — ${fmtEUR(bestRating.price)}${bestRating.googlePlace ? ' · 🌐 '+bestRating.googlePlace.rating+'★ '+(bestRating.googlePlace.userRatingCount||0).toLocaleString('de-DE')+' Rev' : (bestRating.score ? ' · 🛏️ '+bestRating.score : '')}</div>` : ''}
                 <button class="top-hotels-toggle" style="background:none;border:none;color:#60A5FA;cursor:pointer;font-size:11px;padding:0;font-weight:600">📋 Alle ${hotels.length} anzeigen</button>
                 <div class="top-hotels-list" style="display:none;margin-top:8px">
-                    ${hotels.map((h, i) => `
+                    ${hotels.map((h) => {
+                        const gp = h.googlePlace;
+                        const googleTag = gp && gp.rating ? `<span style="color:#4ade80" title="Google Reviews">🌐 ${gp.rating}★ · ${(gp.userRatingCount||0).toLocaleString('de-DE')} Rev</span>` : '';
+                        const bookingTag = h.score ? `<span style="color:#60a5fa" title="Booking">🛏️ ${h.score}${h.reviews ? ' · '+h.reviews+' Rev' : ''}</span>` : '';
+                        const priceTag = h.price ? `<span style="color:#FCD34D">${fmtEUR(h.price)}</span>` : '';
+                        const linkTag = h.url ? `<a href="${h.url}" target="_blank" style="color:#94A3B8;text-decoration:underline">→ Booking</a>` : '';
+                        return `
                         <div style="padding:6px 0;border-bottom:1px solid #334155;font-size:12px;display:flex;justify-content:space-between;align-items:center;gap:8px">
                             <div style="flex:1;min-width:0">
                                 <div style="color:#F8FAFC;font-weight:600;overflow:hidden;text-overflow:ellipsis">${escapeHtml(h.name)}</div>
-                                <div style="color:#94A3B8;font-size:11px">${h.price ? fmtEUR(h.price) : '—'}${h.score ? ' · ⭐ '+h.score : ''}${h.reviews ? ' · '+h.reviews+' Rev' : ''}${h.url ? ' · <a href="'+h.url+'" target="_blank" style="color:#60A5FA">→ Booking</a>' : ''}</div>
+                                <div style="color:#94A3B8;font-size:11px;display:flex;flex-wrap:wrap;gap:8px;margin-top:2px">
+                                    ${priceTag}${googleTag}${bookingTag}${linkTag}
+                                </div>
                             </div>
                             <button class="track-hotel-btn" data-parent="${parentId}" data-hotel="${escapeHtml(h.name)}" data-bookingurl="${h.url ? escapeHtml(h.url) : ''}" style="background:#10B981;border:none;color:white;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:10px;white-space:nowrap">🎯 Tracken</button>
                         </div>
-                    `).join('')}
+                    `;
+                    }).join('')}
                 </div>
             </div>`;
         }

@@ -16,6 +16,7 @@
 
 const { execSync } = require('child_process');
 const { chromium } = require('playwright');
+const https = require('https');
 
 const PROJECT = 'taxi-heringsdorf';
 const TG_CHAT_ID = process.env.TG_CHAT_ID || '6229490043';
@@ -26,6 +27,10 @@ const ONLY = ONLY_ARG ? ONLY_ARG.slice('--only='.length) : null;
 const PRICE_DROP_THRESHOLD_PCT = 25; // v1.1: 10 → 25 (Puffer gegen Meta-Suche-Rauschen)
 const PORTAL_TIMEOUT_MS = 25000;
 const PORTAL_WAIT_AFTER_LOAD_MS = 4500;
+// v1.3 (Patrick 07.08.): Google Places API für ECHTE Google-Bewertungen (viel mehr
+// Volumen als Booking, langsam veränderlich → 1x/Woche cachen reicht).
+const GOOGLE_PLACES_API_KEY = process.env.GOOGLE_PLACES_API_KEY || 'AIzaSyCEL-wtoIrVm0-PXpILLabGQXfuFaA17lg';
+const GOOGLE_PLACES_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 Tage
 
 function fbGet(path) {
     // v1.1 (Patrick 07.08.): --output <file> statt stdout — verhindert JSON.parse-Crash
@@ -211,6 +216,58 @@ const PORTALS = [
     },
 ];
 
+// v1.3: Google Places API → echte Google-Reviews-Zahlen
+async function fetchGooglePlaceRating(query) {
+    return new Promise((resolve) => {
+        const body = JSON.stringify({ textQuery: query, languageCode: 'de' });
+        const req = https.request({
+            hostname: 'places.googleapis.com',
+            path: '/v1/places:searchText',
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Goog-Api-Key': GOOGLE_PLACES_API_KEY,
+                'X-Goog-FieldMask': 'places.displayName,places.rating,places.userRatingCount,places.id,places.formattedAddress',
+                'Content-Length': Buffer.byteLength(body),
+            },
+        }, (res) => {
+            let data = '';
+            res.on('data', c => data += c);
+            res.on('end', () => {
+                try {
+                    const parsed = JSON.parse(data);
+                    if (parsed.error) {
+                        resolve({ error: parsed.error.message });
+                        return;
+                    }
+                    const p = (parsed.places || [])[0];
+                    if (!p) { resolve(null); return; }
+                    resolve({
+                        rating: p.rating || null,
+                        userRatingCount: p.userRatingCount || 0,
+                        placeId: p.id,
+                        name: (p.displayName && p.displayName.text) || query,
+                        address: p.formattedAddress || null,
+                    });
+                } catch(e) { resolve({ error: 'parse: ' + e.message }); }
+            });
+        });
+        req.on('error', e => resolve({ error: 'net: ' + e.message }));
+        req.write(body);
+        req.end();
+    });
+}
+
+// Google-Rating aus Cache oder frisch — max 1x/Woche pro Hotel abfragen
+async function getGooglePlaceCached(hotel, cached) {
+    if (cached && cached.ts && (Date.now() - cached.ts) < GOOGLE_PLACES_CACHE_TTL_MS) {
+        return { ...cached, fromCache: true };
+    }
+    const fresh = await fetchGooglePlaceRating(hotel);
+    if (!fresh || fresh.error) return fresh || null;
+    return { ...fresh, ts: Date.now(), fromCache: false };
+}
+
 function pushBridge(message) {
     if (DRY_RUN) { console.log(`  [dry-run] pushBridge: ${message.slice(0, 100)}`); return; }
     const ts = Date.now();
@@ -280,6 +337,18 @@ function pushBridge(message) {
                 console.log(`     ✓ ${r.count} Preise, min ${r.min ? r.min + '€' : 'n/a'}, sample [${r.sample.map(p => p + '€').join(', ')}]`);
             }
         }
+
+        // v1.3: Google Places API → Rating + Review-Count für dieses Hotel (max 1x/Woche cached)
+        let googlePlace = null;
+        if (entry.hotel) {
+            const query = `${entry.hotel} ${entry.destination || ''}`.trim();
+            googlePlace = await getGooglePlaceCached(query, entry.googlePlace);
+            if (googlePlace && !googlePlace.error) {
+                console.log(`     🌐 Google Places: ${googlePlace.rating}★  ${googlePlace.userRatingCount} Rev${googlePlace.fromCache ? ' (cache)' : ' (fresh)'}  "${googlePlace.name}"`);
+            } else if (googlePlace && googlePlace.error) {
+                console.log(`     ⚠️ Google Places err: ${googlePlace.error.slice(0, 60)}`);
+            }
+        }
         // v1.1: Booking ist AUTORITATIV für Drop-Alarm (Property-Card, präzise).
         // Google Hotels bleibt informationell (Body-Regex, zu viel Rauschen).
         const bookingResult = results.find(r => r.portal === 'Booking') || {};
@@ -322,8 +391,48 @@ function pushBridge(message) {
         const bookingHotels = (results.find(r => r.portal === 'Booking') || {}).hotels || [];
         const patch = { snapshots: [...prevSnaps, snapshot].slice(-30) };
         if (bookingHotels.length > 0) {
-            patch.topHotels = bookingHotels.map(h => ({ ...h, ts: Date.now(), source: 'booking' }));
-            console.log(`     ▶ Top-Hotels: ${bookingHotels.length} (best: "${bookingHotels[0].name}" @ ${bookingHotels[0].price}€, score ${bookingHotels[0].score || 'n/a'})`);
+            // v1.3: Für jeden Top-10-Hotel Google Places abfragen (parallel, gecached)
+            const cachedTop = (entry.topHotels || []).reduce((acc, h) => { if (h.name) acc[h.name] = h.googlePlace; return acc; }, {});
+            const enriched = await Promise.all(bookingHotels.map(async h => {
+                const query = `${h.name} ${entry.destination || ''}`.trim();
+                const gp = await getGooglePlaceCached(query, cachedTop[h.name]);
+                return {
+                    ...h,
+                    ts: Date.now(),
+                    source: 'booking',
+                    googlePlace: (gp && !gp.error) ? {
+                        rating: gp.rating,
+                        userRatingCount: gp.userRatingCount,
+                        placeId: gp.placeId,
+                        ts: gp.ts || Date.now(),
+                    } : null,
+                };
+            }));
+            // Re-sort: Google-Reviews ≥1000 zuerst, dann Google-Rating desc, dann Booking-Score
+            enriched.sort((a, b) => {
+                const aGoogleQual = (a.googlePlace && (a.googlePlace.userRatingCount || 0) >= 1000) ? 1 : 0;
+                const bGoogleQual = (b.googlePlace && (b.googlePlace.userRatingCount || 0) >= 1000) ? 1 : 0;
+                if (aGoogleQual !== bGoogleQual) return bGoogleQual - aGoogleQual;
+                const aGoogleRating = (a.googlePlace && a.googlePlace.rating) || 0;
+                const bGoogleRating = (b.googlePlace && b.googlePlace.rating) || 0;
+                if (bGoogleRating !== aGoogleRating) return bGoogleRating - aGoogleRating;
+                return (b.score || 0) - (a.score || 0);
+            });
+            patch.topHotels = enriched;
+            const best = enriched[0];
+            const bestGp = best.googlePlace;
+            console.log(`     ▶ Top-Hotels: ${enriched.length} (best: "${best.name}" @ ${best.price || '?'}€, Booking ${best.score || 'n/a'}, Google ${bestGp ? bestGp.rating+'/'+bestGp.userRatingCount+'Rev' : 'n/a'})`);
+        }
+        // v1.3: Google Places persistieren (cached in entry.googlePlace)
+        if (googlePlace && !googlePlace.error) {
+            patch.googlePlace = {
+                rating: googlePlace.rating,
+                userRatingCount: googlePlace.userRatingCount,
+                placeId: googlePlace.placeId,
+                name: googlePlace.name,
+                address: googlePlace.address,
+                ts: googlePlace.ts || Date.now(),
+            };
         }
         fbUpdate(`/urlaubWatchlist/${id}`, patch);
 

@@ -714,7 +714,10 @@ Patrick`;
             // Kinder: kinderAlter "13,10,6" → 3 Kinder, Ages [13,10,6]
             const childAges = (entry.kinderAlter || '').split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n) && n >= 0 && n <= 17);
             const childCount = childAges.length;
-            const bookingChildParams = childCount > 0 ? `&group_children=${childCount}&age=${childAges.join('%2C')}&no_rooms=1` : '';
+            // v0.21 (Patrick 07.08.): Booking will &age=X MEHRFACH (nicht komma-getrennt).
+            //   Vorher: &group_children=3&age=10%2C13%2C16 → Booking hat nur 1. Wert genommen
+            //   Jetzt:  &group_children=3&age=10&age=13&age=16 → alle 3 Kinder korrekt
+            const bookingChildParams = childCount > 0 ? `&group_children=${childCount}${childAges.map(a => '&age=' + a).join('')}&no_rooms=1` : '';
             const bookingDates = hasDates ? `&checkin=${from}&checkout=${to}` : '';
             const googleDates = hasDates ? `&checkin=${from}&checkout=${to}` : '';
             const trivagoDates = hasDates ? `&checkin=${from}&checkout=${to}&adults=${adults}` : '';
@@ -802,7 +805,9 @@ Patrick`;
                     wrap.appendChild(buildComparisonTable(dest, list));
                 });
             for (const e of entries) {
-                wrap.appendChild(renderCard(e.id, e));
+                const card = renderCard(e.id, e);
+                card.id = 'card-' + e.id;
+                wrap.appendChild(card);
             }
         }
 
@@ -865,13 +870,13 @@ Patrick`;
                                 if (cheapest && r.id === cheapest.id) marker.push('💰');
                                 if (highestRating && r.id === highestRating.id) marker.push('⭐');
                                 return `
-                                <tr style="border-bottom:1px solid #1e293b;color:#F8FAFC">
+                                <tr class="cmp-row" data-entry-id="${r.id}" style="border-bottom:1px solid #1e293b;color:#F8FAFC;cursor:pointer" title="Klick → springt zur Card">
                                     <td style="padding:6px 8px">${marker.join(' ')} <b>${escapeHtml(r.hotel)}</b></td>
                                     <td style="padding:6px 8px;text-align:right;color:#FCD34D">${r.price ? fmtEUR(r.price) : '—'}</td>
                                     <td style="padding:6px 8px;text-align:right;color:#4ade80">${r.rating || '—'}</td>
                                     <td style="padding:6px 8px;text-align:right;color:#94A3B8">${r.reviews ? r.reviews.toLocaleString('de-DE') : '—'}</td>
                                     <td style="padding:6px 8px;text-align:right;color:#a7f3d0">${r.perRating ? fmtEUR(r.perRating) : '—'}</td>
-                                    <td style="padding:6px 8px">${r.website ? `<a href="${r.website}" target="_blank" style="color:#60A5FA;font-size:11px">🏨</a>` : ''}</td>
+                                    <td style="padding:6px 8px">${r.website ? `<a href="${r.website}" target="_blank" onclick="event.stopPropagation()" style="color:#60A5FA;font-size:11px">🏨</a>` : ''}</td>
                                 </tr>
                             `;}).join('')}
                         </tbody>
@@ -884,6 +889,17 @@ Patrick`;
                     CMP_STATE[destination] = btn.dataset.sort;
                     // Kompletter Re-Render via Firebase-Listener
                     db.ref('urlaubWatchlist').once('value').then(snap => render(snap));
+                });
+            });
+            // v0.21: Zeilen-Klick scrollt zur Card (Anker-Scroll + Highlight)
+            wrap.querySelectorAll('tr.cmp-row').forEach(tr => {
+                tr.addEventListener('click', () => {
+                    const target = document.getElementById('card-' + tr.dataset.entryId);
+                    if (!target) return;
+                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    target.style.transition = 'box-shadow 0.3s';
+                    target.style.boxShadow = '0 0 20px rgba(16,185,129,0.6)';
+                    setTimeout(() => { target.style.boxShadow = ''; }, 2500);
                 });
             });
             return wrap;

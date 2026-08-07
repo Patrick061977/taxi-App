@@ -28,9 +28,17 @@ const PORTAL_TIMEOUT_MS = 25000;
 const PORTAL_WAIT_AFTER_LOAD_MS = 4500;
 
 function fbGet(path) {
-    const cmd = `firebase database:get "${path}" --project ${PROJECT} ${process.env.FIREBASE_TOKEN ? '--token ' + process.env.FIREBASE_TOKEN : ''}`;
-    const out = execSync(cmd, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
-    return JSON.parse(out || 'null');
+    // v1.1 (Patrick 07.08.): --output <file> statt stdout — verhindert JSON.parse-Crash
+    // durch ANSI-Deprecation-Warnings die neuere Firebase CLI in stdout schreibt.
+    const tmp = require('os').tmpdir() + '/wtracker_get_' + Date.now() + '.json';
+    const tokenArg = process.env.FIREBASE_TOKEN ? `--token ${process.env.FIREBASE_TOKEN}` : '';
+    try {
+        execSync(`firebase database:get "${path}" --project ${PROJECT} ${tokenArg} --output ${tmp}`, { stdio: ['ignore', 'ignore', 'pipe'] });
+        const raw = require('fs').readFileSync(tmp, 'utf8');
+        return JSON.parse(raw || 'null');
+    } finally {
+        try { require('fs').unlinkSync(tmp); } catch(e) {}
+    }
 }
 
 function fbUpdate(path, obj) {

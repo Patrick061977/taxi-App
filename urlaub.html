@@ -312,6 +312,7 @@
             card.querySelectorAll('.track-hotel-btn').forEach(btn => {
                 btn.addEventListener('click', () => {
                     const hotelName = btn.dataset.hotel;
+                    const bookingUrl = btn.dataset.bookingurl || null;
                     const newId = hotelName.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 40) + '-' + Date.now();
                     const newEntry = {
                         title: hotelName + ' — ' + (entry.destination || entry.title),
@@ -327,8 +328,11 @@
                         createdAt: Date.now(),
                         snapshots: [],
                     };
+                    // v0.13 (Patrick 07.08.): Direkte Hotel-URL speichern damit Tracker
+                    //   diese statt der Suchseite öffnet — nur EIN echter Hotel-Preis.
+                    if (bookingUrl) newEntry.bookingUrl = bookingUrl;
                     db.ref('urlaubWatchlist/' + newId).set(newEntry).then(() => {
-                        alert('🎯 „' + hotelName + '" wird ab jetzt einzeln getrackt (in der Watchlist ganz oben).');
+                        alert('🎯 „' + hotelName + '" wird ab jetzt einzeln getrackt.' + (bookingUrl ? '\n\n(mit direkter Booking-URL → präzise Preise ab nächstem Tracker-Run)' : ''));
                     }).catch(e => alert('❌ ' + e.message));
                 });
             });
@@ -372,7 +376,7 @@
                                 <div style="color:#F8FAFC;font-weight:600;overflow:hidden;text-overflow:ellipsis">${escapeHtml(h.name)}</div>
                                 <div style="color:#94A3B8;font-size:11px">${h.price ? fmtEUR(h.price) : '—'}${h.score ? ' · ⭐ '+h.score : ''}${h.reviews ? ' · '+h.reviews+' Rev' : ''}${h.url ? ' · <a href="'+h.url+'" target="_blank" style="color:#60A5FA">→ Booking</a>' : ''}</div>
                             </div>
-                            <button class="track-hotel-btn" data-parent="${parentId}" data-hotel="${escapeHtml(h.name)}" style="background:#10B981;border:none;color:white;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:10px;white-space:nowrap">🎯 Tracken</button>
+                            <button class="track-hotel-btn" data-parent="${parentId}" data-hotel="${escapeHtml(h.name)}" data-bookingurl="${h.url ? escapeHtml(h.url) : ''}" style="background:#10B981;border:none;color:white;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:10px;white-space:nowrap">🎯 Tracken</button>
                         </div>
                     `).join('')}
                 </div>

@@ -23,12 +23,12 @@ const HEADLESS = process.env.HEADLESS !== 'false';
 const DRY_RUN = process.argv.includes('--dry-run');
 const ONLY_ARG = process.argv.find(a => a.startsWith('--only='));
 const ONLY = ONLY_ARG ? ONLY_ARG.slice('--only='.length) : null;
-const PRICE_DROP_THRESHOLD_PCT = 10; // Push wenn neu min >10% unter altem min
+const PRICE_DROP_THRESHOLD_PCT = 25; // v1.1: 10 → 25 (Puffer gegen Meta-Suche-Rauschen)
 const PORTAL_TIMEOUT_MS = 25000;
 const PORTAL_WAIT_AFTER_LOAD_MS = 4500;
 
 function fbGet(path) {
-    const cmd = `firebase database:get "${path}" --project ${PROJECT} --token ${process.env.FIREBASE_TOKEN}`;
+    const cmd = `firebase database:get "${path}" --project ${PROJECT} ${process.env.FIREBASE_TOKEN ? '--token ' + process.env.FIREBASE_TOKEN : ''}`;
     const out = execSync(cmd, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
     return JSON.parse(out || 'null');
 }
@@ -38,17 +38,14 @@ function fbUpdate(path, obj) {
     const tmp = require('os').tmpdir() + '/wtracker_' + Date.now() + '.json';
     require('fs').writeFileSync(tmp, JSON.stringify(obj));
     try {
-        execSync(`firebase database:update "${path}" ${tmp} --project ${PROJECT} --token ${process.env.FIREBASE_TOKEN} -y`, { stdio: 'inherit' });
+        execSync(`firebase database:update "${path}" ${tmp} --project ${PROJECT} ${process.env.FIREBASE_TOKEN ? '--token ' + process.env.FIREBASE_TOKEN : ''} -f`, { stdio: 'inherit' });
     } finally {
         try { require('fs').unlinkSync(tmp); } catch(e) {}
     }
 }
 
 async function scrapePortal(page, portal, entry) {
-    const dest = entry.hotel || entry.destination;
-    const q = encodeURIComponent(dest);
-    const qHyphen = encodeURIComponent(dest.replace(/\s+/g, '-'));
-    const url = portal.buildUrl(q, qHyphen, entry.dateFrom, entry.dateTo, entry.adults || 2);
+    const url = portal.buildUrl(entry);
     console.log(`  → ${portal.name}: ${url.slice(0, 100)}${url.length > 100 ? '...' : ''}`);
     try {
         await page.goto(url, { waitUntil: 'domcontentloaded', timeout: PORTAL_TIMEOUT_MS });
@@ -65,7 +62,7 @@ async function scrapePortal(page, portal, entry) {
             } catch(e) {}
         }
         await page.waitForTimeout(PORTAL_WAIT_AFTER_LOAD_MS);
-        const result = await page.evaluate(portal.extract);
+        const result = await page.evaluate(portal.extract, { hotelName: entry.hotel || null, isDirectUrl: !!entry.bookingUrl });
         return { portal: portal.name, ...result, url };
     } catch (e) {
         return { portal: portal.name, error: e.message.slice(0, 100), url };
@@ -75,12 +72,51 @@ async function scrapePortal(page, portal, entry) {
 const PORTALS = [
     {
         name: 'Booking',
-        buildUrl: (q, qh, from, to, adults) =>
-            `https://www.booking.com/searchresults.html?ss=${q}&checkin=${from}&checkout=${to}&group_adults=${adults}&order=price`,
-        extract: () => {
+        // v1.1 (Patrick 07.08.): Wenn entry.bookingUrl gesetzt → direkte Hotel-URL
+        //   mit Datum/Personen-Params. Sonst pauschale Suche, sortiert nach
+        //   Bewertungs-Score (statt Preis), damit Top-10 wirklich renommierte
+        //   Hotels sind — nicht die billigsten (Ferienwohnungen/Hostels).
+        buildUrl: (entry) => {
+            const dest = entry.hotel || entry.destination;
+            const q = encodeURIComponent(dest);
+            const from = entry.dateFrom;
+            const to = entry.dateTo;
+            const adults = entry.adults || 2;
+            if (entry.bookingUrl) {
+                // Direkte Hotel-URL → nur diese Property, kein Rauschen
+                const sep = entry.bookingUrl.includes('?') ? '&' : '?';
+                return `${entry.bookingUrl}${sep}checkin=${from}&checkout=${to}&group_adults=${adults}`;
+            }
+            // Ziel-Suche: sortiert nach Score, damit Top-10 die renommierten sind
+            return `https://www.booking.com/searchresults.html?ss=${q}&checkin=${from}&checkout=${to}&group_adults=${adults}&order=bayesian_review_score`;
+        },
+        extract: ({ hotelName, isDirectUrl }) => {
             const prices = [];
             const hotels = [];
-            document.querySelectorAll('[data-testid="property-card"]').forEach((card, i) => {
+            // Bei direkter Hotel-URL: Preis aus Hotel-Detail-Seite lesen
+            if (isDirectUrl) {
+                const priceCandidates = [];
+                document.querySelectorAll('[data-testid="price-for-x-nights"], .prco-valign-middle-helper, [class*="prco-inline-block-maker-helper"], [data-price-for-nights]').forEach(el => {
+                    const m = el.innerText.match(/(\d[\d.,]*)\s*€/);
+                    if (m) priceCandidates.push(parseInt(m[1].replace(/[.,]/g, '')));
+                });
+                // Fallback: erster €-Betrag im Body zwischen 30-9999 (Hotel-Nacht/Aufenthalt)
+                if (priceCandidates.length === 0) {
+                    const bodyMatches = (document.body.innerText.match(/(\d[\d.,]*)\s*€/g) || []).slice(0, 10);
+                    bodyMatches.forEach(m => {
+                        const num = m.match(/(\d[\d.,]*)/);
+                        if (num) {
+                            const p = parseInt(num[1].replace(/[.,]/g, ''));
+                            if (p >= 30 && p <= 9999) priceCandidates.push(p);
+                        }
+                    });
+                }
+                if (priceCandidates.length > 0) prices.push(Math.min(...priceCandidates));
+                return { count: prices.length, min: prices.length ? prices[0] : null, sample: prices.slice(0, 5), hotels: [], mode: 'direct-hotel' };
+            }
+            // Ziel-Suche: Property-Cards durchgehen
+            const hotelNameLower = hotelName ? hotelName.toLowerCase() : null;
+            document.querySelectorAll('[data-testid="property-card"]').forEach((card) => {
                 const nameEl = card.querySelector('[data-testid="title"]');
                 const priceEl = card.querySelector('[data-testid="price-and-discounted-price"]');
                 const scoreEl = card.querySelector('[data-testid="review-score"]');
@@ -88,27 +124,58 @@ const PORTALS = [
                 const name = nameEl ? nameEl.innerText.trim() : null;
                 const priceM = priceEl ? priceEl.innerText.match(/(\d[\d.,]*)\s*€/) : null;
                 const price = priceM ? parseInt(priceM[1].replace(/[.,]/g, '')) : null;
+                const scoreText = scoreEl ? scoreEl.innerText : '';
+                const scoreM = scoreText.match(/(\d+[.,]\d+)/);
+                const score = scoreM ? parseFloat(scoreM[1].replace(',', '.')) : null;
+                const reviewsM = scoreText.match(/(\d[\d.,]*)\s*(Bewert|review)/i);
+                const reviews = reviewsM ? parseInt(reviewsM[1].replace(/[.,]/g, '')) : null;
                 if (price) prices.push(price);
-                if (name && i < 10) {
-                    const scoreText = scoreEl ? scoreEl.innerText : '';
-                    const scoreM = scoreText.match(/(\d+[.,]\d+)/);
-                    const reviewsM = scoreText.match(/(\d[\d.,]*)\s*(Bewert|review)/i);
+                if (name) {
                     hotels.push({
                         name,
                         price,
-                        score: scoreM ? parseFloat(scoreM[1].replace(',', '.')) : null,
-                        reviews: reviewsM ? parseInt(reviewsM[1].replace(/[.,]/g, '')) : null,
+                        score,
+                        reviews,
                         url: linkEl ? linkEl.href.split('?')[0] : null,
                     });
                 }
             });
-            return { count: prices.length, min: prices.length ? Math.min(...prices) : null, sample: prices.slice(0, 5), hotels };
+            // Top-10 sortiert: renommierte Hotels zuerst (reviews>=100 UND score, sonst nur score)
+            const scored = hotels.filter(h => h.score != null);
+            scored.sort((a, b) => {
+                const aQualified = (a.reviews || 0) >= 100 ? 1 : 0;
+                const bQualified = (b.reviews || 0) >= 100 ? 1 : 0;
+                if (aQualified !== bQualified) return bQualified - aQualified;
+                if (b.score !== a.score) return b.score - a.score;
+                return (b.reviews || 0) - (a.reviews || 0);
+            });
+            const topHotels = scored.slice(0, 10);
+            // Bei Ziel-Suche mit hotelName-Filter: nur Preise aus passenden Cards nehmen
+            let filteredPrices = prices;
+            if (hotelNameLower) {
+                filteredPrices = hotels
+                    .filter(h => h.name && h.name.toLowerCase().includes(hotelNameLower) && h.price)
+                    .map(h => h.price);
+            }
+            return {
+                count: filteredPrices.length,
+                min: filteredPrices.length ? Math.min(...filteredPrices) : null,
+                sample: filteredPrices.slice(0, 5),
+                hotels: topHotels,
+                mode: hotelNameLower ? 'name-filtered' : 'destination-search',
+            };
         },
     },
     {
         name: 'Google_Hotels',
-        buildUrl: (q, qh, from, to, adults) =>
-            `https://www.google.com/travel/hotels?q=${q}&checkin=${from}&checkout=${to}`,
+        // Google Hotels bleibt informationell (Consent-Wall macht präzise Extraktion
+        // schwierig). Preise werden gespeichert aber NICHT für Drop-Alarme genutzt
+        // (nur Booking ist Alarm-autoritativ, siehe pushBridge-Logik unten).
+        buildUrl: (entry) => {
+            const dest = entry.hotel || entry.destination;
+            const q = encodeURIComponent(dest);
+            return `https://www.google.com/travel/hotels?q=${q}&checkin=${entry.dateFrom}&checkout=${entry.dateTo}`;
+        },
         extract: () => {
             const prices = [];
             const bodyText = document.body.innerText;
@@ -117,10 +184,10 @@ const PORTALS = [
                 const num = m.match(/(\d[\d.,]*)/);
                 if (num) {
                     const p = parseInt(num[1].replace(/[.,]/g, ''));
-                    if (p >= 30 && p <= 5000) prices.push(p); // Sanity-Range: 30-5000 €
+                    if (p >= 30 && p <= 5000) prices.push(p);
                 }
             });
-            return { count: prices.length, min: prices.length ? Math.min(...prices) : null, sample: prices.slice(0, 5) };
+            return { count: prices.length, min: prices.length ? Math.min(...prices) : null, sample: prices.slice(0, 5), mode: 'body-regex-informational' };
         },
     },
 ];
@@ -137,7 +204,7 @@ function pushBridge(message) {
     const tmp = require('os').tmpdir() + '/wtracker_bridge_' + ts + '.json';
     require('fs').writeFileSync(tmp, JSON.stringify(outbox));
     try {
-        execSync(`firebase database:update "/claudeBridge/outbox/${ts}" ${tmp} --project ${PROJECT} --token ${process.env.FIREBASE_TOKEN} -y`, { stdio: 'inherit' });
+        execSync(`firebase database:update "/claudeBridge/outbox/${ts}" ${tmp} --project ${PROJECT} ${process.env.FIREBASE_TOKEN ? '--token ' + process.env.FIREBASE_TOKEN : ''} -f`, { stdio: 'inherit' });
     } finally {
         try { require('fs').unlinkSync(tmp); } catch(e) {}
     }
@@ -150,8 +217,7 @@ function pushBridge(message) {
     console.log(`═══════════════════════════════════════════════════`);
 
     if (!process.env.FIREBASE_TOKEN) {
-        console.error('❌ FIREBASE_TOKEN env-var fehlt');
-        process.exit(1);
+        console.log('⚠️ FIREBASE_TOKEN env-var nicht gesetzt — nutze lokalen firebase-Login-Cache');
     }
 
     console.log('Lese /urlaubWatchlist ...');
@@ -195,12 +261,24 @@ function pushBridge(message) {
                 console.log(`     ✓ ${r.count} Preise, min ${r.min ? r.min + '€' : 'n/a'}, sample [${r.sample.map(p => p + '€').join(', ')}]`);
             }
         }
-        const validMins = results.filter(r => r.min != null).map(r => r.min);
-        const overallMin = validMins.length ? Math.min(...validMins) : null;
-        const overallMax = validMins.length ? Math.max(...validMins) : null;
+        // v1.1: Booking ist AUTORITATIV für Drop-Alarm (Property-Card, präzise).
+        // Google Hotels bleibt informationell (Body-Regex, zu viel Rauschen).
+        const bookingResult = results.find(r => r.portal === 'Booking') || {};
+        const googleResult = results.find(r => r.portal === 'Google_Hotels') || {};
+        const authoritativeMin = bookingResult.min != null ? bookingResult.min : null;
+        const informationalMin = googleResult.min != null ? googleResult.min : null;
+        // priceFrom im Snapshot: bevorzuge Booking, fallback Google
+        const overallMin = authoritativeMin != null ? authoritativeMin : informationalMin;
+        const overallMax = informationalMin != null && authoritativeMin != null
+            ? Math.max(authoritativeMin, informationalMin)
+            : overallMin;
 
         const prevSnaps = entry.snapshots || [];
-        const prevMin = prevSnaps.length ? Math.min(...prevSnaps.map(s => s.priceFrom).filter(p => p != null)) : null;
+        // Nur vorherige Booking-basierte Snapshots als Referenz für Drop-Alarm
+        const prevAuthoritative = prevSnaps
+            .map(s => s.authoritativeMin)
+            .filter(p => p != null);
+        const prevMin = prevAuthoritative.length ? Math.min(...prevAuthoritative) : null;
 
         if (overallMin == null) {
             console.log(`     ⚠️ Keine Preise ermittelt — kein Snapshot geschrieben`);
@@ -211,12 +289,15 @@ function pushBridge(message) {
         const snapshot = {
             priceFrom: overallMin,
             priceTo: overallMax,
-            summary: results.map(r => r.error ? `${r.portal}: err` : `${r.portal}: min ${r.min}€ (${r.count} Angebote)`).join(' | '),
-            quelle: 'auto-tracker-v1',
-            portals: results.map(r => ({ portal: r.portal, min: r.min || null, count: r.count || 0, error: r.error || null })),
+            authoritativeMin, // v1.1: Booking-Preis (verlässlich), null wenn Booking geblockt
+            informationalMin, // v1.1: Google-Preis (Body-Regex, Rauschen möglich)
+            mode: entry.bookingUrl ? 'direct-hotel' : (entry.hotel ? 'name-filtered' : 'destination-search'),
+            summary: results.map(r => r.error ? `${r.portal}: err` : `${r.portal}: min ${r.min}€ (${r.count} Angebote, ${r.mode || '-'})`).join(' | '),
+            quelle: 'auto-tracker-v1.1',
+            portals: results.map(r => ({ portal: r.portal, min: r.min || null, count: r.count || 0, mode: r.mode || null, error: r.error || null })),
             ts: Date.now(),
         };
-        console.log(`     ▶ Snapshot: min ${overallMin}€ (vorher: ${prevMin != null ? prevMin + '€' : 'neu'})`);
+        console.log(`     ▶ Snapshot: authoritative(Booking)=${authoritativeMin != null ? authoritativeMin+'€' : 'n/a'}, informational(Google)=${informationalMin != null ? informationalMin+'€' : 'n/a'}  (vorher-authoritative: ${prevMin != null ? prevMin + '€' : 'neu'})`);
 
         // v1.1 (Phase 1c): Top-10 Hotels aus Booking-Suchergebnis speichern
         const bookingHotels = (results.find(r => r.portal === 'Booking') || {}).hotels || [];
@@ -227,21 +308,24 @@ function pushBridge(message) {
         }
         fbUpdate(`/urlaubWatchlist/${id}`, patch);
 
-        // Preis-Drop erkennen: nur pushen wenn deutlicher Rückgang
-        if (prevMin != null && overallMin < prevMin) {
-            const dropPct = ((prevMin - overallMin) / prevMin) * 100;
+        // v1.1: Drop-Alarm NUR wenn authoritativer (Booking-)Preis heute UND vorher da
+        // war. Verhindert Fehl-Alarme durch Google-Rauschen.
+        if (prevMin != null && authoritativeMin != null && authoritativeMin < prevMin) {
+            const dropPct = ((prevMin - authoritativeMin) / prevMin) * 100;
             if (dropPct >= PRICE_DROP_THRESHOLD_PCT) {
-                const msg = `🎉 Preisdrop Urlaubs-Watchlist\n\n${entry.title}\n${entry.hotel || entry.destination}\n📅 ${entry.dateFrom} → ${entry.dateTo}\n\nvorher: ab ${prevMin}€\njetzt:  ab ${overallMin}€\nErsparnis: ${Math.round(prevMin - overallMin)}€ (-${Math.round(dropPct)}%)\n\n→ urlaub.html ansehen`;
-                console.log(`     🎉 PREISDROP ${Math.round(dropPct)}% — Push wird gesendet`);
+                const msg = `🎉 Preisdrop Urlaubs-Watchlist\n\n${entry.title}\n${entry.hotel || entry.destination}\n📅 ${entry.dateFrom} → ${entry.dateTo}\n\nvorher: ab ${prevMin}€\njetzt:  ab ${authoritativeMin}€\nErsparnis: ${Math.round(prevMin - authoritativeMin)}€ (-${Math.round(dropPct)}%)\n\nQuelle: Booking (autoritativ)\n→ urlaub.html ansehen`;
+                console.log(`     🎉 PREISDROP ${Math.round(dropPct)}% (autoritativ) — Push wird gesendet`);
                 pushBridge(msg);
-                summary.push({ id, title: entry.title, status: 'drop', dropPct: Math.round(dropPct), prevMin, newMin: overallMin });
+                summary.push({ id, title: entry.title, status: 'drop', dropPct: Math.round(dropPct), prevMin, newMin: authoritativeMin });
             } else {
                 summary.push({ id, title: entry.title, status: 'minor-drop', dropPct: Math.round(dropPct) });
             }
         } else if (prevMin == null) {
             summary.push({ id, title: entry.title, status: 'first-snapshot', newMin: overallMin });
+        } else if (authoritativeMin == null) {
+            summary.push({ id, title: entry.title, status: 'no-authoritative' });
         } else {
-            summary.push({ id, title: entry.title, status: 'stable-or-up', prevMin, newMin: overallMin });
+            summary.push({ id, title: entry.title, status: 'stable-or-up', prevMin, newMin: authoritativeMin });
         }
     }
 

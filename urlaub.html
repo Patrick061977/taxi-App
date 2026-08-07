@@ -452,6 +452,36 @@
             }).catch(e => alert('❌ Speichern fehlgeschlagen: ' + e.message));
         }
 
+        // v0.16 (Patrick 07.08.): Zimmertyp-Empfehlung aus Personen + Kinderalter.
+        //   Regel-Logik ohne KI. Wird in Verhandlungs-Zentrale angezeigt.
+        function recommendRoomType(entry) {
+            const adults = entry.adults || 2;
+            const kids = (entry.kinderAlter || '').split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n) && n >= 0 && n <= 17);
+            const total = adults + kids.length;
+            const teens = kids.filter(a => a >= 12).length;
+            if (total <= 2) return { type: 'Doppelzimmer', hint: '1 Standard-Zimmer reicht' };
+            if (adults === 2 && kids.length === 1 && kids[0] < 12) return { type: 'Familienzimmer', hint: '1 Zimmer mit Zusatzbett / Etagenbett für 1 Kind unter 12' };
+            if (adults === 2 && kids.length === 1) return { type: 'Familienzimmer XL', hint: '1 Zimmer mit Zusatzbett / meist Aufpreis wenn Kind ≥12' };
+            if (total >= 4 && total <= 5 && teens <= 1) return { type: 'Familiensuite / 2-Raum', hint: '1 Suite mit Wohn- + Schlafraum ODER 2 verbundene Zimmer' };
+            if (total >= 4 && total <= 5) return { type: '2× Doppelzimmer (verbunden)', hint: 'Teenager brauchen eigenes Bett — 1 Suite meist nicht groß genug' };
+            if (total >= 6) return { type: '2 separate Zimmer / Villa', hint: 'Kein Hotel hat 6-Bett-Zimmer. Villa oder 2 Buchungen nötig' };
+            return { type: '?', hint: 'Unklare Konstellation — beim Hotel anfragen' };
+        }
+
+        // v0.16: Preishistorie-Statistik (min / max / durchschnitt)
+        function priceStats(snapshots) {
+            if (!snapshots || snapshots.length === 0) return null;
+            const prices = snapshots.map(s => s.authoritativeMin || s.priceFrom).filter(p => p != null && p > 0);
+            if (prices.length === 0) return null;
+            const min = Math.min(...prices);
+            const max = Math.max(...prices);
+            const avg = Math.round(prices.reduce((a, b) => a + b, 0) / prices.length);
+            const last = prices[prices.length - 1];
+            const vsMin = last - min;
+            const vsAvg = last - avg;
+            return { min, max, avg, last, count: prices.length, vsMin, vsAvg };
+        }
+
         // v0.14 (Patrick 07.08. H1+H2+H3): Verhandlungs-Zentrale — Direkt-Buchen
         //   Strategie. Ziel: aus Watchlist echte Handlungsmöglichkeiten machen.
         // H1 Hotel-Website-Button aus Google Places websiteUri (+ Telefon)
@@ -471,11 +501,26 @@
             const skyscanner = `https://www.skyscanner.de/transport/fluege/${airport.toLowerCase()}/${flightDest}/${from ? from.replace(/-/g, '').slice(2) : ''}/${to ? to.replace(/-/g, '').slice(2) : ''}/`;
             const googleFlights = `https://www.google.com/travel/flights?q=Flug+${airport}+nach+${flightDest}${from && to ? '+am+' + from + '+zurück+' + to : ''}`;
             // Nichts zeigen wenn NICHTS relevant (kein Hotel-Website, kein Preis, keine Datum)
-            if (!gp?.websiteUri && !auth && !from) return '';
+            const room = recommendRoomType(entry);
+            const stats = priceStats(snaps);
+            if (!gp?.websiteUri && !auth && !from && !room) return '';
             const rebateLow = auth ? Math.round(auth * 0.90) : null;
             const rebateHigh = auth ? Math.round(auth * 0.95) : null;
             return `<div style="margin-top:10px;padding:12px;background:linear-gradient(135deg,#1e293b,#0f172a);border-radius:8px;border-left:3px solid #10B981">
                 <div style="font-size:12px;color:#10B981;font-weight:600;margin-bottom:8px">🎯 Verhandlungs-Zentrale</div>
+                ${room ? `
+                    <div style="font-size:12px;color:#c4b5fd;margin-bottom:8px;padding:8px;background:rgba(139,92,246,0.1);border-radius:6px">
+                        🛏️ <b>Empfehlung: ${escapeHtml(room.type)}</b><br>
+                        <span style="color:#94A3B8">${escapeHtml(room.hint)} · für ${entry.adults} Erw${entry.kinderAlter ? ' + Kinder ' + entry.kinderAlter : ''}</span>
+                    </div>
+                ` : ''}
+                ${stats && stats.count >= 2 ? `
+                    <div style="font-size:12px;color:#a7f3d0;margin-bottom:8px;padding:8px;background:rgba(16,185,129,0.1);border-radius:6px">
+                        📊 <b>Preishistorie (${stats.count} Snapshots):</b><br>
+                        <span style="color:#94A3B8">Min: ${fmtEUR(stats.min)} · Ø: ${fmtEUR(stats.avg)} · Max: ${fmtEUR(stats.max)}</span><br>
+                        <span style="color:${stats.vsAvg <= 0 ? '#10b981' : '#f59e0b'}">Aktuell ${fmtEUR(stats.last)} = ${stats.vsAvg <= 0 ? '✅ unter' : '⚠️ über'} Ø (${stats.vsAvg > 0 ? '+' : ''}${fmtEUR(stats.vsAvg)})${stats.vsMin === 0 ? ' · 🏆 aktuell ALL-TIME-TIEF!' : ''}</span>
+                    </div>
+                ` : ''}
                 ${gp?.websiteUri ? `
                     <div style="margin-bottom:8px">
                         <a href="${gp.websiteUri}" target="_blank" style="display:inline-block;padding:6px 12px;background:#10B981;color:#fff;border-radius:4px;font-size:12px;font-weight:600;text-decoration:none">🏨 Direkt zur Hotel-Website</a>

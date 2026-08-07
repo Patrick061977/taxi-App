@@ -24,7 +24,7 @@ const HEADLESS = process.env.HEADLESS !== 'false';
 const DRY_RUN = process.argv.includes('--dry-run');
 const ONLY_ARG = process.argv.find(a => a.startsWith('--only='));
 const ONLY = ONLY_ARG ? ONLY_ARG.slice('--only='.length) : null;
-const PRICE_DROP_THRESHOLD_PCT = 25; // v1.1: 10 → 25 (Puffer gegen Meta-Suche-Rauschen)
+const PRICE_DROP_THRESHOLD_PCT = 40; // v1.5 (Patrick 07.08. 12:20): 25 → 40. "Preisdrops per Telegram brauche ich nicht — nur wenn wirklich RICHTIGE Preisdrops." Alles Andere sieht Patrick direkt auf der Website.
 const PORTAL_TIMEOUT_MS = 25000;
 const PORTAL_WAIT_AFTER_LOAD_MS = 4500;
 // v1.3 (Patrick 07.08.): Google Places API für ECHTE Google-Bewertungen (viel mehr

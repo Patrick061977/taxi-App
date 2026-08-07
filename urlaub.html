@@ -274,6 +274,7 @@
                     <div class="card-current-price">ab ${fmtEUR(last.priceFrom)}${last.priceTo ? ' bis ' + fmtEUR(last.priceTo) : ''}</div>
                     ${last.summary ? escapeHtmlWithLinks(last.summary) : ''}
                 </div>` : ''}
+                ${buildNegotiationBlock(entry)}
                 ${buildMetaPriceBlock(entry)}
                 ${buildTopHotelsBlock(id, entry)}
                 ${snaps.length > 1 ? `
@@ -449,6 +450,53 @@
             db.ref('urlaubWatchlist/' + id).update(patch).then(() => {
                 closeEditModal();
             }).catch(e => alert('❌ Speichern fehlgeschlagen: ' + e.message));
+        }
+
+        // v0.14 (Patrick 07.08. H1+H2+H3): Verhandlungs-Zentrale — Direkt-Buchen
+        //   Strategie. Ziel: aus Watchlist echte Handlungsmöglichkeiten machen.
+        // H1 Hotel-Website-Button aus Google Places websiteUri (+ Telefon)
+        // H2 Direktrabatt-Hinweis wenn authoritativeMin gesetzt
+        // H3 Flug-Deep-Links Skyscanner + Google Flights mit Airport + Datum
+        function buildNegotiationBlock(entry) {
+            const snaps = entry.snapshots || [];
+            const last = snaps[snaps.length - 1] || {};
+            const auth = last.authoritativeMin;
+            const gp = entry.googlePlace;
+            const airport = (entry.airports && entry.airports[0]) || 'BER';
+            const from = entry.dateFrom || '';
+            const to = entry.dateTo || '';
+            const q = encodeURIComponent(entry.destination || entry.hotel || '');
+            // Flug-Ziel-Codes: für die üblichen Urlaubsziele Airport-Codes; sonst destination-Text
+            const flightDest = q; // Skyscanner/Google Flights akzeptieren Text
+            const skyscanner = `https://www.skyscanner.de/transport/fluege/${airport.toLowerCase()}/${flightDest}/${from ? from.replace(/-/g, '').slice(2) : ''}/${to ? to.replace(/-/g, '').slice(2) : ''}/`;
+            const googleFlights = `https://www.google.com/travel/flights?q=Flug+${airport}+nach+${flightDest}${from && to ? '+am+' + from + '+zurück+' + to : ''}`;
+            // Nichts zeigen wenn NICHTS relevant (kein Hotel-Website, kein Preis, keine Datum)
+            if (!gp?.websiteUri && !auth && !from) return '';
+            const rebateLow = auth ? Math.round(auth * 0.90) : null;
+            const rebateHigh = auth ? Math.round(auth * 0.95) : null;
+            return `<div style="margin-top:10px;padding:12px;background:linear-gradient(135deg,#1e293b,#0f172a);border-radius:8px;border-left:3px solid #10B981">
+                <div style="font-size:12px;color:#10B981;font-weight:600;margin-bottom:8px">🎯 Verhandlungs-Zentrale</div>
+                ${gp?.websiteUri ? `
+                    <div style="margin-bottom:8px">
+                        <a href="${gp.websiteUri}" target="_blank" style="display:inline-block;padding:6px 12px;background:#10B981;color:#fff;border-radius:4px;font-size:12px;font-weight:600;text-decoration:none">🏨 Direkt zur Hotel-Website</a>
+                        ${gp.phone ? `<a href="tel:${gp.phone.replace(/\s+/g, '')}" style="display:inline-block;margin-left:6px;padding:6px 12px;background:#0f172a;color:#94A3B8;border:1px solid #334155;border-radius:4px;font-size:12px;text-decoration:none">📞 ${escapeHtml(gp.phone)}</a>` : ''}
+                    </div>
+                ` : ''}
+                ${auth ? `
+                    <div style="font-size:12px;color:#fbbf24;line-height:1.5;margin-bottom:8px;padding:8px;background:rgba(251,191,36,0.1);border-radius:6px">
+                        💡 <b>Booking-Referenzpreis: ${fmtEUR(auth)}</b><br>
+                        Bei Hotel direkt anfragen (E-Mail/Telefon): oft <b>${fmtEUR(rebateHigh)} – ${fmtEUR(rebateLow)}</b> möglich (5-10% Rabatt weil Hotel keine 15% Booking-Provision zahlt).<br>
+                        Verhandlungs-Tipp: „Ich habe bei Booking ${fmtEUR(auth)} gesehen. Was ist Ihr bester Preis bei Direktbuchung?"
+                    </div>
+                ` : ''}
+                ${from && to ? `
+                    <div style="font-size:12px;color:#94A3B8;margin-bottom:4px">✈️ Flüge separat suchen (${airport} → ${escapeHtml(entry.destination || '')}):</div>
+                    <div style="display:flex;gap:6px;flex-wrap:wrap">
+                        <a href="${skyscanner}" target="_blank" style="padding:5px 10px;background:#0770e3;color:#fff;border-radius:4px;font-size:11px;text-decoration:none">✈️ Skyscanner</a>
+                        <a href="${googleFlights}" target="_blank" style="padding:5px 10px;background:#4285f4;color:#fff;border-radius:4px;font-size:11px;text-decoration:none">✈️ Google Flights</a>
+                    </div>
+                ` : ''}
+            </div>`;
         }
 
         // v0.9 (Patrick 05.08.): Meta-Preisvergleichs-Block wenn Watchlist-Eintrag

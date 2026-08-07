@@ -227,7 +227,7 @@ async function fetchGooglePlaceRating(query) {
             headers: {
                 'Content-Type': 'application/json',
                 'X-Goog-Api-Key': GOOGLE_PLACES_API_KEY,
-                'X-Goog-FieldMask': 'places.displayName,places.rating,places.userRatingCount,places.id,places.formattedAddress',
+                'X-Goog-FieldMask': 'places.displayName,places.rating,places.userRatingCount,places.id,places.formattedAddress,places.websiteUri,places.internationalPhoneNumber',
                 'Content-Length': Buffer.byteLength(body),
             },
         }, (res) => {
@@ -248,6 +248,8 @@ async function fetchGooglePlaceRating(query) {
                         placeId: p.id,
                         name: (p.displayName && p.displayName.text) || query,
                         address: p.formattedAddress || null,
+                        websiteUri: p.websiteUri || null,
+                        phone: p.internationalPhoneNumber || null,
                     });
                 } catch(e) { resolve({ error: 'parse: ' + e.message }); }
             });
@@ -431,6 +433,8 @@ function pushBridge(message) {
                 placeId: googlePlace.placeId,
                 name: googlePlace.name,
                 address: googlePlace.address,
+                websiteUri: googlePlace.websiteUri || null,
+                phone: googlePlace.phone || null,
                 ts: googlePlace.ts || Date.now(),
             };
         }

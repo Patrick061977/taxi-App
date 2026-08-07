@@ -2634,7 +2634,17 @@ async function autoAssignRide(rideId, rideData, _excludeVehicleIds = []) {
                 _sourceStr === 'native_einsteiger' ||
                 _sourceStr === 'native_sofort' ||
                 rideData.isJetzt === true;
-            const _isVorbestellung = !_isSofortSource || rideData.status === 'vorbestellt';
+            // 🐛 v6.63.877 (Patrick 07.08. 20:37 Nielsen-Bug): Zusätzliche Schutz-Bedingungen.
+            //   Puffer NIEMALS anwenden wenn:
+            //   - status === 'vorbestellt' (klar Vorbestellung)
+            //   - _originalPickupTimestamp bereits gesetzt (schon mal gepuffert, nicht nochmal)
+            //   - pickupTimestamp > jetzt+20 Min in Zukunft (echte Vorbestellung, kein Sofort)
+            //   Vorher: nur !_isSofortSource ODER status=vorbestellt. Bei status='new' nach
+            //   Reject-Downgrade triggerte Puffer fälschlich → Zeit verschoben → SMS-Panic.
+            const _msUntilPickup = rideData.pickupTimestamp ? (rideData.pickupTimestamp - Date.now()) : 0;
+            const _hasBeenPuffered = !!rideData._originalPickupTimestamp;
+            const _pickupFarInFuture = _msUntilPickup > 20 * 60 * 1000;
+            const _isVorbestellung = !_isSofortSource || rideData.status === 'vorbestellt' || _hasBeenPuffered || _pickupFarInFuture;
             if (!_isVorbestellung) {
                 try {
                     const _pufferMin = Math.max(_effectiveDrivingMin || 0, 5);
@@ -40221,7 +40231,11 @@ exports.rideAction = onRequest(
                     assignedAt: null,
                     assignedBy: null,
                     assignmentExpiresAt: null,
-                    status: 'new',
+                    // 🐛 v6.63.877 (Patrick 07.08. 20:37 Nielsen-Bug): Vorbestellung
+                    //   soll VORBESTELLT bleiben nach Reject, nicht auf 'new' downgeraded.
+                    //   'new' + Reassign triggerte fälschlich isSofort→true → v6.63.071
+                    //   Puffer verschob pickupTime → falsche 'Abholzeit geändert'-SMS.
+                    status: _curRide.status === 'vorbestellt' ? 'vorbestellt' : 'new',
                     rejectedBy: vehicleId || null,
                     rejectedAt: now,
                     rejectedVia: 'fcm-notification-action',
@@ -40243,7 +40257,9 @@ exports.rideAction = onRequest(
                 } catch(_te) { /* non-critical */ }
                 // Sofort autoAssignRide nochmal aufrufen mit aktualisierter Reject-List
                 try {
-                    const _ride = { ..._curRide, rejectedVehicles: newRejected, _rejectedVehicles: newRejected, status: 'new', vehicleId: null, assignedVehicle: null };
+                    // v6.63.877: Status beibehalten wie im DB-Update
+                    const _preservedStatus = _curRide.status === 'vorbestellt' ? 'vorbestellt' : 'new';
+                    const _ride = { ..._curRide, rejectedVehicles: newRejected, _rejectedVehicles: newRejected, status: _preservedStatus, vehicleId: null, assignedVehicle: null };
                     const _result = await autoAssignRide(rideId, _ride);
                     if (_result && _result.vehicleId) {
                         const _name = _result.name || (OFFICIAL_VEHICLES[_result.vehicleId] || {}).name || _result.vehicleId;

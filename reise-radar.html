@@ -195,6 +195,7 @@ const globe = Globe()
       ${d.sights ? `<div class="info"><b>🎯 Top-Sehenswürdigkeiten:</b> ${d.sights}</div>` : ''}
       ${d.tipps ? `<div class="info" style="background:#0f172a;padding:8px;border-radius:6px;border-left:3px solid #10b981"><b>🧠 Insider-Tipps:</b> ${d.tipps}</div>` : ''}
       ${buildReviewLinks(d)}
+      ${buildSubregionsBlock(d.city)}
       ${buildReisetippsBlock(d.city)}
       <div class="info"><b>🏨 Top-Hotels (Reiseblog-Empfehlung):</b> ${d.hotels}</div>
       <div class="info"><b>✈️ Anreise:</b> ${d.flug}</div>
@@ -311,9 +312,11 @@ document.querySelectorAll('.filter-btn').forEach(btn => btn.addEventListener('cl
 document.getElementById('budget-btn').addEventListener('click', applyFilters);
 
 // v0.5 Freitext-Suche: bei Ziel das nicht im Radar ist → als Panel mit Booking-Filter-Links oeffnen
-function openFreeSearch() {
-  const q = document.getElementById('freeSearch').value.trim();
+function openFreeSearch(overrideQ) {
+  // v0.14: overrideQ von Sub-Region-Chip-Klick — sonst Freitext-Input
+  const q = (typeof overrideQ === 'string' && overrideQ.trim()) || document.getElementById('freeSearch').value.trim();
   if (!q) return;
+  if (typeof overrideQ === 'string') document.getElementById('freeSearch').value = q; // Für Sichtbarkeit
   // Fake-Ziel bauen fuer buildReviewLinks
   const fakeD = { city: q, country: '?', cat: 'Städte', current: 500, avg: 600, weeks: 0.6, hotels: '—', flug: '—', enthaelt: 'Suche via Booking', deal_url: 'https://www.ab-in-den-urlaub.de/pauschalreisen/suche?destination=' + encodeURIComponent(q), note: 'Freitext-Suche — kein statisches Profil, direkt Live-Suche in Booking/HolidayCheck/TripAdvisor', beste_zeit: 'Recherchiere unten in den Reviews-Links', sights: 'siehe TripAdvisor-Link unten', tipps: 'Sortiere Bewertungen nach neuesten + filtere ≥8.0 fuer sichere Wahl' };
   const r = { text: 'Freitext', cls: 'yellow' };
@@ -331,6 +334,7 @@ function openFreeSearch() {
       </div>
     </div>
     ${buildReviewLinks(fakeD)}
+    ${buildSubregionsBlock(q)}
     ${buildReisetippsBlock(q)}
     <div class="info" style="margin-top:12px"><a href="${buildDealUrl(fakeD)}" target="_blank" style="color:#10b981">📦 Direkt zu Pauschal-Angeboten fuer ${q} →</a></div>
     <div style="margin-top:10px"><a href="#" onclick="addToWatchlist('${q.replace(/'/g, "\\'")}'); return false;" style="display:inline-block;padding:8px 14px;background:#10b981;color:#fff;border-radius:6px;font-size:12px;font-weight:600;text-decoration:none">➕ „${q}" zur Watchlist</a></div>
@@ -373,6 +377,54 @@ function addToWatchlist(cityOrObj) {
 }
 document.getElementById('freeSearchBtn').addEventListener('click', openFreeSearch);
 document.getElementById('freeSearch').addEventListener('keypress', e => { if (e.key === 'Enter') openFreeSearch(); });
+
+// v0.14 (Patrick 07.08. Bridge R1): Sub-Regionen für Top-Ziele. Beim Klick auf
+//   eine Insel/ein Land werden die relevanten Städte/Orte als Chips angeboten.
+//   Chip-Klick → öffnet Panel für Sub-Region (via openFreeSearch mit override).
+//   Damit kann Watchlist gezielt pro Ort angelegt werden — nicht mehr pauschal
+//   für ganze Insel.
+const SUBREGIONS = {
+  'Zypern':           ['Ayia Napa', 'Larnaca', 'Paphos', 'Limassol', 'Protaras', 'Nicosia'],
+  'Kreta':            ['Chania', 'Heraklion', 'Rethymno', 'Agios Nikolaos', 'Ierapetra', 'Elounda'],
+  'Malta':            ['Sliema', "St. Julian's", 'Valletta', 'Mellieha', 'Marsaxlokk', 'Gozo'],
+  'Mallorca':         ['Palma', 'Alcúdia', "Cala d'Or", 'Playa de Muro', 'Port de Sóller', 'Magaluf'],
+  'Rhodos':           ['Rhodos-Stadt', 'Faliraki', 'Lindos', 'Ixia', 'Kolymbia', 'Kiotari'],
+  'Türkei Riviera':   ['Antalya', 'Side', 'Belek', 'Alanya', 'Kemer', 'Lara'],
+  'Antalya':          ['Antalya-Stadt', 'Side', 'Belek', 'Alanya', 'Kemer', 'Lara'],
+  'Ibiza':            ['Ibiza-Stadt', "Playa d'en Bossa", 'San Antonio', 'Santa Eulalia', 'Es Canar'],
+  'Fuerteventura':    ['Corralejo', 'Costa Calma', 'Jandía', 'Caleta de Fuste', 'El Cotillo'],
+  'Gran Canaria':     ['Playa del Inglés', 'Maspalomas', 'Puerto de Mogán', 'Puerto Rico', 'Meloneras'],
+  'Teneriffa':        ['Playa de las Américas', 'Costa Adeje', 'Puerto de la Cruz', 'Los Cristianos', 'El Médano'],
+  'Kos':              ['Kos-Stadt', 'Kardamena', 'Tigaki', 'Marmari', 'Kefalos'],
+  'Sizilien':         ['Palermo', 'Taormina', 'Catania', 'Cefalù', 'Syrakus', 'Agrigent'],
+  'Sardinien':        ['Cagliari', 'Alghero', 'Olbia', 'Costa Smeralda', 'Villasimius'],
+  'Algarve':          ['Albufeira', 'Lagos', 'Faro', 'Portimão', 'Vilamoura', 'Tavira'],
+  'Andalusien':       ['Marbella', 'Málaga', 'Torremolinos', 'Benalmádena', 'Nerja', 'Sevilla'],
+  'Sansibar':         ['Nungwi', 'Kendwa', 'Paje', 'Jambiani', 'Kiwengwa', 'Stone Town'],
+  'Dominikanische Republik': ['Punta Cana', 'Bavaro', 'Puerto Plata', 'Sosúa', 'Samaná'],
+  'Hurghada':         ['Hurghada-Stadt', 'Makadi Bay', 'Sahl Hasheesh', 'El Gouna', 'Soma Bay'],
+  'Ägypten':          ['Hurghada', 'Sharm El Sheikh', 'Marsa Alam', 'Kairo', 'Luxor'],
+  'Thailand':         ['Phuket', 'Krabi', 'Koh Samui', 'Bangkok', 'Chiang Mai', 'Koh Phi Phi'],
+  'Bali':             ['Seminyak', 'Ubud', 'Kuta', 'Nusa Dua', 'Canggu', 'Sanur'],
+  'Zakynthos':        ['Laganas', 'Kalamaki', 'Tsilivi', 'Argassi', 'Zakynthos-Stadt'],
+  'Korfu':            ['Korfu-Stadt', 'Kavos', 'Sidari', 'Paleokastritsa', 'Roda'],
+  'Ischia':           ['Ischia Porto', 'Forio', 'Lacco Ameno', 'Sant\'Angelo', 'Casamicciola'],
+};
+
+function buildSubregionsBlock(city) {
+  const list = SUBREGIONS[city];
+  if (!list || list.length === 0) return '';
+  const chips = list.map(sub =>
+    `<a href="#" onclick="openFreeSearch('${sub.replace(/'/g, "\\'")}'); return false;" style="padding:6px 12px;background:#1e293b;border:1px solid #334155;color:#e2e8f0;border-radius:16px;text-decoration:none;font-size:12px;transition:all 0.15s">📍 ${sub}</a>`
+  ).join('');
+  return `
+    <div style="margin-top:12px;padding:12px;background:#0a1020;border-radius:8px;border-left:3px solid #60a5fa">
+      <div style="color:#60a5fa;font-weight:600;font-size:13px;margin-bottom:8px">🌍 Sub-Regionen in ${city}</div>
+      <div style="font-size:11px;color:#94a3b8;margin-bottom:8px">Klick auf einen Ort → eigenes Panel mit Reisetipps + Watchlist-Anlage nur für diesen Ort. Genauere Preise als für die ganze Insel.</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px">${chips}</div>
+    </div>
+  `;
+}
 
 // v0.13 (Patrick 07.08. Bridge): Reisetipps-Sektion — Wikipedia + Google Places
 //   'tourist_attraction' + externe Deep-Links (TripAdvisor / HolidayCheck /
@@ -510,6 +562,7 @@ function openZiel(city) {
     ${d.sights ? `<div class="info"><b>🎯 Top-Sehenswürdigkeiten:</b> ${d.sights}</div>` : ''}
     ${d.tipps ? `<div class="info" style="background:#0f172a;padding:8px;border-radius:6px;border-left:3px solid #10b981"><b>🧠 Insider-Tipps:</b> ${d.tipps}</div>` : ''}
     ${buildReviewLinks(d)}
+    ${buildSubregionsBlock(d.city)}
     ${buildReisetippsBlock(d.city)}
     <div class="info"><b>🏨 Top-Hotels (Reiseblog-Empfehlung):</b> ${d.hotels}</div>
     <div class="info"><b>✈️ Anreise:</b> ${d.flug}</div>

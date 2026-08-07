@@ -478,12 +478,23 @@
             const kayakUrl = hasDates
                 ? `https://www.kayak.de/hotels/${qHyphen}/${from}/${to}/${adults}-adults`
                 : `https://www.kayak.de/stays?destination=${q}`;
+            // v0.13 (Patrick 07.08. "mach alternativadressen zum bsp google"):
+            //   Zusätzlich zu Meta-Preis-Portalen jetzt auch Google Maps + TripAdvisor
+            //   + HolidayCheck als Alternativen falls Booking blockt.
+            //   Wenn entry.bookingUrl gesetzt: direkter Hotel-Link statt Suchseite.
+            const directBooking = entry.bookingUrl
+                ? `${entry.bookingUrl}${entry.bookingUrl.includes('?') ? '&' : '?'}${hasDates ? `checkin=${from}&checkout=${to}&` : ''}group_adults=${adults}${bookingChildParams}`
+                : null;
             return `<div style="margin-top:10px;padding:10px;background:#0f172a;border-radius:8px;border-left:3px solid #10b981">
                 <div style="font-size:12px;color:#fbbf24;font-weight:600;margin-bottom:6px">🔍 Beste Preise vergleichen ${hotel ? 'für <b>'+escapeHtml(hotel)+'</b>' : ''}</div>
+                ${directBooking ? `<a href="${directBooking}" target="_blank" style="display:block;margin:3px 0;padding:5px 8px;background:#1e40af;color:#dbeafe;border-radius:4px;font-size:11px;text-decoration:none;font-weight:600">🎯 DIREKT zum Hotel bei Booking (bester Preis für DIESES Hotel)</a>` : ''}
                 <a href="https://www.google.com/travel/hotels?q=${q}${googleDates}" target="_blank" style="display:block;margin:3px 0;padding:5px 8px;background:#065f46;color:#a7f3d0;border-radius:4px;font-size:11px;text-decoration:none">🥇 Google Hotels — Preiskalender + billigster Anbieter</a>
-                <a href="https://www.trivago.de/de/srl?query=${q}${trivagoDates}" target="_blank" style="display:block;margin:3px 0;padding:5px 8px;background:#164e63;color:#67e8f9;border-radius:4px;font-size:11px;text-decoration:none">🥈 Trivago — deutscher Meta-Vergleicher</a>
+                <a href="https://www.google.com/maps/search/${q}" target="_blank" style="display:block;margin:3px 0;padding:5px 8px;background:#4285f4;color:#e8f0fe;border-radius:4px;font-size:11px;text-decoration:none">🗺️ Google Maps + Google-Bewertungen</a>
+                <a href="https://www.tripadvisor.de/Search?q=${q}" target="_blank" style="display:block;margin:3px 0;padding:5px 8px;background:#00af87;color:#d1fae5;border-radius:4px;font-size:11px;text-decoration:none">🌍 TripAdvisor — Reviews + Vergleich</a>
+                <a href="https://www.holidaycheck.de/dh/suche?query=${q}" target="_blank" style="display:block;margin:3px 0;padding:5px 8px;background:#003399;color:#dbeafe;border-radius:4px;font-size:11px;text-decoration:none">⭐ HolidayCheck — deutsche Reise-Reviews</a>
+                <a href="https://www.trivago.de/de/srl?query=${q}${trivagoDates}" target="_blank" style="display:block;margin:3px 0;padding:5px 8px;background:#164e63;color:#67e8f9;border-radius:4px;font-size:11px;text-decoration:none">🥈 Trivago — deutscher Meta-Vergleicher (manchmal blockiert)</a>
                 <a href="${kayakUrl}" target="_blank" style="display:block;margin:3px 0;padding:5px 8px;background:#7c2d12;color:#fdba74;border-radius:4px;font-size:11px;text-decoration:none">🥉 Kayak Hotels — 40+ Anbieter</a>
-                <a href="https://www.booking.com/searchresults.html?ss=${q}${bookingDates}&group_adults=${adults}${bookingChildParams}&order=price" target="_blank" style="display:block;margin:3px 0;padding:5px 8px;background:#4c1d95;color:#c4b5fd;border-radius:4px;font-size:11px;text-decoration:none">🛏️ Booking — direkt (billigst zuerst)</a>
+                <a href="https://www.booking.com/searchresults.html?ss=${q}${bookingDates}&group_adults=${adults}${bookingChildParams}&order=bayesian_review_score" target="_blank" style="display:block;margin:3px 0;padding:5px 8px;background:#4c1d95;color:#c4b5fd;border-radius:4px;font-size:11px;text-decoration:none">🛏️ Booking — Suche (nach Bewertung sortiert)</a>
             </div>`;
         }
 

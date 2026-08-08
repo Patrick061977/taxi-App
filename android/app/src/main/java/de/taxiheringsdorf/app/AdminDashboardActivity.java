@@ -2941,6 +2941,53 @@ public class AdminDashboardActivity extends AppCompatActivity {
         cbLock.setLayoutParams(_lockLp);
         layout.addView(cbLock);
 
+        // 🆕 v6.63.878 (Patrick 08.08. Bridge Q1): Rückfahrt gleich mit anlegen.
+        //   Vermeidet den Umweg über 'Fahrt bearbeiten → Rückfahrt' bei dem customerMobile
+        //   vergessen wurde (Milberg-Bug 08.08.). Ein Klick → beide Fahrten mit gleichen
+        //   Kundendaten (customerMobile korrekt bei BEIDEN → SMS-Bestätigung an Hin + Rück).
+        android.widget.CheckBox cbReturn = new android.widget.CheckBox(this);
+        cbReturn.setText("🔄 Rückfahrt gleich mit anlegen (Adressen tauschen)");
+        cbReturn.setTextSize(13);
+        cbReturn.setChecked(false);
+        LinearLayout.LayoutParams _retCbLp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        _retCbLp.setMargins(0, pad, 0, 0);
+        cbReturn.setLayoutParams(_retCbLp);
+        layout.addView(cbReturn);
+
+        // Rückfahrt-Datum-Picker (initial +6h vom Hin-Datum, sichtbar wenn cbReturn)
+        Calendar returnCal = Calendar.getInstance();
+        returnCal.setTimeInMillis(datetime[0]);
+        returnCal.add(Calendar.HOUR_OF_DAY, 6);
+        long[] returnDatetime = { returnCal.getTimeInMillis() };
+        TextView tvReturnDate = new TextView(this);
+        tvReturnDate.setText("🔄 Rückfahrt: " + new SimpleDateFormat("EEE dd.MM.yyyy HH:mm", Locale.GERMANY).format(returnCal.getTime()));
+        tvReturnDate.setPadding(0, pad / 2, 0, pad / 2);
+        tvReturnDate.setVisibility(View.GONE);
+        tvReturnDate.setOnClickListener(v -> {
+            Calendar curr = Calendar.getInstance();
+            curr.setTimeInMillis(returnDatetime[0]);
+            new DatePickerDialog(this, (dp, y, m, d) -> {
+                new TimePickerDialog(this, (tp, h, mi) -> {
+                    Calendar nc = Calendar.getInstance();
+                    nc.set(y, m, d, h, mi, 0);
+                    returnDatetime[0] = nc.getTimeInMillis();
+                    tvReturnDate.setText("🔄 Rückfahrt: " + new SimpleDateFormat("EEE dd.MM.yyyy HH:mm", Locale.GERMANY).format(nc.getTime()));
+                }, curr.get(Calendar.HOUR_OF_DAY), curr.get(Calendar.MINUTE), true).show();
+            }, curr.get(Calendar.YEAR), curr.get(Calendar.MONTH), curr.get(Calendar.DAY_OF_MONTH)).show();
+        });
+        layout.addView(tvReturnDate);
+        cbReturn.setOnCheckedChangeListener((btn, checked) -> {
+            tvReturnDate.setVisibility(checked ? View.VISIBLE : View.GONE);
+            if (checked) {
+                // Bei Aktivierung: Rückfahrt-Zeit auf Hin + 6h setzen (immer aktuell zum Hin-Datum)
+                Calendar rc = Calendar.getInstance();
+                rc.setTimeInMillis(datetime[0]);
+                rc.add(Calendar.HOUR_OF_DAY, 6);
+                returnDatetime[0] = rc.getTimeInMillis();
+                tvReturnDate.setText("🔄 Rückfahrt: " + new SimpleDateFormat("EEE dd.MM.yyyy HH:mm", Locale.GERMANY).format(rc.getTime()));
+            }
+        });
+
         // v6.63.075 (Patrick 01.06. Bridge "Ich will erst die Vorbestellung
         //   anlegen, daraus die Serie machen"): zweiter Pfad direkt aus dem
         //   Anlege-Dialog. Patrick füllt Kundenname/Pickup/Ziel/Uhrzeit ein
@@ -3040,8 +3087,45 @@ public class AdminDashboardActivity extends AppCompatActivity {
                     r.put("lockedBy", "native_admin_create");
                     r.put("lockedAt", now);
                 }
+                // v6.63.878 (Patrick 08.08. Bridge Q1): Rückfahrt-Klon vorbereiten VOR
+                //   Speichern. Beide werden im selben ref.setValue-Erfolg gepusht damit
+                //   customerMobile bei BEIDEN gleich ist (Milberg-Bug 08.08.).
+                final boolean _createReturn = cbReturn.isChecked();
+                final Map<String, Object> _returnRide;
+                if (_createReturn) {
+                    _returnRide = new HashMap<>(r);
+                    // Adressen tauschen
+                    Object _p = _returnRide.get("pickup"); Object _d = _returnRide.get("destination");
+                    _returnRide.put("pickup", _d); _returnRide.put("destination", _p);
+                    Object _pl = _returnRide.get("pickupLat"); Object _pn = _returnRide.get("pickupLon");
+                    Object _dl = _returnRide.get("destinationLat"); Object _dn = _returnRide.get("destinationLon");
+                    _returnRide.put("pickupLat", _dl); _returnRide.put("pickupLon", _dn);
+                    _returnRide.put("destinationLat", _pl); _returnRide.put("destinationLon", _pn);
+                    Object _pc = _returnRide.get("pickupCoords"); Object _dc = _returnRide.get("destCoords");
+                    _returnRide.put("pickupCoords", _dc); _returnRide.put("destCoords", _pc);
+                    // Neue Zeit für Rückfahrt
+                    _returnRide.put("pickupTimestamp", returnDatetime[0]);
+                    _returnRide.put("pickupTime", new SimpleDateFormat("HH:mm", Locale.GERMANY).format(new java.util.Date(returnDatetime[0])));
+                    long _rdelta = (returnDatetime[0] - now) / 60000L;
+                    _returnRide.put("status", _rdelta < 15 ? "warteschlange" : "vorbestellt");
+                    // Fahrzeug-Zuweisung nicht kopieren (fresh Auto-Assign)
+                    _returnRide.remove("assignedVehicle"); _returnRide.remove("vehicleId");
+                    _returnRide.remove("assignedTo"); _returnRide.remove("assignedAt");
+                    _returnRide.remove("assignedBy"); _returnRide.remove("assignedVehicleName");
+                    _returnRide.remove("assignedVehiclePlate"); _returnRide.remove("assignmentLocked");
+                    _returnRide.remove("lockedBy"); _returnRide.remove("lockedAt");
+                    _returnRide.put("source", "native_admin_manual_return");
+                } else {
+                    _returnRide = null;
+                }
                 ref.setValue(r).addOnSuccessListener(_v -> {
-                    Toast.makeText(this, _lock ? "✅ Buchung angelegt + gesperrt" : "✅ Buchung angelegt", Toast.LENGTH_SHORT).show();
+                    if (_returnRide != null) {
+                        FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("rides").push().setValue(_returnRide)
+                            .addOnSuccessListener(__v -> Toast.makeText(this, "✅ Hin + Rückfahrt angelegt" + (_lock ? " (Hin gesperrt)" : ""), Toast.LENGTH_LONG).show())
+                            .addOnFailureListener(ex -> Toast.makeText(this, "⚠️ Hin ok, Rückfahrt Fehler: " + ex.getMessage(), Toast.LENGTH_LONG).show());
+                    } else {
+                        Toast.makeText(this, _lock ? "✅ Buchung angelegt + gesperrt" : "✅ Buchung angelegt", Toast.LENGTH_SHORT).show();
+                    }
                 }).addOnFailureListener(ex -> Toast.makeText(this, "Fehler: " + ex.getMessage(), Toast.LENGTH_LONG).show());
             })
             .setNegativeButton("Abbrechen", null)

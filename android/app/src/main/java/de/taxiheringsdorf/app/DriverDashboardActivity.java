@@ -794,6 +794,24 @@ public class DriverDashboardActivity extends AppCompatActivity {
     // (v6.62.318: 20s → 10s, Patrick: ETA zeigt Wert aber bewegt sich nicht beim Fahren)
     private final java.util.Map<String, Long> lastEtaCalc = new java.util.HashMap<>();
 
+    // v6.63.882: In-App-Cache fuer Google Routes API (Cost-Fix).
+    // Patrick 09.08.: 30 EUR/Tag Google Maps Routes am 08.08. — jeder Fahrer feuerte alle
+    // 7-10s eine Routes-Anfrage OHNE Cache. Hier: 60s TTL pro from->to-Kombi (auf ~110 m
+    // gerundet). Cache-Hit vermeidet API-Call komplett, Ergebnis wird via applyEtaResult
+    // direkt wieder ins UI/Firebase geschrieben.
+    private static final long GOOGLE_ROUTES_CACHE_TTL_MS = 60_000L;
+    private static class GoogleRouteCacheEntry {
+        final int durationMin; final double distanceKm; final long savedAt;
+        GoogleRouteCacheEntry(int d, double k, long t) { durationMin=d; distanceKm=k; savedAt=t; }
+    }
+    private final java.util.Map<String, GoogleRouteCacheEntry> googleRouteCache = new java.util.HashMap<>();
+    private static String routeCacheKey(double fLat, double fLon, double tLat, double tLon) {
+        // 3 Nachkommastellen ≈ 110 m — bei Live-GPS bewegt sich das Fahrzeug schneller
+        // als die Rundung; verhindert dass zwei praktisch identische Positionen zwei
+        // separate Cache-Eintraege erzeugen.
+        return String.format(java.util.Locale.US, "%.3f,%.3f->%.3f,%.3f", fLat, fLon, tLat, tLon);
+    }
+
     // v6.62.965 (SPEED-B): Live-GPS-Cache fuer displayTick-Hochrechnung.
     // Patrick 26.05.: 'Web-Fleet-Map fuehlt sich schneller an als Native-ETA' — Befund:
     // Web hat 5s-Refresh + Firebase-GPS-Listener, Native rechnet nur alle 15s OSRM neu.
@@ -818,7 +836,9 @@ public class DriverDashboardActivity extends AppCompatActivity {
             // Plus: bei jedem Skip einen Debug-Counter inkrementieren — hilft Diagnose
             // wenn die ETA trotzdem noch steht.
             // 🆕 v6.62.970: Throttle 10s → 7s während pre-pickup, damit Google Routes oft genug nachfragt.
-            long throttleMs = isPrePickup ? 7_000L : 10_000L;
+            // v6.63.882: 7s/10s → 30s (Google-Routes-Cost-Fix, Patrick 09.08.). Kombiniert
+            // mit In-App-Cache (60s TTL) auf tryGoogleRoute-Ebene → ~4-6x weniger API-Calls.
+            long throttleMs = 30_000L;
             Long lastCall = lastEtaCalc.get(r.id);
             if (lastCall != null && (now - lastCall) < throttleMs) {
                 logEtaDebug(r.id, "skip-throttle", vLat, vLon, (now - lastCall) + "ms-since-last");
@@ -930,6 +950,16 @@ public class DriverDashboardActivity extends AppCompatActivity {
     // 🆕 v6.62.968: Google Routes API NEW (TRAFFIC_AWARE) — primaeres Routing.
     // Returns true wenn Erfolg + applyEtaResult bereits aufgerufen. False = Caller soll Fallback.
     private boolean tryGoogleRoute(String rideId, double fromLat, double fromLon, double toLat, double toLon, String mode) {
+        // v6.63.882: Cache-Check vor API-Call. Bei Hit direkt applyEtaResult ohne
+        // teuren Google-Routes-Request. Cache-Key rundet auf ~110 m — ausreichend
+        // fuer ETA-Berechnung, spart aber massiv API-Calls in stehendem Verkehr.
+        String cacheKey = routeCacheKey(fromLat, fromLon, toLat, toLon);
+        GoogleRouteCacheEntry hit = googleRouteCache.get(cacheKey);
+        long nowMs = System.currentTimeMillis();
+        if (hit != null && (nowMs - hit.savedAt) < GOOGLE_ROUTES_CACHE_TTL_MS) {
+            applyEtaResult(rideId, hit.durationMin, hit.distanceKm, fromLat, fromLon, mode, "google-routes-cached");
+            return true;
+        }
         java.net.HttpURLConnection conn = null;
         try {
             String body = String.format(Locale.US,
@@ -965,6 +995,8 @@ public class DriverDashboardActivity extends AppCompatActivity {
             double durationSec = Double.parseDouble(durStr.replace("s", ""));
             int durationMin = Math.max(1, (int) Math.round(durationSec / 60.0));
             double distanceKm = Math.round(distanceMeters / 100.0) / 10.0;
+            // v6.63.882: Ergebnis in In-App-Cache schreiben (60s TTL, siehe oben).
+            googleRouteCache.put(cacheKey, new GoogleRouteCacheEntry(durationMin, distanceKm, System.currentTimeMillis()));
             applyEtaResult(rideId, durationMin, distanceKm, fromLat, fromLon, mode, "google-routes");
             return true;
         } catch (Exception e) {

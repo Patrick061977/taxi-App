@@ -2847,7 +2847,14 @@ public class AdminDashboardActivity extends AppCompatActivity {
         EditText etPhone = new EditText(this);
         etPhone.setHint("Telefonnummer");
         etPhone.setInputType(InputType.TYPE_CLASS_PHONE);
-        if (preset != null && preset.customerPhone != null) etPhone.setText(preset.customerPhone);
+        // 🐛 v6.63.879 (Milberg-Bug): customerMobile als Fallback wenn customerPhone leer.
+        //   Vorher: preset.customerPhone leer → etPhone leer → Save schrieb nichts → SMS-Trigger stumm.
+        if (preset != null) {
+            String _presetPhone = null;
+            if (preset.customerPhone != null && !preset.customerPhone.isEmpty()) _presetPhone = preset.customerPhone;
+            else if (preset.customerMobile != null && !preset.customerMobile.isEmpty()) _presetPhone = preset.customerMobile;
+            if (_presetPhone != null) etPhone.setText(_presetPhone);
+        }
         layout.addView(etPhone);
 
         // v6.62.745 (Patrick 15.05. 21:07): Pickup mit Karten-Picker
@@ -3042,6 +3049,8 @@ public class AdminDashboardActivity extends AppCompatActivity {
                     r.put("customerPhone", phone);
                     r.put("customerMobile", phone);
                 }
+                // 🐛 v6.63.879 (Milberg-Bug): customerId aus preset übernehmen für CRM-Verknüpfung
+                if (preset != null && preset.customerId != null) r.put("customerId", preset.customerId);
                 r.put("pickup", pickup);
                 r.put("destination", dest);
                 // v6.62.745 (Patrick 15.05. 21:07): Coords aus Map-Picker bevorzugen, dann Preset
@@ -5151,6 +5160,10 @@ public class AdminDashboardActivity extends AppCompatActivity {
             Ride swap = new Ride();
             swap.customerName = r.customerName;
             swap.customerPhone = r.customerPhone;
+            // 🐛 v6.63.879 (Patrick 08.08. Milberg-SMS-Bug): customerMobile + customerId
+            //   mit übernehmen. Ohne mobile-Nr trigger Cloud-Function keine SMS-Bestätigung.
+            swap.customerMobile = r.customerMobile;
+            swap.customerId = r.customerId;
             swap.pickup = r.destination;
             swap.destination = r.pickup;
             swap.passengers = r.passengers;

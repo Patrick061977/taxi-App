@@ -3853,6 +3853,15 @@ public class DriverDashboardActivity extends AppCompatActivity {
             // Kunde hat vermutlich schon bezahlt, Webhook lahmt oder wurde nicht gepingt.
             options.add("✅ Vorkasse bezahlt (Kunde hat Link/Terminal genutzt)");
             methods.add("vorkasse_prepaid");
+        } else {
+            // 🆕 v6.63.884 (Patrick 09.08. 20:16 Bridge: "Wenn jemand Vorkasse bezahlt
+            //   hat muss das aber auch am Schluß auswählbar sein"):
+            //   Auch wenn kein Stripe-Flag/Vorkasse-Kontext gesetzt ist (z.B. Kunde
+            //   hat manuell auf Konto überwiesen und Patrick trägt die Vorbestellung
+            //   nur ohne stripe-Flag ein) — Option immer anbieten, damit der Fahrer
+            //   die Fahrt ohne erneutes Kassieren abschließen kann.
+            options.add("✅ Vorkasse schon eingegangen (nur abschließen)");
+            methods.add("vorkasse_prepaid");
         }
         options.add("💵 Bar (" + amountStr + ")");                        methods.add("cash");
         options.add("💳 iZettle Karte (" + amountStr + ")");              methods.add("izettle");

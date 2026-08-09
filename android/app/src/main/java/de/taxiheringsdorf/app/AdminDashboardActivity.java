@@ -3174,7 +3174,7 @@ public class AdminDashboardActivity extends AppCompatActivity {
     }
 
     static class Ride {
-        String id, customerName, customerPhone, customerMobile, customerId, customerEmail, pickup, destination, pickupTime, status;
+        String id, customerName, customerPhone, customerMobile, customerEmail, pickup, destination, pickupTime, status;
         // 🆕 v6.63.092: Bezahlt-Badge
         String paymentStatus, paymentMethod;
         Double stripePaidAmount;

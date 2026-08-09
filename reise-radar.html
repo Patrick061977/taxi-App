@@ -436,7 +436,7 @@ function buildTopHotelsPreviewBlock(city) {
   const uid = 'th_' + city.replace(/[^a-zA-Z0-9]+/g, '_') + '_' + Date.now();
   return `
     <div id="${uid}" style="margin-top:12px;padding:12px;background:#0a1020;border-radius:8px;border-left:3px solid #10b981">
-      <div style="color:#10b981;font-weight:600;font-size:13px;margin-bottom:8px">🏨 Top-Hotels in „${city}" (Google, ≥1000 Bewertungen)</div>
+      <div style="color:#10b981;font-weight:600;font-size:13px;margin-bottom:8px">🏨 Top-Hotels in „${city}" (Google, ≥200 Bewertungen, alle Sub-Regionen)</div>
       <div class="th-list" style="font-size:12px;color:#94a3b8">⏳ lade Hotels...</div>
       <div style="font-size:11px;color:#6b7280;margin-top:6px">Klick auf ein Hotel → wird SOFORT als Watchlist-Eintrag angelegt (mit Google-Rating + Website).</div>
     </div>
@@ -447,34 +447,57 @@ async function loadTopHotelsPreview(city, containerId) {
   const container = document.getElementById(containerId);
   if (!container) return;
   const listEl = container.querySelector('.th-list');
-  try {
-    const gRes = await fetch('https://places.googleapis.com/v1/places:searchText', {
+  // v0.17 (Patrick 09.08.): R1+R2 kombiniert.
+  //   R1: Bei Insel-/Region-Suche parallel alle SUBREGIONS abfragen und mergen (dedupliziert per place.id).
+  //   R2: Filter von >=1000 auf >=200 Bewertungen gesenkt — fängt Boutique-Hotels die Google Travel zeigt.
+  //   Softfilter für Fallback bei <5 Treffern von >=200 auf >=50 gesenkt.
+  const HARD_MIN = 200, SOFT_MIN = 50;
+  const subs = (typeof SUBREGIONS !== 'undefined' && SUBREGIONS[city]) ? SUBREGIONS[city] : null;
+  const queries = subs ? ['Hotel ' + city, ...subs.map(s => 'Hotel ' + s + ', ' + city)] : ['Hotel ' + city];
+  const searchOne = async (q) => {
+    const r = await fetch('https://places.googleapis.com/v1/places:searchText', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'X-Goog-Api-Key': GOOGLE_PLACES_KEY,
         'X-Goog-FieldMask': 'places.displayName,places.rating,places.userRatingCount,places.id,places.websiteUri,places.formattedAddress'
       },
-      body: JSON.stringify({ textQuery: 'Hotel ' + city, languageCode: 'de', includedType: 'lodging', maxResultCount: 20 })
+      body: JSON.stringify({ textQuery: q, languageCode: 'de', includedType: 'lodging', maxResultCount: 20 })
     });
-    if (!gRes.ok) {
-      listEl.innerHTML = '<span style="color:#6b7280">Google Places ' + gRes.status + '. Manuell suchen: <a href="https://www.google.com/travel/hotels?q=' + encodeURIComponent(city) + '" target="_blank" style="color:#60a5fa">→ Google Hotels</a></span>';
+    if (!r.ok) return { ok: false, status: r.status, places: [] };
+    const j = await r.json();
+    return { ok: true, places: j.places || [] };
+  };
+  try {
+    const results = await Promise.all(queries.map(searchOne));
+    const anyOk = results.some(r => r.ok);
+    if (!anyOk) {
+      const status = results[0].status || '?';
+      listEl.innerHTML = '<span style="color:#6b7280">Google Places ' + status + '. Manuell suchen: <a href="https://www.google.com/travel/hotels?q=' + encodeURIComponent(city) + '" target="_blank" style="color:#60a5fa">→ Google Hotels</a></span>';
       return;
     }
-    const g = await gRes.json();
-    let hotels = (g.places || [])
-      .filter(p => p.rating && (p.userRatingCount || 0) >= 1000)
+    // Dedup per place.id (bei subregion-Suche kommen Treffer oft doppelt zurück)
+    const byId = new Map();
+    for (const res of results) {
+      for (const p of (res.places || [])) {
+        const key = p.id || ((p.displayName && p.displayName.text) || '') + '|' + (p.formattedAddress || '');
+        if (!byId.has(key)) byId.set(key, p);
+      }
+    }
+    const allPlaces = [...byId.values()];
+    let hotels = allPlaces
+      .filter(p => p.rating && (p.userRatingCount || 0) >= HARD_MIN)
       .sort((a, b) => (b.rating || 0) - (a.rating || 0));
-    if (hotels.length < 5) {
-      const soft = (g.places || [])
-        .filter(p => p.rating && (p.userRatingCount || 0) >= 200 && (p.userRatingCount || 0) < 1000 && !hotels.includes(p))
+    if (hotels.length < 10) {
+      const soft = allPlaces
+        .filter(p => p.rating && (p.userRatingCount || 0) >= SOFT_MIN && (p.userRatingCount || 0) < HARD_MIN && !hotels.includes(p))
         .sort((a, b) => (b.rating || 0) - (a.rating || 0));
-      hotels = [...hotels, ...soft].slice(0, 10);
+      hotels = [...hotels, ...soft].slice(0, 20);
     } else {
-      hotels = hotels.slice(0, 10);
+      hotels = hotels.slice(0, 20);
     }
     if (hotels.length === 0) {
-      listEl.innerHTML = '<span style="color:#6b7280">Keine renommierten Hotels mit ≥200 Bewertungen gefunden. <a href="https://www.google.com/travel/hotels?q=' + encodeURIComponent(city) + '" target="_blank" style="color:#60a5fa">→ Google Hotels manuell</a></span>';
+      listEl.innerHTML = '<span style="color:#6b7280">Keine Hotels mit ≥50 Bewertungen gefunden. <a href="https://www.google.com/travel/hotels?q=' + encodeURIComponent(city) + '" target="_blank" style="color:#60a5fa">→ Google Hotels manuell</a></span>';
       return;
     }
     listEl.innerHTML = hotels.map((p, i) => {

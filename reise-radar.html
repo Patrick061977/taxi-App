@@ -194,6 +194,7 @@ const globe = Globe()
       ${d.beste_zeit ? `<div class="info"><b>📅 Beste Reisezeit:</b> ${d.beste_zeit}</div>` : ''}
       ${d.sights ? `<div class="info"><b>🎯 Top-Sehenswürdigkeiten:</b> ${d.sights}</div>` : ''}
       ${d.tipps ? `<div class="info" style="background:#0f172a;padding:8px;border-radius:6px;border-left:3px solid #10b981"><b>🧠 Insider-Tipps:</b> ${d.tipps}</div>` : ''}
+      ${buildAllInOneCompareBlock(d.city, d)}
       ${buildReviewLinks(d)}
       ${buildSubregionsBlock(d.city)}
       ${buildTopHotelsPreviewBlock(d.city)}
@@ -242,6 +243,131 @@ function getSelectedAirports() {
   const list = Array.from(boxes).map(b => b.value);
   return list.length > 0 ? list : ['BER'];
 }
+// v0.18 (Patrick 09.08.): Rundumsorglos-Preisvergleich — kompakter Block ganz oben im
+// Panel. Ziel: 1 Blick → alle Preisquellen für konkrete Reise-Daten + günstigster Monat.
+// Airport-Codes je Ziel → damit Google Flights/Kayak direkt zum RICHTIGEN Ziel-Airport
+// verlinken (nicht generische Länder-Suche).
+const DEST_AIRPORTS = {
+  'Zypern': ['LCA', 'PFO'],
+  'Ayia Napa': ['LCA'], 'Larnaca': ['LCA'], 'Paphos': ['PFO'], 'Limassol': ['LCA', 'PFO'], 'Protaras': ['LCA'], 'Nicosia': ['LCA'],
+  'Kreta': ['HER', 'CHQ'], 'Chania': ['CHQ'], 'Heraklion': ['HER'], 'Rethymno': ['CHQ', 'HER'], 'Agios Nikolaos': ['HER'], 'Elounda': ['HER'],
+  'Malta': ['MLA'], 'Gozo': ['MLA'],
+  'Mallorca': ['PMI'], 'Palma': ['PMI'],
+  'Rhodos': ['RHO'], 'Lindos': ['RHO'], 'Faliraki': ['RHO'],
+  'Türkei Riviera': ['AYT'], 'Antalya': ['AYT'], 'Side': ['AYT'], 'Belek': ['AYT'], 'Alanya': ['GZP', 'AYT'], 'Kemer': ['AYT'], 'Lara': ['AYT'],
+  'Ibiza': ['IBZ'],
+  'Fuerteventura': ['FUE'], 'Corralejo': ['FUE'], 'Jandía': ['FUE'],
+  'Gran Canaria': ['LPA'], 'Maspalomas': ['LPA'], 'Playa del Inglés': ['LPA'],
+  'Teneriffa': ['TFS', 'TFN'], 'Costa Adeje': ['TFS'], 'Playa de las Américas': ['TFS'],
+  'Kos': ['KGS'],
+  'Sizilien': ['CTA', 'PMO'], 'Palermo': ['PMO'], 'Catania': ['CTA'], 'Taormina': ['CTA'],
+  'Sardinien': ['CAG', 'OLB'], 'Cagliari': ['CAG'], 'Olbia': ['OLB'], 'Alghero': ['AHO'],
+  'Algarve': ['FAO'], 'Albufeira': ['FAO'], 'Faro': ['FAO'], 'Lagos': ['FAO'],
+  'Andalusien': ['AGP'], 'Marbella': ['AGP'], 'Málaga': ['AGP'],
+  'Sansibar': ['ZNZ'],
+  'Dominikanische Republik': ['PUJ'], 'Punta Cana': ['PUJ'],
+  'Hurghada': ['HRG'], 'Makadi Bay': ['HRG'], 'El Gouna': ['HRG'],
+  'Ägypten': ['HRG', 'SSH', 'CAI'], 'Sharm El Sheikh': ['SSH'], 'Marsa Alam': ['RMF'], 'Kairo': ['CAI'], 'Luxor': ['LXR'],
+  'Thailand': ['BKK', 'HKT'], 'Phuket': ['HKT'], 'Bangkok': ['BKK'], 'Krabi': ['KBV'], 'Koh Samui': ['USM'],
+  'Bali': ['DPS'],
+  'Zakynthos': ['ZTH'],
+  'Korfu': ['CFU'],
+  'Ischia': ['NAP'],
+};
+function getDestAirports(city) {
+  return DEST_AIRPORTS[city] || null;
+}
+
+// v0.18: Rundumsorglos-Vergleichs-Block. Kompakte 3-Spalten-Übersicht:
+//   Flug | Hotel | Pauschal   —   je Zeile: Zeitraum-Buchung + günstigster-Monat-Klick.
+function buildAllInOneCompareBlock(city, d) {
+  const from = document.getElementById('dateFrom').value;
+  const to = document.getElementById('dateTo').value;
+  const pers = document.getElementById('personen').value || '2';
+  const kids = document.getElementById('kinderAlter').value.trim();
+  const kidsArr = kids ? kids.split(',').map(x => x.trim()).filter(x => x) : [];
+  const airports = getSelectedAirports();
+  const primaryAb = airports[0];
+  const dest = getDestAirports(city);
+  const primaryDest = dest ? dest[0] : null;
+  const cityEnc = encodeURIComponent(city);
+  const cityLower = city.toLowerCase();
+  const cityLowerEnc = encodeURIComponent(cityLower);
+  const dateStr = (from && to) ? `${from} → ${to}` : '(bitte oben Datum wählen)';
+  const dateParams = (from && to) ? `&checkin=${from}&checkout=${to}` : '';
+  const guestParams = `&group_adults=${pers}${kidsArr.length ? `&group_children=${kidsArr.length}&age=${kidsArr.join('&age=')}` : ''}`;
+  // Google Flights DEEP-URL mit Datum: verwendet 'from/to on YYYY-MM-DD through YYYY-MM-DD' Syntax
+  const gflightsUrl = (fromCode, toDest, fD, tD) => {
+    const dst = toDest || cityEnc;
+    const dates = (fD && tD) ? `%20on%20${fD}%20through%20${tD}` : '';
+    return `https://www.google.com/travel/flights?q=Flights%20to%20${dst}%20from%20${fromCode}${dates}`;
+  };
+  // Kayak Flug-URL mit exaktem Datum
+  const kayakFlightUrl = (fromCode, toCode, fD, tD) => {
+    const dst = toCode || cityLowerEnc;
+    return (fD && tD) ? `https://www.kayak.de/flights/${fromCode}-${dst}/${fD}/${tD}` : `https://www.kayak.de/flights/${fromCode}-${dst}`;
+  };
+  const airportInfoLine = dest
+    ? `<span style="color:#94a3b8">Nächster Flughafen: <b style="color:#10b981">${dest.join(' oder ')}</b></span>`
+    : `<span style="color:#f59e0b">⚠️ Kein Ziel-Flughafen bekannt — Google/Kayak sucht per Ortsname</span>`;
+  const airportChips = airports.map(ap => {
+    const flightsToPrimary = gflightsUrl(ap, primaryDest, from, to);
+    const kayakToPrimary = kayakFlightUrl(ap, primaryDest, from, to);
+    return `
+      <div style="margin:6px 0;padding:6px 8px;background:#0a1020;border-radius:6px;border-left:3px solid #3b82f6">
+        <div style="font-weight:600;color:#60a5fa;font-size:12px;margin-bottom:4px">${ap} → ${primaryDest || city}</div>
+        <div style="display:flex;gap:4px;flex-wrap:wrap">
+          <a href="${flightsToPrimary}" target="_blank" style="padding:4px 8px;background:#1e40af;color:#dbeafe;border-radius:4px;font-size:11px;text-decoration:none">✈️ Google Flights (${from && to ? 'Datum' : 'Preis-Kalender'})</a>
+          <a href="${kayakToPrimary}" target="_blank" style="padding:4px 8px;background:#7c2d12;color:#fed7aa;border-radius:4px;font-size:11px;text-decoration:none">📊 Kayak Preistrend</a>
+          <a href="https://www.kayak.de/explore?origin=${ap}&destination=${primaryDest || cityEnc}" target="_blank" style="padding:4px 8px;background:#4c1d95;color:#c4b5fd;border-radius:4px;font-size:11px;text-decoration:none">🗓️ Günstigster Monat</a>
+          <a href="https://www.skyscanner.de/transport/fluege/${ap.toLowerCase()}/${(primaryDest || city).toLowerCase()}/" target="_blank" style="padding:4px 8px;background:#065f46;color:#a7f3d0;border-radius:4px;font-size:11px;text-decoration:none">📅 Skyscanner + Alarm</a>
+        </div>
+      </div>`;
+  }).join('');
+  return `
+    <div style="margin-top:12px;padding:12px;background:#0f172a;border-radius:8px;border:2px solid #10b981;box-shadow:0 0 12px rgba(16,185,129,0.15)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div style="color:#10b981;font-weight:700;font-size:14px">🎯 RUNDUM-VERGLEICH</div>
+        <div style="color:#94a3b8;font-size:11px">${dateStr} · ${pers}${kidsArr.length ? ' + ' + kidsArr.length + ' Kids' : ''} Pers.</div>
+      </div>
+      <div style="font-size:11px;margin-bottom:8px">${airportInfoLine}</div>
+
+      <div style="color:#3b82f6;font-weight:600;font-size:12px;margin:8px 0 4px">✈️ FLUG</div>
+      ${airportChips}
+
+      <div style="color:#f59e0b;font-weight:600;font-size:12px;margin:12px 0 4px">🏨 NUR HOTEL</div>
+      <div style="display:flex;gap:4px;flex-wrap:wrap">
+        <a href="https://www.booking.com/searchresults.html?ss=${cityEnc}${dateParams}${guestParams}&order=review_score_and_price" target="_blank" style="padding:5px 10px;background:#0f766e;color:#5eead4;border-radius:4px;font-size:11px;text-decoration:none;font-weight:600">Booking (Beste Bewertung)</a>
+        <a href="https://www.booking.com/searchresults.html?ss=${cityEnc}${dateParams}${guestParams}&order=price" target="_blank" style="padding:5px 10px;background:#164e63;color:#67e8f9;border-radius:4px;font-size:11px;text-decoration:none">Booking (Günstigst)</a>
+        <a href="https://www.google.com/travel/hotels?q=${cityEnc}${from ? '&checkin=' + from : ''}${to ? '&checkout=' + to : ''}" target="_blank" style="padding:5px 10px;background:#4c1d95;color:#c4b5fd;border-radius:4px;font-size:11px;text-decoration:none">Google Hotels + Karte</a>
+        <a href="https://www.kayak.de/hotels/${cityLowerEnc}${from && to ? '/' + from + '/' + to : ''}" target="_blank" style="padding:5px 10px;background:#7c2d12;color:#fed7aa;border-radius:4px;font-size:11px;text-decoration:none">Kayak Hotels</a>
+        <a href="https://www.holidaycheck.de/dh/hotelbewertungen-${cityLowerEnc}/s" target="_blank" style="padding:5px 10px;background:#831843;color:#fbcfe8;border-radius:4px;font-size:11px;text-decoration:none">HolidayCheck Bewertungen</a>
+        <a href="https://www.trivago.de/de/srl/hotels-${cityLowerEnc}?search=200-${cityLowerEnc};dr-${from ? from.replace(/-/g, '') : ''}-${to ? to.replace(/-/g, '') : ''};rc-1_${pers}" target="_blank" style="padding:5px 10px;background:#1e40af;color:#bfdbfe;border-radius:4px;font-size:11px;text-decoration:none">Trivago Vergleich</a>
+      </div>
+
+      <div style="color:#e879f9;font-weight:600;font-size:12px;margin:12px 0 4px">📦 PAUSCHAL (Flug + Hotel)</div>
+      <div style="display:flex;gap:4px;flex-wrap:wrap">
+        <a href="https://reisen.check24.de/pauschalreise?destination=${cityEnc}${from ? '&departureDateFrom=' + from : ''}${to ? '&returnDateTo=' + to : ''}&adults=${pers}${kidsArr.length ? '&children=' + kidsArr.length : ''}&departureAirports=${airports.join(',')}" target="_blank" style="padding:5px 10px;background:#065f46;color:#a7f3d0;border-radius:4px;font-size:11px;text-decoration:none;font-weight:600">Check24</a>
+        <a href="https://www.tui.com/pauschalreisen/${cityLowerEnc}/" target="_blank" style="padding:5px 10px;background:#7f1d1d;color:#fecaca;border-radius:4px;font-size:11px;text-decoration:none">TUI</a>
+        <a href="https://www.dertour.de/suche?q=${cityEnc}${from ? '&anreiseVon=' + from : ''}${to ? '&anreiseBis=' + to : ''}" target="_blank" style="padding:5px 10px;background:#1e3a8a;color:#dbeafe;border-radius:4px;font-size:11px;text-decoration:none">DERTOUR</a>
+        <a href="https://www.ab-in-den-urlaub.de/pauschalreisen/${cityLowerEnc}?abflug=${airports.join(',')}${from ? '&datum-von=' + from : ''}${to ? '&datum-bis=' + to : ''}" target="_blank" style="padding:5px 10px;background:#4c1d95;color:#c4b5fd;border-radius:4px;font-size:11px;text-decoration:none">Ab-in-den-Urlaub</a>
+        <a href="https://www.weg.de/pauschalreisen/${cityLowerEnc}" target="_blank" style="padding:5px 10px;background:#7c2d12;color:#fed7aa;border-radius:4px;font-size:11px;text-decoration:none">weg.de</a>
+        <a href="https://www.fti.de/pauschalreisen/${cityLowerEnc}.html" target="_blank" style="padding:5px 10px;background:#831843;color:#fbcfe8;border-radius:4px;font-size:11px;text-decoration:none">FTI</a>
+        <a href="https://www.expedia.de/Pauschalreisen-${cityLowerEnc.replace(/%20/g, '-')}" target="_blank" style="padding:5px 10px;background:#166534;color:#bbf7d0;border-radius:4px;font-size:11px;text-decoration:none">Expedia</a>
+        <a href="https://www.opodo.de/pauschalreisen/${cityLowerEnc}/" target="_blank" style="padding:5px 10px;background:#1e40af;color:#dbeafe;border-radius:4px;font-size:11px;text-decoration:none">Opodo</a>
+      </div>
+
+      <div style="margin-top:12px;padding:8px;background:#0a1020;border-radius:6px;border-left:3px solid #10b981;font-size:11px;line-height:1.5;color:#a7f3d0">
+        <b>💡 Rundum-Buchungs-Strategie (in 5 Klicks zum besten Preis):</b><br>
+        1. <b>Kayak Explore</b> öffnen → günstigsten Monat sehen (falls Datum flexibel)<br>
+        2. <b>Google Flights</b> mit deinem Datum → sehen ob grün/gelb/rot vs Ø<br>
+        3. <b>Check24</b> Pauschal öffnen → 1-Klick-Vergleich Flug+Hotel<br>
+        4. <b>Trivago</b> Hotel-Vergleich → günstigster Anbieter für dasselbe Hotel<br>
+        5. Zurück zu Check24 → günstigste Kombi buchen (5–10% billiger als direkt bei TUI)
+      </div>
+    </div>`;
+}
+
 function buildReviewLinks(d) {
   const city = encodeURIComponent(d.city);
   const from = document.getElementById('dateFrom').value;
@@ -334,6 +460,7 @@ function openFreeSearch(overrideQ) {
         Klick unten auf <b>⭐ TOP-Hotels sortiert nach Bewertung</b> — Booking zeigt dir die höchstbewerteten Hotels für <b>${q}</b> mit deinen Datum+Personen-Angaben. Für konkrete Empfehlungen füge einen Zielort aus der 27er-Liste an oder schau in HolidayCheck-Testberichte.
       </div>
     </div>
+    ${buildAllInOneCompareBlock(q, fakeD)}
     ${buildReviewLinks(fakeD)}
     ${buildSubregionsBlock(q)}
     ${buildTopHotelsPreviewBlock(q)}
@@ -704,6 +831,7 @@ function openZiel(city) {
     ${d.beste_zeit ? `<div class="info"><b>📅 Beste Reisezeit:</b> ${d.beste_zeit}</div>` : ''}
     ${d.sights ? `<div class="info"><b>🎯 Top-Sehenswürdigkeiten:</b> ${d.sights}</div>` : ''}
     ${d.tipps ? `<div class="info" style="background:#0f172a;padding:8px;border-radius:6px;border-left:3px solid #10b981"><b>🧠 Insider-Tipps:</b> ${d.tipps}</div>` : ''}
+    ${buildAllInOneCompareBlock(d.city, d)}
     ${buildReviewLinks(d)}
     ${buildSubregionsBlock(d.city)}
     ${buildTopHotelsPreviewBlock(d.city)}
@@ -760,6 +888,7 @@ globe.onGlobeClick(async ({ lat, lng }) => {
       <div style="margin:10px 0;padding:10px;background:#0f172a;border-radius:8px;font-size:13px">
         <b>💡 Klick-Suche</b> — kein statisches Profil, aber Live-Reviews + Preise via Deep-Links.
       </div>
+      ${buildAllInOneCompareBlock(name, fakeD)}
       ${buildReviewLinks(fakeD)}
     `;
   } catch (e) {

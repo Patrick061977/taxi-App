@@ -3870,7 +3870,12 @@ public class DriverDashboardActivity extends AppCompatActivity {
         // 🆕 v6.63.078 (Patrick 01.06. Bridge "Krankenschein-Fahrten brauchen eigene
         //   Zahlart"): Transportschein für Krankenkasse-Abrechnung. Beleg verbleibt
         //   beim Fahrer; Cloud-Function-Rechnung kann später nachgeholt werden.
-        options.add("🏥 Transportschein (Krankenkasse)");                  methods.add("transportschein");
+        // 🆕 v6.63.883 (Patrick 09.08. Bridge 19:21): 2 Varianten — Krankenkasse zahlt
+        //   (kein Preis im Beleg, Fahrgast bezahlt nix, Rechnung geht an Krankenkasse)
+        //   und Privat (Selbstzahler mit Transportschein-Vordruck — Preis wird
+        //   normal angezeigt und der Fahrgast zahlt selbst).
+        options.add("🏥 Transportschein (Krankenkasse zahlt)");            methods.add("transportschein_kk");
+        options.add("🏥 Transportschein (Privat zahlt selbst — " + amountStr + ")"); methods.add("transportschein_privat");
         options.add("✗ Abbrechen (Fahrt offen lassen)");                  methods.add("cancel");
 
         new AlertDialog.Builder(this)
@@ -3934,17 +3939,31 @@ public class DriverDashboardActivity extends AppCompatActivity {
                     case "invoice_email":
                         showMailInvoiceDialog(r, amount);
                         break;
-                    case "transportschein":
-                        // v6.63.078: Krankenschein wird mitgegeben — Fahrt als bezahlt
-                        //   markieren (Bar-Marker mit transportschein-Flag), Rechnung an
-                        //   Krankenkasse später manuell via CRM. paymentStatus=offen,
-                        //   damit es im Backlog erscheint bis Krankenkasse zahlt.
+                    case "transportschein_kk":
+                        // v6.63.883: Krankenkasse zahlt — Fahrgast bezahlt NICHTS.
+                        //   paymentMethod bleibt 'transportschein' (Kompatibilität mit
+                        //   allen anderen Stellen die diesen String lesen). Extra-Flag
+                        //   transportscheinPayer=krankenkasse steuert die Beleg-Anzeige
+                        //   (kein Preis). Cloud-Function-Rechnung geht an Krankenkasse,
+                        //   nicht an Fahrgast — 10€-Zuzahlung separat.
                         if (db != null && r.id != null) {
                             db.getReference("rides/" + r.id).child("paymentStatus").setValue("offen");
                             db.getReference("rides/" + r.id).child("krankenscheinReceived").setValue(true);
+                            db.getReference("rides/" + r.id).child("transportscheinPayer").setValue("krankenkasse");
                         }
                         markCompleted(r.id, "transportschein", amount, null);
-                        showReceiptStage(r, amount, "transportschein");
+                        showReceiptStage(r, amount, "transportschein_kk");
+                        break;
+                    case "transportschein_privat":
+                        // v6.63.883: Selbstzahler mit Transportschein-Vordruck. Fahrgast
+                        //   zahlt selbst (bar/Karte/Ueberweisung — hier nur als Marker,
+                        //   dass es KEIN Krankenkassen-Fall ist). Preis wird normal
+                        //   angezeigt, Rechnung wie bei Bar an Fahrgast.
+                        if (db != null && r.id != null) {
+                            db.getReference("rides/" + r.id).child("transportscheinPayer").setValue("privat");
+                        }
+                        markCompleted(r.id, "transportschein", amount, null);
+                        showReceiptStage(r, amount, "transportschein_privat");
                         break;
                     case "cancel":      /* nichts tun, Status bleibt picked_up */ break;
                 }
@@ -3967,15 +3986,28 @@ public class DriverDashboardActivity extends AppCompatActivity {
             case "stripe":  methodLabel = "📱 Stripe bezahlt"; break;
             case "ueberweisung": methodLabel = "🏦 Überweisung (14 Tage)"; break;
             case "transportschein": methodLabel = "🏥 Transportschein erhalten"; break;
+            case "transportschein_kk": methodLabel = "🏥 Transportschein — Krankenkasse zahlt"; break;
+            case "transportschein_privat": methodLabel = "🏥 Transportschein — Privat bezahlt"; break;
             default:        methodLabel = paymentMethod;
         }
+        // v6.63.883 (Patrick 09.08. Bridge): Bei Krankenkasse KEIN Preis im Titel/Beleg —
+        //   Fahrgast bezahlt nichts, Betrag geht direkt an Krankenkasse. Anzeige des
+        //   Preises verwirrt den Fahrgast ("die Leute werden nur verrückt").
+        boolean _hidePriceKK = "transportschein_kk".equals(paymentMethod);
         String amountStr = String.format(Locale.GERMANY, "%.2f €", amount);
+        String _title = _hidePriceKK ? ("✅ " + methodLabel) : ("✅ " + methodLabel + " — " + amountStr);
+        String _msg = _hidePriceKK
+            ? ("🏥 Fahrgast bezahlt NICHTS — Krankenkasse zahlt.\n\n" +
+               "Soll für " + displayCustomerName(r) + " eine Rechnung an die Krankenkasse erstellt werden?\n\n" +
+               "Wenn Ja → Rechnung wird generiert (interner Betrag " + amountStr + " für Krankenkasse).\n" +
+               "10€-Zuzahlung wird separat abgerechnet.\n" +
+               "Wenn Nein → nur Krankenschein-Foto reicht.")
+            : ("Soll für " + displayCustomerName(r) + " eine Rechnung erstellt werden?\n\n" +
+               "Wenn Ja → Kunde sieht in track.html '⬇️ Rechnung herunterladen'.\n" +
+               "Wenn Nein → keine Rechnung (Walk-In ohne Beleg).");
         new AlertDialog.Builder(this)
-            .setTitle("✅ " + methodLabel + " — " + amountStr)
-            .setMessage("Soll für " + displayCustomerName(r) +
-                " eine Rechnung erstellt werden?\n\n" +
-                "Wenn Ja → Kunde sieht in track.html '⬇️ Rechnung herunterladen'.\n" +
-                "Wenn Nein → keine Rechnung (Walk-In ohne Beleg).")
+            .setTitle(_title)
+            .setMessage(_msg)
             .setPositiveButton("✅ Ja, Rechnung", (d, w) -> {
                 if (db != null && r.id != null) {
                     Map<String, Object> upd = new HashMap<>();

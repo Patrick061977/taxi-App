@@ -57,6 +57,7 @@ APP_FILES=(
     "tagesplan.html"
     "anfrage.html"
     "urlaub.html"
+    "reise-radar.html"
     "kontakt.html"
     "impressum.html"
     "ausflugsziele.html"

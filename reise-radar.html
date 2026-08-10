@@ -347,15 +347,18 @@ function buildAllInOneCompareBlock(city, d) {
 
       <div style="color:#e879f9;font-weight:600;font-size:12px;margin:12px 0 4px">📦 PAUSCHAL (Flug + Hotel)</div>
       <div style="display:flex;gap:4px;flex-wrap:wrap">
-        <a href="https://reisen.check24.de/pauschalreise?destination=${cityEnc}${from ? '&departureDateFrom=' + from : ''}${to ? '&returnDateTo=' + to : ''}&adults=${pers}${kidsArr.length ? '&children=' + kidsArr.length : ''}&departureAirports=${airports.join(',')}" target="_blank" style="padding:5px 10px;background:#065f46;color:#a7f3d0;border-radius:4px;font-size:11px;text-decoration:none;font-weight:600">Check24</a>
-        <a href="https://www.tui.com/pauschalreisen/${cityLowerEnc}/" target="_blank" style="padding:5px 10px;background:#7f1d1d;color:#fecaca;border-radius:4px;font-size:11px;text-decoration:none">TUI</a>
-        <a href="https://www.dertour.de/suche?q=${cityEnc}${from ? '&anreiseVon=' + from : ''}${to ? '&anreiseBis=' + to : ''}" target="_blank" style="padding:5px 10px;background:#1e3a8a;color:#dbeafe;border-radius:4px;font-size:11px;text-decoration:none">DERTOUR</a>
+        <!-- v0.19 (Patrick 10.08. Bridge): mit Playwright verifiziert (HTTP 200 + Suchtreffer für Mallorca).
+             FTI raus (seit 2024 insolvent). DERTOUR-Deep-Link raus (404, nur Startseite).
+             Expedia raus (Cloudflare-Bot). Opodo raus (Domain Timeout).
+             TUI-URL korrigiert (?searchQuery=). Check24-URL korrigiert (urlaub.check24.de).
+             weg.de-URL korrigiert (/urlaub/{city}/ leitet auf richtige Region). -->
+        <a href="https://urlaub.check24.de/pauschalreisen?destination=${cityEnc}${from ? '&departureDateFrom=' + from : ''}${to ? '&returnDateTo=' + to : ''}&adults=${pers}${kidsArr.length ? '&children=' + kidsArr.length : ''}&departureAirports=${airports.join(',')}" target="_blank" style="padding:5px 10px;background:#065f46;color:#a7f3d0;border-radius:4px;font-size:11px;text-decoration:none;font-weight:600">Check24 (Pauschal)</a>
+        <a href="https://www.tui.com/pauschalreisen/?searchQuery=${cityEnc}" target="_blank" style="padding:5px 10px;background:#7f1d1d;color:#fecaca;border-radius:4px;font-size:11px;text-decoration:none">TUI</a>
         <a href="https://www.ab-in-den-urlaub.de/pauschalreisen/${cityLowerEnc}?abflug=${airports.join(',')}${from ? '&datum-von=' + from : ''}${to ? '&datum-bis=' + to : ''}" target="_blank" style="padding:5px 10px;background:#4c1d95;color:#c4b5fd;border-radius:4px;font-size:11px;text-decoration:none">Ab-in-den-Urlaub</a>
-        <a href="https://www.weg.de/pauschalreisen/${cityLowerEnc}" target="_blank" style="padding:5px 10px;background:#7c2d12;color:#fed7aa;border-radius:4px;font-size:11px;text-decoration:none">weg.de</a>
-        <a href="https://www.fti.de/pauschalreisen/${cityLowerEnc}.html" target="_blank" style="padding:5px 10px;background:#831843;color:#fbcfe8;border-radius:4px;font-size:11px;text-decoration:none">FTI</a>
-        <a href="https://www.expedia.de/Pauschalreisen-${cityLowerEnc.replace(/%20/g, '-')}" target="_blank" style="padding:5px 10px;background:#166534;color:#bbf7d0;border-radius:4px;font-size:11px;text-decoration:none">Expedia</a>
-        <a href="https://www.opodo.de/pauschalreisen/${cityLowerEnc}/" target="_blank" style="padding:5px 10px;background:#1e40af;color:#dbeafe;border-radius:4px;font-size:11px;text-decoration:none">Opodo</a>
+        <a href="https://www.weg.de/urlaub/${cityLowerEnc}/" target="_blank" style="padding:5px 10px;background:#7c2d12;color:#fed7aa;border-radius:4px;font-size:11px;text-decoration:none">weg.de</a>
+        <a href="https://www.dertour.de/" target="_blank" style="padding:5px 10px;background:#1e3a8a;color:#dbeafe;border-radius:4px;font-size:11px;text-decoration:none">DERTOUR (Startseite→selbst suchen)</a>
       </div>
+      <div style="font-size:10px;color:#6b7280;margin-top:4px">FTI (insolvent seit 2024), Expedia (Bot-Sperre), Opodo (Domain-Problem) — entfernt.</div>
 
       <div style="margin-top:12px;padding:8px;background:#0a1020;border-radius:6px;border-left:3px solid #10b981;font-size:11px;line-height:1.5;color:#a7f3d0">
         <b>💡 Rundum-Buchungs-Strategie (in 5 Klicks zum besten Preis):</b><br>

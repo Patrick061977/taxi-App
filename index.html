@@ -13132,7 +13132,7 @@
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
         const APP_VERSION = '6.63.864';
-        const APP_BUILD = '02.08.2026 09:55';
+        const APP_BUILD = '10.08.2026 06:00';
         const APP_CHANGE = 'fix v6.63.643: ✓ Erledigt-Button im Wartepool-Banner + kunden.html Fahrhistorie per CRM-ID (kein globales Limit mehr).';
 
         // 🔧 FIX: Mache APP_VERSION global verfügbar
@@ -61642,7 +61642,38 @@ Falls kein Datum erkennbar: {"error":"Kein Datum erkannt"}`;
         }
 
         // --- OSRM MIT RETRY (bis zu 3 Versuche, wechselnde Endpunkte) ---
+        // 🆕 v6.63.885 (Patrick 10.08. 07:58 Bridge "Web-App auch noch laufen = doppelter
+        //   Traffic"): In-JS Cache für Web-Routes-Calls analog zu Fahrer-App v6.63.882.
+        //   Web-App rief bisher Google Routes API bei jeder Fleet-Map/Fahrt-Preview
+        //   ohne Cache — jeder Klick auf einen Ride = neuer Google-Call. Bei parallel
+        //   offener Native+Web-App verdoppelte sich der Traffic.
+        //   TTL 60s, Key auf 3 Dez gerundet (~110m), separat für Geometry vs no-Geometry
+        //   (weil Google FieldMask sich ändert und Response strukturell anders ist).
+        const _WEB_ROUTE_CACHE_TTL_MS = 60_000;
+        const _webRouteCache = new Map();
+        function _webRouteCacheKey(fromLat, fromLon, toLat, toLon, needGeometry, mode) {
+            const g = needGeometry ? 'g' : 'n';
+            return `${mode}|${g}|${(+fromLat).toFixed(3)},${(+fromLon).toFixed(3)}->${(+toLat).toFixed(3)},${(+toLon).toFixed(3)}`;
+        }
+        function _webRouteCacheGet(fromLat, fromLon, toLat, toLon, needGeometry, mode) {
+            const key = _webRouteCacheKey(fromLat, fromLon, toLat, toLon, needGeometry, mode);
+            const hit = _webRouteCache.get(key);
+            if (!hit) return null;
+            if ((Date.now() - hit.savedAt) >= _WEB_ROUTE_CACHE_TTL_MS) {
+                _webRouteCache.delete(key);
+                return null;
+            }
+            return hit.value;
+        }
+        function _webRouteCacheSet(fromLat, fromLon, toLat, toLon, needGeometry, mode, value) {
+            const key = _webRouteCacheKey(fromLat, fromLon, toLat, toLon, needGeometry, mode);
+            _webRouteCache.set(key, { value, savedAt: Date.now() });
+        }
+
         async function tryOsrmWithRetry(fromLat, fromLon, toLat, toLon, needGeometry, maxRetries) {
+            // v6.63.885 Cache-Check VOR Google-Call
+            const _cached = _webRouteCacheGet(fromLat, fromLon, toLat, toLon, needGeometry, 'single');
+            if (_cached) return { ..._cached, source: (_cached.source || 'google-routes') + '-cache' };
             const overview = needGeometry ? 'full' : 'false';
             const geomParam = needGeometry ? '&geometries=geojson' : '';
             const coords = `${fromLon},${fromLat};${toLon},${toLat}`;
@@ -61686,13 +61717,16 @@ Falls kein Datum erkennbar: {"error":"Kein Datum erkannt"}`;
                             const _shortest = _gRoutes.reduce((a, b) => a.distance <= b.distance ? a : b);
                             _picked = (_shortest.duration - _fastest.duration) <= 5 * 60 ? _shortest : _fastest;
                         }
-                        return {
+                        const _gResult = {
                             distanceKm: (_picked.distance / 1000).toFixed(1),
                             durationMin: Math.ceil(_picked.duration / 60),
                             geometry: _picked.geometry,
                             legs: [],
                             source: 'google-routes'
                         };
+                        // v6.63.885 Cache-Write nach erfolgreichem Google-Call
+                        _webRouteCacheSet(fromLat, fromLon, toLat, toLon, needGeometry, 'single', _gResult);
+                        return _gResult;
                     }
                 } else {
                     console.warn('⚠️ Google Routes HTTP', _gResp.status, '— fallback OSRM');
@@ -61718,13 +61752,16 @@ Falls kein Datum erkennbar: {"error":"Kein Datum erkannt"}`;
 
                     if (data.code === 'Ok' && data.routes && data.routes[0]) {
                         const route = data.routes[0];
-                        return {
+                        const _osrmResult = {
                             distanceKm: (route.distance / 1000).toFixed(1),
                             durationMin: Math.ceil(route.duration / 60),
                             geometry: route.geometry || null,
                             legs: route.legs || [],
                             source: 'osrm'
                         };
+                        // v6.63.885 Cache-Write auch bei OSRM-Fallback (spart weitere OSRM-Calls)
+                        _webRouteCacheSet(fromLat, fromLon, toLat, toLon, needGeometry, 'single', _osrmResult);
+                        return _osrmResult;
                     }
                     console.warn('⚠️ OSRM Versuch ' + attempt + '/' + maxRetries + ': Code=' + (data.code || 'Unknown'));
                 } catch(e) {
@@ -61771,6 +61808,9 @@ Falls kein Datum erkennbar: {"error":"Kein Datum erkannt"}`;
             fromLat = parseFloat(fromLat); fromLon = parseFloat(fromLon);
             toLat = parseFloat(toLat); toLon = parseFloat(toLon);
             if (!fromLat || !fromLon || !toLat || !toLon) return [];
+            // v6.63.885 Cache-Check VOR Google-Call (Route-Picker rechnet oft neu bei Fahrt-Klicks)
+            const _cachedAlts = _webRouteCacheGet(fromLat, fromLon, toLat, toLon, true, 'alternatives');
+            if (_cachedAlts) return _cachedAlts;
             try {
                 const body = {
                     origin: { location: { latLng: { latitude: fromLat, longitude: fromLon } } },
@@ -61792,7 +61832,7 @@ Falls kein Datum erkennbar: {"error":"Kein Datum erkannt"}`;
                 if (!resp.ok) return [];
                 const data = await resp.json();
                 if (!data.routes || !data.routes.length) return [];
-                return data.routes.map((r, i) => ({
+                const _alts = data.routes.map((r, i) => ({
                     index: i,
                     distanceKm: +(r.distanceMeters / 1000).toFixed(1),
                     distanceMeters: r.distanceMeters,
@@ -61801,6 +61841,9 @@ Falls kein Datum erkennbar: {"error":"Kein Datum erkannt"}`;
                     geometry: r.polyline?.geoJsonLinestring || null,
                     description: r.description || ''
                 }));
+                // v6.63.885 Cache-Write nach erfolgreichem Google-Call
+                _webRouteCacheSet(fromLat, fromLon, toLat, toLon, true, 'alternatives', _alts);
+                return _alts;
             } catch (e) {
                 console.warn('fetchRouteAlternatives Fehler:', e.message);
                 return [];

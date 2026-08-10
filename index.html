@@ -13132,7 +13132,7 @@
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
         const APP_VERSION = '6.63.864';
-        const APP_BUILD = '10.08.2026 06:00';
+        const APP_BUILD = '10.08.2026 06:22';
         const APP_CHANGE = 'fix v6.63.643: ✓ Erledigt-Button im Wartepool-Banner + kunden.html Fahrhistorie per CRM-ID (kein globales Limit mehr).';
 
         // 🔧 FIX: Mache APP_VERSION global verfügbar
@@ -25198,12 +25198,17 @@ Aktuell: ${currentNum}`;
                     if (window.fleetOverviewInterval) {
                         clearInterval(window.fleetOverviewInterval);
                     }
+                    // v6.63.886 (Patrick 10.08. Bridge "versuch den traffic zu reduzieren"):
+                    //   Auto-Refresh 5s → 15s. refreshFleetMap ruft db.ref('vehicles/rides').once('value')
+                    //   = kompletter Baum bei JEDEM Refresh. Bei 5s = 720 Reads/h × Baum-Größe = ~316 MB/h.
+                    //   Für Dispo-Übersicht reicht 15s Aktualisierung völlig (Fahrzeug-Positionen bewegen
+                    //   sich nicht sekundenschnell wenn zwischen Fahrten).
                     window.fleetOverviewInterval = setInterval(() => {
                         if (currentView === 'fleet-overview' && typeof refreshFleetMapOverview === 'function') {
-                            console.log('🔄 Auto-Update Fahrzeugübersicht...');
+                            console.log('🔄 Auto-Update Fahrzeugübersicht (15s)...');
                             refreshFleetMapOverview();
                         }
-                    }, 5000);
+                    }, 15000);
                 }, 100);
             } else {
                 // 🆕 v5.90.525: ZEIGE Anruf-Button wieder!

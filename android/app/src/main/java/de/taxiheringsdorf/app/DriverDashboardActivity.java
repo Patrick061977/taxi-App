@@ -3840,51 +3840,46 @@ public class DriverDashboardActivity extends AppCompatActivity {
         //   der stripePaymentStatus='paid' setzt, kann verspätet kommen. Ohne diesen
         //   Fix erschien die 'Schon bezahlt'-Option nicht und der Fahrer wählte notgedrungen
         //   Bar → Rechnung sagte "Bar erhalten" statt "Bezahlt per Stripe".
+        // v6.63.887 (Patrick 10.08. 10:34 Bridge "Bar sollte oben als erstes, dann
+        //   Stripe, dann wie es ist. Alles was neu ist nach unten, Vorkasse vor
+        //   Transportschein"): Reihenfolge komplett neu sortiert. Alltag zuerst
+        //   (Bar/Stripe/Karte), Sonderfälle unten (Vorkasse/Transportschein).
         boolean _alreadyPaid = "paid".equalsIgnoreCase(r.stripePaymentStatus)
             || "vorkasse".equalsIgnoreCase(r.paymentMethod);
         boolean _prepaidContext = _alreadyPaid
             || "stripe".equalsIgnoreCase(r.paymentMethod)
             || (r.stripeCheckoutUrl != null && !r.stripeCheckoutUrl.isEmpty());
-        if (_alreadyPaid) {
-            options.add("✅ Schon bezahlt (Vorkasse/Stripe) — nur abschließen");
-            methods.add("vorkasse_prepaid");
-        } else if (_prepaidContext) {
-            // Vorkasse-Link vorhanden, Bezahl-Status noch nicht bestätigt (pending) —
-            // Kunde hat vermutlich schon bezahlt, Webhook lahmt oder wurde nicht gepingt.
-            options.add("✅ Vorkasse bezahlt (Kunde hat Link/Terminal genutzt)");
-            methods.add("vorkasse_prepaid");
-        } else {
-            // 🆕 v6.63.884 (Patrick 09.08. 20:16 Bridge: "Wenn jemand Vorkasse bezahlt
-            //   hat muss das aber auch am Schluß auswählbar sein"):
-            //   Auch wenn kein Stripe-Flag/Vorkasse-Kontext gesetzt ist (z.B. Kunde
-            //   hat manuell auf Konto überwiesen und Patrick trägt die Vorbestellung
-            //   nur ohne stripe-Flag ein) — Option immer anbieten, damit der Fahrer
-            //   die Fahrt ohne erneutes Kassieren abschließen kann.
-            options.add("✅ Vorkasse schon eingegangen (nur abschließen)");
-            methods.add("vorkasse_prepaid");
-        }
+
+        // 1) Bar — Standard, immer oben
         options.add("💵 Bar (" + amountStr + ")");                        methods.add("cash");
-        options.add("💳 iZettle Karte (" + amountStr + ")");              methods.add("izettle");
+        // 2) Stripe-QR — häufige Alternative
         options.add("📱 Stripe-QR (" + amountStr + ")");                  methods.add("stripe");
+        // 3) iZettle Karte
+        options.add("💳 iZettle Karte (" + amountStr + ")");              methods.add("izettle");
+        // 4) Auftraggeber (wenn vorhanden — Hotel/Klinik/Firma)
         if (hasAuftraggeber) {
             options.add("🏨 An " + (hotelName != null ? hotelName : "Auftraggeber") + " abrechnen");
             methods.add("invoice_auftraggeber");
         }
-        // 🆕 v6.63.352 (Patrick 16.06. 07:08 Bridge: "bei Herrn Meier Überweisung
-        //   eingetragen aber Rechnung als Barrechnung erstellt"): Eigener Button
-        //   für Überweisung. Cloud-Mapping in invoice-html.js Z62-64 setzt
-        //   automatisch Footer "Zahlbar innerhalb von 14 Tagen ohne Abzug."
+        // 5) Überweisung (14-Tage-Zahlungsziel)
         options.add("🏦 Überweisung (" + amountStr + ")");                  methods.add("ueberweisung");
+        // 6) Email-Rechnung
         options.add("✉ Email-Rechnung");                                  methods.add("invoice_email");
-        // 🆕 v6.63.078 (Patrick 01.06. Bridge "Krankenschein-Fahrten brauchen eigene
-        //   Zahlart"): Transportschein für Krankenkasse-Abrechnung. Beleg verbleibt
-        //   beim Fahrer; Cloud-Function-Rechnung kann später nachgeholt werden.
-        // 🆕 v6.63.883 (Patrick 09.08. Bridge 19:21): 2 Varianten — Krankenkasse zahlt
-        //   (kein Preis im Beleg, Fahrgast bezahlt nix, Rechnung geht an Krankenkasse)
-        //   und Privat (Selbstzahler mit Transportschein-Vordruck — Preis wird
-        //   normal angezeigt und der Fahrgast zahlt selbst).
+        // 7) Vorkasse (drei Varianten je nach Kontext) — vor Transportschein einsortiert
+        if (_alreadyPaid) {
+            options.add("✅ Schon bezahlt (Vorkasse/Stripe) — nur abschließen");
+            methods.add("vorkasse_prepaid");
+        } else if (_prepaidContext) {
+            options.add("✅ Vorkasse bezahlt (Kunde hat Link/Terminal genutzt)");
+            methods.add("vorkasse_prepaid");
+        } else {
+            options.add("✅ Vorkasse schon eingegangen (nur abschließen)");
+            methods.add("vorkasse_prepaid");
+        }
+        // 8+9) Transportschein (Krankenkasse / Privat)
         options.add("🏥 Transportschein (Krankenkasse zahlt)");            methods.add("transportschein_kk");
         options.add("🏥 Transportschein (Privat zahlt selbst — " + amountStr + ")"); methods.add("transportschein_privat");
+        // 10) Abbrechen ganz unten
         options.add("✗ Abbrechen (Fahrt offen lassen)");                  methods.add("cancel");
 
         new AlertDialog.Builder(this)

@@ -58,6 +58,7 @@ APP_FILES=(
     "anfrage.html"
     "urlaub.html"
     "reise-radar.html"
+    "taxi-preise.html"
     "kontakt.html"
     "impressum.html"
     "ausflugsziele.html"

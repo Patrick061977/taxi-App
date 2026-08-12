@@ -212,8 +212,11 @@ def main():
         sday = start.date()
         # Selbstzahler-Erkennung: SZ als eigenes Wort, Selbstzahler, sz!, etc.
         # v2 Patrick 12.08.2026 (Loddin-Bug): auch Tippfehler "Selbszahler" (ohne 't') matchen
+        # v3 Patrick 12.08.2026 (Bansin 22.08.-Bug): "sebstzahler" (ohne 'l') matchen
+        # Sehr tolerant: alles das mit 's' anfaengt + auf 'zahler' endet (max 6 Zeichen dazwischen).
+        # False-positives ("Barzahler", "Vorauszahler") starten nicht mit 's' → safe.
         combined = title + ' ' + descr
-        is_sz = bool(re.search(r'(?<![A-Za-z])(SZ|sz)(?![A-Za-z])|[Ss]elbs[tz]?zahler|SELBSZ?ZAHLER', combined))
+        is_sz = bool(re.search(r'(?<![A-Za-z])(SZ|sz)(?![A-Za-z])|\b[Ss][a-z]{1,6}zahler\b|SELB[STZ]{0,3}ZAHLER', combined))
         kind = classify_ride(title, descr)
         # Patrick 02.08. 12:05: Sonstiges impliziert SZ (Selbstzahler) → SZ-Spalte auch fuellen
         if kind == 'sonstiges' and not is_sz:

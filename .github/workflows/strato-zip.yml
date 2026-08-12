@@ -24,6 +24,7 @@ on:
       - 'fahrer-map.html'
       - 'urlaub.html'
       - 'reise-radar.html'
+      - 'taxi-preise.html'
       - 'berlin.html'
       - 'berlin-uebersicht.html'
       - 'tagesplan.html'

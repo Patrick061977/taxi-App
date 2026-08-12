@@ -13132,7 +13132,7 @@
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
         const APP_VERSION = '6.63.864';
-        const APP_BUILD = '10.08.2026 06:22';
+        const APP_BUILD = '12.08.2026 05:52';
         const APP_CHANGE = 'fix v6.63.643: ✓ Erledigt-Button im Wartepool-Banner + kunden.html Fahrhistorie per CRM-ID (kein globales Limit mehr).';
 
         // 🔧 FIX: Mache APP_VERSION global verfügbar
@@ -61676,17 +61676,57 @@ Falls kein Datum erkennbar: {"error":"Kein Datum erkannt"}`;
         }
 
         async function tryOsrmWithRetry(fromLat, fromLon, toLat, toLon, needGeometry, maxRetries) {
-            // v6.63.885 Cache-Check VOR Google-Call
+            // v6.63.885 Cache-Check
             const _cached = _webRouteCacheGet(fromLat, fromLon, toLat, toLon, needGeometry, 'single');
-            if (_cached) return { ..._cached, source: (_cached.source || 'google-routes') + '-cache' };
+            if (_cached) return { ..._cached, source: (_cached.source || 'route') + '-cache' };
             const overview = needGeometry ? 'full' : 'false';
             const geomParam = needGeometry ? '&geometries=geojson' : '';
             const coords = `${fromLon},${fromLat};${toLon},${toLat}`;
             const params = `?overview=${overview}${geomParam}`;
 
-            // 🆕 v6.63.220 (Patrick 07.06. 14:10 "Karte zeigt immer noch falsche Route in der Web App"):
-            //   Google Routes API als primäre Quelle — OSRM nahm falsch getaggte Fußwege
-            //   in OSM als befahrbar. Routes API liefert realistische Auto-Routen.
+            // v6.63.888 (Patrick 12.08. Bridge "wofür Routes wenn Traffic nicht genutzt"):
+            //   Reihenfolge umgedreht — OSRM zuerst (kostenlos, für Usedom ausreichend),
+            //   Google Routes nur als Fallback wenn OSRM fehlschlägt. Der historische
+            //   v6.63.220-Grund (OSM tagged Fußwege als befahrbar) trifft auf Usedom
+            //   praktisch nicht zu (überschaubares Straßennetz, gute OSM-Daten).
+            //   Spart in Kombination mit dem Cache 50-80 % weitere Google-Calls.
+            const osrmEndpoints = [
+                `https://router.project-osrm.org/route/v1/driving/${coords}${params}`,
+                `https://routing.openstreetmap.de/routed-car/route/v1/driving/${coords}${params}`
+            ];
+
+            for (let attempt = 1; attempt <= maxRetries; attempt++) {
+                const url = osrmEndpoints[(attempt - 1) % osrmEndpoints.length];
+                try {
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s statt 8s
+                    const resp = await fetch(url, { signal: controller.signal });
+                    clearTimeout(timeoutId);
+                    const data = await resp.json();
+
+                    if (data.code === 'Ok' && data.routes && data.routes[0]) {
+                        const route = data.routes[0];
+                        const _osrmResult = {
+                            distanceKm: (route.distance / 1000).toFixed(1),
+                            durationMin: Math.ceil(route.duration / 60),
+                            geometry: route.geometry || null,
+                            legs: route.legs || [],
+                            source: 'osrm-primary'
+                        };
+                        // Cache-Write auch bei OSRM (spart Folge-Calls, egal von welcher Quelle)
+                        _webRouteCacheSet(fromLat, fromLon, toLat, toLon, needGeometry, 'single', _osrmResult);
+                        return _osrmResult;
+                    }
+                    console.warn('⚠️ OSRM Versuch ' + attempt + '/' + maxRetries + ': Code=' + (data.code || 'Unknown'));
+                } catch(e) {
+                    console.warn('⚠️ OSRM Versuch ' + attempt + '/' + maxRetries + ' fehlgeschlagen:', e.message);
+                }
+                if (attempt < maxRetries) {
+                    await new Promise(r => setTimeout(r, attempt * 1500)); // 1.5s, 3s Pause
+                }
+            }
+            // v6.63.888 Google Routes als LETZTER Netz-Fallback (kostet Geld — nur wenn
+            // OSRM komplett fehlschlägt). Historisch Primary, jetzt Fallback.
             try {
                 const _gBody = {
                     origin: { location: { latLng: { latitude: fromLat, longitude: fromLon } } },
@@ -61727,54 +61767,15 @@ Falls kein Datum erkennbar: {"error":"Kein Datum erkannt"}`;
                             durationMin: Math.ceil(_picked.duration / 60),
                             geometry: _picked.geometry,
                             legs: [],
-                            source: 'google-routes'
+                            source: 'google-routes-fallback'
                         };
-                        // v6.63.885 Cache-Write nach erfolgreichem Google-Call
                         _webRouteCacheSet(fromLat, fromLon, toLat, toLon, needGeometry, 'single', _gResult);
+                        console.warn('⚠️ Google Routes als Fallback benutzt (OSRM fehlgeschlagen)');
                         return _gResult;
                     }
-                } else {
-                    console.warn('⚠️ Google Routes HTTP', _gResp.status, '— fallback OSRM');
                 }
             } catch (_gErr) {
-                console.warn('⚠️ Google Routes fail:', _gErr.message, '— fallback OSRM');
-            }
-
-            // OSRM-Fallback
-            const osrmEndpoints = [
-                `https://router.project-osrm.org/route/v1/driving/${coords}${params}`,
-                `https://routing.openstreetmap.de/routed-car/route/v1/driving/${coords}${params}`
-            ];
-
-            for (let attempt = 1; attempt <= maxRetries; attempt++) {
-                const url = osrmEndpoints[(attempt - 1) % osrmEndpoints.length];
-                try {
-                    const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s statt 8s
-                    const resp = await fetch(url, { signal: controller.signal });
-                    clearTimeout(timeoutId);
-                    const data = await resp.json();
-
-                    if (data.code === 'Ok' && data.routes && data.routes[0]) {
-                        const route = data.routes[0];
-                        const _osrmResult = {
-                            distanceKm: (route.distance / 1000).toFixed(1),
-                            durationMin: Math.ceil(route.duration / 60),
-                            geometry: route.geometry || null,
-                            legs: route.legs || [],
-                            source: 'osrm'
-                        };
-                        // v6.63.885 Cache-Write auch bei OSRM-Fallback (spart weitere OSRM-Calls)
-                        _webRouteCacheSet(fromLat, fromLon, toLat, toLon, needGeometry, 'single', _osrmResult);
-                        return _osrmResult;
-                    }
-                    console.warn('⚠️ OSRM Versuch ' + attempt + '/' + maxRetries + ': Code=' + (data.code || 'Unknown'));
-                } catch(e) {
-                    console.warn('⚠️ OSRM Versuch ' + attempt + '/' + maxRetries + ' fehlgeschlagen:', e.message);
-                }
-                if (attempt < maxRetries) {
-                    await new Promise(r => setTimeout(r, attempt * 1500)); // 1.5s, 3s Pause
-                }
+                console.warn('⚠️ Google-Routes-Fallback fail:', _gErr.message);
             }
             return null;
         }

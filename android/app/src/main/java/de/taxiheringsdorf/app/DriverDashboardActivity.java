@@ -891,10 +891,20 @@ public class DriverDashboardActivity extends AppCompatActivity {
 
     private void fetchOsrmETA(String rideId, double fromLat, double fromLon, double toLat, double toLon, String mode) {
         new Thread(() -> {
-            // 🆕 v6.62.968 (Patrick 26.05.): Google Routes API NEW als primaeres Routing.
-            // TRAFFIC_AWARE liefert Live-Verkehrslage. OSRM bleibt als Fallback, Haversine
-            // als Notfall (keine Netz/keine Routing-Engine).
-            if (tryGoogleRoute(rideId, fromLat, fromLon, toLat, toLon, mode)) return;
+            // v6.63.888 (Patrick 12.08. 07:31 Bridge "wofür brauchen wir Routes eigentlich,
+            //   Traffic nutzen wir doch gar nicht"): Reihenfolge umgedreht. OSRM ist jetzt
+            //   PRIMARY (gratis, für Usedom präzise genug — wenig Stau, klare Straßen).
+            //   Google Routes nur noch als Fallback wenn OSRM fehlschlägt. Spart 50-80 %
+            //   der Routes-Kosten oben auf den v6.63.882-Cache-Fix.
+            //   Cache-Check am Anfang deckt BEIDE Wege ab (OSRM+Google schreiben in
+            //   denselben Cache), 60s TTL.
+            String cacheKey = routeCacheKey(fromLat, fromLon, toLat, toLon);
+            GoogleRouteCacheEntry cached = googleRouteCache.get(cacheKey);
+            long nowMs = System.currentTimeMillis();
+            if (cached != null && (nowMs - cached.savedAt) < GOOGLE_ROUTES_CACHE_TTL_MS) {
+                applyEtaResult(rideId, cached.durationMin, cached.distanceKm, fromLat, fromLon, mode, "route-cached");
+                return;
+            }
             try {
                 String url = String.format(Locale.US,
                     "https://router.project-osrm.org/route/v1/driving/%f,%f;%f,%f?overview=false",
@@ -904,25 +914,38 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 conn.setReadTimeout(5000);
                 conn.setRequestProperty("User-Agent", "FunkTaxiHeringsdorf-DriverApp");
                 int code = conn.getResponseCode();
-                if (code != 200) { conn.disconnect(); return; }
-                java.io.BufferedReader br = new java.io.BufferedReader(new java.io.InputStreamReader(conn.getInputStream()));
-                StringBuilder sb = new StringBuilder();
-                String line;
-                while ((line = br.readLine()) != null) sb.append(line);
-                br.close();
-                conn.disconnect();
-                org.json.JSONObject json = new org.json.JSONObject(sb.toString());
-                if (!json.has("routes")) return;
-                org.json.JSONArray routes = json.getJSONArray("routes");
-                if (routes.length() == 0) return;
-                double durationSec = routes.getJSONObject(0).getDouble("duration");
-                int durationMin = Math.max(1, (int) Math.round(durationSec / 60.0));
-                double distanceMeters = routes.getJSONObject(0).optDouble("distance", 0);
-                double distanceKm = Math.round(distanceMeters / 100.0) / 10.0;
-                applyEtaResult(rideId, durationMin, distanceKm, fromLat, fromLon, mode, "osrm-fallback");
+                if (code == 200) {
+                    java.io.BufferedReader br = new java.io.BufferedReader(new java.io.InputStreamReader(conn.getInputStream()));
+                    StringBuilder sb = new StringBuilder();
+                    String line;
+                    while ((line = br.readLine()) != null) sb.append(line);
+                    br.close();
+                    conn.disconnect();
+                    org.json.JSONObject json = new org.json.JSONObject(sb.toString());
+                    if (json.has("routes")) {
+                        org.json.JSONArray routes = json.getJSONArray("routes");
+                        if (routes.length() > 0) {
+                            double durationSec = routes.getJSONObject(0).getDouble("duration");
+                            int durationMin = Math.max(1, (int) Math.round(durationSec / 60.0));
+                            double distanceMeters = routes.getJSONObject(0).optDouble("distance", 0);
+                            double distanceKm = Math.round(distanceMeters / 100.0) / 10.0;
+                            // v6.63.888 Cache-Write auch bei OSRM-Erfolg (spart weitere OSRM- und Google-Calls)
+                            googleRouteCache.put(cacheKey, new GoogleRouteCacheEntry(durationMin, distanceKm, System.currentTimeMillis()));
+                            applyEtaResult(rideId, durationMin, distanceKm, fromLat, fromLon, mode, "osrm-primary");
+                            return;
+                        }
+                    }
+                } else {
+                    conn.disconnect();
+                }
+                // OSRM lieferte kein brauchbares Ergebnis → Google als Fallback (kostet Geld)
+                if (tryGoogleRoute(rideId, fromLat, fromLon, toLat, toLon, mode)) return;
+                Log.w(TAG, "OSRM leer + Google-Fallback fehlgeschlagen fuer ride " + rideId);
             } catch (Exception e) {
-                Log.w(TAG, "OSRM-ETA fuer ride " + rideId + " fehlgeschlagen: " + e.getMessage());
+                Log.w(TAG, "OSRM-ETA fuer ride " + rideId + " fehlgeschlagen: " + e.getMessage() + " — Google-Fallback");
                 logEtaDebug(rideId, "fetch-error", fromLat, fromLon, e.getMessage());
+                // OSRM Netzfehler → Google-Fallback (Ausnahme: kostet Geld)
+                if (tryGoogleRoute(rideId, fromLat, fromLon, toLat, toLon, mode)) return;
                 // 🆕 v6.62.607: Haversine-Fallback wenn OSRM nicht antwortet.
                 // Patrick (11.05. 12:29): "GPS ist exakt, aber Native zeigt 5 Min obwohl ich
                 // schon da bin. Track-HTML hat das hin, Fahrer-App nicht."

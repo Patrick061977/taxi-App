@@ -111,6 +111,12 @@
 
   <!-- CONTENT-SEITEN (Long-Tail-SEO) -->
   <url>
+    <loc>https://umwelt-taxi-insel-usedom.de/taxi-preise.html</loc>
+    <lastmod>2026-08-12</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
     <loc>https://umwelt-taxi-insel-usedom.de/ausflugsziele.html</loc>
     <lastmod>2026-07-09</lastmod>
     <changefreq>monthly</changefreq>

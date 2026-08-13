@@ -212,15 +212,23 @@
     <!-- v6.63.268 (Patrick 10.06. 12:39 ADB-Live-Debug): paddingBottom 180→260dp damit die letzten
          Card-Buttons NICHT mehr von der EINSTEIGER-Bottom-Bar (147dp hoch) verdeckt werden.
          UI-Dump zeigte: 2. Bin-unterwegs-Button y=1898-2020, Bottom-Bar y=1915-2062 → 105px Overlap. -->
+    <!-- v6.63.889 (Patrick 13.08. Bridge Hasbargen-Bug): Scroll bei 3+ Rides funktioniert nicht.
+         Fixes: (1) scrollbars="vertical" + fastScrollEnabled damit Scroll-Indicator sichtbar,
+         (2) paddingBottom 260→180dp, (3) explizit scrollbarStyle so dass Scroll immer aktiv ist,
+         (4) descendantFocusability damit Card-Klicks Scroll nicht blockieren. -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rv_rides"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:padding="12dp"
         android:clipToPadding="false"
-        android:paddingBottom="260dp"
+        android:paddingBottom="180dp"
         android:nestedScrollingEnabled="true"
         android:overScrollMode="always"
+        android:scrollbars="vertical"
+        android:scrollbarStyle="insideOverlay"
+        android:descendantFocusability="beforeDescendants"
+        android:focusableInTouchMode="false"
         app:layout_behavior="@string/appbar_scrolling_view_behavior" />
 
     <LinearLayout

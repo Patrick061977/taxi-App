@@ -235,9 +235,9 @@ footer a {{ color:#f59e0b; text-decoration:none; }}
     <a href="landing.html">→ Taxi Heringsdorf · Ahlbeck · Bansin (Startseite)</a>
     <a href="flughafen-heringsdorf.html">→ Flughafentransfer Heringsdorf</a>
     <a href="berlin.html">→ Berlin-Shuttle Usedom</a>
-    <a href="taxi-bahnhof-heringsdorf.html">→ Bahnhoftaxi Heringsdorf</a>
-    <a href="taxi-bahnhof-ahlbeck.html">→ Bahnhoftaxi Ahlbeck</a>
-    <a href="taxi-bahnhof-bansin.html">→ Bahnhoftaxi Bansin</a>
+    <a href="taxi-bahnhof-heringsdorf.html">→ Taxi Bahnhof Heringsdorf</a>
+    <a href="taxi-bahnhof-ahlbeck.html">→ Taxi Bahnhof Ahlbeck</a>
+    <a href="taxi-bahnhof-bansin.html">→ Taxi Bahnhof Bansin</a>
     <a href="taxi-hotel-usedom.html">→ Hotel-Transfer Insel Usedom</a>
     <a href="taxi-preise.html">→ Preisliste alle Strecken</a>
 </div>

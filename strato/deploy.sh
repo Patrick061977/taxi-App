@@ -123,13 +123,15 @@ done
 # taxi-preise.html, taxi-swinemuende.html, taxi-heringsdorf-*.html, taxi-ahlbeck-*.html,
 # taxi-22022.html, taxi-usedom-*.html und alle künftigen Long-Tail-Landings.
 TAXI_LANDING_COUNT=0
-for taxi_file in "$PROJECT_ROOT"/taxi-*.html; do
-    if [ -f "$taxi_file" ]; then
-        cp "$taxi_file" "$OUTPUT_DIR/Taxi-App/$(basename "$taxi_file")"
-        TAXI_LANDING_COUNT=$((TAXI_LANDING_COUNT + 1))
-    fi
+for pattern in taxi-*.html grosstaxi-*.html sammeltaxi-*.html ruftaxi-*.html krankenfahrt-*.html; do
+    for taxi_file in "$PROJECT_ROOT"/$pattern; do
+        if [ -f "$taxi_file" ]; then
+            cp "$taxi_file" "$OUTPUT_DIR/Taxi-App/$(basename "$taxi_file")"
+            TAXI_LANDING_COUNT=$((TAXI_LANDING_COUNT + 1))
+        fi
+    done
 done
-echo "   -> taxi-*.html Landing-Pages: $TAXI_LANDING_COUNT Stück"
+echo "   -> taxi/grosstaxi/sammeltaxi/ruftaxi/krankenfahrt-*.html: $TAXI_LANDING_COUNT Stück"
 
 # 🆕 v6.62.594: POI-Bilder mitkopieren (Wikipedia-Hotlink war geblockt → lokal hosten)
 if [ -d "$PROJECT_ROOT/images" ]; then

@@ -30,3 +30,4 @@ keystore.properties
 .playwright-mcp/
 .hale-baseline-*/
 *.log
+scripts/_pois-cache.json

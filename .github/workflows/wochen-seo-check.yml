@@ -1,0 +1,31 @@
+name: Wochen-SEO-Check (Montags)
+
+# Patrick 14.08.2026: „und dann beobachtest du jede woche was passiert"
+# → jeden Montag 07:57 Berlin-Zeit (Sommer=UTC+2 → 05:57 UTC, Winter=UTC+1 → 06:57 UTC)
+# Kompromiss: 06:00 UTC = 08:00 CEST / 07:00 CET — jetzt Sommerzeit, passt.
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'   # Montags 06:00 UTC
+  workflow_dispatch:       # Manuell auslösen jederzeit
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Firebase CLI
+        run: npm install -g firebase-tools
+
+      - name: Run SEO-Check
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+          TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+        run: node scripts/wochen-seo-check.js

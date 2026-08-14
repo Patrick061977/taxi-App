@@ -27,21 +27,33 @@ def build(ort, hdf_km, swi_km, ahl_km, bansin_km, koords_url):
     slug = _de_umlaut(f'taxi-{ort.lower()}-heringsdorf')
     ort_title = ort.title()
 
+    # Preisberechnung nach Landestarif MV (settings/tarif in Firebase):
+    # Grundgebühr 4 EUR, km 1-2 = 3.30/km, km 3-4 = 2.80/km, ab 5 = 2.20/km
+    def p(km):
+        if km <= 2: return round(4 + km*3.30)
+        if km <= 4: return round(4 + 6.60 + (km-2)*2.80)
+        return round(16.20 + (km-4)*2.20)
+    preis_hdf = p(hdf_km)
+    preis_flg = p(hdf_km + 3)
+    preis_ahl = p(ahl_km)
+    preis_ban = p(bansin_km)
+    preis_swi = p(swi_km) + 5  # +5 EUR Grenz-Aufschlag
+
     preis_table = f'''
 <section>
 <div class="card">
 <h2>Festpreise ab {ort_title} — Richtung Kaiserbäder & Świnoujście</h2>
-<p>Wir fahren Sie direkt vom {ort_title}er Ferienhaus, Hotel oder Ferienwohnung zum gewünschten Ziel — Festpreis, keine Umsteigerei, 24/7.</p>
+<p>Wir fahren Sie direkt vom {ort_title}er Ferienhaus, Hotel oder Ferienwohnung zum gewünschten Ziel — Festpreis nach Landestarif MV, keine Umsteigerei, 24/7.</p>
 <table>
 <tr><th>Ab {ort_title}</th><th>Nach</th><th>Distanz</th><th>Preis (Festpreis)</th></tr>
-<tr><td>{ort_title}</td><td>Heringsdorf Zentrum</td><td>~{hdf_km} km</td><td class="price">{hdf_km*2 + 5} EUR</td></tr>
-<tr><td>{ort_title}</td><td>Bahnhof Heringsdorf</td><td>~{hdf_km} km</td><td class="price">{hdf_km*2 + 5} EUR</td></tr>
-<tr><td>{ort_title}</td><td>Flughafen Heringsdorf</td><td>~{hdf_km+3} km</td><td class="price">{(hdf_km+3)*2 + 8} EUR</td></tr>
-<tr><td>{ort_title}</td><td>Ahlbeck</td><td>~{ahl_km} km</td><td class="price">{ahl_km*2 + 5} EUR</td></tr>
-<tr><td>{ort_title}</td><td>Bansin</td><td>~{bansin_km} km</td><td class="price">{bansin_km*2 + 5} EUR</td></tr>
-<tr><td>{ort_title}</td><td>Świnoujście (Zentrum)</td><td>~{swi_km} km</td><td class="price">{swi_km*2 + 10} EUR</td></tr>
+<tr><td>{ort_title}</td><td>Heringsdorf Zentrum</td><td>~{hdf_km} km</td><td class="price">{preis_hdf} EUR</td></tr>
+<tr><td>{ort_title}</td><td>Bahnhof Heringsdorf</td><td>~{hdf_km} km</td><td class="price">{preis_hdf} EUR</td></tr>
+<tr><td>{ort_title}</td><td>Flughafen Heringsdorf</td><td>~{hdf_km+3} km</td><td class="price">{preis_flg} EUR</td></tr>
+<tr><td>{ort_title}</td><td>Ahlbeck</td><td>~{ahl_km} km</td><td class="price">{preis_ahl} EUR</td></tr>
+<tr><td>{ort_title}</td><td>Bansin</td><td>~{bansin_km} km</td><td class="price">{preis_ban} EUR</td></tr>
+<tr><td>{ort_title}</td><td>Świnoujście (Zentrum)</td><td>~{swi_km} km</td><td class="price">{preis_swi} EUR</td></tr>
 </table>
-<p style="margin-top:12px;font-size:13px;color:#64748b;">Preise für Standard-PKW (bis 4 Pers.). Großraum-Taxi (bis 8 Pers.) +10 EUR. Nachtzuschlag +5 EUR (22–6 Uhr, So/Feiertag).</p>
+<p style="margin-top:12px;font-size:13px;color:#64748b;">Preise nach Landestarif MV für Standard-PKW (bis 4 Pers.). Grundgebühr 4 EUR + gestaffelter Kilometerpreis. Großraum-Taxi (bis 8 Pers.) +10 EUR. Nachtzuschlag Grundgebühr 5,50 EUR (22–6 Uhr, So/Feiertag). Grenzfahrt Świnoujście +5 EUR Aufschlag.</p>
 </div>
 </section>
 '''
@@ -71,7 +83,7 @@ def build(ort, hdf_km, swi_km, ahl_km, bansin_km, koords_url):
         (f'Wie lange dauert die Fahrt {ort_title} → Heringsdorf?',
          f'Ca. {int(hdf_km*1.5)} Minuten je nach Verkehr. Die Strecke geht entlang der Küste über die B111.'),
         (f'Kann ich vom Flughafen Heringsdorf abgeholt werden nach {ort_title}?',
-         f'Ja — bitte Flug-Nummer und geplante Landezeit angeben, wir warten am Terminal. Festpreis ca. {(hdf_km+3)*2 + 8} EUR.'),
+         f'Ja — bitte Flug-Nummer und geplante Landezeit angeben, wir warten am Terminal. Festpreis ca. {preis_flg} EUR.'),
         (f'Fahren Sie nachts von {ort_title} nach Świnoujście?',
          'Ja, 24/7. Nachtzuschlag +5 EUR. Der Grenzübergang bei Ahlbeck ist rund um die Uhr offen.'),
         ('Kann ich für die Rückfahrt eine feste Uhrzeit buchen?',

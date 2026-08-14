@@ -118,27 +118,18 @@ for file in "${APP_FILES[@]}"; do
     fi
 done
 
-# 🆕 v6.63.890 (14.08.2026): POI-Landing-Pages (aus scripts/generate-poi-landings.py)
-# Alle taxi-zu-*.html werden automatisch mitkopiert — dynamisch generiert aus Firebase /pois.
-POI_LANDING_COUNT=0
-for poi_file in "$PROJECT_ROOT"/taxi-zu-*.html; do
-    if [ -f "$poi_file" ]; then
-        cp "$poi_file" "$OUTPUT_DIR/Taxi-App/$(basename "$poi_file")"
-        POI_LANDING_COUNT=$((POI_LANDING_COUNT + 1))
+# 🆕 v6.63.890+ (14.08.2026): Alle taxi-*.html Landing-Pages automatisch mitkopieren.
+# Deckt ab: taxi-zu-*.html (POIs), taxi-bahnhof-*.html, taxi-hotel-usedom.html,
+# taxi-preise.html, taxi-swinemuende.html, taxi-heringsdorf-*.html, taxi-ahlbeck-*.html,
+# taxi-22022.html, taxi-usedom-*.html und alle künftigen Long-Tail-Landings.
+TAXI_LANDING_COUNT=0
+for taxi_file in "$PROJECT_ROOT"/taxi-*.html; do
+    if [ -f "$taxi_file" ]; then
+        cp "$taxi_file" "$OUTPUT_DIR/Taxi-App/$(basename "$taxi_file")"
+        TAXI_LANDING_COUNT=$((TAXI_LANDING_COUNT + 1))
     fi
 done
-echo "   -> POI-Landing-Pages: $POI_LANDING_COUNT Stück"
-
-# Auch taxi-bahnhof-*.html + taxi-hotel-usedom.html + taxi-preise.html
-# (die sind schon in SEO_PAGES nicht drin!)
-for extra in taxi-bahnhof-*.html taxi-hotel-usedom.html taxi-preise.html; do
-    for f in "$PROJECT_ROOT"/$extra; do
-        if [ -f "$f" ]; then
-            cp "$f" "$OUTPUT_DIR/Taxi-App/$(basename "$f")"
-            echo "   -> $(basename "$f")"
-        fi
-    done
-done
+echo "   -> taxi-*.html Landing-Pages: $TAXI_LANDING_COUNT Stück"
 
 # 🆕 v6.62.594: POI-Bilder mitkopieren (Wikipedia-Hotlink war geblockt → lokal hosten)
 if [ -d "$PROJECT_ROOT/images" ]; then

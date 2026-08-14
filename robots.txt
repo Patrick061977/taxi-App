@@ -31,5 +31,7 @@ Disallow: /konflikt-tester.html
 Disallow: /jimdo-buttons.html
 Disallow: /datetime-picker.html
 Disallow: /app-download.html
+Disallow: /reise-radar.html
+Disallow: /urlaub.html
 
 Sitemap: https://umwelt-taxi-insel-usedom.de/sitemap.xml

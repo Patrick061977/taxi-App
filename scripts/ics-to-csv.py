@@ -217,6 +217,10 @@ def main():
         # False-positives ("Barzahler", "Vorauszahler") starten nicht mit 's' → safe.
         combined = title + ' ' + descr
         is_sz = bool(re.search(r'(?<![A-Za-z])(SZ|sz)(?![A-Za-z])|\b[Ss][a-z]{1,6}zahler\b|SELB[STZ]{0,3}ZAHLER', combined))
+        # v4 Patrick 16.08.2026 (Strandhotel 26.01.26 Glatteis-Storno-Fahrten):
+        # Wenn Titel/Beschreibung "Storniert"/"Storno" enthaelt → nie abrechnen (0 EUR).
+        # Fahrt wurde nicht durchgefuehrt, darf nicht in Hotel-Rechnung.
+        is_storno = bool(re.search(r'\b[Ss]torn(iert|o)\b', combined))
         kind = classify_ride(title, descr)
         # Patrick 02.08. 12:05: Sonstiges impliziert SZ (Selbstzahler) → SZ-Spalte auch fuellen
         if kind == 'sonstiges' and not is_sz:
@@ -226,7 +230,10 @@ def main():
         # der Titel das Wort "Selbstzahler" enthaelt oder nicht.
         if not is_sz and has_private_destination(title, descr):
             is_sz = True
-        price = compute_price(start, kind, is_sz)
+        # Storno hat Prioritaet: nie abrechnen egal welche Kategorie
+        if is_storno:
+            is_sz = True
+        price = 0.0 if is_storno else compute_price(start, kind, is_sz)
         rows.append({
             'sdate': start.strftime('%d.%m.%y'),
             'stime': start.strftime('%H:%M'),

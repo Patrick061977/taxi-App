@@ -378,7 +378,9 @@ async function googleRoutesDrivingMin(fromLat, fromLon, toLat, toLon) {
                 origin: { location: { latLng: { latitude: fromLat, longitude: fromLon } } },
                 destination: { location: { latLng: { latitude: toLat, longitude: toLon } } },
                 travelMode: 'DRIVE',
-                routingPreference: 'TRAFFIC_AWARE'
+                // v6.63.892: TRAFFIC_UNAWARE statt _AWARE — Insel Usedom hat keinen Stau,
+                // AWARE kostet mehr Google-Contingent ohne Zusatznutzen (Patrick 16.08.)
+                routingPreference: 'TRAFFIC_UNAWARE'
             }),
             signal: AbortSignal.timeout(6000)
         });
@@ -5638,7 +5640,12 @@ async function calculateRoute(from, to, waypointCoords = []) {
             destination: { location: { latLng: { latitude: to.lat, longitude: to.lon } } },
             travelMode: 'DRIVE',
             routingPreference: 'TRAFFIC_UNAWARE',
-            computeAlternativeRoutes: true
+            // v6.63.892 (Patrick 16.08. nach Cost-Explosion 165€/13d = 360€/Monat):
+            // computeAlternativeRoutes: true → Google fakturiert PRO Route.
+            // Bei 3 Alternativen = 3× Kosten pro Call. Wir nutzten nur die kürzeste
+            // (siehe _allRoutes.sort → _allRoutes[0]) — Alternativen waren purer Overhead.
+            // Umschalten spart -66% der Routes-API-Kosten sofort.
+            computeAlternativeRoutes: false
         };
         if (waypointCoords && waypointCoords.length > 0) {
             body.intermediates = waypointCoords.map(wp => ({

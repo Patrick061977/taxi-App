@@ -13131,8 +13131,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '6.63.864';
-        const APP_BUILD = '12.08.2026 05:52';
+        const APP_VERSION = '6.63.892';
+        const APP_BUILD = '16.08.2026 07:34';
         const APP_CHANGE = 'fix v6.63.643: ✓ Erledigt-Button im Wartepool-Banner + kunden.html Fahrhistorie per CRM-ID (kein globales Limit mehr).';
 
         // 🔧 FIX: Mache APP_VERSION global verfügbar
@@ -61176,6 +61176,12 @@ Falls kein Datum erkennbar: {"error":"Kein Datum erkannt"}`;
             console.log('📍 v5.90.727: newRideData:', newRideData ? 'vorhanden' : 'fehlt');
             
             // 🆕 v5.90.119: Prüfe ob Zielort vorhanden!
+            // v6.63.892: conflictingRide selbst kann undefined sein → Crash-Report 15.08.
+            // Fahrer pw-my-222-e: 'Cannot read properties of undefined (reading destCoords)'.
+            if (!conflictingRide) {
+                console.warn('⚠️ calculateAlternativeTimes: conflictingRide fehlt komplett');
+                return [];
+            }
             if (!conflictingRide.destCoords) {
                 console.warn('⚠️ WARNUNG: Zielort der blockierenden Fahrt fehlt!');
                 console.warn('   Fahrt-ID:', conflictingRide.firebaseId || conflictingRide.id);

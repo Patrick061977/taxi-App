@@ -595,4 +595,46 @@
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
+
+  <url>
+    <loc>https://umwelt-taxi-insel-usedom.de/landing-en.html</loc>
+    <lastmod>2026-08-16</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+
+  <url>
+    <loc>https://umwelt-taxi-insel-usedom.de/landing-pl.html</loc>
+    <lastmod>2026-08-16</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+
+  <url>
+    <loc>https://umwelt-taxi-insel-usedom.de/taxi-swinemuende-en.html</loc>
+    <lastmod>2026-08-16</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+
+  <url>
+    <loc>https://umwelt-taxi-insel-usedom.de/taxi-swinemuende-pl.html</loc>
+    <lastmod>2026-08-16</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+
+  <url>
+    <loc>https://umwelt-taxi-insel-usedom.de/flughafen-heringsdorf-en.html</loc>
+    <lastmod>2026-08-16</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+
+  <url>
+    <loc>https://umwelt-taxi-insel-usedom.de/flughafen-heringsdorf-pl.html</loc>
+    <lastmod>2026-08-16</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
 </urlset>

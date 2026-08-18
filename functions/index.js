@@ -39006,8 +39006,33 @@ exports.onSmsQueued = onValueCreated(
             // v6.62.94: Typo gefixt — war 'pw-my-222-e' (m statt y), das Vehicle gibt's
             // gar nicht. Wenn das Setting fehlte, fiel der Fallback ins Leere und SMS
             // landeten still im Macrodroid-Pfad. Korrekt: pw-ym-222-e.
-            const gwSnap = await db.ref('settings/sms/gatewayVehicleId').once('value');
-            const gatewayVid = gwSnap.val() || 'pw-ym-222-e';
+            //
+            // 🆕 v6.63.893 (Patrick 18.08. 11:15 Bridge — SMS-Gateway an USER binden,
+            // nicht ans Fahrzeug): Zuerst `settings/sms/gatewayUserId` prüfen — wenn
+            // gesetzt, suche das Fahrzeug wo shift.userId === gatewayUserId + FCM-Token
+            // vorhanden. Damit fährt Patricks Handy als SMS-Gateway mit — egal auf welchem
+            // Fahrzeug er sich anmeldet. Wenn Gateway-User gerade nirgends eingeloggt →
+            // Fallback auf altes gatewayVehicleId-Setting.
+            let gatewayVid = null;
+            try {
+                const gwUserSnap = await db.ref('settings/sms/gatewayUserId').once('value');
+                const gatewayUserId = gwUserSnap.val();
+                if (gatewayUserId) {
+                    const vSnap = await db.ref('vehicles').once('value');
+                    vSnap.forEach(child => {
+                        if (gatewayVid) return; // schon gefunden
+                        const v = child.val() || {};
+                        const s = v.shift || {};
+                        if (s.userId === gatewayUserId && s.status === 'active' && v.fcmToken && v.fcmToken.token) {
+                            gatewayVid = child.key;
+                        }
+                    });
+                }
+            } catch (_gwErr) { console.warn('SMS-Gateway User-Lookup Fehler:', _gwErr.message); }
+            if (!gatewayVid) {
+                const gwSnap = await db.ref('settings/sms/gatewayVehicleId').once('value');
+                gatewayVid = gwSnap.val() || 'pw-ym-222-e';
+            }
 
             const fcmOk = await sendFCMToVehicle(gatewayVid, {
                 type: 'send_sms',

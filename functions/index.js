@@ -41685,85 +41685,16 @@ exports.onRideEnteredWartepool = onValueUpdated(
 
             // 🆕 v6.63.906 (Patrick 18.08. 20:28 "Gibt's nicht den KI-Dispatcher? Kontrolliert er nicht?"):
             //   Nach regel-basiertem Push zusätzlich KI-Dispatcher auslösen — er prüft
-            //   Wochenplan + Schichten + andere Rides und macht konkreten Vorschlag
-            //   (z.B. "Springer YM freischalten für Marion"). Bisher hing askDispatcherKI
-            //   nur an HTTP-Endpoint, wurde nie automatisch beim Wartepool aufgerufen.
+            //   Wochenplan + Schichten + andere Rides und macht konkreten Vorschlag.
+            // 🔧 v6.63.908: nutzt jetzt zentrale buildDispatcherContext (Berlin-Zeit + Wochentag-Schicht).
             try {
-                const vSnap = await db.ref('vehicles').once('value');
-                const vehicles = {};
-                vSnap.forEach(c => {
-                    const v = c.val() || {};
-                    vehicles[c.key] = {
-                        name: v.name, plate: v.plate,
-                        shift: v.shift ? { status: v.shift.status, driverName: v.shift.driverName } : null,
-                        hasFcm: !!(v.fcmToken && v.fcmToken.token)
-                    };
-                });
-                const shSnap = await db.ref('vehicleShifts').once('value');
-                const vehicleShifts = shSnap.val() || {};
-                const pickupDate = new Date(after.pickupTimestamp || Date.now());
-                const wDay = pickupDate.getDay(); // 0=So, 1=Mo, ..., 6=Sa
-                // Nur relevante defaultTimes-Slots für den Pickup-Wochentag rausziehen
-                const shiftsForDay = {};
-                Object.entries(vehicleShifts).forEach(([vid, cfg]) => {
-                    if (!cfg || typeof cfg !== 'object') return;
-                    const dt = cfg.defaultTimes;
-                    if (Array.isArray(dt) && dt[wDay]) {
-                        shiftsForDay[vid] = dt[wDay];
-                    } else if (dt && typeof dt === 'object' && dt[String(wDay)]) {
-                        shiftsForDay[vid] = dt[String(wDay)];
-                    }
-                    const ex = cfg.exceptions && cfg.exceptions[pickupDate.toISOString().slice(0, 10)];
-                    if (ex) shiftsForDay[vid + '_exception'] = ex;
-                });
-                const window = 90 * 60 * 1000;
-                const ridesSnap = await db.ref('rides').once('value');
-                const relatedRides = [];
-                ridesSnap.forEach(c => {
-                    const r = c.val() || {};
-                    if (!r.pickupTimestamp || !after.pickupTimestamp) return;
-                    if (Math.abs(r.pickupTimestamp - after.pickupTimestamp) > window) return;
-                    if (c.key === rideId) return;
-                    if (['cancelled', 'deleted', 'completed', 'rejected'].includes(r.status)) return;
-                    relatedRides.push({
-                        id: c.key,
-                        pickupTime: new Date(r.pickupTimestamp).toISOString(),
-                        status: r.status,
-                        assignedVehicle: r.assignedVehicle,
-                        assignedVehicleName: r.assignedVehicleName,
-                        customerName: r.customerName,
-                        pickup: (r.pickup || '').slice(0, 60),
-                        destination: (r.destination || '').slice(0, 60),
-                        duration: r.duration,
-                        distance: r.distance,
-                        isBahnhofPickup: /bahnhof/i.test(r.pickup || ''),
-                        isBahnhofDest: /bahnhof/i.test(r.destination || '')
-                    });
-                });
-                const context = {
-                    ride: {
-                        id: rideId,
-                        pickupTime: new Date(after.pickupTimestamp).toISOString(),
-                        pickupWeekday: ['So','Mo','Di','Mi','Do','Fr','Sa'][wDay],
-                        status: after.status,
-                        pickup: after.pickup,
-                        destination: after.destination,
-                        duration: after.duration,
-                        distance: after.distance,
-                        customerName: after.customerName,
-                        passengers: after.passengers,
-                        isBahnhofPickup: /bahnhof/i.test(after.pickup || ''),
-                        isBahnhofDest: /bahnhof/i.test(after.destination || '')
-                    },
-                    fahrzeuge_live: vehicles,
-                    fahrzeuge_schichtplan_fuer_pickup_tag: shiftsForDay,
-                    konfliktKandidaten: relatedRides,
+                const context = await buildDispatcherContext(rideId, after, {
                     wartepoolReason: reason,
                     kategorieAusRegeln: category
-                };
+                });
                 await askDispatcherKI(rideId, context);
             } catch (_kiErr) {
-                console.error('KI-Dispatcher-Aufruf (v906) Fehler:', _kiErr.message);
+                console.error('KI-Dispatcher-Aufruf (v906/v908) Fehler:', _kiErr.message);
             }
         } catch (e) {
             console.error('onRideEnteredWartepool Fehler:', e);
@@ -42416,6 +42347,103 @@ Antworte in JSON (nur JSON, kein Prosa):
     }
 }
 
+// 🆕 v6.63.908 (Patrick 18.08. 20:44 Marion-Test zeigte 04:45 statt 06:45 +
+//   KI sah Marina-Erbe-Konflikt nicht): einheitlicher Kontext-Builder.
+//   Berlin-Zeit statt UTC, Wochentag-Schicht mit rein, relatedRides ohne
+//   assignedVehicle-Filter (sonst greift bei Wartepool-Rides — kein Vehicle —
+//   überhaupt nichts).
+async function buildDispatcherContext(rideId, ride, extra = {}) {
+    const _fmtBerlin = ts => ts ? new Date(ts).toLocaleString('de-DE', {
+        timeZone: 'Europe/Berlin', day: '2-digit', month: '2-digit',
+        year: 'numeric', hour: '2-digit', minute: '2-digit'
+    }) : null;
+    const vSnap = await db.ref('vehicles').once('value');
+    const vehicles = {};
+    vSnap.forEach(c => {
+        const v = c.val() || {};
+        vehicles[c.key] = {
+            name: v.name || null,
+            plate: v.plate || null,
+            shift: v.shift ? {
+                status: v.shift.status || null,
+                driverName: v.shift.driverName || null,
+                lastHeartbeat: v.shift.lastHeartbeat ? _fmtBerlin(v.shift.lastHeartbeat) : null
+            } : null,
+            hasFcm: !!(v.fcmToken && v.fcmToken.token)
+        };
+    });
+    const shSnap = await db.ref('vehicleShifts').once('value');
+    const vehicleShifts = shSnap.val() || {};
+    const pickupDate = new Date(ride.pickupTimestamp || Date.now());
+    // getDay() nach Berlin — nicht UTC (deshalb via toLocaleString-Umweg)
+    const berlinDateStr = pickupDate.toLocaleString('en-US', { timeZone: 'Europe/Berlin' });
+    const berlinDate = new Date(berlinDateStr);
+    const wDay = berlinDate.getDay(); // 0=So..6=Sa
+    const isoDate = berlinDate.toISOString().slice(0, 10);
+    const shiftsForDay = {};
+    Object.entries(vehicleShifts).forEach(([vid, cfg]) => {
+        if (!cfg || typeof cfg !== 'object') return;
+        const dt = cfg.defaultTimes;
+        if (Array.isArray(dt) && dt[wDay]) {
+            shiftsForDay[vid] = { startTime: dt[wDay].startTime, endTime: dt[wDay].endTime };
+        } else if (dt && typeof dt === 'object' && dt[String(wDay)]) {
+            shiftsForDay[vid] = { startTime: dt[String(wDay)].startTime, endTime: dt[String(wDay)].endTime };
+        }
+        const ex = cfg.exceptions && cfg.exceptions[isoDate];
+        if (ex) shiftsForDay[vid + '_exception'] = ex;
+    });
+    const window = 90 * 60 * 1000;
+    const ridesSnap = await db.ref('rides').once('value');
+    const relatedRides = [];
+    ridesSnap.forEach(c => {
+        const r = c.val() || {};
+        if (!r.pickupTimestamp || !ride.pickupTimestamp) return;
+        if (Math.abs(r.pickupTimestamp - ride.pickupTimestamp) > window) return;
+        if (c.key === rideId) return;
+        if (['cancelled', 'deleted', 'completed', 'rejected'].includes(r.status)) return;
+        relatedRides.push({
+            id: c.key,
+            pickupTimeBerlin: _fmtBerlin(r.pickupTimestamp),
+            status: r.status,
+            assignedVehicle: r.assignedVehicle || null,
+            assignedVehicleName: r.assignedVehicleName || null,
+            customerName: r.customerName || null,
+            pickup: (r.pickup || '').slice(0, 60),
+            destination: (r.destination || '').slice(0, 60),
+            duration: r.duration,
+            distance: r.distance,
+            isBahnhofPickup: /bahnhof/i.test(r.pickup || ''),
+            isBahnhofDest: /bahnhof/i.test(r.destination || ''),
+            isFlughafenPickup: /flughafen|airport/i.test(r.pickup || ''),
+            isFlughafenDest: /flughafen|airport/i.test(r.destination || '')
+        });
+    });
+    return {
+        ride: {
+            id: rideId,
+            pickupTimeBerlin: _fmtBerlin(ride.pickupTimestamp),
+            pickupWeekday: ['So','Mo','Di','Mi','Do','Fr','Sa'][wDay],
+            status: ride.status,
+            pickup: ride.pickup,
+            destination: ride.destination,
+            assignedVehicle: ride.assignedVehicle || null,
+            duration: ride.duration,
+            distance: ride.distance,
+            customerName: ride.customerName,
+            passengers: ride.passengers || 1,
+            isSofortfahrt: !!ride.isSofortfahrt,
+            isBahnhofPickup: /bahnhof/i.test(ride.pickup || ''),
+            isBahnhofDest: /bahnhof/i.test(ride.destination || ''),
+            isFlughafenPickup: /flughafen|airport/i.test(ride.pickup || ''),
+            isFlughafenDest: /flughafen|airport/i.test(ride.destination || '')
+        },
+        fahrzeuge_live: vehicles,
+        fahrzeuge_schichtplan_fuer_pickup_tag: shiftsForDay,
+        konfliktKandidaten: relatedRides,
+        ...extra
+    };
+}
+
 // HTTP-Endpoint für manuellen Test
 exports.askDispatcherKI = onRequest(
     { region: 'europe-west1', timeoutSeconds: 60, cors: true },
@@ -42425,37 +42453,9 @@ exports.askDispatcherKI = onRequest(
         const rideSnap = await db.ref(`rides/${rideId}`).once('value');
         const ride = rideSnap.val();
         if (!ride) return res.status(404).json({ error: 'ride nicht gefunden' });
-        // Kontext: die Fahrt selbst + alle aktiven Fahrzeuge + andere Fahrten im ±60min-Fenster desselben Fahrzeugs
-        const vSnap = await db.ref('vehicles').once('value');
-        const vehicles = {};
-        vSnap.forEach(c => { const v = c.val() || {}; vehicles[c.key] = {
-            name: v.name, plate: v.plate,
-            shift: v.shift ? { status: v.shift.status, driverName: v.shift.driverName, userId: v.shift.userId } : null,
-            hasFcm: !!(v.fcmToken && v.fcmToken.token)
-        }; });
-        const window = 60 * 60 * 1000;
-        const ridesSnap = await db.ref('rides').once('value');
-        const relatedRides = [];
-        ridesSnap.forEach(c => {
-            const r = c.val() || {};
-            if (!r.pickupTimestamp || !ride.pickupTimestamp) return;
-            if (Math.abs(r.pickupTimestamp - ride.pickupTimestamp) > window) return;
-            if (c.key === rideId) return;
-            if (r.assignedVehicle !== ride.assignedVehicle) return;
-            relatedRides.push({ id: c.key, pickupTime: new Date(r.pickupTimestamp).toISOString(),
-                status: r.status, pickup: (r.pickup||'').slice(0,60), destination: (r.destination||'').slice(0,60),
-                duration: r.duration, distance: r.distance });
+        const context = await buildDispatcherContext(rideId, ride, {
+            wartepoolReason: ride.autoAssignLastReason || ride.wartepoolReason || null
         });
-        const context = {
-            ride: {
-                id: rideId, pickupTime: new Date(ride.pickupTimestamp).toISOString(),
-                status: ride.status, pickup: ride.pickup, destination: ride.destination,
-                assignedVehicle: ride.assignedVehicle, duration: ride.duration, distance: ride.distance,
-                customerName: ride.customerName, isSofortfahrt: !!ride.isSofortfahrt
-            },
-            fahrzeuge: vehicles,
-            konfliktKandidaten: relatedRides
-        };
         const result = await askDispatcherKI(rideId, context);
         res.status(200).json(result);
     }

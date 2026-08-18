@@ -42360,8 +42360,13 @@ Antworte in JSON (nur JSON, kein Prosa):
 
         // Log für Lernen
         const decisionId = 'D-' + Date.now();
+        // 🐛 v6.63.907 (Patrick 18.08. 20:34 Marion-KI-Test):
+        //   Firebase.set() akzeptiert kein `undefined` in Werten. conflictContext
+        //   enthält häufig undefined-Felder (assignedVehicle bei Wartepool-Rides
+        //   fehlt oft ganz). JSON-Roundtrip entfernt alle undefined sauber.
+        const _safeContext = JSON.parse(JSON.stringify(conflictContext));
         await db.ref(`dispatcher/decisions/${decisionId}`).set({
-            rideId, conflictContext, kiResponse: parsed,
+            rideId, conflictContext: _safeContext, kiResponse: parsed,
             createdAt: Date.now(), status: 'pending'
         });
 

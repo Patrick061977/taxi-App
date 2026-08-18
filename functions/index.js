@@ -21192,6 +21192,50 @@ exports.autoResolveConflicts = onSchedule(
                     allActiveAssignedRides.push(r);
                 }
             });
+
+            // 🕐 v6.63.902 (Patrick 18.08. 16:20 Bridge 'das system soll es machen'):
+            // NACHTRÄGLICHER SCHICHT-CHECK — Fahrten die vor v900 zugewiesen wurden werden
+            // hier alle 15 Min geprüft. Wenn assignedVehicle zur pickup-Zeit keine Schicht
+            // hat → Fahrzeug entfernen für Re-Assign.
+            for (const _r of allRides) {
+                if (!_r.assignedVehicle || !_r.pickupTimestamp) continue;
+                if (['on_way','picked_up','arrived','completed','cancelled','deleted'].includes(_r.status)) continue;
+                const _vShift = shiftsData[_r.assignedVehicle];
+                if (!_vShift) continue;
+                const _pTz = new Date(new Date(_r.pickupTimestamp).toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
+                const _dow = _pTz.getDay();
+                const _dIdx = _dow === 0 ? 6 : _dow - 1;
+                const _defs = _vShift.defaults || [];
+                const _dayActive = Array.isArray(_defs) && _defs[_dIdx] === true;
+                let _inShift = false;
+                if (_dayActive) {
+                    const _dt = (_vShift.defaultTimes || [])[_dIdx];
+                    if (_dt && _dt.startTime && _dt.endTime) {
+                        const _hh = _pTz.getHours().toString().padStart(2,'0') + ':' + _pTz.getMinutes().toString().padStart(2,'0');
+                        _inShift = _hh >= _dt.startTime && _hh <= _dt.endTime;
+                    }
+                }
+                if (!_inShift) {
+                    try {
+                        await db.ref(`rides/${_r.firebaseId}`).update({
+                            assignedVehicle: null, vehicleId: null, assignedTo: null,
+                            assignedVehicleName: null, assignedVehiclePlate: null,
+                            assignedBy: 'cloud-arc-sweep-v6.63.902', assignedAt: null,
+                            assignmentLocked: null,
+                            shiftCheckFailedAt: Date.now(),
+                            shiftCheckFailedReason: `${_r.assignedVehicle} keine Schicht zur Pickup-Zeit ${new Date(_r.pickupTimestamp).toISOString()}`,
+                            resetBy: 'cloud-arc-sweep-v6.63.902', resetForAssignAt: Date.now()
+                        });
+                        await addRideLog(_r.firebaseId, '🕐', `v6.63.902 Nachtraeglicher Schicht-Check: ${_r.assignedVehicle} keine Schicht — Fahrzeug entfernt fuer Re-Assign`, {});
+                        console.log(`🕐 v6.63.902 ARC-Sweep: ${_r.firebaseId} — ${_r.assignedVehicle} keine Schicht, entfernt`);
+                        // Aus allRides raus + zu unassignedRides für sofortige Re-Assign in nachfolgender Loop
+                        _r.assignedVehicle = null;
+                        unassignedRides.push(_r);
+                    } catch (_arcErr) {
+                        console.warn(`v6.63.902 ARC-Sweep-Fehler ${_r.firebaseId}: ${_arcErr.message}`);
+                    }
+                }
+            }
             // 🐛 v6.63.274 (Patrick 10.06. 15:53 B): Vorlauf-Filter UEBERSPRINGEN bei
             //   echtem Zeit-Konflikt auf demselben Vehicle. Mathes/Nautic 16:30 wurden
             //   nicht angefasst weil 21 Min Vorlauf < 60 Min. Fix: vor der Phase-3-

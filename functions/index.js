@@ -29236,6 +29236,69 @@ exports.onRideUpdated = onValueUpdated(
             console.error('v6.63.829 Kapazitäts-Guard Fehler:', _capErr.message);
         }
 
+        // 🕐 v6.63.900 (Patrick 18.08. 15:35 Bridge: "IK hat ja keinen Dienst mehr,
+        //   normal müsste doch das System bei Änderungen den Wagen prüfen"):
+        //   Bei Zeit-Änderung prüfen ob assignedVehicle zur NEUEN Zeit noch Schicht hat.
+        //   Wenn nein: Fahrzeug zurücksetzen + Re-Assign triggern.
+        try {
+            const _beforePts = before.pickupTimestamp || 0;
+            const _afterPts = after.pickupTimestamp || 0;
+            const _vidNow = after.assignedVehicle || after.vehicleId;
+            const _statusNow = (after.status || '').toLowerCase();
+            const _timeChanged = _afterPts && _beforePts && Math.abs(_afterPts - _beforePts) > 60_000;
+            // Nur bei vorbestellt/accepted/assigned — laufende Fahrten nie anfassen
+            const _resetableStatus = ['vorbestellt','accepted','assigned'].includes(_statusNow);
+            if (_timeChanged && _vidNow && _resetableStatus) {
+                const shiftSnap = await db.ref(`vehicleShifts/${_vidNow}`).once('value');
+                const shiftCfg = shiftSnap.val() || {};
+                // Check ob Fahrzeug zur neuen Uhrzeit Schicht hat
+                const _newDate = new Date(_afterPts);
+                const _tz = new Date(_newDate.toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
+                const _dow = _tz.getDay(); // 0=So, 1=Mo, ..., 6=Sa
+                // JS-Sonntag=0, unser defaults-Array Mo=0 → mapping: Mo=1→0, Di=2→1, ..., Sa=6→5, So=0→6
+                const _defaultsIdx = _dow === 0 ? 6 : _dow - 1;
+                const _defaults = shiftCfg.defaults || [];
+                const _dayActive = Array.isArray(_defaults) && _defaults[_defaultsIdx] === true;
+                let _inShift = false;
+                if (_dayActive) {
+                    const _times = shiftCfg.defaultTimes || [];
+                    const _dayTimes = _times[_defaultsIdx];
+                    if (_dayTimes && _dayTimes.startTime && _dayTimes.endTime) {
+                        const _hhmm = _tz.getHours().toString().padStart(2,'0') + ':' + _tz.getMinutes().toString().padStart(2,'0');
+                        _inShift = _hhmm >= _dayTimes.startTime && _hhmm <= _dayTimes.endTime;
+                    }
+                }
+                if (!_inShift) {
+                    console.warn(`🕐 v6.63.900 Zeit-Änderung + Fahrzeug ${_vidNow} hat keine Schicht zu neuer Zeit → assignedVehicle zurücksetzen`);
+                    await db.ref(`rides/${rideId}`).update({
+                        assignedVehicle: null,
+                        vehicleId: null,
+                        assignedTo: null,
+                        assignedVehicleName: null,
+                        assignedVehiclePlate: null,
+                        assignedBy: 'cloud-shift-check-v6.63.900',
+                        assignedAt: null,
+                        assignmentLocked: null,
+                        shiftCheckFailedAt: Date.now(),
+                        shiftCheckFailedReason: `${_vidNow} keine Schicht zur neuen Zeit ${new Date(_afterPts).toISOString()}`,
+                        resetBy: 'cloud-shift-check-v6.63.900',
+                        resetForAssignAt: Date.now()
+                    });
+                    await addRideLog(rideId, '🕐', `v6.63.900 Zeit-Änderung → Fahrzeug ${_vidNow} keine Schicht → zurückgesetzt für Re-Assign`, {
+                        vorherZeit: new Date(_beforePts).toISOString(),
+                        neueZeit: new Date(_afterPts).toISOString(),
+                        fahrzeug: _vidNow
+                    });
+                    try {
+                        await sendToAllAdmins(`🕐 <b>Zeit-Änderung + Schicht-Konflikt</b>\n\n${after.customerName || '?'} · neu ${new Date(_afterPts).toLocaleTimeString('de-DE',{timeZone:'Europe/Berlin',hour:'2-digit',minute:'2-digit'})}\n${_vidNow} hat keine Schicht zur neuen Zeit — Fahrzeug entfernt, Re-Assign läuft.`);
+                    } catch(_) {}
+                    return; // Nächster Cron macht Neu-Zuweisung
+                }
+            }
+        } catch (_shiftErr) {
+            console.error('v6.63.900 Shift-Check bei Zeit-Änderung Fehler:', _shiftErr.message);
+        }
+
         // 🛑 v6.62.625: LOOP-BREAKER — onRideUpdated feuert auf JEDES Kind-Feld inkl. lifecycleLog.
         // addRideLog pusht in lifecycleLog → triggert onRideUpdated → ggf. neuer addRideLog → ∞.
         // Beobachtet: Hasbargen/Emina/Werner/Villen-Park mit je 2400+ Log-Einträgen → 1MB Rides

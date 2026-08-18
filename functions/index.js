@@ -41682,6 +41682,89 @@ exports.onRideEnteredWartepool = onValueUpdated(
             });
             await db.ref(`rides/${rideId}/wartepoolDetectivePushed`).set(true);
             console.log(`🚨 WP-Detective Push (${category}): ${after.customerName} ${pickup}`);
+
+            // 🆕 v6.63.906 (Patrick 18.08. 20:28 "Gibt's nicht den KI-Dispatcher? Kontrolliert er nicht?"):
+            //   Nach regel-basiertem Push zusätzlich KI-Dispatcher auslösen — er prüft
+            //   Wochenplan + Schichten + andere Rides und macht konkreten Vorschlag
+            //   (z.B. "Springer YM freischalten für Marion"). Bisher hing askDispatcherKI
+            //   nur an HTTP-Endpoint, wurde nie automatisch beim Wartepool aufgerufen.
+            try {
+                const vSnap = await db.ref('vehicles').once('value');
+                const vehicles = {};
+                vSnap.forEach(c => {
+                    const v = c.val() || {};
+                    vehicles[c.key] = {
+                        name: v.name, plate: v.plate,
+                        shift: v.shift ? { status: v.shift.status, driverName: v.shift.driverName } : null,
+                        hasFcm: !!(v.fcmToken && v.fcmToken.token)
+                    };
+                });
+                const shSnap = await db.ref('vehicleShifts').once('value');
+                const vehicleShifts = shSnap.val() || {};
+                const pickupDate = new Date(after.pickupTimestamp || Date.now());
+                const wDay = pickupDate.getDay(); // 0=So, 1=Mo, ..., 6=Sa
+                // Nur relevante defaultTimes-Slots für den Pickup-Wochentag rausziehen
+                const shiftsForDay = {};
+                Object.entries(vehicleShifts).forEach(([vid, cfg]) => {
+                    if (!cfg || typeof cfg !== 'object') return;
+                    const dt = cfg.defaultTimes;
+                    if (Array.isArray(dt) && dt[wDay]) {
+                        shiftsForDay[vid] = dt[wDay];
+                    } else if (dt && typeof dt === 'object' && dt[String(wDay)]) {
+                        shiftsForDay[vid] = dt[String(wDay)];
+                    }
+                    const ex = cfg.exceptions && cfg.exceptions[pickupDate.toISOString().slice(0, 10)];
+                    if (ex) shiftsForDay[vid + '_exception'] = ex;
+                });
+                const window = 90 * 60 * 1000;
+                const ridesSnap = await db.ref('rides').once('value');
+                const relatedRides = [];
+                ridesSnap.forEach(c => {
+                    const r = c.val() || {};
+                    if (!r.pickupTimestamp || !after.pickupTimestamp) return;
+                    if (Math.abs(r.pickupTimestamp - after.pickupTimestamp) > window) return;
+                    if (c.key === rideId) return;
+                    if (['cancelled', 'deleted', 'completed', 'rejected'].includes(r.status)) return;
+                    relatedRides.push({
+                        id: c.key,
+                        pickupTime: new Date(r.pickupTimestamp).toISOString(),
+                        status: r.status,
+                        assignedVehicle: r.assignedVehicle,
+                        assignedVehicleName: r.assignedVehicleName,
+                        customerName: r.customerName,
+                        pickup: (r.pickup || '').slice(0, 60),
+                        destination: (r.destination || '').slice(0, 60),
+                        duration: r.duration,
+                        distance: r.distance,
+                        isBahnhofPickup: /bahnhof/i.test(r.pickup || ''),
+                        isBahnhofDest: /bahnhof/i.test(r.destination || '')
+                    });
+                });
+                const context = {
+                    ride: {
+                        id: rideId,
+                        pickupTime: new Date(after.pickupTimestamp).toISOString(),
+                        pickupWeekday: ['So','Mo','Di','Mi','Do','Fr','Sa'][wDay],
+                        status: after.status,
+                        pickup: after.pickup,
+                        destination: after.destination,
+                        duration: after.duration,
+                        distance: after.distance,
+                        customerName: after.customerName,
+                        passengers: after.passengers,
+                        isBahnhofPickup: /bahnhof/i.test(after.pickup || ''),
+                        isBahnhofDest: /bahnhof/i.test(after.destination || '')
+                    },
+                    fahrzeuge_live: vehicles,
+                    fahrzeuge_schichtplan_fuer_pickup_tag: shiftsForDay,
+                    konfliktKandidaten: relatedRides,
+                    wartepoolReason: reason,
+                    kategorieAusRegeln: category
+                };
+                await askDispatcherKI(rideId, context);
+            } catch (_kiErr) {
+                console.error('KI-Dispatcher-Aufruf (v906) Fehler:', _kiErr.message);
+            }
         } catch (e) {
             console.error('onRideEnteredWartepool Fehler:', e);
         }

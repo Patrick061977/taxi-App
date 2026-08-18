@@ -40370,6 +40370,15 @@ exports.rideAction = onRequest(
                     assignedAt: null,
                     assignedBy: null,
                     assignmentExpiresAt: null,
+                    // 🐛 v6.63.905 (Patrick 18.08. 17:56 Jäckel-Zombie):
+                    //   Nach Reject blieben Name/Plate/Label als Phantom stehen —
+                    //   Wartepool-Card + "Kein Fahrzeug"-Filter prüfen (auch) diese
+                    //   Felder → Fahrt wurde nirgends angezeigt. Alle 4 Anzeige-Felder
+                    //   müssen zusammen mit assignedVehicle gecleart werden.
+                    assignedVehicleName: null,
+                    assignedVehiclePlate: null,
+                    vehicleLabel: null,
+                    vehiclePlate: null,
                     // 🐛 v6.63.877 (Patrick 07.08. 20:37 Nielsen-Bug): Vorbestellung
                     //   soll VORBESTELLT bleiben nach Reject, nicht auf 'new' downgeraded.
                     //   'new' + Reassign triggerte fälschlich isSofort→true → v6.63.071

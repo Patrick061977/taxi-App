@@ -63,6 +63,8 @@ public class DriverDashboardActivity extends AppCompatActivity {
     private TextView tvDriverName;
     private TextView tvPauseBanner; // v6.62.26: grosser Pause-Banner
     private MaterialButton btnMenu, btnEinsteiger, btnCallLog;
+    // v6.63.895: Pin-Direktbuttons (Aufnahmen + Karte) — Patrick 18.08. 12:00
+    private MaterialButton btnPinRecordings, btnPinMap;
     // v6.50.0: Update-Banner
     private LinearLayout updateBanner;
     private TextView updateBannerText;
@@ -240,6 +242,9 @@ public class DriverDashboardActivity extends AppCompatActivity {
         btnMenu = findViewById(R.id.btn_menu);
         btnEinsteiger = findViewById(R.id.btn_einsteiger);
         btnCallLog = findViewById(R.id.btn_call_log);
+        // v6.63.895 Pin-Buttons
+        btnPinRecordings = findViewById(R.id.btn_pin_recordings);
+        btnPinMap = findViewById(R.id.btn_pin_map);
         shiftStatsRow = findViewById(R.id.shift_stats_row);
         rvRides = findViewById(R.id.rv_rides);
         emptyState = findViewById(R.id.empty_state);
@@ -293,6 +298,21 @@ public class DriverDashboardActivity extends AppCompatActivity {
         btnMenu.setOnClickListener(v -> showHamburgerMenu(v));
         btnEinsteiger.setOnClickListener(v -> showEinsteigerDialog());
         btnCallLog.setOnClickListener(v -> startActivity(new Intent(this, CallLogActivity.class)));
+        // v6.63.895: Pin-Buttons Aufnahmen + Karte — dieselben Aktionen wie Menu-Items
+        btnPinRecordings.setOnClickListener(v -> startActivity(new Intent(this, CallRecordingsActivity.class)));
+        btnPinMap.setOnClickListener(v -> {
+            String myVid = getSharedPreferences("driver", MODE_PRIVATE).getString("vehicleId", "");
+            String url = "https://umwelt-taxi-insel-usedom.de/fahrer-map.html?myVehicle="
+                + java.net.URLEncoder.encode(myVid) + "&nc=" + System.currentTimeMillis();
+            try {
+                androidx.browser.customtabs.CustomTabsIntent intent =
+                    new androidx.browser.customtabs.CustomTabsIntent.Builder().setShowTitle(true).build();
+                intent.launchUrl(this, android.net.Uri.parse(url));
+            } catch (Throwable t) {
+                try { startActivity(new Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url))); }
+                catch (Throwable t2) { Toast.makeText(this, "Karte konnte nicht geöffnet werden", Toast.LENGTH_SHORT).show(); }
+            }
+        });
         // v6.63.267: btn_quick_pay entfernt — Patrick "haben wir ja im Hamburger-Menü"
 
         // v6.50.0: Update-Check beim Start

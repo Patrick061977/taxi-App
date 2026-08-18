@@ -537,7 +537,14 @@ public class AdminDashboardActivity extends AppCompatActivity {
                     Ride cur = rides.get(i);
                     Ride nxt = rides.get(i + 1);
                     long curDur = cur.estimatedDuration != null && cur.estimatedDuration > 0 ? cur.estimatedDuration : 10;
-                    long curEnd = cur.pickupTimestamp + curDur * 60_000;
+                    // v6.63.899 (Patrick 18.08. 15:00 Bridge: '3 Minuten von Abholung bis Ende
+                    //   der Fahrt?'): boarding + alighting hinzurechnen. Bei Bahnhof/Flughafen
+                    //   +2 Min Boarding (Gepäck, Zug-Ankunft). Bei Hotel/Klinik +1 Min Alighting.
+                    String _curPuLo = (cur.pickup != null ? cur.pickup.toLowerCase() : "");
+                    String _curDeLo = (cur.destination != null ? cur.destination.toLowerCase() : "");
+                    int _curBoard = (_curPuLo.contains("bahnhof") || _curPuLo.contains("flughafen") || _curPuLo.contains("airport")) ? 2 : 1;
+                    int _curAlight = (_curDeLo.contains("hotel") || _curDeLo.contains("klinik") || _curDeLo.contains("bahnhof")) ? 2 : 1;
+                    long curEnd = cur.pickupTimestamp + (curDur + _curBoard + _curAlight) * 60_000;
                     // v6.63.608: drivingTimeToPickup=999 ist ein Routing-Fehler-Placeholder → Fallback 10 Min
                     long nxtDrive = nxt.drivingTimeToPickup != null && nxt.drivingTimeToPickup > 0 && nxt.drivingTimeToPickup < 999 ? nxt.drivingTimeToPickup : 10;
                     long gapMin = (nxt.pickupTimestamp - curEnd) / 60_000;
@@ -548,9 +555,15 @@ public class AdminDashboardActivity extends AppCompatActivity {
                         //   Engpass, alles bis 5 Min ist mir egal"): Engpass-Schwelle 5 Min.
                         //   Ausnahme: Bahnhofs-Fahrten (nächste Fahrt) — dort ist auch 3 Min
                         //   kritisch weil Zug weg = Kunde verpasst Anschluss. Bahnhof bleibt HIGH.
+                        // v6.63.899 (Patrick 18.08. Bridge): Bahnhof/Flughafen-PICKUP der Folgefahrt
+                        //   zählt auch als HIGH — Kunde wartet nach Zug-Ankunft am Bahnhof, kann
+                        //   nicht wegrennen. Schwelle 3 Min statt 5.
                         boolean curIsBahnhof = cur.destination != null && cur.destination.toLowerCase().contains("bahnhof");
                         boolean nxtIsBahnhof = nxt.destination != null && nxt.destination.toLowerCase().contains("bahnhof");
-                        if (deficit <= 5 && !nxtIsBahnhof) continue; // Karenz: bis 5 Min egal (aber nicht wenn nächste Fahrt zum Bahnhof geht)
+                        boolean nxtIsBahnhofPickup = nxt.pickup != null && (nxt.pickup.toLowerCase().contains("bahnhof") || nxt.pickup.toLowerCase().contains("flughafen"));
+                        boolean nxtIsHIGH = nxtIsBahnhof || nxtIsBahnhofPickup;
+                        long _karenz = nxtIsHIGH ? 3 : 5;
+                        if (deficit <= _karenz) continue;
                         String curPrio = curIsBahnhof ? " 🚆HIGH" : "";
                         String nxtPrio = nxtIsBahnhof ? " 🚆HIGH" : "";
                         // Wenn next.Bahnhof HIGH und cur.normal: cur soll vorgezogen werden (kann nicht zu spät an Bahnhof kommen)

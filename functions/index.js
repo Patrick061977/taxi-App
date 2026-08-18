@@ -42102,3 +42102,158 @@ function renderRideCard(r, escape, timeStr, vehicles, cls) {
     html += `</div>`;
     return html;
 }
+
+// ═══════════════════════════════════════════════════════════════
+// 🧠 v6.63.898 (Patrick 18.08. 14:35 Bridge 'ki dispatcher der lernt'):
+// KI-DISPATCHER — nutzt Claude Haiku um Konflikt-Vorschläge zu machen,
+// die Patrick per Bridge-Antwort annehmen/ablehnen kann. Antworten
+// werden in /dispatcher/decisions gespeichert als Lern-Basis für
+// spätere Auto-Anwendung (Phase 2/3).
+// ═══════════════════════════════════════════════════════════════
+
+// Zusammengefasste Regeln (aus Memory + CLAUDE.md) — als System-Prompt
+const _DISPATCHER_RULES = `
+Regeln für Taxi-Disposition Funk Taxi Heringsdorf:
+1. Bahnhof-Pickup = FIX (Zug-Anreise, Kunde kann nicht früher da sein).
+2. Bahnhof-Destination = max +5 Min später (Zug fährt fix ab). Vorziehen ok.
+3. Flughafen analog Bahnhof.
+4. Sofortfahrt vs Sofortfahrt: First-Come-First-Served nach BUCHUNGSZEIT.
+5. Vorbestellung vs Vorbestellung: First-Come nach PICKUP-Zeit.
+6. Sofort vs Vorbestellung: Vorbestellung ist reserviert, hat Vorrang.
+7. Bei Konflikt zwischen 2 Vorbestellungen: längere Strecke gewinnt.
+8. Zeit-Verschiebung nur bei Hotel/Privat-Adressen:
+   - Vorherige Fahrt: 5-15 Min nach VORN erlaubt
+   - Folgefahrt: max +5 Min nach hinten
+9. NIE eigenmächtig Fahrzeug zuweisen bei Grenzfällen — Patrick fragen.
+10. Danilo fährt Tesla MY heute. Kulpa im Prius IK. Patrick auf Tesla YM.
+`;
+
+async function askDispatcherKI(rideId, conflictContext) {
+    try {
+        const anthropicKey = await getAnthropicApiKey();
+        if (!anthropicKey) return { ok: false, error: 'kein Anthropic-Key' };
+
+        const model = 'claude-haiku-4-5-20251001';
+        const prompt = `Du bist der KI-Dispatcher. Analysiere den Konflikt und gib EINEN klaren Vorschlag + max 2 Alternativen.
+
+REGELN:
+${_DISPATCHER_RULES}
+
+KONFLIKT-KONTEXT:
+${JSON.stringify(conflictContext, null, 2)}
+
+Antworte in JSON (nur JSON, kein Prosa):
+{
+  "situation": "kurz was los ist (max 100 Zeichen)",
+  "empfehlung": "was tun (max 120 Zeichen)",
+  "alternativen": ["alt 1", "alt 2"],
+  "grund": "warum diese Empfehlung (max 120 Zeichen)",
+  "askUser": true
+}`;
+
+        const resp = await callAnthropicAPI(anthropicKey, model, 800, [
+            { role: 'user', content: prompt }
+        ]);
+        const text = resp.content?.[0]?.text || '';
+        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) return { ok: false, error: 'keine JSON in Response', raw: text };
+        const parsed = JSON.parse(jsonMatch[0]);
+
+        // Log für Lernen
+        const decisionId = 'D-' + Date.now();
+        await db.ref(`dispatcher/decisions/${decisionId}`).set({
+            rideId, conflictContext, kiResponse: parsed,
+            createdAt: Date.now(), status: 'pending'
+        });
+
+        // Bridge-Push mit Optionen
+        const adminSnap = await db.ref('settings/telegram/adminChats').once('value');
+        const admins = adminSnap.val();
+        let chatId = 6229490043;
+        if (Array.isArray(admins) && admins.length > 0) chatId = admins[0];
+        else if (typeof admins === 'object' && admins) chatId = Object.values(admins)[0];
+
+        const msgLines = [
+            '🧠 KI-Dispatcher — Konflikt-Vorschlag:',
+            '',
+            '📋 ' + parsed.situation,
+            '',
+            '💡 Empfehlung: ' + parsed.empfehlung,
+            'Grund: ' + parsed.grund,
+            ''
+        ];
+        if (parsed.alternativen && parsed.alternativen.length > 0) {
+            msgLines.push('🔄 Alternativen:');
+            parsed.alternativen.forEach((a, i) => msgLines.push(`  [${String.fromCharCode(66+i)}] ${a}`));
+        }
+        msgLines.push('');
+        msgLines.push('Antworte per Bridge:');
+        msgLines.push('  [A] Empfehlung ausführen');
+        if (parsed.alternativen && parsed.alternativen[0]) msgLines.push('  [B] Alternative 1');
+        if (parsed.alternativen && parsed.alternativen[1]) msgLines.push('  [C] Alternative 2');
+        msgLines.push('  [D] anders: dann sag wie');
+        msgLines.push('');
+        msgLines.push(`Entscheidungs-ID: ${decisionId}`);
+
+        // Outbox — via Claude-Bot damit es nicht in Hauptbot geht
+        const outboxKey = Date.now();
+        await db.ref(`claudeBridge/outbox/${outboxKey}`).set({
+            message: msgLines.join('\n'),
+            targetChatId: chatId,
+            via: 'claude',
+            ts: outboxKey
+        });
+
+        console.log(`🧠 KI-Dispatcher: Vorschlag für ${rideId} gepusht (decision ${decisionId})`);
+        return { ok: true, decisionId, parsed };
+    } catch (e) {
+        console.error('askDispatcherKI Fehler:', e.message);
+        return { ok: false, error: e.message };
+    }
+}
+
+// HTTP-Endpoint für manuellen Test
+exports.askDispatcherKI = onRequest(
+    { region: 'europe-west1', timeoutSeconds: 60, cors: true },
+    async (req, res) => {
+        const rideId = req.query.rideId || req.body?.rideId;
+        if (!rideId) return res.status(400).json({ error: 'rideId fehlt' });
+        const rideSnap = await db.ref(`rides/${rideId}`).once('value');
+        const ride = rideSnap.val();
+        if (!ride) return res.status(404).json({ error: 'ride nicht gefunden' });
+        // Kontext: die Fahrt selbst + alle aktiven Fahrzeuge + andere Fahrten im ±60min-Fenster desselben Fahrzeugs
+        const vSnap = await db.ref('vehicles').once('value');
+        const vehicles = {};
+        vSnap.forEach(c => { const v = c.val() || {}; vehicles[c.key] = {
+            name: v.name, plate: v.plate,
+            shift: v.shift ? { status: v.shift.status, driverName: v.shift.driverName, userId: v.shift.userId } : null,
+            hasFcm: !!(v.fcmToken && v.fcmToken.token)
+        }; });
+        const window = 60 * 60 * 1000;
+        const ridesSnap = await db.ref('rides').once('value');
+        const relatedRides = [];
+        ridesSnap.forEach(c => {
+            const r = c.val() || {};
+            if (!r.pickupTimestamp || !ride.pickupTimestamp) return;
+            if (Math.abs(r.pickupTimestamp - ride.pickupTimestamp) > window) return;
+            if (c.key === rideId) return;
+            if (r.assignedVehicle !== ride.assignedVehicle) return;
+            relatedRides.push({ id: c.key, pickupTime: new Date(r.pickupTimestamp).toISOString(),
+                status: r.status, pickup: (r.pickup||'').slice(0,60), destination: (r.destination||'').slice(0,60),
+                duration: r.duration, distance: r.distance });
+        });
+        const context = {
+            ride: {
+                id: rideId, pickupTime: new Date(ride.pickupTimestamp).toISOString(),
+                status: ride.status, pickup: ride.pickup, destination: ride.destination,
+                assignedVehicle: ride.assignedVehicle, duration: ride.duration, distance: ride.distance,
+                customerName: ride.customerName, isSofortfahrt: !!ride.isSofortfahrt
+            },
+            fahrzeuge: vehicles,
+            konfliktKandidaten: relatedRides
+        };
+        const result = await askDispatcherKI(rideId, context);
+        res.status(200).json(result);
+    }
+);
+

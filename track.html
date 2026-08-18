@@ -44,17 +44,20 @@
         #info::-webkit-scrollbar { width: 6px; }
         #info::-webkit-scrollbar-thumb { background: rgba(15,23,42,0.18); border-radius: 3px; }
 
-        /* v6.63.349 (Patrick 15.06.2026 09:27 'Kunde sieht beim SMS-Track-Link
-           die grosse Karte ins Gesicht — Karte soll initial zugeklappt sein'):
-           Map initial 35vh statt 100vh. Knopf 'Karte vergroessern' expandiert. */
+        /* v6.63.349 (Patrick 15.06.): Map initial 35vh — dann Klick auf vergroessern.
+           v6.63.894 (Patrick 18.08. 11:49 'ich moechte immer gleich die grose karte
+           haben. nicht verkleinern da ist dann das leaflet zwischen der schrift'):
+           Default umgekehrt — Karte startet GROSS (100vh), Button klappt bei Bedarf
+           zu (35vh). Leaflet-Attribution ueberlappt jetzt nur im (selten benutzten)
+           Zusatnd-klein die Text-Card. */
         #map {
             width: 100%;
-            height: 35vh;
+            height: 100vh;
             background: linear-gradient(135deg, #e0e7ff 0%, #f1f5f9 100%);
             transition: height 0.3s ease;
         }
-        #map.map-expanded {
-            height: 100vh;
+        #map.map-collapsed {
+            height: 35vh;
         }
         #map-expand-btn {
             position: absolute;
@@ -478,14 +481,13 @@
     </div>
     
     <div id="map"></div>
-    <button id="map-expand-btn" onclick="toggleMapSize()">🗺️ Karte vergrößern</button>
+    <button id="map-expand-btn" onclick="toggleMapSize()">⬇️ Karte verkleinern</button>
     <script>
         function toggleMapSize() {
             const m = document.getElementById('map');
             const btn = document.getElementById('map-expand-btn');
-            m.classList.toggle('map-expanded');
-            btn.textContent = m.classList.contains('map-expanded') ? '⬆️ Karte verkleinern' : '🗺️ Karte vergrößern';
-            // Leaflet must invalidate size when container changes
+            m.classList.toggle('map-collapsed');
+            btn.textContent = m.classList.contains('map-collapsed') ? '🗺️ Karte vergrößern' : '⬇️ Karte verkleinern';
             try { setTimeout(() => { if (window.map && window.map.invalidateSize) window.map.invalidateSize(); }, 350); } catch(e){}
         }
         // Expose Leaflet map globally
@@ -798,10 +800,11 @@
                     window._autoHiddenForLive = true;
                     try {
                         hideInfoCard();
+                        // v6.63.894: Karte ist per Default schon groß — nur sicherstellen dass sie nicht collapsed ist
                         const _m = document.getElementById('map');
-                        if (_m) _m.classList.add('map-expanded');
+                        if (_m) _m.classList.remove('map-collapsed');
                         const _expBtn = document.getElementById('map-expand-btn');
-                        if (_expBtn) _expBtn.textContent = '⬆️ Karte verkleinern';
+                        if (_expBtn) _expBtn.textContent = '⬇️ Karte verkleinern';
                     } catch (_e) {}
                 }
 

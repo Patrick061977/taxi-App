@@ -5262,6 +5262,116 @@ public class AdminDashboardActivity extends AppCompatActivity {
         deRow.addView(btnDePick);
         layout.addView(deRow);
 
+        // 🆕 v6.63.901 (Patrick 18.08. 15:50 Bridge 'zwischenziel bearbeiten oder hinzufügen'):
+        // Waypoints-Sektion — analog CrmSearchActivity Vorbestellungsmaske Z.3025+.
+        // Mehrere Zwischenziele möglich, jeder Eintrag mit Text-Feld + Löschen-Button.
+        // Speichern in ride.waypoints als Array [{address, lat, lon}].
+        TextView tvWpHeader = new TextView(this);
+        tvWpHeader.setText("🔶 Zwischenziele");
+        tvWpHeader.setTextSize(13);
+        tvWpHeader.setTextColor(0xFF374151);
+        tvWpHeader.setPadding(0, pad, 0, padHalf);
+        layout.addView(tvWpHeader);
+
+        final LinearLayout wpContainer = new LinearLayout(this);
+        wpContainer.setOrientation(LinearLayout.VERTICAL);
+        layout.addView(wpContainer);
+
+        final java.util.List<EditText> editWpFields = new java.util.ArrayList<>();
+        final java.util.List<double[]> editWpCoords = new java.util.ArrayList<>();
+
+        // Bestehende Waypoints aus ride.waypoints laden
+        try {
+            java.util.List<java.util.Map<String, Object>> _existingWps = new java.util.ArrayList<>();
+            Object _wpRaw = null;
+            try {
+                java.lang.reflect.Field _wf = r.getClass().getDeclaredField("waypoints");
+                _wf.setAccessible(true);
+                _wpRaw = _wf.get(r);
+            } catch (Throwable _wtEx) { /* Feld existiert evtl. nicht im Ride-Model — dann leer */ }
+            if (_wpRaw instanceof java.util.List) {
+                for (Object o : (java.util.List<?>) _wpRaw) {
+                    if (o instanceof java.util.Map) _existingWps.add((java.util.Map<String,Object>) o);
+                }
+            } else if (_wpRaw instanceof java.util.Map) {
+                for (Object o : ((java.util.Map<?,?>) _wpRaw).values()) {
+                    if (o instanceof java.util.Map) _existingWps.add((java.util.Map<String,Object>) o);
+                }
+            }
+            for (java.util.Map<String,Object> _wp : _existingWps) {
+                String _addr = _wp.get("address") != null ? String.valueOf(_wp.get("address")) : "";
+                if (_addr.isEmpty()) continue;
+                double[] _wpC = new double[]{Double.NaN, Double.NaN};
+                Object _wlat = _wp.get("lat"), _wlon = _wp.get("lon");
+                if (_wlat instanceof Number && _wlon instanceof Number) {
+                    _wpC[0] = ((Number)_wlat).doubleValue();
+                    _wpC[1] = ((Number)_wlon).doubleValue();
+                }
+                LinearLayout _wpRow = new LinearLayout(this);
+                _wpRow.setOrientation(LinearLayout.HORIZONTAL);
+                EditText _etWp = new EditText(this);
+                _etWp.setHint("🔶 Zwischenziel-Adresse");
+                _etWp.setText(_addr);
+                LinearLayout.LayoutParams _wpLp = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+                _etWp.setLayoutParams(_wpLp);
+                _wpRow.addView(_etWp);
+                editWpFields.add(_etWp);
+                editWpCoords.add(_wpC);
+                TextView _btnRm = new TextView(this);
+                _btnRm.setText("✕");
+                _btnRm.setTextSize(18);
+                _btnRm.setTextColor(0xFFDC2626);
+                _btnRm.setPadding(pad, pad, pad, pad);
+                _btnRm.setOnClickListener(__v -> {
+                    int pos = editWpFields.indexOf(_etWp);
+                    if (pos >= 0) { editWpFields.remove(pos); editWpCoords.remove(pos); }
+                    wpContainer.removeView(_wpRow);
+                });
+                _wpRow.addView(_btnRm);
+                wpContainer.addView(_wpRow);
+            }
+        } catch (Throwable _wpLoadEx) { Log.w(TAG, "Waypoint-Load: " + _wpLoadEx.getMessage()); }
+
+        TextView btnAddWp = new TextView(this);
+        btnAddWp.setText("+ Zwischenziel hinzufügen");
+        btnAddWp.setTextSize(13);
+        btnAddWp.setTextColor(0xFF1E40AF);
+        btnAddWp.setBackgroundColor(0xFFEFF6FF);
+        btnAddWp.setGravity(android.view.Gravity.CENTER);
+        btnAddWp.setPadding(padHalf, padHalf, padHalf, padHalf);
+        LinearLayout.LayoutParams _addLp = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        _addLp.setMargins(0, padHalf / 2, 0, pad);
+        btnAddWp.setLayoutParams(_addLp);
+        btnAddWp.setOnClickListener(_v -> {
+            double[] _wpC = new double[]{Double.NaN, Double.NaN};
+            LinearLayout _wpRow = new LinearLayout(this);
+            _wpRow.setOrientation(LinearLayout.HORIZONTAL);
+            EditText _etWp = new EditText(this);
+            _etWp.setHint("🔶 Zwischenziel-Adresse");
+            LinearLayout.LayoutParams _wpLp = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+            _etWp.setLayoutParams(_wpLp);
+            _wpRow.addView(_etWp);
+            editWpFields.add(_etWp);
+            editWpCoords.add(_wpC);
+            TextView _btnRm = new TextView(this);
+            _btnRm.setText("✕");
+            _btnRm.setTextSize(18);
+            _btnRm.setTextColor(0xFFDC2626);
+            _btnRm.setPadding(pad, pad, pad, pad);
+            _btnRm.setOnClickListener(__v -> {
+                int pos = editWpFields.indexOf(_etWp);
+                if (pos >= 0) { editWpFields.remove(pos); editWpCoords.remove(pos); }
+                wpContainer.removeView(_wpRow);
+            });
+            _wpRow.addView(_btnRm);
+            wpContainer.addView(_wpRow);
+        });
+        layout.addView(btnAddWp);
+        // Für Save-Handler Zugriff via lambda-effektiv-final:
+        final java.util.List<EditText> _saveWpFields = editWpFields;
+        final java.util.List<double[]> _saveWpCoords = editWpCoords;
+
         // Datum + Zeit
         final long[] dateTime = { r.pickupTimestamp != null ? r.pickupTimestamp : System.currentTimeMillis() };
         Calendar cal = Calendar.getInstance();
@@ -5506,6 +5616,21 @@ public class AdminDashboardActivity extends AppCompatActivity {
             upd.put("customerPhone", etPhone.getText().toString().trim());
             upd.put("pickup", etPickup.getText().toString().trim());
             upd.put("destination", etDest.getText().toString().trim());
+            // v6.63.901: Waypoints speichern (leere Liste löscht alte)
+            java.util.List<java.util.Map<String,Object>> _wpList = new java.util.ArrayList<>();
+            for (int _wi = 0; _wi < _saveWpFields.size(); _wi++) {
+                String _addr = _saveWpFields.get(_wi).getText().toString().trim();
+                if (_addr.isEmpty()) continue;
+                java.util.Map<String,Object> _wpEntry = new java.util.HashMap<>();
+                _wpEntry.put("address", _addr);
+                double[] _wpC = _saveWpCoords.get(_wi);
+                if (!Double.isNaN(_wpC[0]) && !Double.isNaN(_wpC[1])) {
+                    _wpEntry.put("lat", _wpC[0]);
+                    _wpEntry.put("lon", _wpC[1]);
+                }
+                _wpList.add(_wpEntry);
+            }
+            upd.put("waypoints", _wpList.isEmpty() ? null : _wpList);
             // 🐛 v6.63.029 (Patrick 30.05. 07:28 "Cloud rechnet 265 Min Anfahrt"):
             //   Sub-Objekte pickupCoords/destCoords wurden NICHT aktualisiert.
             //   Cloud-Function liest pickupCoords zuerst (Fallback pickupLat) → bei

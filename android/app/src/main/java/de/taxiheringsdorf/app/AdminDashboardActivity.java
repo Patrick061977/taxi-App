@@ -4313,6 +4313,11 @@ public class AdminDashboardActivity extends AppCompatActivity {
 
         // Nachfolge-Fahrt (Vorgänger läuft über) → nach hinten schieben; Engpass → vorziehen
         boolean isSuccessorRide = r.conflictHint != null && r.conflictHint.contains("Vorgaenger");
+        // v6.63.903 (Patrick 18.08. 16:35): Bahnhof/Flughafen-PICKUP kann NIE vorgezogen werden
+        //   (Zug/Flug kommt nicht früher). Bei solchen Fahrten: kein Vorziehen-Vorschlag mehr,
+        //   stattdessen Hinweis „Kunde vorwarnen oder Folgefahrt nach hinten schieben".
+        String _puLo = r.pickup != null ? r.pickup.toLowerCase() : "";
+        boolean isBahnhofOrFlughafenPickup = _puLo.contains("bahnhof") || _puLo.contains("flughafen") || _puLo.contains("airport");
 
         StringBuilder msg = new StringBuilder();
         msg.append("Aktueller Pickup: ").append(currentTime).append("\n\n");
@@ -4320,6 +4325,9 @@ public class AdminDashboardActivity extends AppCompatActivity {
         if (isSuccessorRide) {
             msg.append("💡 Vorschlag: ").append(suggested).append(" Min nach hinten → ");
             msg.append(tf.format(new Date(r.pickupTimestamp + suggested * 60_000L)));
+        } else if (isBahnhofOrFlughafenPickup) {
+            msg.append("🚉 Bahnhof/Flughafen-Abholung — Zug/Flug kommt nicht früher.\n");
+            msg.append("💡 Vorschlag: Folgefahrt +5 Min verschieben ODER Kunde per SMS vorwarnen.");
         } else {
             msg.append("💡 Vorschlag: ").append(suggested).append(" Min vorziehen → ");
             msg.append(tf.format(new Date(r.pickupTimestamp - suggested * 60_000L)));

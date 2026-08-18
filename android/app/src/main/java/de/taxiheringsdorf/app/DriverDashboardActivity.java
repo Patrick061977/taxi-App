@@ -1113,47 +1113,50 @@ public class DriverDashboardActivity extends AppCompatActivity {
         }
     }
 
-    // v6.63.896 (Patrick 18.08. 13:46): Edge-Swipe links→rechts öffnet Disposition.
-    // Nur am linken Bildschirm-Rand (Start-X < 60dp) damit Fahrten-Karten weiter
-    // horizontal streichbar bleiben (falls Adapter Swipe hat) und RecyclerView
-    // vertikal scrollen kann.
-    private void setupEdgeSwipeToDisposition() {
-        final float density = getResources().getDisplayMetrics().density;
-        final float edgeStartMax = 60f * density;    // linke 60dp
-        final float minSwipeDx = 120f * density;      // mind 120dp Wischweg
-        final float maxSwipeDy = 80f * density;       // vertikaler Drift max 80dp
+    // v6.63.896: Edge-Swipe links→rechts öffnet Disposition.
+    // v6.63.897 (Patrick 18.08. 14:03 'update installiert, swipe geht nicht'):
+    // OnTouchListener am content-View wurde von RecyclerView-DOWN gestohlen →
+    // Umbau auf dispatchTouchEvent (siehe unten in Activity). Diese Methode
+    // wird nicht mehr genutzt, bleibt als Kommentar-Anker.
+    private void setupEdgeSwipeToDisposition() { /* siehe dispatchTouchEvent */ }
 
-        View root = findViewById(android.R.id.content);
-        root.setOnTouchListener(new View.OnTouchListener() {
-            float startX = 0, startY = 0;
-            boolean tracking = false;
-            @Override
-            public boolean onTouch(View v, android.view.MotionEvent e) {
-                switch (e.getAction()) {
-                    case android.view.MotionEvent.ACTION_DOWN:
-                        startX = e.getX();
-                        startY = e.getY();
-                        tracking = (startX <= edgeStartMax);
-                        break;
-                    case android.view.MotionEvent.ACTION_UP:
-                        if (tracking) {
-                            float dx = e.getX() - startX;
-                            float dy = Math.abs(e.getY() - startY);
-                            if (dx >= minSwipeDx && dy <= maxSwipeDy) {
-                                try {
-                                    startActivity(new Intent(DriverDashboardActivity.this, AdminDashboardActivity.class));
-                                    overridePendingTransition(android.R.anim.slide_in_left, android.R.anim.slide_out_right);
-                                } catch (Throwable t) {
-                                    Toast.makeText(DriverDashboardActivity.this, "Disposition konnte nicht geöffnet werden", Toast.LENGTH_SHORT).show();
-                                }
-                            }
+    // v6.63.897: dispatchTouchEvent kriegt JEDEN Touch VOR jeder Child-View.
+    // Peek-Only bei DOWN + UP am linken 60dp-Rand, kein Steal wenn kein Swipe.
+    private float _swipeStartX = 0f, _swipeStartY = 0f;
+    private boolean _swipeTracking = false;
+    @Override
+    public boolean dispatchTouchEvent(android.view.MotionEvent e) {
+        final float density = getResources().getDisplayMetrics().density;
+        final float edgeStartMax = 60f * density;
+        final float minSwipeDx = 120f * density;
+        final float maxSwipeDy = 80f * density;
+        switch (e.getActionMasked()) {
+            case android.view.MotionEvent.ACTION_DOWN:
+                _swipeStartX = e.getX();
+                _swipeStartY = e.getY();
+                _swipeTracking = (_swipeStartX <= edgeStartMax);
+                break;
+            case android.view.MotionEvent.ACTION_UP:
+                if (_swipeTracking) {
+                    float dx = e.getX() - _swipeStartX;
+                    float dy = Math.abs(e.getY() - _swipeStartY);
+                    _swipeTracking = false;
+                    if (dx >= minSwipeDx && dy <= maxSwipeDy) {
+                        try {
+                            startActivity(new Intent(this, AdminDashboardActivity.class));
+                            overridePendingTransition(android.R.anim.slide_in_left, android.R.anim.slide_out_right);
+                        } catch (Throwable t) {
+                            Toast.makeText(this, "Disposition konnte nicht geöffnet werden", Toast.LENGTH_SHORT).show();
                         }
-                        tracking = false;
-                        break;
+                        return true; // Touch konsumieren
+                    }
                 }
-                return false; // wichtig: Touch nicht konsumieren, damit Buttons weiter reagieren
-            }
-        });
+                break;
+            case android.view.MotionEvent.ACTION_CANCEL:
+                _swipeTracking = false;
+                break;
+        }
+        return super.dispatchTouchEvent(e);
     }
 
     // v6.47.0: Hamburger-Menu mit allen Schicht-/Account-Aktionen

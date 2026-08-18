@@ -313,6 +313,11 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 catch (Throwable t2) { Toast.makeText(this, "Karte konnte nicht geöffnet werden", Toast.LENGTH_SHORT).show(); }
             }
         });
+        // v6.63.896 (Patrick 18.08. 13:46 'zu 2 swipen von links nach rechts'):
+        // Edge-Swipe vom linken Bildschirmrand nach rechts öffnet Disposition.
+        // Nur wenn Start-X < 60px damit RecyclerView-Scroll unbeeinflusst bleibt.
+        setupEdgeSwipeToDisposition();
+
         // v6.63.267: btn_quick_pay entfernt — Patrick "haben wir ja im Hamburger-Menü"
 
         // v6.50.0: Update-Check beim Start
@@ -1106,6 +1111,49 @@ public class DriverDashboardActivity extends AppCompatActivity {
             db.getReference("rides/" + rideId + "/liveEtaUpdatedAt").setValue(System.currentTimeMillis());
             db.getReference("rides/" + rideId + "/liveEtaMethod").setValue(source);
         }
+    }
+
+    // v6.63.896 (Patrick 18.08. 13:46): Edge-Swipe links→rechts öffnet Disposition.
+    // Nur am linken Bildschirm-Rand (Start-X < 60dp) damit Fahrten-Karten weiter
+    // horizontal streichbar bleiben (falls Adapter Swipe hat) und RecyclerView
+    // vertikal scrollen kann.
+    private void setupEdgeSwipeToDisposition() {
+        final float density = getResources().getDisplayMetrics().density;
+        final float edgeStartMax = 60f * density;    // linke 60dp
+        final float minSwipeDx = 120f * density;      // mind 120dp Wischweg
+        final float maxSwipeDy = 80f * density;       // vertikaler Drift max 80dp
+
+        View root = findViewById(android.R.id.content);
+        root.setOnTouchListener(new View.OnTouchListener() {
+            float startX = 0, startY = 0;
+            boolean tracking = false;
+            @Override
+            public boolean onTouch(View v, android.view.MotionEvent e) {
+                switch (e.getAction()) {
+                    case android.view.MotionEvent.ACTION_DOWN:
+                        startX = e.getX();
+                        startY = e.getY();
+                        tracking = (startX <= edgeStartMax);
+                        break;
+                    case android.view.MotionEvent.ACTION_UP:
+                        if (tracking) {
+                            float dx = e.getX() - startX;
+                            float dy = Math.abs(e.getY() - startY);
+                            if (dx >= minSwipeDx && dy <= maxSwipeDy) {
+                                try {
+                                    startActivity(new Intent(DriverDashboardActivity.this, AdminDashboardActivity.class));
+                                    overridePendingTransition(android.R.anim.slide_in_left, android.R.anim.slide_out_right);
+                                } catch (Throwable t) {
+                                    Toast.makeText(DriverDashboardActivity.this, "Disposition konnte nicht geöffnet werden", Toast.LENGTH_SHORT).show();
+                                }
+                            }
+                        }
+                        tracking = false;
+                        break;
+                }
+                return false; // wichtig: Touch nicht konsumieren, damit Buttons weiter reagieren
+            }
+        });
     }
 
     // v6.47.0: Hamburger-Menu mit allen Schicht-/Account-Aktionen

@@ -56,6 +56,7 @@ APP_FILES=(
     "berlin-uebersicht.html"
     "tagesplan.html"
     "anfrage.html"
+    "menu-mockup.html"
     "urlaub.html"
     "reise-radar.html"
     "taxi-preise.html"

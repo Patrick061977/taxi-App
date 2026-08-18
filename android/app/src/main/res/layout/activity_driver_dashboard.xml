@@ -215,14 +215,18 @@
     <!-- v6.63.889 (Patrick 13.08. Bridge Hasbargen-Bug): Scroll bei 3+ Rides funktioniert nicht.
          Fixes: (1) scrollbars="vertical" + fastScrollEnabled damit Scroll-Indicator sichtbar,
          (2) paddingBottom 260→180dp, (3) explizit scrollbarStyle so dass Scroll immer aktiv ist,
-         (4) descendantFocusability damit Card-Klicks Scroll nicht blockieren. -->
+         (4) descendantFocusability damit Card-Klicks Scroll nicht blockieren.
+         v6.63.904 (Patrick 18.08. 17:21 'Homescreen kann Fahrt nicht annehmen, Push aber ja'):
+         Bei 2 Rides mit conflictHint werden Cards ~280dp hoch → 2. Accept-Button liegt unter
+         Bottom-Bar (56dp+padding=82dp) → nicht klickbar. paddingBottom 180→240dp gibt 158dp
+         Puffer, garantiert dass letzter Button gezielt geklickt werden kann. -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rv_rides"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:padding="12dp"
         android:clipToPadding="false"
-        android:paddingBottom="180dp"
+        android:paddingBottom="240dp"
         android:nestedScrollingEnabled="true"
         android:overScrollMode="always"
         android:scrollbars="vertical"

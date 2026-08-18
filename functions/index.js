@@ -42242,20 +42242,34 @@ function renderRideCard(r, escape, timeStr, vehicles, cls) {
 // ═══════════════════════════════════════════════════════════════
 
 // Zusammengefasste Regeln (aus Memory + CLAUDE.md) — als System-Prompt
+// v6.63.909 (Patrick 18.08. 20:54): Regel 5+7 präzisiert (früherer Pickup gewinnt,
+//   NICHT wer zuerst gebucht wurde), Regel 11+12+13 neu (Anfahrt rechnen, Springer
+//   aktivieren, Empfehlungs-Format).
 const _DISPATCHER_RULES = `
 Regeln für Taxi-Disposition Funk Taxi Heringsdorf:
 1. Bahnhof-Pickup = FIX (Zug-Anreise, Kunde kann nicht früher da sein).
 2. Bahnhof-Destination = max +5 Min später (Zug fährt fix ab). Vorziehen ok.
 3. Flughafen analog Bahnhof.
 4. Sofortfahrt vs Sofortfahrt: First-Come-First-Served nach BUCHUNGSZEIT.
-5. Vorbestellung vs Vorbestellung: First-Come nach PICKUP-Zeit.
+5. Vorbestellung vs Vorbestellung: FRÜHERER PICKUP gewinnt (NICHT wer früher gebucht hat!).
+   Die spätere Fahrt muss ausweichen: Zeitshift / anderes Fahrzeug / Springer aktivieren / Wartepool.
 6. Sofort vs Vorbestellung: Vorbestellung ist reserviert, hat Vorrang.
-7. Bei Konflikt zwischen 2 Vorbestellungen: längere Strecke gewinnt.
+7. Bei Konflikt zwischen 2 Vorbestellungen NIE die frühere blockieren nur weil die spätere schon zugewiesen war —
+   die frühere gewinnt und die spätere wird umgeplant.
 8. Zeit-Verschiebung nur bei Hotel/Privat-Adressen:
    - Vorherige Fahrt: 5-15 Min nach VORN erlaubt
    - Folgefahrt: max +5 Min nach hinten
-9. NIE eigenmächtig Fahrzeug zuweisen bei Grenzfällen — Patrick fragen.
+9. NIE eigenmächtig Fahrzeug zuweisen bei Grenzfällen — Patrick fragen (askUser=true).
 10. Danilo fährt Tesla MY heute. Kulpa im Prius IK. Patrick auf Tesla YM.
+11. ZEIT-RECHNUNG bei Folgefahrt-Prüfung IMMER Anfahrt mitrechnen:
+    Ende-Ride-1 (pickupTime + duration) + Anfahrt-zu-Pickup-Ride-2 <= Pickup-Zeit-Ride-2?
+    Wenn Ende-Ride-1 in einer entfernten Stadt (z.B. Wolgast) und Pickup-Ride-2 woanders (z.B. Heringsdorf) ist,
+    kann die Anfahrt 30-45 Min sein — NIE annehmen dass Fahrzeug sofort verfügbar ist.
+12. SPRINGER-AKTIVIEREN: Wenn 'fahrzeuge_schichtplan_fuer_pickup_tag' einen Slot für ein Fahrzeug enthält,
+    aber 'fahrzeuge_live[vid].shift.status' NICHT 'active' ist, DANN als konkrete Alternative vorschlagen:
+    "Springer <NAME> aktivieren — laut Schichtplan Slot <startTime>-<endTime> am <weekday>".
+13. EMPFEHLUNGS-FORMAT: konkrete Aktion mit Fahrzeug-Namen, keine vagen Vorschläge.
+    Falsch: "Patrick zuweisen". Richtig: "Marion 06:45 → Tesla MY (Patrick). Marina 07:50 → Springer YM aktivieren".
 `;
 
 async function askDispatcherKI(rideId, conflictContext) {

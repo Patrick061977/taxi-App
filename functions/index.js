@@ -1920,18 +1920,82 @@ async function autoAssignRide(rideId, rideData, _excludeVehicleIds = []) {
                             _reasonExt += ` (rechnet ${_conflictMath.rEnd} fertig, ${_conflictMath.chainMin} Min Anfahrt → ${_conflictMath.overlapMin} Min zu spät)`;
                         }
                     }
-                    console.log(`   ⚠️ ${info.name}: ${_reasonExt}, frei ab ${_cBusyUntil} → übersprungen`);
-                    vehicleScores[vehicleId] = {
-                        status: 'overlap-hard',
-                        reason: _reasonExt,
-                        check: 'timeconflict',
-                        blockingRideCustomer: _conflictRide?.customerName,
-                        blockingRideTime: _cTime,
-                        busyUntil: _cBusyUntil,
-                        blockingRideDest: _conflictRide?.destination || _conflictRide?.destinationAddress || '',
-                        conflictMath: _conflictMath || null  // v6.63.431: UI-Anzeige der Berechnung
-                    };
-                    continue;
+
+                    // 🆕 v6.63.910 (Patrick 19.08.2026 06:50 "und lerne das das system alleine erkennen muss"):
+                    //   FCFS-Vorbestellungs-Evict: wenn neue Fahrt FRÜHEREN Pickup hat als _conflictRide
+                    //   UND beide Vorbestellungen sind UND _conflictRide nicht gelockt/manuell/accepted,
+                    //   dann _conflictRide in Wartepool schieben und Vehicle für neue Fahrt freigeben.
+                    //   Marion-Fall 19.08.: Marion 06:45 (neu) landete in Wartepool weil Marina 07:50
+                    //   (früher gebucht) den MY schon hatte. Regel: früherer PICKUP gewinnt.
+                    //   Feature-Flag settings/dispatcher/autoEvictLaterVorbestellungen (default false)
+                    //   damit du beobachten kannst bevor es scharf gestellt wird.
+                    try {
+                        const _flagSnap = await db.ref('settings/dispatcher/autoEvictLaterVorbestellungen').once('value');
+                        const _evictOn = _flagSnap.val() === true;
+                        const _newIsVorbestellung = (rideData.status === 'vorbestellt') || (!isSofort);
+                        const _cIsVorbestellung = _conflictRide && _conflictRide.status === 'vorbestellt';
+                        const _cIsEarlier = _conflictRide && _conflictRide.pickupTimestamp < newPickup;
+                        const _cIsLocked = _conflictRide && _conflictRide.assignmentLocked === true;
+                        const _cAssignBy = String((_conflictRide && _conflictRide.assignedBy) || '');
+                        const _cIsManual = /^(claude-manual|manual-admin|native_dashboard_grab)/.test(_cAssignBy);
+                        const _cIsBahnhofPickup = /bahnhof|flughafen|\bhbf\b/i.test((_conflictRide && _conflictRide.pickup) || '');
+
+                        if (_evictOn && _newIsVorbestellung && _cIsVorbestellung && !_cIsEarlier
+                            && !_cIsLocked && !_cIsManual && !_cIsBahnhofPickup) {
+                            // Neue Fahrt hat früheren Pickup → _conflictRide evicten
+                            const _evictReason = `v910 FCFS-Vorbestellung — ${rideData.customerName || '?'} ${new Date(newPickup).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit',timeZone:'Europe/Berlin'})} (früher) bekommt ${info.name}, du wirst umgeplant`;
+                            const _nowMs = Date.now();
+                            await db.ref(`rides/${_conflictRide.firebaseId}`).update({
+                                assignedVehicle: null,
+                                assignedVehicleName: null,
+                                assignedVehiclePlate: null,
+                                vehicleLabel: null,
+                                vehiclePlate: null,
+                                assignedTo: null,
+                                assignedAt: null,
+                                assignedBy: null,
+                                assignmentExpiresAt: null,
+                                status: 'wartepool',
+                                wartepoolAt: _nowMs,
+                                wartepoolReason: _evictReason,
+                                wartepoolDetectivePushed: null, // damit onRideEnteredWartepool + KI-Push feuert
+                                updatedAt: _nowMs,
+                                updatedBy: 'cloud-fcfs-vorbestellung-evict-v910'
+                            });
+                            console.log(`   🔄 v910 EVICT: ${_conflictRide.customerName} ${_cTime} → Wartepool, ${info.name} freigegeben für ${rideData.customerName} ${new Date(newPickup).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit',timeZone:'Europe/Berlin'})}`);
+                            try {
+                                await addRideLog(_conflictRide.firebaseId, '🔄', `v910 FCFS-Evict: früherer Pickup ${rideData.customerName || '?'} hat Vorrang → Wartepool`, { quelle: 'autoAssignRide-v910', evictedFor: rideId });
+                            } catch(_) {}
+                            // Kein continue — Vehicle bleibt Kandidat für neue Fahrt
+                        } else {
+                            console.log(`   ⚠️ ${info.name}: ${_reasonExt}, frei ab ${_cBusyUntil} → übersprungen (v910 evict skipped: flag=${_evictOn} newVor=${_newIsVorbestellung} cVor=${_cIsVorbestellung} cEarlier=${_cIsEarlier} locked=${_cIsLocked} manual=${_cIsManual} bhfP=${_cIsBahnhofPickup})`);
+                            vehicleScores[vehicleId] = {
+                                status: 'overlap-hard',
+                                reason: _reasonExt,
+                                check: 'timeconflict',
+                                blockingRideCustomer: _conflictRide?.customerName,
+                                blockingRideTime: _cTime,
+                                busyUntil: _cBusyUntil,
+                                blockingRideDest: _conflictRide?.destination || _conflictRide?.destinationAddress || '',
+                                conflictMath: _conflictMath || null
+                            };
+                            continue;
+                        }
+                    } catch (_evictErr) {
+                        console.error('v910 evict Fehler:', _evictErr.message);
+                        // Fallback: alte Logik — Fahrzeug überspringen
+                        vehicleScores[vehicleId] = {
+                            status: 'overlap-hard',
+                            reason: _reasonExt + ' (v910 evict failed)',
+                            check: 'timeconflict',
+                            blockingRideCustomer: _conflictRide?.customerName,
+                            blockingRideTime: _cTime,
+                            busyUntil: _cBusyUntil,
+                            blockingRideDest: _conflictRide?.destination || _conflictRide?.destinationAddress || '',
+                            conflictMath: _conflictMath || null
+                        };
+                        continue;
+                    }
                 }
             }
 

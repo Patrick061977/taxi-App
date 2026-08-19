@@ -142,6 +142,16 @@
             android:launchMode="singleTask"
             android:exported="false" />
 
+        <!-- v6.63.915 (Patrick 19.08.2026): SmsQueueActivity — SMS-heute-Übersicht
+             mit Status-Badges + Retry-Button pro Zeile. Ersetzt den entfernten
+             Cloud-Telegram-Fallback. -->
+        <activity
+            android:name=".SmsQueueActivity"
+            android:label="SMS heute"
+            android:theme="@style/AppTheme.Driver"
+            android:launchMode="singleTask"
+            android:exported="false" />
+
         <!-- v6.63.598: InvoicesActivity — Rechnungen-Übersicht + Versand -->
         <activity
             android:name=".InvoicesActivity"

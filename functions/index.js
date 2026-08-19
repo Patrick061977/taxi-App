@@ -28759,7 +28759,13 @@ exports.onRideCreated = onValueCreated(
         // Fallback auf customerMobile/mobilePhone wie schon in den Telegram-Pushes (v6.62.222).
         // v6.63.072: Bei Serien-Terminen wird die Bestätigung als EINE Sammel-SMS
         //   von der Native-/Web-App direkt in die smsQueue gelegt — Cloud skipt.
-        const _smsCustPhone = ride.customerPhone || ride.customerMobile || ride.mobilePhone;
+        // 🐛 v6.63.911 (Patrick 19.08.2026 09:23 Thurau-Fall): Fallback auf customerMobile
+        //   wenn customerPhone Festnetz ist. Vorher wurde IMMER customerPhone genommen —
+        //   Thurau hatte customerPhone=+49309752167 (Berlin-Festnetz) → SMS geskipped,
+        //   obwohl customerMobile=+491723866778 (Handy) da war. Fix: erste MOBILE Nummer
+        //   aus allen 3 Feldern nehmen, sonst Fallback auf customerPhone (Original-Verhalten).
+        const _smsCandidates = [ride.customerPhone, ride.customerMobile, ride.mobilePhone].filter(Boolean);
+        const _smsCustPhone = _smsCandidates.find(p => isMobileNumber(p)) || _smsCandidates[0] || null;
         if (_smsCustPhone && !_isSeriesMember) {
             try {
                 // Nutzt den bestehenden SMS-Toggle aus Admin → Einstellungen → SMS
@@ -31054,7 +31060,15 @@ exports.onRideUpdated = onValueUpdated(
                 }
 
                 // 🆕 v6.28.0: WhatsApp-Benachrichtigung bei Fahrer-Zuweisung
-                if (!after.customerWhatsAppSent) {
+                // 🐛 v6.63.911 (Patrick 19.08.2026 09:26): "WhatsApp-Bestätigung nur wenn
+                //   jemand über das Web/WhatsApp vorbestellt. Normale Bestätigungen für
+                //   eine Fahrt laufen immer über SMS." Ohne source-Check bekam JEDER
+                //   Kunde bei Fahrer-Zuweisung eine WhatsApp-Nachricht (Thurau-Fall).
+                //   Fix: nur wenn Buchung aus WhatsApp-Bot ODER Web-Vorbestellung stammt.
+                const _isWaSource = (after.source === 'whatsapp-bot' ||
+                                     after.source === 'web' ||
+                                     (typeof after.source === 'string' && after.source.startsWith('web-')));
+                if (!after.customerWhatsAppSent && _isWaSource) {
                     const waResult = await sendCustomerWhatsAppNotification(after, rideId, 'driver_assigned');
                     if (waResult) {
                         try { await db.ref('rides/' + rideId + '/customerWhatsAppSent').set(true); } catch (e) { /* */ }

@@ -39235,29 +39235,40 @@ exports.onSmsQueued = onValueCreated(
                 console.log(`✅ SMS-FCM an Gateway ${gatewayVid} gesendet: ${smsData.phone}`);
                 // Native quittiert mit status='sent' oder 'failed' wenn die SMS verarbeitet wurde
             } else {
-                // Fallback: Macrodroid-Telegram-Trigger (alter Pfad) falls kein FCM-Token
-                let smsChatId = null;
-                const smsChatSnap = await db.ref('settings/sms/telegramChatId').once('value');
-                smsChatId = smsChatSnap.val();
-                if (!smsChatId) {
-                    const adminSnap = await db.ref('settings/telegram/adminChats').once('value');
-                    const admins = adminSnap.val();
-                    if (Array.isArray(admins) && admins.length > 0) smsChatId = admins[0];
-                    else if (typeof admins === 'object' && admins) smsChatId = Object.values(admins)[0];
-                    else if (admins) smsChatId = admins;
-                }
-                if (!smsChatId) {
-                    await db.ref(`smsQueue/${smsId}`).update({ status: 'failed', error: 'Kein FCM-Token + kein Chat-ID', processedAt: Date.now() });
-                    return;
-                }
-                await sendTelegramMessage(smsChatId, `📲SMSNUM ${smsData.phone}`, { parse_mode: undefined });
-                await new Promise(r => setTimeout(r, 1000));
-                await sendTelegramMessage(smsChatId, `📲SMSTXT ${smsData.text}`, { parse_mode: undefined });
+                // 🐛 v6.63.914 (Patrick 19.08.2026 13:04-13:05):
+                //   'Es werden keine SMS per Fallback verschickt. Also entweder warte Queue
+                //   bis ich wieder angemeldet bin oder ich kann SMS-Bestätigungen nochmal
+                //   versenden und sehe auch ob sie versendet wurden oder nicht.'
+                //   -> Kein Cloud-Telegram-Fallback mehr an Kunden. SMS bleibt pending
+                //   -> Retry (scheduledSmsRetry Cron alle 2 Min) versucht erneut wenn Gateway wieder online
+                //   -> Nach 15 Min ohne Gateway -> Bridge-Warnung an Patrick
+                const _now914 = Date.now();
+                const _attempts = (smsData.attempts || 0) + 1;
+                const _firstAttemptAt = smsData.firstAttemptAt || _now914;
+                const _waitMin = Math.round((_now914 - _firstAttemptAt) / 60000);
                 await db.ref(`smsQueue/${smsId}`).update({
-                    status: 'telegram_sent_fallback',
-                    sentAt: Date.now(),
-                    sentTo: smsChatId
+                    status: 'pending_gateway_offline',
+                    attempts: _attempts,
+                    firstAttemptAt: _firstAttemptAt,
+                    lastAttemptAt: _now914,
+                    lastAttemptError: 'SMS-Gateway (Patricks Handy) offline — kein FCM-Token'
                 });
+                console.log(`⏳ SMS pending (Gateway offline, Versuch ${_attempts}, wartet ${_waitMin} Min): ${smsData.phone}`);
+
+                // Bridge-Warnung an Patrick nach 15 Min ohne Zustellung — nur EINMAL pro SMS
+                if (_waitMin >= 15 && !smsData.bridgeWarnedAt) {
+                    try {
+                        const _msg = `⚠️ SMS-Gateway offline seit ${_waitMin} Min.\n\nSMS für ${smsData.phone} hängt (${(smsData.text || '').slice(0, 60)}...) — bitte im Fahrzeug einloggen oder Handy prüfen.`;
+                        const _bridgeTs = Date.now();
+                        await db.ref('claudeBridge/outbox/' + _bridgeTs).set({
+                            message: _msg,
+                            targetChatId: 6229490043,
+                            via: 'claude',
+                            ts: _bridgeTs
+                        });
+                        await db.ref(`smsQueue/${smsId}/bridgeWarnedAt`).set(_now914);
+                    } catch (_bw) { console.warn('Bridge-Warn Fehler:', _bw.message); }
+                }
             }
 
         } catch (err) {
@@ -39277,6 +39288,102 @@ exports.onSmsQueued = onValueCreated(
 // "DR und DK sind die Fahrer — die sollten keine Anfrage-Pushes mehr bekommen.
 // Doppel-Trigger weg." silentAdminTokens wurde parallel auf die zwei Fahrer-
 // Tokens gesetzt damit die Fahrer-Geräte sofort still sind.
+
+// ═══════════════════════════════════════════════════════════════
+// 🆕 v6.63.914 (Patrick 19.08.2026 13:05): SMS-Retry-Cron.
+// Alle 2 Min: für alle smsQueue-Einträge mit status='pending_gateway_offline'
+// (bzw. FCM-Fehlschlag) erneut versuchen. Wenn Gateway inzwischen online,
+// wird SMS abgesetzt. Wenn nach 60 Min weiter kein Erfolg -> als failed
+// markieren (aber schon Bridge-Warnung bei 15 Min via onSmsQueued).
+// ═══════════════════════════════════════════════════════════════
+exports.scheduledSmsRetry = onSchedule(
+    {
+        schedule: 'every 2 minutes',
+        timeZone: 'Europe/Berlin',
+        region: 'europe-west1',
+        memory: '256MiB',
+        timeoutSeconds: 60
+    },
+    async () => {
+        try {
+            const snap = await db.ref('smsQueue')
+                .orderByChild('status')
+                .equalTo('pending_gateway_offline')
+                .once('value');
+            const pending = snap.val() || {};
+            const ids = Object.keys(pending);
+            if (ids.length === 0) return;
+
+            // SMS-Gateway User+Vehicle bestimmen (gleiche Logik wie onSmsQueued)
+            let gatewayVid = null;
+            try {
+                const gwUserSnap = await db.ref('settings/sms/gatewayUserId').once('value');
+                const gatewayUserId = gwUserSnap.val();
+                if (gatewayUserId) {
+                    const vSnap = await db.ref('vehicles').once('value');
+                    vSnap.forEach(child => {
+                        if (gatewayVid) return;
+                        const v = child.val() || {};
+                        const s = v.shift || {};
+                        if (s.userId === gatewayUserId && s.status === 'active' && v.fcmToken && v.fcmToken.token) {
+                            gatewayVid = child.key;
+                        }
+                    });
+                }
+            } catch (_) { /* */ }
+            if (!gatewayVid) {
+                const gwSnap = await db.ref('settings/sms/gatewayVehicleId').once('value');
+                gatewayVid = gwSnap.val();
+            }
+
+            for (const smsId of ids) {
+                const smsData = pending[smsId] || {};
+                const _now = Date.now();
+                const _firstAttempt = smsData.firstAttemptAt || _now;
+                const _waitMin = Math.round((_now - _firstAttempt) / 60000);
+
+                // Nach 60 Min ohne Erfolg -> als failed markieren (Bridge-Warnung kam bereits nach 15 Min)
+                if (_waitMin >= 60) {
+                    await db.ref(`smsQueue/${smsId}`).update({
+                        status: 'failed',
+                        error: 'SMS-Gateway 60 Min nicht erreichbar — manuell nachsenden',
+                        processedAt: _now
+                    });
+                    console.log(`❌ SMS-Retry aufgegeben nach ${_waitMin} Min: ${smsData.phone}`);
+                    continue;
+                }
+
+                if (!gatewayVid) {
+                    console.log(`⏳ SMS-Retry ${smsId}: kein Gateway aktiv, weiter warten`);
+                    continue;
+                }
+
+                const fcmOk = await sendFCMToVehicle(gatewayVid, {
+                    type: 'send_sms',
+                    smsId,
+                    phone: smsData.phone,
+                    text: smsData.text
+                });
+                if (fcmOk) {
+                    await db.ref(`smsQueue/${smsId}`).update({
+                        status: 'fcm_sent',
+                        sentAt: _now,
+                        gatewayVehicle: gatewayVid,
+                        attempts: (smsData.attempts || 0) + 1
+                    });
+                    console.log(`✅ SMS-Retry erfolgreich (nach ${_waitMin} Min) an ${gatewayVid}: ${smsData.phone}`);
+                } else {
+                    await db.ref(`smsQueue/${smsId}`).update({
+                        attempts: (smsData.attempts || 0) + 1,
+                        lastAttemptAt: _now
+                    });
+                }
+            }
+        } catch (e) {
+            console.error('scheduledSmsRetry Fehler:', e.message);
+        }
+    }
+);
 
 // ═══════════════════════════════════════════════════════════════
 // 🆕 v6.62.830: PERSONAL MAIL BRIDGE (Sekretärs-Modus)

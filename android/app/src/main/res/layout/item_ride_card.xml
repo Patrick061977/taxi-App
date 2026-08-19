@@ -181,7 +181,13 @@
             android:orientation="vertical"
             android:visibility="gone">
 
+            <!-- v6.63.913 (Patrick 19.08.2026 10:20-10:30 Ullmann-Scroll-Bug): Container
+                 ID gegeben damit Adapter bei picked_up die 3 Nav/Call/SMS-Buttons kompakt
+                 machen kann. Bei picked_up ist der Kunde IM Wagen, Navigation läuft bereits
+                 in Google Maps, Anrufen selten nötig — Buttons ausblenden spart ~60dp
+                 pro Card, damit 2+ Cards auf den Screen passen und Scroll funktioniert. -->
             <LinearLayout
+                android:id="@+id/active_toolbar_top"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal">

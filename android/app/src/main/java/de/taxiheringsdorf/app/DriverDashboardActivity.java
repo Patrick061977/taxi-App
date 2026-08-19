@@ -4879,7 +4879,7 @@ public class DriverDashboardActivity extends AppCompatActivity {
         class VH extends RecyclerView.ViewHolder {
             TextView tvBadge, tvPaidBadge, tvTime, tvName, tvPickup, tvDest, tvPriceDist, tvLiveEta;
             MaterialButton btnAccept, btnReject, btnNavigate, btnCall, btnSmsTrack, btnStatusNext, btnCancelRide;
-            LinearLayout actionRow, activeToolbar;
+            LinearLayout actionRow, activeToolbar, activeToolbarTop;
             VH(View v) {
                 super(v);
                 tvBadge = v.findViewById(R.id.tv_status_badge);
@@ -4894,6 +4894,7 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 btnReject = v.findViewById(R.id.btn_reject);
                 actionRow = v.findViewById(R.id.action_row);
                 activeToolbar = v.findViewById(R.id.active_toolbar);
+                activeToolbarTop = v.findViewById(R.id.active_toolbar_top);
                 btnNavigate = v.findViewById(R.id.btn_navigate);
                 btnCall = v.findViewById(R.id.btn_call);
                 btnSmsTrack = v.findViewById(R.id.btn_sms_track);
@@ -5330,6 +5331,28 @@ public class DriverDashboardActivity extends AppCompatActivity {
 
                 actionRow.setVisibility((canAcceptReject || isWartepool) ? View.VISIBLE : View.GONE);
                 activeToolbar.setVisibility(isActive ? View.VISIBLE : View.GONE);
+
+                // 🆕 v6.63.913 (Patrick 19.08.2026 10:20 Ullmann-Scroll-Bug): Kompakt-Modus
+                //   bei picked_up damit die Card nicht den ganzen Screen frisst und der
+                //   Fahrer die zweite Card noch erreichen kann. Bei picked_up:
+                //     • Kunde im Wagen → Nav läuft schon in Google Maps → btn_navigate raus
+                //     • Kunde erreichbar durch Sitz-Nachbar → btn_call/sms selten nötig → raus
+                //     • Preis wird beim Abschluss angezeigt → tvPriceDist raus
+                //     • Live-ETA (Ziel-Ankunft) → tvLiveEta raus (Fahrer sieht Maps)
+                //   Nur der primäre "Am Ziel"-Button (btn_status_next) bleibt sichtbar.
+                //   Bei on_way/arrived (Anfahrt zum Kunden) bleibt alles wie bisher —
+                //   dort braucht Fahrer Nav + Anruf-Buttons.
+                String _st913 = r.status != null ? r.status.toLowerCase() : "";
+                boolean _isPickedUp913 = _st913.equals("picked_up");
+                if (_isPickedUp913) {
+                    if (activeToolbarTop != null) activeToolbarTop.setVisibility(View.GONE);
+                    if (tvPriceDist != null) tvPriceDist.setVisibility(View.GONE);
+                    if (tvLiveEta != null) tvLiveEta.setVisibility(View.GONE);
+                } else {
+                    if (activeToolbarTop != null) activeToolbarTop.setVisibility(View.VISIBLE);
+                    if (tvPriceDist != null) tvPriceDist.setVisibility(View.VISIBLE);
+                    // tvLiveEta wird separat unten gesteuert (Zeile 5035 etc.)
+                }
 
                 if (canAcceptReject) {
                     if (isPast) {

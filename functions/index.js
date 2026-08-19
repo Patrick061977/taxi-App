@@ -42356,7 +42356,11 @@ async function askDispatcherKI(rideId, conflictContext) {
         if (!anthropicKey) return { ok: false, error: 'kein Anthropic-Key' };
 
         const model = 'claude-haiku-4-5-20251001';
-        const prompt = `Du bist der KI-Dispatcher. Analysiere den Konflikt und gib EINEN klaren Vorschlag + max 2 Alternativen.
+        // 🆕 v6.63.912 (Patrick 19.08.2026 09:28): strukturiertes Push-Format —
+        //   ein Fremder muss auf einen Blick sehen: welche Fahrten sind im Konflikt,
+        //   wo genau die Problematik, wer macht was, wer wird informiert, Timeline
+        //   des betroffenen Wagens. Prompt verlangt jetzt gegliederte Felder.
+        const prompt = `Du bist der KI-Dispatcher. Analysiere den Konflikt und liefere ein STRUKTURIERTES Konfliktprotokoll das ein fremder Mitarbeiter sofort versteht.
 
 REGELN:
 ${_DISPATCHER_RULES}
@@ -42364,14 +42368,36 @@ ${_DISPATCHER_RULES}
 KONFLIKT-KONTEXT:
 ${JSON.stringify(conflictContext, null, 2)}
 
-Antworte in JSON (nur JSON, kein Prosa):
+Antworte in JSON (nur JSON, kein Prosa). Jeder Text auf Deutsch, keine Emoji im Text:
 {
-  "situation": "kurz was los ist (max 100 Zeichen)",
-  "empfehlung": "was tun (max 120 Zeichen)",
-  "alternativen": ["alt 1", "alt 2"],
-  "grund": "warum diese Empfehlung (max 120 Zeichen)",
+  "lage": [
+    "<Kunde> <HH:MM> <Von-Ort> -> <Nach-Ort> (<Dauer>min, <Distanz>km)<optional [FIX] wenn Bahnhof/Flughafen>"
+  ],
+  "konflikt": "Ein Satz warum die Fahrten kollidieren (mit konkreter Zeitrechnung: Ende + Anfahrt vs. Pickup).",
+  "empfehlungAktionen": [
+    "<Kunde> <HH:MM> -> <Fahrzeug-Name> (<Fahrer>) — <kurzer Grund>"
+  ],
+  "timeline": [
+    "<HH:MM>-<HH:MM> <Fahrzeug> <Kunde> <Von->Nach>"
+  ],
+  "alternativen": [
+    { "label": "Kurzbeschreibung Alternative", "aktionen": ["<Kunde> <HH:MM> -> <Fahrzeug>"] }
+  ],
+  "kundenInfo": [
+    "<Kunde>: <keine | SMS 'Text' | Anruf noetig weil ...>"
+  ],
+  "grund": "Ein Satz warum die Empfehlung die beste Wahl ist.",
   "askUser": true
-}`;
+}
+
+WICHTIG:
+- "lage" enthaelt ALLE beteiligten Fahrten (Wartepool + Konflikt-Kandidaten).
+- "timeline" zeigt den betroffenen Wagen chronologisch, damit Luecken/Konflikte sichtbar werden.
+- "empfehlungAktionen" ist eine Zeile PRO betroffener Fahrt — nicht ein Fließtext.
+- "kundenInfo" sagt fuer JEDEN Kunden ob eine Nachricht/Anruf noetig ist bei Umverteilung.
+- Bei Bahnhof/Flughafen: Regel 1+2+3 anwenden (Pickup FIX, Ziel max +5 Min).
+- Bei Vorbestellung vs Vorbestellung: Regel 5+7 (frueherer Pickup gewinnt).
+- Bei Springer-Bedarf: Regel 12 als Alternative anbieten.`;
 
         const resp = await callAnthropicAPI(anthropicKey, model, 800, [
             { role: 'user', content: prompt }
@@ -42400,25 +42426,67 @@ Antworte in JSON (nur JSON, kein Prosa):
         if (Array.isArray(admins) && admins.length > 0) chatId = admins[0];
         else if (typeof admins === 'object' && admins) chatId = Object.values(admins)[0];
 
-        const msgLines = [
-            '🧠 KI-Dispatcher — Konflikt-Vorschlag:',
-            '',
-            '📋 ' + parsed.situation,
-            '',
-            '💡 Empfehlung: ' + parsed.empfehlung,
-            'Grund: ' + parsed.grund,
-            ''
-        ];
-        if (parsed.alternativen && parsed.alternativen.length > 0) {
-            msgLines.push('🔄 Alternativen:');
-            parsed.alternativen.forEach((a, i) => msgLines.push(`  [${String.fromCharCode(66+i)}] ${a}`));
+        // 🆕 v6.63.912: strukturiertes Layout (Patrick 09:28 „muss ein fremder verstehen können").
+        //   Fällt zurück auf altes v911-Layout wenn KI die neuen Felder nicht liefert.
+        const msgLines = ['🧠 KI-DISPATCHER — Konflikt & Loesung', ''];
+        if (Array.isArray(parsed.lage) && parsed.lage.length > 0) {
+            msgLines.push('📊 LAGE:');
+            parsed.lage.forEach(l => msgLines.push('  • ' + l));
+            msgLines.push('');
+        } else if (parsed.situation) {
+            msgLines.push('📋 ' + parsed.situation);
+            msgLines.push('');
         }
-        msgLines.push('');
-        msgLines.push('Antworte per Bridge:');
-        msgLines.push('  [A] Empfehlung ausführen');
-        if (parsed.alternativen && parsed.alternativen[0]) msgLines.push('  [B] Alternative 1');
-        if (parsed.alternativen && parsed.alternativen[1]) msgLines.push('  [C] Alternative 2');
-        msgLines.push('  [D] anders: dann sag wie');
+        if (parsed.konflikt) {
+            msgLines.push('🔀 KONFLIKT:');
+            msgLines.push('  ' + parsed.konflikt);
+            msgLines.push('');
+        }
+        if (Array.isArray(parsed.empfehlungAktionen) && parsed.empfehlungAktionen.length > 0) {
+            msgLines.push('✅ EMPFEHLUNG (Aktion [A]):');
+            parsed.empfehlungAktionen.forEach((a, i) => msgLines.push(`  ${i + 1}. ${a}`));
+            msgLines.push('');
+        } else if (parsed.empfehlung) {
+            msgLines.push('💡 Empfehlung: ' + parsed.empfehlung);
+            msgLines.push('');
+        }
+        if (Array.isArray(parsed.timeline) && parsed.timeline.length > 0) {
+            msgLines.push('🕐 TIMELINE:');
+            parsed.timeline.forEach(t => msgLines.push('  ' + t));
+            msgLines.push('');
+        }
+        if (Array.isArray(parsed.alternativen) && parsed.alternativen.length > 0) {
+            msgLines.push('🔄 ALTERNATIVEN:');
+            parsed.alternativen.forEach((a, i) => {
+                const _letter = String.fromCharCode(66 + i);
+                if (typeof a === 'string') {
+                    msgLines.push(`  [${_letter}] ${a}`);
+                } else if (a && typeof a === 'object') {
+                    msgLines.push(`  [${_letter}] ${a.label || 'Alternative'}`);
+                    if (Array.isArray(a.aktionen)) {
+                        a.aktionen.forEach(x => msgLines.push(`       • ${x}`));
+                    }
+                }
+            });
+            msgLines.push('');
+        }
+        if (Array.isArray(parsed.kundenInfo) && parsed.kundenInfo.length > 0) {
+            msgLines.push('👥 KUNDEN-INFO:');
+            parsed.kundenInfo.forEach(k => msgLines.push('  • ' + k));
+            msgLines.push('');
+        }
+        if (parsed.grund) {
+            msgLines.push('ℹ️ Grund: ' + parsed.grund);
+            msgLines.push('');
+        }
+        msgLines.push('📱 Antwort per Bridge:');
+        msgLines.push('  [A] Empfehlung ausfuehren');
+        if (Array.isArray(parsed.alternativen)) {
+            parsed.alternativen.slice(0, 2).forEach((_, i) => {
+                msgLines.push(`  [${String.fromCharCode(66 + i)}] Alternative ${String.fromCharCode(66 + i)}`);
+            });
+        }
+        msgLines.push('  [D] anders — sag wie');
         msgLines.push('');
         msgLines.push(`Entscheidungs-ID: ${decisionId}`);
 

@@ -717,6 +717,8 @@ public class AdminDashboardActivity extends AppCompatActivity {
         p.getMenu().add(0, 9, 0, "🧾 Rechnungen");
         // 🆕 v6.63.767 (Patrick 21.07.): Schnell-Adressen verwalten (Bahnhoefe/Flughafen/POIs)
         p.getMenu().add(0, 10, 0, "⭐ Schnell-Adressen");
+        // 🆕 v6.63.915 (Patrick 19.08.): SMS-heute-Übersicht mit Retry-Button
+        p.getMenu().add(0, 11, 0, "📲 SMS heute");
         p.getMenu().add(0, 1, 0, "🚗 Zurück zu Fahrzeugauswahl");
         p.getMenu().add(0, 2, 0, "🚪 Logout");
         p.setOnMenuItemClickListener(item -> {
@@ -757,6 +759,11 @@ public class AdminDashboardActivity extends AppCompatActivity {
             if (item.getItemId() == 10) {
                 // v6.63.767: Schnell-Adressen verwalten
                 showQuickPicksManagerDialog();
+                return true;
+            }
+            if (item.getItemId() == 11) {
+                // v6.63.915: SMS-heute-Übersicht mit Retry-Button
+                startActivity(new Intent(this, SmsQueueActivity.class));
                 return true;
             }
             if (item.getItemId() == 1) {

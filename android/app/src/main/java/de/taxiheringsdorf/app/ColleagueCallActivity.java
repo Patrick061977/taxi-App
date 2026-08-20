@@ -8,8 +8,10 @@ package de.taxiheringsdorf.app;
 
 import android.app.AlertDialog;
 import android.content.Intent;
+import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
+import android.provider.ContactsContract;
 import android.text.InputType;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -19,6 +21,8 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -50,6 +54,10 @@ public class ColleagueCallActivity extends AppCompatActivity {
     private List<VehicleDriver> vehicleDrivers = new ArrayList<>();
     private List<QuickContact> quickContacts = new ArrayList<>();
 
+    // v6.63.918: Contact-Picker (ACTION_PICK) — braucht KEINE READ_CONTACTS-Permission
+    // weil Android das Picking in der Contacts-App macht und uns nur die URI zurückgibt.
+    private ActivityResultLauncher<Intent> contactPicker;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -58,11 +66,58 @@ public class ColleagueCallActivity extends AppCompatActivity {
         rv = findViewById(R.id.rv_colleagues);
         empty = findViewById(R.id.empty_state);
         findViewById(R.id.btn_back).setOnClickListener(v -> finish());
-        findViewById(R.id.btn_add_contact).setOnClickListener(v -> showAddContactDialog());
+        findViewById(R.id.btn_add_contact).setOnClickListener(v -> showAddContactDialog(null, null));
+
+        // v6.63.918: ActivityResultLauncher für Kontakt-Picker registrieren (VOR btn_import onClick).
+        contactPicker = registerForActivityResult(
+            new ActivityResultContracts.StartActivityForResult(),
+            result -> {
+                if (result == null || result.getResultCode() != RESULT_OK) return;
+                Intent data = result.getData();
+                if (data == null || data.getData() == null) return;
+                handlePickedContact(data.getData());
+            }
+        );
+        findViewById(R.id.btn_import_contact).setOnClickListener(v -> {
+            try {
+                Intent pick = new Intent(Intent.ACTION_PICK, ContactsContract.CommonDataKinds.Phone.CONTENT_URI);
+                contactPicker.launch(pick);
+            } catch (Exception e) {
+                Toast.makeText(this, "Telefonbuch nicht erreichbar: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            }
+        });
+
         rv.setLayoutManager(new LinearLayoutManager(this));
         adapter = new ColleagueAdapter();
         rv.setAdapter(adapter);
         attach();
+    }
+
+    // v6.63.918: Aus dem gepickten Kontakt Name + Nummer lesen und Speichern-Dialog öffnen.
+    // Der User kann Name/Rolle noch anpassen bevor gespeichert wird (falls Doppel-Nachname etc.).
+    private void handlePickedContact(Uri contactUri) {
+        String name = null;
+        String phone = null;
+        try (Cursor c = getContentResolver().query(contactUri,
+                new String[]{
+                    ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
+                    ContactsContract.CommonDataKinds.Phone.NUMBER
+                }, null, null, null)) {
+            if (c != null && c.moveToFirst()) {
+                name = c.getString(0);
+                phone = c.getString(1);
+            }
+        } catch (Exception e) {
+            Toast.makeText(this, "Kontakt konnte nicht gelesen werden: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            return;
+        }
+        if (name == null && phone == null) {
+            Toast.makeText(this, "Kontakt hat weder Name noch Nummer", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        // Nummer säubern (Leerzeichen/Bindestriche raus; behalte + am Anfang)
+        if (phone != null) phone = phone.replaceAll("[^+0-9]", "");
+        showAddContactDialog(name, phone);
     }
 
     @Override
@@ -171,7 +226,8 @@ public class ColleagueCallActivity extends AppCompatActivity {
         empty.setVisibility(rows.isEmpty() ? View.VISIBLE : View.GONE);
     }
 
-    private void showAddContactDialog() {
+    // v6.63.918: Zweiter Signatur — pre-filled Name+Phone bei Telefonbuch-Import.
+    private void showAddContactDialog(String prefillName, String prefillPhone) {
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         int pad = (int)(getResources().getDisplayMetrics().density * 20);
@@ -179,9 +235,11 @@ public class ColleagueCallActivity extends AppCompatActivity {
         EditText etName = new EditText(this);
         etName.setHint("Name");
         etName.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_WORDS);
+        if (prefillName != null) etName.setText(prefillName);
         EditText etPhone = new EditText(this);
         etPhone.setHint("+49...");
         etPhone.setInputType(InputType.TYPE_CLASS_PHONE);
+        if (prefillPhone != null) etPhone.setText(prefillPhone);
         EditText etRole = new EditText(this);
         etRole.setHint("Rolle (z.B. Anwalt, ECOVIS)");
         etRole.setInputType(InputType.TYPE_CLASS_TEXT);
@@ -189,7 +247,7 @@ public class ColleagueCallActivity extends AppCompatActivity {
         root.addView(etPhone);
         root.addView(etRole);
         new AlertDialog.Builder(this)
-            .setTitle("+ Kontakt hinzufügen")
+            .setTitle(prefillName != null ? "Kontakt aus Telefonbuch übernehmen" : "+ Kontakt hinzufügen")
             .setView(root)
             .setPositiveButton("Speichern", (d, w) -> {
                 String n = etName.getText().toString().trim();

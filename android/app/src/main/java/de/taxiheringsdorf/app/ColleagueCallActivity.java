@@ -182,6 +182,7 @@ public class ColleagueCallActivity extends AppCompatActivity {
                     q.name = c.child("name").getValue(String.class);
                     q.phone = c.child("phone").getValue(String.class);
                     q.role = c.child("role").getValue(String.class);
+                    q.linkedUserId = c.child("linkedUserId").getValue(String.class);
                     if (q.name != null && q.phone != null) quickContacts.add(q);
                 }
                 rebuild();
@@ -194,21 +195,38 @@ public class ColleagueCallActivity extends AppCompatActivity {
     private void rebuild() {
         List<Row> rows = new ArrayList<>();
         Set<String> phonesShown = new HashSet<>();
-        // 1) Aktive Fahrer zuerst (mit Vehicle-Info)
+        Set<String> linkedUidsUsed = new HashSet<>();
+        // 1) Aktive Fahrer zuerst (mit Vehicle-Info).
+        //    Nummer-Priorität: /users/{uid}/phoneNumber -> quickCallContacts.linkedUserId
         for (VehicleDriver vd : vehicleDrivers) {
             String phone = vd.userId != null ? userPhoneByUid.get(vd.userId) : null;
+            String quickIdForLinked = null;
+            if (phone == null && vd.userId != null) {
+                for (QuickContact q : quickContacts) {
+                    if (vd.userId.equals(q.linkedUserId)) {
+                        phone = q.phone;
+                        quickIdForLinked = q.id;
+                        linkedUidsUsed.add(vd.userId);
+                        break;
+                    }
+                }
+            }
             Row r = new Row();
             r.name = vd.driverName;
             r.meta = (vd.vehicleName != null ? vd.vehicleName : "") + (vd.plate != null ? " · " + vd.plate : "");
             r.phone = phone;
             r.online = true;
             r.userId = vd.userId;
+            // Wenn die Nummer aus quickCallContacts kam, die quickId anhängen — sonst
+            // greift Long-Press bei "Nummer entfernen" nicht (weil /users ist read-only).
+            r.quickId = quickIdForLinked;
             rows.add(r);
             if (phone != null) phonesShown.add(phone);
         }
-        // 2) Quick-Kontakte (nicht duplizieren wenn Telefon schon dabei)
+        // 2) Quick-Kontakte (nicht duplizieren wenn Telefon oder linkedUserId schon dabei)
         for (QuickContact q : quickContacts) {
             if (q.phone != null && phonesShown.contains(q.phone)) continue;
+            if (q.linkedUserId != null && linkedUidsUsed.contains(q.linkedUserId)) continue;
             Row r = new Row();
             r.name = q.name;
             r.meta = q.role;
@@ -335,8 +353,14 @@ public class ColleagueCallActivity extends AppCompatActivity {
             .show();
     }
 
-    // v6.63.921: Fahrer-Nummer bearbeiten — schreibt in /users/{uid}/phoneNumber.
-    //   Name und Rolle NICHT editierbar (kommen aus User-Profil / Vehicle-Shift).
+    // v6.63.921: Fahrer-Nummer bearbeiten.
+    // 🐛 v6.63.922 (Patrick 20.08.2026 07:53): /users/{uid} ist per Firebase-Rule
+    //    read/write NUR für den Fahrer selbst (auth.uid === $uid). Patrick's
+    //    Admin-Login darf NICHT rein → Permission-Denied bei Speichern/Löschen.
+    // Fix: Fahrer-Nummer wird in /settings/quickCallContacts mit linkedUserId=<uid>
+    //    gespeichert. Rebuild verknüpft Fahrer + Quick-Kontakt automatisch.
+    //    Wenn schon ein Quick-Kontakt für diesen Fahrer existiert (r.quickId gesetzt),
+    //    wird er aktualisiert. Sonst push().
     private void showEditUserPhoneDialog(Row r) {
         if (r == null || r.userId == null) return;
         EditText etPhone = new EditText(this);
@@ -348,27 +372,48 @@ public class ColleagueCallActivity extends AppCompatActivity {
         LinearLayout root = new LinearLayout(this);
         root.setPadding(pad, pad, pad, 0);
         root.addView(etPhone);
-        new AlertDialog.Builder(this)
+        AlertDialog.Builder b = new AlertDialog.Builder(this)
             .setTitle("📞 Nummer von " + (r.name != null ? r.name : "Fahrer"))
-            .setMessage("Wird in /users/" + r.userId + "/phoneNumber gespeichert.")
             .setView(root)
             .setPositiveButton("Speichern", (d, w) -> {
                 String p = etPhone.getText().toString().trim();
                 if (p.isEmpty()) {
-                    Toast.makeText(this, "Nummer darf nicht leer sein — nutze Löschen wenn du sie entfernen willst", Toast.LENGTH_LONG).show();
+                    Toast.makeText(this, "Nummer darf nicht leer sein — nutze Entfernen", Toast.LENGTH_LONG).show();
                     return;
                 }
-                db.child("users/" + r.userId + "/phoneNumber").setValue(p)
-                    .addOnSuccessListener(v -> Toast.makeText(this, "Gespeichert", Toast.LENGTH_SHORT).show())
-                    .addOnFailureListener(err -> Toast.makeText(this, "Fehler: " + err.getMessage(), Toast.LENGTH_LONG).show());
+                Map<String, Object> u = new HashMap<>();
+                u.put("name", r.name != null ? r.name : "Fahrer");
+                u.put("phone", p);
+                u.put("role", "Fahrer");
+                u.put("linkedUserId", r.userId);
+                u.put("updatedAt", System.currentTimeMillis());
+                if (r.quickId != null) {
+                    // Update existierender Quick-Kontakt
+                    db.child("settings/quickCallContacts/" + r.quickId).updateChildren(u)
+                        .addOnSuccessListener(v -> Toast.makeText(this, "Gespeichert", Toast.LENGTH_SHORT).show())
+                        .addOnFailureListener(err -> Toast.makeText(this, "Fehler: " + err.getMessage(), Toast.LENGTH_LONG).show());
+                } else {
+                    // Neuer Quick-Kontakt
+                    u.put("createdAt", System.currentTimeMillis());
+                    db.child("settings/quickCallContacts").push().setValue(u)
+                        .addOnSuccessListener(v -> Toast.makeText(this, "Gespeichert", Toast.LENGTH_SHORT).show())
+                        .addOnFailureListener(err -> Toast.makeText(this, "Fehler: " + err.getMessage(), Toast.LENGTH_LONG).show());
+                }
             })
-            .setNeutralButton("🗑 Nummer entfernen", (d, w) ->
-                db.child("users/" + r.userId + "/phoneNumber").removeValue()
+            .setNegativeButton("Abbrechen", null);
+        // Entfernen-Button nur wenn eine Nummer via quickContacts hinterlegt ist
+        // (die aus /users kann Admin nicht löschen — steht im Message-Text erklärt).
+        if (r.quickId != null) {
+            b.setNeutralButton("🗑 Nummer entfernen", (d, w) ->
+                db.child("settings/quickCallContacts/" + r.quickId).removeValue()
                     .addOnSuccessListener(v -> Toast.makeText(this, "Nummer entfernt", Toast.LENGTH_SHORT).show())
                     .addOnFailureListener(err -> Toast.makeText(this, "Fehler: " + err.getMessage(), Toast.LENGTH_LONG).show())
-            )
-            .setNegativeButton("Abbrechen", null)
-            .show();
+            );
+        } else if (r.phone != null) {
+            // Fahrer-Nummer kommt aus /users — Admin kann sie NICHT löschen, nur überschreiben mit Quick-Kontakt
+            b.setMessage("Diese Nummer kommt aus dem Fahrer-Profil (/users) und kann nur vom Fahrer selbst entfernt werden. Du kannst sie hier aber überschreiben — dann gilt deine Version.");
+        }
+        b.show();
     }
 
     static class VehicleDriver {
@@ -376,7 +421,7 @@ public class ColleagueCallActivity extends AppCompatActivity {
     }
 
     static class QuickContact {
-        String id, name, phone, role;
+        String id, name, phone, role, linkedUserId;
     }
 
     static class Row {

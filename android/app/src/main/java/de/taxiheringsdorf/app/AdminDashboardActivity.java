@@ -4238,7 +4238,6 @@ public class AdminDashboardActivity extends AppCompatActivity {
             //   Anruf-Button oben im Korrespondenz-Dialog. Bevorzugt Handy (customerMobile /
             //   mobilePhone), Fallback customerPhone. Tap -> Android ACTION_DIAL.
             final String _phoneCall = (r.customerMobile != null && !r.customerMobile.isEmpty()) ? r.customerMobile
-                : (r.mobilePhone != null && !r.mobilePhone.isEmpty()) ? r.mobilePhone
                 : (r.customerPhone != null && !r.customerPhone.isEmpty()) ? r.customerPhone
                 : null;
             android.widget.LinearLayout _root = new android.widget.LinearLayout(this);

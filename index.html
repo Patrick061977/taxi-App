@@ -13131,8 +13131,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '6.63.922';
-        const APP_BUILD = '18.08.2026 12:04';
+        const APP_VERSION = '6.63.923';
+        const APP_BUILD = '20.08.2026 08:12';
         const APP_CHANGE = 'fix v6.63.643: ✓ Erledigt-Button im Wartepool-Banner + kunden.html Fahrhistorie per CRM-ID (kein globales Limit mehr).';
 
         // 🔧 FIX: Mache APP_VERSION global verfügbar
@@ -86636,9 +86636,12 @@ Funk Taxi Team`;
                 } else if (currentUsersFilter === 'admin') {
                     if ((u.role || '').toLowerCase() !== 'admin') return false;
                 } else if (currentUsersFilter === 'fahrer') {
+                    // 🐛 v6.63.923 (Patrick 20.08.2026): Vorregistrierte Fahrer sollen im
+                    //   Fahrer-Filter mit sichtbar sein. Der 'preReg'-Filter zeigt sie zusätzlich
+                    //   noch mal, aber wer 'Fahrer' filtert erwartet auch Christian + Danilo
+                    //   die noch nicht eingeloggt sind.
                     const r = (u.role || '').toLowerCase();
                     if (r !== 'fahrer' && r !== 'driver') return false;
-                    if (u._preRegistered) return false;
                 } else if (currentUsersFilter === 'prereg') {
                     if (!u._preRegistered) return false;
                 } else if (currentUsersFilter === 'fahrgast') {

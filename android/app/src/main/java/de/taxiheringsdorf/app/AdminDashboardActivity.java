@@ -6051,7 +6051,13 @@ public class AdminDashboardActivity extends AppCompatActivity {
     // v6.63.714 (Patrick 15.07.): Anrede aus CRM (salutation/anrede) verwenden wenn gesetzt.
     private void _showQuickSendDialog_v713(final Ride r, final boolean isWhatsApp) {
         if (r == null) return;
-        final String _phone = r.customerPhone != null ? r.customerPhone : "";
+        // 🐛 v6.63.924 (Patrick 20.08.2026 12:48 Marcel-Fall): Fallback auf customerMobile
+        //   wenn customerPhone leer. Marcel hatte customerPhone="" aber customerMobile=+49178...
+        //   -> Dialog sagte fälschlich "keine Nummer hinterlegt".
+        String _phone = r.customerPhone != null ? r.customerPhone.trim() : "";
+        if (_phone.isEmpty() && r.customerMobile != null && !r.customerMobile.trim().isEmpty()) {
+            _phone = r.customerMobile.trim();
+        }
         if (_phone.isEmpty()) {
             Toast.makeText(this, "❌ Keine Telefonnummer beim Kunden hinterlegt", Toast.LENGTH_LONG).show();
             return;
@@ -6073,7 +6079,12 @@ public class AdminDashboardActivity extends AppCompatActivity {
 
     private void _showQuickSendDialogInternal_v714(final Ride r, final boolean isWhatsApp,
                                                     final String salutation, final String crmLastName) {
-        final String _phone = r.customerPhone != null ? r.customerPhone : "";
+        // v6.63.924: gleicher Mobile-Fallback wie in _showQuickSendDialog_v713.
+        String _phoneTmp = r.customerPhone != null ? r.customerPhone.trim() : "";
+        if (_phoneTmp.isEmpty() && r.customerMobile != null && !r.customerMobile.trim().isEmpty()) {
+            _phoneTmp = r.customerMobile.trim();
+        }
+        final String _phone = _phoneTmp;
         String _pu = r.pickup != null ? r.pickup : "";
         String _dst = r.destination != null ? r.destination : "";
         String _time = r.pickupTime != null ? r.pickupTime : "";

@@ -4233,8 +4233,45 @@ public class AdminDashboardActivity extends AppCompatActivity {
             int _p = (int)(getResources().getDisplayMetrics().density * 16);
             tv.setPadding(_p, _p, _p, _p);
             tv.setTextIsSelectable(true);
+
+            // 🆕 v6.63.917 (Patrick 20.08.2026 05:00 'kunden aus der disposition anrufen können'):
+            //   Anruf-Button oben im Korrespondenz-Dialog. Bevorzugt Handy (customerMobile /
+            //   mobilePhone), Fallback customerPhone. Tap -> Android ACTION_DIAL.
+            final String _phoneCall = (r.customerMobile != null && !r.customerMobile.isEmpty()) ? r.customerMobile
+                : (r.mobilePhone != null && !r.mobilePhone.isEmpty()) ? r.mobilePhone
+                : (r.customerPhone != null && !r.customerPhone.isEmpty()) ? r.customerPhone
+                : null;
+            android.widget.LinearLayout _root = new android.widget.LinearLayout(this);
+            _root.setOrientation(android.widget.LinearLayout.VERTICAL);
+            if (_phoneCall != null) {
+                com.google.android.material.button.MaterialButton _btnCall917 =
+                    new com.google.android.material.button.MaterialButton(this);
+                _btnCall917.setText("📞 " + _phoneCall + " anrufen");
+                _btnCall917.setTextColor(android.graphics.Color.WHITE);
+                _btnCall917.setBackgroundTintList(android.content.res.ColorStateList.valueOf(
+                    android.graphics.Color.parseColor("#10B981")));
+                _btnCall917.setCornerRadius((int)(getResources().getDisplayMetrics().density * 10));
+                _btnCall917.setAllCaps(false);
+                _btnCall917.setTextSize(14);
+                android.widget.LinearLayout.LayoutParams _lp917 = new android.widget.LinearLayout.LayoutParams(
+                    android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                    (int)(getResources().getDisplayMetrics().density * 48));
+                _lp917.setMargins(_p, _p, _p, 0);
+                _btnCall917.setLayoutParams(_lp917);
+                _btnCall917.setOnClickListener(_cv -> {
+                    try {
+                        android.content.Intent _di = new android.content.Intent(android.content.Intent.ACTION_DIAL);
+                        _di.setData(android.net.Uri.parse("tel:" + _phoneCall));
+                        startActivity(_di);
+                    } catch (Exception _ex) {
+                        Toast.makeText(this, "Anruf fehlgeschlagen: " + _ex.getMessage(), Toast.LENGTH_LONG).show();
+                    }
+                });
+                _root.addView(_btnCall917);
+            }
+            _root.addView(tv);
             android.widget.ScrollView _sv = new android.widget.ScrollView(this);
-            _sv.addView(tv);
+            _sv.addView(_root);
             // v6.63.713 (Patrick 15.07.): 📱 SMS + 💚 WhatsApp direkt aus Korrespondenz-Ansicht.
             //   Nach Send zusätzlich in smsQueue (category=manual_dispo_sms/wa) speichern
             //   damit's beim nächsten Öffnen in der Timeline erscheint.

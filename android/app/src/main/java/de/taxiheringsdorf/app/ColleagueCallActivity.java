@@ -202,6 +202,7 @@ public class ColleagueCallActivity extends AppCompatActivity {
             r.meta = (vd.vehicleName != null ? vd.vehicleName : "") + (vd.plate != null ? " · " + vd.plate : "");
             r.phone = phone;
             r.online = true;
+            r.userId = vd.userId;
             rows.add(r);
             if (phone != null) phonesShown.add(phone);
         }
@@ -214,6 +215,7 @@ public class ColleagueCallActivity extends AppCompatActivity {
             r.phone = q.phone;
             r.online = false;
             r.quickId = q.id;
+            r.role = q.role;
             rows.add(r);
         }
         Collections.sort(rows, (a, b) -> {
@@ -287,6 +289,88 @@ public class ColleagueCallActivity extends AppCompatActivity {
         db.child("settings/quickCallContacts/" + id).removeValue();
     }
 
+    // v6.63.921: Quick-Kontakt bearbeiten — schreibt zurück auf denselben Key.
+    private void showEditQuickDialog(Row r) {
+        if (r == null || r.quickId == null) return;
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        int pad = (int)(getResources().getDisplayMetrics().density * 20);
+        root.setPadding(pad, pad, pad, 0);
+        EditText etName = new EditText(this);
+        etName.setHint("Name");
+        etName.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_WORDS);
+        if (r.name != null) etName.setText(r.name);
+        EditText etPhone = new EditText(this);
+        etPhone.setHint("+49...");
+        etPhone.setInputType(InputType.TYPE_CLASS_PHONE);
+        if (r.phone != null) etPhone.setText(r.phone);
+        EditText etRole = new EditText(this);
+        etRole.setHint("Rolle (z.B. Anwalt, ECOVIS)");
+        etRole.setInputType(InputType.TYPE_CLASS_TEXT);
+        if (r.role != null) etRole.setText(r.role);
+        root.addView(etName);
+        root.addView(etPhone);
+        root.addView(etRole);
+        new AlertDialog.Builder(this)
+            .setTitle("✏️ Kontakt bearbeiten")
+            .setView(root)
+            .setPositiveButton("Speichern", (d, w) -> {
+                String n = etName.getText().toString().trim();
+                String p = etPhone.getText().toString().trim();
+                String ro = etRole.getText().toString().trim();
+                if (n.isEmpty() || p.isEmpty()) {
+                    Toast.makeText(this, "Name und Nummer sind Pflicht", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                Map<String, Object> u = new HashMap<>();
+                u.put("name", n);
+                u.put("phone", p);
+                u.put("role", ro.isEmpty() ? null : ro);
+                u.put("updatedAt", System.currentTimeMillis());
+                db.child("settings/quickCallContacts/" + r.quickId).updateChildren(u)
+                    .addOnSuccessListener(v -> Toast.makeText(this, "Gespeichert", Toast.LENGTH_SHORT).show())
+                    .addOnFailureListener(err -> Toast.makeText(this, "Fehler: " + err.getMessage(), Toast.LENGTH_LONG).show());
+            })
+            .setNegativeButton("Abbrechen", null)
+            .show();
+    }
+
+    // v6.63.921: Fahrer-Nummer bearbeiten — schreibt in /users/{uid}/phoneNumber.
+    //   Name und Rolle NICHT editierbar (kommen aus User-Profil / Vehicle-Shift).
+    private void showEditUserPhoneDialog(Row r) {
+        if (r == null || r.userId == null) return;
+        EditText etPhone = new EditText(this);
+        etPhone.setHint("+49...");
+        etPhone.setInputType(InputType.TYPE_CLASS_PHONE);
+        if (r.phone != null) etPhone.setText(r.phone);
+        etPhone.setSelectAllOnFocus(true);
+        int pad = (int)(getResources().getDisplayMetrics().density * 20);
+        LinearLayout root = new LinearLayout(this);
+        root.setPadding(pad, pad, pad, 0);
+        root.addView(etPhone);
+        new AlertDialog.Builder(this)
+            .setTitle("📞 Nummer von " + (r.name != null ? r.name : "Fahrer"))
+            .setMessage("Wird in /users/" + r.userId + "/phoneNumber gespeichert.")
+            .setView(root)
+            .setPositiveButton("Speichern", (d, w) -> {
+                String p = etPhone.getText().toString().trim();
+                if (p.isEmpty()) {
+                    Toast.makeText(this, "Nummer darf nicht leer sein — nutze Löschen wenn du sie entfernen willst", Toast.LENGTH_LONG).show();
+                    return;
+                }
+                db.child("users/" + r.userId + "/phoneNumber").setValue(p)
+                    .addOnSuccessListener(v -> Toast.makeText(this, "Gespeichert", Toast.LENGTH_SHORT).show())
+                    .addOnFailureListener(err -> Toast.makeText(this, "Fehler: " + err.getMessage(), Toast.LENGTH_LONG).show());
+            })
+            .setNeutralButton("🗑 Nummer entfernen", (d, w) ->
+                db.child("users/" + r.userId + "/phoneNumber").removeValue()
+                    .addOnSuccessListener(v -> Toast.makeText(this, "Nummer entfernt", Toast.LENGTH_SHORT).show())
+                    .addOnFailureListener(err -> Toast.makeText(this, "Fehler: " + err.getMessage(), Toast.LENGTH_LONG).show())
+            )
+            .setNegativeButton("Abbrechen", null)
+            .show();
+    }
+
     static class VehicleDriver {
         String driverName, vehicleName, plate, userId;
     }
@@ -296,7 +380,8 @@ public class ColleagueCallActivity extends AppCompatActivity {
     }
 
     static class Row {
-        String name, meta, phone, quickId;
+        String name, meta, phone, quickId, role;
+        String userId; // nur für aktive Fahrer aus /users
         boolean online;
     }
 
@@ -332,20 +417,33 @@ public class ColleagueCallActivity extends AppCompatActivity {
                 tvOnline.setVisibility(r.online ? View.VISIBLE : View.GONE);
                 btnCall.setEnabled(r.phone != null && !r.phone.isEmpty());
                 btnCall.setOnClickListener(v -> call(r.phone));
-                // Long-Press auf Quick-Kontakt = löschen
-                if (r.quickId != null) {
-                    itemView.setOnLongClickListener(v -> {
+                // v6.63.921 (Patrick 20.08.): Long-Press-Menu — Bearbeiten/Löschen für Quick-Kontakte,
+                //   Bearbeiten für aktive Fahrer (schreibt in /users/{uid}/phoneNumber).
+                itemView.setOnLongClickListener(v -> {
+                    if (r.quickId != null) {
+                        // Quick-Kontakt: Bearbeiten oder Löschen
                         new AlertDialog.Builder(ColleagueCallActivity.this)
-                            .setTitle("Kontakt löschen?")
-                            .setMessage(r.name + " (" + r.phone + ") wirklich entfernen?")
-                            .setPositiveButton("Löschen", (d, w) -> deleteQuick(r.quickId))
-                            .setNegativeButton("Abbrechen", null)
+                            .setTitle(r.name != null ? r.name : "Kontakt")
+                            .setItems(new CharSequence[]{"✏️ Bearbeiten", "🗑 Löschen"}, (d, w) -> {
+                                if (w == 0) showEditQuickDialog(r);
+                                else if (w == 1) {
+                                    new AlertDialog.Builder(ColleagueCallActivity.this)
+                                        .setTitle("Kontakt löschen?")
+                                        .setMessage(r.name + " (" + r.phone + ") wirklich entfernen?")
+                                        .setPositiveButton("Löschen", (d2, w2) -> deleteQuick(r.quickId))
+                                        .setNegativeButton("Abbrechen", null)
+                                        .show();
+                                }
+                            })
                             .show();
                         return true;
-                    });
-                } else {
-                    itemView.setOnLongClickListener(null);
-                }
+                    } else if (r.userId != null) {
+                        // Aktiver Fahrer: nur Nummer editieren (in /users/{uid}/phoneNumber)
+                        showEditUserPhoneDialog(r);
+                        return true;
+                    }
+                    return false;
+                });
             }
         }
     }

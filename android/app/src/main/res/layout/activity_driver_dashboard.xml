@@ -308,10 +308,23 @@
             android:id="@+id/btn_pin_map"
             android:layout_width="56dp"
             android:layout_height="56dp"
-            android:layout_marginEnd="6dp"
+            android:layout_marginEnd="4dp"
             android:text="🗺"
             android:textSize="20sp"
             app:backgroundTint="#8B5CF6"
+            app:cornerRadius="14dp" />
+
+        <!-- v6.63.916 (Patrick 20.08.2026 04:52): Kollegen-Anruf-Button.
+             Öffnet Dialog mit aktiven Fahrern (aus /vehicles.shift + /users)
+             + Extras aus /settings/quickCallContacts. Anruf via Intent.ACTION_DIAL. -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_colleagues"
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:layout_marginEnd="6dp"
+            android:text="👥"
+            android:textSize="20sp"
+            app:backgroundTint="#0EA5E9"
             app:cornerRadius="14dp" />
 
         <com.google.android.material.button.MaterialButton

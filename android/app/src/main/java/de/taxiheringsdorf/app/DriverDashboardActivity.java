@@ -64,7 +64,7 @@ public class DriverDashboardActivity extends AppCompatActivity {
     private TextView tvPauseBanner; // v6.62.26: grosser Pause-Banner
     private MaterialButton btnMenu, btnEinsteiger, btnCallLog;
     // v6.63.895: Pin-Direktbuttons (Aufnahmen + Karte) — Patrick 18.08. 12:00
-    private MaterialButton btnPinRecordings, btnPinMap;
+    private MaterialButton btnPinRecordings, btnPinMap, btnColleagues;
     // v6.50.0: Update-Banner
     private LinearLayout updateBanner;
     private TextView updateBannerText;
@@ -245,6 +245,7 @@ public class DriverDashboardActivity extends AppCompatActivity {
         // v6.63.895 Pin-Buttons
         btnPinRecordings = findViewById(R.id.btn_pin_recordings);
         btnPinMap = findViewById(R.id.btn_pin_map);
+        btnColleagues = findViewById(R.id.btn_colleagues);
         shiftStatsRow = findViewById(R.id.shift_stats_row);
         rvRides = findViewById(R.id.rv_rides);
         emptyState = findViewById(R.id.empty_state);
@@ -300,6 +301,8 @@ public class DriverDashboardActivity extends AppCompatActivity {
         btnCallLog.setOnClickListener(v -> startActivity(new Intent(this, CallLogActivity.class)));
         // v6.63.895: Pin-Buttons Aufnahmen + Karte — dieselben Aktionen wie Menu-Items
         btnPinRecordings.setOnClickListener(v -> startActivity(new Intent(this, CallRecordingsActivity.class)));
+        // v6.63.916 (Patrick 20.08.2026 04:52): Kollegen-Anruf
+        btnColleagues.setOnClickListener(v -> startActivity(new Intent(this, ColleagueCallActivity.class)));
         btnPinMap.setOnClickListener(v -> {
             String myVid = getSharedPreferences("driver", MODE_PRIVATE).getString("vehicleId", "");
             String url = "https://umwelt-taxi-insel-usedom.de/fahrer-map.html?myVehicle="

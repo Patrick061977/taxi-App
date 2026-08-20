@@ -152,6 +152,15 @@
             android:launchMode="singleTask"
             android:exported="false" />
 
+        <!-- v6.63.916 (Patrick 20.08.2026): ColleagueCallActivity — Kollegen-Liste
+             (aktive Fahrer + Extras aus /settings/quickCallContacts) mit Anruf-Button. -->
+        <activity
+            android:name=".ColleagueCallActivity"
+            android:label="Kollegen"
+            android:theme="@style/AppTheme.Driver"
+            android:launchMode="singleTask"
+            android:exported="false" />
+
         <!-- v6.63.598: InvoicesActivity — Rechnungen-Übersicht + Versand -->
         <activity
             android:name=".InvoicesActivity"

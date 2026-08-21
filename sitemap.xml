@@ -1,637 +1,564 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-
-  <!-- HAUPT-SEITEN -->
-  <url>
-    <loc>https://keinbockzulaufen.de/</loc>
-    <lastmod>2026-07-09</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>1.0</priority>
-  </url>
-  <url>
-    <loc>https://umwelt-taxi-insel-usedom.de/</loc>
-    <lastmod>2026-07-09</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>1.0</priority>
-  </url>
-  <url>
-    <loc>https://umwelt-taxi-insel-usedom.de/kein-bock-zu-laufen.html</loc>
-    <lastmod>2026-07-09</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>1.0</priority>
-  </url>
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/landing.html</loc>
     <lastmod>2026-07-09</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
-
-  <!-- BUCHUNGS-SEITEN -->
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/buchen.html</loc>
     <lastmod>2026-07-09</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/anfrage.html</loc>
     <lastmod>2026-07-09</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
-
-  <!-- SERVICE-LANDINGPAGES (lokal-SEO) -->
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/flughafen-heringsdorf.html</loc>
     <lastmod>2026-07-09</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.9</priority>
   </url>
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/bahnhofstransfer.html</loc>
     <lastmod>2026-07-09</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.9</priority>
   </url>
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/taxi-bahnhof-heringsdorf.html</loc>
     <lastmod>2026-07-09</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.9</priority>
   </url>
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/taxi-bahnhof-ahlbeck.html</loc>
     <lastmod>2026-07-09</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.9</priority>
   </url>
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/taxi-bahnhof-bansin.html</loc>
     <lastmod>2026-07-09</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.9</priority>
   </url>
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/taxi-hotel-usedom.html</loc>
     <lastmod>2026-07-09</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.9</priority>
   </url>
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/krankenfahrten.html</loc>
     <lastmod>2026-07-09</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.9</priority>
   </url>
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/grossraumtaxi.html</loc>
     <lastmod>2026-07-09</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/inselfahrten.html</loc>
     <lastmod>2026-07-09</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/pauschalpreise-swinoujscie.html</loc>
     <lastmod>2026-07-09</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.9</priority>
   </url>
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/berlin.html</loc>
     <lastmod>2026-07-09</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
-
-  <!-- CONTENT-SEITEN (Long-Tail-SEO) -->
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/taxi-preise.html</loc>
     <lastmod>2026-08-12</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/ausflugsziele.html</loc>
     <lastmod>2026-07-09</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/veranstaltungen-heringsdorf.html</loc>
     <lastmod>2026-07-09</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/restaurants-usedom.html</loc>
     <lastmod>2026-07-09</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
-
-  <!-- HASH-ANKER (nur wenn eigenständiger Content) -->
-  <url>
-    <loc>https://umwelt-taxi-insel-usedom.de/landing.html#pauschal</loc>
-    <lastmod>2026-07-09</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.7</priority>
-  </url>
-  <url>
-    <loc>https://umwelt-taxi-insel-usedom.de/landing.html#berlin-shuttle</loc>
-    <lastmod>2026-07-09</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.7</priority>
-  </url>
-
-  <!-- RECHTLICHES -->
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/impressum.html</loc>
     <lastmod>2026-07-09</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.3</priority>
   </url>
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/datenschutz.html</loc>
     <lastmod>2026-07-09</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.3</priority>
   </url>
-
-
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/taxi-zu-ahlbeck-hotel-das-ahlbeck.html</loc>
     <lastmod>2026-08-14</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/taxi-zu-ahlbecker-hof.html</loc>
     <lastmod>2026-08-14</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/taxi-zu-bauernstube-morgenitz.html</loc>
     <lastmod>2026-08-14</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/taxi-zu-baumwipfelpfad.html</loc>
     <lastmod>2026-08-14</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/taxi-zu-brise-usedom.html</loc>
     <lastmod>2026-08-14</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/taxi-zu-czuc-mieta.html</loc>
     <lastmod>2026-08-14</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/taxi-zu-die-kuecheninsel.html</loc>
     <lastmod>2026-08-14</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/taxi-zu-dr-krohn.html</loc>
     <lastmod>2026-08-14</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/taxi-zu-dr-sabel.html</loc>
     <lastmod>2026-08-14</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/taxi-zu-dr-woyda.html</loc>
     <lastmod>2026-08-14</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/taxi-zu-edeka-pfitzmann-heringsdorf.html</loc>
     <lastmod>2026-08-14</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/taxi-zu-ferienhotel-ahlbeck-bsw.html</loc>
     <lastmod>2026-08-14</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/taxi-zu-fischkopp.html</loc>
     <lastmod>2026-08-14</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/taxi-zu-forsthaus-langenberg.html</loc>
     <lastmod>2026-08-14</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/taxi-zu-galeria-corso-swinemuende.html</loc>
     <lastmod>2026-08-14</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/taxi-zu-greifswald-krankenhaus.html</loc>
     <lastmod>2026-08-14</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/taxi-zu-hotel-wald-und-see.html</loc>
     <lastmod>2026-08-14</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/taxi-zu-hotel-weisses-schloss.html</loc>
     <lastmod>2026-08-14</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/taxi-zu-kaiserstrand-beachhotel-bansin.html</loc>
     <lastmod>2026-08-14</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/taxi-zu-kelchs-fisch-und-museumsrestaurant.html</loc>
     <lastmod>2026-08-14</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/taxi-zu-kulmeck-restaurant.html</loc>
     <lastmod>2026-08-14</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/taxi-zu-lividus.html</loc>
     <lastmod>2026-08-14</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/taxi-zu-lutter-und-wegner.html</loc>
     <lastmod>2026-08-14</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/taxi-zu-marc-opolo.html</loc>
     <lastmod>2026-08-14</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/taxi-zu-medizinisches-versorgungszentrum.html</loc>
     <lastmod>2026-08-14</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/taxi-zu-museum-villa-irmgard.html</loc>
     <lastmod>2026-08-14</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/taxi-zu-ostseetherme.html</loc>
     <lastmod>2026-08-14</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/taxi-zu-pommern-residenz-ahlbeck.html</loc>
     <lastmod>2026-08-14</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/taxi-zu-pommerscher-hof.html</loc>
     <lastmod>2026-08-14</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/taxi-zu-radisson-blu-swinemuende.html</loc>
     <lastmod>2026-08-14</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/taxi-zu-reha-klinik-heringsdorf.html</loc>
     <lastmod>2026-08-14</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/taxi-zu-rhodos.html</loc>
     <lastmod>2026-08-14</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/taxi-zu-seebruecke-ahlbeck-duenenstrasse-17419-ahlbeck.html</loc>
     <lastmod>2026-08-14</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/taxi-zu-seebruecke-bansin-bergstrasse-17429-bansin.html</loc>
     <lastmod>2026-08-14</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/taxi-zu-seebruecke-heringsdorf-strandpromenade-17424-heringsdorf.html</loc>
     <lastmod>2026-08-14</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/taxi-zu-seebruecke-koserow-am-strande-17459-koserow.html</loc>
     <lastmod>2026-08-14</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/taxi-zu-seebruecke-zinnowitz-strandpromenade-17454-zinnowitz.html</loc>
     <lastmod>2026-08-14</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/taxi-zu-strandhotel-heringsdorf.html</loc>
     <lastmod>2026-08-14</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/taxi-zu-traumdomizil-usedom.html</loc>
     <lastmod>2026-08-14</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/taxi-zu-upstalsboom-heringsdorf.html</loc>
     <lastmod>2026-08-14</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/taxi-zu-villa-aquamarina.html</loc>
     <lastmod>2026-08-14</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/taxi-zu-villa-seeschloesschen.html</loc>
     <lastmod>2026-08-14</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/taxi-zu-villa-sommerfreude.html</loc>
     <lastmod>2026-08-14</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/taxi-zu-waldoase-1.html</loc>
     <lastmod>2026-08-14</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/taxi-zu-wohnmobil-stellplatz-ahlbeck.html</loc>
     <lastmod>2026-08-14</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
-
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/taxi-swinemuende.html</loc>
     <lastmod>2026-08-14</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
-
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/taxi-heringsdorf-swinemuende.html</loc>
     <lastmod>2026-08-14</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
-
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/taxi-ahlbeck-swinemuende.html</loc>
     <lastmod>2026-08-14</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
-
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/taxi-usedom-preise.html</loc>
     <lastmod>2026-08-14</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
-
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/taxi-22022.html</loc>
     <lastmod>2026-08-14</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
-
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/taxi-usedom-zinnowitz.html</loc>
     <lastmod>2026-08-14</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
-
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/taxi-trassenheide-heringsdorf.html</loc>
     <lastmod>2026-08-14</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
-
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/taxi-koserow-heringsdorf.html</loc>
     <lastmod>2026-08-14</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
-
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/taxi-ueckeritz-heringsdorf.html</loc>
     <lastmod>2026-08-14</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
-
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/taxi-bansin-swinemuende.html</loc>
     <lastmod>2026-08-14</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
-
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/taxi-koserow-swinemuende.html</loc>
     <lastmod>2026-08-14</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
-
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/taxi-heringsdorf-misdroy.html</loc>
     <lastmod>2026-08-14</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
-
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/taxi-heringsdorf-berlin.html</loc>
     <lastmod>2026-08-14</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
-
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/taxi-flughafen-heringsdorf-bansin.html</loc>
     <lastmod>2026-08-14</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
-
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/taxi-usedom-koserow.html</loc>
     <lastmod>2026-08-14</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
-
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/taxi-usedom-trassenheide.html</loc>
     <lastmod>2026-08-14</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
-
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/grosstaxi-usedom.html</loc>
     <lastmod>2026-08-14</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
-
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/sammeltaxi-ahlbeck.html</loc>
     <lastmod>2026-08-14</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
-
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/ruftaxi-usedom.html</loc>
     <lastmod>2026-08-14</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
-
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/krankenfahrt-usedom.html</loc>
     <lastmod>2026-08-14</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
-
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/taxi-krankenhaus-wolgast.html</loc>
     <lastmod>2026-08-14</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
-
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/taxi-krankenhaus-greifswald.html</loc>
     <lastmod>2026-08-14</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
-
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/taxi-krankenhaus-anklam.html</loc>
     <lastmod>2026-08-14</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
-
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/landing-en.html</loc>
     <lastmod>2026-08-16</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
-
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/landing-pl.html</loc>
     <lastmod>2026-08-16</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
-
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/taxi-swinemuende-en.html</loc>
     <lastmod>2026-08-16</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
-
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/taxi-swinemuende-pl.html</loc>
     <lastmod>2026-08-16</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
-
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/flughafen-heringsdorf-en.html</loc>
     <lastmod>2026-08-16</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
-
-  <url>
+<url>
     <loc>https://umwelt-taxi-insel-usedom.de/flughafen-heringsdorf-pl.html</loc>
     <lastmod>2026-08-16</lastmod>
     <changefreq>weekly</changefreq>

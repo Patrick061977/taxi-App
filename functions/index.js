@@ -41757,6 +41757,57 @@ exports.scheduledDailyReport_DEPRECATED_v449 = onSchedule(
 //   musst du das überprüfen... auseinandernehmen und gucken warum/weshalb/wieso"):
 //   Real-Time Wartepool-Detektiv. Triggert bei Status-Wechsel auf 'wartepool', liest
 //   vehicleScores, kategorisiert das Problem und pusht strukturierten Befund an Patrick.
+// 🆕 v6.63.927 (Patrick 22.08.2026 Schindel/Grams UX-Bug):
+//   Zentraler Zombie-Cleanup-Trigger. Wenn assignedVehicle auf null wechselt
+//   (irgendwo — Reject / Wartepool / Reassign / Storno / manuell), werden
+//   die restlichen Anzeige-Felder (vehicle, vehicleName, assignedVehicleName,
+//   assignedVehiclePlate, vehicleLabel, vehiclePlate, vehicleId) auf null
+//   gesetzt. Verhindert dass die Dispo-Card einen alten Fahrzeug-Namen
+//   zeigt obwohl die Fahrt eigentlich unassigned ist.
+//
+//   Löst das Problem für ALLE 30+ Cloud-Pfade auf einmal statt jeden
+//   einzeln zu patchen. Läuft nur wenn wirklich noch Zombie-Werte da
+//   sind (verhindert Endlos-Rekursion durch das eigene Update).
+exports.sanitizeVehicleZombieFields = onValueUpdated(
+    {
+        ref: '/rides/{rideId}',
+        region: 'europe-west1',
+        instance: 'taxi-heringsdorf-default-rtdb'
+    },
+    async (event) => {
+        try {
+            const before = event.data.before.val() || {};
+            const after = event.data.after.val() || {};
+            const rideId = event.params.rideId;
+
+            // Nur triggern wenn assignedVehicle GERADE auf null wechselte
+            const wasAssigned = before.assignedVehicle && before.assignedVehicle !== '';
+            const isNowUnassigned = !after.assignedVehicle || after.assignedVehicle === '';
+            if (!wasAssigned || !isNowUnassigned) return;
+
+            // Rekursions-Schutz: wenn schon alle Anzeige-Felder null sind → nix zu tun
+            const zombieFields = ['vehicle', 'vehicleName', 'assignedVehicleName',
+                                  'assignedVehiclePlate', 'vehicleLabel', 'vehiclePlate',
+                                  'vehicleId', 'assignedTo'];
+            const updates = {};
+            for (const f of zombieFields) {
+                const v = after[f];
+                if (v !== null && v !== undefined && v !== '') {
+                    updates[f] = null;
+                }
+            }
+            if (Object.keys(updates).length === 0) return;
+
+            updates.updatedAt = Date.now();
+            updates._zombieCleanupBy = 'v927-sanitize';
+            await db.ref(`rides/${rideId}`).update(updates);
+            console.log(`🧹 v927 Zombie-Cleanup ${rideId}: ${Object.keys(updates).filter(k => !k.startsWith('_') && k !== 'updatedAt').join(', ')}`);
+        } catch (e) {
+            console.error('sanitizeVehicleZombieFields Fehler:', e.message);
+        }
+    }
+);
+
 exports.onRideEnteredWartepool = onValueUpdated(
     {
         ref: '/rides/{rideId}',

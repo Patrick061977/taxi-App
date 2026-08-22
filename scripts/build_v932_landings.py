@@ -64,7 +64,7 @@ def cat_faqs(ck, price, dist, from_short, to_short):
     p = "{:.2f}".format(price)
     common = [
         ('Was kostet die Fahrt von ' + from_short + ' zu ' + to_short + '?',
-         'Der Preis liegt bei ca. ' + p + ' EUR (Median aus echten Fahrten). Bei Nacht (22-6 Uhr, So/Feiertag) faellt ein Zuschlag von 5 EUR an. Grossraum-Taxi (bis 8 Pers.) +10 EUR.'),
+         'Schaetzwert: ca. ' + p + ' EUR (Median aus echten Fahrten). Es handelt sich NICHT um einen Festpreis — der Endpreis wird nach Taxameter abgerechnet. Bei Nacht (22-6 Uhr, So/Feiertag) faellt ein Zuschlag von 5 EUR an. Grossraum-Taxi (bis 8 Pers.) +10 EUR.'),
         ('Wie kann ich das Taxi bestellen?',
          'Telefonisch unter 038378 22022 rund um die Uhr, per Online-Buchung auf umwelt-taxi-insel-usedom.de/buchen.html, oder direkt beim Fahrer. Vorbestellung bis 10 Min vor Pickup moeglich.'),
         ('Kann ich mit Karte bezahlen?',
@@ -107,7 +107,7 @@ def build_page(fl, tl, price, dist, count, ck, slug):
         title = title[:57] + '...'
     p = "{:.2f}".format(price).replace('.', ',')
     d_str = str(dist) + ' km' if dist else 'ca. Fahrt'
-    desc = 'Taxi von ' + from_short + ' nach ' + to_short + ' — ca. ' + p + ' EUR (' + d_str + '). Festpreis-Median aus echten Fahrten. 24/7 unter 038378 22022. Kartenzahlung.'
+    desc = 'Taxi von ' + from_short + ' nach ' + to_short + ' — ca. ' + p + ' EUR (' + d_str + '). Schaetzwert aus echten Fahrten, Endpreis nach Taxameter. 24/7 unter 038378 22022.'
     if len(desc) > 165:
         desc = desc[:162] + '...'
     faqs = cat_faqs(ck, price, dist or 0, from_short, to_short)
@@ -141,6 +141,7 @@ body { font-family: -apple-system, 'Segoe UI', Roboto, sans-serif; margin: 0; ba
 header { background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%); padding: 40px 20px; text-align: center; }
 header h1 { color: #fbbf24; font-size: clamp(24px, 5vw, 36px); margin: 0 0 10px; }
 header .price { font-size: clamp(32px, 6vw, 48px); color: #10b981; font-weight: 900; margin: 20px 0; }
+header .price-note { color: #94a3b8; font-size: 12px; font-style: italic; margin-top: -15px; margin-bottom: 15px; }
 header .meta { color: #94a3b8; font-size: 14px; }
 .cta { display: inline-block; padding: 14px 32px; margin: 10px 5px; background: #fbbf24; color: #0f172a; font-weight: 700; text-decoration: none; border-radius: 8px; }
 .cta.phone { background: #10b981; color: white; }
@@ -161,12 +162,13 @@ footer a { color: #fbbf24; text-decoration: none; margin: 0 8px; }
 <h1>Taxi von """ + from_short + " nach " + to_short + """</h1>
 <p class="meta">""" + cat_label(ck) + " · " + d_str + " · " + str(count) + """x aus echten Fahrten</p>
 <div class="price">ca. """ + p + """ EUR</div>
+<div class="price-note">Schaetzwert (Median aus echten Fahrten) — kein Festpreis, Endpreis nach Taxameter</div>
 <a href="tel:+493837822022" class="cta phone">📞 038378 22022</a>
 <a href="buchen.html?from=""" + urllib.request.quote(from_short) + "&to=" + urllib.request.quote(to_short) + """\" class="cta">🚕 Online buchen</a>
 </header>
 <main>
 <h2>Was Sie erwartet</h2>
-<p><strong>Festpreis-Median: ca. """ + p + """ EUR</strong> (Median aus echten abgeschlossenen Fahrten der letzten 6 Monate). Nacht (22-6 Uhr, So/Feiertag) +5 EUR Zuschlag. Grossraum-Taxi (bis 8 Personen) +10 EUR.</p>
+<p><strong>Preis-Schaetzung: ca. """ + p + """ EUR</strong> — <em>kein Festpreis, Endpreis nach Taxameter</em>. Median aus echten Fahrten der letzten 6 Monate. Nacht (22-6 Uhr, So/Feiertag) +5 EUR Zuschlag. Grossraum-Taxi (bis 8 Personen) +10 EUR.</p>
 <p>Wir fahren Sie <strong>von """ + fl + "</strong> nach <strong>" + tl + """</strong> mit vollem Komfort — 24/7 verfuegbar, Kartenzahlung an Bord.</p>
 <h2>Haeufige Fragen</h2>
 """ + faq_html + """

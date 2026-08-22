@@ -121,7 +121,7 @@ html_parts = []
 html_parts.append('<!-- v6.63.931-ROUTES-START -->')
 html_parts.append('<!-- ' + str(total) + ' Routen aus 1620 echten Fahrten, min. 2x gefahren, POI-Namen anonymisiert -->')
 html_parts.append('<div style="margin:20px 0;padding:12px;background:#fff8e6;border-left:4px solid #f5a623;font-size:13px;color:#5d3a00;">')
-html_parts.append('<strong>' + str(total) + ' echte Routen</strong> aus unseren tatsaechlichen Fahrten der letzten 6 Monate — sortiert nach Haeufigkeit. Preise sind Medianwerte, Adressen sind zum Datenschutz auf POI/Strasse reduziert.')
+html_parts.append('<strong>' + str(total) + ' echte Routen</strong> aus unseren tatsaechlichen Fahrten der letzten 6 Monate — sortiert nach Haeufigkeit. <strong>Alle Preise sind Schaetzwerte (Median aus echten Fahrten) — es sind keine Festpreise, der Endpreis wird nach Taxameter abgerechnet.</strong> Adressen zum Datenschutz auf POI/Strasse reduziert.')
 html_parts.append('</div>')
 
 emoji = {'bahnhof':'BHF','hotel':'HOTEL','restaurant':'FOOD','klinik':'KLINIK','flughafen':'HDF','polen':'POLEN','fern':'FERN','sehensw':'POI','sonstige':'MISC'}
@@ -131,11 +131,11 @@ for ck in cats_order:
     c = cats[ck]
     html_parts.append('<h2 style="margin-top:30px;">' + c['label'] + ' <span style="font-weight:400;font-size:14px;color:#666;">(' + str(len(c['rows'])) + ' Routen)</span></h2>')
     html_parts.append('<table style="width:100%;border-collapse:collapse;margin:10px 0;">')
-    html_parts.append('<tr style="background:#f3f4f6;"><th style="text-align:left;padding:8px;border-bottom:2px solid #ddd;">Von</th><th style="text-align:left;padding:8px;border-bottom:2px solid #ddd;">Nach</th><th style="text-align:right;padding:8px;border-bottom:2px solid #ddd;">Distanz</th><th style="text-align:right;padding:8px;border-bottom:2px solid #ddd;">Preis (Median)</th><th style="text-align:center;padding:8px;border-bottom:2px solid #ddd;">Info</th></tr>')
+    html_parts.append('<tr style="background:#f3f4f6;"><th style="text-align:left;padding:8px;border-bottom:2px solid #ddd;">Von</th><th style="text-align:left;padding:8px;border-bottom:2px solid #ddd;">Nach</th><th style="text-align:right;padding:8px;border-bottom:2px solid #ddd;">Distanz</th><th style="text-align:right;padding:8px;border-bottom:2px solid #ddd;">Preis-Schätzung*</th><th style="text-align:center;padding:8px;border-bottom:2px solid #ddd;">Info</th></tr>')
     for r in c['rows']:
         dist_s = str(r['medianDist']) + ' km' if r['medianDist'] else '—'
         link = '<a href="' + r['landing'] + '" style="color:#0b57d0;text-decoration:none;">Details</a>' if r['landing'] else ''
-        html_parts.append('<tr><td style="padding:6px;border-bottom:1px solid #eee;">' + r['from'] + '</td><td style="padding:6px;border-bottom:1px solid #eee;">' + r['to'] + '</td><td style="padding:6px;text-align:right;border-bottom:1px solid #eee;">' + dist_s + '</td><td style="padding:6px;text-align:right;border-bottom:1px solid #eee;font-weight:600;color:#059669;">' + '{:.2f}'.format(r['medianPrice']) + ' EUR</td><td style="padding:6px;text-align:center;border-bottom:1px solid #eee;">' + link + '</td></tr>')
+        html_parts.append('<tr><td style="padding:6px;border-bottom:1px solid #eee;">' + r['from'] + '</td><td style="padding:6px;border-bottom:1px solid #eee;">' + r['to'] + '</td><td style="padding:6px;text-align:right;border-bottom:1px solid #eee;">' + dist_s + '</td><td style="padding:6px;text-align:right;border-bottom:1px solid #eee;font-weight:600;color:#059669;">ca. ' + '{:.2f}'.format(r['medianPrice']) + ' EUR</td><td style="padding:6px;text-align:center;border-bottom:1px solid #eee;">' + link + '</td></tr>')
     html_parts.append('</table>')
 html_parts.append('<!-- v6.63.931-ROUTES-END -->')
 

@@ -21280,6 +21280,13 @@ exports.autoResolveConflicts = onSchedule(
                     }
                 }
                 if (!_inShift) {
+                    // 🐛 v6.63.928 (Patrick 22.08.2026 Vetter+Rünz-Bug): Lock respektieren.
+                    //   Patrick hatte bewusst manuell gelockt weil außerhalb Wochenplan-Schicht.
+                    //   Der ARC-Sweep hat den Lock ignoriert und Fahrt zurückgesetzt.
+                    if (_r.assignmentLocked === true) {
+                        console.log(`🔒 v6.63.928 ARC-Sweep skip: ${_r.firebaseId} ist assignmentLocked=true — Patricks manuelle Zuweisung außerhalb Wochenplan wird nicht angetastet`);
+                        continue;
+                    }
                     try {
                         await db.ref(`rides/${_r.firebaseId}`).update({
                             assignedVehicle: null, vehicleId: null, assignedTo: null,
@@ -29383,6 +29390,11 @@ exports.onRideUpdated = onValueUpdated(
                     }
                 }
                 if (!_inShift) {
+                    // 🐛 v6.63.928: Lock respektieren (siehe Vetter+Rünz-Bug).
+                    if (after.assignmentLocked === true) {
+                        console.log(`🔒 v6.63.928 shift-check skip: ${rideId} ist assignmentLocked=true — bewusste Zuweisung außerhalb Wochenplan bleibt`);
+                        return;
+                    }
                     console.warn(`🕐 v6.63.900 Zeit-Änderung + Fahrzeug ${_vidNow} hat keine Schicht zu neuer Zeit → assignedVehicle zurücksetzen`);
                     await db.ref(`rides/${rideId}`).update({
                         assignedVehicle: null,

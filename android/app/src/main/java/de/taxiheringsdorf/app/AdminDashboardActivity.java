@@ -3770,10 +3770,17 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 // Dispositionsübersicht sehe ich aber auch nicht, welches Fahrzeug jetzt
                 // dafür vorgesehen ist". Wenn assignedVehicle/vehicleId gesetzt → Name am
                 // Ende der Zeile mit Auto-Emoji. Wenn null → 'kein Fzg' als Hint.
+                // 🐛 v6.63.926 (Patrick 22.08.2026 Schindel/Grams UX-Bug):
+                //   Adapter-Fallback-Kette assignedVehicleName -> vehicleName -> vehicle
+                //   zog Zombie-Werte aus `vehicle` obwohl assignedVehicle bereits null war.
+                //   Card zeigte "🚗 Renault Trafic" während Bearbeiten-Dialog "keins" lud.
+                //   Fix: Fahrzeug-Badge NUR anzeigen wenn assignedVehicle wirklich gesetzt
+                //   ist (echte Zuweisung). Sonst "kein Fzg".
+                boolean _hasRealAssignment = r.assignedVehicle != null && !r.assignedVehicle.isEmpty();
                 String vehicleBadge;
-                if (r.assignedVehicleName != null && !r.assignedVehicleName.isEmpty()) {
+                if (_hasRealAssignment && r.assignedVehicleName != null && !r.assignedVehicleName.isEmpty()) {
                     vehicleBadge = "   🚗 " + r.assignedVehicleName;
-                } else if (r.assignedVehicle != null && !r.assignedVehicle.isEmpty()) {
+                } else if (_hasRealAssignment) {
                     vehicleBadge = "   🚗 " + r.assignedVehicle;
                 } else {
                     vehicleBadge = "   ⚪ kein Fzg";

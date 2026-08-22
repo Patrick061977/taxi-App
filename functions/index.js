@@ -21267,13 +21267,27 @@ exports.autoResolveConflicts = onSchedule(
                 const _vShift = shiftsData[_r.assignedVehicle];
                 if (!_vShift) continue;
                 const _pTz = new Date(new Date(_r.pickupTimestamp).toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
-                const _dow = _pTz.getDay();
-                const _dIdx = _dow === 0 ? 6 : _dow - 1;
+                const _dow = _pTz.getDay(); // 0=So..6=Sa (JS-Konvention)
+                // 🐛 v6.63.929 (Patrick 22.08.2026 Vetter+Rünz-Bug, Sa 22.08.):
+                //   Der Sweep hat _dIdx = _dow-1 gerechnet -> Sa(6)->[5]=Fr-Slot.
+                //   Vito Sa 08:30-20:30 (defaultTimes[6]) wurde als nicht-im-Dienst
+                //   angesehen weil er defaultTimes[5]=null (Fr) las.
+                //   Der Native Schicht-Editor speichert defaultTimes nach JS-Konvention
+                //   (So=0..Sa=6) - deshalb hier kein Shift mehr.
+                const _dIdx = _dow;
+                // Fallback: manche Vehicles haben defaultTimes als Dict {"6": {...}}
+                // statt Array - dann String-Key nutzen.
+                // 🐛 v6.63.929: Wenn 'defaults'-Array fehlt (Vetter+Rünz: weekPlan={}, defaults undefined),
+                //   trotzdem defaultTimes prüfen. Ein vorhandener Slot mit start+end zählt als aktiv.
+                const _defaultTimes = _vShift.defaultTimes || {};
+                const _dt = Array.isArray(_defaultTimes)
+                    ? _defaultTimes[_dIdx]
+                    : (_defaultTimes[_dIdx] || _defaultTimes[String(_dIdx)]);
                 const _defs = _vShift.defaults || [];
-                const _dayActive = Array.isArray(_defs) && _defs[_dIdx] === true;
+                const _dayActive = (Array.isArray(_defs) && _defs[_dIdx] === true)
+                    || !!(_dt && _dt.startTime && _dt.endTime);
                 let _inShift = false;
                 if (_dayActive) {
-                    const _dt = (_vShift.defaultTimes || [])[_dIdx];
                     if (_dt && _dt.startTime && _dt.endTime) {
                         const _hh = _pTz.getHours().toString().padStart(2,'0') + ':' + _pTz.getMinutes().toString().padStart(2,'0');
                         _inShift = _hh >= _dt.startTime && _hh <= _dt.endTime;
@@ -29376,18 +29390,21 @@ exports.onRideUpdated = onValueUpdated(
                 const _newDate = new Date(_afterPts);
                 const _tz = new Date(_newDate.toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
                 const _dow = _tz.getDay(); // 0=So, 1=Mo, ..., 6=Sa
-                // JS-Sonntag=0, unser defaults-Array Mo=0 → mapping: Mo=1→0, Di=2→1, ..., Sa=6→5, So=0→6
-                const _defaultsIdx = _dow === 0 ? 6 : _dow - 1;
+                // 🐛 v6.63.929: JS-Konvention (So=0..Sa=6) direkt nutzen — der Native
+                //   Schicht-Editor speichert defaultTimes-Slots nach getDay()-Index.
+                //   Voriges Mapping (_dow-1) las Sa->Fr-Slot → Vetter+Rünz-Bug.
+                const _defaultsIdx = _dow;
                 const _defaults = shiftCfg.defaults || [];
-                const _dayActive = Array.isArray(_defaults) && _defaults[_defaultsIdx] === true;
+                const _defaultTimes2 = shiftCfg.defaultTimes || {};
+                const _dayTimes = Array.isArray(_defaultTimes2)
+                    ? _defaultTimes2[_defaultsIdx]
+                    : (_defaultTimes2[_defaultsIdx] || _defaultTimes2[String(_defaultsIdx)]);
+                const _dayActive = (Array.isArray(_defaults) && _defaults[_defaultsIdx] === true)
+                    || !!(_dayTimes && _dayTimes.startTime && _dayTimes.endTime);
                 let _inShift = false;
-                if (_dayActive) {
-                    const _times = shiftCfg.defaultTimes || [];
-                    const _dayTimes = _times[_defaultsIdx];
-                    if (_dayTimes && _dayTimes.startTime && _dayTimes.endTime) {
-                        const _hhmm = _tz.getHours().toString().padStart(2,'0') + ':' + _tz.getMinutes().toString().padStart(2,'0');
-                        _inShift = _hhmm >= _dayTimes.startTime && _hhmm <= _dayTimes.endTime;
-                    }
+                if (_dayActive && _dayTimes && _dayTimes.startTime && _dayTimes.endTime) {
+                    const _hhmm = _tz.getHours().toString().padStart(2,'0') + ':' + _tz.getMinutes().toString().padStart(2,'0');
+                    _inShift = _hhmm >= _dayTimes.startTime && _hhmm <= _dayTimes.endTime;
                 }
                 if (!_inShift) {
                     // 🐛 v6.63.928: Lock respektieren (siehe Vetter+Rünz-Bug).

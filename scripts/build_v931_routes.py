@@ -11,25 +11,35 @@ def to_num(v, default=None):
         except: return default
     return default
 
+def _strip_numbers(s):
+    if not s: return s
+    s = re.sub(r'\s+\d+\s*[a-zA-Z]?(?:\s*[-/]\s*\d+\s*[a-zA-Z]?)?(?=\s*,|\s*$)', '', s)
+    s = re.sub(r'\b\d+[a-zA-Z]?\b', '', s)
+    s = re.sub(r'\b\d{5}\b', '', s)
+    s = re.sub(r'\s{2,}', ' ', s)
+    s = re.sub(r'\s*,\s*,+', ',', s)
+    s = re.sub(r'^\s*,\s*|\s*,\s*$', '', s).strip()
+    return s
+
 def clean(a, label=None):
     if not a: return None
     a = a.strip()
     a = re.sub(r',\s*Deutschland\s*$', '', a, flags=re.I)
-    a = re.sub(r'\s+\d+\s*[a-zA-Z]?(?:\s*[-/]\s*\d+\s*[a-zA-Z]?)?(?=\s*,|\s*$)', '', a)
-    a = re.sub(r'\b\d+[a-zA-Z]?\b', '', a)
-    a = re.sub(r'\b\d{5}\b', '', a)
-    a = re.sub(r'\s{2,}', ' ', a)
-    a = re.sub(r'\s*,\s*,+', ',', a)
-    a = re.sub(r'^\s*,\s*|\s*,\s*$', '', a).strip()
+    if label and label.lower() not in a.lower():
+        a = label + ', ' + a
+    a = _strip_numbers(a)
     parts = [p.strip() for p in a.split(',') if p.strip()]
     seen = set(); dedup = []
     for p in parts:
         if p.lower() not in seen:
             seen.add(p.lower()); dedup.append(p)
-    a = ', '.join(dedup)
-    if label and label.lower() not in a.lower():
-        a = label + ', ' + a
-    return a
+    return ', '.join(dedup)
+
+def slugify(s):
+    s = s.lower().replace('ä','ae').replace('ö','oe').replace('ü','ue').replace('ß','ss')
+    s = re.sub(r'[^\w\s-]', '', s)
+    s = re.sub(r'[\s_-]+', '-', s).strip('-')
+    return s[:50]
 
 def categorize(fl, tl):
     c = (fl + ' ' + tl).lower()
@@ -81,25 +91,26 @@ for r in list(rides.values()) + list(arch.values()):
 sorted_routes = sorted(route_data.items(), key=lambda x: -x[1]['count'])
 existing = set(os.path.basename(f) for f in glob.glob('taxi-*.html'))
 
-def find_landing(fl, tl):
-    for kw in re.split(r'[-,\s]+', tl.lower()):
-        if len(kw) < 5: continue
-        for f in existing:
-            if kw in f.replace('.html','').lower():
-                return f
-    return None
-
 cats_order = ['bahnhof','hotel','restaurant','klinik','flughafen','polen','fern','sehensw','sonstige']
 cats = {}
+seen_slugs_for_link = set()
 for (fl, tl), d in sorted_routes:
     if d['count'] < 2: continue
     ck, cl = categorize(fl, tl)
     ps = sorted(d['prices']); ds = sorted(d['distances'])
+    # v933-Fix: DIREKT den v932-Slug generieren (kein Match-Heuristik) -> zeigt auf exakte
+    # zur Route gehörige Landing statt zufällig ähnlich benanntes File.
+    slug = ('taxi-' + slugify(fl.split(',')[0]) + '-zu-' + slugify(tl.split(',')[0]))[:75]
+    orig = slug; i = 2
+    while (slug + '.html') in seen_slugs_for_link:
+        slug = orig + '-' + str(i); i += 1
+    seen_slugs_for_link.add(slug + '.html')
+    landing = (slug + '.html') if (slug + '.html') in existing else None
     row = {
         'from': fl, 'to': tl, 'count': d['count'],
         'medianPrice': round(ps[len(ps)//2], 2),
         'medianDist': round(ds[len(ds)//2], 1) if ds else None,
-        'landing': find_landing(fl, tl)
+        'landing': landing
     }
     if ck not in cats: cats[ck] = {'label': cl, 'rows': []}
     cats[ck]['rows'].append(row)

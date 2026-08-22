@@ -14,25 +14,30 @@ def to_num(v, default=None):
         except: return default
     return default
 
+def _strip_numbers(s):
+    if not s: return s
+    s = re.sub(r'\s+\d+\s*[a-zA-Z]?(?:\s*[-/]\s*\d+\s*[a-zA-Z]?)?(?=\s*,|\s*$)', '', s)
+    s = re.sub(r'\b\d+[a-zA-Z]?\b', '', s)
+    s = re.sub(r'\b\d{5}\b', '', s)
+    s = re.sub(r'\s{2,}', ' ', s)
+    s = re.sub(r'\s*,\s*,+', ',', s)
+    s = re.sub(r'^\s*,\s*|\s*,\s*$', '', s).strip()
+    return s
+
 def clean(a, label=None):
     if not a: return None
     a = a.strip()
     a = re.sub(r',\s*Deutschland\s*$', '', a, flags=re.I)
-    a = re.sub(r'\s+\d+\s*[a-zA-Z]?(?:\s*[-/]\s*\d+\s*[a-zA-Z]?)?(?=\s*,|\s*$)', '', a)
-    a = re.sub(r'\b\d+[a-zA-Z]?\b', '', a)
-    a = re.sub(r'\b\d{5}\b', '', a)
-    a = re.sub(r'\s{2,}', ' ', a)
-    a = re.sub(r'\s*,\s*,+', ',', a)
-    a = re.sub(r'^\s*,\s*|\s*,\s*$', '', a).strip()
+    # Erst label prepend (falls noch nicht enthalten), DANN gemeinsam Zahlen strippen
+    if label and label.lower() not in a.lower():
+        a = label + ', ' + a
+    a = _strip_numbers(a)
     parts = [p.strip() for p in a.split(',') if p.strip()]
     seen = set(); dedup = []
     for p in parts:
         if p.lower() not in seen:
             seen.add(p.lower()); dedup.append(p)
-    a = ', '.join(dedup)
-    if label and label.lower() not in a.lower():
-        a = label + ', ' + a
-    return a
+    return ', '.join(dedup)
 
 def slugify(s):
     s = s.lower().replace('ä','ae').replace('ö','oe').replace('ü','ue').replace('ß','ss')

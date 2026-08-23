@@ -694,12 +694,20 @@ async function anfSearch(query, inputId) {
     var dd = document.getElementById(inputId + '-dropdown');
     if (!query || query.length < 2) { dd.style.display='none'; return; }
     var searchKey = query.toLowerCase().trim();
+    // 🆕 v6.63.940 (Patrick 23.08. Bridge 'baumwipfelpfad hat nichts mit bansin bahnhof zu tun'):
+    //   Query in Tokens splitten fuer robusteres Matching (Reihenfolge egal + Relevanz-Filter).
+    var qTokens = searchKey.split(/\s+/).filter(function(t) { return t.length >= 3; });
     var results = [];
-    // Lokale Bahnhof-POIs zuerst
+    // Lokale Bahnhof-POIs zuerst — Token-basiertes Matching statt substring-only
     if (searchKey.length >= 3) {
         for (var i = 0; i < _ANF_STATION_POIS.length; i++) {
             var poi = _ANF_STATION_POIS[i];
-            var match = poi.keywords.some(function(k) { return searchKey.indexOf(k) !== -1 || k.indexOf(searchKey) !== -1; });
+            var match = poi.keywords.some(function(k) {
+                // Fallback: substring wenn nur 1 Token
+                if (qTokens.length <= 1) return k.indexOf(searchKey) !== -1 || searchKey.indexOf(k) !== -1;
+                // Multi-Token: alle Tokens muessen im keyword vorkommen (Reihenfolge egal)
+                return qTokens.every(function(t) { return k.indexOf(t) !== -1; });
+            });
             if (match) {
                 results.push({ main: poi.name, sec: poi.addr, lat: poi.lat, lon: poi.lon, source: 'local-poi' });
             }
@@ -720,17 +728,39 @@ async function anfSearch(query, inputId) {
                 var main = p.mainText?.text || '';
                 var sec  = p.secondaryText?.text || '';
                 if (!main) continue;
-                // 🔧 v6.63.940: PLZ-Ort-Normalisierung — 'Heringsdorf-Ahlbeck' (offizieller
-                //   Gemeindename) durch echten Ort ersetzen anhand PLZ im secText.
-                if (/17424/.test(sec)) sec = sec.replace(/Heringsdorf-Ahlbeck/gi, 'Heringsdorf');
-                else if (/17419/.test(sec)) sec = sec.replace(/Heringsdorf-Ahlbeck/gi, 'Ahlbeck');
-                else if (/17429/.test(sec)) sec = sec.replace(/Heringsdorf-Ahlbeck/gi, 'Bansin');
+                // 🔧 v6.63.940 (Patrick 23.08. Screenshot 3646): PLZ-Ort-Normalisierung.
+                //   Google liefert offiziellen Gemeindenamen in vielen Varianten:
+                //   'Heringsdorf-Ahlbeck', 'Heringsdorf-Bansin', 'Heringsdorf-Seebad Heringsdorf',
+                //   'Ostseebad Heringsdorf', 'Seebad Heringsdorf' — alles verwirrend fuer Kunden.
+                //   Anhand PLZ auf den echten Ortsteil normalisieren.
+                var _hdRe = /(Ostseebad\s+Heringsdorf|Heringsdorf-Ostseebad|Heringsdorf-Seebad\s+Heringsdorf|Heringsdorf-Ahlbeck|Heringsdorf-Bansin|Heringsdorf-Kaiserbäder|Seebad\s+Heringsdorf|Kaiserbäder)/gi;
+                if (/17424/.test(sec)) sec = sec.replace(_hdRe, 'Heringsdorf');
+                else if (/17419/.test(sec)) sec = sec.replace(_hdRe, 'Ahlbeck');
+                else if (/17429/.test(sec)) sec = sec.replace(_hdRe, 'Bansin');
+                // 🆕 v6.63.940 (Patrick 23.08. Bridge 'es muss die plz da stehen damit die
+                //   leute nicht verunsichert werden'): PLZ garantieren — wenn sie im secText
+                //   fehlt, aus Ortsname ableiten (nur bekannte Kaiserbaeder-Orte).
+                if (!/\b1[0-9]{4}\b/.test(sec)) {
+                    if (/\bBansin\b/i.test(sec)) sec = sec.replace(/\bBansin\b/i, '17429 Bansin');
+                    else if (/\bAhlbeck\b/i.test(sec)) sec = sec.replace(/\bAhlbeck\b/i, '17419 Ahlbeck');
+                    else if (/\bHeringsdorf\b/i.test(sec)) sec = sec.replace(/\bHeringsdorf\b/i, '17424 Heringsdorf');
+                }
                 // Duplikat-Check gegen lokale POIs + andere Google-Ergebnisse
                 var isDup = results.some(function(r) {
                     return (r.main || '').toLowerCase() === main.toLowerCase() &&
                            (r.sec  || '').toLowerCase() === sec.toLowerCase();
                 });
                 if (isDup) continue;
+                // 🆕 v6.63.940 (Patrick 23.08.): Relevanz-Filter — bei Multi-Token-Query
+                //   muessen ALLE Tokens irgendwo im mainText ODER secText vorkommen.
+                //   Bsp: Query 'bansin bahnhof' → Baumwipfelpfad (main='Baumwipfelpfad Usedom'
+                //   sec='Am Bahnhof, Heringsdorf-Seebad') enthaelt 'bahnhof' im sec, aber
+                //   'bansin' NIRGENDS → raus. Bansin Bahnhof enthaelt beide → drin.
+                if (qTokens.length >= 2) {
+                    var _blob = (main + ' ' + sec).toLowerCase();
+                    var _allHit = qTokens.every(function(t) { return _blob.indexOf(t) !== -1; });
+                    if (!_allHit) continue;
+                }
                 results.push({ main: main, sec: sec, placeId: p.placeId, source: 'google' });
             }
         }

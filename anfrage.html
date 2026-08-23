@@ -728,15 +728,21 @@ async function anfSearch(query, inputId) {
                 var main = p.mainText?.text || '';
                 var sec  = p.secondaryText?.text || '';
                 if (!main) continue;
-                // 🔧 v6.63.940 (Patrick 23.08. Screenshot 3646): PLZ-Ort-Normalisierung.
+                // 🔧 v6.63.940 (Patrick 23.08. Screenshots 3646/3647/3649): PLZ-Ort-Normalisierung.
                 //   Google liefert offiziellen Gemeindenamen in vielen Varianten:
-                //   'Heringsdorf-Ahlbeck', 'Heringsdorf-Bansin', 'Heringsdorf-Seebad Heringsdorf',
-                //   'Ostseebad Heringsdorf', 'Seebad Heringsdorf' — alles verwirrend fuer Kunden.
-                //   Anhand PLZ auf den echten Ortsteil normalisieren.
-                var _hdRe = /(Ostseebad\s+Heringsdorf|Heringsdorf-Ostseebad|Heringsdorf-Seebad\s+Heringsdorf|Heringsdorf-Ahlbeck|Heringsdorf-Bansin|Heringsdorf-Kaiserbäder|Seebad\s+Heringsdorf|Kaiserbäder)/gi;
-                if (/17424/.test(sec)) sec = sec.replace(_hdRe, 'Heringsdorf');
-                else if (/17419/.test(sec)) sec = sec.replace(_hdRe, 'Ahlbeck');
-                else if (/17429/.test(sec)) sec = sec.replace(_hdRe, 'Bansin');
+                //   'Heringsdorf-Ahlbeck', 'Heringsdorf-Bansin', 'Heringsdorf-Ostseebad',
+                //   'Heringsdorf-Seebad Heringsdorf', 'Ostseebad Heringsdorf', 'Seebad Heringsdorf'.
+                //   Schritt 1: 'Heringsdorf-<Ortsteil>' immer auf reinen Ortsteil kollabieren
+                //   (auch ohne PLZ — sonst blieb 'Heringsdorf-Bansin' als 'Heringsdorf-17429 Bansin' hängen).
+                sec = sec.replace(/Heringsdorf-(Ostseebad|Seebad\s+Heringsdorf|Kaiserbäder|Ahlbeck|Bansin)/gi, function(_m, _ort) {
+                    if (/ahlbeck/i.test(_ort)) return 'Ahlbeck';
+                    if (/bansin/i.test(_ort))  return 'Bansin';
+                    return 'Heringsdorf';
+                });
+                sec = sec.replace(/Ostseebad\s+Heringsdorf/gi, 'Heringsdorf').replace(/Seebad\s+Heringsdorf/gi, 'Heringsdorf').replace(/Kaiserbäder/gi, 'Heringsdorf');
+                // Schritt 2: bei PLZ ggf. noch nachschärfen (falls Ort ohne Ortsteil-Suffix rauskam)
+                if (/17419/.test(sec)) sec = sec.replace(/\bHeringsdorf\b/g, 'Ahlbeck');
+                else if (/17429/.test(sec)) sec = sec.replace(/\bHeringsdorf\b/g, 'Bansin');
                 // 🆕 v6.63.940 (Patrick 23.08. Bridge 'es muss die plz da stehen damit die
                 //   leute nicht verunsichert werden'): PLZ garantieren — wenn sie im secText
                 //   fehlt, aus Ortsname ableiten (nur bekannte Kaiserbaeder-Orte).

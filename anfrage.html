@@ -685,7 +685,7 @@ document.addEventListener('click', function(e) {
 //   'Bahnhof Heringsdorf' oft den Ahlbecker Bahnhof zuerst oder labelt ihn als
 //   'Heringsdorf-Ahlbeck' (offizieller Gemeindename). Lokale POIs zuerst = eindeutig.
 var _ANF_STATION_POIS = [
-    { keywords: ['bahnhof heringsdorf', 'heringsdorf bahnhof'], name: 'Bahnhof Heringsdorf', addr: 'Bülowstraße, 17424 Heringsdorf', lat: 53.949456456543906, lon: 14.16965961456299, icon: '🚉' },
+    { keywords: ['bahnhof heringsdorf', 'heringsdorf bahnhof', 'bahnhof seebad heringsdorf'], name: 'Bahnhof Heringsdorf', addr: 'Bülowstraße, 17424 Heringsdorf', lat: 53.949456456543906, lon: 14.16965961456299, icon: '🚉' },
     { keywords: ['bahnhof bansin', 'bansin bahnhof'],             name: 'Bahnhof Bansin',      addr: 'Bahnhofstraße 3, 17429 Bansin', lat: 53.964456899999995, lon: 14.1297471, icon: '🚉' },
     { keywords: ['bahnhof ahlbeck', 'ahlbeck bahnhof'],           name: 'Bahnhof Ahlbeck',     addr: 'Bahnhofstraße, 17419 Ahlbeck',  lat: 53.935974,          lon: 14.1885889, icon: '🚉' }
 ];
@@ -728,13 +728,22 @@ async function anfSearch(query, inputId) {
                 var main = p.mainText?.text || '';
                 var sec  = p.secondaryText?.text || '';
                 if (!main) continue;
+                // 🔧 v6.63.940d: Normalisierung auch im mainText — Google labelt manche
+                //   Bahnhoefe/POIs als 'Bahnhof Heringsdorf-Seebad' (offizieller Ortsteil,
+                //   auch ohne folgendes 'Heringsdorf') → auf sauberen Namen kollabieren.
+                var _hdMainRe = /Heringsdorf-(Ostseebad|Seebad(?:\s+Heringsdorf)?|Kaiserbäder|Ahlbeck|Bansin)/gi;
+                main = main.replace(_hdMainRe, function(_m, _ort) {
+                    if (/ahlbeck/i.test(_ort)) return 'Ahlbeck';
+                    if (/bansin/i.test(_ort))  return 'Bansin';
+                    return 'Heringsdorf';
+                });
                 // 🔧 v6.63.940 (Patrick 23.08. Screenshots 3646/3647/3649): PLZ-Ort-Normalisierung.
                 //   Google liefert offiziellen Gemeindenamen in vielen Varianten:
                 //   'Heringsdorf-Ahlbeck', 'Heringsdorf-Bansin', 'Heringsdorf-Ostseebad',
                 //   'Heringsdorf-Seebad Heringsdorf', 'Ostseebad Heringsdorf', 'Seebad Heringsdorf'.
                 //   Schritt 1: 'Heringsdorf-<Ortsteil>' immer auf reinen Ortsteil kollabieren
                 //   (auch ohne PLZ — sonst blieb 'Heringsdorf-Bansin' als 'Heringsdorf-17429 Bansin' hängen).
-                sec = sec.replace(/Heringsdorf-(Ostseebad|Seebad\s+Heringsdorf|Kaiserbäder|Ahlbeck|Bansin)/gi, function(_m, _ort) {
+                sec = sec.replace(_hdMainRe, function(_m, _ort) {
                     if (/ahlbeck/i.test(_ort)) return 'Ahlbeck';
                     if (/bansin/i.test(_ort))  return 'Bansin';
                     return 'Heringsdorf';

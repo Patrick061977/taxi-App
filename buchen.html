@@ -4894,8 +4894,16 @@
                         const a = item.address || {};
                         const road = a.road || a.residential || '';
                         const nr = a.house_number || '';
-                        const town = a.town || a.city || a.village || '';
+                        let town = a.town || a.city || a.village || '';
                         const pc = a.postcode || '';
+                        // 🆕 v6.63.940 (Patrick 23.08. Bridge 'bahnhof heringsdorf steht auch
+                        //   heringsdorf-ahlbeck sehr verwirrend'): PLZ-Ort-Normalisierung.
+                        //   Nominatim liefert town='Ostseebad Heringsdorf' oder 'Heringsdorf-Ahlbeck'
+                        //   (offizieller Gemeindename für Ahlbeck+Heringsdorf+Bansin) — verwirrend.
+                        //   Anhand PLZ auf echten Ortsteil normalisieren.
+                        if (pc === '17424') town = 'Heringsdorf';
+                        else if (pc === '17419') town = 'Ahlbeck';
+                        else if (pc === '17429') town = 'Bansin';
                         // 🔧 v6.34.0: POI-Name (z.B. "Polizeirevier") vor Adresse anzeigen
                         const poiName = item.name || '';
                         let addr = road ? (road + (nr ? ' ' + nr : '')) : '';
@@ -4930,8 +4938,15 @@
                         const mainText = p.mainText?.text || p.text?.text || '';
                         const secText = p.secondaryText?.text || '';
                         const displayName = secText ? `${mainText}, ${secText}` : mainText;
-                        // Duplikat-Check
-                        if (results.some(r => r.name.toLowerCase().includes(mainText.toLowerCase()))) continue;
+                        // 🔧 v6.63.940 (Patrick 23.08. Bridge 'buchen zeigt nur 1 REWE'):
+                        //   Duplikat-Check auf mainText war zu grob — 3× REWE in Bansin/Ahlbeck/
+                        //   Zinnowitz wurden nach dem ersten Treffer gefiltert, weil r.name
+                        //   'REWE, Bansin…' includes('rewe') → true. Jetzt nur skippen wenn
+                        //   mainText UND secText identisch (echtes Duplikat, nicht nur Namensgleichheit).
+                        if (results.some(r =>
+                            (r.mainText || '').toLowerCase() === mainText.toLowerCase() &&
+                            (r.secText || '').toLowerCase() === secText.toLowerCase()
+                        )) continue;
                         // 🆕 v6.62.694: mainText/secText separat fuers 2-Zeilen-Layout
                         results.push({ name: displayName, mainText: mainText, secText: secText, placeId: p.placeId, icon: '🔍', source: 'google' });
                     }

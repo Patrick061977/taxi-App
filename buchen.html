@@ -4949,13 +4949,18 @@
                         if (!p) continue;
                         const mainText = p.mainText?.text || p.text?.text || '';
                         let secText = p.secondaryText?.text || '';
-                        // 🔧 v6.63.940 (Patrick 23.08. Screenshot 3646 + Bridge 'heringsdorf-bansin
-                        //   ist verwirrend' + 'es muss die plz da stehen'):
-                        //   PLZ-Ort-Normalisierung + PLZ garantieren analog anfrage.html.
-                        const _hdReB = /(Ostseebad\s+Heringsdorf|Heringsdorf-Ostseebad|Heringsdorf-Seebad\s+Heringsdorf|Heringsdorf-Ahlbeck|Heringsdorf-Bansin|Heringsdorf-Kaiserbäder|Seebad\s+Heringsdorf|Kaiserbäder)/gi;
-                        if (/17424/.test(secText)) secText = secText.replace(_hdReB, 'Heringsdorf');
-                        else if (/17419/.test(secText)) secText = secText.replace(_hdReB, 'Ahlbeck');
-                        else if (/17429/.test(secText)) secText = secText.replace(_hdReB, 'Bansin');
+                        // 🔧 v6.63.940c (Patrick 23.08. Screenshot 3649 'bansin bahnhof ist nicht
+                        //   heringsdorf'): 'Heringsdorf-<Ortsteil>' auch OHNE PLZ kollabieren —
+                        //   sonst blieb 'Heringsdorf-Bansin' als 'Heringsdorf-17429 Bansin' hängen.
+                        secText = secText.replace(/Heringsdorf-(Ostseebad|Seebad\s+Heringsdorf|Kaiserbäder|Ahlbeck|Bansin)/gi, function(_m, _ort) {
+                            if (/ahlbeck/i.test(_ort)) return 'Ahlbeck';
+                            if (/bansin/i.test(_ort))  return 'Bansin';
+                            return 'Heringsdorf';
+                        });
+                        secText = secText.replace(/Ostseebad\s+Heringsdorf/gi, 'Heringsdorf').replace(/Seebad\s+Heringsdorf/gi, 'Heringsdorf').replace(/Kaiserbäder/gi, 'Heringsdorf');
+                        // PLZ-basiertes Nachschärfen wenn Ort ohne Suffix rauskam
+                        if (/17419/.test(secText)) secText = secText.replace(/\bHeringsdorf\b/g, 'Ahlbeck');
+                        else if (/17429/.test(secText)) secText = secText.replace(/\bHeringsdorf\b/g, 'Bansin');
                         if (!/\b1[0-9]{4}\b/.test(secText)) {
                             if (/\bBansin\b/i.test(secText)) secText = secText.replace(/\bBansin\b/i, '17429 Bansin');
                             else if (/\bAhlbeck\b/i.test(secText)) secText = secText.replace(/\bAhlbeck\b/i, '17419 Ahlbeck');

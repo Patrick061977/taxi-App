@@ -356,7 +356,7 @@
         <p>
             Auch nach Mitternacht und an Wochenenden ist das Funk Taxi Heringsdorf rund um die Uhr für Sie erreichbar.
             Telefonisch unter <a href="tel:+4938378822022" style="color:#10b981;font-weight:700;">038378 22022</a> oder
-            bequem online über unsere <a href="/buchen.html" style="color:#10b981;font-weight:700;">Buchungs-App</a>.
+            bequem online über unsere <a href="/anfrage.html" style="color:#10b981;font-weight:700;">Buchungs-App</a>.
         </p>
     </section>
 
@@ -369,7 +369,7 @@
     <footer class="footer">
         <p>
             <a href="/landing.html">Startseite</a> ·
-            <a href="/buchen.html">Taxi buchen</a> ·
+            <a href="/anfrage.html">Taxi buchen</a> ·
             <a href="/ausflugsziele.html">Ausflugsziele</a> ·
             <a href="/veranstaltungen-heringsdorf.html">Veranstaltungen</a>
         </p>
@@ -485,7 +485,7 @@
                 }
                 const card = document.createElement('article');
                 card.className = 'event-card';
-                const bookingUrl = `/buchen.html?event=${encodeURIComponent(ev.title)}&to=${encodeURIComponent(ev.venue + ', ' + ev.city)}`;
+                const bookingUrl = `/anfrage.html?event=${encodeURIComponent(ev.title)}&to=${encodeURIComponent(ev.venue + ', ' + ev.city)}`;
                 const ticketsUrl = ev.tickets || _TICKETS_FALLBACK;
                 const ticketsLabel = ev.tickets && ev.tickets !== _TICKETS_FALLBACK
                     ? '🎟️ Tickets bestellen'

@@ -4851,7 +4851,7 @@
             //   POI-Hardcode-Mapping.
             const _STATION_POIS = [
                 { keywords: ['bahnhof heringsdorf', 'heringsdorf bahnhof', 'bahnhof seebad heringsdorf'],
-                  name: 'Bahnhof Heringsdorf', addr: 'Bülowstraße, 17424 Ostseebad Heringsdorf',
+                  name: 'Bahnhof Heringsdorf', addr: 'Bülowstraße, 17424 Heringsdorf',
                   lat: 53.949456456543906, lon: 14.16965961456299, icon: '🚉' },
                 { keywords: ['bahnhof bansin', 'bansin bahnhof', 'bahnhof seebad bansin'],
                   name: 'Bahnhof Bansin', addr: 'Bahnhofstraße 3, 17429 Bansin',
@@ -4947,16 +4947,23 @@
                     for (const s of suggestions) {
                         const p = s.placePrediction;
                         if (!p) continue;
-                        const mainText = p.mainText?.text || p.text?.text || '';
+                        let mainText = p.mainText?.text || p.text?.text || '';
                         let secText = p.secondaryText?.text || '';
-                        // 🔧 v6.63.940c (Patrick 23.08. Screenshot 3649 'bansin bahnhof ist nicht
-                        //   heringsdorf'): 'Heringsdorf-<Ortsteil>' auch OHNE PLZ kollabieren —
-                        //   sonst blieb 'Heringsdorf-Bansin' als 'Heringsdorf-17429 Bansin' hängen.
-                        secText = secText.replace(/Heringsdorf-(Ostseebad|Seebad\s+Heringsdorf|Kaiserbäder|Ahlbeck|Bansin)/gi, function(_m, _ort) {
+                        // 🔧 v6.63.940d (Patrick 23.08. Playwright-Test Test 2 Ergebnis 2):
+                        //   Google labelt manche Bahnhoefe/POIs als 'Bahnhof Heringsdorf-Seebad'
+                        //   (ohne folgendes 'Heringsdorf', ohne PLZ direkt daneben) und die
+                        //   Kollabierung passierte nur in secText, nicht in mainText → im UI
+                        //   sah User weiter 'Bahnhof Heringsdorf-Seebad'. Fix: Regex greift
+                        //   auch bei 'Seebad' ohne folgendes 'Heringsdorf' UND wird auf
+                        //   mainText UND secText angewendet.
+                        const _hdReMain = /Heringsdorf-(Ostseebad|Seebad(?:\s+Heringsdorf)?|Kaiserbäder|Ahlbeck|Bansin)/gi;
+                        const _collapse = function(_m, _ort) {
                             if (/ahlbeck/i.test(_ort)) return 'Ahlbeck';
                             if (/bansin/i.test(_ort))  return 'Bansin';
                             return 'Heringsdorf';
-                        });
+                        };
+                        mainText = mainText.replace(_hdReMain, _collapse);
+                        secText = secText.replace(_hdReMain, _collapse);
                         secText = secText.replace(/Ostseebad\s+Heringsdorf/gi, 'Heringsdorf').replace(/Seebad\s+Heringsdorf/gi, 'Heringsdorf').replace(/Kaiserbäder/gi, 'Heringsdorf');
                         // PLZ-basiertes Nachschärfen wenn Ort ohne Suffix rauskam
                         if (/17419/.test(secText)) secText = secText.replace(/\bHeringsdorf\b/g, 'Ahlbeck');

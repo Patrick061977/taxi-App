@@ -1561,7 +1561,21 @@
 
 <header>
     <div class="container brand">
-        <h1>🚖 Funk Taxi Heringsdorf</h1>
+        <div style="display:flex;align-items:center;gap:8px;min-width:0;">
+            <a href="landing.html" aria-label="Zur Hauptseite" style="color:rgba(255,255,255,0.85);text-decoration:none;font-size:14px;font-weight:600;">←</a>
+            <h1 style="font-size:16px;">🚖 Taxi-Preise Usedom</h1>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+            <a href="anfrage.html" style="background:rgba(255,255,255,0.18);color:#fff;text-decoration:none;padding:9px 14px;border-radius:8px;font-weight:700;font-size:14px;border:1px solid rgba(255,255,255,0.3);">💬 Anfrage</a>
+            <a href="buchen.html" style="background:rgba(255,255,255,0.18);color:#fff;text-decoration:none;padding:9px 14px;border-radius:8px;font-weight:700;font-size:14px;border:1px solid rgba(255,255,255,0.3);">🚕 Buchen</a>
+            <a class="call" href="tel:+493837822022">📞 038378 22022</a>
+        </div>
+    </div>
+</header>
+
+<!-- v6.63.936: Routes-Block aus Header rausgezogen — steckte vorher IM <header>, blockierte First-Paint bis alle 144 Zeilen im Sticky-Container fertig waren -->
+<section style="background:#0f172a;padding:16px 0;color:#e2e8f0;">
+    <div class="container" style="background:#fff;color:#1e293b;padding:16px;border-radius:10px;">
 <!-- v6.63.931-ROUTES-START -->
 <!-- 144 Routen aus 1620 echten Fahrten, min. 2x gefahren, POI-Namen anonymisiert -->
 <div style="margin:20px 0;padding:12px;background:#fff8e6;border-left:4px solid #f5a623;font-size:13px;color:#5d3a00;">
@@ -1748,10 +1762,8 @@
 <tr><td style="padding:6px;border-bottom:1px solid #eee;">DJH Jugendherberge Heringsdorf, Puschkinstraße, Heringsdorf-Seebad Heringsdorf</td><td style="padding:6px;border-bottom:1px solid #eee;">Die-Insel-Reiter, Labömitzer Str., Benz</td><td style="padding:6px;text-align:right;border-bottom:1px solid #eee;">9.2 km</td><td style="padding:6px;text-align:right;border-bottom:1px solid #eee;font-weight:600;color:#059669;">ca. 41.60 EUR</td><td style="padding:6px;text-align:center;border-bottom:1px solid #eee;"><a href="taxi-djh-jugendherberge-heringsdorf-zu-die-insel-reiter.html" style="color:#0b57d0;text-decoration:none;">Details</a></td></tr>
 </table>
 <!-- v6.63.931-ROUTES-END -->
-
-        <a class="call" href="tel:+493837822022">📞 038378 · 22022</a>
     </div>
-</header>
+</section>
 
 <section class="hero">
     <div class="container">

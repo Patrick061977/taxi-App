@@ -950,6 +950,117 @@ async function estimateNextAvailableMinutes(allRides, vehiclesData, pricingSetti
     return Math.max(1, minUntil);
 }
 
+// 🆕 v6.63.939 (Patrick 23.08.): Live-GPS-basierte Free-Time-Berechnung —
+//   1:1 Port der buchen.html _buchenCalculateSmartETA-Logik (client-seitig seit v6.62.982-985).
+//   Rechnet PRO Fahrzeug wann es realistisch frei ist:
+//     - frei → freeAtMs = now
+//     - picked_up → OSRM(vehicle.gps → destCoords) + 3 Min Puffer
+//     - on_way → OSRM(gps → pickup) + 3 + OSRM(pickup → dest) + 3
+//     - vorbestellt/accepted <30 Min → Kette wie oben
+//   + GPS-Auto-Complete: wenn Auto <300m um Ziel UND pickedUpAt+duration+5min überschritten
+//     → 'gps-effectively-free' (Frau-Stange-Fall: Fahrgast raus, Fahrer hat nicht getippt).
+//   Return: { freeAtMs, source, evidence } — Ride wird NICHT angefasst, nur intern für autoAssign.
+async function computeVehicleFreeAt(vehicle, vehicleRides, now = Date.now()) {
+    const BOARDING_PUFFER_MIN = 3;
+    const GPS_STALE_MS = 5 * 60000;
+    const AUTO_COMPLETE_RADIUS_KM = 0.3;
+    const AUTO_COMPLETE_GRACE_MS = 5 * 60000;
+    const LOOKAHEAD_MS = 30 * 60000;
+
+    const activeStatuses = ['on_way', 'picked_up', 'in_progress', 'sofort', 'arrived'];
+    const chainableStatuses = ['accepted', 'assigned', 'prebooked'];
+    const active = (vehicleRides || []).filter(r =>
+        activeStatuses.includes(r.status) || chainableStatuses.includes(r.status)
+    );
+    if (active.length === 0) {
+        return { freeAtMs: now, source: 'no-active-ride', evidence: null };
+    }
+
+    // Sortiere Rides — laufende Fahrt zuerst, dann nach pickupTimestamp
+    active.sort((a, b) => {
+        const sp = { 'picked_up': 0, 'in_progress': 1, 'on_way': 2, 'sofort': 3, 'arrived': 4, 'accepted': 5, 'assigned': 6, 'prebooked': 7 };
+        const pa = sp[a.status] ?? 9, pb = sp[b.status] ?? 9;
+        if (pa !== pb) return pa - pb;
+        return (a.pickupTimestamp || 0) - (b.pickupTimestamp || 0);
+    });
+
+    // GPS zu alt oder fehlt → Plan-Fallback
+    const gpsAge = now - (vehicle.lastUpdate || vehicle.timestamp || 0);
+    if (!vehicle.lat || !vehicle.lon || gpsAge > GPS_STALE_MS) {
+        const first = active[0];
+        const start = first.pickupTimestamp || first.acceptedAt || now;
+        const dur = ((first.duration || first.estimatedDuration || 20) * 60000);
+        return {
+            freeAtMs: start + dur + BOARDING_PUFFER_MIN * 60000,
+            source: 'plan-fallback-gps-stale',
+            evidence: { gpsAgeMin: Math.round(gpsAge / 60000), planEnd: start + dur }
+        };
+    }
+
+    // GPS-Auto-Complete Special-Case (Frau-Stange-Fall)
+    const first = active[0];
+    if (first.status === 'picked_up' && first.destCoords && first.destCoords.lat && first.destCoords.lon) {
+        const distKm = distanceKm(vehicle.lat, vehicle.lon, first.destCoords.lat, first.destCoords.lon);
+        const plannedDoneAt = (first.pickedUpAt || first.pickupTimestamp || now) + ((first.duration || 20) * 60000);
+        if (distKm < AUTO_COMPLETE_RADIUS_KM && now > plannedDoneAt + AUTO_COMPLETE_GRACE_MS) {
+            return {
+                freeAtMs: now,
+                source: 'gps-effectively-free',
+                evidence: { distToDestKm: +distKm.toFixed(3), plannedDoneAt, minsOverdue: Math.round((now - plannedDoneAt) / 60000) }
+            };
+        }
+    }
+
+    // Kette rechnen: cLat/cLon rollt über jede Zwischenstation
+    let cLat = vehicle.lat, cLon = vehicle.lon;
+    let totalMin = 0;
+    let osrmCalls = 0;
+    for (const r of active) {
+        // Vorbestellungen ausserhalb 30-Min-Lookahead ueberspringen
+        if (chainableStatuses.includes(r.status) && r.pickupTimestamp && (r.pickupTimestamp - now) > LOOKAHEAD_MS) continue;
+
+        const rpLat = r.pickupLat || r.pickupCoords?.lat;
+        const rpLon = r.pickupLon || r.pickupCoords?.lon;
+        const dLat = r.destinationLat || r.destCoords?.lat;
+        const dLon = r.destinationLon || r.destCoords?.lon;
+
+        if (['picked_up', 'in_progress'].includes(r.status)) {
+            // Fahrgast im Auto → nur Rest bis Ziel
+            if (dLat && dLon) {
+                const min = await osrmDrivingMin(cLat, cLon, dLat, dLon);
+                if (min != null) { totalMin += min + BOARDING_PUFFER_MIN; osrmCalls++; cLat = dLat; cLon = dLon; }
+            }
+        } else {
+            // on_way, accepted, prebooked etc → erst zum Pickup, dann zum Ziel
+            if (rpLat && rpLon) {
+                const min = await osrmDrivingMin(cLat, cLon, rpLat, rpLon);
+                if (min != null) { totalMin += min + BOARDING_PUFFER_MIN; osrmCalls++; cLat = rpLat; cLon = rpLon; }
+            }
+            if (dLat && dLon) {
+                const min = await osrmDrivingMin(cLat, cLon, dLat, dLon);
+                if (min != null) { totalMin += min + BOARDING_PUFFER_MIN; osrmCalls++; cLat = dLat; cLon = dLon; }
+            }
+        }
+    }
+
+    if (osrmCalls === 0) {
+        // Nichts hat funktioniert (fehlende Koordinaten oder alle OSRM-Fails) → Plan-Fallback
+        const start = first.pickupTimestamp || first.acceptedAt || now;
+        const dur = ((first.duration || first.estimatedDuration || 20) * 60000);
+        return {
+            freeAtMs: start + dur + BOARDING_PUFFER_MIN * 60000,
+            source: 'plan-fallback-osrm-fail',
+            evidence: { rideId: first.id || first.firebaseId || null }
+        };
+    }
+
+    return {
+        freeAtMs: now + Math.round(totalMin) * 60000,
+        source: 'gps-live-osrm',
+        evidence: { totalMin: Math.round(totalMin), osrmCalls, chainLen: active.length, lastPointLat: +cLat.toFixed(5), lastPointLon: +cLon.toFixed(5) }
+    };
+}
+
 // 🆕 v6.63.291 (Patrick 11.06. 17:51): Wartepool-Resolver Helper.
 //   Patrick's Algorithmus:
 //   fuer jede Wartepool-Ride W:
@@ -24119,6 +24230,78 @@ exports.scheduledReachabilityCheck = onSchedule(
             console.log(`📡 v6.63.307 ReachabilityCheck: ${checkedCount} geprüft, ${alertCount} Alarm | skipped: status=${skipDebug.wrongStatus}, noVeh=${skipDebug.noVehicle}, noGps=${skipDebug.noGps}, staleGps=${skipDebug.staleGps}, noCoords=${skipDebug.noCoords}`);
         } catch (e) {
             console.error('❌ scheduledReachabilityCheck Fehler:', e.message, e.stack);
+        }
+    }
+);
+
+// 🆕 v6.63.939 (Patrick 23.08. Bridge "portiere die logik in die cloud"):
+//   Live-GPS-basierte Free-Time-Berechnung pro Fahrzeug — Vorbereitung für
+//   Uber-Style Auto-Assign. Schreibt PRO Fahrzeug alle 2 Min:
+//     vehicles/{vid}/computedFreeAt        (Timestamp wann Auto realistisch frei ist)
+//     vehicles/{vid}/computedFreeSource    ('no-active-ride' | 'gps-live-osrm' | ...)
+//     vehicles/{vid}/computedFreeUpdatedAt (wann berechnet)
+//     vehicles/{vid}/computedFreeEvidence  (Debug-Info fuer Vergleich)
+//   Ride wird NICHT angefasst — Fahrer merkt nichts. Reine Info-Ebene fuer Cloud.
+//   Phase 1 (v939): Cron schreibt nur. autoAssign nutzt es NOCH NICHT.
+//   Phase 2 (v940 später): autoAssignRide + autoResolveConflicts nutzen computedFreeAt
+//   statt estimateNextAvailableMinutes.
+exports.scheduledComputeVehicleFreeAt = onSchedule(
+    {
+        schedule: 'every 2 minutes',
+        region: 'europe-west1',
+        timeoutSeconds: 120,
+        memory: '256MiB'
+    },
+    async (event) => {
+        try {
+            const now = Date.now();
+            const [vehiclesSnap, ridesSnap] = await Promise.all([
+                db.ref('vehicles').once('value'),
+                db.ref('rides').orderByChild('pickupTimestamp').startAt(now - 90 * 60000).endAt(now + 60 * 60000).once('value')
+            ]);
+            const vehicles = vehiclesSnap.val() || {};
+            const allRides = [];
+            ridesSnap.forEach(c => { const r = c.val(); if (r) allRides.push({ id: c.key, ...r }); });
+            // Auch on_way/picked_up-Rides ausserhalb pickupTimestamp-Range holen (pickedUp vor >90 Min)
+            const activeSnap = await db.ref('rides').orderByChild('status').equalTo('picked_up').once('value');
+            activeSnap.forEach(c => {
+                const r = c.val();
+                if (r && !allRides.find(x => x.id === c.key)) allRides.push({ id: c.key, ...r });
+            });
+
+            const ridesByVehicle = {};
+            for (const r of allRides) {
+                const vid = r.assignedVehicle || r.vehicleId || r.assignedTo;
+                if (!vid) continue;
+                if (!ridesByVehicle[vid]) ridesByVehicle[vid] = [];
+                ridesByVehicle[vid].push(r);
+            }
+
+            let processedCount = 0;
+            let bySource = {};
+            const writes = [];
+            for (const [vid, vData] of Object.entries(vehicles)) {
+                if (!vData) continue;
+                // Nur online + dispatch=online — Autos die aus/pause sind, brauchen keinen Wert
+                const gpsAgeMin = vData.lastUpdate ? (now - vData.lastUpdate) / 60000 : 999;
+                if (gpsAgeMin > 30 && !ridesByVehicle[vid]?.length) continue;
+
+                const vRides = ridesByVehicle[vid] || [];
+                const result = await computeVehicleFreeAt(vData, vRides, now);
+                bySource[result.source] = (bySource[result.source] || 0) + 1;
+                processedCount++;
+                writes.push(db.ref(`vehicles/${vid}`).update({
+                    computedFreeAt: result.freeAtMs,
+                    computedFreeSource: result.source,
+                    computedFreeUpdatedAt: now,
+                    computedFreeEvidence: result.evidence || null
+                }));
+            }
+            await Promise.all(writes);
+            const srcStr = Object.entries(bySource).map(([k, v]) => `${k}=${v}`).join(', ');
+            console.log(`🕒 v6.63.939 ComputeVehicleFreeAt: ${processedCount} Fahrzeuge verarbeitet | ${srcStr}`);
+        } catch (e) {
+            console.error('❌ scheduledComputeVehicleFreeAt Fehler:', e.message, e.stack);
         }
     }
 );

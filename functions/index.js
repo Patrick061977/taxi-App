@@ -13149,6 +13149,15 @@ async function quickConfirmAnfrageHandler(anfrageId, withStripe, adminChatId, wi
             const _blob = ((anfrage.pickup || '') + ' ' + (anfrage.destination || '')).toLowerCase();
             return (_blob.includes('bahnhof') || _blob.includes('flughafen') || _blob.includes('hbf') || _blob.includes('edah') || _blob.includes('airport')) ? 0 : 10;
         })(),
+        // 🆕 v6.63.940 (Patrick 23.08. Bridge 'bei taxi anfrage wird das zwischenziel
+        //   nicht übernommen in die dispo'): anfrage.stopp + stoppLat/Lon aus
+        //   saveAnfrageToFirebase (anfrage.html:1022-1023) durchreichen.
+        ...(anfrage.stopp ? { zwischenstopp: anfrage.stopp } : {}),
+        ...(anfrage.stoppLat && anfrage.stoppLon ? {
+            zwischenstoppLat: anfrage.stoppLat,
+            zwischenstoppLon: anfrage.stoppLon,
+            zwischenstoppCoords: { lat: anfrage.stoppLat, lon: anfrage.stoppLon }
+        } : {}),
     };
     await rideRef.set(ride);
 

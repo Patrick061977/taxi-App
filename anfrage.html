@@ -680,26 +680,114 @@ document.addEventListener('click', function(e) {
     if (fpDD && !e.target.closest('#anf-festpreis-addr-input-dropdown') && !e.target.closest('#anf-festpreis-addr-input')) fpDD.style.display='none';
 });
 
+// 🆕 v6.63.940 (Patrick 23.08. Bridge 'bahnhof heringsdorf steht auch heringsdorf-ahlbeck'):
+//   Kuratiertes Bahnhof-POI-Mapping analog buchen.html — Google Places liefert für
+//   'Bahnhof Heringsdorf' oft den Ahlbecker Bahnhof zuerst oder labelt ihn als
+//   'Heringsdorf-Ahlbeck' (offizieller Gemeindename). Lokale POIs zuerst = eindeutig.
+var _ANF_STATION_POIS = [
+    { keywords: ['bahnhof heringsdorf', 'heringsdorf bahnhof'], name: 'Bahnhof Heringsdorf', addr: 'Bülowstraße, 17424 Heringsdorf', lat: 53.949456456543906, lon: 14.16965961456299, icon: '🚉' },
+    { keywords: ['bahnhof bansin', 'bansin bahnhof'],             name: 'Bahnhof Bansin',      addr: 'Bahnhofstraße 3, 17429 Bansin', lat: 53.964456899999995, lon: 14.1297471, icon: '🚉' },
+    { keywords: ['bahnhof ahlbeck', 'ahlbeck bahnhof'],           name: 'Bahnhof Ahlbeck',     addr: 'Bahnhofstraße, 17419 Ahlbeck',  lat: 53.935974,          lon: 14.1885889, icon: '🚉' }
+];
+
 async function anfSearch(query, inputId) {
     var dd = document.getElementById(inputId + '-dropdown');
-    if (!query || query.length < 2 || !_anfPlacesReady) { dd.style.display='none'; return; }
+    if (!query || query.length < 2) { dd.style.display='none'; return; }
+    var searchKey = query.toLowerCase().trim();
+    // 🆕 v6.63.940 (Patrick 23.08. Bridge 'baumwipfelpfad hat nichts mit bansin bahnhof zu tun'):
+    //   Query in Tokens splitten fuer robusteres Matching (Reihenfolge egal + Relevanz-Filter).
+    var qTokens = searchKey.split(/\s+/).filter(function(t) { return t.length >= 3; });
+    var results = [];
+    // Lokale Bahnhof-POIs zuerst — Token-basiertes Matching statt substring-only
+    if (searchKey.length >= 3) {
+        for (var i = 0; i < _ANF_STATION_POIS.length; i++) {
+            var poi = _ANF_STATION_POIS[i];
+            var match = poi.keywords.some(function(k) {
+                // Fallback: substring wenn nur 1 Token
+                if (qTokens.length <= 1) return k.indexOf(searchKey) !== -1 || searchKey.indexOf(k) !== -1;
+                // Multi-Token: alle Tokens muessen im keyword vorkommen (Reihenfolge egal)
+                return qTokens.every(function(t) { return k.indexOf(t) !== -1; });
+            });
+            if (match) {
+                results.push({ main: poi.name, sec: poi.addr, lat: poi.lat, lon: poi.lon, source: 'local-poi' });
+            }
+        }
+    }
+    if (!_anfPlacesReady && results.length === 0) { dd.style.display='none'; return; }
     try {
-        var token = new _anfToken();
-        var resp = await _anfSuggestion.fetchAutocompleteSuggestions({
-            input: query, locationBias: { center: {lat:53.95,lng:14.10}, radius:25000 },
-            language:'de', region:'de', sessionToken: token
-        });
-        var suggestions = resp.suggestions || [];
-        if (!suggestions.length) { dd.style.display='none'; return; }
-        dd.innerHTML = suggestions.map(function(s) {
-            var p = s.placePrediction;
-            var main = p?.mainText?.text || '?';
-            var sec = p?.secondaryText?.text || '';
-            return '<div style="padding:10px 12px;cursor:pointer;border-bottom:1px solid #f1f5f9;font-size:14px;" onmouseover="this.style.background=\'#ecfdf5\'" onmouseout="this.style.background=\'white\'" onclick="anfSelect(\'' + inputId + '\',\'' + p.placeId + '\',\'' + main.replace(/'/g,"\\'") + '\',\'' + sec.replace(/'/g,"\\'") + '\')"><div style="font-weight:600;">' + main + '</div><div style="font-size:12px;color:#64748b;">' + sec + '</div></div>';
-        }).join('');
-        dd.style.display='block';
-    } catch(e) { dd.style.display='none'; }
+        if (_anfPlacesReady) {
+            var token = new _anfToken();
+            var resp = await _anfSuggestion.fetchAutocompleteSuggestions({
+                input: query, locationBias: { center: {lat:53.95,lng:14.10}, radius:25000 },
+                language:'de', region:'de', sessionToken: token
+            });
+            var suggestions = resp.suggestions || [];
+            for (var j = 0; j < suggestions.length; j++) {
+                var p = suggestions[j].placePrediction;
+                if (!p) continue;
+                var main = p.mainText?.text || '';
+                var sec  = p.secondaryText?.text || '';
+                if (!main) continue;
+                // 🔧 v6.63.940 (Patrick 23.08. Screenshot 3646): PLZ-Ort-Normalisierung.
+                //   Google liefert offiziellen Gemeindenamen in vielen Varianten:
+                //   'Heringsdorf-Ahlbeck', 'Heringsdorf-Bansin', 'Heringsdorf-Seebad Heringsdorf',
+                //   'Ostseebad Heringsdorf', 'Seebad Heringsdorf' — alles verwirrend fuer Kunden.
+                //   Anhand PLZ auf den echten Ortsteil normalisieren.
+                var _hdRe = /(Ostseebad\s+Heringsdorf|Heringsdorf-Ostseebad|Heringsdorf-Seebad\s+Heringsdorf|Heringsdorf-Ahlbeck|Heringsdorf-Bansin|Heringsdorf-Kaiserbäder|Seebad\s+Heringsdorf|Kaiserbäder)/gi;
+                if (/17424/.test(sec)) sec = sec.replace(_hdRe, 'Heringsdorf');
+                else if (/17419/.test(sec)) sec = sec.replace(_hdRe, 'Ahlbeck');
+                else if (/17429/.test(sec)) sec = sec.replace(_hdRe, 'Bansin');
+                // 🆕 v6.63.940 (Patrick 23.08. Bridge 'es muss die plz da stehen damit die
+                //   leute nicht verunsichert werden'): PLZ garantieren — wenn sie im secText
+                //   fehlt, aus Ortsname ableiten (nur bekannte Kaiserbaeder-Orte).
+                if (!/\b1[0-9]{4}\b/.test(sec)) {
+                    if (/\bBansin\b/i.test(sec)) sec = sec.replace(/\bBansin\b/i, '17429 Bansin');
+                    else if (/\bAhlbeck\b/i.test(sec)) sec = sec.replace(/\bAhlbeck\b/i, '17419 Ahlbeck');
+                    else if (/\bHeringsdorf\b/i.test(sec)) sec = sec.replace(/\bHeringsdorf\b/i, '17424 Heringsdorf');
+                }
+                // Duplikat-Check gegen lokale POIs + andere Google-Ergebnisse
+                var isDup = results.some(function(r) {
+                    return (r.main || '').toLowerCase() === main.toLowerCase() &&
+                           (r.sec  || '').toLowerCase() === sec.toLowerCase();
+                });
+                if (isDup) continue;
+                // 🆕 v6.63.940 (Patrick 23.08.): Relevanz-Filter — bei Multi-Token-Query
+                //   muessen ALLE Tokens irgendwo im mainText ODER secText vorkommen.
+                //   Bsp: Query 'bansin bahnhof' → Baumwipfelpfad (main='Baumwipfelpfad Usedom'
+                //   sec='Am Bahnhof, Heringsdorf-Seebad') enthaelt 'bahnhof' im sec, aber
+                //   'bansin' NIRGENDS → raus. Bansin Bahnhof enthaelt beide → drin.
+                if (qTokens.length >= 2) {
+                    var _blob = (main + ' ' + sec).toLowerCase();
+                    var _allHit = qTokens.every(function(t) { return _blob.indexOf(t) !== -1; });
+                    if (!_allHit) continue;
+                }
+                results.push({ main: main, sec: sec, placeId: p.placeId, source: 'google' });
+            }
+        }
+    } catch(e) { /* Google-Fehler → nur lokale POIs anzeigen */ }
+    if (results.length === 0) { dd.style.display='none'; return; }
+    dd.innerHTML = results.slice(0, 8).map(function(r) {
+        var pid = r.placeId || '';
+        return '<div style="padding:10px 12px;cursor:pointer;border-bottom:1px solid #f1f5f9;font-size:14px;" onmouseover="this.style.background=\'#ecfdf5\'" onmouseout="this.style.background=\'white\'" onclick="anfSelectLocal(\'' + inputId + '\',\'' + pid + '\',\'' + r.main.replace(/'/g,"\\'") + '\',\'' + r.sec.replace(/'/g,"\\'") + '\',' + (r.lat || 'null') + ',' + (r.lon || 'null') + ')"><div style="font-weight:600;color:#0f172a;">' + r.main + '</div><div style="font-size:12px;color:#334155;margin-top:2px;">' + r.sec + '</div></div>';
+    }).join('');
+    dd.style.display='block';
 }
+
+// 🆕 v6.63.940: Wrapper — leitet Local-POIs (lat/lon vorhanden) direkt weiter,
+//   Google-Ergebnisse an bisheriges anfSelect (das den fetchFields-Call macht).
+window.anfSelectLocal = function(inputId, placeId, mainText, secText, lat, lon) {
+    document.getElementById(inputId + '-dropdown').style.display = 'none';
+    if (lat && lon && !placeId) {
+        // Lokaler POI — direkt setzen, kein Google-Call
+        document.getElementById(inputId).value = mainText + ', ' + secText;
+        if (inputId === 'anf-pickup') anfPickupCoords = { lat: lat, lon: lon };
+        else if (inputId === 'anf-stopp') anfStoppCoords = { lat: lat, lon: lon };
+        else anfDestCoords = { lat: lat, lon: lon };
+        if (inputId !== 'anf-festpreis-addr-input') calcAnfPrice();
+        return;
+    }
+    return anfSelect(inputId, placeId, mainText, secText);
+};
 
 async function anfSelect(inputId, placeId, mainText, secText) {
     document.getElementById(inputId).value = mainText + (secText ? ', ' + secText : '');

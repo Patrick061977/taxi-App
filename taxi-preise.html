@@ -1561,7 +1561,20 @@
 
 <header>
     <div class="container brand">
-        <h1>🚖 Funk Taxi Heringsdorf</h1>
+        <div style="display:flex;align-items:center;gap:8px;min-width:0;">
+            <a href="landing.html" aria-label="Zur Hauptseite" style="color:rgba(255,255,255,0.85);text-decoration:none;font-size:14px;font-weight:600;">←</a>
+            <h1 style="font-size:16px;">🚖 Taxi-Preise Usedom</h1>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+            <a href="anfrage.html" style="background:#10b981;color:#fff;text-decoration:none;padding:9px 14px;border-radius:8px;font-weight:700;font-size:14px;">💬 Anfrage senden</a>
+            <a class="call" href="tel:+493837822022">📞 038378 22022</a>
+        </div>
+    </div>
+</header>
+
+<!-- v6.63.936: Routes-Block aus Header rausgezogen — steckte vorher IM <header>, blockierte First-Paint bis alle 144 Zeilen im Sticky-Container fertig waren -->
+<section style="background:#0f172a;padding:16px 0;color:#e2e8f0;">
+    <div class="container" style="background:#fff;color:#1e293b;padding:16px;border-radius:10px;">
 <!-- v6.63.931-ROUTES-START -->
 <!-- 144 Routen aus 1620 echten Fahrten, min. 2x gefahren, POI-Namen anonymisiert -->
 <div style="margin:20px 0;padding:12px;background:#fff8e6;border-left:4px solid #f5a623;font-size:13px;color:#5d3a00;">
@@ -1748,17 +1761,15 @@
 <tr><td style="padding:6px;border-bottom:1px solid #eee;">DJH Jugendherberge Heringsdorf, Puschkinstraße, Heringsdorf-Seebad Heringsdorf</td><td style="padding:6px;border-bottom:1px solid #eee;">Die-Insel-Reiter, Labömitzer Str., Benz</td><td style="padding:6px;text-align:right;border-bottom:1px solid #eee;">9.2 km</td><td style="padding:6px;text-align:right;border-bottom:1px solid #eee;font-weight:600;color:#059669;">ca. 41.60 EUR</td><td style="padding:6px;text-align:center;border-bottom:1px solid #eee;"><a href="taxi-djh-jugendherberge-heringsdorf-zu-die-insel-reiter.html" style="color:#0b57d0;text-decoration:none;">Details</a></td></tr>
 </table>
 <!-- v6.63.931-ROUTES-END -->
-
-        <a class="call" href="tel:+493837822022">📞 038378 · 22022</a>
     </div>
-</header>
+</section>
 
 <section class="hero">
     <div class="container">
         <h2>Taxi-Preise auf Usedom — Von Adresse zu Adresse</h2>
         <p>Was kostet ein Taxi von deiner Adresse zu deinem Ziel? Hier findest du <b>58</b> echte Preise. Suche nach Straße, Ort oder PLZ.</p>
         <a href="tel:+493837822022" class="cta">📞 038378 22022</a>
-        <a href="/anfrage.html" class="cta" style="background:#3b82f6;color:#fff">💬 Anfrage senden</a>
+        <a href="/anfrage.html" class="cta" style="background:#10b981;color:#fff">💬 Anfrage senden</a>
     </div>
 </section>
 
@@ -1892,7 +1903,7 @@
         <div class="info-box">
             <b>💡 Warum manche Preise abweichen:</b>
             Die Preise in den Tabellen sind Median-Werte aus echten Fahrten — sie schließen manchmal Wartezeit, Zwischenstopps oder Fahrzeugtyp mit ein.
-            Für einen exakten Preis in Echtzeit nutze den <a href="/anfrage.html" style="color:#10b981">Online-Preisrechner</a> oder ruf uns an: <a href="tel:+493837822022" style="color:#10b981">038378 22022</a>.
+            Für einen konkreten Preis für deine Strecke schick uns eine <a href="/anfrage.html" style="color:#10b981">Anfrage</a> oder ruf uns an: <a href="tel:+493837822022" style="color:#10b981">038378 22022</a>.
         </div>
     </div>
 </section>
@@ -1900,7 +1911,7 @@
 <section style="background:#1e3a8a;padding:32px 16px;text-align:center;border-radius:12px;margin:20px 0">
     <div class="container">
         <h3 style="color:#fff;border:0">Deine Adresse nicht dabei?</h3>
-        <p style="color:#dbeafe;font-size:15px;margin-bottom:12px">Kein Problem — ruf uns einfach an oder nutz den Online-Preisrechner mit Live-Routing:</p>
+        <p style="color:#dbeafe;font-size:15px;margin-bottom:12px">Kein Problem — schick uns eine Anfrage mit deiner Strecke oder ruf uns direkt an:</p>
         <a href="/anfrage.html" class="call-big" style="background:#fbbf24;color:#0f172a">💬 Anfrage senden</a>
         <a href="tel:+493837822022" class="call-big">📞 038378 22022</a>
     </div>

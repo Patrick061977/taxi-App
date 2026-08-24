@@ -66,6 +66,10 @@ on:
       - 'kein-bock-zu-laufen.html'
       # 🆕 v6.63.135 (Patrick 04.06. 08:22): Veranstaltungs-Kalender Heringsdorf/Ahlbeck/Bansin
       - 'veranstaltungen-heringsdorf.html'
+      # 🆕 v6.63.958 (Patrick 24.08.): Admin-Tools Landing-Übersicht + Hotel-Beschreibungen + Inventar
+      - 'landing-uebersicht.html'
+      - 'hotel-beschreibungen.html'
+      - 'landing-inventar.json'
       - 'images/**'
       - 'vendor/**'
       - 'strato/**'

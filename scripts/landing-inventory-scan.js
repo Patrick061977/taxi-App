@@ -23,6 +23,10 @@ const BLACKLIST = new Set([
     'buchen-v2.html', 'track.html', 'kunden.html', 'stornierung.html',
     'agb.html', 'datenschutz.html', 'impressum.html',
     'googleb29a71be78bd0c12.html', 'google5b05bd63482e6114.html',
+    // 🚫 v6.63.958 (Patrick 24.08. Bridge 'reise radar gehört nicht zur taxi seite'):
+    // Diese Landing-Pages hosten wir zwar auf umwelt-taxi-insel-usedom.de,
+    // sind aber themen-fremd und sollen NICHT im Taxi-SEO-Score auftauchen.
+    'reise-radar.html', 'urlaub.html',
 ]);
 
 const CATEGORIES = {

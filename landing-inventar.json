@@ -1,15 +1,15 @@
 {
   "summary": {
-    "generatedAt": "2026-08-24T12:31:43.060Z",
-    "totalPages": 231,
+    "generatedAt": "2026-08-24T12:43:03.854Z",
+    "totalPages": 230,
     "avgScore": 86,
     "byCategory": {
       "Ausflugs-/Info-Landing": {
-        "total": 4,
+        "total": 2,
         "excellent": 0,
         "good": 1,
         "medium": 1,
-        "poor": 2
+        "poor": 0
       },
       "Bahnhof-Transfer-Landing": {
         "total": 1,
@@ -33,11 +33,11 @@
         "poor": 0
       },
       "Funktions-Seite": {
-        "total": 11,
+        "total": 12,
         "excellent": 7,
         "good": 0,
         "medium": 4,
-        "poor": 0
+        "poor": 1
       },
       "Grenz-Landing": {
         "total": 6,
@@ -149,84 +149,10 @@
       "excellent": 218,
       "good": 2,
       "medium": 6,
-      "poor": 5
+      "poor": 4
     }
   },
   "pages": [
-    {
-      "filename": "reise-radar.html",
-      "category": "Ausflugs-/Info-Landing",
-      "size": 87601,
-      "title": "🌍 Reise-Radar — Wo lohnt es sich gerade?",
-      "titleLen": 41,
-      "description": "",
-      "descriptionLen": 0,
-      "keywordsLen": 0,
-      "ogTitle": "",
-      "ogDescription": "",
-      "ogImage": "",
-      "canonical": false,
-      "canonicalUrl": "",
-      "hreflangCount": 0,
-      "h1Count": 1,
-      "h1First": "🌍 Reise-Radar → meine Urlaubs-Watchlist",
-      "h2Count": 6,
-      "h2First": "${d.city}, ${d.country}",
-      "h3Count": 0,
-      "jsonLdTypes": [],
-      "wordCount": 79,
-      "imgCount": 1,
-      "imgsWithAlt": 0,
-      "internalLinks": 8,
-      "orteImText": [],
-      "score": 35,
-      "issues": [
-        "keine Meta-Description",
-        "nur 79 Wörter (soll 300+)",
-        "kein JSON-LD Schema",
-        "kein Canonical",
-        "kein Open-Graph",
-        "nicht alle Bilder mit alt"
-      ],
-      "health": "poor"
-    },
-    {
-      "filename": "urlaub.html",
-      "category": "Ausflugs-/Info-Landing",
-      "size": 70159,
-      "title": "Urlaubs-Watchlist — Funk Taxi Patrick",
-      "titleLen": 37,
-      "description": "",
-      "descriptionLen": 0,
-      "keywordsLen": 0,
-      "ogTitle": "",
-      "ogDescription": "",
-      "ogImage": "",
-      "canonical": false,
-      "canonicalUrl": "",
-      "hreflangCount": 0,
-      "h1Count": 1,
-      "h1First": "🌴 Urlaubs-Watchlist → Reise-Radar (Weltkarte)",
-      "h2Count": 2,
-      "h2First": "✏️ Watchlist-Eintrag bearbeiten",
-      "h3Count": 1,
-      "jsonLdTypes": [],
-      "wordCount": 93,
-      "imgCount": 0,
-      "imgsWithAlt": 0,
-      "internalLinks": 11,
-      "orteImText": [],
-      "score": 35,
-      "issues": [
-        "keine Meta-Description",
-        "nur 2 H2 (soll 3+)",
-        "nur 93 Wörter (soll 300+)",
-        "kein JSON-LD Schema",
-        "kein Canonical",
-        "kein Open-Graph"
-      ],
-      "health": "poor"
-    },
     {
       "filename": "ausflugsziele.html",
       "category": "Ausflugs-/Info-Landing",
@@ -558,6 +484,43 @@
       "score": 100,
       "issues": [],
       "health": "excellent"
+    },
+    {
+      "filename": "hotel-beschreibungen.html",
+      "category": "Funktions-Seite",
+      "size": 12739,
+      "title": "Hotel-Beschreibungen &middot; Content für Landing-Pages",
+      "titleLen": 55,
+      "description": "",
+      "descriptionLen": 0,
+      "keywordsLen": 0,
+      "ogTitle": "",
+      "ogDescription": "",
+      "ogImage": "",
+      "canonical": false,
+      "canonicalUrl": "",
+      "hreflangCount": 0,
+      "h1Count": 1,
+      "h1First": "🏨 Hotel-Beschreibungen für Landing-Pages",
+      "h2Count": 1,
+      "h2First": "Hotel bearbeiten",
+      "h3Count": 0,
+      "jsonLdTypes": [],
+      "wordCount": 50,
+      "imgCount": 0,
+      "imgsWithAlt": 0,
+      "internalLinks": 0,
+      "orteImText": [],
+      "score": 35,
+      "issues": [
+        "keine Meta-Description",
+        "nur 1 H2 (soll 3+)",
+        "nur 50 Wörter (soll 300+)",
+        "kein JSON-LD Schema",
+        "kein Canonical",
+        "kein Open-Graph"
+      ],
+      "health": "poor"
     },
     {
       "filename": "kontakt.html",

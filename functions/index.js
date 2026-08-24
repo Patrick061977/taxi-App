@@ -2896,7 +2896,7 @@ async function autoAssignRide(rideId, rideData, _excludeVehicleIds = []) {
                 `👤 <b>Kunde:</b> ${rideData.customerName}\n` +
                 (() => {
                     // v6.62.222: Fallback auf customerMobile/mobilePhone wenn customerPhone leer.
-                    const _tel = rideData.customerPhone || rideData.customerMobile || rideData.mobilePhone;
+                    const _tel = bestSmsPhone(rideData);
                     return _tel ? `📱 <b>Tel:</b> ${_tel}${formatWhatsAppLink(_tel)}\n` : '';
                 })() +
                 `🕐 <b>Abholung:</b> ${pickupLabel}\n` +
@@ -14864,7 +14864,7 @@ async function handleCallback(callback) {
                                     `👤 <b>Name:</b> ${rideData.customerName}\n` +
                                     (() => {
                                         // v6.62.222: Fallback auf customerMobile wenn customerPhone leer.
-                                        const _t = rideData.customerPhone || rideData.customerMobile || rideData.mobilePhone;
+                                        const _t = bestSmsPhone(rideData);
                                         return _t ? `📱 <b>Tel:</b> ${_t}${formatWhatsAppLink(_t)}\n` : '';
                                     })() +
                                     `👥 <b>Personen:</b> ${passengers}\n` +
@@ -26286,7 +26286,7 @@ exports.scheduledAutoAssign = onSchedule(
                         (() => {
                             // v6.62.222: Fallback auf customerMobile wenn customerPhone leer.
                             // Hasbargen-Bug 03.05.: customerPhone="", customerMobile gefüllt → Telegram zeigte keine Nummer.
-                            const _tel = ride.customerPhone || ride.customerMobile || ride.mobilePhone;
+                            const _tel = bestSmsPhone(ride);
                             return _tel ? `📱 <b>Tel:</b> ${_tel}${formatWhatsAppLink(_tel)}\n` : '';
                         })() +
                         `🕐 <b>Abholung:</b> ${pickupLabel}\n` +
@@ -28395,7 +28395,7 @@ exports.onRideCreated = onValueCreated(
             // Wenn opt-in: Abschluss-SMS mit Feedback+Rechnung-Link senden (nur an Mobilnummern)
             if (optInSms) {
                 try {
-                    const _phone = ride.customerPhone || ride.customerMobile || ride.mobilePhone;
+                    const _phone = bestSmsPhone(ride);
                     if (_phone && isMobileNumber(_phone)) {
                         const _smsSettingsSnap = await db.ref('settings/sms').once('value');
                         const _smsSettings = _smsSettingsSnap.val() || {};
@@ -30676,7 +30676,7 @@ exports.onRideUpdated = onValueUpdated(
                 // kam keine SMS Bestaetigung; bisher gab's nur WhatsApp + Telegram).
                 // Nur Mobile-Nummern, optional via /settings/sms/cancelEnabled abschaltbar.
                 try {
-                    const _custPhoneCancel = after.customerPhone || after.customerMobile;
+                    const _custPhoneCancel = bestSmsPhone(after);
                     if (_isGhostSweep) {
                         console.log(`👻 v6.63.695 SMS-Storno UNTERDRUECKT (Ghost-Sweep) fuer ${rideId}`);
                     } else if (_custPhoneCancel) {
@@ -30855,7 +30855,7 @@ exports.onRideUpdated = onValueUpdated(
                     // 🆕 v6.62.382: Patrick (06.05. 18:41): "Hasbargen — Vielen-Dank-SMS kam nicht".
                     // Bug: nur customerPhone gepruefte, nicht customerMobile als Fallback.
                     // Hasbargen hat customerPhone='' und customerMobile='+491732...' → SMS skipte.
-                    const _abPhone = after.customerPhone || after.customerMobile;
+                    const _abPhone = bestSmsPhone(after);
                     if (_channel === 'sms' && _abPhone) {
                         // 🆕 v6.62.275: KEIN SMS an Festnetz-Nummern (Patrick 14:36)
                         if (!isMobileNumber(_abPhone)) {
@@ -31898,7 +31898,7 @@ exports.onRideUpdated = onValueUpdated(
                                 belegNr: _belegNr, checkoutUrl: _checkoutUrl
                             });
                             // SMS an Kunde mit Stripe-Bezahl-Link
-                            const _smsPhone = after.customerPhone || after.customerMobile;
+                            const _smsPhone = bestSmsPhone(after);
                             if (_smsPhone && isMobileNumber(_smsPhone) && _checkoutUrl) {
                                 const _smsTxt = `Funk Taxi: Rechnung ${_belegNr} ueber ${_gross.toFixed(2).replace('.',',')}€ — bitte per Stripe bezahlen: ${_checkoutUrl}\nFragen: 038378 22022`;
                                 await db.ref('smsQueue').push({
@@ -32145,7 +32145,7 @@ exports.onRideUpdated = onValueUpdated(
                     });
                 } catch (_) {}
             } else if (_invNumNew && _statusNow === 'completed' && !_alreadySent && _completedRecently2 && !_isAuftraggeberFlow) {
-                const _smsPhone = after.customerPhone || after.customerMobile;
+                const _smsPhone = bestSmsPhone(after);
                 if (_smsPhone && isMobileNumber(_smsPhone)) {
                     // Kunde-Daten für Anrede
                     let _custData = {};

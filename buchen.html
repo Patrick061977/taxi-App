@@ -93,9 +93,7 @@
             max-height: 1200px;
             pointer-events: auto;
         }
-        /* 🆕 v6.41.68 / 🔧 v6.63.943 (Patrick 24.08.: Chip war zu prominent + hat Uhrzeit-Anzeige
-           und Slot-Check überschattet — Rollback auf ursprüngliche Ausblend-Logik, Progress-Chip
-           in step-progress reicht als Rückkehr-Weg. Bestätigungs-Modal aus v941b bleibt.) */
+        /* 🆕 v6.41.68: Erledigtes Adressfeld kollabieren (nur Progress-Chip zeigt es noch) */
         .input-group[data-collapsed="true"] {
             max-height: 0 !important;
             min-height: 0 !important;
@@ -1512,9 +1510,6 @@
         }
 
         // 🆕 v6.41.68: Erledigte Felder einklappen (User sieht nur noch das nächste offene Feld)
-        // 🔧 v6.63.943: Chip-Rendering aus v941 zurückgebaut (Patrick 24.08.: Chip war zu prominent
-        //   und hat Uhrzeit-Anzeige + Slot-Check überschattet). Progress-Chip in step-progress
-        //   bleibt als Rückkehr-Weg zum Feld.
         function collapseCompletedFields() {
             // Abholort: ausfüllen & ausblenden wenn gesetzt + Ziel dabei oder erledigt
             const pickupGroup = document.getElementById('b-pickup')?.closest('.input-group');
@@ -1554,7 +1549,6 @@
                     delete g.dataset.collapsed;
                     const input = document.getElementById('b-pickup');
                     input?.focus();
-                    input?.select();
                     g.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 }
                 return;
@@ -1565,7 +1559,6 @@
                     delete g.dataset.collapsed;
                     const input = document.getElementById('b-destination');
                     input?.focus();
-                    input?.select();
                     g.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 }
                 return;
@@ -6025,79 +6018,8 @@
             await createBooking();
         }
 
-        // 🆕 v6.63.941 (Patrick 23.08. "der kunde müsste vielleicht noch eine zusammenfassung
-        //   bekommen und dann bestätigen"): Bestätigungs-Modal VOR dem finalen Firebase-Push.
-        //   Zeigt alle eingegebenen Werte in einer kompakten Card mit "Bestätigen"/"Ändern".
-        function _showBookingConfirmModal() {
-            return new Promise(function(resolve) {
-                const pickupTxt = document.getElementById('b-pickup')?.value || '?';
-                const destTxt   = document.getElementById('b-destination')?.value || '?';
-                const stoppTxt  = document.getElementById('b-stopp')?.value || '';
-                const nameTxt   = document.getElementById('b-name')?.value || '?';
-                const noteTxt   = (document.getElementById('b-note')?.value || '').trim();
-                const paxTxt    = passengers + ' Person' + (passengers === 1 ? '' : 'en');
-                const wannTxt   = wannModus === 'sofort' ? '⚡ Sofort' : '📅 Vorbestellung';
-                let dateTxt = '', timeTxt = '';
-                try {
-                    const ts = getPickupTimestamp();
-                    if (ts) {
-                        const d = new Date(new Date(ts).toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
-                        dateTxt = d.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
-                        timeTxt = d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) + ' Uhr';
-                    }
-                } catch(_) {}
-                let priceTxt = '';
-                if (routeData && routeData.price) priceTxt = 'ca. ' + parseFloat(routeData.price).toFixed(2).replace('.', ',') + ' €';
-                if (routeData && routeData.km)    priceTxt += (priceTxt ? ' · ' : '') + routeData.km + ' km';
-
-                const overlay = document.createElement('div');
-                overlay.id = '_bookConfirmOverlay';
-                overlay.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,0.6);backdrop-filter:blur(4px);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;overscroll-behavior:contain;';
-                const row = function(icon, label, val) {
-                    if (!val) return '';
-                    return '<div style="display:flex;gap:10px;padding:10px 0;border-bottom:1px solid #f1f5f9;">' +
-                           '<span style="font-size:18px;flex-shrink:0;">' + icon + '</span>' +
-                           '<div style="flex:1;min-width:0;">' +
-                             '<div style="font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.3px;">' + label + '</div>' +
-                             '<div style="font-size:14px;color:#0f172a;font-weight:600;margin-top:1px;word-wrap:break-word;">' + val + '</div>' +
-                           '</div></div>';
-                };
-                overlay.innerHTML =
-                    '<div style="background:white;border-radius:16px;max-width:440px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 20px 50px rgba(0,0,0,0.3);">' +
-                      '<div style="padding:18px 20px;border-bottom:1px solid #e5e7eb;">' +
-                        '<div style="font-size:18px;font-weight:800;color:#0f172a;">Alles korrekt?</div>' +
-                        '<div style="font-size:13px;color:#64748b;margin-top:2px;">Bitte prüfen Sie Ihre Angaben.</div>' +
-                      '</div>' +
-                      '<div style="padding:6px 20px;">' +
-                        row('📍', 'Abholort',     pickupTxt) +
-                        row('📍', 'Zwischenstopp', stoppTxt) +
-                        row('🎯', 'Zielort',       destTxt) +
-                        row(wannModus === 'sofort' ? '⚡' : '📅', 'Wann', dateTxt && timeTxt ? (dateTxt + ' · ' + timeTxt) : wannTxt) +
-                        row('👥', 'Personen',      paxTxt) +
-                        row('👤', 'Name',          nameTxt) +
-                        row('💰', 'Geschätzter Preis', priceTxt) +
-                        row('💬', 'Bemerkung',     noteTxt) +
-                      '</div>' +
-                      '<div style="padding:14px 20px 20px;display:flex;gap:10px;flex-direction:column;">' +
-                        '<button id="_bookConfirmYes" style="width:100%;padding:16px;background:linear-gradient(135deg,#059669,#047857);color:white;border:none;border-radius:12px;font-size:16px;font-weight:800;cursor:pointer;box-shadow:0 4px 12px rgba(5,150,105,0.3);">✅ Verbindlich buchen</button>' +
-                        '<button id="_bookConfirmNo" style="width:100%;padding:14px;background:white;color:#475569;border:2px solid #e2e8f0;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;">✎ Ändern</button>' +
-                      '</div>' +
-                    '</div>';
-                document.body.appendChild(overlay);
-                overlay.querySelector('#_bookConfirmYes').onclick = function() { overlay.remove(); resolve(true); };
-                overlay.querySelector('#_bookConfirmNo').onclick  = function() { overlay.remove(); resolve(false); };
-                overlay.onclick = function(e) { if (e.target === overlay) { overlay.remove(); resolve(false); } };
-            });
-        }
-
         async function createBooking() {
             logBuchen('🚕', 'createBooking() gestartet...');
-            // 🆕 v6.63.941: Bestätigungs-Modal VOR dem Firebase-Push (Patrick 23.08.)
-            const _confirmed = await _showBookingConfirmModal();
-            if (!_confirmed) {
-                logBuchen('↩️', 'Kunde hat Buchung abgebrochen (Ändern) — kein Ride angelegt');
-                return;
-            }
             // v6.63.523: returnRideId war undeclared → ReferenceError in _rueckBadge-Template
             // → Catch lief durch, Kunde sah "Fehler bei der Buchung" obwohl Ride in Firebase stand.
             // Rückfahrt-Auto-Anlage wurde in v6.63.472 entfernt, daher immer null.

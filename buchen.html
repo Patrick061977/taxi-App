@@ -93,33 +93,19 @@
             max-height: 1200px;
             pointer-events: auto;
         }
-        /* 🆕 v6.41.68 / 🔧 v6.63.941 (Patrick 23.08. "der kunde kann adresse nicht ändern"):
-           Statt Felder komplett zu verstecken → kompakter Chip mit ✎ Ändern-Button.
-           Original-Input wird ausgeblendet, Chip zeigt Wert direkt sichtbar in der Card. */
-        .input-group[data-collapsed="true"] > label,
-        .input-group[data-collapsed="true"] > input,
-        .input-group[data-collapsed="true"] > button:not(.addr-chip-edit),
-        .input-group[data-collapsed="true"] > .autocomplete-dropdown,
-        .input-group[data-collapsed="true"] > div:not(.addr-chip) {
-            display: none !important;
+        /* 🆕 v6.41.68 / 🔧 v6.63.943 (Patrick 24.08.: Chip war zu prominent + hat Uhrzeit-Anzeige
+           und Slot-Check überschattet — Rollback auf ursprüngliche Ausblend-Logik, Progress-Chip
+           in step-progress reicht als Rückkehr-Weg. Bestätigungs-Modal aus v941b bleibt.) */
+        .input-group[data-collapsed="true"] {
+            max-height: 0 !important;
+            min-height: 0 !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            overflow: hidden !important;
+            opacity: 0 !important;
+            pointer-events: none !important;
+            transition: all 0.3s ease;
         }
-        .input-group[data-collapsed="true"] { margin-bottom: 8px !important; padding: 0 !important; min-height: 0 !important; }
-        .addr-chip {
-            display: flex; align-items: center; gap: 8px;
-            padding: 10px 12px;
-            background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 10px;
-            cursor: pointer; transition: background 0.15s;
-            font-size: 14px; color: #065f46; font-weight: 600;
-        }
-        .addr-chip:hover { background: #d1fae5; }
-        .addr-chip .addr-chip-icon { font-size: 18px; flex-shrink: 0; }
-        .addr-chip .addr-chip-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .addr-chip .addr-chip-edit {
-            background: white; border: 1px solid #a7f3d0; color: #065f46;
-            padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 700;
-            cursor: pointer; flex-shrink: 0; display: inline-flex; align-items: center; gap: 4px;
-        }
-        .addr-chip .addr-chip-edit:hover { background: #d1fae5; }
         /* 🆕 v6.41.72: Aktueller Schritt-Chip pulsiert sanft → Aufmerksamkeit auf nächstes Feld */
         @keyframes step-pulse {
             0%   { box-shadow: 0 0 0 0 rgba(5,150,105,0.55); }
@@ -1526,54 +1512,31 @@
         }
 
         // 🆕 v6.41.68: Erledigte Felder einklappen (User sieht nur noch das nächste offene Feld)
-        // 🔧 v6.63.941 (Patrick 23.08. "kunde kann adresse nicht ändern"): statt komplett
-        //   verstecken → kompakter Chip mit ✎ Ändern-Button direkt in der Card sichtbar.
-        function _renderAddrChip(group, key, icon, valueText) {
-            if (!group) return;
-            let chip = group.querySelector('.addr-chip');
-            if (!chip) {
-                chip = document.createElement('div');
-                chip.className = 'addr-chip';
-                chip.setAttribute('data-key', key);
-                chip.onclick = function() { expandStep(key); };
-                chip.innerHTML =
-                    '<span class="addr-chip-icon"></span>' +
-                    '<span class="addr-chip-text"></span>' +
-                    '<button class="addr-chip-edit" type="button" onclick="event.stopPropagation();expandStep(\'' + key + '\');">✎ Ändern</button>';
-                group.appendChild(chip);
-            }
-            chip.querySelector('.addr-chip-icon').textContent = icon;
-            chip.querySelector('.addr-chip-text').textContent = valueText;
-        }
-        function _removeAddrChip(group) {
-            if (!group) return;
-            const chip = group.querySelector('.addr-chip');
-            if (chip) chip.remove();
-        }
+        // 🔧 v6.63.943: Chip-Rendering aus v941 zurückgebaut (Patrick 24.08.: Chip war zu prominent
+        //   und hat Uhrzeit-Anzeige + Slot-Check überschattet). Progress-Chip in step-progress
+        //   bleibt als Rückkehr-Weg zum Feld.
         function collapseCompletedFields() {
             // Abholort: ausfüllen & ausblenden wenn gesetzt + Ziel dabei oder erledigt
             const pickupGroup = document.getElementById('b-pickup')?.closest('.input-group');
             const destGroup   = document.getElementById('b-destination')?.closest('.input-group');
             const stoppBtnBox = document.getElementById('b-stopp-btn-box');
             const swapBtnBox = document.getElementById('swap-btn-box');
-            const pickupVal = document.getElementById('b-pickup')?.value || '';
-            const destVal   = document.getElementById('b-destination')?.value || '';
             if (pickupCoords && destCoords) {
-                if (pickupGroup) { pickupGroup.dataset.collapsed = 'true'; _renderAddrChip(pickupGroup, 'pickup', '📍', pickupVal); }
-                if (destGroup)   { destGroup.dataset.collapsed   = 'true'; _renderAddrChip(destGroup,   'dest',   '🎯', destVal); }
+                if (pickupGroup) pickupGroup.dataset.collapsed = 'true';
+                if (destGroup)   destGroup.dataset.collapsed   = 'true';
                 if (stoppBtnBox) stoppBtnBox.style.display = 'none';
                 if (swapBtnBox)  swapBtnBox.style.display = 'none';
             } else if (pickupCoords) {
                 // 🆕 v6.63.469: Pickup gesetzt, Dest fehlt → Zwischenstopp-Button sichtbar
-                if (pickupGroup) { delete pickupGroup.dataset.collapsed; _removeAddrChip(pickupGroup); }
-                if (destGroup)   { delete destGroup.dataset.collapsed;   _removeAddrChip(destGroup); }
+                if (pickupGroup) delete pickupGroup.dataset.collapsed;
+                if (destGroup)   delete destGroup.dataset.collapsed;
                 if (stoppBtnBox) stoppBtnBox.style.display = '';
                 if (swapBtnBox)  swapBtnBox.style.display = '';
             } else {
                 // 🆕 v6.63.469: Pickup nicht gesetzt → Zwischenstopp + Swap VERSTECKEN
                 // (Erstbucher soll nur Abholort + Zielort sehen, nicht Zusatz-Optionen)
-                if (pickupGroup) { delete pickupGroup.dataset.collapsed; _removeAddrChip(pickupGroup); }
-                if (destGroup)   { delete destGroup.dataset.collapsed;   _removeAddrChip(destGroup); }
+                if (pickupGroup) delete pickupGroup.dataset.collapsed;
+                if (destGroup)   delete destGroup.dataset.collapsed;
                 if (stoppBtnBox) stoppBtnBox.style.display = 'none';
                 if (swapBtnBox)  swapBtnBox.style.display = 'none';
             }
@@ -1589,7 +1552,6 @@
                 const g = document.getElementById('b-pickup')?.closest('.input-group');
                 if (g) {
                     delete g.dataset.collapsed;
-                    _removeAddrChip(g);
                     const input = document.getElementById('b-pickup');
                     input?.focus();
                     input?.select();
@@ -1601,7 +1563,6 @@
                 const g = document.getElementById('b-destination')?.closest('.input-group');
                 if (g) {
                     delete g.dataset.collapsed;
-                    _removeAddrChip(g);
                     const input = document.getElementById('b-destination');
                     input?.focus();
                     input?.select();

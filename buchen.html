@@ -3921,11 +3921,9 @@
             try {
                 const snap = await db.ref('rides').orderByChild('pickupTimestamp')
                     .startAt(dayStart).endAt(dayEnd).once('value');
-                // 🔧 v6.63.945 (Patrick 24.08. 'terminplan zeigt frei aber 09:45 wartepool
-                //   ist da UND per buchen.html ist es bestellbar'):
-                //   'wartepool' + 'warteschlange' fehlten → Wartepool-Rides zählten nicht als
-                //   Kapazität → Slots wurden fälschlich als frei angezeigt und buchbar gemacht.
-                const activeStatuses = ['new', 'sofort', 'open', 'assigned', 'vorbestellt', 'accepted', 'picked_up', 'on_way', 'wartepool', 'warteschlange'];
+                // v946 (Patrick 24.08. 'da hat es doch wunderbar funktioniert'):
+                //   v945-Fix zurückgerollt — Slot-Check ist auf Original-Statuses zurück.
+                const activeStatuses = ['new', 'sofort', 'open', 'assigned', 'vorbestellt', 'accepted', 'picked_up', 'on_way'];
                 const _rawRides = [];
                 snap.forEach(child => {
                     const r = child.val();
@@ -4286,11 +4284,9 @@
                 const ridesSnap = await db.ref('rides').orderByChild('pickupTimestamp')
                     .startAt(dayStart).endAt(dayEnd).once('value');
 
-                // 🔧 v6.63.945 (Patrick 24.08. 'terminplan zeigt frei aber 09:45 wartepool
-                //   ist da UND per buchen.html ist es bestellbar'):
-                //   'wartepool' + 'warteschlange' fehlten → Wartepool-Rides zählten nicht als
-                //   Kapazität → Slots wurden fälschlich als frei angezeigt und buchbar gemacht.
-                const activeStatuses = ['new', 'sofort', 'open', 'assigned', 'vorbestellt', 'accepted', 'picked_up', 'on_way', 'wartepool', 'warteschlange'];
+                // v946 (Patrick 24.08. 'da hat es doch wunderbar funktioniert'):
+                //   v945-Fix zurückgerollt — Slot-Check ist auf Original-Statuses zurück.
+                const activeStatuses = ['new', 'sofort', 'open', 'assigned', 'vorbestellt', 'accepted', 'picked_up', 'on_way'];
                 let conflictCount = 0;
                 const rideEndTimes = [];
                 const nowTs = Date.now();

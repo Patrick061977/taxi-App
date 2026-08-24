@@ -70,6 +70,12 @@ on:
       - 'landing-uebersicht.html'
       - 'hotel-beschreibungen.html'
       - 'landing-inventar.json'
+      # 🆕 v6.63.959 (Patrick 24.08.): Alle taxi-*-zu-*.html SEO-Micro-Landings
+      #   Der deploy.sh-Glob 'taxi-*.html' kopiert sie schon — hier braucht's
+      #   nur den Trigger damit Änderungen an ihnen auch tatsächlich einen
+      #   Workflow-Run auslösen.
+      - 'taxi-*-zu-*.html'
+      - 'taxi-*.html'
       - 'images/**'
       - 'vendor/**'
       - 'strato/**'

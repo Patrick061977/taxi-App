@@ -31478,10 +31478,17 @@ exports.onRideUpdated = onValueUpdated(
                     if (_alreadySent) {
                         console.log(`📲 ChangeSMS skip (already sent hash=${_changeHash}) ${rideId}`);
                     } else {
-                        const _phone = after.customerPhone || after.customerMobile || after.mobilePhone;
-                        if (!_phone || !isMobileNumber(_phone)) {
-                            console.log(`📲 ChangeSMS skip (kein Mobil) ${rideId} phone=${_phone}`);
-                            await addRideLog(rideId, '📲', `Aenderungs-SMS uebersprungen (kein Mobil)`, { phone: _phone, changes: _changed.join(', ') });
+                        // 🔧 v6.63.947 (Patrick 24.08. 'liegt an der festnetz nummer'):
+                        //   Frau Thurau Change-SMS ging nicht raus obwohl customerMobile
+                        //   +49172... da war — weil customerPhone (+49 30..., Festnetz)
+                        //   zuerst geprüft wurde → isMobileNumber=false → skip.
+                        //   Fix: Alle 3 Kandidaten durchgehen, ERSTE Mobil-Nr gewinnt.
+                        const _phoneCands = [after.customerMobile, after.mobilePhone, after.customerPhone];
+                        let _phone = null;
+                        for (const _c of _phoneCands) { if (_c && isMobileNumber(_c)) { _phone = _c; break; } }
+                        if (!_phone) {
+                            console.log(`📲 ChangeSMS skip (keine Mobil-Nr in customerMobile/mobilePhone/customerPhone) ${rideId} cands=${JSON.stringify(_phoneCands)}`);
+                            await addRideLog(rideId, '📲', `Aenderungs-SMS uebersprungen (kein Mobil in Ride)`, { candidates: _phoneCands, changes: _changed.join(', ') });
                         } else {
                             // Anrede aus CRM
                             let _anrede = 'Guten Tag';

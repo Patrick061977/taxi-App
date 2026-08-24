@@ -39396,6 +39396,73 @@ exports.onSmsQueued = onValueCreated(
 
         console.log(`📲 onSmsQueued: ${smsId} — ${smsData.phone} — ${smsData.type}`);
 
+        // 🆕 v6.63.951 (Patrick 24.08. Bridge "Kannst du die sammel sms genauso schön
+        //   machen wie normale Bestätigung"): Sammel-SMS aus Native/Web ist bisher
+        //   "Hallo Kopka, wir bestätigen Ihre 4 Termine..." — Patrick will Format wie
+        //   die normale Bestätigung: "Sehr geehrte Frau Kopka, ..." + Signatur.
+        //   Wir schreiben den Text HIER neu bevor er ans FCM-Gateway geht — dann muss
+        //   die Native-App nicht extra deployed werden.
+        if (smsData.type === 'series_confirmation' && smsData.seriesId && !smsData._reformattedByCloud) {
+            try {
+                // Serien-Ride finden für Anrede + Adressen (idx=1 hat rideKey === seriesId)
+                const _seriesRideSnap = await db.ref(`rides/${smsData.seriesId}`).once('value');
+                const _sr = _seriesRideSnap.val();
+                if (_sr) {
+                    // CRM-Anrede laden
+                    let _anrede = 'Guten Tag';
+                    const _fullName = (_sr.guestName || _sr.customerName || '').trim();
+                    const _lastName = _fullName ? _fullName.split(/\s+/).pop() : '';
+                    if (_sr.customerId) {
+                        try {
+                            const _cSnap = await db.ref(`customers/${_sr.customerId}/anrede`).once('value');
+                            const _aRaw = (_cSnap.val() || '').toString();
+                            if (/^herr$/i.test(_aRaw) && _lastName) _anrede = `Sehr geehrter Herr ${_lastName}`;
+                            else if (/^frau$/i.test(_aRaw) && _lastName) _anrede = `Sehr geehrte Frau ${_lastName}`;
+                            else if (/^familie$/i.test(_aRaw) && _lastName) _anrede = `Sehr geehrte Familie ${_lastName}`;
+                            else if (/^(hotel|firma)$/i.test(_aRaw)) _anrede = _lastName ? `Sehr geehrtes Team von ${_lastName}` : 'Sehr geehrte Damen und Herren';
+                        } catch (_) {}
+                    }
+                    // Datums-Liste aus Original-Text ziehen (die • ...-Zeilen)
+                    const _dateLines = (smsData.text.match(/•[^\n]+/g) || []);
+                    const _count = _dateLines.length;
+                    // Alle Serien-Rides für Tracking-Links suchen
+                    const _allSeriesSnap = await db.ref('rides').orderByChild('seriesId').equalTo(smsData.seriesId).once('value');
+                    const _allRideIds = [];
+                    _allSeriesSnap.forEach(c => _allRideIds.push(c.key));
+                    const _trackFirst = _allRideIds.length > 0
+                        ? `https://umwelt-taxi-insel-usedom.de/Taxi-App/track.html?ride=${_allRideIds[0]}`
+                        : null;
+                    // Neuer Text im Bestätigungs-Stil
+                    const _lines = [];
+                    _lines.push(`${_anrede}, vielen Dank für Ihre Buchung bei Funk Taxi Heringsdorf!`);
+                    _lines.push('');
+                    _lines.push(`Wir bestätigen Ihnen ${_count} Termine:`);
+                    for (const dl of _dateLines) _lines.push(dl);
+                    if (_sr.pickup) _lines.push('');
+                    if (_sr.pickup) _lines.push(`Abholung: ${_sr.pickup}`);
+                    if (_sr.destination) _lines.push(`Ziel: ${_sr.destination}`);
+                    if (_trackFirst) {
+                        _lines.push('');
+                        _lines.push(`Live-Status & Storno (1. Fahrt): ${_trackFirst}`);
+                    }
+                    _lines.push('');
+                    _lines.push('Wir freuen uns auf Sie!');
+                    _lines.push('Bei Fragen: 038378/22022');
+                    const _newText = _lines.join('\n');
+                    await db.ref(`smsQueue/${smsId}`).update({
+                        text: _newText,
+                        _reformattedByCloud: 'v6.63.951',
+                        _reformattedAt: Date.now(),
+                        _originalText: smsData.text
+                    });
+                    smsData.text = _newText; // in-memory für den Rest des Handlers
+                    console.log(`✨ v6.63.951 series_confirmation Sammel-SMS reformatiert (${_count} Termine, Anrede='${_anrede}')`);
+                }
+            } catch (_serReErr) {
+                console.warn(`⚠️ v6.63.951 series_confirmation reformat Fehler ${smsId}:`, _serReErr.message);
+            }
+        }
+
         // v6.63.466 (Patrick 21.06. 22:43 Bridge "doppelte SMS"): Universal-Dedup.
         //   Detektiv-Sample 200 SMS / 4 Tage fand 7 echte Duplikate (Petra 19.06. mit 7 Sek
         //   Abstand UND verschiedenen Wortlauten → zwei parallele Quellen). Vor FCM-Send:

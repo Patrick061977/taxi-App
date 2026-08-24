@@ -983,6 +983,37 @@
                                   style="width:100%;padding:10px;border:1px solid #e2e8f0;border-radius:8px;font-family:inherit;font-size:14px;resize:vertical;min-height:48px;"
                                   rows="2" maxlength="200"></textarea>
                     </div>
+
+                    <!-- 🆕 v6.63.953 (Patrick 24.08. Bridge: 'Rückfahrt buchen bei buchen.html'
+                         + 'in buchen.html war es nie implementiert'): Hin+Rück-Toggle mit
+                         eigenem Datum/Uhrzeit-Feld. Bei aktiv wird 2. Ride mit gespiegelten
+                         Adressen angelegt. -->
+                    <div class="input-group" id="b-rueckfahrt-box" style="margin-top:8px;">
+                        <label onclick="toggleRueckfahrt()" style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:#f0fdf4;border:1px solid #a7f3d0;border-radius:10px;cursor:pointer;">
+                            <input type="checkbox" id="b-rueckfahrt-check" style="width:18px;height:18px;margin-top:2px;flex-shrink:0;cursor:pointer;accent-color:#10b981;">
+                            <div style="flex:1;">
+                                <div style="font-size:13px;font-weight:700;color:#065f46;">🔄 Auch Rückfahrt buchen</div>
+                                <div id="b-rueckfahrt-hint" style="font-size:11px;color:#475569;margin-top:2px;">Zeit für die Rückfahrt jetzt gleich mit angeben — ab 30 km bekommen Sie 10% Rabatt auf die Rückfahrt.</div>
+                            </div>
+                        </label>
+                        <div id="b-rueckfahrt-felder" style="display:none;margin-top:8px;padding:10px;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:10px;">
+                            <div style="display:flex;gap:8px;">
+                                <div style="flex:1;">
+                                    <label style="font-size:11px;color:#065f46;font-weight:600;">📅 Rückfahrt Datum</label>
+                                    <input type="date" id="b-rueckfahrt-date" style="width:100%;padding:10px;border:1px solid #a7f3d0;border-radius:8px;font-size:14px;background:white;">
+                                </div>
+                                <div style="flex:1;">
+                                    <label style="font-size:11px;color:#065f46;font-weight:600;">🕐 Rückfahrt Uhrzeit</label>
+                                    <input type="time" id="b-rueckfahrt-time" step="600" style="width:100%;padding:10px;border:1px solid #a7f3d0;border-radius:8px;font-size:14px;background:white;">
+                                </div>
+                            </div>
+                            <div style="font-size:11px;color:#065f46;margin-top:6px;line-height:1.3;">
+                                <strong>Adressen der Rückfahrt:</strong><br>
+                                📍 Ab: <span id="b-rueckfahrt-preview-from" style="color:#0f172a;">—</span><br>
+                                🎯 Nach: <span id="b-rueckfahrt-preview-to" style="color:#0f172a;">—</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Verfügbarkeit: nach v6.62.516 ganz oben (zwischen Sofort-Call-Box und Live-Karte) -->
@@ -6019,12 +6050,54 @@
             await createBooking();
         }
 
+        // 🆕 v6.63.953 (Patrick 24.08.): Rückfahrt-Toggle-Handler
+        window.toggleRueckfahrt = function() {
+            const chk = document.getElementById('b-rueckfahrt-check');
+            const felder = document.getElementById('b-rueckfahrt-felder');
+            if (!chk || !felder) return;
+            // NACH dem Klick (label triggert automatisch) — Zustand nach dem Toggle abfragen
+            setTimeout(() => {
+                if (chk.checked) {
+                    felder.style.display = 'block';
+                    // Default: gleicher Tag, Rückzeit = Hinzeit + 2h (aber gerundet auf 10)
+                    const dEl = document.getElementById('b-rueckfahrt-date');
+                    const tEl = document.getElementById('b-rueckfahrt-time');
+                    const hinDate = document.getElementById('b-date')?.value;
+                    const hinTime = document.getElementById('b-time')?.value;
+                    if (dEl && !dEl.value && hinDate) dEl.value = hinDate;
+                    if (tEl && !tEl.value && hinTime) {
+                        const [h, m] = hinTime.split(':');
+                        const laterH = Math.min(23, parseInt(h) + 2);
+                        tEl.value = String(laterH).padStart(2, '0') + ':' + m;
+                    }
+                    // Adress-Preview aktualisieren
+                    _updateRueckfahrtPreview();
+                } else {
+                    felder.style.display = 'none';
+                }
+            }, 0);
+        };
+        window._updateRueckfahrtPreview = function() {
+            const p = document.getElementById('b-pickup')?.value || '—';
+            const d = document.getElementById('b-destination')?.value || '—';
+            const fromEl = document.getElementById('b-rueckfahrt-preview-from');
+            const toEl = document.getElementById('b-rueckfahrt-preview-to');
+            if (fromEl) fromEl.textContent = d; // Rückfahrt: FROM ist Ziel der Hinfahrt
+            if (toEl)   toEl.textContent = p;   // Rückfahrt: TO   ist Pickup der Hinfahrt
+        };
+        // Adress-Preview bei Änderung aktualisieren
+        setTimeout(() => {
+            document.getElementById('b-pickup')?.addEventListener('input', _updateRueckfahrtPreview);
+            document.getElementById('b-destination')?.addEventListener('input', _updateRueckfahrtPreview);
+        }, 500);
+
         async function createBooking() {
             logBuchen('🚕', 'createBooking() gestartet...');
             // v6.63.523: returnRideId war undeclared → ReferenceError in _rueckBadge-Template
             // → Catch lief durch, Kunde sah "Fehler bei der Buchung" obwohl Ride in Firebase stand.
-            // Rückfahrt-Auto-Anlage wurde in v6.63.472 entfernt, daher immer null.
-            const returnRideId = null;
+            // v6.63.953 (Patrick 24.08.): Rückfahrt-Buchung wieder rein — als 2. Ride mit
+            // gespiegelten Adressen. returnRideId wird unten nach dem push gesetzt.
+            let returnRideId = null;
             const pickup = document.getElementById('b-pickup').value;
             const destination = document.getElementById('b-destination').value;
             const now = Date.now();
@@ -6104,8 +6177,67 @@
                 rideData.id = ref.key;
                 await ref.set(rideData);
 
-                // v6.63.472 (Patrick 22.06. 20:02 [RUECK-A]): Rueckfahrt-Auto-Anlage entfernt.
-                // Rueckfahrten werden ueber das Kundenportal nach der Hinfahrt gebucht.
+                // 🆕 v6.63.953 (Patrick 24.08.): Rückfahrt-Buchung — wenn checkbox aktiv,
+                // 2. Ride mit gespiegelten Adressen anlegen. 10% Rabatt ab 30 km.
+                const _rueckChk = document.getElementById('b-rueckfahrt-check');
+                if (_rueckChk && _rueckChk.checked) {
+                    try {
+                        const _rDate = document.getElementById('b-rueckfahrt-date')?.value;
+                        const _rTime = document.getElementById('b-rueckfahrt-time')?.value;
+                        if (_rDate && _rTime) {
+                            const _rTs = new Date(_rDate + 'T' + _rTime + ':00').getTime();
+                            const _rIsVorbestellt = (_rTs - now) > 30 * 60000;
+                            const _rIsFar = routeData && routeData.km >= 30;
+                            const _rPrice = routeData
+                                ? (_rIsFar
+                                    ? parseFloat(routeData.price) * 0.9 // 10% Rabatt ab 30 km
+                                    : parseFloat(routeData.price))
+                                : null;
+                            const _rRef = db.ref('rides').push();
+                            const _rRideData = {
+                                pickup: destination,               // gespiegelt: Rück-Pickup = Hin-Ziel
+                                destination: pickup,               // gespiegelt: Rück-Ziel = Hin-Pickup
+                                pickupLat: destCoords.lat, pickupLon: destCoords.lon,
+                                pickupCoords: { lat: destCoords.lat, lon: destCoords.lon },
+                                destinationLat: pickupCoords.lat, destinationLon: pickupCoords.lon,
+                                destCoords: { lat: pickupCoords.lat, lon: pickupCoords.lon },
+                                customerName: rideData.customerName,
+                                customerPhone: customerPhone,
+                                ...(window._crmCustomerId && { customerId: window._crmCustomerId }),
+                                passengers,
+                                status: _rIsVorbestellt ? 'vorbestellt' : 'sofort',
+                                isJetzt: !_rIsVorbestellt,
+                                source: 'web-booking-return',
+                                createdAt: now,
+                                updatedAt: now,
+                                pickupTimestamp: _rTs,
+                                pickupTime: new Date(_rTs).toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit', timeZone:'Europe/Berlin'}),
+                                flexibility: 10,
+                                paymentMethod: (window._customerDefaultPayment || 'cash'),
+                                relatedRideId: ref.key,           // Referenz auf Hinfahrt
+                                isReturnRide: true,
+                                ...(routeData && {
+                                    price: _rPrice,
+                                    estimatedPrice: _rPrice,
+                                    distance: routeData.km,
+                                    estimatedDistance: routeData.km,
+                                    duration: parseInt(routeData.min),
+                                    estimatedDuration: parseInt(routeData.min),
+                                }),
+                                ...(customerNote && { note: customerNote, customerNote: customerNote }),
+                                ...(_rIsFar && { returnRideRabatt: 0.1 }),
+                            };
+                            _rRideData.id = _rRef.key;
+                            await _rRef.set(_rRideData);
+                            returnRideId = _rRef.key;
+                            // Hinfahrt-Ride mit Referenz auf Rückfahrt aktualisieren
+                            await ref.update({ returnRideId: _rRef.key });
+                            logBuchen('🔄', 'RÜCKFAHRT ERSTELLT: ' + _rRef.key + ' | ' + destination + ' → ' + pickup + ' | ' + new Date(_rTs).toLocaleString('de-DE', {timeZone:'Europe/Berlin'}) + (_rIsFar ? ' | -10% Rabatt' : ''));
+                        }
+                    } catch (_rErr) {
+                        logBuchen('⚠️', 'Rückfahrt-Anlage Fehler: ' + _rErr.message);
+                    }
+                }
 
                 // 🆕 v6.41.74: Aktive Buchung in localStorage speichern damit sie bei Page-Reload
                 // NICHT verloren geht. Sonst landet Kunde wieder auf "Jetzt buchen" und bucht doppelt!

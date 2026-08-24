@@ -61,6 +61,29 @@ function isMobileNumber(phone) {
     return false;
 }
 
+// 🆕 v6.63.949 (Patrick 24.08. Bridge 'Frau Thurau bekommt auch keine Fahrer SMS' —
+//   selber Root wie v947 ChangeSMS-Fix): Ride hat oft customerPhone=Festnetz
+//   UND customerMobile=Handy. Wenn Code `customerPhone || customerMobile` schreibt,
+//   gewinnt Festnetz und SMS wird geskipt. Zentraler Helper: gibt die BESTE
+//   Mobil-Nummer zurück (customerMobile → mobilePhone → customerPhone → guestPhone),
+//   erste isMobileNumber-positive gewinnt. Wenn keine Mobil-Nr findbar → null.
+function bestSmsPhone(rideOrCust) {
+    if (!rideOrCust) return null;
+    const cands = [
+        rideOrCust.customerMobile,
+        rideOrCust.mobilePhone,
+        rideOrCust.mobile,
+        rideOrCust.customerPhone,
+        rideOrCust.phone,
+        rideOrCust.guestPhone
+    ];
+    if (Array.isArray(rideOrCust.additionalPhones)) cands.push(...rideOrCust.additionalPhones);
+    for (const c of cands) {
+        if (c && isMobileNumber(c)) return c;
+    }
+    return null;
+}
+
 // 🆕 v6.25.1: Telefonnummer-Validierung — prüft Länge und Format
 function validatePhoneNumber(phone) {
     if (!phone) return { valid: false, warning: 'Keine Nummer' };
@@ -30414,8 +30437,9 @@ exports.onRideUpdated = onValueUpdated(
             // Status-Wechsel-SMS bei warteschlange/vorbestellt → assigned/accepted (Fahrer-Zuweisung).
             // Auch beim ersten on_way → 'Fahrer faehrt los'.
             try {
-                const _custPhone = after.customerPhone || after.customerMobile || after.mobilePhone;
-                const _phoneOk = _custPhone && /^[+]?[0-9 \-\/]{6,}$/.test(_custPhone);
+                // 🔧 v6.63.949: bestSmsPhone bevorzugt Mobil-Nr (Frau-Thurau-Bug)
+                const _custPhone = bestSmsPhone(after);
+                const _phoneOk = !!_custPhone;
                 const _trackingLink = `https://umwelt-taxi-insel-usedom.de/Taxi-App/track.html?ride=${rideId}`;
                 const _vehLabel = after.vehicle ? after.vehicle + (after.vehiclePlate ? ` (${after.vehiclePlate})` : '') : 'Taxi';
                 // 🐛 v6.62.568: Patrick (10.05. 15:25): "Anrede vergessen — bei Zbig kommt nur

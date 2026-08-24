@@ -205,9 +205,19 @@
                 </div>
                 <div id="anf-pax-hint" style="display:none;font-size:11px;color:#92400e;margin-top:4px;">Wir koordinieren mehrere Fahrzeuge fuer Ihre Gruppe.</div>
             </div>
+            <!-- 🆕 v6.63.952 (Patrick 24.08. Bridge 'die Anrede nicht mit übernommen, es steht da nicht Herr oder Frau'): Anrede-Dropdown -->
             <div style="margin-bottom:12px;">
-                <label style="display:block;font-size:12px;color:#64748b;font-weight:600;margin-bottom:4px;">👤 Name</label>
-                <input type="text" id="anf-name" placeholder="Vor- und Nachname *" required style="width:100%;padding:10px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box;">
+                <label style="display:block;font-size:12px;color:#64748b;font-weight:600;margin-bottom:4px;">👋 Anrede</label>
+                <div style="display:flex;gap:6px;">
+                    <select id="anf-anrede" style="flex:0 0 130px;padding:10px 6px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;background:white;">
+                        <option value="">— bitte wählen —</option>
+                        <option value="Frau">Frau</option>
+                        <option value="Herr">Herr</option>
+                        <option value="Familie">Familie</option>
+                        <option value="Hotel">Hotel / Firma</option>
+                    </select>
+                    <input type="text" id="anf-name" placeholder="Vor- und Nachname *" required style="flex:1;padding:10px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box;">
+                </div>
             </div>
             <div style="margin-bottom:12px;">
                 <label style="display:block;font-size:12px;color:#64748b;font-weight:600;margin-bottom:4px;">📱 Telefon</label>
@@ -1038,7 +1048,9 @@ function getAnfrageText() {
     var dest = document.getElementById('anf-dest').value || '?';
     var date = document.getElementById('anf-date').value || '?';
     var time = document.getElementById('anf-time').value || '?';
+    var anrede = document.getElementById('anf-anrede')?.value || '';
     var name = document.getElementById('anf-name').value || '?';
+    var nameMitAnrede = anrede ? (anrede + ' ' + name) : name;
     var phoneRaw = document.getElementById('anf-phone').value.replace(/[\s\-\/]/g, '') || '?';
     var phoneCountry = document.getElementById('anf-phone-country').value || '+49';
     var phone = phoneRaw.startsWith('+') ? phoneRaw : (phoneRaw.startsWith('0') ? phoneCountry + phoneRaw.slice(1) : phoneCountry + phoneRaw);
@@ -1047,7 +1059,7 @@ function getAnfrageText() {
     var festpreisAddr = document.getElementById('anf-festpreis-addr-input')?.value || '';
     var notes = document.getElementById('anf-notes').value || '';
     var email = (document.getElementById('anf-email').value || '').trim();
-    return 'Taxi-Anfrage:\n\ud83d\udccd Von: ' + pickup + (festpreisAddr ? '\n\ud83c\udfe0 Abholadresse: ' + festpreisAddr : '') + (stopp ? '\n\ud83d\udccd Zwischenstopp: ' + stopp : '') + '\n\ud83c\udfaf Nach: ' + dest + '\n\ud83d\udcc5 ' + date + ' um ' + time + ' Uhr\n\ud83d\udc65 ' + anfPax + ' Person(en)\n\ud83d\udc64 ' + name + '\n\ud83d\udcf1 ' + phone + (email ? '\n\ud83d\udce7 ' + email : '') + '\n\ud83d\udcb0 ca. ' + price + (notes ? '\n\ud83d\udcac Bemerkung: ' + notes : '');
+    return 'Taxi-Anfrage:\n\ud83d\udccd Von: ' + pickup + (festpreisAddr ? '\n\ud83c\udfe0 Abholadresse: ' + festpreisAddr : '') + (stopp ? '\n\ud83d\udccd Zwischenstopp: ' + stopp : '') + '\n\ud83c\udfaf Nach: ' + dest + '\n\ud83d\udcc5 ' + date + ' um ' + time + ' Uhr\n\ud83d\udc65 ' + anfPax + ' Person(en)\n\ud83d\udc64 ' + nameMitAnrede + '\n\ud83d\udcf1 ' + phone + (email ? '\n\ud83d\udce7 ' + email : '') + '\n\ud83d\udcb0 ca. ' + price + (notes ? '\n\ud83d\udcac Bemerkung: ' + notes : '');
 }
 
 // Anfrage in Firebase speichern (Tracking)
@@ -1059,6 +1071,7 @@ function saveAnfrageToFirebase(channel) {
             date: document.getElementById('anf-date').value || '',
             time: document.getElementById('anf-time').value || '',
             passengers: anfPax,
+            anrede: document.getElementById('anf-anrede')?.value || '',
             name: document.getElementById('anf-name').value || '',
             phone: (function(){ var p = document.getElementById('anf-phone').value.replace(/[\s\-\/]/g, ''); var c = document.getElementById('anf-phone-country').value || '+49'; return p.startsWith('+') ? p : (p.startsWith('0') ? c + p.slice(1) : c + p); })(),
             price: document.getElementById('anf-price').textContent || '',

@@ -3319,27 +3319,24 @@
             const wannCard = document.getElementById('wann-card');
             if (wannCard) wannCard.style.display = '';
 
-            // 🆕 v6.62.901 (Patrick 24.05. 08:02): Vorbestellungs-Flow umdrehen — erst Zeit, DANN Adressen.
-            // Patrick: 'der flow muss passen'. Bei Vorbestellung erst Zeit-Eingabe sichtbar, Adressen+Karte
-            // erst NACH gewaehltem Datum/Zeit. Bei Sofort: alles wie bisher (Adressen+Karte gleich sichtbar).
+            // 🔧 v6.63.948 (Patrick 24.08. Bridge: 'wenn ich auf Vorbestellungen klicke,
+            //   kann ich keine Adresse eingeben ... Adressfeld müsste da sein solange
+            //   nichts eingegeben wurde'):
+            //   Der v6.62.901-Fix (24.05.) versteckte pickup-dest-card wenn Vorbestellung
+            //   ohne Zeit. Patrick hat inzwischen die Meinung geändert — Adressen sollen
+            //   IMMER sichtbar sein, egal ob Zeit gewählt ist oder nicht.
             const _pickupDestCard = document.getElementById('pickup-dest-card');
             const _liveTaxiCard = document.getElementById('live-taxi-card');
             const _dateVal = (document.getElementById('b-date')?.value || '').trim();
             const _timeVal = (document.getElementById('b-time')?.value || '').trim();
             const _hasTime = !!(_dateVal && _timeVal);
-            if (mode === 'vorbestellen' && !_hasTime) {
-                // Vorbestellung gewählt, aber noch keine Zeit → Adressen + Karte verstecken
-                if (_pickupDestCard) _pickupDestCard.style.display = 'none';
-                if (_liveTaxiCard) _liveTaxiCard.style.display = 'none';
-            } else {
-                // Sofort ODER Vorbestellung mit Zeit → Adressen-Card sichtbar
-                if (_pickupDestCard) _pickupDestCard.style.display = '';
-                // Karte: bei Sofort immer, bei Vorbest mit Zeit erst wenn Route da
-                if (_liveTaxiCard) {
-                    if (mode === 'sofort') _liveTaxiCard.style.display = '';
-                    else if (routeData) _liveTaxiCard.style.display = '';
-                    else _liveTaxiCard.style.display = 'none';
-                }
+            // Adressen-Card bleibt IMMER sichtbar
+            if (_pickupDestCard) _pickupDestCard.style.display = '';
+            // Route-Karte: bei Sofort immer, bei Vorbestellung nur wenn Route berechnet
+            if (_liveTaxiCard) {
+                if (mode === 'sofort') _liveTaxiCard.style.display = '';
+                else if (routeData) _liveTaxiCard.style.display = '';
+                else _liveTaxiCard.style.display = 'none';
             }
 
             const felder = document.getElementById('vorbestellen-felder');

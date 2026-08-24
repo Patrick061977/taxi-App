@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Landing-Übersicht &middot; SEO-Audit &middot; Funk Taxi Heringsdorf</title>
+<meta name="robots" content="noindex, nofollow">
+<style>
+    * { box-sizing:border-box; margin:0; padding:0; }
+    body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; background:#f8fafc; color:#0f172a; padding:14px; line-height:1.4; font-size:14px; }
+    h1 { font-size:20px; margin-bottom:10px; color:#059669; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:8px; margin-bottom:16px; }
+    .stat { background:white; padding:10px 12px; border-radius:10px; border:1px solid #e2e8f0; }
+    .stat .lbl { font-size:11px; color:#64748b; text-transform:uppercase; letter-spacing:0.4px; }
+    .stat .val { font-size:22px; font-weight:800; color:#0f172a; margin-top:2px; }
+    .stat.excellent { border-left:4px solid #10b981; }
+    .stat.good { border-left:4px solid #22c55e; }
+    .stat.medium { border-left:4px solid #f59e0b; }
+    .stat.poor { border-left:4px solid #ef4444; }
+    .controls { background:white; padding:10px; border-radius:10px; border:1px solid #e2e8f0; margin-bottom:12px; display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+    .controls input, .controls select { padding:6px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; }
+    .controls input[type=text] { flex:1; min-width:200px; }
+    .controls button { padding:6px 14px; background:#059669; color:white; border:none; border-radius:6px; font-size:13px; font-weight:600; cursor:pointer; }
+    .controls button:hover { background:#047857; }
+    table { width:100%; background:white; border-radius:10px; overflow:hidden; border-collapse:collapse; box-shadow:0 1px 3px rgba(0,0,0,0.05); }
+    th { text-align:left; padding:8px 6px; font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:0.4px; background:#f8fafc; border-bottom:2px solid #e2e8f0; position:sticky; top:0; }
+    td { padding:8px 6px; border-bottom:1px solid #f1f5f9; font-size:13px; }
+    tr:hover td { background:#f0fdf4; cursor:pointer; }
+    .score { font-weight:800; text-align:center; padding:3px 8px; border-radius:4px; display:inline-block; min-width:36px; }
+    .score.excellent { background:#d1fae5; color:#065f46; }
+    .score.good { background:#dcfce7; color:#166534; }
+    .score.medium { background:#fef3c7; color:#92400e; }
+    .score.poor { background:#fee2e2; color:#991b1b; }
+    .cat { display:inline-block; padding:2px 6px; background:#f1f5f9; color:#475569; border-radius:4px; font-size:11px; font-weight:600; }
+    .issues { color:#dc2626; font-size:11px; }
+    .col-name { font-family:monospace; font-size:12px; word-break:break-all; }
+    .col-title { color:#334155; max-width:400px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    /* Detail-Overlay */
+    #detail-overlay { position:fixed; inset:0; background:rgba(15,23,42,0.6); z-index:9999; display:none; align-items:flex-start; justify-content:center; padding:20px; overflow-y:auto; }
+    #detail-overlay.visible { display:flex; }
+    #detail-card { background:white; border-radius:12px; max-width:800px; width:100%; padding:24px; box-shadow:0 20px 50px rgba(0,0,0,0.3); }
+    #detail-card h2 { font-size:18px; margin-bottom:12px; color:#059669; word-break:break-all; }
+    #detail-card .grid2 { display:grid; grid-template-columns:180px 1fr; gap:6px 12px; font-size:13px; margin-bottom:14px; }
+    #detail-card .grid2 dt { color:#64748b; font-weight:600; }
+    #detail-card .grid2 dd { color:#0f172a; }
+    #detail-card .issues-list { background:#fef2f2; border:1px solid #fecaca; padding:10px 14px; border-radius:8px; margin-bottom:12px; }
+    #detail-card .issues-list li { margin:2px 0 2px 20px; color:#991b1b; font-size:12px; }
+    #detail-card .close-btn { position:absolute; right:20px; top:20px; background:none; border:1px solid #cbd5e1; padding:6px 12px; border-radius:6px; cursor:pointer; }
+    #tabs { display:flex; gap:4px; margin-bottom:12px; }
+    #tabs button { padding:8px 14px; background:white; color:#64748b; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; font-weight:600; cursor:pointer; }
+    #tabs button.active { background:#059669; color:white; border-color:#059669; }
+    #matrix-view { display:none; }
+    #matrix-view.active { display:block; }
+    #list-view.hidden { display:none; }
+    .matrix-table { width:100%; background:white; border-collapse:collapse; font-size:11px; }
+    .matrix-table th, .matrix-table td { border:1px solid #e2e8f0; padding:4px 6px; text-align:center; }
+    .matrix-table th { background:#f8fafc; font-weight:700; }
+    .matrix-table td.exists { background:#d1fae5; color:#065f46; font-weight:700; }
+    .matrix-table td.missing { background:#fee2e2; color:#991b1b; cursor:pointer; }
+    .matrix-table td.missing:hover { background:#fecaca; }
+</style>
+</head>
+<body>
+<h1>🔍 Landing-Übersicht &middot; SEO-Audit</h1>
+<div id="loading" style="text-align:center;padding:40px;color:#64748b;">Lade landing-inventar.json ...</div>
+<div id="app" style="display:none;">
+    <div class="grid">
+        <div class="stat"><div class="lbl">Landing-Pages gesamt</div><div class="val" id="s-total">—</div></div>
+        <div class="stat"><div class="lbl">Ø SEO-Score</div><div class="val" id="s-avg">—</div></div>
+        <div class="stat excellent"><div class="lbl">🟢 Excellent (80+)</div><div class="val" id="s-excellent">—</div></div>
+        <div class="stat good"><div class="lbl">🟢 Good (60-79)</div><div class="val" id="s-good">—</div></div>
+        <div class="stat medium"><div class="lbl">🟡 Medium (40-59)</div><div class="val" id="s-medium">—</div></div>
+        <div class="stat poor"><div class="lbl">🔴 Poor (&lt;40)</div><div class="val" id="s-poor">—</div></div>
+    </div>
+
+    <div id="tabs">
+        <button id="tab-list" class="active" onclick="switchView('list')">📋 Liste</button>
+        <button id="tab-matrix" onclick="switchView('matrix')">🔲 Lücken-Matrix (Ort×Ort)</button>
+        <button id="tab-cats" onclick="switchView('cats')">📊 Kategorien</button>
+    </div>
+
+    <div id="list-view">
+        <div class="controls">
+            <input type="text" id="filter-txt" placeholder="🔍 Filter: Dateiname, Title, Ort..." oninput="renderList()">
+            <select id="filter-cat" onchange="renderList()">
+                <option value="">— alle Kategorien —</option>
+            </select>
+            <select id="filter-health" onchange="renderList()">
+                <option value="">— alle Zustände —</option>
+                <option value="poor">🔴 Nur Poor</option>
+                <option value="medium">🟡 Nur Medium</option>
+                <option value="good">🟢 Nur Good</option>
+                <option value="excellent">🟢 Nur Excellent</option>
+                <option value="issues">Nur mit Problemen</option>
+            </select>
+            <select id="sort-by" onchange="renderList()">
+                <option value="score-asc">Score ↑ (schlechteste zuerst)</option>
+                <option value="score-desc">Score ↓</option>
+                <option value="name-asc">Name A→Z</option>
+                <option value="words-desc">Wörter ↓</option>
+                <option value="words-asc">Wörter ↑</option>
+                <option value="cat">Kategorie</option>
+            </select>
+            <span id="filter-count" style="color:#64748b;font-size:12px;"></span>
+        </div>
+        <div style="max-height:calc(100vh - 320px);overflow-y:auto;border-radius:10px;">
+            <table id="pages-table">
+                <thead>
+                    <tr>
+                        <th>Score</th>
+                        <th>Kategorie</th>
+                        <th>Datei</th>
+                        <th>Title</th>
+                        <th>H1/H2</th>
+                        <th>Wörter</th>
+                        <th>Schema</th>
+                        <th>Probleme</th>
+                    </tr>
+                </thead>
+                <tbody id="pages-tbody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="matrix-view">
+        <div class="controls">
+            <span style="font-size:13px;color:#64748b;">Zeigt an: welche <strong>Ort → Ort</strong>-Routen als <code>taxi-*-zu-*.html</code> existieren</span>
+        </div>
+        <div id="matrix-container" style="overflow-x:auto;background:white;border-radius:10px;padding:10px;"></div>
+    </div>
+
+    <div id="cats-view" style="display:none;">
+        <table>
+            <thead><tr><th>Kategorie</th><th>Gesamt</th><th>Excellent</th><th>Good</th><th>Medium</th><th>Poor</th></tr></thead>
+            <tbody id="cats-tbody"></tbody>
+        </table>
+    </div>
+</div>
+
+<div id="detail-overlay" onclick="if(event.target.id==='detail-overlay')closeDetail()">
+    <div id="detail-card" onclick="event.stopPropagation()">
+        <button class="close-btn" onclick="closeDetail()">✕ Schließen</button>
+        <h2 id="d-title">—</h2>
+        <p style="margin-bottom:12px;"><a id="d-open" href="#" target="_blank" style="color:#059669;font-weight:600;">🔗 Live öffnen</a></p>
+        <div id="d-issues" class="issues-list" style="display:none;"><strong>⚠️ Probleme:</strong><ul id="d-issues-list"></ul></div>
+        <dl class="grid2" id="d-grid"></dl>
+    </div>
+</div>
+
+<script>
+const ORTE = ['Heringsdorf','Ahlbeck','Bansin','Zinnowitz','Koserow','Ückeritz','Trassenheide','Karlshagen','Peenemünde','Świnoujście','Swinemünde'];
+let data = null;
+
+function score2class(s) { return s >= 80 ? 'excellent' : s >= 60 ? 'good' : s >= 40 ? 'medium' : 'poor'; }
+
+async function load() {
+    try {
+        const r = await fetch('landing-inventar.json?_=' + Date.now());
+        data = await r.json();
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('app').style.display = '';
+        renderStats();
+        renderCatFilter();
+        renderList();
+        renderMatrix();
+        renderCats();
+    } catch (e) {
+        document.getElementById('loading').innerHTML = '❌ Fehler beim Laden — bitte erst <code>node scripts/landing-inventory-scan.js</code> laufen lassen.<br><br>' + e.message;
+    }
+}
+
+function renderStats() {
+    document.getElementById('s-total').textContent = data.summary.totalPages;
+    document.getElementById('s-avg').textContent = data.summary.avgScore + '/100';
+    document.getElementById('s-excellent').textContent = data.summary.byHealth.excellent;
+    document.getElementById('s-good').textContent = data.summary.byHealth.good;
+    document.getElementById('s-medium').textContent = data.summary.byHealth.medium;
+    document.getElementById('s-poor').textContent = data.summary.byHealth.poor;
+}
+
+function renderCatFilter() {
+    const sel = document.getElementById('filter-cat');
+    const cats = [...new Set(data.pages.map(p => p.category))].sort();
+    for (const c of cats) {
+        const o = document.createElement('option');
+        o.value = c; o.textContent = c + ' (' + data.pages.filter(p => p.category === c).length + ')';
+        sel.appendChild(o);
+    }
+}
+
+function renderList() {
+    const txt = document.getElementById('filter-txt').value.toLowerCase();
+    const cat = document.getElementById('filter-cat').value;
+    const health = document.getElementById('filter-health').value;
+    const sort = document.getElementById('sort-by').value;
+
+    let pages = [...data.pages];
+    if (txt) pages = pages.filter(p =>
+        p.filename.toLowerCase().includes(txt) ||
+        (p.title || '').toLowerCase().includes(txt) ||
+        (p.orteImText || []).some(o => o.toLowerCase().includes(txt))
+    );
+    if (cat) pages = pages.filter(p => p.category === cat);
+    if (health === 'issues') pages = pages.filter(p => p.issues.length > 0);
+    else if (health) pages = pages.filter(p => p.health === health);
+
+    // Sortierung
+    if (sort === 'score-asc') pages.sort((a,b) => a.score - b.score);
+    else if (sort === 'score-desc') pages.sort((a,b) => b.score - a.score);
+    else if (sort === 'name-asc') pages.sort((a,b) => a.filename.localeCompare(b.filename));
+    else if (sort === 'words-desc') pages.sort((a,b) => b.wordCount - a.wordCount);
+    else if (sort === 'words-asc') pages.sort((a,b) => a.wordCount - b.wordCount);
+    else if (sort === 'cat') pages.sort((a,b) => a.category.localeCompare(b.category) || a.score - b.score);
+
+    document.getElementById('filter-count').textContent = pages.length + ' Seiten';
+
+    const tbody = document.getElementById('pages-tbody');
+    tbody.innerHTML = '';
+    for (const p of pages) {
+        const tr = document.createElement('tr');
+        tr.onclick = () => showDetail(p);
+        tr.innerHTML = `
+            <td><span class="score ${score2class(p.score)}">${p.score}</span></td>
+            <td><span class="cat">${p.category}</span></td>
+            <td class="col-name">${p.filename}</td>
+            <td class="col-title" title="${(p.title||'').replace(/"/g,'&quot;')}">${p.title || '<i style="color:#dc2626">kein Title</i>'}</td>
+            <td>${p.h1Count}/${p.h2Count}</td>
+            <td>${p.wordCount}</td>
+            <td>${p.jsonLdTypes.length > 0 ? '✅ ' + p.jsonLdTypes.join(', ') : '<span style="color:#dc2626">❌</span>'}</td>
+            <td class="issues">${p.issues.slice(0,2).join(', ')}</td>
+        `;
+        tbody.appendChild(tr);
+    }
+}
+
+function renderMatrix() {
+    // Nur SEO-Micro-Routes (taxi-X-zu-Y.html)
+    const routes = data.pages.filter(p => p.category === 'SEO-Micro-Route');
+    // Ort-Paare aus Dateinamen extrahieren
+    const orteSet = new Set(ORTE);
+    const routeMap = {}; // "Von→Nach" → true
+    for (const p of routes) {
+        const m = p.filename.match(/^taxi-(.+?)-zu-(.+?)\.html$/);
+        if (!m) continue;
+        // ort aus filename kann komplex sein — versuchen zu erkennen ob eine der ORTE drin
+        const fromRaw = m[1]; const toRaw = m[2];
+        for (const from of ORTE) {
+            for (const to of ORTE) {
+                if (fromRaw.toLowerCase().includes(from.toLowerCase()) && toRaw.toLowerCase().includes(to.toLowerCase())) {
+                    routeMap[from + '→' + to] = p.filename;
+                }
+            }
+        }
+    }
+    // Matrix rendern
+    const orte = [...ORTE];
+    let html = '<table class="matrix-table"><thead><tr><th>Von \\ Nach</th>';
+    for (const to of orte) html += `<th>${to}</th>`;
+    html += '</tr></thead><tbody>';
+    let existsCount = 0, missingCount = 0;
+    for (const from of orte) {
+        html += `<tr><th style="text-align:left;background:#f8fafc;">${from}</th>`;
+        for (const to of orte) {
+            if (from === to) { html += '<td style="background:#f1f5f9;">—</td>'; continue; }
+            const key = from + '→' + to;
+            if (routeMap[key]) {
+                html += `<td class="exists" title="${routeMap[key]}">✓</td>`;
+                existsCount++;
+            } else {
+                html += `<td class="missing" title="Fehlt: taxi-${from.toLowerCase()}-zu-${to.toLowerCase()}.html">−</td>`;
+                missingCount++;
+            }
+        }
+        html += '</tr>';
+    }
+    html += '</tbody></table>';
+    html += `<p style="margin-top:12px;font-size:13px;color:#64748b;">✅ ${existsCount} Routen existieren · ❌ ${missingCount} fehlen (von ${existsCount+missingCount} möglichen Ort×Ort-Kombinationen)</p>`;
+    document.getElementById('matrix-container').innerHTML = html;
+}
+
+function renderCats() {
+    const tb = document.getElementById('cats-tbody');
+    tb.innerHTML = '';
+    const cats = Object.entries(data.summary.byCategory).sort((a,b) => b[1].total - a[1].total);
+    for (const [cat, c] of cats) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${cat}</td><td><strong>${c.total}</strong></td>
+            <td style="color:#10b981">${c.excellent||0}</td>
+            <td style="color:#22c55e">${c.good||0}</td>
+            <td style="color:#f59e0b">${c.medium||0}</td>
+            <td style="color:#ef4444">${c.poor||0}</td>`;
+        tb.appendChild(tr);
+    }
+}
+
+function switchView(v) {
+    document.querySelectorAll('#tabs button').forEach(b => b.classList.remove('active'));
+    document.getElementById('tab-' + v).classList.add('active');
+    document.getElementById('list-view').style.display = v === 'list' ? '' : 'none';
+    document.getElementById('matrix-view').style.display = v === 'matrix' ? '' : 'none';
+    document.getElementById('cats-view').style.display = v === 'cats' ? '' : 'none';
+}
+
+function showDetail(p) {
+    document.getElementById('d-title').textContent = p.filename;
+    document.getElementById('d-open').href = 'https://umwelt-taxi-insel-usedom.de/' + p.filename;
+    const g = document.getElementById('d-grid');
+    g.innerHTML = '';
+    const add = (k, v) => { g.innerHTML += `<dt>${k}</dt><dd>${v}</dd>`; };
+    add('Score', `<span class="score ${score2class(p.score)}">${p.score}/100</span>  (${p.health})`);
+    add('Kategorie', p.category);
+    add('Title (' + p.titleLen + ')', p.title || '<i>—</i>');
+    add('Description (' + p.descriptionLen + ')', p.description || '<i>—</i>');
+    add('H1 (' + p.h1Count + ')', p.h1First || '<i>—</i>');
+    add('H2 (' + p.h2Count + ')', p.h2First || '<i>—</i>');
+    add('H3 Anzahl', p.h3Count);
+    add('Wortzahl', p.wordCount);
+    add('JSON-LD', p.jsonLdTypes.join(', ') || '<i>keine</i>');
+    add('Canonical', p.canonical ? '✅ ' + p.canonicalUrl : '❌ fehlt');
+    add('OG-Title', p.ogTitle || '<i>—</i>');
+    add('OG-Description', p.ogDescription || '<i>—</i>');
+    add('hreflang-Tags', p.hreflangCount);
+    add('Bilder', p.imgCount + ' (mit alt: ' + p.imgsWithAlt + ')');
+    add('Interne Links', p.internalLinks);
+    add('Orte im Text', p.orteImText.join(', ') || '<i>keine erkannt</i>');
+    add('Dateigröße', (p.size/1024).toFixed(1) + ' KB');
+    // Issues
+    const iEl = document.getElementById('d-issues');
+    if (p.issues.length > 0) {
+        iEl.style.display = '';
+        document.getElementById('d-issues-list').innerHTML = p.issues.map(i => '<li>' + i + '</li>').join('');
+    } else iEl.style.display = 'none';
+    document.getElementById('detail-overlay').classList.add('visible');
+}
+
+function closeDetail() { document.getElementById('detail-overlay').classList.remove('visible'); }
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDetail(); });
+
+load();
+</script>
+</body>
+</html>

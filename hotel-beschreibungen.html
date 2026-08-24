@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hotel-Beschreibungen &middot; Content für Landing-Pages</title>
+<meta name="robots" content="noindex, nofollow">
+<style>
+    * { box-sizing:border-box; margin:0; padding:0; }
+    body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; background:#f8fafc; color:#0f172a; padding:14px; line-height:1.5; font-size:14px; }
+    h1 { font-size:20px; margin-bottom:6px; color:#059669; }
+    p.sub { color:#64748b; font-size:13px; margin-bottom:16px; }
+    .controls { background:white; padding:10px; border-radius:10px; border:1px solid #e2e8f0; margin-bottom:12px; display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+    .controls input[type=text] { flex:1; min-width:200px; padding:8px 12px; border:1px solid #cbd5e1; border-radius:6px; font-size:14px; }
+    .controls select { padding:6px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; }
+    .stats { display:flex; gap:10px; margin-bottom:12px; font-size:13px; }
+    .stats > div { background:white; padding:8px 14px; border-radius:8px; border:1px solid #e2e8f0; }
+    .stats strong { color:#059669; }
+    .hotels-list { display:grid; gap:10px; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); }
+    .hotel-card { background:white; border-radius:10px; padding:14px; border:1px solid #e2e8f0; box-shadow:0 1px 3px rgba(0,0,0,0.03); }
+    .hotel-card.has-desc { border-left:4px solid #10b981; }
+    .hotel-card.no-desc { border-left:4px solid #f59e0b; }
+    .hotel-name { font-size:15px; font-weight:700; color:#0f172a; margin-bottom:2px; }
+    .hotel-addr { font-size:12px; color:#64748b; margin-bottom:8px; }
+    .hotel-desc-preview { font-size:12px; color:#334155; line-height:1.4; max-height:60px; overflow:hidden; margin-bottom:8px; padding:6px 8px; background:#f8fafc; border-radius:6px; }
+    .hotel-desc-preview.empty { color:#dc2626; font-style:italic; }
+    .hotel-actions { display:flex; gap:6px; }
+    .btn { padding:6px 12px; background:#059669; color:white; border:none; border-radius:6px; font-size:12px; font-weight:600; cursor:pointer; }
+    .btn:hover { background:#047857; }
+    .btn.secondary { background:white; color:#475569; border:1px solid #cbd5e1; }
+    .btn.secondary:hover { background:#f8fafc; }
+    /* Modal */
+    #edit-overlay { position:fixed; inset:0; background:rgba(15,23,42,0.6); z-index:9999; display:none; align-items:flex-start; justify-content:center; padding:20px; overflow-y:auto; }
+    #edit-overlay.visible { display:flex; }
+    #edit-card { background:white; border-radius:12px; max-width:700px; width:100%; padding:24px; box-shadow:0 20px 50px rgba(0,0,0,0.3); position:relative; }
+    #edit-card h2 { font-size:18px; margin-bottom:14px; color:#059669; }
+    #edit-card .row { margin-bottom:10px; }
+    #edit-card label { display:block; font-size:11px; color:#64748b; font-weight:700; text-transform:uppercase; letter-spacing:0.4px; margin-bottom:4px; }
+    #edit-card textarea { width:100%; padding:10px 12px; border:1px solid #cbd5e1; border-radius:8px; font-size:14px; resize:vertical; min-height:150px; font-family:inherit; line-height:1.5; }
+    #edit-card .actions { display:flex; gap:10px; margin-top:14px; justify-content:flex-end; }
+    #edit-card .close-btn { position:absolute; right:16px; top:16px; background:none; border:1px solid #cbd5e1; padding:6px 10px; border-radius:6px; cursor:pointer; font-size:13px; }
+    #saved-toast { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:#10b981; color:white; padding:10px 20px; border-radius:8px; font-weight:600; font-size:14px; display:none; z-index:10000; }
+    #saved-toast.show { display:block; animation:fadeIn 0.3s; }
+    @keyframes fadeIn { from { opacity:0; transform:translate(-50%,10px); } to { opacity:1; transform:translate(-50%,0); } }
+</style>
+</head>
+<body>
+<h1>🏨 Hotel-Beschreibungen für Landing-Pages</h1>
+<p class="sub">Long-Form-Content pro Hotel. Wird in SEO-Micro-Landing (<code>taxi-*-zu-*.html</code>) als Ziel-Beschreibung verwendet und in <code>/customers/{id}/crmDescription</code> gespeichert.</p>
+
+<div class="stats" id="stats">
+    <div>🏨 <strong id="s-total">—</strong> Hotels</div>
+    <div>✅ <strong id="s-desc">—</strong> mit Beschreibung</div>
+    <div>⚠️ <strong id="s-no">—</strong> ohne Beschreibung</div>
+</div>
+
+<div class="controls">
+    <input type="text" id="filter-txt" placeholder="🔍 Suchen (Name, Ort, PLZ)..." oninput="render()">
+    <select id="filter-status" onchange="render()">
+        <option value="">— alle Hotels —</option>
+        <option value="no-desc">⚠️ Nur ohne Beschreibung</option>
+        <option value="has-desc">✅ Nur mit Beschreibung</option>
+    </select>
+</div>
+
+<div id="loading" style="text-align:center;padding:40px;color:#64748b;">Lade Hotels aus Firebase...</div>
+<div id="hotels-container" class="hotels-list" style="display:none;"></div>
+
+<div id="edit-overlay" onclick="if(event.target.id==='edit-overlay')closeEdit()">
+    <div id="edit-card">
+        <button class="close-btn" onclick="closeEdit()">✕ Schließen</button>
+        <h2 id="e-title">Hotel bearbeiten</h2>
+        <div class="row">
+            <label>Adresse</label>
+            <div id="e-addr" style="color:#64748b;font-size:13px;"></div>
+        </div>
+        <div class="row">
+            <label for="e-desc">Beschreibung (für SEO-Landings, ~150-300 Wörter)</label>
+            <textarea id="e-desc" placeholder="z.B. Das Strandhotel Ostseeblick in Heringsdorf liegt direkt an der Promenade mit direktem Meerblick. 4 Sterne, Wellnessbereich, familienfreundlich. Perfekter Startpunkt für Ausflüge nach Ahlbeck und Bansin. Kostenlose Parkplätze, Check-in ab 15 Uhr..."></textarea>
+            <div style="font-size:11px;color:#64748b;margin-top:4px;">
+                <span id="e-wordcount">0</span> Wörter · Empfehlung: 150-300 für gute SEO
+            </div>
+        </div>
+        <div class="actions">
+            <button class="btn secondary" onclick="closeEdit()">Abbrechen</button>
+            <button class="btn" onclick="save()">💾 Speichern</button>
+        </div>
+    </div>
+</div>
+
+<div id="saved-toast">✅ Gespeichert</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<script>
+firebase.initializeApp({
+    apiKey: "AIzaSyD2eHFuplImxBCijd3MWlKyCwXUZHLmhhE",
+    authDomain: "taxi-heringsdorf.firebaseapp.com",
+    databaseURL: "https://taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "taxi-heringsdorf",
+});
+const db = firebase.database();
+const auth = firebase.auth();
+
+let hotels = [];
+let currentEdit = null;
+
+async function load() {
+    try {
+        // Anonymous auth für Read/Write (DSGVO-Rule)
+        try { await auth.signInAnonymously(); } catch(e) { console.warn('anon-auth:', e); }
+        const snap = await db.ref('customers').once('value');
+        const all = snap.val() || {};
+        hotels = [];
+        for (const [id, c] of Object.entries(all)) {
+            if (!c) continue;
+            // Hotels: type=hotel ODER Name enthält "Hotel"/"Strandhotel"/"Pension" etc.
+            const isHotel = c.type === 'hotel' || c.type === 'supplier' ||
+                            /\b(hotel|strandhotel|pension|apart|resort|residenz|villa|ferienwohnung|ferienhaus|hof|haus|hostel|jugendherberge|djh|breeze|kaiserhof|ostseeblick|seetel|maritim|travel charme|upstalsboom|dorint|steigenberger)/i.test(c.name || '');
+            if (!isHotel) continue;
+            hotels.push({
+                id,
+                name: c.name || '?',
+                address: c.address || c.strasse || '',
+                plz: c.plz || '',
+                ort: c.ort || '',
+                type: c.type || 'kunde',
+                crmDescription: c.crmDescription || '',
+                phone: c.phone || c.mobilePhone || '',
+            });
+        }
+        hotels.sort((a,b) => a.name.localeCompare(b.name));
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('hotels-container').style.display = '';
+        updateStats();
+        render();
+    } catch (e) {
+        document.getElementById('loading').innerHTML = '❌ Fehler: ' + e.message;
+    }
+}
+
+function updateStats() {
+    document.getElementById('s-total').textContent = hotels.length;
+    const withD = hotels.filter(h => h.crmDescription && h.crmDescription.length > 30).length;
+    document.getElementById('s-desc').textContent = withD;
+    document.getElementById('s-no').textContent = hotels.length - withD;
+}
+
+function render() {
+    const txt = document.getElementById('filter-txt').value.toLowerCase();
+    const status = document.getElementById('filter-status').value;
+    let filtered = hotels.filter(h => {
+        if (txt && !(h.name + ' ' + h.address + ' ' + h.plz + ' ' + h.ort).toLowerCase().includes(txt)) return false;
+        const hasDesc = h.crmDescription && h.crmDescription.length > 30;
+        if (status === 'has-desc' && !hasDesc) return false;
+        if (status === 'no-desc' && hasDesc) return false;
+        return true;
+    });
+    const container = document.getElementById('hotels-container');
+    container.innerHTML = '';
+    for (const h of filtered) {
+        const hasDesc = h.crmDescription && h.crmDescription.length > 30;
+        const card = document.createElement('div');
+        card.className = 'hotel-card ' + (hasDesc ? 'has-desc' : 'no-desc');
+        const addrLine = [h.address, h.plz, h.ort].filter(Boolean).join(', ');
+        const descPreview = hasDesc
+            ? '<div class="hotel-desc-preview">' + h.crmDescription.slice(0, 180).replace(/</g,'&lt;') + (h.crmDescription.length > 180 ? '…' : '') + '</div>'
+            : '<div class="hotel-desc-preview empty">Keine Beschreibung — SEO-Landing hat keinen Long-Form-Content für dieses Hotel</div>';
+        card.innerHTML = `
+            <div class="hotel-name">${h.name.replace(/</g,'&lt;')}</div>
+            <div class="hotel-addr">${addrLine || '<i>Adresse fehlt</i>'}</div>
+            ${descPreview}
+            <div class="hotel-actions">
+                <button class="btn" onclick='edit("${h.id}")'>${hasDesc ? '✎ Bearbeiten' : '+ Beschreibung schreiben'}</button>
+            </div>
+        `;
+        container.appendChild(card);
+    }
+    if (filtered.length === 0) container.innerHTML = '<p style="color:#64748b;grid-column:1/-1;text-align:center;padding:30px;">Keine Hotels gefunden.</p>';
+}
+
+function edit(id) {
+    currentEdit = hotels.find(h => h.id === id);
+    if (!currentEdit) return;
+    document.getElementById('e-title').textContent = currentEdit.name;
+    document.getElementById('e-addr').textContent = [currentEdit.address, currentEdit.plz, currentEdit.ort].filter(Boolean).join(', ') || '—';
+    document.getElementById('e-desc').value = currentEdit.crmDescription || '';
+    updateWc();
+    document.getElementById('edit-overlay').classList.add('visible');
+    setTimeout(() => document.getElementById('e-desc').focus(), 100);
+}
+
+function updateWc() {
+    const val = document.getElementById('e-desc').value;
+    const wc = val.trim().split(/\s+/).filter(w => w.length > 1).length;
+    document.getElementById('e-wordcount').textContent = wc;
+}
+
+document.getElementById('e-desc').addEventListener('input', updateWc);
+
+async function save() {
+    if (!currentEdit) return;
+    const newDesc = document.getElementById('e-desc').value.trim();
+    try {
+        await db.ref('customers/' + currentEdit.id + '/crmDescription').set(newDesc);
+        await db.ref('customers/' + currentEdit.id + '/crmDescriptionUpdatedAt').set(Date.now());
+        currentEdit.crmDescription = newDesc;
+        // Toast
+        const t = document.getElementById('saved-toast');
+        t.classList.add('show');
+        setTimeout(() => t.classList.remove('show'), 2000);
+        closeEdit();
+        updateStats();
+        render();
+    } catch (e) {
+        alert('Speichern fehlgeschlagen: ' + e.message);
+    }
+}
+
+function closeEdit() { document.getElementById('edit-overlay').classList.remove('visible'); currentEdit = null; }
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeEdit(); });
+
+load();
+</script>
+</body>
+</html>

@@ -61,6 +61,21 @@ function isMobileNumber(phone) {
     return false;
 }
 
+// 🆕 v6.63.964 (Patrick 25.08. Bridge 'bei web anfragen wird der name nicht übernommen'):
+//   Zentraler Helper der die Anrede aus (a) ride.customerAnrede (aus Anfrage übernommen, v964),
+//   (b) CRM /customers/{id}/anrede, oder (c) '' liefert. Ersetzt 4 duplizierte try/catch-Blöcke.
+async function loadCustomerAnrede(rideOrObj) {
+    if (!rideOrObj) return '';
+    if (rideOrObj.customerAnrede) return String(rideOrObj.customerAnrede).trim();
+    if (rideOrObj.customerId) {
+        try {
+            const _s = await db.ref('customers/' + rideOrObj.customerId + '/anrede').once('value');
+            return String(_s.val() || '').trim();
+        } catch (_) { /* ignore */ }
+    }
+    return '';
+}
+
 // 🆕 v6.63.949 (Patrick 24.08. Bridge 'Frau Thurau bekommt auch keine Fahrer SMS' —
 //   selber Root wie v947 ChangeSMS-Fix): Ride hat oft customerPhone=Festnetz
 //   UND customerMobile=Handy. Wenn Code `customerPhone || customerMobile` schreibt,
@@ -13292,8 +13307,25 @@ async function quickConfirmAnfrageHandler(anfrageId, withStripe, adminChatId, wi
             zwischenstoppLon: anfrage.stoppLon,
             zwischenstoppCoords: { lat: anfrage.stoppLat, lon: anfrage.stoppLon }
         } : {}),
+        // 🆕 v6.63.964 (Patrick 25.08. Bridge 'bei web anfragen wird der name nicht
+        //   übernommen'): anfrage.anrede (Frau/Herr/Familie/Hotel aus anfrage.html
+        //   Dropdown, v952) durchreichen — SMS-Handler nutzt dies dann für
+        //   'Sehr geehrte Frau [Name]' statt Fallback 'Guten Tag'.
+        ...(anfrage.anrede ? { customerAnrede: anfrage.anrede } : {}),
     };
     await rideRef.set(ride);
+    // 🆕 v6.63.964: Anrede AUCH in /customers/{id}/anrede speichern wenn noch keine da
+    //   (damit spätere Rides der gleichen Kundin die Anrede direkt aus CRM haben).
+    if (anfrage.customerId && anfrage.anrede) {
+        try {
+            const _cSnap = await db.ref('customers/' + anfrage.customerId + '/anrede').once('value');
+            const _existing = (_cSnap.val() || '').toString().trim();
+            if (!_existing) {
+                await db.ref('customers/' + anfrage.customerId + '/anrede').set(anfrage.anrede);
+                console.log(`v6.63.964: CRM-Anrede '${anfrage.anrede}' gespeichert für customer ${anfrage.customerId}`);
+            }
+        } catch (_e) { /* non-critical */ }
+    }
 
     // Anfrage als bestätigt markieren — triggert onAnfrageStatusChanged → Kunden-SMS
     //   v6.63.186: confirmSkipped=true wenn withSms=false (Patrick managt selbst)
@@ -29023,14 +29055,18 @@ exports.onRideCreated = onValueCreated(
                     // im CRM nach anrede + nehmen Nachname (letztes Wort), fallback 'Guten Tag,'.
                     const _custFullName = (ride.guestName || ride.customerName || '').trim();
                     const _custLastName = _custFullName ? _custFullName.split(/\s+/).pop() : '';
-                    let _custAnrede = '';
-                    try {
-                        if (ride.customerId) {
-                            const _custSnap = await db.ref(`customers/${ride.customerId}`).once('value');
-                            const _cust = _custSnap.val();
-                            if (_cust && _cust.anrede) _custAnrede = String(_cust.anrede).trim();
-                        }
-                    } catch (_e) { /* fallback unten */ }
+                    // 🔧 v6.63.964: ride.customerAnrede (aus Anfrage v952/v964 durchgereicht) hat
+                    //   Priorität, CRM-Anrede als Fallback.
+                    let _custAnrede = String(ride.customerAnrede || '').trim();
+                    if (!_custAnrede) {
+                        try {
+                            if (ride.customerId) {
+                                const _custSnap = await db.ref(`customers/${ride.customerId}`).once('value');
+                                const _cust = _custSnap.val();
+                                if (_cust && _cust.anrede) _custAnrede = String(_cust.anrede).trim();
+                            }
+                        } catch (_e) { /* fallback unten */ }
+                    }
                     // 'Herr' → 'Sehr geehrter Herr X', 'Frau' → 'Sehr geehrte Frau X'
                     let _anrede;
                     if (/^herr$/i.test(_custAnrede) && _custLastName) {

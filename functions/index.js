@@ -28419,7 +28419,7 @@ exports.onRideCreated = onValueCreated(
                             let _anrede;
                             if (/^herr$/i.test(_custAnrede) && _custLastName) _anrede = `Sehr geehrter Herr ${_custLastName}`;
                             else if (/^frau$/i.test(_custAnrede) && _custLastName) _anrede = `Sehr geehrte Frau ${_custLastName}`;
-                            else _anrede = 'Guten Tag';
+                            else _anrede = _custFullName ? 'Guten Tag ' + _custFullName : 'Guten Tag';
                             const _googleLine = _googleReviewUrl ? `\nBei Google bewerten: ${_googleReviewUrl}` : '';
                             const _smsText = `${_anrede}, vielen Dank fuer Ihre Fahrt mit Funk Taxi Heringsdorf! Wie war's? 1 Klick: ${_trackLink}${_googleLine}\nBei Fragen: 038378 22022.`;
                             await db.ref('smsQueue').push({
@@ -29038,17 +29038,30 @@ exports.onRideCreated = onValueCreated(
                     } else if (/^frau$/i.test(_custAnrede) && _custLastName) {
                         _anrede = `Sehr geehrte Frau ${_custLastName}, `;
                     } else {
-                        _anrede = 'Guten Tag, ';
+                        _anrede = _custFullName ? 'Guten Tag ' + _custFullName + ', ' : 'Guten Tag, ';
                     }
                     const _priceStr = ride.price ? parseFloat(ride.price).toFixed(2).replace('.', ',') + ' Euro' : null;
                     let _smsText;
                     if (isSofort) {
-                        const _waitInfo = (typeof ride.estimatedWaitMinutes === 'number' && ride.estimatedWaitMinutes > 0)
-                            ? `Voraussichtliche Wartezeit: ca. ${ride.estimatedWaitMinutes} Min. `
-                            : '';
-                        _smsText = `${_anrede}vielen Dank fuer Ihre Buchung bei Funk Taxi Heringsdorf! `
-                            + `${_waitInfo}Sobald Ihr Fahrer losfaehrt, bekommen Sie Bescheid. `
-                            + `Live-Status: ${_trackLink}`;
+                        // 🔧 v6.63.963 (Patrick 25.08. Bridge 'die komplette bestätigung fehlt doch'):
+                        //   Sofort-SMS war zu kompakt — Kunde sollte auch bei Sofort-Fahrt Adressen
+                        //   + Preis-Schätzung + Wartezeit in einer Nachricht bekommen. Jetzt gleiches
+                        //   Format wie Vorbestellung, nur mit 'Sofortfahrt' statt Datum-Zeile.
+                        const _lines = [];
+                        _lines.push(`${_anrede}vielen Dank fuer Ihre Buchung bei Funk Taxi Heringsdorf!`);
+                        _lines.push('');
+                        _lines.push('Sofortfahrt — Fahrer kommt zu Ihnen.');
+                        if (typeof ride.estimatedWaitMinutes === 'number' && ride.estimatedWaitMinutes > 0) {
+                            _lines.push(`Voraussichtliche Wartezeit: ca. ${ride.estimatedWaitMinutes} Min`);
+                        }
+                        if (ride.pickup) _lines.push(`Abholung: ${ride.pickup}`);
+                        if (ride.destination) _lines.push(`Ziel: ${ride.destination}`);
+                        if (ride.passengers && ride.passengers > 1) _lines.push(`Personen: ${ride.passengers}`);
+                        if (_priceStr) _lines.push(`Preis: ca. ${_priceStr} (Schaetzwert — Endpreis nach Taxameter)`);
+                        _lines.push('');
+                        _lines.push('Sobald Ihr Fahrer losfaehrt, bekommen Sie Bescheid.');
+                        _lines.push(`Live-Status: ${_trackLink}`);
+                        _smsText = _lines.join('\n');
                     } else {
                         const _lines = [];
                         _lines.push(`${_anrede}vielen Dank fuer Ihre Buchung bei Funk Taxi Heringsdorf!`);
@@ -30801,7 +30814,7 @@ exports.onRideUpdated = onValueUpdated(
                     const _custFullName = (after.guestName || after.customerName || '').trim();
                     const _custLastName = _custFullName ? _custFullName.split(/\s+/).pop() : '';
                     // Anrede
-                    let _anrede = 'Guten Tag';
+                    let _anrede = _custFullName ? 'Guten Tag ' + _custFullName : 'Guten Tag';
                     if (after.customerId) {
                         try {
                             const _cs = await db.ref(`customers/${after.customerId}/anrede`).once('value');
@@ -31515,7 +31528,7 @@ exports.onRideUpdated = onValueUpdated(
                             await addRideLog(rideId, '📲', `Aenderungs-SMS uebersprungen (kein Mobil in Ride)`, { candidates: _phoneCands, changes: _changed.join(', ') });
                         } else {
                             // Anrede aus CRM
-                            let _anrede = 'Guten Tag';
+                            let _anrede = _custFullName ? 'Guten Tag ' + _custFullName : 'Guten Tag';
                             const _custFullName = (after.guestName || after.customerName || '').trim();
                             const _custLastName = _custFullName ? _custFullName.split(/\s+/).pop() : '';
                             if (after.customerId) {
@@ -32157,7 +32170,7 @@ exports.onRideUpdated = onValueUpdated(
                     }
                     const _custFullName = (after.guestName || after.customerName || '').trim();
                     const _custLastName = _custFullName ? _custFullName.split(/\s+/).pop() : '';
-                    let _anrede = 'Guten Tag';
+                    let _anrede = _custFullName ? 'Guten Tag ' + _custFullName : 'Guten Tag';
                     const _aRaw = (_custData.anrede || '').toString();
                     if (/^herr$/i.test(_aRaw) && _custLastName) _anrede = `Sehr geehrter Herr ${_custLastName}`;
                     else if (/^frau$/i.test(_aRaw) && _custLastName) _anrede = `Sehr geehrte Frau ${_custLastName}`;
@@ -39409,7 +39422,7 @@ exports.onSmsQueued = onValueCreated(
                 const _sr = _seriesRideSnap.val();
                 if (_sr) {
                     // CRM-Anrede laden
-                    let _anrede = 'Guten Tag';
+                    let _anrede = _custFullName ? 'Guten Tag ' + _custFullName : 'Guten Tag';
                     const _fullName = (_sr.guestName || _sr.customerName || '').trim();
                     const _lastName = _fullName ? _fullName.split(/\s+/).pop() : '';
                     if (_sr.customerId) {

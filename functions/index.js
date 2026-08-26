@@ -7,8 +7,8 @@
  */
 
 // 🆕 v6.25.5: Cloud Function Version — wird in Firebase gespeichert für App-Anzeige
-const CLOUD_FUNCTIONS_VERSION = '6.63.867';
-const CLOUD_FUNCTIONS_BUILD = '21.04.2026 14:35';
+const CLOUD_FUNCTIONS_VERSION = '6.63.965';
+const CLOUD_FUNCTIONS_BUILD = '25.08.2026 CET';
 
 const { onRequest } = require('firebase-functions/v2/https');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
@@ -29699,6 +29699,47 @@ exports.onRideUpdated = onValueUpdated(
                     try {
                         await sendToAllAdmins(`🕐 <b>Zeit-Änderung + Schicht-Konflikt</b>\n\n${after.customerName || '?'} · neu ${new Date(_afterPts).toLocaleTimeString('de-DE',{timeZone:'Europe/Berlin',hour:'2-digit',minute:'2-digit'})}\n${_vidNow} hat keine Schicht zur neuen Zeit — Fahrzeug entfernt, Re-Assign läuft.`);
                     } catch(_) {}
+                    // 🐛 v6.63.965 (Patrick 25.08. Bornschein): Bei Zeit-Änderung + Schicht-Konflikt
+                    //   sprang der Trigger unten (ChangeSMS-Sektion Zeile ~31465) nie an, weil hier
+                    //   `return` steht → Kunde bekam keine Info über die neue Abholzeit.
+                    //   Fix: Change-SMS direkt einreihen bevor wir returnen.
+                    try {
+                        const _phoneCands2 = [after.customerMobile, after.mobilePhone, after.customerPhone];
+                        let _phone2 = null;
+                        for (const _c of _phoneCands2) { if (_c && isMobileNumber(_c)) { _phone2 = _c; break; } }
+                        if (_phone2) {
+                            const _fullName2 = (after.guestName || after.customerName || '').trim();
+                            const _lastName2 = _fullName2 ? _fullName2.split(/\s+/).pop() : '';
+                            let _anrede2 = _fullName2 ? 'Guten Tag ' + _fullName2 : 'Guten Tag';
+                            if (after.customerId) {
+                                try {
+                                    const _cs2 = await db.ref(`customers/${after.customerId}/anrede`).once('value');
+                                    const _a2 = (_cs2.val() || '').toString();
+                                    if (/^herr$/i.test(_a2) && _lastName2) _anrede2 = `Sehr geehrter Herr ${_lastName2}`;
+                                    else if (/^frau$/i.test(_a2) && _lastName2) _anrede2 = `Sehr geehrte Frau ${_lastName2}`;
+                                } catch(_) {}
+                            }
+                            const _newTimeStr = new Date(_afterPts).toLocaleString('de-DE', { timeZone: 'Europe/Berlin', day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' });
+                            const _trackLink2 = `https://umwelt-taxi-insel-usedom.de/Taxi-App/track.html?ride=${rideId}`;
+                            const _smsText2 = `${_anrede2}, Ihre Funk-Taxi-Buchung wurde aktualisiert (Abholzeit).\nAbholung: ${_newTimeStr}\nVon: ${after.pickup || '?'}\nNach: ${after.destination || '?'}\nDetails: ${_trackLink2}`;
+                            const _hash2 = require('crypto').createHash('md5')
+                                .update('Abholzeit|' + (after.pickup||'') + '|' + (after.destination||'') + '|' + Number(_afterPts))
+                                .digest('hex').slice(0, 12);
+                            const _dup = (after.changeSmsHashes && after.changeSmsHashes[_hash2]) ? true : false;
+                            if (!_dup) {
+                                await db.ref('smsQueue').push({
+                                    phone: _phone2, text: _smsText2, rideId,
+                                    type: 'buchung_geaendert', changeFields: ['Abholzeit'],
+                                    status: 'pending', createdAt: Date.now()
+                                });
+                                await db.ref(`rides/${rideId}/changeSmsHashes/${_hash2}`).set(Date.now());
+                                await addRideLog(rideId, '📲', `v965 ChangeSMS vor Vehicle-Reset gepusht (Abholzeit)`, { phone: _phone2, hash: _hash2 });
+                                console.log(`📲 v6.63.965 ChangeSMS vor v6.63.900-Reset gepusht für ${rideId}`);
+                            }
+                        }
+                    } catch (_smsPreErr) {
+                        console.warn(`⚠️ v6.63.965 ChangeSMS-vor-Reset Fehler ${rideId}:`, _smsPreErr.message);
+                    }
                     return; // Nächster Cron macht Neu-Zuweisung
                 }
             }
@@ -31564,9 +31605,14 @@ exports.onRideUpdated = onValueUpdated(
                             await addRideLog(rideId, '📲', `Aenderungs-SMS uebersprungen (kein Mobil in Ride)`, { candidates: _phoneCands, changes: _changed.join(', ') });
                         } else {
                             // Anrede aus CRM
-                            let _anrede = _custFullName ? 'Guten Tag ' + _custFullName : 'Guten Tag';
+                            // 🐛 v6.63.965 (Patrick 25.08. Bornschein): v6.63.947 hatte hier
+                            //   `let _anrede = _custFullName ? ...` VOR `const _custFullName = ...`
+                            //   → TDZ-ReferenceError → try/catch schluckt → SEIT v6.63.947
+                            //   feuert die komplette ChangeSMS-Sektion für KEINE Fahrt mehr.
+                            //   Daher bekam Sandra Bornschein bei 17:45→17:15 keine SMS.
                             const _custFullName = (after.guestName || after.customerName || '').trim();
                             const _custLastName = _custFullName ? _custFullName.split(/\s+/).pop() : '';
+                            let _anrede = _custFullName ? 'Guten Tag ' + _custFullName : 'Guten Tag';
                             if (after.customerId) {
                                 try {
                                     const _cs = await db.ref(`customers/${after.customerId}/anrede`).once('value');
@@ -39458,9 +39504,12 @@ exports.onSmsQueued = onValueCreated(
                 const _sr = _seriesRideSnap.val();
                 if (_sr) {
                     // CRM-Anrede laden
-                    let _anrede = _custFullName ? 'Guten Tag ' + _custFullName : 'Guten Tag';
+                    // 🐛 v6.63.965: gleicher TDZ-ReferenceError wie in onRideUpdated —
+                    //   `_custFullName` gab's hier nie, gemeint war `_fullName`. Reformat
+                    //   der Sammel-SMS crashte still bei jedem Series-Confirmation-Push.
                     const _fullName = (_sr.guestName || _sr.customerName || '').trim();
                     const _lastName = _fullName ? _fullName.split(/\s+/).pop() : '';
+                    let _anrede = _fullName ? 'Guten Tag ' + _fullName : 'Guten Tag';
                     if (_sr.customerId) {
                         try {
                             const _cSnap = await db.ref(`customers/${_sr.customerId}/anrede`).once('value');

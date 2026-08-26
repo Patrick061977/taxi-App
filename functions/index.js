@@ -7,8 +7,8 @@
  */
 
 // 🆕 v6.25.5: Cloud Function Version — wird in Firebase gespeichert für App-Anzeige
-const CLOUD_FUNCTIONS_VERSION = '6.63.965';
-const CLOUD_FUNCTIONS_BUILD = '25.08.2026 CET';
+const CLOUD_FUNCTIONS_VERSION = '6.63.966';
+const CLOUD_FUNCTIONS_BUILD = '26.08.2026 CET';
 
 const { onRequest } = require('firebase-functions/v2/https');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
@@ -24366,6 +24366,141 @@ exports.scheduledComputeVehicleFreeAt = onSchedule(
             console.log(`🕒 v6.63.939 ComputeVehicleFreeAt: ${processedCount} Fahrzeuge verarbeitet | ${srcStr}`);
         } catch (e) {
             console.error('❌ scheduledComputeVehicleFreeAt Fehler:', e.message, e.stack);
+        }
+    }
+);
+
+// ═══════════════════════════════════════════════════════════════
+// 🔀 v6.63.966 (Patrick 26.08. Bornschein-Analyse + Schoeffel-Vorbeifahr-Fall):
+//   Live-GPS-Corridor-Push. Fahrer bekommt einen FCM-Push wenn er laut GPS
+//   in der Nähe (Radius 1 km) einer offenen Wartepool-Fahrt vorbeifährt.
+//   Analyse-Fall Schoeffel (26.08. 10:00 Koserow → Heringsdorf):
+//     - YM war um 09:56 GPS bei 54.055/13.988 (900 m vom Pickup)
+//     - YM war online, hatte 0 Fahrten zugewiesen, ist einfach durchgefahren
+//     - VehicleScores hatte YM wegen fehlendem Wochenplan als 'rejected' verworfen
+//     - IK musste 30 Min aus Heringsdorf anrollen, kam 10:30 an (30 Min Verspätung)
+//   Fix: Cron alle 60 s → offene Rides + freie online-Fahrzeuge → Luftlinie <1 km
+//        → FCM-Push an Fahrer-Handy. Fahrer entscheidet (dein no-auto-assign-Prinzip).
+//        15-Min-Cooldown pro (Fahrzeug, Ride) damit's nicht spammt.
+exports.scheduledCorridorPush = onSchedule(
+    {
+        schedule: 'every 1 minutes',
+        region: 'europe-west1',
+        timeoutSeconds: 60,
+        memory: '256MiB'
+    },
+    async (event) => {
+        const startedAt = Date.now();
+        try {
+            const now = Date.now();
+            const windowMs = 30 * 60 * 1000; // Pickup in nächsten 30 Min
+            const radiusKm = 1.0;
+            const cooldownMs = 15 * 60 * 1000;
+
+            // 1. Offene Rides (Wartepool + unassigned Vorbestellungen mit Pickup < 30 Min)
+            const ridesSnap = await db.ref('rides').orderByChild('pickupTimestamp')
+                .startAt(now - 5 * 60000).endAt(now + windowMs).once('value');
+            const openRides = [];
+            ridesSnap.forEach(c => {
+                const r = c.val();
+                if (!r) return;
+                const st = (r.status || '').toLowerCase();
+                const veh = r.assignedVehicle || r.vehicleId;
+                const isOpen = (st === 'wartepool') || (!veh && ['new', 'vorbestellt', 'open'].includes(st));
+                if (!isOpen) return;
+                if (r.pickupLat == null || r.pickupLon == null) return;
+                openRides.push({ id: c.key, ...r });
+            });
+            if (!openRides.length) {
+                console.log(`🔀 v6.63.966 CorridorPush: keine offenen Rides — skip (${Date.now() - startedAt}ms)`);
+                return;
+            }
+
+            // 2. Freie online-Fahrzeuge mit Live-GPS (max 5 Min alt)
+            const vehiclesSnap = await db.ref('vehicles').once('value');
+            const vehicles = vehiclesSnap.val() || {};
+            const freeVehicles = [];
+            for (const [vid, v] of Object.entries(vehicles)) {
+                if (!v || v.lat == null || v.lon == null) continue;
+                if (v.online !== true) continue;
+                const gpsAgeMs = v.lastUpdate ? (now - v.lastUpdate) : Infinity;
+                if (gpsAgeMs > 5 * 60 * 1000) continue;
+                // Fahrzeug frei? kein aktiver Fahrgast an Bord
+                const disp = (v.dispatchStatus || '').toLowerCase();
+                if (['picked_up', 'on_way_to_dest'].includes(disp)) continue;
+                freeVehicles.push({ vid, lat: v.lat, lon: v.lon, name: v.name || vid, plate: v.plate || '' });
+            }
+            if (!freeVehicles.length) {
+                console.log(`🔀 v6.63.966 CorridorPush: keine freien Fahrzeuge mit frischem GPS — skip`);
+                return;
+            }
+
+            // 3. Kombination prüfen: Luftlinie < 1 km?
+            let pushCount = 0;
+            for (const ride of openRides) {
+                for (const veh of freeVehicles) {
+                    const distKm = haversineKm(
+                        { lat: veh.lat, lon: veh.lon },
+                        { lat: Number(ride.pickupLat), lon: Number(ride.pickupLon) }
+                    );
+                    if (distKm > radiusKm) continue;
+
+                    // Cooldown-Check (per (vehicle, ride))
+                    const cdKey = `${veh.vid}_${ride.id}`;
+                    const cdSnap = await db.ref(`corridorPushCooldown/${cdKey}`).once('value');
+                    const lastPush = Number(cdSnap.val() || 0);
+                    if (now - lastPush < cooldownMs) continue;
+
+                    // FCM-Push an Fahrer-Handy
+                    const distM = Math.round(distKm * 1000);
+                    const pickupTimeStr = new Date(ride.pickupTimestamp).toLocaleTimeString('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit' });
+                    const custName = ride.customerName || ride.guestName || '?';
+                    const puShort = (ride.pickup || '?').slice(0, 40);
+                    const destShort = (ride.destination || '?').slice(0, 40);
+                    try {
+                        await sendFCMToVehicle(veh.vid, {
+                            type: 'corridor_match',
+                            rideId: ride.id,
+                            customerName: custName,
+                            pickup: ride.pickup || '',
+                            destination: ride.destination || '',
+                            pickupLat: String(ride.pickupLat || ''),
+                            pickupLon: String(ride.pickupLon || ''),
+                            pickupTime: pickupTimeStr,
+                            distanceM: String(distM),
+                            title: `🔀 Fahrt in deiner Nähe (${distM} m)`,
+                            body: `${custName} · ${pickupTimeStr} · ${puShort} → ${destShort}`,
+                            severity: 'reminder'
+                        });
+                        pushCount++;
+                    } catch (fcmErr) {
+                        console.warn(`🔀 v6.63.966 FCM-Fehler ${veh.vid} → ride ${ride.id}: ${fcmErr.message}`);
+                    }
+
+                    // Cooldown setzen + Log
+                    await db.ref(`corridorPushCooldown/${cdKey}`).set(now);
+                    await db.ref('corridorPushLog').push({
+                        ts: now,
+                        vehicleId: veh.vid,
+                        vehicleName: veh.name,
+                        rideId: ride.id,
+                        customerName: custName,
+                        distanceM: distM,
+                        pickup: ride.pickup || null,
+                        pickupTime: pickupTimeStr
+                    });
+                    try {
+                        await addRideLog(ride.id, '🔀', `v966 Corridor-Push: ${veh.name} (${distM} m entfernt) benachrichtigt`, {
+                            vehicleId: veh.vid,
+                            distanceM: distM
+                        });
+                    } catch (_) {}
+                    console.log(`🔀 v6.63.966 CorridorPush ${veh.vid} (${distM}m) → ride ${ride.id} (${custName})`);
+                }
+            }
+            console.log(`🔀 v6.63.966 CorridorPush fertig: ${pushCount} Push(es), ${openRides.length} offene Rides × ${freeVehicles.length} freie Fahrzeuge (${Date.now() - startedAt}ms)`);
+        } catch (e) {
+            console.error('❌ scheduledCorridorPush Fehler:', e.message, e.stack);
         }
     }
 );

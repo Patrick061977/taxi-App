@@ -13131,8 +13131,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '6.63.969';
-        const APP_BUILD = '27.08.2026 10:04';
+        const APP_VERSION = '6.63.970';
+        const APP_BUILD = '27.08.2026 10:14';
         const APP_CHANGE = 'fix v6.63.643: ✓ Erledigt-Button im Wartepool-Banner + kunden.html Fahrhistorie per CRM-ID (kein globales Limit mehr).';
 
         // 🔧 FIX: Mache APP_VERSION global verfügbar
@@ -22061,6 +22061,17 @@ Aktuell: ${currentNum}`;
                             if (s.indexOf('🔥 Firebase Read Error') !== -1) return true;
                             // Empty PROMISE REJECTION nur mit Firebase-Stack ist auch Permission-Denied
                             if (s.indexOf('🔴 PROMISE REJECTION:') !== -1 && s.indexOf('zr/onComplete') !== -1) return true;
+                            // 🆕 v6.63.970 (Patrick 27.08. Bridge: 6+ Crash-Pushes/Tag durch Firebase-Reconnect-Wackler):
+                            //   Firebase-Database-compat wirft Promise-Rejections wenn sendPut_ waehrend eines
+                            //   Reconnects scheitert. Auth-Token laeuft ab, Netzwerk-Wackler → Rejection unhandled
+                            //   → console.error → /debugErrors → Bridge-Push. Alles seit Stunden auf demselben Tab.
+                            //   Filter: jeder Stack der firebase-database-compat oder die minifizierten
+                            //   Frame-Namen Ji/Pe/zr enthaelt = kein echter Bug, sondern Reconnect-Rauschen.
+                            if (s.indexOf('firebase-database-compat') !== -1) return true;
+                            if (s.indexOf('🔴 PROMISE REJECTION:') !== -1 && (s.indexOf('Ji/') !== -1 || s.indexOf('Pe@') !== -1)) return true;
+                            if (s.indexOf('💾 Scheduler Fehler:') !== -1) return true;
+                            if (s.indexOf('💾 Fehler beim Laden der Historie:') !== -1) return true;
+                            if (s.indexOf('Failed to send errors to Firebase:') !== -1) return true;
                             return false;
                         };
                         window.addEventListener('error', function(e) {

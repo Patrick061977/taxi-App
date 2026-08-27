@@ -13131,8 +13131,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '6.63.935';
-        const APP_BUILD = '22.08.2026 19:02';
+        const APP_VERSION = '6.63.967';
+        const APP_BUILD = '27.08.2026 08:10';
         const APP_CHANGE = 'fix v6.63.643: ✓ Erledigt-Button im Wartepool-Banner + kunden.html Fahrhistorie per CRM-ID (kein globales Limit mehr).';
 
         // 🔧 FIX: Mache APP_VERSION global verfügbar
@@ -76724,6 +76724,12 @@ Funk Taxi Team`;
         let fleetMap = null;
         let fleetMarkers = {};
         let fleetRoutes = {};
+        // 🆕 v6.63.967 (Patrick 26.08. 16:58): Pickup-Pins der nächsten 30 Min
+        //   auf der Fleet Map — damit Sammelfahrten und Corridor-Matches
+        //   (wie Schoeffel 09:56 + YM) auf einen Blick sichtbar werden.
+        let fleetPickupMarkers = {};
+        let fleetPickupLayerEnabled = true;
+        let fleetPickupWindowMin = 30;
         let tempPinMarker = null; // 🆕 v5.90.234: Temporärer Pin auf Karte
         let fleetMapPOIMarkers = []; // 🆕 v5.95.100: POI-Marker auf Fleet Map
         
@@ -78025,8 +78031,13 @@ Funk Taxi Team`;
                 for (const id in fleetRoutes) {
                     fleetMap.removeLayer(fleetRoutes[id]);
                 }
+                // 🆕 v6.63.967: Alte Pickup-Termine-Pins entfernen
+                for (const id in fleetPickupMarkers) {
+                    fleetMap.removeLayer(fleetPickupMarkers[id]);
+                }
                 fleetMarkers = {};
                 fleetRoutes = {};
+                fleetPickupMarkers = {};
                 
                 let onlineCount = 0;
                 let busyCount = 0;
@@ -78500,9 +78511,166 @@ Funk Taxi Team`;
                         </div>
                     `;
                 }
-                
+
+                // 🆕 v6.63.967 (Patrick 26.08. 16:58 Bridge): Termine-Layer.
+                //   Zeigt offene Pickups (wartepool + unassigned Vorbestellungen) der
+                //   nächsten fleetPickupWindowMin Minuten als Pins auf der Karte.
+                //   Wenn ein online-Fahrzeug < 1 km entfernt ist → goldener Ring
+                //   (Match verfügbar). Sammelfahrt-Cluster: mehrere Pickups mit
+                //   Zielen < 500 m auseinander bekommen dickeren Rand + 🔀-Icon.
+                try {
+                    if (fleetPickupLayerEnabled) {
+                        const _now = Date.now();
+                        const _winMs = fleetPickupWindowMin * 60 * 1000;
+                        // 1. Offene Rides sammeln
+                        const _openPickups = [];
+                        for (const rideId in ridesData) {
+                            const r = ridesData[rideId];
+                            if (!r || r.pickupLat == null || r.pickupLon == null) continue;
+                            const _ts = r.pickupTimestamp || 0;
+                            if (_ts < _now - 5*60*1000 || _ts > _now + _winMs) continue;
+                            const _st = (r.status || '').toLowerCase();
+                            const _veh = r.assignedVehicle || r.vehicleId;
+                            // Offen = wartepool ODER (kein Fahrzeug UND Status new/vorbestellt/open)
+                            const _isOpen = _st === 'wartepool' ||
+                                            (!_veh && ['new','vorbestellt','open'].includes(_st));
+                            // Auch assigned Pickups <30 Min zeigen (blau) — Fahrer weiß dass Pickup naht
+                            const _isAssigned = !!_veh && ['assigned','accepted'].includes(_st);
+                            if (!_isOpen && !_isAssigned) continue;
+                            _openPickups.push({
+                                id: rideId,
+                                lat: Number(r.pickupLat),
+                                lon: Number(r.pickupLon),
+                                destLat: r.destinationLat ? Number(r.destinationLat) : null,
+                                destLon: r.destinationLon ? Number(r.destinationLon) : null,
+                                ts: _ts,
+                                pickup: r.pickup || '?',
+                                destination: r.destination || '?',
+                                customerName: r.customerName || r.guestName || '?',
+                                status: _st,
+                                assignedVehicle: _veh || null,
+                                isOpen: _isOpen,
+                                price: r.price
+                            });
+                        }
+                        // 2. Sammelfahrt-Cluster erkennen: Ziele < 500m auseinander UND Pickup-Zeiten < 15 Min
+                        const _haversineM = (aLat,aLon,bLat,bLon) => {
+                            const R=6371000;
+                            const dLat=(bLat-aLat)*Math.PI/180;
+                            const dLon=(bLon-aLon)*Math.PI/180;
+                            const aa=Math.sin(dLat/2)**2 + Math.cos(aLat*Math.PI/180)*Math.cos(bLat*Math.PI/180)*Math.sin(dLon/2)**2;
+                            return R*2*Math.atan2(Math.sqrt(aa), Math.sqrt(1-aa));
+                        };
+                        for (let i=0; i<_openPickups.length; i++) {
+                            const _a = _openPickups[i];
+                            _a.clusterPartners = [];
+                            for (let k=0; k<_openPickups.length; k++) {
+                                if (i===k) continue;
+                                const _b = _openPickups[k];
+                                if (!_a.destLat || !_b.destLat) continue;
+                                const _destDist = _haversineM(_a.destLat, _a.destLon, _b.destLat, _b.destLon);
+                                const _timeDiffMin = Math.abs(_a.ts - _b.ts) / 60000;
+                                if (_destDist <= 500 && _timeDiffMin <= 15) {
+                                    _a.clusterPartners.push({ id: _b.id, customerName: _b.customerName, distanceM: Math.round(_destDist), timeDiffMin: Math.round(_timeDiffMin) });
+                                }
+                            }
+                        }
+                        // 3. Match-Check pro Pickup: gibt es online-Fahrzeug < 1 km?
+                        for (const p of _openPickups) {
+                            p.nearVehicles = [];
+                            for (const vid in driversData) {
+                                const dv = driversData[vid];
+                                if (!dv || !dv.lat || !dv.lon || dv.online === false) continue;
+                                if (dv.dispatchStatus === 'offline') continue;
+                                const _dist = _haversineM(dv.lat, dv.lon, p.lat, p.lon);
+                                if (_dist <= 1000) {
+                                    p.nearVehicles.push({ vid, distanceM: Math.round(_dist), name: (OFFICIAL_VEHICLES[vid]?.name)||vid });
+                                }
+                            }
+                        }
+                        // 4. Marker zeichnen
+                        for (const p of _openPickups) {
+                            const _minToPickup = Math.round((p.ts - _now) / 60000);
+                            // Basis-Farbe
+                            let _fill = p.isOpen ? '#22c55e' : '#3b82f6'; // grün offen, blau assigned
+                            // Alter des Termins → Intensität
+                            const _alpha = Math.max(0.55, 1 - (_minToPickup / fleetPickupWindowMin) * 0.4);
+                            // Match-Ring
+                            const _hasMatch = p.nearVehicles.length > 0;
+                            const _hasCluster = p.clusterPartners.length > 0;
+                            const _ringColor = _hasCluster ? '#a855f7' : (_hasMatch ? '#f59e0b' : 'white');
+                            const _ringWidth = _hasCluster ? 5 : (_hasMatch ? 4 : 2);
+                            const _emoji = _hasCluster ? '🔀' : (_hasMatch ? '⭐' : '📍');
+                            const _timeStr = new Date(p.ts).toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'});
+                            const _icon = L.divIcon({
+                                className: 'fleet-pickup-marker',
+                                html: `
+                                    <div style="display:flex;flex-direction:column;align-items:center;">
+                                        <div style="
+                                            background: ${_fill};
+                                            opacity: ${_alpha};
+                                            width: 34px;
+                                            height: 34px;
+                                            border-radius: 50%;
+                                            border: ${_ringWidth}px solid ${_ringColor};
+                                            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+                                            display: flex;
+                                            align-items: center;
+                                            justify-content: center;
+                                            font-size: 16px;
+                                        ">${_emoji}</div>
+                                        <div style="
+                                            background: rgba(0,0,0,0.78);
+                                            color: white;
+                                            font-size: 10px;
+                                            font-weight: 700;
+                                            padding: 1px 5px;
+                                            border-radius: 4px;
+                                            margin-top: 2px;
+                                            white-space: nowrap;
+                                        ">${_timeStr}</div>
+                                    </div>
+                                `,
+                                iconSize: [50, 55],
+                                iconAnchor: [25, 17]
+                            });
+                            // Popup
+                            let _popup = `
+                                <div style="min-width:220px;">
+                                    <div style="font-weight:700;font-size:13px;margin-bottom:4px;">
+                                        ${_emoji} ${p.customerName} · ${_timeStr}
+                                    </div>
+                                    <div style="font-size:11px;color:#666;margin-bottom:6px;">
+                                        in ${_minToPickup > 0 ? _minToPickup + ' Min' : 'JETZT'} · ${p.isOpen ? '<span style="color:#22c55e;font-weight:600;">🟢 offen</span>' : '<span style="color:#3b82f6;font-weight:600;">🔵 ' + p.status + '</span>'}
+                                    </div>
+                                    <div style="font-size:11px;line-height:1.5;background:#f3f4f6;padding:6px 8px;border-radius:5px;">
+                                        <div>📍 <strong>Von:</strong> ${p.pickup}</div>
+                                        <div>🎯 <strong>Nach:</strong> ${p.destination}</div>
+                                        ${p.price ? `<div style="color:#059669;margin-top:3px;">💰 ${p.price} €</div>` : ''}
+                                    </div>
+                            `;
+                            if (_hasMatch) {
+                                _popup += `<div style="margin-top:8px;padding:6px;background:#fef3c7;border-left:3px solid #f59e0b;border-radius:4px;font-size:11px;"><strong>⭐ ${p.nearVehicles.length} Fahrzeug(e) < 1 km:</strong><br>${p.nearVehicles.map(v => `${v.name} (${v.distanceM} m)`).join(', ')}</div>`;
+                            }
+                            if (_hasCluster) {
+                                _popup += `<div style="margin-top:6px;padding:6px;background:#f3e8ff;border-left:3px solid #a855f7;border-radius:4px;font-size:11px;"><strong>🔀 Sammelfahrt möglich:</strong><br>${p.clusterPartners.map(c => `${c.customerName} (Ziel ${c.distanceM} m entfernt, +${c.timeDiffMin} Min)`).join('<br>')}</div>`;
+                            }
+                            _popup += `</div>`;
+                            const _marker = L.marker([p.lat, p.lon], { icon: _icon, zIndexOffset: 1000 })
+                                .bindPopup(_popup)
+                                .addTo(fleetMap);
+                            fleetPickupMarkers[p.id] = _marker;
+                        }
+                        if (_openPickups.length > 0) {
+                            console.log(`📍 v6.63.967 FleetMap Termine-Layer: ${_openPickups.length} Pickup-Pin(s), ${_openPickups.filter(p=>p.nearVehicles.length>0).length} mit Match, ${_openPickups.filter(p=>p.clusterPartners.length>0).length} Sammelfahrt-Kandidaten`);
+                        }
+                    }
+                } catch (_pickupErr) {
+                    console.warn('⚠️ v6.63.967 Fleet Pickup-Layer Fehler:', _pickupErr.message);
+                }
+
                 // Update UI
-                document.getElementById('fleet-vehicle-list').innerHTML = vehicleListHtml || 
+                document.getElementById('fleet-vehicle-list').innerHTML = vehicleListHtml ||
                     '<div style="text-align:center;color:#888;padding:20px;">Keine Fahrzeuge online</div>';
                 
                 // 🆕 v5.90.525: NÄCHSTER TERMIN BERECHNEN!

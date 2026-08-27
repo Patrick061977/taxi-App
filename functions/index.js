@@ -7,7 +7,7 @@
  */
 
 // 🆕 v6.25.5: Cloud Function Version — wird in Firebase gespeichert für App-Anzeige
-const CLOUD_FUNCTIONS_VERSION = '6.63.971';
+const CLOUD_FUNCTIONS_VERSION = '6.63.974';
 const CLOUD_FUNCTIONS_BUILD = '27.08.2026 CET';
 
 const { onRequest } = require('firebase-functions/v2/https');
@@ -7443,7 +7443,7 @@ Ein Fahrgast schreibt per Telegram. Deine Aufgabe: Buchungsdaten extrahieren und
 FAHRGAST-NACHRICHT: "${text}"
 ${prefilledName ? `BEKANNTER KUNDE: ${prefilledName}${prefilledPhone ? ` | Tel: ${prefilledPhone}` : ''}` : ''}
 ${homeAddressHint ? `HEIMADRESSE: "${homeAddressHint}" → bei "zu Hause" / "von zu Hause" verwenden` : ''}${aiRulesBlock}
-${hotelGuestName ? `GASTNAME (bereits bekannt): ${hotelGuestName}` : (preselected && isAuftraggeber(preselected.customerKind, preselected.type) ? `${preselected.type === 'supplier' ? '🚚 LIEFERANT' : '🏢 AUFTRAGGEBER'}-ANRUF: ${preselected.name} bucht für einen GAST/PATIENTEN/KUNDEN. Extrahiere:\n- GASTNAME aus dem Gespräch (z.B. "Frau Dahn", "Herr Müller", "Familie Schmidt") → "guestName"\n- GAST-TELEFONNUMMER falls genannt (z.B. Handynummer des Fahrgasts) → "guestPhone"\nWenn nicht erkennbar → null` : '')}
+${hotelGuestName ? `GASTNAME (bereits bekannt): ${hotelGuestName}` : (preselected && isAuftraggeber(preselected.customerKind, preselected.type) ? `${preselected.type === 'supplier' ? '🚚 LIEFERANT' : '🏢 AUFTRAGGEBER'}-ANRUF: ${preselected.name} bucht für einen GAST/PATIENTEN/KUNDEN. Extrahiere:\n- GASTNAME aus dem Gespräch (z.B. "Frau Dahn", "Herr Müller", "Familie Schmidt") → "guestName"\n- GAST-TELEFONNUMMER falls genannt (z.B. Handynummer des Fahrgasts) → "guestPhone"\n- 🆕 v6.63.974: GAST-WOHNADRESSE — wo wohnt der Fahrgast (Straße + Hausnr + Ort)? Wird bei Abholung von zu Hause gebraucht. → "guestAddress"\nWenn nicht erkennbar → null` : '')}
 
 ━━━ SCHRITT 1: INTENT ━━━
 Ist das eine Taxi-Buchung (oder könnte es eine sein)?
@@ -7584,7 +7584,7 @@ Nur gültiges JSON, kein Markdown:
   "name": "${prefilledName || (isAdmin ? 'Admin' : userName)}",
   "phone": ${prefilledPhone ? `"${prefilledPhone}"` : 'null'},
   "notes": null,
-  "email": null,${isAdmin ? '\n  "forCustomer": null,' : ''}${(preselected && isAuftraggeber(preselected.customerKind, preselected.type)) || hotelGuestName ? '\n  "guestName": null,\n  "guestPhone": null,' : ''}
+  "email": null,${isAdmin ? '\n  "forCustomer": null,' : ''}${(preselected && isAuftraggeber(preselected.customerKind, preselected.type)) || hotelGuestName ? '\n  "guestName": null,\n  "guestPhone": null,\n  "guestAddress": null,' : ''}
   "missing": ["datetime", "pickup", "destination"${phoneRequired ? ', "phone"' : ''}],
   "question": "Für wann und von wo nach wo soll die Fahrt gehen?",
   "summary": "Kurze Zusammenfassung der Buchung"
@@ -7959,6 +7959,37 @@ Nur gültiges JSON, kein Markdown:
                 // 🆕 v6.15.0: Gast-Telefonnummer aus KI-Analyse übernehmen
                 if (booking.guestPhone) {
                     await addTelegramLog('📱', chatId, `KI hat Gast-Telefon aus Transkript erkannt: "${booking.guestPhone}"`);
+                }
+                // 🆕 v6.63.974 (Patrick 27.08. Bridge 'Auftraggeber-Adresse verknüpft mit Fahrgast'):
+                //   Gast-Wohnadresse aus KI-Analyse.
+                //   Sonderrolle: wenn KI eine guestAddress erkennt UND pickup noch nicht gesetzt ist,
+                //   dann guestAddress als pickup übernehmen (Standard-Fall: Patient wird zu Hause abgeholt).
+                if (booking.guestAddress) {
+                    await addTelegramLog('🏠', chatId, `KI hat Gast-Wohnadresse aus Transkript erkannt: "${booking.guestAddress}"`);
+                    if (!booking.pickup) {
+                        booking.pickup = booking.guestAddress;
+                        await addTelegramLog('📍', chatId, `Gast-Wohnadresse als Abholort übernommen (kein anderer pickup angegeben)`);
+                    }
+                }
+                // 🆕 v6.63.974: Autofill aus patients-Sub-Node wenn guestName erkannt aber guestAddress fehlt
+                if (booking.guestName && !booking.guestAddress && preselected && preselected.id) {
+                    try {
+                        const _patientKey = booking.guestName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+                        const _patSnap = await db.ref(`customers/${preselected.id}/patients/${_patientKey}`).once('value');
+                        const _pat = _patSnap.val();
+                        if (_pat && _pat.address) {
+                            booking.guestAddress = _pat.address;
+                            if (_pat.addressLat != null) booking.guestAddressLat = _pat.addressLat;
+                            if (_pat.addressLon != null) booking.guestAddressLon = _pat.addressLon;
+                            if (!booking.pickup) {
+                                booking.pickup = _pat.address;
+                                if (_pat.addressLat != null) booking.pickupLat = _pat.addressLat;
+                                if (_pat.addressLon != null) booking.pickupLon = _pat.addressLon;
+                            }
+                            if (!booking.guestPhone && _pat.phone) booking.guestPhone = _pat.phone;
+                            await addTelegramLog('💾', chatId, `Gast ${booking.guestName} aus CRM-Patients: Adresse '${_pat.address}' übernommen`);
+                        }
+                    } catch (_e) {}
                 }
             }
 
@@ -28257,6 +28288,39 @@ exports.onRideCreated = onValueCreated(
         }
 
         console.log(`📱 onRideCreated: ${rideId} — ${ride.customerName || 'Unbekannt'} — source: ${ride.source || 'browser'}`);
+
+        // 🆕 v6.63.974 (Patrick 27.08. Bridge 'Auftraggeber-Patient verknüpfen'):
+        //   Wenn Ride mit guestName + guestAddress kommt und Auftraggeber-Kunde da ist,
+        //   speichere/aktualisiere den Patienten unter /customers/{cid}/patients/{key}.
+        //   Beim nächsten Anruf für den gleichen Gast wird die Adresse automatisch
+        //   vorgeschlagen (siehe analyzeTelegramBooking, Zeile ~7963).
+        try {
+            const _isAuftraggeberRide = ride._isAuftraggeberBooking === true || ride._isHotelBooking === true;
+            if (_isAuftraggeberRide && ride.customerId && ride.guestName && ride.guestAddress) {
+                const _patientKey = String(ride.guestName).toLowerCase()
+                    .replace(/[^a-z0-9]+/g, '-')
+                    .replace(/^-|-$/g, '')
+                    .slice(0, 60);
+                if (_patientKey) {
+                    const _patRef = db.ref(`customers/${ride.customerId}/patients/${_patientKey}`);
+                    const _existing = (await _patRef.once('value')).val();
+                    const _update = {
+                        name: ride.guestName,
+                        address: ride.guestAddress,
+                        addressLat: ride.guestAddressLat || ride.pickupLat || null,
+                        addressLon: ride.guestAddressLon || ride.pickupLon || null,
+                        phone: ride.guestPhone || (_existing && _existing.phone) || null,
+                        updatedAt: Date.now(),
+                        updatedVia: 'ride-' + (ride.source || 'unknown'),
+                        rideCount: ((_existing && _existing.rideCount) || 0) + 1
+                    };
+                    if (!_existing) _update.createdAt = Date.now();
+                    await _patRef.update(_update);
+                    console.log(`💾 v6.63.974 Patient/Gast '${ride.guestName}' bei Auftraggeber ${ride.customerId} gespeichert (rideCount ${_update.rideCount})`);
+                    try { await addRideLog(rideId, '👤', `Gast '${ride.guestName}' im Auftraggeber-CRM aktualisiert`, { patientKey: _patientKey }); } catch(_) {}
+                }
+            }
+        } catch (_patErr) { console.warn('v6.63.974 patient-save Fehler:', _patErr.message); }
 
         // v6.63.736 (Patrick 18.07. Bridge Wald+See-Fall): Email/Mobil aus CRM in Ride
         //   nachziehen wenn customerId gesetzt ist aber Ride-Felder leer sind. Sonst muss

@@ -7,8 +7,8 @@
  */
 
 // 🆕 v6.25.5: Cloud Function Version — wird in Firebase gespeichert für App-Anzeige
-const CLOUD_FUNCTIONS_VERSION = '6.63.966';
-const CLOUD_FUNCTIONS_BUILD = '26.08.2026 CET';
+const CLOUD_FUNCTIONS_VERSION = '6.63.969';
+const CLOUD_FUNCTIONS_BUILD = '27.08.2026 CET';
 
 const { onRequest } = require('firebase-functions/v2/https');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
@@ -24501,6 +24501,72 @@ exports.scheduledCorridorPush = onSchedule(
             console.log(`🔀 v6.63.966 CorridorPush fertig: ${pushCount} Push(es), ${openRides.length} offene Rides × ${freeVehicles.length} freie Fahrzeuge (${Date.now() - startedAt}ms)`);
         } catch (e) {
             console.error('❌ scheduledCorridorPush Fehler:', e.message, e.stack);
+        }
+    }
+);
+
+// ═══════════════════════════════════════════════════════════════
+// 📍 v6.63.969 (Patrick 27.08. Bridge 'aber in der karte sehe ich keinen termin'):
+//   /publicPickups — schmales public-lesbares Subset offener Wartepool-/Vorbestellungs-
+//   Fahrten. Fuer fahrer-map.html WebView, die keinen Firebase-Auth-Token mitbringt
+//   und deshalb /rides mit Permission-denied nicht lesen kann.
+//   Enthaelt nur die fuer die Karte notwendigen Felder — keine Kunden-Nachnamen/
+//   Nummern → kein Datenschutz-Risiko wenn .read: true.
+exports.scheduledPublicPickupsSync = onSchedule(
+    {
+        schedule: 'every 1 minutes',
+        region: 'europe-west1',
+        timeoutSeconds: 60,
+        memory: '256MiB'
+    },
+    async (event) => {
+        try {
+            const now = Date.now();
+            const windowMs = 60 * 60 * 1000; // Pickup in nächsten 60 Min (Karten-Nutzer sollen etwas Vorlauf sehen)
+            const ridesSnap = await db.ref('rides').orderByChild('pickupTimestamp')
+                .startAt(now - 5 * 60000).endAt(now + windowMs).once('value');
+            const nowPublic = {};
+            ridesSnap.forEach(c => {
+                const r = c.val();
+                if (!r) return;
+                const st = (r.status || '').toLowerCase();
+                const veh = r.assignedVehicle || r.vehicleId;
+                const isOpen = st === 'wartepool' || (!veh && ['new', 'vorbestellt', 'open'].includes(st));
+                if (!isOpen) return;
+                if (r.pickupLat == null || r.pickupLon == null) return;
+                // Schmales Subset — nur Vorname statt Nachname, keine Telefonnummer
+                const fullName = (r.guestName || r.customerName || '').trim();
+                const firstName = fullName ? fullName.split(/\s+/)[0] : '';
+                nowPublic[c.key] = {
+                    pickupTs: r.pickupTimestamp || 0,
+                    pickupLat: Number(r.pickupLat),
+                    pickupLon: Number(r.pickupLon),
+                    pickup: (r.pickup || '').slice(0, 60),
+                    destination: (r.destination || '').slice(0, 60),
+                    firstName: firstName || 'Kunde',
+                    price: r.price || null,
+                    status: st
+                };
+            });
+            // Alten Snapshot lesen und mergen (löschen was nicht mehr da ist)
+            const oldSnap = await db.ref('publicPickups').once('value');
+            const old = oldSnap.val() || {};
+            const writes = {};
+            let added = 0, removed = 0, updated = 0;
+            for (const rid of Object.keys(nowPublic)) {
+                if (!old[rid]) { added++; }
+                else if (JSON.stringify(old[rid]) !== JSON.stringify(nowPublic[rid])) { updated++; }
+                writes[`publicPickups/${rid}`] = nowPublic[rid];
+            }
+            for (const rid of Object.keys(old)) {
+                if (!nowPublic[rid]) { writes[`publicPickups/${rid}`] = null; removed++; }
+            }
+            if (Object.keys(writes).length > 0) {
+                await db.ref().update(writes);
+            }
+            console.log(`📍 v6.63.969 publicPickups sync: ${Object.keys(nowPublic).length} offen (+${added} -${removed} ~${updated})`);
+        } catch (e) {
+            console.error('❌ scheduledPublicPickupsSync Fehler:', e.message);
         }
     }
 );

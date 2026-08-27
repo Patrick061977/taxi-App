@@ -192,24 +192,31 @@ function haversineKm(a, b) {
 
 async function loadPickups() {
     try {
-        // Firebase REST mit orderBy/startAt/endAt — Index auf pickupTimestamp existiert
+        // v6.63.969: /publicPickups statt /rides mit orderBy.
+        //   /rides ist auth != null → WebView ohne SDK bekommt Permission-denied.
+        //   /publicPickups ist ein schmaler Cloud-gepflegter Node (public read),
+        //   enthaelt nur die fuer die Karte notwendigen Felder.
         const now = Date.now();
-        const startAt = now - 5 * 60000;
-        const endAt = now + 30 * 60000;
-        const url = `${DB_BASE}/rides.json?orderBy="pickupTimestamp"&startAt=${startAt}&endAt=${endAt}`;
-        const resp = await fetch(url);
+        const resp = await fetch(`${DB_BASE}/publicPickups.json`);
         if (!resp.ok) throw new Error('HTTP ' + resp.status);
-        const rides = await resp.json() || {};
-        // Filter: offen (wartepool ODER kein Fahrzeug + status new/vorbestellt/open) + Coords vorhanden
+        const pickups = await resp.json() || {};
+        // Filter: nur Pickups in den naechsten 30 Min (Cloud liefert 60 Min-Fenster)
         const openPickups = [];
-        for (const rid in rides) {
-            const r = rides[rid];
-            if (!r || r.pickupLat == null || r.pickupLon == null) continue;
-            const st = (r.status || '').toLowerCase();
-            const veh = r.assignedVehicle || r.vehicleId;
-            const isOpen = st === 'wartepool' || (!veh && ['new','vorbestellt','open'].includes(st));
-            if (!isOpen) continue;
-            openPickups.push({ id: rid, ...r });
+        for (const rid in pickups) {
+            const p = pickups[rid];
+            if (!p || p.pickupLat == null || p.pickupLon == null) continue;
+            const ts = p.pickupTs || 0;
+            if (ts < now - 5*60000 || ts > now + 30*60000) continue;
+            openPickups.push({
+                id: rid,
+                pickupLat: p.pickupLat,
+                pickupLon: p.pickupLon,
+                pickupTimestamp: ts,
+                pickup: p.pickup,
+                destination: p.destination,
+                customerName: p.firstName,
+                price: p.price
+            });
         }
         // Eigene GPS-Position fuer Match-Check
         const myVeh = _vehicles[MY_VEHICLE];

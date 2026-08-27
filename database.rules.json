@@ -16,6 +16,12 @@
       ".indexOn": ["pickupTimestamp", "status", "vehicleId", "completedAt", "createdAt", "customerId"]
     },
 
+    "publicPickups": {
+      ".read": true,
+      ".write": "auth != null",
+      ".indexOn": ["pickupTs"]
+    },
+
     "archiveRides": {
       ".read": "auth != null",
       ".write": "auth != null",

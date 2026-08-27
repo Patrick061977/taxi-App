@@ -7,7 +7,7 @@
  */
 
 // 🆕 v6.25.5: Cloud Function Version — wird in Firebase gespeichert für App-Anzeige
-const CLOUD_FUNCTIONS_VERSION = '6.63.975';
+const CLOUD_FUNCTIONS_VERSION = '6.63.976';
 const CLOUD_FUNCTIONS_BUILD = '27.08.2026 CET';
 
 const { onRequest } = require('firebase-functions/v2/https');
@@ -24566,7 +24566,12 @@ exports.scheduledPublicPickupsSync = onSchedule(
                 const st = (r.status || '').toLowerCase();
                 const veh = r.assignedVehicle || r.vehicleId;
                 const isOpen = st === 'wartepool' || (!veh && ['new', 'vorbestellt', 'open'].includes(st));
-                if (!isOpen) return;
+                // 🆕 v6.63.976 (Patrick 27.08. Bridge '21:30 in native app'):
+                //   assigned/accepted Rides mit Vehicle ebenfalls schreiben. Client filtert
+                //   client-side auf MY_VEHICLE, damit Fahrer seine eigenen kommenden Pickups
+                //   sieht. Ausgeschlossen: picked_up/on_way (Fahrer schon unterwegs zum Gast).
+                const isAssigned = !!veh && ['assigned', 'accepted', 'vorbestellt', 'new'].includes(st);
+                if (!isOpen && !isAssigned) return;
                 if (r.pickupLat == null || r.pickupLon == null) return;
                 // Schmales Subset — nur Vorname statt Nachname, keine Telefonnummer
                 const fullName = (r.guestName || r.customerName || '').trim();
@@ -24579,7 +24584,8 @@ exports.scheduledPublicPickupsSync = onSchedule(
                     destination: (r.destination || '').slice(0, 60),
                     firstName: firstName || 'Kunde',
                     price: r.price || null,
-                    status: st
+                    status: st,
+                    assignedVehicle: veh || null  // v6.63.976: client filtert eigene
                 };
             });
             // Alten Snapshot lesen und mergen (löschen was nicht mehr da ist)

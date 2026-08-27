@@ -20,6 +20,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.widget.EditText;
+import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
 import android.widget.PopupMenu;
 import android.widget.TextView;
@@ -3024,6 +3025,17 @@ public class DriverDashboardActivity extends AppCompatActivity {
         btnDestPicker.setOnClickListener(v -> launchMapPickerFor(etDest, einsteigerDestCoords));
         layout.addView(btnDestPicker);
 
+        // 🆕 v6.63.972 (Patrick 27.08. Bridge 'kannst du vielleicht bei Einsteiger auch
+        //   die Schnelladressen mit einfügen?'): Chip-Reihe mit Bahnhof/Flughafen/KH-Presets.
+        //   Analog CrmSearchActivity Z.6110ff (addGlobalQuickPicksRow).
+        addEinsteigerQuickPicksRow(layout, "🎯 Schnellauswahl Zielort", (label, addr, lat, lon) -> {
+            etDest.setText(addr);
+            einsteigerDestCoords[0] = lat;
+            einsteigerDestCoords[1] = lon;
+            einsteigerDestAddress = addr;
+            Toast.makeText(this, "🎯 " + label + " als Zielort übernommen", Toast.LENGTH_SHORT).show();
+        });
+
         // 🆕 v6.63.302 OnClickListener fuer btnSwap (oben deklariert)
         btnSwap.setOnClickListener(v -> {
             String _puText = etPickup.getText().toString();
@@ -5623,5 +5635,85 @@ public class DriverDashboardActivity extends AppCompatActivity {
             u.put("updatedAt", now);
             db.getReference("rides/" + rideId).updateChildren(u);
         });
+    }
+
+    // 🆕 v6.63.972 (Patrick 27.08. Bridge 'Schnelladressen bei Einsteiger'):
+    //   Portiert aus CrmSearchActivity.addGlobalQuickPicksRow (Z.6110).
+    //   Zeigt horizontal scrollbare Chip-Reihe mit Bahnhof/Flughafen/KH-Presets
+    //   aus /settings/quickPicks. Klick auf Chip liefert Label + Adresse + Coords.
+    private interface EinsteigerQuickPickHandler {
+        void onPicked(String label, String address, double lat, double lon);
+    }
+
+    private void addEinsteigerQuickPicksRow(LinearLayout container, String headerText, EinsteigerQuickPickHandler handler) {
+        int pad = (int) (getResources().getDisplayMetrics().density * 8);
+
+        TextView header = new TextView(this);
+        header.setText(headerText);
+        header.setTextSize(11);
+        header.setTextColor(0xFF64748B);
+        header.setPadding(0, pad / 2, 0, pad / 4);
+        container.addView(header);
+
+        HorizontalScrollView hsv = new HorizontalScrollView(this);
+        hsv.setHorizontalScrollBarEnabled(false);
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        hsv.addView(row);
+        LinearLayout.LayoutParams hsvLp = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        hsvLp.setMargins(0, 0, 0, pad);
+        hsv.setLayoutParams(hsvLp);
+        container.addView(hsv);
+
+        FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("settings/quickPicks")
+            .addListenerForSingleValueEvent(new com.google.firebase.database.ValueEventListener() {
+                @Override public void onDataChange(@NonNull com.google.firebase.database.DataSnapshot snap) {
+                    boolean rendered = false;
+                    if (snap.exists() && snap.getChildrenCount() > 0) {
+                        for (com.google.firebase.database.DataSnapshot child : snap.getChildren()) {
+                            String label = child.child("label").getValue(String.class);
+                            String address = child.child("address").getValue(String.class);
+                            Object lat = child.child("lat").getValue();
+                            Object lon = child.child("lon").getValue();
+                            if (label == null || address == null) continue;
+                            double dLat = (lat instanceof Number) ? ((Number) lat).doubleValue() : Double.NaN;
+                            double dLon = (lon instanceof Number) ? ((Number) lon).doubleValue() : Double.NaN;
+                            if (Double.isNaN(dLat) || Double.isNaN(dLon)) continue;
+                            addEinsteigerQuickPickChip(row, label, address, dLat, dLon, handler);
+                            rendered = true;
+                        }
+                    }
+                    if (!rendered) {
+                        // Fallback-Defaults (identisch mit CrmSearchActivity.Z.6150ff)
+                        addEinsteigerQuickPickChip(row, "🛫 Flughafen", "Flughafen Heringsdorf, 17419 Garz", 53.8785325, 14.1510213, handler);
+                        addEinsteigerQuickPickChip(row, "🚉 Bf Heringsdorf", "Heringsdorf, Bahnhof, Am Bahnhof, 17424 Heringsdorf", 53.949313, 14.169976, handler);
+                        addEinsteigerQuickPickChip(row, "🚉 Bf Ahlbeck", "Ahlbeck, Bahnhof, Bahnhofstraße, 17419 Ahlbeck", 53.935974, 14.188589, handler);
+                        addEinsteigerQuickPickChip(row, "🚉 Bf Bansin", "Bansin, Bahnhof, Bahnhofstraße, 17429 Bansin", 53.964391, 14.129031, handler);
+                        addEinsteigerQuickPickChip(row, "🏥 KH Wolgast", "Kreiskrankenhaus Wolgast, Chausseestraße 46, 17438 Wolgast", 54.052386, 13.765703, handler);
+                        addEinsteigerQuickPickChip(row, "🏥 UMG Greifswald", "Universitätsmedizin Greifswald, Fleischmannstraße 8, 17475 Greifswald", 54.088123, 13.402352, handler);
+                    }
+                }
+                @Override public void onCancelled(@NonNull com.google.firebase.database.DatabaseError err) {
+                    addEinsteigerQuickPickChip(row, "🛫 Flughafen", "Flughafen Heringsdorf, 17419 Garz", 53.8785325, 14.1510213, handler);
+                    addEinsteigerQuickPickChip(row, "🚉 Bf Heringsdorf", "Heringsdorf, Bahnhof, Am Bahnhof, 17424 Heringsdorf", 53.949313, 14.169976, handler);
+                }
+            });
+    }
+
+    private void addEinsteigerQuickPickChip(LinearLayout row, String label, String address, double lat, double lon, EinsteigerQuickPickHandler handler) {
+        int pad = (int) (getResources().getDisplayMetrics().density * 8);
+        TextView chip = new TextView(this);
+        chip.setText(label);
+        chip.setTextSize(13);
+        chip.setTextColor(0xFF0F172A);
+        chip.setBackgroundColor(0xFFF1F5F9);
+        chip.setPadding(pad + pad / 2, pad - 1, pad + pad / 2, pad - 1);
+        LinearLayout.LayoutParams chipLp = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        chipLp.setMargins(0, 0, pad / 2, 0);
+        chip.setLayoutParams(chipLp);
+        chip.setOnClickListener(v -> handler.onPicked(label, address, lat, lon));
+        row.addView(chip);
     }
 }

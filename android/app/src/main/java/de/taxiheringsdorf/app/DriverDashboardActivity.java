@@ -3269,9 +3269,16 @@ public class DriverDashboardActivity extends AppCompatActivity {
                         while ((line = br.readLine()) != null) sb.append(line);
                         br.close(); conn.disconnect();
                         String json = sb.toString();
-                        // Display-Name extrahieren
-                        int dispIdx = json.indexOf("\"display_name\":\"");
-                        String display = (dispIdx >= 0) ? json.substring(dispIdx + 16, json.indexOf("\"", dispIdx + 16)) : ("" + fLat + ", " + fLon);
+                        // 🆕 v6.63.973 (Patrick 27.08. Bridge 'die ganz lange Sache rausnehmen —
+                        //   Deutschland, Mecklenburg-Vorpommern muss da nicht rein'):
+                        //   Kompaktes Format 'Straße Hausnr, PLZ Ort' aus address-Objekt
+                        //   statt display_name (der hat Bundesland + Deutschland dran).
+                        String display = extractCompactAddress(json);
+                        if (display == null || display.isEmpty()) {
+                            // Fallback auf display_name wenn address-Objekt nicht parsebar
+                            int dispIdx = json.indexOf("\"display_name\":\"");
+                            display = (dispIdx >= 0) ? json.substring(dispIdx + 16, json.indexOf("\"", dispIdx + 16)) : ("" + fLat + ", " + fLon);
+                        }
                         // Umlaut-Decode
                         display = display.replace("\\u00e4","ä").replace("\\u00f6","ö").replace("\\u00fc","ü").replace("\\u00df","ß").replace("\\u00c4","Ä").replace("\\u00d6","Ö").replace("\\u00dc","Ü");
                         cb.onResult(display, fLat, fLon);
@@ -5635,6 +5642,54 @@ public class DriverDashboardActivity extends AppCompatActivity {
             u.put("updatedAt", now);
             db.getReference("rides/" + rideId).updateChildren(u);
         });
+    }
+
+    // 🆕 v6.63.973 (Patrick 27.08. Bridge 'die ganz lange Sache rausnehmen'):
+    //   Aus Nominatim-JSON kompaktes 'Straße Hausnr, PLZ Ort' bauen — ohne
+    //   Bundesland/Deutschland/etc. Wird sowohl bei Reverse-Geocode als auch
+    //   bei Search verwendet.
+    private String extractCompactAddress(String json) {
+        int addrStart = json.indexOf("\"address\":{");
+        if (addrStart < 0) return null;
+        int addrEnd = json.indexOf("}", addrStart);
+        if (addrEnd < 0) return null;
+        String addr = json.substring(addrStart + 11, addrEnd);
+
+        String road = extractJsonString(addr, "road");
+        if (road == null) road = extractJsonString(addr, "pedestrian");
+        if (road == null) road = extractJsonString(addr, "footway");
+        String houseNumber = extractJsonString(addr, "house_number");
+        String postcode = extractJsonString(addr, "postcode");
+        String city = extractJsonString(addr, "city");
+        if (city == null) city = extractJsonString(addr, "town");
+        if (city == null) city = extractJsonString(addr, "village");
+        if (city == null) city = extractJsonString(addr, "hamlet");
+        if (city == null) city = extractJsonString(addr, "municipality");
+        if (city == null) city = extractJsonString(addr, "suburb");
+
+        StringBuilder sb = new StringBuilder();
+        if (road != null) {
+            sb.append(road);
+            if (houseNumber != null) sb.append(" ").append(houseNumber);
+        }
+        if (postcode != null || city != null) {
+            if (sb.length() > 0) sb.append(", ");
+            if (postcode != null) sb.append(postcode);
+            if (city != null) {
+                if (postcode != null) sb.append(" ");
+                sb.append(city);
+            }
+        }
+        return sb.length() > 0 ? sb.toString() : null;
+    }
+
+    private String extractJsonString(String json, String key) {
+        int idx = json.indexOf("\"" + key + "\":\"");
+        if (idx < 0) return null;
+        int start = idx + key.length() + 4;
+        int end = json.indexOf("\"", start);
+        if (end < 0) return null;
+        return json.substring(start, end);
     }
 
     // 🆕 v6.63.972 (Patrick 27.08. Bridge 'Schnelladressen bei Einsteiger'):

@@ -7,7 +7,7 @@
  */
 
 // 🆕 v6.25.5: Cloud Function Version — wird in Firebase gespeichert für App-Anzeige
-const CLOUD_FUNCTIONS_VERSION = '6.63.974';
+const CLOUD_FUNCTIONS_VERSION = '6.63.975';
 const CLOUD_FUNCTIONS_BUILD = '27.08.2026 CET';
 
 const { onRequest } = require('firebase-functions/v2/https');
@@ -24553,7 +24553,10 @@ exports.scheduledPublicPickupsSync = onSchedule(
     async (event) => {
         try {
             const now = Date.now();
-            const windowMs = 60 * 60 * 1000; // Pickup in nächsten 60 Min (Karten-Nutzer sollen etwas Vorlauf sehen)
+            // v6.63.975 (Patrick 27.08. Bridge '21:30 in native app aber ich sehe die Fahrt nicht'):
+            //   Fenster von 60 Min auf 90 Min erhöht — dann sieht Patrick 21:30-Fahrten bereits
+            //   ab 20:00, nicht erst ab 20:30.
+            const windowMs = 90 * 60 * 1000;
             const ridesSnap = await db.ref('rides').orderByChild('pickupTimestamp')
                 .startAt(now - 5 * 60000).endAt(now + windowMs).once('value');
             const nowPublic = {};

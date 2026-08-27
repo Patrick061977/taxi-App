@@ -29,6 +29,11 @@ html, body { width: 100%; height: 100%; font-family: -apple-system, "Segoe UI", 
 .taxi-icon { width: 36px; height: 36px; border-radius: 50%; border: 3px solid white; display: flex; align-items: center; justify-content: center; font-size: 18px; box-shadow: 0 2px 6px rgba(0,0,0,0.35); }
 .taxi-icon.me { box-shadow: 0 0 0 3px #fbbf24, 0 2px 6px rgba(0,0,0,0.35); }
 .taxi-label { background: rgba(0,0,0,0.78); color: white; font-size: 10px; font-weight: 700; padding: 2px 5px; border-radius: 3px; margin-top: 2px; white-space: nowrap; }
+/* v6.63.968: Pickup-Termine-Layer */
+.pickup-marker { display: flex; flex-direction: column; align-items: center; }
+.pickup-icon { width: 30px; height: 30px; border-radius: 50%; border: 2px solid white; display: flex; align-items: center; justify-content: center; font-size: 14px; box-shadow: 0 2px 5px rgba(0,0,0,0.3); }
+.pickup-icon.match { border: 3px solid #fbbf24; box-shadow: 0 0 8px #fbbf24, 0 2px 5px rgba(0,0,0,0.3); }
+.pickup-label { background: rgba(0,0,0,0.78); color: white; font-size: 10px; font-weight: 700; padding: 1px 4px; border-radius: 3px; margin-top: 2px; white-space: nowrap; }
 </style>
 </head>
 <body>
@@ -48,6 +53,10 @@ html, body { width: 100%; height: 100%; font-family: -apple-system, "Segoe UI", 
     <div><span class="dot" style="background:#06b6d4"></span> Unterwegs</div>
     <div><span class="dot" style="background:#ef4444"></span> Besetzt</div>
     <div><span class="dot me" style="background:#22c55e"></span> Du</div>
+    <div style="border-top:1px solid rgba(255,255,255,0.2);margin-top:6px;padding-top:4px;">
+        <div><span class="dot" style="background:#22c55e;border:2px solid white;">📍</span> Offene Fahrt &lt;30 Min</div>
+        <div><span class="dot" style="background:#22c55e;border:2px solid #fbbf24;">⭐</span> Nah bei dir (Grab!)</div>
+    </div>
 </div>
 
 <script src="/vendor/leaflet/leaflet.js"></script>
@@ -167,15 +176,109 @@ function render() {
 function showError(msg) {
     document.getElementById('loading').innerHTML = '⚠️ ' + msg + '<br><small>(automatisch erneut versucht)</small>';
 }
+
+// v6.63.968 (Patrick 27.08. Bridge 'nix admin native'): Termine-Layer.
+//   Zeigt offene Wartepool-/Vorbestellungs-Fahrten der naechsten 30 Min als Pins
+//   auf der Fahrer-Karte. Goldener Ring wenn Fahrer <1 km entfernt (Grab-Signal).
+const pickupMarkers = {};
+
+function haversineKm(a, b) {
+    const R = 6371;
+    const dLat = (b.lat - a.lat) * Math.PI / 180;
+    const dLon = (b.lon - a.lon) * Math.PI / 180;
+    const aa = Math.sin(dLat/2)**2 + Math.cos(a.lat*Math.PI/180) * Math.cos(b.lat*Math.PI/180) * Math.sin(dLon/2)**2;
+    return R * 2 * Math.atan2(Math.sqrt(aa), Math.sqrt(1-aa));
+}
+
+async function loadPickups() {
+    try {
+        // Firebase REST mit orderBy/startAt/endAt — Index auf pickupTimestamp existiert
+        const now = Date.now();
+        const startAt = now - 5 * 60000;
+        const endAt = now + 30 * 60000;
+        const url = `${DB_BASE}/rides.json?orderBy="pickupTimestamp"&startAt=${startAt}&endAt=${endAt}`;
+        const resp = await fetch(url);
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        const rides = await resp.json() || {};
+        // Filter: offen (wartepool ODER kein Fahrzeug + status new/vorbestellt/open) + Coords vorhanden
+        const openPickups = [];
+        for (const rid in rides) {
+            const r = rides[rid];
+            if (!r || r.pickupLat == null || r.pickupLon == null) continue;
+            const st = (r.status || '').toLowerCase();
+            const veh = r.assignedVehicle || r.vehicleId;
+            const isOpen = st === 'wartepool' || (!veh && ['new','vorbestellt','open'].includes(st));
+            if (!isOpen) continue;
+            openPickups.push({ id: rid, ...r });
+        }
+        // Eigene GPS-Position fuer Match-Check
+        const myVeh = _vehicles[MY_VEHICLE];
+        const myLat = myVeh?.lat;
+        const myLon = myVeh?.lon;
+        // Marker rendern
+        const seenIds = new Set();
+        for (const p of openPickups) {
+            seenIds.add(p.id);
+            const minToPickup = Math.round((p.pickupTimestamp - now) / 60000);
+            const timeStr = new Date(p.pickupTimestamp).toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'});
+            let isMatch = false;
+            let distKm = null;
+            if (myLat != null && myLon != null) {
+                distKm = haversineKm({lat: myLat, lon: myLon}, {lat: Number(p.pickupLat), lon: Number(p.pickupLon)});
+                if (distKm <= 1.0) isMatch = true;
+            }
+            const cust = p.customerName || p.guestName || 'Kunde';
+            const matchCls = isMatch ? ' match' : '';
+            const emoji = isMatch ? '⭐' : '📍';
+            const html = `<div class="pickup-marker">
+                <div class="pickup-icon${matchCls}" style="background:#22c55e">${emoji}</div>
+                <div class="pickup-label">${timeStr}</div>
+            </div>`;
+            const icon = L.divIcon({ html, className: 'pickup-marker-wrapper', iconSize: [50, 46], iconAnchor: [25, 15] });
+            const popupContent = `
+                <div style="min-width:180px;">
+                    <div style="font-weight:700;font-size:13px;margin-bottom:4px;">${emoji} ${cust} · ${timeStr}</div>
+                    <div style="font-size:11px;color:#666;margin-bottom:4px;">
+                        in ${minToPickup > 0 ? minToPickup + ' Min' : 'JETZT'}${distKm != null ? ' · ' + Math.round(distKm*1000) + ' m entfernt' : ''}
+                    </div>
+                    <div style="font-size:11px;line-height:1.4;">
+                        <div>📍 <b>Von:</b> ${(p.pickup || '?').slice(0,50)}</div>
+                        <div>🎯 <b>Nach:</b> ${(p.destination || '?').slice(0,50)}</div>
+                        ${p.price ? `<div style="color:#059669;margin-top:3px;">💰 ${p.price} €</div>` : ''}
+                    </div>
+                </div>
+            `;
+            if (pickupMarkers[p.id]) {
+                pickupMarkers[p.id].setLatLng([Number(p.pickupLat), Number(p.pickupLon)]);
+                pickupMarkers[p.id].setIcon(icon);
+                pickupMarkers[p.id].setPopupContent(popupContent);
+            } else {
+                pickupMarkers[p.id] = L.marker([Number(p.pickupLat), Number(p.pickupLon)], { icon, zIndexOffset: 500 })
+                    .bindPopup(popupContent)
+                    .addTo(map);
+            }
+        }
+        // Entfernte/nicht mehr offene Pickups löschen
+        for (const rid in pickupMarkers) {
+            if (!seenIds.has(rid)) {
+                map.removeLayer(pickupMarkers[rid]);
+                delete pickupMarkers[rid];
+            }
+        }
+    } catch (e) {
+        console.warn('Pickup-Layer Fehler:', e.message);
+    }
+}
+
 async function loadOnce() {
     try {
-        // v6.62.648: Patrick 18:04 'payload too large' — /rides ist riesig (~10MB+).
-        // Wir holen nur /vehicles fuer die Karte. Status-Farben werden via vehicle-eigene
-        // Flags abgeleitet (dispatchStatus + lastRideStatus wenn vorhanden, sonst 'frei').
+        // v6.62.648: /rides ist riesig — Vehicles ohne Filter, Pickups gefiltert per Timestamp.
         const veh = await dbGet('/vehicles');
         _vehicles = veh || {};
         _rides = {};  // bleibt leer — Status wird aus vehicle abgeleitet
         render();
+        // v6.63.968: gefilterter Pickup-Fetch (nur naechste 30 Min)
+        await loadPickups();
     } catch (e) {
         console.error('REST-Fetch err:', e);
         showError('Daten-Lade-Fehler: ' + e.message);

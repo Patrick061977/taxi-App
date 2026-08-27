@@ -7,7 +7,7 @@
  */
 
 // 🆕 v6.25.5: Cloud Function Version — wird in Firebase gespeichert für App-Anzeige
-const CLOUD_FUNCTIONS_VERSION = '6.63.969';
+const CLOUD_FUNCTIONS_VERSION = '6.63.971';
 const CLOUD_FUNCTIONS_BUILD = '27.08.2026 CET';
 
 const { onRequest } = require('firebase-functions/v2/https');
@@ -31967,13 +31967,35 @@ exports.onRideUpdated = onValueUpdated(
                     const _ba = _custData.billingAddresses.find(b => b && b.isDefault)
                         || _custData.billingAddresses[0];
                     if (_ba) {
-                        _billingName = (_ba.empfaengerName || _ba.label || '').trim();
+                        // 🐛 v6.63.971 (Patrick 27.08. Rechnung 20-26-2096 Hasbargen):
+                        //   `label` ist die interne Adress-KATEGORISIERUNG (Standard/Buero/Ferienhaus/Privat),
+                        //   NICHT der Empfaenger-Name. Bei Hasbargen: label="Standard" → "Standard" landete
+                        //   als Rechnungs-Anschrift statt "Mathias Hasbargen".
+                        //   Fix: label nur verwenden wenn er kein reservierter Kategorie-Bezeichner ist
+                        //   (Rueckwaertskompatibilitaet Pesch v6.62.812: sie hat label="Andrea Pesch" als
+                        //   Empfaenger-Name verwendet — das bleibt weiterhin lauffaehig).
+                        //   Sonst Fallback auf Kunden-Namen aus CRM-Root.
+                        const _reservedLabels = ['standard', 'privat', 'buero', 'büro', 'firma', 'ferienhaus', 'sonstige', 'zusatz', 'zweitwohnsitz', 'urlaub', 'default', 'main'];
+                        _billingName = (_ba.empfaengerName || '').trim();
+                        if (!_billingName && _ba.label) {
+                            const _labelLower = _ba.label.toLowerCase().trim();
+                            if (!_reservedLabels.includes(_labelLower)) {
+                                _billingName = _ba.label.trim();
+                            }
+                        }
+                        if (!_billingName) {
+                            // Fallback: CRM-Root-Namen (name ODER firstName + lastName)
+                            _billingName = (_custData.name || [_custData.firstName, _custData.lastName].filter(Boolean).join(' ')).trim();
+                        }
                         const _parts = [];
                         if (_ba.strasse) _parts.push(_ba.strasse + (_ba.adresszusatz ? ', ' + _ba.adresszusatz : ''));
                         const _plzOrt = [_ba.plz, _ba.ort].filter(Boolean).join(' ').trim();
                         if (_plzOrt) _parts.push(_plzOrt);
                         if (_ba.land && _ba.land.toLowerCase() !== 'deutschland') _parts.push(_ba.land);
                         _billingAddrStr = _parts.join(', ');
+                        // 🐛 v6.63.971: Wenn strasse/plz/ort leer aber .address gefuellt ist
+                        //   (aeltere CRM-Eintraege mit flachem address-Feld wie Hasbargen), diese nehmen.
+                        if (!_billingAddrStr && _ba.address) _billingAddrStr = _ba.address;
                     }
                 }
 

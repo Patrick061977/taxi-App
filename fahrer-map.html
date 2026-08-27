@@ -200,13 +200,16 @@ async function loadPickups() {
         const resp = await fetch(`${DB_BASE}/publicPickups.json`);
         if (!resp.ok) throw new Error('HTTP ' + resp.status);
         const pickups = await resp.json() || {};
-        // Filter: nur Pickups in den naechsten 30 Min (Cloud liefert 60 Min-Fenster)
+        // v6.63.975 (Patrick 27.08. Bridge '21:30 in native app aber ich sehe die Fahrt nicht'):
+        //   Fenster von 30 Min auf 90 Min erhöht — der Cloud-Sync schreibt bereits 60 Min Vorlauf,
+        //   und Patrick will 21:30-Fahrten auch schon um 20:00 auf der Karte sehen. 90 Min
+        //   deckt den Sync-Node vollständig ab + Puffer für nächsten Sync-Tick.
         const openPickups = [];
         for (const rid in pickups) {
             const p = pickups[rid];
             if (!p || p.pickupLat == null || p.pickupLon == null) continue;
             const ts = p.pickupTs || 0;
-            if (ts < now - 5*60000 || ts > now + 30*60000) continue;
+            if (ts < now - 5*60000 || ts > now + 90*60000) continue;
             openPickups.push({
                 id: rid,
                 pickupLat: p.pickupLat,

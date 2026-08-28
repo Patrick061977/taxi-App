@@ -25602,12 +25602,28 @@ exports.scheduledAutoAssign = onSchedule(
             // nach 1 Element. Das war der 3-Fahrten-Bug (1+1+1 von je drei Snapshots).
             const allRides = [];
             // 🆕 v6.63.236: clientseitig auf relevante Statuses filtern (statt 4 separate Queries)
+            // 🆕 v6.63.986 (Patrick 28.08. 12:xx Bridge "ride bleibt nach fehlgeschlagener
+            //   zuweisung im banner"): Cooldown-Filter — Rides die vor <15 Min per
+            //   scheduledPendingAcceptTimeout (v985) in den Wartepool gewandert sind
+            //   werden hier NICHT nochmal zugewiesen. Sie bleiben im Banner sichtbar
+            //   und Admin/Fahrer entscheidet manuell. Sonst dreht sich der Reassign-
+            //   Kreisel weiter (Marion 28.08.: assigned MY → offline → wartepool →
+            //   assigned YM → keine Chat-ID → wartepool → assigned MY → ... loop).
+            const _cooldownMs = 15 * 60 * 1000;
+            let _cooldownSkipped = 0;
             ridesWindowSnap.forEach(c => {
                 const r = c.val();
                 if (r && _RELEVANT_STATUSES.has(r.status)) {
+                    if (r._pendingAcceptTimeoutAt && (now - Number(r._pendingAcceptTimeoutAt)) < _cooldownMs) {
+                        _cooldownSkipped++;
+                        return; // skip — bleibt im Wartepool sichtbar, keine erneute Zuweisung
+                    }
                     allRides.push({ ...r, firebaseId: c.key });
                 }
             });
+            if (_cooldownSkipped > 0) {
+                console.log(`⏸️ v6.63.986 Cooldown: ${_cooldownSkipped} Ride(s) bleiben im Wartepool (pending-accept-timeout <15 Min alt)`);
+            }
 
             // 🆕 v6.63.009 (Patrick 29.05. 16:40 'Wagscher 5-Tags-Alarm'): pickupTimestamp-Watchdog.
             //   Symptom: ride hatte pickupDate='2026-05-28' + pickupTime='17:00' aber pickupTimestamp

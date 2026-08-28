@@ -1258,6 +1258,21 @@ async function autoAssignRide(rideId, rideData, _excludeVehicleIds = []) {
         await _persistEarlyReturn('einsteiger-skip', 'Einsteiger-Fahrt vom Fahrer-Dashboard');
         return null;
     }
+    // 🆕 v6.63.987 (Patrick 28.08. Klaus-Schulze-Log): Cooldown auch in autoAssignRide
+    //   selbst — nicht nur in scheduledAutoAssign. onRideUpdated ruft autoAssignRide
+    //   direkt auf (Wartepool-Sofort-Assign), scheduledOpenRideCheck triggerte den
+    //   Reassign-Kreisel (IK abgelehnt → YM → keine Chat-ID → wartepool → IK → ...).
+    //   v985 setzt _pendingAcceptTimeoutAt — dieser Guard verhindert JEDEN Reassign
+    //   dieser Ride innerhalb von 15 Min, egal welcher Trigger.
+    if (rideData._pendingAcceptTimeoutAt) {
+        const _cdAgeMs = Date.now() - Number(rideData._pendingAcceptTimeoutAt);
+        if (_cdAgeMs < 15 * 60 * 1000) {
+            const _cdMinLeft = Math.ceil((15 * 60 * 1000 - _cdAgeMs) / 60000);
+            console.log(`   ⏸️ v6.63.987 Cooldown: ${rideId} — pending-accept-timeout vor ${Math.round(_cdAgeMs/60000)} Min, ${_cdMinLeft} Min noch Cooldown`);
+            await _persistEarlyReturn('pending-accept-cooldown', `${_cdMinLeft} Min Cooldown-Rest`);
+            return null;
+        }
+    }
     // 🆕 v6.63.377 (Patrick 17.06. 09:10 Bridge "ja" zu Komplett-Diagnose):
     //   Helper für return-null-Trace. Jede return-null-Stelle pusht ein
     //   debugLogs/autoassign Event mit stage-Marker damit Patrick endlich

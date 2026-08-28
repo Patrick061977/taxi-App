@@ -42657,6 +42657,49 @@ exports.onRideEnteredWartepool = onValueUpdated(
             msg += `Optionen:\n`;
             msg += options.map((o, i) => `[${String.fromCharCode(65 + i)}] ${o}`).join('\n');
 
+            // 🆕 v6.63.981 (Patrick 26.08. 08:18): Realitäts-Check — schafft irgendein Fahrer
+            //   den Pickup rechtzeitig? Wenn ja: sofort sichtbar wer's schafft. Wenn nein:
+            //   Klare Empfehlung zum Absagen — Patrick weiß dann ob er selbst ran muss.
+            try {
+                const vehSnap = await db.ref('vehicles').once('value');
+                const vehs = vehSnap.val() || {};
+                const nowMs = Date.now();
+                const pickupMs = Number(after.pickupTimestamp) || nowMs;
+                const minutesUntilPickup = Math.round((pickupMs - nowMs) / 60000);
+                const pLat = parseFloat(after.pickupLat), pLon = parseFloat(after.pickupLon);
+                if (!isNaN(pLat) && !isNaN(pLon)) {
+                    const realists = [];
+                    for (const [vid, v] of Object.entries(vehs)) {
+                        if (!v || v.online !== true) continue;
+                        const vLat = parseFloat(v.lat), vLon = parseFloat(v.lon);
+                        if (isNaN(vLat) || isNaN(vLon)) continue;
+                        const gpsAgeMin = v.lastUpdate ? (nowMs - v.lastUpdate) / 60000 : 999;
+                        if (gpsAgeMin > 15) continue;
+                        const km = haversineKm({ lat: pLat, lon: pLon }, { lat: vLat, lon: vLon });
+                        const etaMin = Math.round(km * 1.5); // ~40 km/h Landstraße
+                        const arrivalTs = nowMs + etaMin * 60000;
+                        const canMakeIt = arrivalTs <= pickupMs + 10 * 60000; // 10 Min Puffer
+                        realists.push({ vid, km: Math.round(km), etaMin, canMakeIt });
+                    }
+                    realists.sort((a, b) => a.km - b.km);
+                    const makers = realists.filter(r => r.canMakeIt);
+                    msg += `\n\n🎯 Realitäts-Check (${minutesUntilPickup >= 0 ? 'in ' + minutesUntilPickup + ' Min' : Math.abs(minutesUntilPickup) + ' Min überfällig'}):\n`;
+                    if (realists.length === 0) {
+                        msg += `  ❌ Kein Online-Fahrzeug mit frischem GPS`;
+                    } else if (makers.length === 0) {
+                        msg += `  ⚠️ KEIN Fahrer schafft Pickup rechtzeitig!\n`;
+                        msg += `  Nächster: ${realists[0].vid} (${realists[0].km} km, ~${realists[0].etaMin} Min)\n`;
+                        msg += `  → Kunde absagen oder Zeit verschieben`;
+                    } else {
+                        msg += `  ✅ ${makers.length} Fahrer schafft es:\n`;
+                        msg += makers.slice(0, 3).map(r => `  ${r.vid}: ${r.km} km · ~${r.etaMin} Min`).join('\n');
+                        if (makers.length > 3) msg += `\n  … +${makers.length - 3} weitere`;
+                    }
+                }
+            } catch (_realErr) {
+                console.error('v981 Realitäts-Check Fehler:', _realErr.message);
+            }
+
             const _bridgeTs = Date.now();
             await db.ref('claudeBridge/outbox/' + _bridgeTs).set({
                 message: msg,

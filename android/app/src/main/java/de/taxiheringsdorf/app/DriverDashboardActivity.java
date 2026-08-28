@@ -1981,62 +1981,100 @@ public class DriverDashboardActivity extends AppCompatActivity {
         java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("EE dd.MM. HH:mm", java.util.Locale.GERMANY);
         sdf.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
         String timeStr = ride.pickupTimestamp != null ? sdf.format(new java.util.Date(ride.pickupTimestamp)) : "?";
-        String msg = "Fahrt übernehmen?\n\n"
-            + "👤 " + (ride.customerName != null ? ride.customerName : "Unbekannt") + "\n"
+
+        final long _pickupTs = ride.pickupTimestamp != null ? ride.pickupTimestamp : 0;
+        final long _overdueMin = _pickupTs > 0 ? (System.currentTimeMillis() - _pickupTs) / 60000 : 0;
+        final boolean _isOverdue = _overdueMin > 15;
+        // 🆕 v6.63.994 (Patrick 28.08. 16:28): Farbliche Unterscheidung.
+        //   Wartepool-Status = ORANGE (kritisch, wartet auf manuelle Aktion).
+        //   Nicht-wartepool (new ohne Vehicle) = ORANGE aber weniger dringend.
+        //   Später v995: bei _allDriversTried=true zusaetzlich ROT.
+        final boolean _isWartepool = "wartepool".equalsIgnoreCase(ride.status);
+        String _titleIcon = _isWartepool ? "🚨" : "🚕";
+        String _titleColor = _isWartepool ? " · WARTEPOOL" : "";
+        final boolean _isAllTried = _isWartepool; // fuer Farb-Wahl unten
+        String _titleAdd = _isOverdue ? "  ⏰ " + _overdueMin + " Min überfällig" : "";
+
+        String msg = "👤 " + (ride.customerName != null ? ride.customerName : "Unbekannt") + "\n"
             + "⏰ " + timeStr + "\n"
             + "📍 " + (ride.pickup != null ? ride.pickup : "?") + "\n"
             + "🎯 " + (ride.destination != null ? ride.destination : "?") + "\n"
             + (ride.passengers != null ? "👥 " + ride.passengers + " Person(en)\n" : "")
-            + (ride.price != null ? "💰 ca. " + ride.price + " €\n" : "");
-        // v6.63.684 (Patrick 11.07. 10:50 Bridge: "9:40 Uhr, jetzt 10:50, ich will die
-        //   Fahrt als erledigt markieren nicht übernehmen"): Wenn Pickup schon länger
-        //   überfällig ist, brauche eine dritte Option '✔ Erledigt' die die Fahrt einfach
-        //   auf completed setzt (Fahrer hat sie offline abgewickelt / Kunde storniert
-        //   telefonisch / nicht mehr relevant).
-        final long _pickupTs = ride.pickupTimestamp != null ? ride.pickupTimestamp : 0;
-        final long _overdueMin = _pickupTs > 0 ? (System.currentTimeMillis() - _pickupTs) / 60000 : 0;
-        final boolean _isOverdue = _overdueMin > 15;
-        String _titleAdd = _isOverdue ? "  ⏰ " + _overdueMin + " Min überfällig" : "";
+            + (ride.price != null ? "💰 ca. " + ride.price + " €\n" : "")
+            + (ride.wartepoolReason != null ? "\n💡 " + ride.wartepoolReason : "");
 
-        android.app.AlertDialog.Builder builder = new android.app.AlertDialog.Builder(this)
-            .setTitle("🚕 Fahrt ohne Fahrer" + _titleAdd)
-            .setMessage(msg)
-            .setPositiveButton("✅ Übernehmen", (d, w) -> {
-                String _myVid = currentVehicleId;
-                if (_myVid == null || _myVid.isEmpty()) {
-                    android.widget.Toast.makeText(this, "⚠️ Kein Fahrzeug zugewiesen", android.widget.Toast.LENGTH_SHORT).show();
-                    return;
-                }
-                Map<String, Object> u = new HashMap<>();
-                u.put("status", "accepted");
-                u.put("vehicleId", _myVid);
-                u.put("assignedVehicle", _myVid);
-                u.put("assignedTo", _myVid);
-                u.put("assignedAt", System.currentTimeMillis());
-                u.put("assignedBy", "native_dashboard_grab");
-                u.put("acceptedAt", System.currentTimeMillis());
-                u.put("acceptedVia", "native_wartepool_banner");
-                u.put("acceptedByVehicle", _myVid);
-                u.put("updatedAt", System.currentTimeMillis());
-                u.put("wartepoolReason", null);
-                u.put("wartepoolAt", null);
-                db.getReference("rides/" + ride.id).updateChildren(u);
-                logLifecycleTap(ride.id, "✅", "Banner-Tap: Fahrt übernommen (wartepool/new → accepted)", "accepted");
-                // 🆕 v6.63.781 (Patrick 22.07. Bridge "wenn ich die fahrt aus dem banner
-                //   uebernehme geht der ton nicht aus"): Sound + alle offenen Push-
-                //   Notifications sofort killen, auch beim Wartepool-Banner-Tap. v6.63.777
-                //   deckte nur Notification-Buttons + Push-Body + Vollbild-Alarm ab.
-                try { AlertSoundService.stop(this); } catch (Throwable _t) {}
-                try {
-                    android.app.NotificationManager _nnm = (android.app.NotificationManager)
-                        getSystemService(Context.NOTIFICATION_SERVICE);
-                    if (_nnm != null) _nnm.cancelAll();
-                } catch (Throwable _t) {}
-                android.widget.Toast.makeText(this, "✓ Fahrt übernommen!", android.widget.Toast.LENGTH_LONG).show();
-            });
-        // Bei überfälligen Fahrten: '✔ Erledigt'-Option statt Abbrechen
+        // v6.63.994: Choice-Liste statt max-3-Buttons — Patrick will Übernehmen +
+        //   Bearbeiten (Zeit verschieben) + Fahrt stornieren + Abbrechen.
+        final java.util.List<String> _labels = new java.util.ArrayList<>();
+        final java.util.List<Runnable> _actions = new java.util.ArrayList<>();
+
+        _labels.add("✅ Übernehmen (mir zuweisen)");
+        _actions.add(() -> {
+            String _myVid = currentVehicleId;
+            if (_myVid == null || _myVid.isEmpty()) {
+                android.widget.Toast.makeText(this, "⚠️ Kein Fahrzeug zugewiesen", android.widget.Toast.LENGTH_SHORT).show();
+                return;
+            }
+            Map<String, Object> u = new HashMap<>();
+            u.put("status", "accepted");
+            u.put("vehicleId", _myVid);
+            u.put("assignedVehicle", _myVid);
+            u.put("assignedTo", _myVid);
+            u.put("assignedAt", System.currentTimeMillis());
+            u.put("assignedBy", "native_dashboard_grab");
+            u.put("acceptedAt", System.currentTimeMillis());
+            u.put("acceptedVia", "native_wartepool_banner");
+            u.put("acceptedByVehicle", _myVid);
+            u.put("updatedAt", System.currentTimeMillis());
+            u.put("wartepoolReason", null);
+            u.put("wartepoolAt", null);
+            // 🆕 v6.63.994: Manueller Grab löscht v989-Lock damit Ride wieder normal
+            //   im System läuft (nicht ewig als _allDriversTried gelockt).
+            u.put("_allDriversTried", null);
+            u.put("_pendingAcceptTimeoutAt", null);
+            u.put("rejectedVehicles", null);
+            db.getReference("rides/" + ride.id).updateChildren(u);
+            logLifecycleTap(ride.id, "✅", "Banner-Tap: Fahrt übernommen (wartepool → accepted)", "accepted");
+            try { AlertSoundService.stop(this); } catch (Throwable _t) {}
+            try {
+                android.app.NotificationManager _nnm = (android.app.NotificationManager)
+                    getSystemService(Context.NOTIFICATION_SERVICE);
+                if (_nnm != null) _nnm.cancelAll();
+            } catch (Throwable _t) {}
+            android.widget.Toast.makeText(this, "✓ Fahrt übernommen!", android.widget.Toast.LENGTH_LONG).show();
+        });
+
+        // v6.63.994: Bearbeiten öffnet den Wartepool-Resolver-Dialog (SeekBar zum Zeit-Verschieben).
+        _labels.add("✏️ Bearbeiten (Zeit verschieben)");
+        _actions.add(() -> showWartepoolResolverDialog(ride));
+
+        // v6.63.994: Fahrt stornieren — status='cancelled' + Grund
+        _labels.add("❌ Fahrt stornieren");
+        _actions.add(() -> {
+            new android.app.AlertDialog.Builder(this)
+                .setTitle("Fahrt stornieren?")
+                .setMessage("Kunde: " + (ride.customerName != null ? ride.customerName : "?") + "\n\nSicher stornieren?")
+                .setPositiveButton("Ja, stornieren", (_d2, _w2) -> {
+                    Map<String, Object> u = new HashMap<>();
+                    u.put("status", "cancelled");
+                    u.put("cancelledAt", System.currentTimeMillis());
+                    u.put("cancelledBy", "native_wartepool_banner");
+                    u.put("cancelReason", "Storno via Wartepool-Banner");
+                    u.put("updatedAt", System.currentTimeMillis());
+                    u.put("_allDriversTried", null);
+                    u.put("_pendingAcceptTimeoutAt", null);
+                    db.getReference("rides/" + ride.id).updateChildren(u);
+                    logLifecycleTap(ride.id, "❌", "Wartepool-Banner: Fahrt storniert", "cancelled");
+                    android.widget.Toast.makeText(this, "❌ Fahrt storniert.", android.widget.Toast.LENGTH_LONG).show();
+                })
+                .setNegativeButton("Zurück", null)
+                .show();
+        });
+
+        // Bei überfälligen Fahrten: zusätzlich '✔ Erledigt' (offline abgewickelt)
         if (_isOverdue) {
-            builder.setNeutralButton("✔ Erledigt (schließen)", (d, w) -> {
+            _labels.add("✔ Als erledigt markieren");
+            _actions.add(() -> {
                 Map<String, Object> u = new HashMap<>();
                 u.put("status", "completed");
                 u.put("completedAt", System.currentTimeMillis());
@@ -2045,12 +2083,40 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 u.put("wartepoolReason", null);
                 u.put("wartepoolAt", null);
                 u.put("_erledigtOhneFahrer", true);
+                u.put("_allDriversTried", null);
                 db.getReference("rides/" + ride.id).updateChildren(u);
-                logLifecycleTap(ride.id, "✔", "Wartepool-Banner: als erledigt markiert (kein Fahrer, überfällig)", "completed");
+                logLifecycleTap(ride.id, "✔", "Wartepool-Banner: als erledigt markiert", "completed");
                 android.widget.Toast.makeText(this, "✔ Fahrt als erledigt markiert.", android.widget.Toast.LENGTH_LONG).show();
             });
         }
-        builder.setNegativeButton("Abbrechen", null).show();
+
+        // Custom-Title-View mit Titel + Info-Body (AlertDialog erlaubt entweder
+        // setTitle+setMessage oder setCustomTitle+setItems — kombiniert nicht).
+        android.widget.LinearLayout titleBox = new android.widget.LinearLayout(this);
+        titleBox.setOrientation(android.widget.LinearLayout.VERTICAL);
+        int _pad = (int) (16 * getResources().getDisplayMetrics().density);
+        titleBox.setPadding(_pad, _pad, _pad, _pad / 2);
+        titleBox.setBackgroundColor(_isAllTried ? 0xFFFEE2E2 : 0xFFFFEDD5);
+        android.widget.TextView titleTv = new android.widget.TextView(this);
+        titleTv.setText(_titleIcon + " Fahrt" + _titleColor + _titleAdd);
+        titleTv.setTextColor(_isAllTried ? 0xFF991B1B : 0xFF9A3412);
+        titleTv.setTextSize(16);
+        titleTv.setTypeface(null, android.graphics.Typeface.BOLD);
+        titleBox.addView(titleTv);
+        android.widget.TextView bodyTv = new android.widget.TextView(this);
+        bodyTv.setText(msg);
+        bodyTv.setTextColor(0xFF0F172A);
+        bodyTv.setTextSize(13);
+        bodyTv.setPadding(0, _pad / 2, 0, 0);
+        titleBox.addView(bodyTv);
+
+        new android.app.AlertDialog.Builder(this)
+            .setCustomTitle(titleBox)
+            .setItems(_labels.toArray(new String[0]), (d, which) -> {
+                if (which >= 0 && which < _actions.size()) _actions.get(which).run();
+            })
+            .setNegativeButton("Abbrechen", null)
+            .show();
     }
 
     // v6.63.342 (Patrick 15.06. 06:02 'System soll Konflikte selber abarbeiten +

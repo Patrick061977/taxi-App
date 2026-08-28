@@ -210,11 +210,15 @@ async function loadPickups() {
             if (!p || p.pickupLat == null || p.pickupLon == null) continue;
             const ts = p.pickupTs || 0;
             if (ts < now - 5*60000 || ts > now + 90*60000) continue;
-            // 🆕 v6.63.976: assignedVehicle-Filter — fremde assigned Fahrten ausblenden,
-            //   eigene als "mine" markieren fuer blaue Pins.
+            // 🆕 v6.63.980 (Patrick 28.08. Logik-Fehler): assigned-aber-noch-NICHT-
+            //   angenommene Rides sind fuer ALLE sichtbar (gelber Pin), damit anderer
+            //   Fahrer sie grabben kann falls Zugeteilter nicht reagiert. Erst wenn
+            //   acceptedAt gesetzt ist → Filter auf MY_VEHICLE (blauer Pin).
+            const isNotYetAccepted = !p.acceptedAt;
             const isAssignedToOther = p.assignedVehicle && p.assignedVehicle !== MY_VEHICLE;
-            if (isAssignedToOther) continue;
             const isMine = p.assignedVehicle && p.assignedVehicle === MY_VEHICLE;
+            // Zugeteilt an FREMDES Fahrzeug UND schon angenommen → ausblenden
+            if (isAssignedToOther && p.acceptedAt) continue;
             openPickups.push({
                 id: rid,
                 pickupLat: p.pickupLat,
@@ -224,7 +228,9 @@ async function loadPickups() {
                 destination: p.destination,
                 customerName: p.firstName,
                 price: p.price,
-                isMine: isMine  // v6.63.976
+                isMine: isMine && !!p.acceptedAt,  // blau nur wenn eigene + angenommen
+                isPendingAccept: !!p.assignedVehicle && !p.acceptedAt,  // v980: gelb fuer alle
+                assignedVehicle: p.assignedVehicle
             });
         }
         // Eigene GPS-Position fuer Match-Check
@@ -244,16 +250,25 @@ async function loadPickups() {
                 if (distKm <= 1.0) isMatch = true;
             }
             const cust = p.customerName || p.guestName || 'Kunde';
-            // v6.63.976: eigene assigned Fahrten in BLAU, sonst gruen (frei) + gold (Match).
+            // v6.63.980: Farb-Logik erweitert
+            //   BLAU 🚕 = eigene angenommene Fahrt
+            //   GELB ⏳ = zugeteilt aber noch nicht angenommen (grabbbar von allen)
+            //   GRUEN 📍 = offene Wartepool-Fahrt
+            //   GOLD ⭐ = gruen + <1km Match
             const matchCls = isMatch ? ' match' : '';
-            const emoji = p.isMine ? '🚕' : (isMatch ? '⭐' : '📍');
-            const bgColor = p.isMine ? '#3b82f6' : '#22c55e';
+            let emoji, bgColor;
+            if (p.isMine) { emoji = '🚕'; bgColor = '#3b82f6'; }
+            else if (p.isPendingAccept) { emoji = '⏳'; bgColor = '#f59e0b'; }
+            else if (isMatch) { emoji = '⭐'; bgColor = '#22c55e'; }
+            else { emoji = '📍'; bgColor = '#22c55e'; }
             const html = `<div class="pickup-marker">
                 <div class="pickup-icon${matchCls}" style="background:${bgColor}">${emoji}</div>
                 <div class="pickup-label">${timeStr}</div>
             </div>`;
             const icon = L.divIcon({ html, className: 'pickup-marker-wrapper', iconSize: [50, 46], iconAnchor: [25, 15] });
-            const mineLabel = p.isMine ? ' <span style="color:#3b82f6;font-weight:700;">(deine Fahrt)</span>' : '';
+            const mineLabel = p.isMine ? ' <span style="color:#3b82f6;font-weight:700;">(deine Fahrt)</span>'
+                : p.isPendingAccept ? ' <span style="color:#f59e0b;font-weight:700;">(zugeteilt ' + (p.assignedVehicle||'?') + ' — noch nicht angenommen)</span>'
+                : '';
             const popupContent = `
                 <div style="min-width:180px;">
                     <div style="font-weight:700;font-size:13px;margin-bottom:4px;">${emoji} ${cust} · ${timeStr}${mineLabel}</div>

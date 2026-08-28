@@ -7,7 +7,7 @@
  */
 
 // 🆕 v6.25.5: Cloud Function Version — wird in Firebase gespeichert für App-Anzeige
-const CLOUD_FUNCTIONS_VERSION = '6.63.978';
+const CLOUD_FUNCTIONS_VERSION = '6.63.979';
 const CLOUD_FUNCTIONS_BUILD = '27.08.2026 CET';
 
 const { onRequest } = require('firebase-functions/v2/https');
@@ -29350,7 +29350,14 @@ exports.onRideCreated = onValueCreated(
                     } else {
                         _anrede = _custFullName ? 'Guten Tag ' + _custFullName + ', ' : 'Guten Tag, ';
                     }
-                    const _priceStr = ride.price ? parseFloat(ride.price).toFixed(2).replace('.', ',') + ' Euro' : null;
+                    // 🔧 v6.63.979 (Patrick 28.08. 06:57 Bridge 'bei Transportschein/Krankentransport
+                    //   kriegen die Leute immer noch den Preis'): Preis unterdruecken bei Kassen-
+                    //   Fahrten weil der Fahrgast die nicht zahlt.
+                    const _payMethod = String(ride.paymentMethod || '').toLowerCase();
+                    const _isKasse = _payMethod === 'transportschein' || _payMethod === 'krankentransport'
+                        || _payMethod === 'kasse' || _payMethod === 'krankenkasse'
+                        || _payMethod === 'invoice_kasse' || _payMethod === 'invoice_auftraggeber';
+                    const _priceStr = (!_isKasse && ride.price) ? parseFloat(ride.price).toFixed(2).replace('.', ',') + ' Euro' : null;
                     let _smsText;
                     if (isSofort) {
                         // 🔧 v6.63.963 (Patrick 25.08. Bridge 'die komplette bestätigung fehlt doch'):

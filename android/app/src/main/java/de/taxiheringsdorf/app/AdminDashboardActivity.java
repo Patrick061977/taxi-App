@@ -3911,13 +3911,41 @@ public class AdminDashboardActivity extends AppCompatActivity {
                     final String[] _v355Names = {"Tesla MY222", "Prius IK", "Renault SK", "Toyota KI", "Tesla YM222", "Mercedes LK"};
                     if (r.vehicleScores != null && !r.vehicleScores.isEmpty()) {
                         wpDiag.append("\n\n💡 CLOUD-DIAGNOSE PRO FAHRZEUG:");
+                        // 🆕 v6.63.990 (Patrick 28.08. "muss sichtbar sein in nativ app auch"):
+                        //   Fahrzeug-Score jetzt mit Distanz/Anfahrt/Malus/Score-Total, damit
+                        //   Patrick sofort sieht WARUM ein Fahrzeug gewaehlt wurde (Kopka-Fall:
+                        //   IK 7km/11min aber Malus 20 → MY 8.4km/13min mit Malus 0 gewinnt).
                         for (int _vi = 0; _vi < _v355Ids.length; _vi++) {
                             java.util.Map<String, Object> _info = r.vehicleScores.get(_v355Ids[_vi]);
                             if (_info == null) continue;
                             String _st = String.valueOf(_info.get("status"));
                             String _rs = String.valueOf(_info.get("reason"));
-                            String _icon = "available".equals(_st) ? "🟢" : "❌";
+                            String _icon = "chosen".equals(_st) ? "✅"
+                                : "available".equals(_st) ? "🟢" : "❌";
                             wpDiag.append("\n").append(_icon).append(" ").append(_v355Names[_vi]);
+
+                            // v990: Distanz + Anfahrt + Malus wenn vorhanden
+                            Object _distKm = _info.get("distanceKm");
+                            Object _driveMin = _info.get("drivingTimeMin");
+                            Object _prio = _info.get("priorityPenalty");
+                            Object _totalScore = _info.get("totalScore");
+                            StringBuilder _detail = new StringBuilder();
+                            if (_distKm instanceof Number) _detail.append(String.format(Locale.GERMANY, "%.1f km", ((Number) _distKm).doubleValue()));
+                            if (_driveMin instanceof Number) {
+                                if (_detail.length() > 0) _detail.append(" · ");
+                                _detail.append(((Number) _driveMin).intValue()).append(" Min");
+                            }
+                            if (_prio instanceof Number && ((Number) _prio).doubleValue() != 0) {
+                                if (_detail.length() > 0) _detail.append(" · ");
+                                _detail.append("Malus ").append(((Number) _prio).intValue());
+                            }
+                            if (_totalScore instanceof Number) {
+                                if (_detail.length() > 0) _detail.append(" · ");
+                                _detail.append("Score ").append(((Number) _totalScore).intValue());
+                            }
+                            if (_detail.length() > 0) {
+                                wpDiag.append(" (").append(_detail).append(")");
+                            }
                             if (_rs != null && !"null".equals(_rs) && !_rs.isEmpty()) {
                                 wpDiag.append(" — ").append(_rs);
                             }

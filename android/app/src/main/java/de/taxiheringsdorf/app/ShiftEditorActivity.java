@@ -721,13 +721,13 @@ public class ShiftEditorActivity extends AppCompatActivity {
                         .setView(scroll)
                         .setPositiveButton("Speichern", (d, w) -> {
                             java.util.Map<String, Object> updates = new java.util.HashMap<>();
-                            int saved = 0, cleared = 0;
+                            final int[] counters = {0, 0}; // [0]=saved, [1]=cleared — Array-Trick fuer effectively-final in Lambda
                             for (java.util.Map.Entry<String, android.widget.EditText> e : inputs.entrySet()) {
                                 String raw = e.getValue().getText().toString().trim();
                                 if (raw.isEmpty()) {
                                     if (currentMalus.containsKey(e.getKey())) {
                                         updates.put(e.getKey(), null);
-                                        cleared++;
+                                        counters[1]++;
                                     }
                                 } else {
                                     try {
@@ -736,7 +736,7 @@ public class ShiftEditorActivity extends AppCompatActivity {
                                         Integer prev = currentMalus.get(e.getKey());
                                         if (prev == null || prev != n) {
                                             updates.put(e.getKey(), n);
-                                            saved++;
+                                            counters[0]++;
                                         }
                                     } catch (NumberFormatException _nfe) { /* skip */ }
                                 }
@@ -748,7 +748,7 @@ public class ShiftEditorActivity extends AppCompatActivity {
                             FirebaseDatabase.getInstance(DB_URL).getReference("settings/vehiclePrioMalus")
                                 .updateChildren(updates)
                                 .addOnSuccessListener(_ok -> Toast.makeText(ShiftEditorActivity.this,
-                                    "✅ Malus gespeichert (" + saved + " gesetzt, " + cleared + " entfernt)", Toast.LENGTH_LONG).show())
+                                    "✅ Malus gespeichert (" + counters[0] + " gesetzt, " + counters[1] + " entfernt)", Toast.LENGTH_LONG).show())
                                 .addOnFailureListener(_err -> Toast.makeText(ShiftEditorActivity.this,
                                     "Fehler: " + _err.getMessage(), Toast.LENGTH_LONG).show());
                         })

@@ -673,8 +673,8 @@ public class ShiftEditorActivity extends AppCompatActivity {
                     int pad = (int) (16 * getResources().getDisplayMetrics().density);
                     container.setPadding(pad, pad, pad, pad);
                     android.widget.TextView hint = new android.widget.TextView(ShiftEditorActivity.this);
-                    hint.setText("Malus in Minuten (leer = kein Override). Hoeher = Fahrzeug wird seltener gewaehlt.");
-                    hint.setTextColor(0xFF94A3B8);
+                    hint.setText("Malus in Minuten (leer = kein Override). Höher = Fahrzeug wird seltener gewählt.\nSpeichert in settings/vehiclePrioMalus — synchron mit Web-App.");
+                    hint.setTextColor(0xFF475569);
                     hint.setTextSize(12);
                     hint.setPadding(0, 0, 0, pad);
                     container.addView(hint);
@@ -686,9 +686,17 @@ public class ShiftEditorActivity extends AppCompatActivity {
                         row.setGravity(android.view.Gravity.CENTER_VERTICAL);
                         row.setPadding(0, 8, 0, 8);
                         android.widget.TextView name = new android.widget.TextView(ShiftEditorActivity.this);
-                        name.setText(vs.name != null ? vs.name : vs.vehicleId);
-                        name.setTextColor(0xFFF8FAFC);
+                        // v6.63.993 (Patrick 28.08. 16:14 "Für welches Fahrzeug"):
+                        //   TextColor war 0xFFF8FAFC (weiss) — unsichtbar auf hellem AlertDialog-Hintergrund.
+                        //   Auf 0xFF0F172A (dunkelblau) geändert. Zusätzlich Name+Kennzeichen zeigen.
+                        String _lbl = vs.name != null ? vs.name : vs.vehicleId;
+                        if (vs.vehicleId != null && vs.name != null && !vs.name.equals(vs.vehicleId)) {
+                            _lbl = vs.name + " (" + vs.vehicleId + ")";
+                        }
+                        name.setText(_lbl);
+                        name.setTextColor(0xFF0F172A);
                         name.setTextSize(14);
+                        name.setTypeface(null, android.graphics.Typeface.BOLD);
                         android.widget.LinearLayout.LayoutParams nameLp = new android.widget.LinearLayout.LayoutParams(0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
                         name.setLayoutParams(nameLp);
                         row.addView(name);
@@ -700,14 +708,14 @@ public class ShiftEditorActivity extends AppCompatActivity {
                         Integer cur = currentMalus.get(vs.vehicleId);
                         if (cur != null) input.setText(String.valueOf(cur));
                         input.setHint("0");
-                        input.setTextColor(0xFFF8FAFC);
-                        input.setHintTextColor(0xFF64748B);
+                        input.setTextColor(0xFF0F172A);
+                        input.setHintTextColor(0xFF94A3B8);
                         row.addView(input);
                         inputs.put(vs.vehicleId, input);
 
                         android.widget.TextView minLabel = new android.widget.TextView(ShiftEditorActivity.this);
                         minLabel.setText(" Min");
-                        minLabel.setTextColor(0xFF94A3B8);
+                        minLabel.setTextColor(0xFF475569);
                         minLabel.setTextSize(12);
                         row.addView(minLabel);
                         container.addView(row);

@@ -2044,9 +2044,12 @@ public class DriverDashboardActivity extends AppCompatActivity {
             android.widget.Toast.makeText(this, "✓ Fahrt übernommen!", android.widget.Toast.LENGTH_LONG).show();
         });
 
-        // v6.63.994: Bearbeiten öffnet den Wartepool-Resolver-Dialog (SeekBar zum Zeit-Verschieben).
-        _labels.add("✏️ Bearbeiten (Zeit verschieben)");
-        _actions.add(() -> showWartepoolResolverDialog(ride));
+        // v6.63.995 (Patrick 28.08. 16:42 "was das für ein Quatsch, mehr bearbeiten als nur Zeit-Slider"):
+        //   Volles Bearbeiten-Formular — Pickup-Zeit (DateTimePicker), Pickup-/Ziel-Adresse
+        //   (EditText), Pax, Preis, Fahrzeug-Auswahl (Spinner mit allen Fahrzeugen inkl.
+        //   "Kein Fahrzeug" fuer Wartepool). Speichern updated die Ride direkt.
+        _labels.add("✏️ Bearbeiten (Fahrzeug + Zeit + Adresse)");
+        _actions.add(() -> showFullEditRideDialog(ride));
 
         // v6.63.994: Fahrt stornieren — status='cancelled' + Grund
         _labels.add("❌ Fahrt stornieren");
@@ -2123,6 +2126,143 @@ public class DriverDashboardActivity extends AppCompatActivity {
     //   Slider im Native zur Loesung'): Dialog mit SeekBar für Pickup-Verschiebung.
     //   −15 Min bis +5 Min in 1-Min-Schritten. Patrick sieht Live wie sich die Zeit
     //   verschiebt. Nach 'Speichern': PATCH pickupTimestamp + sucht Vehicle.
+    // 🆕 v6.63.995 (Patrick 28.08. 16:42): Volles Bearbeiten-Formular
+    //   fuer Wartepool-Ride. Zeit + Adressen + Pax + Preis + Fahrzeug-Spinner.
+    //   Speichert direkt via Firebase updateChildren.
+    private void showFullEditRideDialog(Ride ride) {
+        if (ride == null || ride.id == null) return;
+        int pad = (int) (16 * getResources().getDisplayMetrics().density);
+        android.widget.ScrollView scroll = new android.widget.ScrollView(this);
+        android.widget.LinearLayout root = new android.widget.LinearLayout(this);
+        root.setOrientation(android.widget.LinearLayout.VERTICAL);
+        root.setPadding(pad, pad, pad, pad);
+        scroll.addView(root);
+
+        // Helper: Label + Input-Zeile
+        java.util.function.BiFunction<String, String, android.widget.EditText> addField = (label, initial) -> {
+            android.widget.TextView lbl = new android.widget.TextView(this);
+            lbl.setText(label);
+            lbl.setTextColor(0xFF475569);
+            lbl.setTextSize(12);
+            lbl.setPadding(0, pad / 2, 0, 4);
+            root.addView(lbl);
+            android.widget.EditText et = new android.widget.EditText(this);
+            et.setText(initial != null ? initial : "");
+            et.setTextColor(0xFF0F172A);
+            root.addView(et);
+            return et;
+        };
+
+        // Pickup-Zeit (Datum + Zeit-Picker)
+        final java.util.Calendar cal = java.util.Calendar.getInstance();
+        if (ride.pickupTimestamp != null) cal.setTimeInMillis(ride.pickupTimestamp);
+        final long[] pickupTsOut = {ride.pickupTimestamp != null ? ride.pickupTimestamp : System.currentTimeMillis()};
+
+        android.widget.TextView timeLbl = new android.widget.TextView(this);
+        timeLbl.setText("⏰ Pickup-Zeit");
+        timeLbl.setTextColor(0xFF475569);
+        timeLbl.setTextSize(12);
+        root.addView(timeLbl);
+        final android.widget.Button timeBtn = new android.widget.Button(this);
+        java.text.SimpleDateFormat _dtFmt = new java.text.SimpleDateFormat("EE dd.MM.yyyy HH:mm", java.util.Locale.GERMANY);
+        _dtFmt.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
+        timeBtn.setText(_dtFmt.format(new java.util.Date(pickupTsOut[0])));
+        timeBtn.setOnClickListener(_v -> {
+            new android.app.DatePickerDialog(this, (dp, y, m, d) -> {
+                cal.set(java.util.Calendar.YEAR, y);
+                cal.set(java.util.Calendar.MONTH, m);
+                cal.set(java.util.Calendar.DAY_OF_MONTH, d);
+                new android.app.TimePickerDialog(this, (tp, h, min) -> {
+                    cal.set(java.util.Calendar.HOUR_OF_DAY, h);
+                    cal.set(java.util.Calendar.MINUTE, min);
+                    cal.set(java.util.Calendar.SECOND, 0);
+                    pickupTsOut[0] = cal.getTimeInMillis();
+                    timeBtn.setText(_dtFmt.format(new java.util.Date(pickupTsOut[0])));
+                }, cal.get(java.util.Calendar.HOUR_OF_DAY), cal.get(java.util.Calendar.MINUTE), true).show();
+            }, cal.get(java.util.Calendar.YEAR), cal.get(java.util.Calendar.MONTH), cal.get(java.util.Calendar.DAY_OF_MONTH)).show();
+        });
+        root.addView(timeBtn);
+
+        final android.widget.EditText etPickup = addField.apply("📍 Abholort", ride.pickup);
+        final android.widget.EditText etDest = addField.apply("🎯 Ziel", ride.destination);
+        final android.widget.EditText etPax = addField.apply("👥 Personen", ride.passengers != null ? String.valueOf(ride.passengers) : "");
+        etPax.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+        final android.widget.EditText etPrice = addField.apply("💰 Preis (€)", ride.price != null ? String.valueOf(ride.price) : "");
+        etPrice.setInputType(android.text.InputType.TYPE_CLASS_NUMBER | android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL);
+        final android.widget.EditText etNotes = addField.apply("📝 Notizen", ride.notes);
+
+        // Fahrzeug-Spinner: Kein Fahrzeug + alle bekannten Fahrzeuge
+        android.widget.TextView vLbl = new android.widget.TextView(this);
+        vLbl.setText("🚗 Fahrzeug");
+        vLbl.setTextColor(0xFF475569);
+        vLbl.setTextSize(12);
+        vLbl.setPadding(0, pad, 0, 4);
+        root.addView(vLbl);
+        final String[] vIds = {"", "pw-my-222-e", "pw-ik-222", "pw-sk-222", "pw-ki-222", "pw-ym-222-e", "vg-lk-111"};
+        final String[] vLabels = {"— Kein Fahrzeug (Wartepool) —", "Tesla MY222", "Prius IK", "Renault SK", "Toyota KI", "Tesla YM222", "Mercedes LK"};
+        final android.widget.Spinner vSpin = new android.widget.Spinner(this);
+        android.widget.ArrayAdapter<String> vAdapt = new android.widget.ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, vLabels);
+        vSpin.setAdapter(vAdapt);
+        int curIdx = 0;
+        String curVid = ride.assignedVehicle != null ? ride.assignedVehicle : ride.vehicleId;
+        for (int i = 0; i < vIds.length; i++) if (vIds[i].equals(curVid)) { curIdx = i; break; }
+        vSpin.setSelection(curIdx);
+        root.addView(vSpin);
+
+        new android.app.AlertDialog.Builder(this)
+            .setTitle("✏️ Fahrt bearbeiten")
+            .setView(scroll)
+            .setPositiveButton("💾 Speichern", (d, w) -> {
+                Map<String, Object> u = new HashMap<>();
+                u.put("pickupTimestamp", pickupTsOut[0]);
+                u.put("pickupTime", new java.text.SimpleDateFormat("HH:mm", java.util.Locale.GERMANY) {{
+                    setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
+                }}.format(new java.util.Date(pickupTsOut[0])));
+                u.put("pickupDate", new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.GERMANY) {{
+                    setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
+                }}.format(new java.util.Date(pickupTsOut[0])));
+                u.put("pickup", etPickup.getText().toString().trim());
+                u.put("destination", etDest.getText().toString().trim());
+                String _paxStr = etPax.getText().toString().trim();
+                if (!_paxStr.isEmpty()) try { u.put("passengers", Integer.parseInt(_paxStr)); } catch (NumberFormatException _e) {}
+                String _prcStr = etPrice.getText().toString().trim().replace(",", ".");
+                if (!_prcStr.isEmpty()) try { u.put("price", Double.parseDouble(_prcStr)); } catch (NumberFormatException _e) {}
+                u.put("notes", etNotes.getText().toString().trim());
+                // Fahrzeug-Zuweisung
+                String _chosenVid = vIds[vSpin.getSelectedItemPosition()];
+                if (_chosenVid.isEmpty()) {
+                    // Kein Fahrzeug → Wartepool
+                    u.put("assignedVehicle", null);
+                    u.put("vehicleId", null);
+                    u.put("assignedBy", null);
+                    u.put("acceptedAt", null);
+                    if (!"wartepool".equalsIgnoreCase(ride.status)) u.put("status", "wartepool");
+                } else if (!_chosenVid.equals(curVid)) {
+                    // Neues Fahrzeug — manuelle Zuweisung, kein Auto-Kreisel
+                    u.put("assignedVehicle", _chosenVid);
+                    u.put("vehicleId", _chosenVid);
+                    u.put("assignedBy", "native_wartepool_manual_edit");
+                    u.put("assignedAt", System.currentTimeMillis());
+                    u.put("assignmentLocked", true); // manuell = respektieren
+                    u.put("status", "vorbestellt");
+                    u.put("_allDriversTried", null);
+                    u.put("_pendingAcceptTimeoutAt", null);
+                    u.put("wartepoolReason", null);
+                }
+                u.put("editedAt", System.currentTimeMillis());
+                u.put("editedVia", "native_wartepool_edit");
+                u.put("updatedAt", System.currentTimeMillis());
+                db.getReference("rides/" + ride.id).updateChildren(u)
+                    .addOnSuccessListener(_ok -> android.widget.Toast.makeText(this,
+                        "✅ Aenderungen gespeichert", android.widget.Toast.LENGTH_LONG).show())
+                    .addOnFailureListener(_err -> android.widget.Toast.makeText(this,
+                        "❌ Fehler: " + _err.getMessage(), android.widget.Toast.LENGTH_LONG).show());
+                logLifecycleTap(ride.id, "✏️", "Wartepool-Banner: Fahrt bearbeitet", null);
+            })
+            .setNegativeButton("Abbrechen", null)
+            .show();
+    }
+
     private void showWartepoolResolverDialog(Ride ride) {
         if (ride == null || ride.id == null || ride.pickupTimestamp == null) return;
         final long origTs = ride.pickupTimestamp;

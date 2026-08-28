@@ -103,7 +103,18 @@ public class ShiftEditorActivity extends AppCompatActivity {
             setContentView(R.layout.activity_shift_editor);
 
             MaterialToolbar toolbar = findViewById(R.id.shift_editor_toolbar);
-            if (toolbar != null) toolbar.setNavigationOnClickListener(v -> finish());
+            if (toolbar != null) {
+                toolbar.setNavigationOnClickListener(v -> finish());
+                // 🆕 v6.63.991 (Patrick 28.08. 15:23 "Malus im Schicht Editor sehen und
+                //   einstellen wie in der Web App"): Toolbar-Menu-Icon 🏆 → Malus-Dialog.
+                android.view.MenuItem malusItem = toolbar.getMenu().add(0, 991, 0, "Prio-Malus");
+                malusItem.setTitle("🏆 Malus");
+                malusItem.setShowAsAction(android.view.MenuItem.SHOW_AS_ACTION_ALWAYS);
+                malusItem.setOnMenuItemClickListener(_mi -> {
+                    showPrioMalusDialog();
+                    return true;
+                });
+            }
 
             content = findViewById(R.id.shift_content);
             editorList = findViewById(R.id.shift_editor_list);
@@ -640,6 +651,114 @@ public class ShiftEditorActivity extends AppCompatActivity {
         if (shiftsRef != null && shiftsListener != null) shiftsRef.removeEventListener(shiftsListener);
         if (vehiclesRef != null && vehiclesListener != null) vehiclesRef.removeEventListener(vehiclesListener);
         super.onDestroy();
+    }
+
+    // 🆕 v6.63.991 (Patrick 28.08. 15:23): Prio-Malus-Editor als Alert-Dialog.
+    //   Zeigt pro Fahrzeug einen EditText fuer Malus (Min). Leer = kein Override.
+    //   Speichert in settings/vehiclePrioMalus/{vid} — gleiche Struktur wie Web-App.
+    //   Fahrzeug-Liste kommt aus dem bereits geladenen 'data' (VehicleShift-Liste).
+    private void showPrioMalusDialog() {
+        // Aktuellen Malus laden
+        FirebaseDatabase.getInstance(DB_URL).getReference("settings/vehiclePrioMalus")
+            .addListenerForSingleValueEvent(new ValueEventListener() {
+                @Override public void onDataChange(@NonNull DataSnapshot snap) {
+                    final java.util.Map<String, Integer> currentMalus = new java.util.HashMap<>();
+                    for (DataSnapshot c : snap.getChildren()) {
+                        Object v = c.getValue();
+                        if (v instanceof Number) currentMalus.put(c.getKey(), ((Number) v).intValue());
+                    }
+                    // Dialog-Layout: ScrollView mit LinearLayout, pro Fahrzeug Row (Name + EditText + Min-Label)
+                    android.widget.LinearLayout container = new android.widget.LinearLayout(ShiftEditorActivity.this);
+                    container.setOrientation(android.widget.LinearLayout.VERTICAL);
+                    int pad = (int) (16 * getResources().getDisplayMetrics().density);
+                    container.setPadding(pad, pad, pad, pad);
+                    android.widget.TextView hint = new android.widget.TextView(ShiftEditorActivity.this);
+                    hint.setText("Malus in Minuten (leer = kein Override). Hoeher = Fahrzeug wird seltener gewaehlt.");
+                    hint.setTextColor(0xFF94A3B8);
+                    hint.setTextSize(12);
+                    hint.setPadding(0, 0, 0, pad);
+                    container.addView(hint);
+
+                    final java.util.Map<String, android.widget.EditText> inputs = new java.util.HashMap<>();
+                    for (VehicleShift vs : data) {
+                        android.widget.LinearLayout row = new android.widget.LinearLayout(ShiftEditorActivity.this);
+                        row.setOrientation(android.widget.LinearLayout.HORIZONTAL);
+                        row.setGravity(android.view.Gravity.CENTER_VERTICAL);
+                        row.setPadding(0, 8, 0, 8);
+                        android.widget.TextView name = new android.widget.TextView(ShiftEditorActivity.this);
+                        name.setText(vs.name != null ? vs.name : vs.vehicleId);
+                        name.setTextColor(0xFFF8FAFC);
+                        name.setTextSize(14);
+                        android.widget.LinearLayout.LayoutParams nameLp = new android.widget.LinearLayout.LayoutParams(0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+                        name.setLayoutParams(nameLp);
+                        row.addView(name);
+
+                        android.widget.EditText input = new android.widget.EditText(ShiftEditorActivity.this);
+                        input.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+                        input.setWidth((int) (80 * getResources().getDisplayMetrics().density));
+                        input.setGravity(android.view.Gravity.CENTER);
+                        Integer cur = currentMalus.get(vs.vehicleId);
+                        if (cur != null) input.setText(String.valueOf(cur));
+                        input.setHint("0");
+                        input.setTextColor(0xFFF8FAFC);
+                        input.setHintTextColor(0xFF64748B);
+                        row.addView(input);
+                        inputs.put(vs.vehicleId, input);
+
+                        android.widget.TextView minLabel = new android.widget.TextView(ShiftEditorActivity.this);
+                        minLabel.setText(" Min");
+                        minLabel.setTextColor(0xFF94A3B8);
+                        minLabel.setTextSize(12);
+                        row.addView(minLabel);
+                        container.addView(row);
+                    }
+
+                    android.widget.ScrollView scroll = new android.widget.ScrollView(ShiftEditorActivity.this);
+                    scroll.addView(container);
+
+                    new androidx.appcompat.app.AlertDialog.Builder(ShiftEditorActivity.this)
+                        .setTitle("🏆 Prio-Malus pro Fahrzeug")
+                        .setView(scroll)
+                        .setPositiveButton("Speichern", (d, w) -> {
+                            java.util.Map<String, Object> updates = new java.util.HashMap<>();
+                            int saved = 0, cleared = 0;
+                            for (java.util.Map.Entry<String, android.widget.EditText> e : inputs.entrySet()) {
+                                String raw = e.getValue().getText().toString().trim();
+                                if (raw.isEmpty()) {
+                                    if (currentMalus.containsKey(e.getKey())) {
+                                        updates.put(e.getKey(), null);
+                                        cleared++;
+                                    }
+                                } else {
+                                    try {
+                                        int n = Integer.parseInt(raw);
+                                        if (n < 0) continue;
+                                        Integer prev = currentMalus.get(e.getKey());
+                                        if (prev == null || prev != n) {
+                                            updates.put(e.getKey(), n);
+                                            saved++;
+                                        }
+                                    } catch (NumberFormatException _nfe) { /* skip */ }
+                                }
+                            }
+                            if (updates.isEmpty()) {
+                                Toast.makeText(ShiftEditorActivity.this, "Keine Aenderung", Toast.LENGTH_SHORT).show();
+                                return;
+                            }
+                            FirebaseDatabase.getInstance(DB_URL).getReference("settings/vehiclePrioMalus")
+                                .updateChildren(updates)
+                                .addOnSuccessListener(_ok -> Toast.makeText(ShiftEditorActivity.this,
+                                    "✅ Malus gespeichert (" + saved + " gesetzt, " + cleared + " entfernt)", Toast.LENGTH_LONG).show())
+                                .addOnFailureListener(_err -> Toast.makeText(ShiftEditorActivity.this,
+                                    "Fehler: " + _err.getMessage(), Toast.LENGTH_LONG).show());
+                        })
+                        .setNegativeButton("Abbrechen", null)
+                        .show();
+                }
+                @Override public void onCancelled(@NonNull DatabaseError error) {
+                    Toast.makeText(ShiftEditorActivity.this, "Firebase-Fehler: " + error.getMessage(), Toast.LENGTH_LONG).show();
+                }
+            });
     }
 
     /* ─── v6.62.955 Time-Edit-Dialog (Patrick 25.05. 21:28 "selbst veraendern") ─── */

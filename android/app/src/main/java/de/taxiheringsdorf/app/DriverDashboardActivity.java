@@ -1850,11 +1850,28 @@ public class DriverDashboardActivity extends AppCompatActivity {
         //   Carmen Haas nicht mehr annehmen'): Wartepool nach UNTEN.
         //   rank=3 (hinter open=2). Fahrer sieht eigene Fahrten oben.
         //   Wartepool-Banner oben bleibt fuer Aufmerksamkeit.
+        // 🆕 v6.63.984 (Patrick 28.08. 12:11 Bridge Christian-Gurke-Scroll-Bug):
+        //   'ANNEHMEN-AN-MICH' bekommt rank=-1 → GANZ OBEN, VOR aktiver Fahrt.
+        //   Grund: Vitzthun accepted-Card + Losfahrt-Reminder + 8 Buttons ~400dp,
+        //   die zusaetzlich zugewiesene 13:00 Scholz-Card mit Annehmen-Button
+        //   war unerreichbar (Scroll blockiert). Eingehende Zuweisung ist immer
+        //   dringlicher als aktive-Card-Buttons (Annehmen/Ablehnen hat Deadline,
+        //   Losfahren-Button hat Toleranz).
+        final String _myVid = currentVehicleId;
+        java.util.function.Function<Ride, Integer> rankOf = r -> {
+            String stl = r.status == null ? "" : r.status.toLowerCase();
+            boolean mineAndPending = _myVid != null
+                && (_myVid.equals(r.assignedVehicle) || _myVid.equals(r.vehicleId))
+                && (stl.equals("assigned") || stl.equals("vorbestellt") || stl.equals("new") || stl.equals("sofort"));
+            if (mineAndPending) return -1;                        // PENDING-ACCEPT-AN-MICH → ganz oben
+            if ("wartepool".equalsIgnoreCase(r.status)) return 3;
+            if (isActiveStatus(r.status)) return 0;
+            if (isOpenStatus(r.status)) return 2;
+            return 1;
+        };
         all.sort((a, b) -> {
-            int aRank = ("wartepool".equalsIgnoreCase(a.status) ? 3 :
-                          (isActiveStatus(a.status) ? 0 : (isOpenStatus(a.status) ? 2 : 1)));
-            int bRank = ("wartepool".equalsIgnoreCase(b.status) ? 3 :
-                          (isActiveStatus(b.status) ? 0 : (isOpenStatus(b.status) ? 2 : 1)));
+            int aRank = rankOf.apply(a);
+            int bRank = rankOf.apply(b);
             if (aRank != bRank) return Integer.compare(aRank, bRank);
             return Long.compare(a.pickupTimestamp != null ? a.pickupTimestamp : 0,
                                 b.pickupTimestamp != null ? b.pickupTimestamp : 0);

@@ -1258,20 +1258,16 @@ async function autoAssignRide(rideId, rideData, _excludeVehicleIds = []) {
         await _persistEarlyReturn('einsteiger-skip', 'Einsteiger-Fahrt vom Fahrer-Dashboard');
         return null;
     }
-    // 🆕 v6.63.987 (Patrick 28.08. Klaus-Schulze-Log): Cooldown auch in autoAssignRide
-    //   selbst — nicht nur in scheduledAutoAssign. onRideUpdated ruft autoAssignRide
-    //   direkt auf (Wartepool-Sofort-Assign), scheduledOpenRideCheck triggerte den
-    //   Reassign-Kreisel (IK abgelehnt → YM → keine Chat-ID → wartepool → IK → ...).
-    //   v985 setzt _pendingAcceptTimeoutAt — dieser Guard verhindert JEDEN Reassign
-    //   dieser Ride innerhalb von 15 Min, egal welcher Trigger.
-    if (rideData._pendingAcceptTimeoutAt) {
-        const _cdAgeMs = Date.now() - Number(rideData._pendingAcceptTimeoutAt);
-        if (_cdAgeMs < 15 * 60 * 1000) {
-            const _cdMinLeft = Math.ceil((15 * 60 * 1000 - _cdAgeMs) / 60000);
-            console.log(`   ⏸️ v6.63.987 Cooldown: ${rideId} — pending-accept-timeout vor ${Math.round(_cdAgeMs/60000)} Min, ${_cdMinLeft} Min noch Cooldown`);
-            await _persistEarlyReturn('pending-accept-cooldown', `${_cdMinLeft} Min Cooldown-Rest`);
-            return null;
-        }
+    // 🆕 v6.63.989 (Patrick 28.08. 13:43): v987-Cooldown ersetzt durch _allDriversTried.
+    //   Sobald v989 alle online Fahrer durchprobiert hat und keiner angenommen,
+    //   setzt es _allDriversTried=true → autoAssignRide macht permanent NICHTS mehr.
+    //   Ausnahme: neuer Fahrer meldet sich an → v990 (spaeter) triggert reset des Flags.
+    //   Der frueher 15-Min-Cooldown (via _pendingAcceptTimeoutAt) ist raus — v989 macht
+    //   die sequenzielle Fahrer-Durchreichung selbst.
+    if (rideData._allDriversTried === true) {
+        console.log(`   🚨 v6.63.989 All-Drivers-Tried-Lock: ${rideId} — kein Reassign bis manueller Grab oder neuer Fahrer online`);
+        await _persistEarlyReturn('all-drivers-tried', 'alle online Fahrer probiert — wartet auf manuellen Grab');
+        return null;
     }
     // 🆕 v6.63.377 (Patrick 17.06. 09:10 Bridge "ja" zu Komplett-Diagnose):
     //   Helper für return-null-Trace. Jede return-null-Stelle pusht ein
@@ -25624,20 +25620,22 @@ exports.scheduledAutoAssign = onSchedule(
             //   und Admin/Fahrer entscheidet manuell. Sonst dreht sich der Reassign-
             //   Kreisel weiter (Marion 28.08.: assigned MY → offline → wartepool →
             //   assigned YM → keine Chat-ID → wartepool → assigned MY → ... loop).
-            const _cooldownMs = 15 * 60 * 1000;
-            let _cooldownSkipped = 0;
+            // v6.63.989: _pendingAcceptTimeoutAt-Cooldown ersetzt durch _allDriversTried.
+            //   v989 pusht sequenziell durch alle online Fahrer; wenn alle probiert,
+            //   setzt es _allDriversTried=true → hier permanent skippen.
+            let _lockedSkipped = 0;
             ridesWindowSnap.forEach(c => {
                 const r = c.val();
                 if (r && _RELEVANT_STATUSES.has(r.status)) {
-                    if (r._pendingAcceptTimeoutAt && (now - Number(r._pendingAcceptTimeoutAt)) < _cooldownMs) {
-                        _cooldownSkipped++;
-                        return; // skip — bleibt im Wartepool sichtbar, keine erneute Zuweisung
+                    if (r._allDriversTried === true) {
+                        _lockedSkipped++;
+                        return; // permanent-lock bis manueller Grab oder neuer Fahrer online
                     }
                     allRides.push({ ...r, firebaseId: c.key });
                 }
             });
-            if (_cooldownSkipped > 0) {
-                console.log(`⏸️ v6.63.986 Cooldown: ${_cooldownSkipped} Ride(s) bleiben im Wartepool (pending-accept-timeout <15 Min alt)`);
+            if (_lockedSkipped > 0) {
+                console.log(`🚨 v6.63.989 All-Drivers-Tried-Lock: ${_lockedSkipped} Ride(s) im Wartepool, kein Reassign`);
             }
 
             // 🆕 v6.63.009 (Patrick 29.05. 16:40 'Wagscher 5-Tags-Alarm'): pickupTimestamp-Watchdog.
@@ -34351,34 +34349,58 @@ exports.onVehicleOnline = onValueUpdated(
             // in der Warteschlange ist und ein neuer Fahrer online geht?". Vorher: nur 'new'
             // wurde gepickt — 'warteschlange' (= alle Fahrer waren bei Erstellung besetzt)
             // blieb haengen bis scheduledAutoAssign 10 Min spaeter den naechsten Tick machte.
-            const [newSnap, warteSnap] = await Promise.all([
+            const [newSnap, warteSnap, wartepoolSnap] = await Promise.all([
                 db.ref('rides').orderByChild('status').equalTo('new').once('value'),
-                db.ref('rides').orderByChild('status').equalTo('warteschlange').once('value')
+                db.ref('rides').orderByChild('status').equalTo('warteschlange').once('value'),
+                // 🆕 v6.63.989: Wartepool-Rides mit _allDriversTried auch holen —
+                //   frisch online Fahrer bekommt sie angeboten.
+                db.ref('rides').orderByChild('status').equalTo('wartepool').once('value')
             ]);
             const openRides = [];
-            const _collect = (snap) => {
+            const _collect = (snap, isWartepool) => {
                 if (!snap.exists()) return;
                 snap.forEach(c => {
                     const r = c.val();
                     if (r.vehicleId || r.assignedVehicle || r.driverId) return;
-                    // Nur Sofort-Fahrten (pickup <=60min oder kein pickupTimestamp)
                     const msUntil = r.pickupTimestamp ? (r.pickupTimestamp - Date.now()) : 0;
                     if (r.pickupTimestamp && msUntil > 60 * 60000) return;
-                    openRides.push({ id: c.key, ride: r });
+                    // Wartepool nur wenn Pickup noch nicht vorbei (v988: 5 Min Karenz)
+                    if (isWartepool && r.pickupTimestamp && msUntil < -5 * 60000) return;
+                    openRides.push({ id: c.key, ride: r, isWartepool });
                 });
             };
-            _collect(newSnap);
-            _collect(warteSnap);
+            _collect(newSnap, false);
+            _collect(warteSnap, false);
+            _collect(wartepoolSnap, true);
             if (openRides.length === 0) {
-                console.log('   ✓ Keine offenen Sofortfahrten / warteschlange-Fahrten');
+                console.log('   ✓ Keine offenen Fahrten (new/warteschlange/wartepool)');
                 return;
             }
 
-            console.log(`   🔍 ${openRides.length} offene Sofort-Fahrt(en) gefunden`);
+            console.log(`   🔍 ${openRides.length} offene Fahrt(en) gefunden`);
 
-            for (const { id, ride } of openRides) {
+            for (const { id, ride, isWartepool } of openRides) {
                 try {
-                    const result = await autoAssignRide(id, ride);
+                    // 🆕 v6.63.989 (Patrick 28.08. 13:40 "es wird vom system nicht mehr
+                    //   versucht ausser es meldet sich ein fahrer neu an"):
+                    //   Bei Wartepool-Rides mit _allDriversTried: entferne den frisch
+                    //   online Fahrer aus rejectedVehicles + reset _allDriversTried,
+                    //   damit autoAssignRide ihn als Kandidat sieht.
+                    let rideForAssign = ride;
+                    if (isWartepool && ride._allDriversTried === true) {
+                        const _rej = Array.isArray(ride.rejectedVehicles) ? ride.rejectedVehicles.filter(v => v !== vehicleId) : [];
+                        await db.ref(`rides/${id}`).update({
+                            _allDriversTried: false,
+                            rejectedVehicles: _rej,
+                            updatedAt: Date.now()
+                        });
+                        rideForAssign = { ...ride, _allDriversTried: false, rejectedVehicles: _rej, _rejectedVehicles: _rej };
+                        await addRideLog(id, '🚕', `v989 Frisch-Online: ${vehicleId} raus aus rejectedVehicles, probiere neu`, {
+                            neuerFahrer: vehicleId,
+                            triedVorher: ride.rejectedVehicles || []
+                        }).catch(() => {});
+                    }
+                    const result = await autoAssignRide(id, rideForAssign);
                     if (result && result.vehicleId) {
                         console.log(`   ✅ ${id} → ${result.name || result.vehicleId} zugewiesen (via Online-Trigger)`);
                         await addRideLog(id, '🚕', `Online-Trigger: Fahrzeug zugewiesen`, { fahrzeug: result.name || result.vehicleId, trigger: `Fahrzeug ${vehicleId} ging online` });
@@ -42802,14 +42824,19 @@ exports.scheduledPendingAcceptTimeout = onSchedule(
         const startedAt = Date.now();
         try {
             const now = Date.now();
-            const minAssignAgeMs = 5 * 60 * 1000; // 5 Min ohne Accept
-            const maxPickupAheadMs = 60 * 60 * 1000; // nur wenn Pickup < 60 Min voraus
+            // 🆕 v6.63.989 (Patrick 28.08. 13:43 "wenn der Push nicht kommt, dann geht es
+            //   zum naechsten Fahrer weiter, wir haben nur 30 Min bis Pickup"):
+            //   60 Sekunden pro Fahrer. FCM-Push kommt in Sekunden, Fahrer entscheidet
+            //   sofort. Wenn nach 60s kein Accept → naechster online Fahrer.
+            //   Sequenziell: bei 5 Fahrern durch alle in ~5 Min, dann Wartepool.
+            const minAssignAgeMs = 60 * 1000; // 60 Sek pro Fahrer
+            const maxPickupAheadMs = 60 * 60 * 1000;
 
             const snap = await db.ref('rides').orderByChild('pickupTimestamp')
                 .startAt(now - 30 * 60000).endAt(now + maxPickupAheadMs).once('value');
 
-            let checkedCount = 0, movedCount = 0;
-            const moved = [];
+            let checkedCount = 0, retriedCount = 0, exhaustedCount = 0;
+            const exhausted = [];
             const promises = [];
             snap.forEach(c => {
                 const r = c.val();
@@ -42826,41 +42853,67 @@ exports.scheduledPendingAcceptTimeout = onSchedule(
                 checkedCount++;
 
                 const rideId = c.key;
-                const updates = {
-                    status: 'wartepool',
-                    wartepoolReason: `pending-accept-timeout: an ${veh} vor ${Math.round((now - assignedAt) / 60000)} Min zugewiesen, nicht angenommen`,
-                    previousAssignedVehicle: veh,
-                    assignedVehicle: null,
-                    vehicleId: null,
-                    _pendingAcceptTimeoutAt: now,
-                    updatedAt: now
-                };
-                promises.push(
-                    db.ref(`rides/${rideId}`).update(updates)
-                        .then(() => {
-                            movedCount++;
-                            moved.push({ rideId, customer: r.customerName, veh, pickup: r.pickup });
-                            console.log(`⏱️ v985 PendingAcceptTimeout: ${rideId} (${r.customerName}) — war ${veh}, jetzt wartepool`);
-                            return addRideLog(rideId, '⏱️', `v985 Pending-Accept-Timeout — war ${veh} zugewiesen vor ${Math.round((now - assignedAt) / 60000)} Min, nicht angenommen → Wartepool`, {
-                                previousAssignedVehicle: veh,
-                                assignedAtAgeMin: Math.round((now - assignedAt) / 60000)
+                promises.push((async () => {
+                    try {
+                        // Schritt 1: aktuellen Fahrer in rejectedVehicles pushen und Vehicle freigeben
+                        const rejectedList = Array.isArray(r.rejectedVehicles) ? [...r.rejectedVehicles] : [];
+                        if (!rejectedList.includes(veh)) rejectedList.push(veh);
+                        await db.ref(`rides/${rideId}`).update({
+                            assignedVehicle: null,
+                            vehicleId: null,
+                            rejectedVehicles: rejectedList,
+                            updatedAt: now
+                        });
+                        await addRideLog(rideId, '⏭️', `v989 ${veh} hat in 2 Min nicht angenommen → probiere naechsten Fahrer`, {
+                            rejectedVehicles: rejectedList
+                        }).catch(() => {});
+
+                        // Schritt 2: sofort naechsten Fahrer probieren
+                        const result = await autoAssignRide(rideId, {
+                            ...r,
+                            status: r.status,
+                            assignedVehicle: null,
+                            vehicleId: null,
+                            rejectedVehicles: rejectedList,
+                            _rejectedVehicles: rejectedList
+                        });
+
+                        if (result && result.vehicleId) {
+                            retriedCount++;
+                            console.log(`⏭️ v989 ${rideId} (${r.customerName}) → naechster Fahrer ${result.vehicleId}`);
+                        } else {
+                            // Schritt 3: keiner mehr uebrig → wartepool + permanent-Lock
+                            exhaustedCount++;
+                            exhausted.push({ rideId, customer: r.customerName, tried: rejectedList, pickup: r.pickup });
+                            await db.ref(`rides/${rideId}`).update({
+                                status: 'wartepool',
+                                wartepoolReason: `v989 alle online Fahrer probiert (${rejectedList.length}), keiner angenommen`,
+                                _pendingAcceptTimeoutAt: now,
+                                _allDriversTried: true,
+                                updatedAt: now
+                            });
+                            await addRideLog(rideId, '🚨', `v989 alle Fahrer probiert (${rejectedList.join(', ')}) — kein Reassign mehr bis manueller Grab oder neuer Fahrer online`, {
+                                triedVehicles: rejectedList
                             }).catch(() => {});
-                        })
-                        .catch(err => console.error(`v985 update Fehler ${rideId}:`, err.message))
-                );
+                        }
+                    } catch (err) {
+                        console.error(`v989 Fehler ${rideId}:`, err.message);
+                    }
+                })());
             });
 
             await Promise.all(promises);
-            if (movedCount > 0) {
-                console.log(`⏱️ v985 fertig: ${movedCount}/${checkedCount} Rides in Wartepool verschoben (${Date.now() - startedAt}ms)`);
-                // Push an Admin Sammel-Info
+            if (retriedCount > 0 || exhaustedCount > 0) {
+                console.log(`⏭️ v989 fertig: ${retriedCount} an naechsten Fahrer, ${exhaustedCount} in Wartepool (alle probiert) (${Date.now() - startedAt}ms)`);
+            }
+            if (exhaustedCount > 0) {
                 try {
-                    let msg = `⏱️ ${movedCount} Fahrt${movedCount > 1 ? 'en' : ''} wandern in Wartepool (nicht angenommen):\n`;
-                    moved.slice(0, 5).forEach(m => {
-                        msg += `\n• ${m.customer || '?'} · war ${m.veh}${m.pickup ? ' · ' + m.pickup.slice(0, 30) : ''}`;
+                    let msg = `🚨 ${exhaustedCount} Fahrt${exhaustedCount > 1 ? 'en' : ''} — ALLE Fahrer probiert, keiner angenommen:\n`;
+                    exhausted.slice(0, 5).forEach(m => {
+                        msg += `\n• ${m.customer || '?'} · probiert: ${m.tried.join(', ')}${m.pickup ? '\n  ' + m.pickup.slice(0, 40) : ''}`;
                     });
-                    if (moved.length > 5) msg += `\n… +${moved.length - 5} weitere`;
-                    msg += `\n\nJetzt manuell in der Fahrer-App/Admin sichtbar zum Grabben.`;
+                    if (exhausted.length > 5) msg += `\n… +${exhausted.length - 5} weitere`;
+                    msg += `\n\nBleibt im Wartepool-Banner bis manueller Grab oder neuer Fahrer meldet sich an.`;
                     const _bridgeTs = Date.now();
                     await db.ref('claudeBridge/outbox/' + _bridgeTs).set({
                         message: msg,
@@ -42868,7 +42921,7 @@ exports.scheduledPendingAcceptTimeout = onSchedule(
                         via: 'claude',
                         ts: _bridgeTs
                     });
-                } catch (_pushErr) { console.error('v985 Bridge-Push Fehler:', _pushErr.message); }
+                } catch (_pushErr) { console.error('v989 Bridge-Push Fehler:', _pushErr.message); }
             }
         } catch (e) {
             console.error('scheduledPendingAcceptTimeout Fehler:', e.message, e.stack);

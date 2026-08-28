@@ -7,7 +7,7 @@
  */
 
 // 🆕 v6.25.5: Cloud Function Version — wird in Firebase gespeichert für App-Anzeige
-const CLOUD_FUNCTIONS_VERSION = '6.63.979';
+const CLOUD_FUNCTIONS_VERSION = '6.63.980';
 const CLOUD_FUNCTIONS_BUILD = '27.08.2026 CET';
 
 const { onRequest } = require('firebase-functions/v2/https');
@@ -24570,7 +24570,9 @@ exports.scheduledPublicPickupsSync = onSchedule(
                 //   assigned/accepted Rides mit Vehicle ebenfalls schreiben. Client filtert
                 //   client-side auf MY_VEHICLE, damit Fahrer seine eigenen kommenden Pickups
                 //   sieht. Ausgeschlossen: picked_up/on_way (Fahrer schon unterwegs zum Gast).
-                const isAssigned = !!veh && ['assigned', 'accepted', 'vorbestellt', 'new'].includes(st);
+                // v6.63.980: 'warteschlange' hinzugefuegt — Cloud-Auto-Assign setzt diesen
+                //   Status fuer zugewiesene-aber-noch-nicht-bestaetigte Rides.
+                const isAssigned = !!veh && ['assigned', 'accepted', 'vorbestellt', 'new', 'warteschlange'].includes(st);
                 if (!isOpen && !isAssigned) return;
                 if (r.pickupLat == null || r.pickupLon == null) return;
                 // Schmales Subset — nur Vorname statt Nachname, keine Telefonnummer
@@ -24585,7 +24587,11 @@ exports.scheduledPublicPickupsSync = onSchedule(
                     firstName: firstName || 'Kunde',
                     price: r.price || null,
                     status: st,
-                    assignedVehicle: veh || null  // v6.63.976: client filtert eigene
+                    assignedVehicle: veh || null,
+                    // 🆕 v6.63.980: acceptedAt mitschreiben — Client zeigt zugeteilt-aber-
+                    //   NICHT-angenommene Rides als GELBE Pins fuer ALLE Fahrer (grabbbar
+                    //   falls zugeteilter Fahrer nicht reagiert).
+                    acceptedAt: r.acceptedAt || null
                 };
             });
             // Alten Snapshot lesen und mergen (löschen was nicht mehr da ist)

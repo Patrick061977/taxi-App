@@ -164,12 +164,8 @@ function render() {
     }
     document.getElementById('count').textContent = active + ' aktiv';
 
-    // Beim ersten Load: zoom auf alle Marker
-    if (_firstLoad && active > 0) {
-        const group = L.featureGroup(Object.values(markers));
-        try { map.fitBounds(group.getBounds().pad(0.2)); } catch (_) {}
-        _firstLoad = false;
-    }
+    // v6.63.982: fitBounds komplett nach loadPickups verschoben, siehe dort.
+    //   (render() lief fruher SYNC vor Pickup-Fetch → Pickup-Marker noch leer → falscher Zoom)
 }
 
 // v6.62.647: REST-Polling alle 5s statt Firebase-SDK-Listener (CDN-frei)
@@ -297,6 +293,21 @@ async function loadPickups() {
             if (!seenIds.has(rid)) {
                 map.removeLayer(pickupMarkers[rid]);
                 delete pickupMarkers[rid];
+            }
+        }
+        // v6.63.982: Beim ersten Load nach Pickup-Fetch alle Marker (Vehicles + Pickups)
+        //   in den View passen — Patrick 28.08.: 'Karte soll so gross sein dass ich
+        //   alle Pins sehe, bin in Wolgast aber Pickups auf Usedom nicht im Sichtbereich'.
+        //   Wird hier gemacht statt in render() weil render() synchron laeuft bevor
+        //   loadPickups die Pickup-Marker gesetzt hat.
+        if (_firstLoad) {
+            const allMarkers = [...Object.values(markers), ...Object.values(pickupMarkers)];
+            if (allMarkers.length > 0) {
+                try {
+                    const group = L.featureGroup(allMarkers);
+                    map.fitBounds(group.getBounds().pad(0.15));
+                } catch (_) {}
+                _firstLoad = false;
             }
         }
     } catch (e) {

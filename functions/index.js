@@ -7,7 +7,7 @@
  */
 
 // 🆕 v6.25.5: Cloud Function Version — wird in Firebase gespeichert für App-Anzeige
-const CLOUD_FUNCTIONS_VERSION = '6.63.976';
+const CLOUD_FUNCTIONS_VERSION = '6.63.978';
 const CLOUD_FUNCTIONS_BUILD = '27.08.2026 CET';
 
 const { onRequest } = require('firebase-functions/v2/https');
@@ -34789,6 +34789,28 @@ exports.scheduledLateCheck = onSchedule(
                     if (!isVehicleInShift(altVid, shiftsData, dateStr, timeStr)) {
                         altCheckResults.push({ vid: altVid, skipReason: 'not in shift' });
                         continue;
+                    }
+                    // 🆕 v6.63.978 (Patrick 28.08. 06:47 Bridge Rosentraeger-Rescue):
+                    //   Late-Rescue darf NIE an offline-Fahrzeuge zuweisen. Bisher
+                    //   nur Schicht-Plan-Check → Fahrt landete bei MY (offline seit
+                    //   Vortag) und Fahrgast wurde nicht abgeholt. Fix: online-Status
+                    //   + GPS-Alter <15 Min pruefen.
+                    {
+                        const _vAlt = vehiclesData[altVid] || {};
+                        if (_vAlt.online !== true) {
+                            altCheckResults.push({ vid: altVid, skipReason: 'v978 nicht online' });
+                            continue;
+                        }
+                        const _gpsAgeMin = _vAlt.lastUpdate ? (Date.now() - _vAlt.lastUpdate) / 60000 : Infinity;
+                        if (_gpsAgeMin > 15) {
+                            altCheckResults.push({ vid: altVid, skipReason: `v978 GPS ${Math.round(_gpsAgeMin)}min alt` });
+                            continue;
+                        }
+                        const _disp = String(_vAlt.dispatchStatus || '').toLowerCase();
+                        if (_disp === 'offline' || _disp === 'pause') {
+                            altCheckResults.push({ vid: altVid, skipReason: `v978 dispatch=${_disp}` });
+                            continue;
+                        }
                     }
                     // 🆕 v6.62.898 + 🔧 v6.63.605: forceEnded nur wenn heute
                     {

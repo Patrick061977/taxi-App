@@ -220,13 +220,19 @@
          Bei 2 Rides mit conflictHint werden Cards ~280dp hoch → 2. Accept-Button liegt unter
          Bottom-Bar (56dp+padding=82dp) → nicht klickbar. paddingBottom 180→240dp gibt 158dp
          Puffer, garantiert dass letzter Button gezielt geklickt werden kann. -->
+    <!-- v6.63.977 (Patrick 28.08. 06:47 Bridge 'ich kann Losfahren-Button nicht drücken
+         weil das Feld einfach nicht hoch und runter geschoben werden kann'):
+         paddingBottom von 240 → 400dp. Bei 3-4 Rides mit conflictHint werden Cards
+         teils 320dp+ hoch, und der Losfahr-Button beim untersten liegt dann
+         auch mit 240dp Puffer unter der Bottom-Bar (56dp) + Status-Bar-Insets.
+         400dp gibt 300dp+ Puffer — auch bei 4 hohen Cards immer noch scrollbar. -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rv_rides"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:padding="12dp"
         android:clipToPadding="false"
-        android:paddingBottom="240dp"
+        android:paddingBottom="400dp"
         android:nestedScrollingEnabled="true"
         android:overScrollMode="always"
         android:scrollbars="vertical"

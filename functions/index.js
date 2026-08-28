@@ -42729,6 +42729,110 @@ exports.onRideEnteredWartepool = onValueUpdated(
     }
 );
 
+// 🆕 v6.63.985 (Patrick 28.08. 12:33 Bridge Marion+Vitzthun Doppel-Zombie):
+//   "Wenn keiner annimmt bleiben die oben im Banner. Wenn System sie versucht
+//   wieder zu verteilen — einmal muss verteilt werden, wenn das nicht funktioniert,
+//   bleiben die da oben, wenn keiner annimmt. Sonst fangen die an sich im Kreis
+//   zu drehen."
+//
+//   Watchdog: alle 1 Min pruefen. Bedingungen fuer Wartepool-Umleitung:
+//     • status in [vorbestellt/assigned/new/sofort]
+//     • assignedVehicle gesetzt (also EINMAL verteilt)
+//     • acceptedAt = null (Fahrer hat NICHT angenommen)
+//     • assignedAt > 5 Min alt (Toleranz fuer Fahrer sich zu entscheiden)
+//     • pickupTimestamp innerhalb der naechsten 60 Min (bald faellig)
+//     • KEIN assignmentLocked (Patricks manuelle Entscheidung nie ueberschreiben)
+//
+//   → Ride wird auf status='wartepool' gesetzt, previousAssignedVehicle
+//     gespeichert, assignedVehicle=null. Damit wandert sie automatisch in
+//     Christian/Kulpa/etc's Wartepool-Banner (Native App liest ohnehin
+//     wartepoolRidesQuery) und kann von IRGENDJEMANDEM manuell angenommen
+//     werden. Auch der originale Fahrer kann sie wieder greifen.
+exports.scheduledPendingAcceptTimeout = onSchedule(
+    {
+        schedule: 'every 1 minutes',
+        region: 'europe-west1',
+        timeoutSeconds: 60,
+        memory: '256MiB'
+    },
+    async () => {
+        const startedAt = Date.now();
+        try {
+            const now = Date.now();
+            const minAssignAgeMs = 5 * 60 * 1000; // 5 Min ohne Accept
+            const maxPickupAheadMs = 60 * 60 * 1000; // nur wenn Pickup < 60 Min voraus
+
+            const snap = await db.ref('rides').orderByChild('pickupTimestamp')
+                .startAt(now - 30 * 60000).endAt(now + maxPickupAheadMs).once('value');
+
+            let checkedCount = 0, movedCount = 0;
+            const moved = [];
+            const promises = [];
+            snap.forEach(c => {
+                const r = c.val();
+                if (!r) return;
+                const st = (r.status || '').toLowerCase();
+                if (!['vorbestellt', 'assigned', 'new', 'sofort'].includes(st)) return;
+                if (r.assignmentLocked === true) return;
+                const veh = r.assignedVehicle || r.vehicleId;
+                if (!veh) return;
+                if (r.acceptedAt) return;
+                const assignedAt = Number(r.assignedAt) || 0;
+                if (!assignedAt) return;
+                if (now - assignedAt < minAssignAgeMs) return;
+                checkedCount++;
+
+                const rideId = c.key;
+                const updates = {
+                    status: 'wartepool',
+                    wartepoolReason: `pending-accept-timeout: an ${veh} vor ${Math.round((now - assignedAt) / 60000)} Min zugewiesen, nicht angenommen`,
+                    previousAssignedVehicle: veh,
+                    assignedVehicle: null,
+                    vehicleId: null,
+                    _pendingAcceptTimeoutAt: now,
+                    updatedAt: now
+                };
+                promises.push(
+                    db.ref(`rides/${rideId}`).update(updates)
+                        .then(() => {
+                            movedCount++;
+                            moved.push({ rideId, customer: r.customerName, veh, pickup: r.pickup });
+                            console.log(`⏱️ v985 PendingAcceptTimeout: ${rideId} (${r.customerName}) — war ${veh}, jetzt wartepool`);
+                            return addRideLog(rideId, '⏱️', `v985 Pending-Accept-Timeout — war ${veh} zugewiesen vor ${Math.round((now - assignedAt) / 60000)} Min, nicht angenommen → Wartepool`, {
+                                previousAssignedVehicle: veh,
+                                assignedAtAgeMin: Math.round((now - assignedAt) / 60000)
+                            }).catch(() => {});
+                        })
+                        .catch(err => console.error(`v985 update Fehler ${rideId}:`, err.message))
+                );
+            });
+
+            await Promise.all(promises);
+            if (movedCount > 0) {
+                console.log(`⏱️ v985 fertig: ${movedCount}/${checkedCount} Rides in Wartepool verschoben (${Date.now() - startedAt}ms)`);
+                // Push an Admin Sammel-Info
+                try {
+                    let msg = `⏱️ ${movedCount} Fahrt${movedCount > 1 ? 'en' : ''} wandern in Wartepool (nicht angenommen):\n`;
+                    moved.slice(0, 5).forEach(m => {
+                        msg += `\n• ${m.customer || '?'} · war ${m.veh}${m.pickup ? ' · ' + m.pickup.slice(0, 30) : ''}`;
+                    });
+                    if (moved.length > 5) msg += `\n… +${moved.length - 5} weitere`;
+                    msg += `\n\nJetzt manuell in der Fahrer-App/Admin sichtbar zum Grabben.`;
+                    const _bridgeTs = Date.now();
+                    await db.ref('claudeBridge/outbox/' + _bridgeTs).set({
+                        message: msg,
+                        targetChatId: 6229490043,
+                        via: 'claude',
+                        ts: _bridgeTs
+                    });
+                } catch (_pushErr) { console.error('v985 Bridge-Push Fehler:', _pushErr.message); }
+            }
+        } catch (e) {
+            console.error('scheduledPendingAcceptTimeout Fehler:', e.message, e.stack);
+        }
+    }
+);
+
 // 🆕 v6.63.710 (Patrick 15.07.): Preis-Preview für Native-Vorbestellungs-Maske.
 //   Native CrmSearch ruft das auf sobald Pickup+Ziel gesetzt sind → OSRM-Routing +
 //   Tarif-Berechnung → Preis-Vorschlag im etPrice-Feld. Nutzer kann überschreiben.

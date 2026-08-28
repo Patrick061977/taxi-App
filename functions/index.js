@@ -33511,6 +33511,13 @@ exports.scheduledOpenRideCheck = onSchedule(
                 if (ride.status !== 'sofort') return;
                 if (!ride.assignmentExpiresAt) return;
                 if (ride.assignmentExpiresAt > now) return; // Noch nicht abgelaufen
+                // 🆕 v6.63.988 (Patrick 28.08. Klaus-Schulze-Log 32 Min nach Pickup):
+                //   Post-Pickup-Cutoff. Wenn Pickup > 5 Min vorbei ist, NIE mehr reassign.
+                //   Kunde ist weg — Ride manuell auf completed/cancelled setzen.
+                if (ride.pickupTimestamp && ride.pickupTimestamp < now - 5 * 60000) {
+                    console.log(`⏹️ v988 SOFORT-Timeout skip ${rideId}: Pickup ${Math.round((now - ride.pickupTimestamp) / 60000)} Min vorbei — kein Reassign`);
+                    return;
+                }
 
                 // Abgelaufen! Fahrzeug entfernen und neu zuweisen
                 const expiredVehicle = ride.assignedVehicle || ride.vehicleId;
@@ -33585,7 +33592,12 @@ exports.scheduledOpenRideCheck = onSchedule(
                 // Für 'sofort'-Rides: bis 60 Min Vorlauf (web-buchen schickt auch +30-Min-Rides mit sofort)
                 const _watchdogCutoff = ride.status === 'sofort' ? 60 * 60000 : 25 * 60000;
                 if (msUntil > _watchdogCutoff) return;
-                if (msUntil < -2 * 60 * 60000) return; // > 2h alt → ignorieren (verschollen)
+                // 🆕 v6.63.988 (Patrick 28.08. Klaus-Schulze-Log): Post-Pickup-Cutoff hart auf
+                //   5 Min gesetzt. Vorher waren es 2h — dadurch reassignte der Watchdog
+                //   Rides bis 2 Std nach Pickup (Klaus-Schulze 32 Min nach 10:50 = 11:22
+                //   reassigned an IK). Kunde ist laengst weg. Ab jetzt: 5 Min Karenz fuer
+                //   Vorbestellung, danach Ride bleibt liegen -> Admin entscheidet manuell.
+                if (msUntil < -5 * 60000) return; // > 5 Min nach Pickup → ignorieren
                 if (ride.watchdogLastAttempt && (now - ride.watchdogLastAttempt) < 60000) return;
                 // 🛡️ v6.62.715: Patrick (14.05. 12:35): "Danilo hat angenommen aber sie ist
                 //   wieder weg". Race-Condition: zwischen accept (rideAction) und Watchdog-

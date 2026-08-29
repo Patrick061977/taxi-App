@@ -117,12 +117,13 @@ function stripHouseNumberAndZip(name) {
     return s;
 }
 
-// Ort-Name-Extraktion aus vollständiger Adresse.
-//   Priorität:
-//     1) POI-Name aus einer der Komma-Komponenten (Hotel/Bahnhof/Klinik/Restaurant/…)
-//     2) Erste Komponente ohne Hausnummer/PLZ (Straßenname/Ortsteil behalten)
-//     3) Fallback: Ort im ganzen Adress-String suchen
-//     4) NULL wenn nichts brauchbar
+// v6.63.1005 (Patrick 29.08.: "ort strasse ohne hausnummer ausser bei poi"):
+//   Neue Regel:
+//     1) POI (Hotel/Bahnhof/Klinik/Restaurant/…) → nur POI-Name
+//     2) Sonst: "Ort Straßenname" kombiniert (ohne Hausnummer)
+//        - Wenn Straße bereits einen Ortsnamen enthält (z.B. "Dorf Bansin") → nur Straße
+//        - Wenn nur Straße vorhanden (kein Ort) → nur Straße
+//        - Wenn nur Ort vorhanden (keine Straße) → nur Ort
 function shortName(fullAddress) {
     if (!fullAddress) return null;
     const parts = fullAddress.split(',').map(s => s.trim()).filter(Boolean);
@@ -133,13 +134,17 @@ function shortName(fullAddress) {
             return p.length > 55 ? p.slice(0, 52) + '…' : p;
         }
     }
-    // 2) Hausnummer/PLZ aus parts[0] entfernen
-    const stripped = stripHouseNumberAndZip(parts[0]);
-    if (stripped && !/^\s*\d/.test(stripped)) {
-        return stripped.length > 55 ? stripped.slice(0, 52) + '…' : stripped;
-    }
-    // 3) Fallback: bekannten Ort im ganzen String suchen
+    // 2) Straße (aus parts[0]) und Ort (aus ganzem String) extrahieren
+    const strasse = stripHouseNumberAndZip(parts[0]);
     const ort = findOrtInString(fullAddress);
+    // Straße enthält bereits Ortsnamen? (z.B. "Dorf Bansin", "Ahlbecker Chaussee")
+    const strasseHatOrt = strasse && ORT_NAMES.some(o => strasse.toLowerCase().includes(o));
+
+    if (strasse && !strasseHatOrt && ort) {
+        const combined = `${ort} ${strasse}`;
+        return combined.length > 55 ? combined.slice(0, 52) + '…' : combined;
+    }
+    if (strasse) return strasse.length > 55 ? strasse.slice(0, 52) + '…' : strasse;
     if (ort) return ort;
     return null;
 }

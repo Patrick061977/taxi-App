@@ -66,12 +66,11 @@ button.edit-btn:hover{background:#fbbf24;color:#0f172a}
 
 <div class="container">
 <div id="authWarn" class="auth-warn" style="display:none">
-<div><b>🔒 Anmeldung erforderlich</b></div>
-<div style="margin-top:8px;font-size:13px">Nur Admin darf hier editieren.</div>
-<button onclick="doLogin()">Mit Firebase anmelden</button>
+<div><b>👤 <span id="userMail">nicht angemeldet</span></b></div>
+<div style="margin-top:6px;font-size:12px">Zum Speichern in Firebase bitte in der <a href="index.html" style="color:#fbbf24" target="_blank">Haupt-App</a> einloggen. Diese Seite teilt sich die Login-Session.</div>
 </div>
 
-<div id="app" style="display:none">
+<div id="app">
 <div class="deploy-hint">
 💡 Änderungen werden sofort in Firebase gespeichert. Die statischen Landing-Pages werden beim nächsten
 Deploy-Run neu generiert. Push in Github → Auto-Deploy zu Strato. Alternativ:
@@ -173,21 +172,25 @@ let OVERRIDES = {};
 let sortField = 'c', sortDir = -1;
 let editingSlug = null;
 
+// v1003: Auth-Wall ENTFERNT — Seite lädt immer, Login-Session wird aus
+//   index.html mitgenommen (gleicher Firebase-App). Nicht-eingeloggte User
+//   können zwar ansehen aber nicht speichern (Firebase-Rules blocken).
+loadData();
 auth.onAuthStateChanged(user => {
+    const warn = document.getElementById('authWarn');
+    const mailEl = document.getElementById('userMail');
     if (user) {
-        document.getElementById('authWarn').style.display = 'none';
-        document.getElementById('app').style.display = 'block';
-        loadData();
+        mailEl.textContent = user.email || 'angemeldet';
+        warn.style.display = 'block';
+        warn.style.background = '#065f46';
+        warn.style.color = '#d1fae5';
     } else {
-        document.getElementById('authWarn').style.display = 'block';
-        document.getElementById('app').style.display = 'none';
+        mailEl.textContent = 'nicht angemeldet — Speichern nicht möglich';
+        warn.style.display = 'block';
+        warn.style.background = '#78350f';
+        warn.style.color = '#fed7aa';
     }
 });
-
-function doLogin() {
-    const provider = new firebase.auth.GoogleAuthProvider();
-    auth.signInWithPopup(provider).catch(e => alert('Login-Fehler: ' + e.message));
-}
 
 async function loadData() {
     // 1) Routen aus taxi-preise.html JSON extrahieren (embedded)

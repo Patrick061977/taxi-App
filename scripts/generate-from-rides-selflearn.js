@@ -280,13 +280,12 @@ function main() {
 
     console.log('   Gesamt gescannt: ' + totalScanned + ' Rides, davon ' + totalCompleted + ' completed im Zeitfenster');
 
-    // Filter: mindestens MIN_OCCURRENCES, noch keine Landing existiert
+    // v1004 (Patrick 29.08. "preise sind noch nicht aktuell"): auch existierende
+    //   Landings updaten wenn Preis/km/min-Median sich signifikant geändert hat.
+    //   Vorher: nur NEUE erstellen. Jetzt: Aktualisierung + Neu-Erstellung.
+    const UPDATE_EXISTING = true;
     const candidates = Object.values(routes)
         .filter(r => r.count >= MIN_OCCURRENCES)
-        .filter(r => {
-            const fn = `taxi-${slugify(r.from)}-zu-${slugify(r.to)}.html`;
-            return !fs.existsSync(path.join(ROOT, fn));
-        })
         .sort((a, b) => b.count - a.count)
         .slice(0, MAX_NEW_LANDINGS);
 

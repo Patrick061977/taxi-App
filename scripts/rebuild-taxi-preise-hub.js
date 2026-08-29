@@ -164,7 +164,6 @@ ${orte.map(o => `<option value="${o}">◀ ${o}</option>`).join('\n')}
 <th onclick="sortBy('km')">km</th>
 <th onclick="sortBy('min')">Min</th>
 <th onclick="sortBy('price')">Preis Ø</th>
-<th onclick="sortBy('count')">×</th>
 </tr>
 </thead>
 <tbody id="tb"></tbody>
@@ -211,16 +210,15 @@ function apply(){
   const tb = document.getElementById('tb');
   const limit = 500;
   const shown = filtered.slice(0, limit);
-  tb.innerHTML = shown.map(r => \`<tr>
+  tb.innerHTML = shown.map(r => \`<tr onclick="window.location.href='\${r.f}'" style="cursor:pointer">
     <td><a class="route" href="\${r.f}">\${r.a}</a></td>
-    <td>\${r.b}</td>
+    <td><a class="route" href="\${r.f}">\${r.b}</a></td>
     <td>\${r.k != null ? r.k.toFixed(1) : '–'}</td>
     <td>\${r.m != null ? r.m : '–'}</td>
     <td class="price">\${r.p != null ? r.p.toFixed(2).replace('.',',') + ' €' : '–'}</td>
-    <td>\${r.c || 1}×</td>
   </tr>\`).join('');
   if (filtered.length > limit) {
-    tb.innerHTML += \`<tr><td colspan="6" style="text-align:center;color:#64748b;padding:16px;">… weitere \${filtered.length - limit} nicht gezeigt. Nutze Filter/Suche.</td></tr>\`;
+    tb.innerHTML += \`<tr><td colspan="5" style="text-align:center;color:#64748b;padding:16px;">… weitere \${filtered.length - limit} nicht gezeigt. Nutze Filter/Suche.</td></tr>\`;
   }
   document.getElementById('noResults').style.display = filtered.length === 0 ? 'block' : 'none';
 }

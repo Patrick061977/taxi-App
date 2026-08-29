@@ -1,15 +1,18 @@
 #!/usr/bin/env node
 // v6.63.962: Self-Learning-Route-Generator
-// Scannt /rides der letzten 90 Tage, findet häufig gefahrene Ort→Ort-Kombis
-// die noch keine Landing haben, generiert automatisch neue HTMLs.
+// v6.63.997 (Patrick 29.08. "gefahrene Routen sind Goldstaub für Google"):
+//   • Auch /archiveRides einbeziehen (bisher nur /rides — der schlanke Live-Node)
+//   • MIN_OCCURRENCES 2 → 1 (jede echt gefahrene Route zaehlt)
+//   • LOOKBACK 90 → 730 Tage (2 Jahre)
+//   • MAX_NEW_LANDINGS 100 → 5000 (Sicherheits-Cap, praktisch unlimited)
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
 
 const ROOT = path.resolve(__dirname, '..');
-const MIN_OCCURRENCES = 2;          // Route muss ≥ 2x gefahren worden sein
-const LOOKBACK_DAYS = 90;
-const MAX_NEW_LANDINGS = 100;       // Sicherheits-Cap pro Run
+const MIN_OCCURRENCES = 1;          // v997: jede gefahrene Route ist Goldstaub
+const LOOKBACK_DAYS = 730;          // v997: 2 Jahre Historie
+const MAX_NEW_LANDINGS = 5000;      // v997: praktisch unlimited
 
 function fetchViaCli(refPath) {
     const out = execSync('firebase database:get ' + refPath, {
@@ -139,36 +142,48 @@ footer a { color: #fbbf24; text-decoration: none; margin: 0 8px; }
 }
 
 function main() {
-    console.log('📡 Lade /rides der letzten ' + LOOKBACK_DAYS + ' Tage...');
+    console.log('📡 Lade /rides + /archiveRides der letzten ' + LOOKBACK_DAYS + ' Tage...');
     const cutoff = Date.now() - LOOKBACK_DAYS * 24 * 3600 * 1000;
-    const rides = fetchViaCli('/rides');
-    console.log('   ' + Object.keys(rides || {}).length + ' Rides gefunden');
 
     // Route-Kombinationen zählen — Slug-basiert für konsistente Erkennung
-    const routes = {}; // key "fromSlug|toSlug" → { count, from, to, kmSum, priceSum, latSums }
-    for (const [id, r] of Object.entries(rides || {})) {
-        if (!r) continue;
-        if (r.status !== 'completed') continue;
-        const ts = r.completedAt || r.pickupTimestamp || r.createdAt || 0;
-        if (ts < cutoff) continue;
-        const fromName = shortName(r.pickup);
-        const toName = shortName(r.destination);
-        if (!fromName || !toName) continue;
-        // Slug-Key für Duplikat-Erkennung
-        const fromS = slugify(fromName);
-        const toS = slugify(toName);
-        if (!fromS || !toS || fromS === toS) continue;
-        const key = fromS + '|' + toS;
-        if (!routes[key]) routes[key] = {
-            count: 0, from: fromName, to: toName,
-            kmSum: 0, kmN: 0, priceSum: 0, priceN: 0
-        };
-        routes[key].count++;
-        const km = parseFloat(r.distance || r.estimatedDistance || 0);
-        if (km > 0) { routes[key].kmSum += km; routes[key].kmN++; }
-        const price = parseFloat(r.price || r.estimatedPrice || 0);
-        if (price > 0) { routes[key].priceSum += price; routes[key].priceN++; }
-    }
+    const routes = {}; // key "fromSlug|toSlug" → { count, from, to, kmSum, priceSum }
+    let totalScanned = 0, totalCompleted = 0;
+
+    const scanRides = (rides, sourceLabel) => {
+        console.log('   ' + Object.keys(rides || {}).length + ' Rides in ' + sourceLabel);
+        for (const [id, r] of Object.entries(rides || {})) {
+            if (!r) continue;
+            totalScanned++;
+            if (r.status !== 'completed') continue;
+            const ts = r.completedAt || r.pickupTimestamp || r.createdAt || 0;
+            if (ts < cutoff) continue;
+            totalCompleted++;
+            const fromName = shortName(r.pickup);
+            const toName = shortName(r.destination);
+            if (!fromName || !toName) continue;
+            const fromS = slugify(fromName);
+            const toS = slugify(toName);
+            if (!fromS || !toS || fromS === toS) continue;
+            const key = fromS + '|' + toS;
+            if (!routes[key]) routes[key] = {
+                count: 0, from: fromName, to: toName,
+                kmSum: 0, kmN: 0, priceSum: 0, priceN: 0
+            };
+            routes[key].count++;
+            const km = parseFloat(r.distance || r.estimatedDistance || 0);
+            if (km > 0) { routes[key].kmSum += km; routes[key].kmN++; }
+            const price = parseFloat(r.price || r.estimatedPrice || 0);
+            if (price > 0) { routes[key].priceSum += price; routes[key].priceN++; }
+        }
+    };
+
+    // v997: Live-Node + Archive scannen
+    try { scanRides(fetchViaCli('/rides'), '/rides (Live)'); }
+    catch (e) { console.warn('⚠️  /rides Fetch-Fehler:', e.message); }
+    try { scanRides(fetchViaCli('/archiveRides'), '/archiveRides (2-Jahre)'); }
+    catch (e) { console.warn('⚠️  /archiveRides Fetch-Fehler:', e.message); }
+
+    console.log('   Gesamt gescannt: ' + totalScanned + ' Rides, davon ' + totalCompleted + ' completed im Zeitfenster');
 
     // Filter: mindestens MIN_OCCURRENCES, noch keine Landing existiert
     const candidates = Object.values(routes)

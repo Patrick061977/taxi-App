@@ -164,7 +164,10 @@ const INTROS_SL = [
 
 function generateHtml(from, to, km, min, eur, count) {
     const h = stableHash(from + to);
-    const priceStr = eur.toFixed(2).replace('.', ',');
+    // v6.63.1006 (Patrick 29.08. "auf 10 cent runden statt cent"):
+    //   Runden auf 10 Cent für Landings + Hub. Formatierung: "12,30 €"
+    const _rounded = Math.round(eur * 10) / 10;
+    const priceStr = _rounded.toFixed(1).replace('.', ',') + '0';
     const intro = INTROS_SL[h % INTROS_SL.length]({ f: from, t: to, km, min, eur: priceStr, count });
     const filename = `taxi-${slugify(from)}-zu-${slugify(to)}.html`;
     const canonical = `https://umwelt-taxi-insel-usedom.de/${filename}`;

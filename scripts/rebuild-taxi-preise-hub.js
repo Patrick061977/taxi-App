@@ -215,7 +215,7 @@ function apply(){
     <td><a class="route" href="\${r.f}">\${r.b}</a></td>
     <td>\${r.k != null ? r.k.toFixed(1) : '–'}</td>
     <td>\${r.m != null ? r.m : '–'}</td>
-    <td class="price">\${r.p != null ? r.p.toFixed(2).replace('.',',') + ' €' : '–'}</td>
+    <td class="price">\${r.p != null ? (Math.round(r.p * 10) / 10).toFixed(1).replace('.',',') + '0 €' : '–'}</td>
   </tr>\`).join('');
   if (filtered.length > limit) {
     tb.innerHTML += \`<tr><td colspan="5" style="text-align:center;color:#64748b;padding:16px;">… weitere \${filtered.length - limit} nicht gezeigt. Nutze Filter/Suche.</td></tr>\`;

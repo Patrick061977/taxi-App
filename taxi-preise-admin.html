@@ -107,7 +107,6 @@ Deploy-Run neu generiert. Push in Github → Auto-Deploy zu Strato. Alternativ:
 <th onclick="sortBy('k')">km</th>
 <th onclick="sortBy('m')">Min</th>
 <th onclick="sortBy('p')">Preis Ø</th>
-<th onclick="sortBy('c')">×</th>
 <th>Aktion</th>
 </tr></thead>
 <tbody id="tb"></tbody>
@@ -273,18 +272,19 @@ function apply() {
         const displayPrice = ov.priceOverride != null ? ov.priceOverride : r.p;
         const displayKm = ov.kmOverride != null ? ov.kmOverride : r.k;
         const displayMin = ov.minOverride != null ? ov.minOverride : r.m;
+        // v6.63.1006 (Patrick 29.08. "auf 10 cent runden statt cent"): Preis auf 10ct runden
+        const priceStr = displayPrice != null ? (Math.round(displayPrice * 10) / 10).toFixed(1).replace('.', ',') + '0 €' : '–';
         return `<tr class="${cls}">
             <td class="route-cell">${r.a}${ov.hide ? ' 🚫' : ''}</td>
             <td>${r.b}</td>
             <td class="${ov.kmOverride!=null?'override-cell':''}">${displayKm != null ? displayKm.toFixed(1) : '–'}</td>
             <td class="${ov.minOverride!=null?'override-cell':''}">${displayMin != null ? displayMin : '–'}</td>
-            <td class="price ${ov.priceOverride!=null?'override-cell':''}">${displayPrice != null ? displayPrice.toFixed(2).replace('.',',') + ' €' : '–'}</td>
-            <td>${r.c || 1}×</td>
+            <td class="price ${ov.priceOverride!=null?'override-cell':''}">${priceStr}</td>
             <td><button class="edit-btn" onclick='openEdit(${JSON.stringify(slug)})'>✏️ Edit</button></td>
         </tr>`;
     }).join('');
     if (filtered.length > limit) {
-        tb.innerHTML += `<tr><td colspan="7" style="text-align:center;color:#64748b;padding:16px">… weitere ${filtered.length - limit} nicht gezeigt.</td></tr>`;
+        tb.innerHTML += `<tr><td colspan="6" style="text-align:center;color:#64748b;padding:16px">… weitere ${filtered.length - limit} nicht gezeigt.</td></tr>`;
     }
 }
 

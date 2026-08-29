@@ -10,9 +10,16 @@ const path = require('path');
 const { execSync } = require('child_process');
 
 const ROOT = path.resolve(__dirname, '..');
-const MIN_OCCURRENCES = 1;          // v997: jede gefahrene Route ist Goldstaub
-const LOOKBACK_DAYS = 730;          // v997: 2 Jahre Historie
-const MAX_NEW_LANDINGS = 5000;      // v997: praktisch unlimited
+
+// v6.63.1011 (Patrick 29.08.): CLI-Args --min / --lookback / --max überschreiben Defaults
+function argVal(name, def) {
+    const args = process.argv.slice(2);
+    const i = args.indexOf(name);
+    return i >= 0 && args[i+1] ? args[i+1] : def;
+}
+const MIN_OCCURRENCES = parseInt(argVal('--min', '1'));
+const LOOKBACK_DAYS = parseInt(argVal('--lookback', '730'));
+const MAX_NEW_LANDINGS = parseInt(argVal('--max', '5000'));
 
 function fetchViaCli(refPath) {
     const out = execSync('firebase database:get ' + refPath, {
@@ -64,9 +71,17 @@ function isPoiName(name) {
     return false;
 }
 
+// v6.63.1011 (Patrick 29.08. "Standort Fahrer" durfte nicht als Landing durch):
+//   Interne / Driver-App-Bezeichnungen die niemals in einer SEO-Landing auftauchen
+//   dürfen. Trifft z.B. wenn eine Live-Position via "Standort Fahrer" oder eine
+//   Google-Maps-Share-URL als Adresse eingeflossen ist.
+const INTERNAL_KEYWORDS = /\b(standort|position|aktuelle|meine position|current location|fahrer|driver|test|dummy|abc|xyz|unbekannt)\b/i;
+
 function isPrivateAddress(name) {
     if (!name) return true;
     const trimmed = name.trim();
+    // Interne Bezeichnungen NIE als Landing (auch nicht wenn POI-Keyword mit drinnen)
+    if (INTERNAL_KEYWORDS.test(trimmed)) return true;
     // POI dominiert → nicht privat, egal ob Nummer im Namen (Hotel Neptun 8 bleibt)
     if (isPoiName(trimmed)) return false;
     // v1002 (Patrick 29.08.): Wenn String eine Zahl irgendwo enthält UND kein POI ist
@@ -124,14 +139,29 @@ function stripHouseNumberAndZip(name) {
 //        - Wenn Straße bereits einen Ortsnamen enthält (z.B. "Dorf Bansin") → nur Straße
 //        - Wenn nur Straße vorhanden (kein Ort) → nur Straße
 //        - Wenn nur Ort vorhanden (keine Straße) → nur Ort
+// v6.63.1011 (Patrick 29.08.): Title-Case wenn Wort komplett lowercase — behält
+//   Acronyme wie BSW/AJA/REWE, fixt aber "the breeze" → "The Breeze".
+function titleCaseIfLower(s) {
+    if (!s) return s;
+    return s.split(' ').map(w => {
+        if (!w) return w;
+        if (/[A-Z]/.test(w)) return w;
+        return w.charAt(0).toUpperCase() + w.slice(1);
+    }).join(' ');
+}
+
 function shortName(fullAddress) {
     if (!fullAddress) return null;
     const parts = fullAddress.split(',').map(s => s.trim()).filter(Boolean);
     if (parts.length === 0) return null;
     // 1) POI-Namen priorisieren
+    // v6.63.1011 (Patrick 29.08. "Restaurant Athen Waldstraße 32"): Auch im POI-Ast
+    //   die Hausnummer strippen. Fallback zum Original wenn Strip null liefert.
     for (const p of parts) {
         if (isPoiName(p)) {
-            return p.length > 55 ? p.slice(0, 52) + '…' : p;
+            const stripped = stripHouseNumberAndZip(p) || p;
+            const cased = titleCaseIfLower(stripped);
+            return cased.length > 55 ? cased.slice(0, 52) + '…' : cased;
         }
     }
     // 2) Straße (aus parts[0]) und Ort (aus ganzem String) extrahieren
@@ -151,6 +181,33 @@ function shortName(fullAddress) {
 
 module.exports.stripHouseNumberAndZip = stripHouseNumberAndZip;
 
+// v6.63.1007: Vollständige Adresse Datenschutz-konform bereinigen
+//   - Hausnummer weg, PLZ weg
+//   - POI-Name, Straße, Ort bleiben
+//   - Beispiel: "Zum Bierkutscher, Seestraße 83, 17429 Bansin" → "Zum Bierkutscher, Seestraße, Bansin"
+function cleanFullAddress(fullAddress) {
+    if (!fullAddress) return null;
+    const parts = fullAddress.split(',').map(s => s.trim()).filter(Boolean);
+    const cleaned = [];
+    for (const p of parts) {
+        if (isPoiName(p)) { cleaned.push(p); continue; }
+        // Hausnummer + PLZ raus
+        const s = stripHouseNumberAndZip(p);
+        if (s && s.length > 2 && !/^\s*\d/.test(s)) cleaned.push(s);
+    }
+    // Deduplizieren + zusammensetzen
+    const seen = new Set();
+    const uniq = cleaned.filter(x => {
+        const l = x.toLowerCase();
+        if (seen.has(l)) return false;
+        seen.add(l);
+        return true;
+    });
+    if (uniq.length === 0) return null;
+    return uniq.join(', ');
+}
+module.exports.cleanFullAddress = cleanFullAddress;
+
 module.exports = module.exports || {};
 module.exports.isPrivateAddress = isPrivateAddress;
 module.exports.isPoiName = isPoiName;
@@ -162,13 +219,17 @@ const INTROS_SL = [
     ({f,t,km,min,eur,count}) => `Erfahrungswerte: Die Fahrt vom ${f} zum ${t} dauert etwa ${min} Minuten (${km.toFixed(1)} km). Aus unseren letzten ${count} Fahrten: ca. ${eur} € Median-Preis.`,
 ];
 
-function generateHtml(from, to, km, min, eur, count) {
+function generateHtml(from, to, km, min, eur, count, pickupSample, destSample) {
     const h = stableHash(from + to);
     // v6.63.1006 (Patrick 29.08. "auf 10 cent runden statt cent"):
     //   Runden auf 10 Cent für Landings + Hub. Formatierung: "12,30 €"
     const _rounded = Math.round(eur * 10) / 10;
     const priceStr = _rounded.toFixed(1).replace('.', ',') + '0';
     const intro = INTROS_SL[h % INTROS_SL.length]({ f: from, t: to, km, min, eur: priceStr, count });
+    // v6.63.1007 (Patrick 29.08. "wo ist die strasse"): volle Adressen als Detail-Zeile
+    //   (Datenschutz-konform via cleanFullAddress — Hausnummer + PLZ raus, POI+Straße bleiben)
+    const pickupClean = cleanFullAddress(pickupSample) || from;
+    const destClean = cleanFullAddress(destSample) || to;
     const filename = `taxi-${slugify(from)}-zu-${slugify(to)}.html`;
     const canonical = `https://umwelt-taxi-insel-usedom.de/${filename}`;
     const rawTitle = `Taxi ${from} → ${to} · Funk Taxi Heringsdorf`;
@@ -229,6 +290,11 @@ footer a { color: #fbbf24; text-decoration: none; margin: 0 8px; }
 <main>
 <h2>Über diese Strecke</h2>
 <p>${intro}</p>
+<div class="faq-item" style="border-left-color:#3b82f6;">
+<h3 style="color:#60a5fa;">📍 Detail-Adressen</h3>
+<p><b>Von:</b> ${pickupClean}<br><b>Nach:</b> ${destClean}</p>
+<p style="font-size:12px;color:#94a3b8;margin-top:6px;">Hinweis: Wir holen Sie an jeder Adresse in ${from.split(' ')[0]} ab — der Ort ist Beispiel aus echten Fahrten, Hausnummer natürlich frei wählbar.</p>
+</div>
 <h2>Häufige Fragen</h2>
 <div class="faq-item"><h3>Was kostet die Fahrt vom ${from} zum ${to}?</h3><p>Median aus ${count} Fahrten: ca. ${priceStr} €. Kein Festpreis, Endpreis nach Taxameter. Nacht +5 €, Großraum bis 8 Pers. +10 €.</p></div>
 <div class="faq-item"><h3>Wie bestellen?</h3><p>24/7 unter 038378 22022 oder online über <a href="anfrage.html" style="color:#fbbf24;">anfrage.html</a>. Vorbestellung ab 25 Min Vorlauf.</p></div>
@@ -264,19 +330,29 @@ function main() {
             const fromName = shortName(r.pickup);
             const toName = shortName(r.destination);
             if (!fromName || !toName) continue;
+            // v6.63.1011: interne / driver-App-Bezeichnungen aussortieren
+            if (isPrivateAddress(fromName) || isPrivateAddress(toName)) continue;
             const fromS = slugify(fromName);
             const toS = slugify(toName);
             if (!fromS || !toS || fromS === toS) continue;
             const key = fromS + '|' + toS;
             if (!routes[key]) routes[key] = {
                 count: 0, from: fromName, to: toName,
-                kmSum: 0, kmN: 0, priceSum: 0, priceN: 0
+                kmSum: 0, kmN: 0, priceSum: 0, priceN: 0,
+                pickupSample: null, destSample: null
             };
             routes[key].count++;
             const km = parseFloat(r.distance || r.estimatedDistance || 0);
             if (km > 0) { routes[key].kmSum += km; routes[key].kmN++; }
             const price = parseFloat(r.price || r.estimatedPrice || 0);
             if (price > 0) { routes[key].priceSum += price; routes[key].priceN++; }
+            // v6.63.1007: sample-Adresse merken (die längste sinnvolle für Details-Zeile)
+            if (r.pickup && (!routes[key].pickupSample || r.pickup.length > routes[key].pickupSample.length)) {
+                routes[key].pickupSample = r.pickup;
+            }
+            if (r.destination && (!routes[key].destSample || r.destination.length > routes[key].destSample.length)) {
+                routes[key].destSample = r.destination;
+            }
         }
     };
 
@@ -288,28 +364,31 @@ function main() {
 
     console.log('   Gesamt gescannt: ' + totalScanned + ' Rides, davon ' + totalCompleted + ' completed im Zeitfenster');
 
-    // v1004 (Patrick 29.08. "preise sind noch nicht aktuell"): auch existierende
-    //   Landings updaten wenn Preis/km/min-Median sich signifikant geändert hat.
-    //   Vorher: nur NEUE erstellen. Jetzt: Aktualisierung + Neu-Erstellung.
-    const UPDATE_EXISTING = true;
+    // v6.63.1011 (Patrick 29.08.): --only-new lässt existierende Landings unberührt
+    //   (Rollback-Stand bleibt erhalten, nur neue Files kommen dazu).
+    const ONLY_NEW = process.argv.includes('--only-new');
     const candidates = Object.values(routes)
         .filter(r => r.count >= MIN_OCCURRENCES)
         .sort((a, b) => b.count - a.count)
         .slice(0, MAX_NEW_LANDINGS);
 
     console.log('   ' + Object.keys(routes).length + ' unique Routen aus completed-Fahrten');
-    console.log('   ' + candidates.length + ' Kandidaten (≥ ' + MIN_OCCURRENCES + '× UND noch keine Landing)');
+    console.log('   ' + candidates.length + ' Kandidaten (≥ ' + MIN_OCCURRENCES + '×)');
+    if (ONLY_NEW) console.log('   Modus: --only-new (existierende Landings werden NICHT überschrieben)');
 
-    let created = 0;
+    let created = 0, skipped = 0;
     for (const r of candidates) {
         const km = r.kmN > 0 ? r.kmSum / r.kmN : 5; // Median-nah durch Ø
         const min = Math.max(5, Math.round(km * 2.5));
         const eur = r.priceN > 0 ? r.priceSum / r.priceN : priceEstimate(km);
         const filename = `taxi-${slugify(r.from)}-zu-${slugify(r.to)}.html`;
-        fs.writeFileSync(path.join(ROOT, filename), generateHtml(r.from, r.to, km, min, eur, r.count));
+        const fullPath = path.join(ROOT, filename);
+        if (ONLY_NEW && fs.existsSync(fullPath)) { skipped++; continue; }
+        fs.writeFileSync(fullPath, generateHtml(r.from, r.to, km, min, eur, r.count, r.pickupSample, r.destSample));
         created++;
         if (created <= 5) console.log(`  ✓ ${filename} (${r.count}× gefahren)`);
     }
+    if (ONLY_NEW) console.log(`  (${skipped} existierende übersprungen)`);
     console.log('---');
     console.log('✅ ' + created + ' neue Self-Learning-Landings erstellt');
     console.log('\nTipp: dieses Script periodisch laufen lassen (z.B. wöchentlich) — es findet');

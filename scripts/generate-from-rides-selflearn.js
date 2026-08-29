@@ -47,8 +47,16 @@ const ORT_NAMES = ['ahlbeck','heringsdorf','bansin','zinnowitz','koserow','selli
 
 function isPoiName(name) {
     if (!name) return false;
+    // POI-Keyword IMMER Vorrang (Hotel Neptun 8 bleibt POI)
     if (POI_KEYWORDS.test(name)) return true;
-    // Ortsname allein OK (z.B. "Ahlbeck", "Bansin")
+    // v1000: KEIN POI wenn der String eine Zahl enthält oder mit Zahl beginnt.
+    //   Beispiele die kein POI sind:
+    //     "17429 Heringsdorf-Bansin"   (PLZ + Ortsteil)
+    //     "Eichenweg 1. 17429 Bansin"  (Straße + Hausnr + Ort)
+    //     "Sellin 27a"                 (Ort + Hausnr)
+    //   Nur reine Ortsnamen sind ohne Nummer → als POI werten.
+    if (/\d/.test(name)) return false;
+    // Reines Ortsname (ohne jede Zahl)
     const low = name.toLowerCase();
     if (ORT_NAMES.some(o => low === o || low === o + '-kaiserbäder' || low === o + '-kaiserbaeder' || low === o + '-neuhof' || low === o.replace('ü','ue'))) return true;
     // Zusammengesetzt "Ahlbeck-Kaiserbäder", "Heringsdorf-Neuhof"
@@ -61,47 +69,93 @@ function isPrivateAddress(name) {
     const trimmed = name.trim();
     // POI dominiert → nicht privat, egal ob Nummer im Namen
     if (isPoiName(trimmed)) return false;
-    // Straßenname + Hausnummer (Musterstraße 15, Am Weg 3)
-    if (/\b(str(\.|asse|aße)|weg|allee|platz|damm|ring|ufer|chaussee|promenade)\s*\d+[a-z]?\b/i.test(trimmed)) return true;
-    if (/^\s*\d+[a-z]?\s*$/i.test(trimmed)) return true;                    // reine Nummer wie "6a"
-    if (/[\s-]\d+[a-z]?\s*$/i.test(trimmed) && !ORT_NAMES.some(o => trimmed.toLowerCase().includes(o))) return true; // endet mit Nummer, kein Ort
+    // v6.63.1000 (Patrick 29.08. "dorf bansin 8d was soll das"):
+    //   "Dorf Bansin 8d" enthielt "Bansin" (Ortsname) → Filter sagte fälschlich
+    //   'nicht privat'. Neue Regel: Endet der Name mit Hausnummer (Zahl+opt. Buchstabe)
+    //   ist es IMMER eine private Adresse — auch wenn Ortsname enthalten. Der Ortsname
+    //   ist nur dann OK wenn der Name AUSSCHLIESSLICH aus dem Ort besteht.
+    if (/[\s-]\d+[a-z]?\s*$/i.test(trimmed)) return true;                    // endet mit Hausnummer
+    if (/^\s*\d+[a-z]?\s*$/i.test(trimmed)) return true;                     // reine Nummer wie "6a"
+    // Straßenname + Hausnummer explizit (auch wenn nicht am Ende, z.B. "Kanalstraße 15 Heringsdorf")
+    if (/\b(str(\.|asse|aße)|weg|allee|platz|damm|ring|ufer|chaussee|promenade|dorf|siedlung)\s+\S*\d+[a-z]?\b/i.test(trimmed)) return true;
     if (/^\d{5}[\s-]/.test(trimmed)) return true;                            // dt PLZ Prefix
     if (/^\d{2}-\d{3}[\s-]/.test(trimmed)) return true;                      // poln PLZ
     if (/^\d+/.test(trimmed) && !isPoiName(trimmed)) return true;            // beginnt mit Zahl (nicht POI)
     return false;
 }
 
-// Ort-Name-Extraktion aus vollständiger Adresse — für Landing-Titel
-// z.B. "Strandhotel Ostseeblick, Kulmstraße 33, 17424 Heringsdorf" → "Strandhotel Ostseeblick"
-// v998: gibt NULL zurück wenn nur private Adresse ohne POI-Anker vorhanden.
+// Ort-Suche im GANZEN String (nicht nur Komma-getrennt) — findet "17424 Heringsdorf"
+// auch wenn die PLZ vorne dranklebt oder in ungewöhnlichem Format.
+function findOrtInString(s) {
+    if (!s) return null;
+    const low = s.toLowerCase();
+    // Präferiere längeren Match (Heringsdorf-Kaiserbäder vor Heringsdorf)
+    const candidates = [
+        'heringsdorf-kaiserbäder','ahlbeck-kaiserbäder','bansin-kaiserbäder',
+        'heringsdorf-neuhof','heringsdorf-seebad','seebad-heringsdorf',
+        ...ORT_NAMES
+    ];
+    let best = null;
+    for (const o of candidates) {
+        if (low.includes(o) && (!best || o.length > best.length)) best = o;
+    }
+    if (!best) return null;
+    return best.charAt(0).toUpperCase() + best.slice(1);
+}
+
+// v6.63.1001 (Patrick 29.08. "nur die Hausnummer weg"):
+//   Entfernt Hausnummer aus String, behält Straßennamen/Ortsteil.
+//   Beispiele:
+//     "Eichenweg 1"                → "Eichenweg"
+//     "Dorf Bansin 8d"             → "Dorf Bansin"
+//     "Sellin 27a"                 → "Sellin"
+//     "17429 Heringsdorf-Bansin"   → "Heringsdorf-Bansin"
+//     "72-600 Świnoujście"         → "Świnoujście"
+//     "Musterstraße 15, 17419 Ahlbeck" → nur parts[0] wird bearbeitet
+function stripHouseNumberAndZip(name) {
+    if (!name) return null;
+    let s = name.trim();
+    // Punkt-Kombis wie "Eichenweg 1. Weiterer Text" → "Eichenweg"
+    s = s.replace(/\s+\d+[a-z]?\.\s.*$/i, '');
+    // Hausnummer am Ende: "Eichenweg 1", "Sellin 27a", "Musterstraße 15b"
+    s = s.replace(/\s+\d+[a-z]?\s*$/i, '');
+    // Deutsche PLZ am Anfang: "17429 Heringsdorf-Bansin" → "Heringsdorf-Bansin"
+    s = s.replace(/^\d{5}\s+/, '').trim();
+    // Polnische PLZ am Anfang: "72-600 Świnoujście" → "Świnoujście"
+    s = s.replace(/^\d{2}-\d{3}\s+/, '').trim();
+    // Wenn nach Strip nichts oder nur Zahl bleibt → null
+    if (!s || /^\s*\d*[a-z]?\s*$/i.test(s)) return null;
+    return s;
+}
+
+// Ort-Name-Extraktion aus vollständiger Adresse.
+//   Priorität:
+//     1) POI-Name aus einer der Komma-Komponenten (Hotel/Bahnhof/Klinik/Restaurant/…)
+//     2) Erste Komponente ohne Hausnummer/PLZ (Straßenname/Ortsteil behalten)
+//     3) Fallback: Ort im ganzen Adress-String suchen
+//     4) NULL wenn nichts brauchbar
 function shortName(fullAddress) {
     if (!fullAddress) return null;
     const parts = fullAddress.split(',').map(s => s.trim()).filter(Boolean);
     if (parts.length === 0) return null;
-    // 1) POI-Namen priorisieren, egal an welcher Stelle
+    // 1) POI-Namen priorisieren
     for (const p of parts) {
         if (isPoiName(p)) {
             return p.length > 55 ? p.slice(0, 52) + '…' : p;
         }
     }
-    // 2) Kein POI → nur Ortsname zurückgeben wenn erste Komponente Straße+Nr ist
-    let name = parts[0];
-    if (isPrivateAddress(name) && parts.length > 1) {
-        // Ort suchen (letzte non-PLZ Komponente die ein bekannter Ort ist)
-        for (const p of parts.slice(1)) {
-            if (!/^\d{5}/.test(p) && !/^\d{2}-\d{3}/.test(p)) {
-                const cleaned = p.replace(/^\d{5}\s+/, '').trim();
-                if (isPoiName(cleaned) || ORT_NAMES.some(o => cleaned.toLowerCase().includes(o))) {
-                    return cleaned.length > 55 ? cleaned.slice(0, 52) + '…' : cleaned;
-                }
-            }
-        }
-        return null; // v998: rein privat, keine SEO-Seite generieren
+    // 2) Hausnummer/PLZ aus parts[0] entfernen
+    const stripped = stripHouseNumberAndZip(parts[0]);
+    if (stripped && !/^\s*\d/.test(stripped)) {
+        return stripped.length > 55 ? stripped.slice(0, 52) + '…' : stripped;
     }
-    if (isPrivateAddress(name)) return null; // v998
-    if (name.length > 55) name = name.slice(0, 52) + '…';
-    return name;
+    // 3) Fallback: bekannten Ort im ganzen String suchen
+    const ort = findOrtInString(fullAddress);
+    if (ort) return ort;
+    return null;
 }
+
+module.exports.stripHouseNumberAndZip = stripHouseNumberAndZip;
 
 module.exports = module.exports || {};
 module.exports.isPrivateAddress = isPrivateAddress;

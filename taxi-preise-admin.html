@@ -67,7 +67,13 @@ button.edit-btn:hover{background:#fbbf24;color:#0f172a}
 <div class="container">
 <div id="authWarn" class="auth-warn" style="display:none">
 <div><b>👤 <span id="userMail">nicht angemeldet</span></b></div>
-<div style="margin-top:6px;font-size:12px">Zum Speichern in Firebase bitte in der <a href="index.html" style="color:#fbbf24" target="_blank">Haupt-App</a> einloggen. Diese Seite teilt sich die Login-Session.</div>
+<div id="loginForm" style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
+<input type="email" id="loginEmail" placeholder="Admin-Email" style="padding:8px 12px;border-radius:6px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;min-width:200px">
+<input type="password" id="loginPw" placeholder="Passwort" style="padding:8px 12px;border-radius:6px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;min-width:150px">
+<button onclick="doEmailLogin()" style="background:#10b981;color:#fff;border:none;padding:8px 18px;border-radius:6px;font-weight:700;cursor:pointer">Login</button>
+<button onclick="doGoogleLogin()" style="background:#3b82f6;color:#fff;border:none;padding:8px 18px;border-radius:6px;font-weight:700;cursor:pointer">Google</button>
+<button onclick="auth.signOut()" style="background:#475569;color:#fff;border:none;padding:8px 18px;border-radius:6px;font-weight:700;cursor:pointer" id="logoutBtn">Abmelden</button>
+</div>
 </div>
 
 <div id="app">
@@ -172,25 +178,44 @@ let OVERRIDES = {};
 let sortField = 'c', sortDir = -1;
 let editingSlug = null;
 
-// v1003: Auth-Wall ENTFERNT — Seite lädt immer, Login-Session wird aus
-//   index.html mitgenommen (gleicher Firebase-App). Nicht-eingeloggte User
-//   können zwar ansehen aber nicht speichern (Firebase-Rules blocken).
+// v1004: Auth-Optionen — Email/Passwort (wie in index.html) + Google-Popup als Backup.
+//   Login-Session wird persistent gespeichert (Firebase default). Nach Login ist
+//   Speichern möglich.
 loadData();
 auth.onAuthStateChanged(user => {
     const warn = document.getElementById('authWarn');
     const mailEl = document.getElementById('userMail');
+    const loginForm = document.getElementById('loginForm');
     if (user) {
-        mailEl.textContent = user.email || 'angemeldet';
-        warn.style.display = 'block';
+        mailEl.textContent = '✅ ' + (user.email || 'angemeldet');
         warn.style.background = '#065f46';
         warn.style.color = '#d1fae5';
+        loginForm.querySelectorAll('input,button:not(#logoutBtn)').forEach(el => el.style.display='none');
+        document.getElementById('logoutBtn').style.display='';
     } else {
-        mailEl.textContent = 'nicht angemeldet — Speichern nicht möglich';
-        warn.style.display = 'block';
+        mailEl.textContent = '🔒 nicht angemeldet — Speichern nicht möglich';
         warn.style.background = '#78350f';
         warn.style.color = '#fed7aa';
+        loginForm.querySelectorAll('input,button:not(#logoutBtn)').forEach(el => el.style.display='');
+        document.getElementById('logoutBtn').style.display='none';
     }
+    warn.style.display = 'block';
 });
+
+async function doEmailLogin() {
+    const email = document.getElementById('loginEmail').value.trim();
+    const pw = document.getElementById('loginPw').value;
+    if (!email || !pw) return alert('Email und Passwort ausfüllen');
+    try {
+        await auth.signInWithEmailAndPassword(email, pw);
+        document.getElementById('loginPw').value = '';
+    } catch (e) { alert('Login-Fehler: ' + e.message); }
+}
+async function doGoogleLogin() {
+    try {
+        await auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
+    } catch (e) { alert('Google-Login-Fehler: ' + e.message); }
+}
 
 async function loadData() {
     // 1) Routen aus taxi-preise.html JSON extrahieren (embedded)

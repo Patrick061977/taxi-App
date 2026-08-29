@@ -213,8 +213,11 @@ async function loadPickups() {
             const isNotYetAccepted = !p.acceptedAt;
             const isAssignedToOther = p.assignedVehicle && p.assignedVehicle !== MY_VEHICLE;
             const isMine = p.assignedVehicle && p.assignedVehicle === MY_VEHICLE;
-            // Zugeteilt an FREMDES Fahrzeug UND schon angenommen → ausblenden
-            if (isAssignedToOther && p.acceptedAt) continue;
+            // v6.63.996 (Patrick 29.08. "sinnvoller dass man weiss wer die Fahrt macht"):
+            //   Frueher wurden accepted-Rides an anderen Fahrer AUSGEFILTERT (return continue).
+            //   Neu: sie bleiben als GRAUE Pins sichtbar mit "SK unterwegs"-Label,
+            //   verschwinden erst wenn picked_up (Kunde im Wagen — Cloud schreibt sie
+            //   dann sowieso nicht mehr in publicPickups).
             openPickups.push({
                 id: rid,
                 pickupLat: p.pickupLat,
@@ -224,8 +227,9 @@ async function loadPickups() {
                 destination: p.destination,
                 customerName: p.firstName,
                 price: p.price,
-                isMine: isMine && !!p.acceptedAt,  // blau nur wenn eigene + angenommen
-                isPendingAccept: !!p.assignedVehicle && !p.acceptedAt,  // v980: gelb fuer alle
+                isMine: isMine && !!p.acceptedAt,   // blau: eigene + angenommen
+                isPendingAccept: !!p.assignedVehicle && !p.acceptedAt,  // gelb: zugeteilt aber nicht angenommen
+                isColleagueAccepted: isAssignedToOther && !!p.acceptedAt,  // grau: Kollege ist dran
                 assignedVehicle: p.assignedVehicle
             });
         }
@@ -254,6 +258,7 @@ async function loadPickups() {
             const matchCls = isMatch ? ' match' : '';
             let emoji, bgColor;
             if (p.isMine) { emoji = '🚕'; bgColor = '#3b82f6'; }
+            else if (p.isColleagueAccepted) { emoji = '🚗'; bgColor = '#64748b'; }  // v996: grau — Kollege unterwegs
             else if (p.isPendingAccept) { emoji = '⏳'; bgColor = '#f59e0b'; }
             else if (isMatch) { emoji = '⭐'; bgColor = '#22c55e'; }
             else { emoji = '📍'; bgColor = '#22c55e'; }
@@ -263,6 +268,7 @@ async function loadPickups() {
             </div>`;
             const icon = L.divIcon({ html, className: 'pickup-marker-wrapper', iconSize: [50, 46], iconAnchor: [25, 15] });
             const mineLabel = p.isMine ? ' <span style="color:#3b82f6;font-weight:700;">(deine Fahrt)</span>'
+                : p.isColleagueAccepted ? ' <span style="color:#64748b;font-weight:700;">(' + (p.assignedVehicle||'?') + ' unterwegs)</span>'
                 : p.isPendingAccept ? ' <span style="color:#f59e0b;font-weight:700;">(zugeteilt ' + (p.assignedVehicle||'?') + ' — noch nicht angenommen)</span>'
                 : '';
             const popupContent = `

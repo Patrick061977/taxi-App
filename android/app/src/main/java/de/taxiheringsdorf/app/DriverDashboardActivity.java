@@ -3846,33 +3846,44 @@ public class DriverDashboardActivity extends AppCompatActivity {
             .setTitle("🔄 An Pool zurueckgeben")
             .setMessage("Diese Fahrt wird wieder freigegeben und automatisch an einen anderen Fahrer zugewiesen. Kein Kunden-Storno, kein Auswirkung auf deine Statistik.\n\nFortfahren?")
             .setPositiveButton("Ja, abgeben", (d, w) -> {
-                Map<String, Object> u = new HashMap<>();
-                u.put("status", "vorbestellt");
-                u.put("assignedVehicle", null);
-                u.put("vehicleId", null);
-                u.put("assignedTo", null);
-                u.put("assignedAt", null);
-                u.put("assignedBy", "driver-pool-handback");
-                // v6.63.739 (Patrick 19.07. Bridge Berlin-Fall): Cache-Namen mitraeumen.
-                //   Sonst zeigt die Dispo weiter das alte Fahrzeug (assignedVehicleName),
-                //   aber der Bearbeiten-Dialog liest assignedVehicle und ist leer.
-                //   Zusaetzlich Lock loesen — sonst blockiert die pool-freigegebene
-                //   Fahrt Auto-Assign obwohl kein Vehicle mehr da ist.
-                u.put("assignedVehicleName", null);
-                u.put("assignedVehiclePlate", null);
-                u.put("acceptedByVehicle", null);
-                u.put("assignmentLocked", false);
-                u.put("assignmentLockedBy", null);
-                u.put("acceptedAt", null);
-                u.put("acceptedVia", null);
-                u.put("autoAssignAttempts", 0);
-                u.put("wartepoolReason", null);
-                u.put("wartepoolAt", null);
-                u.put("poolHandbackAt", System.currentTimeMillis());
-                u.put("poolHandbackBy", currentVehicleId);
-                u.put("updatedAt", System.currentTimeMillis());
-                db.getReference("rides/" + rideId).updateChildren(u);
-                Toast.makeText(this, "🔄 Fahrt freigegeben — wird neu zugewiesen", Toast.LENGTH_LONG).show();
+                // 🆕 v6.63.996 (Patrick 29.08. "warum habe ich sie zweimal angeboten bekommen"):
+                //   passRideToPool schrieb currentVehicleId NICHT in rejectedVehicles →
+                //   scheduledAutoAssign wählte denselben Fahrer sofort wieder. Residenz 08:15
+                //   ging heute 15:21 → MY → 07:53 poolHandback → 07:58 nochmal MY → reject.
+                //   Fix: eigene VehicleId in rejectedVehicles einfügen, damit System bei
+                //   nächstem Auto-Assign andere Fahrzeuge waehlt.
+                final String _vid = currentVehicleId;
+                db.getReference("rides/" + rideId).get().addOnSuccessListener(_snap -> {
+                    java.util.List<String> _rej = new java.util.ArrayList<>();
+                    Object _rejVal = _snap.child("rejectedVehicles").getValue();
+                    if (_rejVal instanceof java.util.List) {
+                        for (Object o : (java.util.List<?>) _rejVal) if (o != null) _rej.add(o.toString());
+                    }
+                    if (_vid != null && !_rej.contains(_vid)) _rej.add(_vid);
+                    Map<String, Object> u = new HashMap<>();
+                    u.put("status", "vorbestellt");
+                    u.put("assignedVehicle", null);
+                    u.put("vehicleId", null);
+                    u.put("assignedTo", null);
+                    u.put("assignedAt", null);
+                    u.put("assignedBy", "driver-pool-handback");
+                    u.put("assignedVehicleName", null);
+                    u.put("assignedVehiclePlate", null);
+                    u.put("acceptedByVehicle", null);
+                    u.put("assignmentLocked", false);
+                    u.put("assignmentLockedBy", null);
+                    u.put("acceptedAt", null);
+                    u.put("acceptedVia", null);
+                    u.put("autoAssignAttempts", 0);
+                    u.put("wartepoolReason", null);
+                    u.put("wartepoolAt", null);
+                    u.put("poolHandbackAt", System.currentTimeMillis());
+                    u.put("poolHandbackBy", _vid);
+                    u.put("rejectedVehicles", _rej);
+                    u.put("updatedAt", System.currentTimeMillis());
+                    db.getReference("rides/" + rideId).updateChildren(u);
+                    Toast.makeText(this, "🔄 Fahrt freigegeben — wird neu zugewiesen", Toast.LENGTH_LONG).show();
+                });
             })
             .setNegativeButton("Abbrechen", null)
             .show();

@@ -37,24 +37,76 @@ function haversineKm(lat1, lon1, lat2, lon2) {
 function stableHash(str) { let h=0; for(let i=0;i<str.length;i++)h=(h*31+str.charCodeAt(i))|0; return Math.abs(h); }
 function priceEstimate(km) { return Math.max(6, Math.round((4 + km * 2.5) * 100) / 100); }
 
+// v6.63.998 (Patrick 29.08. "private Adressen entfernen, nur POI mit Adresse OK"):
+//   Datenschutz-Filter — private Adressen wie 'Musterstraße 15' dürfen NIE in einer
+//   öffentlichen SEO-Landing-Page auftauchen. POI-Namen (Hotel/Bahnhof/Klinik etc.)
+//   sind OK, auch wenn die Adresse dranhängt.
+
+const POI_KEYWORDS = /\b(hotel|klinik|bahnhof|flughafen|flug|restaurant|villa|schloss|kirche|museum|konzert|therme|café|cafe|kaufhaus|krankenhaus|apotheke|rathaus|residenz|steigenberger|kaiserhof|ostseeblick|maritim|akzent|ahlbecker hof|steiger|leuchtturm|ferienhaus|ferienwohnung|pension|hof|kurhaus|kurpark|strand|meereswelle|asgard|breeze|dünenstern|dünenpark|forsthaus|jagdhaus|schloss|golfhotel|reha|klinikum|amos|ameos|frohsinn|zum bierkutscher|athen|athos|marina|hafen|centrum|zentrum|europa|kulm|neptun|kranich|adler|möwe|schwan|delphin|oase|orkanaug|seebrücke|seeblick|seestern|seeperle|inselblick|kleeblatt|carlshöhe|belvedere|panorama)\b/i;
+const ORT_NAMES = ['ahlbeck','heringsdorf','bansin','zinnowitz','koserow','sellin','loddin','zempin','peenemünde','peenemuende','kolpinsee','usedom','stralsund','wolgast','anklam','swinoujscie','swinemünde','swinemuende','greifswald','berlin','uckermark','ueckermünde','stettin','szczecin'];
+
+function isPoiName(name) {
+    if (!name) return false;
+    if (POI_KEYWORDS.test(name)) return true;
+    // Ortsname allein OK (z.B. "Ahlbeck", "Bansin")
+    const low = name.toLowerCase();
+    if (ORT_NAMES.some(o => low === o || low === o + '-kaiserbäder' || low === o + '-kaiserbaeder' || low === o + '-neuhof' || low === o.replace('ü','ue'))) return true;
+    // Zusammengesetzt "Ahlbeck-Kaiserbäder", "Heringsdorf-Neuhof"
+    if (ORT_NAMES.some(o => low.startsWith(o + '-') || low.endsWith('-' + o))) return true;
+    return false;
+}
+
+function isPrivateAddress(name) {
+    if (!name) return true;
+    const trimmed = name.trim();
+    // POI dominiert → nicht privat, egal ob Nummer im Namen
+    if (isPoiName(trimmed)) return false;
+    // Straßenname + Hausnummer (Musterstraße 15, Am Weg 3)
+    if (/\b(str(\.|asse|aße)|weg|allee|platz|damm|ring|ufer|chaussee|promenade)\s*\d+[a-z]?\b/i.test(trimmed)) return true;
+    if (/^\s*\d+[a-z]?\s*$/i.test(trimmed)) return true;                    // reine Nummer wie "6a"
+    if (/[\s-]\d+[a-z]?\s*$/i.test(trimmed) && !ORT_NAMES.some(o => trimmed.toLowerCase().includes(o))) return true; // endet mit Nummer, kein Ort
+    if (/^\d{5}[\s-]/.test(trimmed)) return true;                            // dt PLZ Prefix
+    if (/^\d{2}-\d{3}[\s-]/.test(trimmed)) return true;                      // poln PLZ
+    if (/^\d+/.test(trimmed) && !isPoiName(trimmed)) return true;            // beginnt mit Zahl (nicht POI)
+    return false;
+}
+
 // Ort-Name-Extraktion aus vollständiger Adresse — für Landing-Titel
 // z.B. "Strandhotel Ostseeblick, Kulmstraße 33, 17424 Heringsdorf" → "Strandhotel Ostseeblick"
+// v998: gibt NULL zurück wenn nur private Adresse ohne POI-Anker vorhanden.
 function shortName(fullAddress) {
     if (!fullAddress) return null;
-    // Erste Komma-getrennte Komponente
     const parts = fullAddress.split(',').map(s => s.trim()).filter(Boolean);
     if (parts.length === 0) return null;
-    let name = parts[0];
-    // Wenn erste Komponente Straße mit Hausnummer ist (endet auf Zahl), Ort dahinter nutzen
-    if (/\d+\s*$/.test(name) && parts.length > 1) {
-        // Ort ist meist letzte Komponente ohne PLZ
-        const orte = parts.slice(1).find(p => !/^\d{5}/.test(p));
-        if (orte) name = orte;
+    // 1) POI-Namen priorisieren, egal an welcher Stelle
+    for (const p of parts) {
+        if (isPoiName(p)) {
+            return p.length > 55 ? p.slice(0, 52) + '…' : p;
+        }
     }
-    // Zu lang → truncate
+    // 2) Kein POI → nur Ortsname zurückgeben wenn erste Komponente Straße+Nr ist
+    let name = parts[0];
+    if (isPrivateAddress(name) && parts.length > 1) {
+        // Ort suchen (letzte non-PLZ Komponente die ein bekannter Ort ist)
+        for (const p of parts.slice(1)) {
+            if (!/^\d{5}/.test(p) && !/^\d{2}-\d{3}/.test(p)) {
+                const cleaned = p.replace(/^\d{5}\s+/, '').trim();
+                if (isPoiName(cleaned) || ORT_NAMES.some(o => cleaned.toLowerCase().includes(o))) {
+                    return cleaned.length > 55 ? cleaned.slice(0, 52) + '…' : cleaned;
+                }
+            }
+        }
+        return null; // v998: rein privat, keine SEO-Seite generieren
+    }
+    if (isPrivateAddress(name)) return null; // v998
     if (name.length > 55) name = name.slice(0, 52) + '…';
     return name;
 }
+
+module.exports = module.exports || {};
+module.exports.isPrivateAddress = isPrivateAddress;
+module.exports.isPoiName = isPoiName;
+module.exports.shortName = shortName;
 
 const INTROS_SL = [
     ({f,t,km,min,eur,count}) => `Diese Route fahren wir regelmäßig — vom ${f} zum ${t} sind es ${km.toFixed(1)} km und typisch ${min} Minuten. Ø-Preis aus ${count} Fahrten: ${eur} €.`,
@@ -215,5 +267,5 @@ function main() {
     return created;
 }
 
-module.exports = { main };
+module.exports.main = main;
 if (require.main === module) main();

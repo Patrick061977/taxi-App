@@ -24583,7 +24583,10 @@ exports.scheduledPublicPickupsSync = onSchedule(
                 //   sieht. Ausgeschlossen: picked_up/on_way (Fahrer schon unterwegs zum Gast).
                 // v6.63.980: 'warteschlange' hinzugefuegt — Cloud-Auto-Assign setzt diesen
                 //   Status fuer zugewiesene-aber-noch-nicht-bestaetigte Rides.
-                const isAssigned = !!veh && ['assigned', 'accepted', 'vorbestellt', 'new', 'warteschlange'].includes(st);
+                // v6.63.996 (Patrick 29.08.): on_way + arrived auch mitschreiben — Kollegen
+                //   sollen sehen wer welche Fahrt fährt. picked_up NICHT (Kunde im Wagen,
+                //   Info nicht mehr relevant fuer andere).
+                const isAssigned = !!veh && ['assigned', 'accepted', 'vorbestellt', 'new', 'warteschlange', 'on_way', 'arrived'].includes(st);
                 if (!isOpen && !isAssigned) return;
                 if (r.pickupLat == null || r.pickupLon == null) return;
                 // Schmales Subset — nur Vorname statt Nachname, keine Telefonnummer

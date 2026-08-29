@@ -13219,7 +13219,7 @@
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
         const APP_VERSION = '6.63.996';
-        const APP_BUILD = '29.08.2026 18:46';
+        const APP_BUILD = '29.08.2026 19:57';
         const APP_CHANGE = 'fix v6.63.643: ✓ Erledigt-Button im Wartepool-Banner + kunden.html Fahrhistorie per CRM-ID (kein globales Limit mehr).';
 
         // 🔧 FIX: Mache APP_VERSION global verfügbar
@@ -97146,11 +97146,17 @@ Funk Taxi Team`;
                 } else {
                     // Neue Rechnung: Initialisiere Positionen mit Hauptfahrt + MwSt
                     const grossPrice = parseFloat(ride.price) || 0;
+                    // v6.63.1013 (Patrick 29.08. Vorkasse-Vetter): Personenzahl in Description +
+                    //   Grossraumzuschlag bei >=5 Pax — vorher NUR im Sammel-Auftrag-Pfad
+                    //   (Z. ~99680 v6.62.727/730) implementiert, der Einzel-Vorkasse-Pfad hier
+                    //   hatte weder das eine noch das andere.
+                    const _paxCount1013 = parseInt(ride.passengers || ride.pax || 0, 10);
+                    const _paxLabel1013 = _paxCount1013 > 0 ? ` (${_paxCount1013} Personen)` : '';
 
                     invoicePositions = [
                         {
                             id: 1,
-                            description: 'Taxifahrt',
+                            description: 'Taxifahrt' + _paxLabel1013,
                             amount: grossPrice,
                             vatRate: vatRate,
                             quantity: 1,
@@ -97188,6 +97194,20 @@ Funk Taxi Team`;
                                 note: ''
                             });
                         }
+                    }
+                    // v6.63.1013: Grossraumzuschlag als separate Position bei >=5 Pax
+                    //   (same pattern wie Sammel-Auftrag-Pfad Z. ~99770). 10 EUR pauschal.
+                    if (_paxCount1013 >= 5) {
+                        invoicePositions.push({
+                            id: invoicePositions.length + 1,
+                            description: `Großraumzuschlag (${_paxCount1013} Personen)`,
+                            amount: 10.00,
+                            vatRate: vatRate,
+                            quantity: 1,
+                            unit: 'Stück',
+                            discount: 0,
+                            note: ''
+                        });
                     }
                 }
                 

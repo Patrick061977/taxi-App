@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SEO-Routen Admin · Funk Taxi Heringsdorf</title>
+<meta name="robots" content="noindex,nofollow">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0f172a;color:#e2e8f0;line-height:1.5}
+header{background:#1e40af;padding:14px 16px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,0.3)}
+header h1{font-size:17px;color:#fff}
+.container{max-width:1400px;margin:0 auto;padding:16px}
+.auth-warn{background:#78350f;color:#fed7aa;padding:20px;border-radius:10px;margin:20px 0;text-align:center}
+.auth-warn button{background:#fbbf24;color:#0f172a;border:none;padding:10px 20px;border-radius:8px;font-weight:700;cursor:pointer;margin-top:10px}
+.stats{background:#1e293b;padding:12px 16px;border-radius:10px;margin:16px 0;display:flex;gap:20px;flex-wrap:wrap}
+.stats span{font-size:13px}
+.stats b{color:#10b981;margin-right:6px}
+.filters{background:#1e293b;padding:12px;border-radius:10px;margin:12px 0;display:flex;gap:10px;flex-wrap:wrap;align-items:center;position:sticky;top:56px;z-index:80}
+.filters input,.filters select{background:#0f172a;color:#e2e8f0;border:1px solid #334155;padding:8px 10px;border-radius:6px;font-size:13px}
+.filters input{flex:1;min-width:180px}
+.filters .count{margin-left:auto;font-size:12px;color:#94a3b8}
+table{width:100%;border-collapse:collapse;background:#1e293b;border-radius:10px;overflow:hidden;font-size:13px}
+thead{background:#0f172a;position:sticky;top:112px}
+th{text-align:left;padding:8px 10px;font-size:11px;text-transform:uppercase;color:#94a3b8;font-weight:600;border-bottom:1px solid #334155;cursor:pointer;user-select:none}
+th:hover{color:#fbbf24}
+td{padding:6px 10px;border-bottom:1px solid #0f172a}
+tr:hover{background:#334155}
+tr.overridden{background:rgba(251,191,36,0.08)}
+tr.hidden{opacity:0.4;background:rgba(239,68,68,0.08)}
+.route-cell{color:#e2e8f0;font-weight:600}
+.override-cell{color:#fbbf24}
+.price{color:#10b981;font-weight:700}
+.chip{display:inline-block;padding:1px 6px;background:#334155;border-radius:8px;font-size:10px;color:#94a3b8;margin-left:4px}
+button.edit-btn{background:#334155;color:#e2e8f0;border:none;padding:5px 10px;border-radius:6px;cursor:pointer;font-size:12px}
+button.edit-btn:hover{background:#fbbf24;color:#0f172a}
+
+.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:200;align-items:center;justify-content:center;padding:16px}
+.modal.open{display:flex}
+.modal-inner{background:#1e293b;border-radius:12px;padding:20px;max-width:600px;width:100%;max-height:90vh;overflow:auto}
+.modal-inner h2{color:#fbbf24;font-size:18px;margin-bottom:10px}
+.modal-inner .route-info{color:#94a3b8;font-size:13px;margin-bottom:14px;padding:8px;background:#0f172a;border-radius:6px}
+.field{margin:10px 0}
+.field label{display:block;font-size:12px;color:#94a3b8;margin-bottom:4px;font-weight:600}
+.field .placeholder{color:#64748b;font-size:11px;font-style:italic}
+.field input,.field textarea{width:100%;background:#0f172a;color:#e2e8f0;border:1px solid #334155;padding:8px 10px;border-radius:6px;font-size:14px;font-family:inherit}
+.field textarea{min-height:80px;resize:vertical}
+.field-row{display:flex;gap:10px}
+.field-row .field{flex:1}
+.checkbox-field{display:flex;align-items:center;gap:8px;margin:14px 0;padding:10px;background:#0f172a;border-radius:6px}
+.checkbox-field input{width:20px;height:20px}
+.modal-actions{display:flex;gap:10px;margin-top:16px;justify-content:flex-end}
+.modal-actions button{padding:10px 18px;border-radius:8px;border:none;cursor:pointer;font-weight:600}
+.btn-cancel{background:#475569;color:#fff}
+.btn-save{background:#10b981;color:#fff}
+.btn-reset{background:#7c2d12;color:#fef3c7}
+
+.deploy-hint{background:#1e40af;color:#e0e7ff;padding:12px;border-radius:8px;margin:16px 0;font-size:13px}
+.deploy-hint a{color:#fbbf24;text-decoration:underline}
+
+@media(max-width:600px){table{font-size:11px}th,td{padding:5px 6px}.field-row{flex-direction:column}}
+</style>
+</head>
+<body>
+<header><h1>⚙️ SEO-Routen Admin · Overrides für Preis/km/min/Text</h1></header>
+
+<div class="container">
+<div id="authWarn" class="auth-warn" style="display:none">
+<div><b>🔒 Anmeldung erforderlich</b></div>
+<div style="margin-top:8px;font-size:13px">Nur Admin darf hier editieren.</div>
+<button onclick="doLogin()">Mit Firebase anmelden</button>
+</div>
+
+<div id="app" style="display:none">
+<div class="deploy-hint">
+💡 Änderungen werden sofort in Firebase gespeichert. Die statischen Landing-Pages werden beim nächsten
+Deploy-Run neu generiert. Push in Github → Auto-Deploy zu Strato. Alternativ:
+<a href="https://github.com/Patrick061977/taxi-App/actions/workflows/strato-zip.yml" target="_blank">GitHub → Actions → strato-zip → Run workflow</a>.
+</div>
+
+<div class="stats">
+<span><b id="total">0</b>Strecken gesamt</span>
+<span><b id="overridden">0</b>mit Override</span>
+<span><b id="hidden">0</b>versteckt</span>
+</div>
+
+<div class="filters">
+<input type="text" id="q" placeholder="🔍 Suche (Route/Ort)..." oninput="apply()">
+<select id="statusFilter" onchange="apply()">
+<option value="">Alle Status</option>
+<option value="over">Nur mit Override</option>
+<option value="hidden">Nur versteckt</option>
+<option value="none">Ohne Override</option>
+</select>
+<span class="count" id="count">0 Routen</span>
+</div>
+
+<table>
+<thead><tr>
+<th onclick="sortBy('a')">Von</th>
+<th onclick="sortBy('b')">Nach</th>
+<th onclick="sortBy('k')">km</th>
+<th onclick="sortBy('m')">Min</th>
+<th onclick="sortBy('p')">Preis Ø</th>
+<th onclick="sortBy('c')">×</th>
+<th>Aktion</th>
+</tr></thead>
+<tbody id="tb"></tbody>
+</table>
+</div>
+</div>
+
+<div class="modal" id="editModal">
+<div class="modal-inner">
+<h2>✏️ Route bearbeiten</h2>
+<div class="route-info" id="routeInfo"></div>
+
+<div class="field-row">
+<div class="field">
+<label>Preis Override (€)</label>
+<input type="number" step="0.10" id="fPrice">
+<div class="placeholder" id="phPrice"></div>
+</div>
+<div class="field">
+<label>km Override</label>
+<input type="number" step="0.1" id="fKm">
+<div class="placeholder" id="phKm"></div>
+</div>
+<div class="field">
+<label>Min Override</label>
+<input type="number" step="1" id="fMin">
+<div class="placeholder" id="phMin"></div>
+</div>
+</div>
+
+<div class="field">
+<label>Intro-Text Override (Standard: aus 3 Templates rotierend)</label>
+<textarea id="fIntro" placeholder="Leer lassen = Standard-Intro nutzen"></textarea>
+</div>
+
+<div class="checkbox-field">
+<input type="checkbox" id="fHide">
+<label for="fHide" style="margin:0;flex:1;cursor:pointer">
+<b>Route verstecken</b> (Landing wird nicht mehr angezeigt, aus Sitemap raus)
+</label>
+</div>
+
+<div class="modal-actions">
+<button class="btn-reset" onclick="resetOverride()">↺ Override löschen</button>
+<button class="btn-cancel" onclick="closeModal()">Abbrechen</button>
+<button class="btn-save" onclick="saveOverride()">💾 Speichern</button>
+</div>
+</div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+<script>
+const firebaseConfig = {
+    apiKey: "AIzaSyBP0P4Z0iEz4mkKZmA80Sp6BEuBIqB7Fzo",
+    authDomain: "taxi-heringsdorf.firebaseapp.com",
+    databaseURL: "https://taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "taxi-heringsdorf",
+    storageBucket: "taxi-heringsdorf.firebasestorage.app"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.database();
+
+let ROUTES = [];
+let OVERRIDES = {};
+let sortField = 'c', sortDir = -1;
+let editingSlug = null;
+
+auth.onAuthStateChanged(user => {
+    if (user) {
+        document.getElementById('authWarn').style.display = 'none';
+        document.getElementById('app').style.display = 'block';
+        loadData();
+    } else {
+        document.getElementById('authWarn').style.display = 'block';
+        document.getElementById('app').style.display = 'none';
+    }
+});
+
+function doLogin() {
+    const provider = new firebase.auth.GoogleAuthProvider();
+    auth.signInWithPopup(provider).catch(e => alert('Login-Fehler: ' + e.message));
+}
+
+async function loadData() {
+    // 1) Routen aus taxi-preise.html JSON extrahieren (embedded)
+    try {
+        const r = await fetch('taxi-preise.html?_=' + Date.now());
+        const html = await r.text();
+        const start = html.indexOf('const ROUTES = ');
+        const end = html.indexOf('];', start);
+        if (start > 0 && end > 0) {
+            ROUTES = JSON.parse(html.substring(start + 'const ROUTES = '.length, end + 1));
+        }
+    } catch (e) { console.error('Routen-Load-Fehler:', e); }
+
+    // 2) Overrides aus Firebase
+    db.ref('seoRouteOverrides').on('value', snap => {
+        OVERRIDES = snap.val() || {};
+        apply();
+    });
+}
+
+function slugOf(file) { return file.replace(/^taxi-/, '').replace(/\.html$/, ''); }
+
+function apply() {
+    const q = (document.getElementById('q').value || '').toLowerCase();
+    const sf = document.getElementById('statusFilter').value;
+    let filtered = ROUTES.filter(r => {
+        const slug = slugOf(r.f);
+        const ov = OVERRIDES[slug];
+        if (sf === 'over' && !ov) return false;
+        if (sf === 'hidden' && (!ov || !ov.hide)) return false;
+        if (sf === 'none' && ov) return false;
+        if (q && !(r.a.toLowerCase().includes(q) || r.b.toLowerCase().includes(q))) return false;
+        return true;
+    });
+    filtered.sort((a, b) => {
+        let av = a[sortField], bv = b[sortField];
+        if (typeof av === 'string') { av = av.toLowerCase(); bv = bv.toLowerCase(); }
+        av = av == null ? -Infinity : av;
+        bv = bv == null ? -Infinity : bv;
+        if (av < bv) return -sortDir;
+        if (av > bv) return sortDir;
+        return 0;
+    });
+    document.getElementById('count').textContent = filtered.length + ' Routen';
+    document.getElementById('total').textContent = ROUTES.length;
+    document.getElementById('overridden').textContent = Object.keys(OVERRIDES).length;
+    document.getElementById('hidden').textContent = Object.values(OVERRIDES).filter(o => o && o.hide).length;
+
+    const tb = document.getElementById('tb');
+    const limit = 500;
+    tb.innerHTML = filtered.slice(0, limit).map(r => {
+        const slug = slugOf(r.f);
+        const ov = OVERRIDES[slug] || {};
+        const cls = ov.hide ? 'hidden' : (Object.keys(ov).length ? 'overridden' : '');
+        const displayPrice = ov.priceOverride != null ? ov.priceOverride : r.p;
+        const displayKm = ov.kmOverride != null ? ov.kmOverride : r.k;
+        const displayMin = ov.minOverride != null ? ov.minOverride : r.m;
+        return `<tr class="${cls}">
+            <td class="route-cell">${r.a}${ov.hide ? ' 🚫' : ''}</td>
+            <td>${r.b}</td>
+            <td class="${ov.kmOverride!=null?'override-cell':''}">${displayKm != null ? displayKm.toFixed(1) : '–'}</td>
+            <td class="${ov.minOverride!=null?'override-cell':''}">${displayMin != null ? displayMin : '–'}</td>
+            <td class="price ${ov.priceOverride!=null?'override-cell':''}">${displayPrice != null ? displayPrice.toFixed(2).replace('.',',') + ' €' : '–'}</td>
+            <td>${r.c || 1}×</td>
+            <td><button class="edit-btn" onclick='openEdit(${JSON.stringify(slug)})'>✏️ Edit</button></td>
+        </tr>`;
+    }).join('');
+    if (filtered.length > limit) {
+        tb.innerHTML += `<tr><td colspan="7" style="text-align:center;color:#64748b;padding:16px">… weitere ${filtered.length - limit} nicht gezeigt.</td></tr>`;
+    }
+}
+
+function sortBy(f) {
+    if (sortField === f) sortDir *= -1;
+    else { sortField = f; sortDir = (f === 'a' || f === 'b') ? 1 : -1; }
+    apply();
+}
+
+function openEdit(slug) {
+    editingSlug = slug;
+    const route = ROUTES.find(r => slugOf(r.f) === slug);
+    if (!route) return alert('Route nicht gefunden');
+    const ov = OVERRIDES[slug] || {};
+    document.getElementById('routeInfo').innerHTML =
+        `<b>${route.a}</b> → <b>${route.b}</b><br>Dateiname: <code>${route.f}</code>`;
+    document.getElementById('fPrice').value = ov.priceOverride != null ? ov.priceOverride : '';
+    document.getElementById('phPrice').textContent = route.p != null ? `Auto-Ø: ${route.p.toFixed(2)} €` : 'kein Auto-Preis';
+    document.getElementById('fKm').value = ov.kmOverride != null ? ov.kmOverride : '';
+    document.getElementById('phKm').textContent = route.k != null ? `Auto: ${route.k.toFixed(1)} km` : '–';
+    document.getElementById('fMin').value = ov.minOverride != null ? ov.minOverride : '';
+    document.getElementById('phMin').textContent = route.m != null ? `Auto: ${route.m} Min` : '–';
+    document.getElementById('fIntro').value = ov.customIntro || '';
+    document.getElementById('fHide').checked = !!ov.hide;
+    document.getElementById('editModal').classList.add('open');
+}
+
+function closeModal() {
+    document.getElementById('editModal').classList.remove('open');
+    editingSlug = null;
+}
+
+async function saveOverride() {
+    if (!editingSlug) return;
+    const update = {};
+    const price = parseFloat(document.getElementById('fPrice').value.replace(',', '.'));
+    const km = parseFloat(document.getElementById('fKm').value.replace(',', '.'));
+    const min = parseInt(document.getElementById('fMin').value);
+    const intro = document.getElementById('fIntro').value.trim();
+    const hide = document.getElementById('fHide').checked;
+    if (!isNaN(price)) update.priceOverride = price; else update.priceOverride = null;
+    if (!isNaN(km)) update.kmOverride = km; else update.kmOverride = null;
+    if (!isNaN(min)) update.minOverride = min; else update.minOverride = null;
+    if (intro) update.customIntro = intro; else update.customIntro = null;
+    update.hide = hide || null;
+    update.updatedAt = Date.now();
+    update.updatedBy = auth.currentUser ? auth.currentUser.email : 'unknown';
+    // Wenn ALLE Werte null/false → Override löschen
+    const hasAny = update.priceOverride != null || update.kmOverride != null ||
+                   update.minOverride != null || update.customIntro || update.hide;
+    try {
+        if (hasAny) {
+            await db.ref('seoRouteOverrides/' + editingSlug).update(update);
+        } else {
+            await db.ref('seoRouteOverrides/' + editingSlug).remove();
+        }
+        closeModal();
+    } catch (e) { alert('Save-Fehler: ' + e.message); }
+}
+
+async function resetOverride() {
+    if (!editingSlug) return;
+    if (!confirm('Override komplett löschen?')) return;
+    try {
+        await db.ref('seoRouteOverrides/' + editingSlug).remove();
+        closeModal();
+    } catch (e) { alert('Reset-Fehler: ' + e.message); }
+}
+</script>
+</body>
+</html>

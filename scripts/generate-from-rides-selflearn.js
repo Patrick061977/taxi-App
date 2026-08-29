@@ -67,20 +67,11 @@ function isPoiName(name) {
 function isPrivateAddress(name) {
     if (!name) return true;
     const trimmed = name.trim();
-    // POI dominiert → nicht privat, egal ob Nummer im Namen
+    // POI dominiert → nicht privat, egal ob Nummer im Namen (Hotel Neptun 8 bleibt)
     if (isPoiName(trimmed)) return false;
-    // v6.63.1000 (Patrick 29.08. "dorf bansin 8d was soll das"):
-    //   "Dorf Bansin 8d" enthielt "Bansin" (Ortsname) → Filter sagte fälschlich
-    //   'nicht privat'. Neue Regel: Endet der Name mit Hausnummer (Zahl+opt. Buchstabe)
-    //   ist es IMMER eine private Adresse — auch wenn Ortsname enthalten. Der Ortsname
-    //   ist nur dann OK wenn der Name AUSSCHLIESSLICH aus dem Ort besteht.
-    if (/[\s-]\d+[a-z]?\s*$/i.test(trimmed)) return true;                    // endet mit Hausnummer
-    if (/^\s*\d+[a-z]?\s*$/i.test(trimmed)) return true;                     // reine Nummer wie "6a"
-    // Straßenname + Hausnummer explizit (auch wenn nicht am Ende, z.B. "Kanalstraße 15 Heringsdorf")
-    if (/\b(str(\.|asse|aße)|weg|allee|platz|damm|ring|ufer|chaussee|promenade|dorf|siedlung)\s+\S*\d+[a-z]?\b/i.test(trimmed)) return true;
-    if (/^\d{5}[\s-]/.test(trimmed)) return true;                            // dt PLZ Prefix
-    if (/^\d{2}-\d{3}[\s-]/.test(trimmed)) return true;                      // poln PLZ
-    if (/^\d+/.test(trimmed) && !isPoiName(trimmed)) return true;            // beginnt mit Zahl (nicht POI)
+    // v1002 (Patrick 29.08.): Wenn String eine Zahl irgendwo enthält UND kein POI ist
+    //   → immer privat (Straße+Nr, PLZ+Ort, Hausnummer, PLZ-Präfix etc. alles abgedeckt).
+    if (/\d/.test(trimmed)) return true;
     return false;
 }
 
@@ -115,16 +106,14 @@ function findOrtInString(s) {
 function stripHouseNumberAndZip(name) {
     if (!name) return null;
     let s = name.trim();
-    // Punkt-Kombis wie "Eichenweg 1. Weiterer Text" → "Eichenweg"
-    s = s.replace(/\s+\d+[a-z]?\.\s.*$/i, '');
-    // Hausnummer am Ende: "Eichenweg 1", "Sellin 27a", "Musterstraße 15b"
-    s = s.replace(/\s+\d+[a-z]?\s*$/i, '');
-    // Deutsche PLZ am Anfang: "17429 Heringsdorf-Bansin" → "Heringsdorf-Bansin"
-    s = s.replace(/^\d{5}\s+/, '').trim();
-    // Polnische PLZ am Anfang: "72-600 Świnoujście" → "Świnoujście"
-    s = s.replace(/^\d{2}-\d{3}\s+/, '').trim();
-    // Wenn nach Strip nichts oder nur Zahl bleibt → null
-    if (!s || /^\s*\d*[a-z]?\s*$/i.test(s)) return null;
+    // 1) Punkt-Trennung: "Eichenweg 1. 17429 Bansin" → ersten Teil "Eichenweg 1"
+    s = s.split(/\.\s+/)[0].trim();
+    // 2) ALLE Zahl-Sequenzen entfernen (einschließlich "4-5", "17419", "72-600", "8d")
+    s = s.replace(/[\s-]?\d+([-\s]?\d+)*[a-z]?\b/gi, ' ');
+    // 3) Whitespace kollabieren + Trim
+    s = s.replace(/\s+/g, ' ').trim();
+    // 4) Kein-Ergebnis oder nur Zahl/Buchstaben-Rest → null
+    if (!s || /^\s*\d/.test(s) || s.length < 3) return null;
     return s;
 }
 

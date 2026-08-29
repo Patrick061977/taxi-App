@@ -2549,6 +2549,21 @@
             ">
                 📍 Adressdatenbank
             </button>
+            <!-- v6.63.1012: SEO-Routen-Admin Tab (Overrides fuer Preis/km/min/Text) -->
+            <button onclick="switchView('seo-routes')" class="admin-tab-btn admin-only tab-toggleable" data-view="seo-routes" data-tab-id="seo-routes" style="
+                padding: 10px 16px;
+                border: 2px solid #f59e0b;
+                background: white;
+                color: #f59e0b;
+                border-radius: 8px;
+                font-weight: 600;
+                font-size: 13px;
+                cursor: pointer;
+                white-space: nowrap;
+                transition: all 0.2s;
+            ">
+                🗺️ SEO-Routen
+            </button>
             <button onclick="switchView('shift-plan')" class="admin-tab-btn admin-only tab-toggleable" data-view="shift-plan" data-tab-id="shift-plan" style="
                 padding: 10px 16px;
                 border: 2px solid #10b981;
@@ -12185,6 +12200,78 @@
         </div>
     </div>
 
+    <!-- v6.63.1012: SEO-ROUTEN-ADMIN VIEW (Overrides fuer Preis/km/min/Text/hide) -->
+    <div id="seo-routes-view" class="view admin-only" style="display:none; max-width: 1400px; margin: 20px auto; padding: 0 15px;">
+        <div style="background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); overflow: hidden;">
+            <div style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; padding: 20px; text-align: center;">
+                <div style="font-size: 48px; margin-bottom: 8px;">🗺️</div>
+                <h2 style="font-size: 24px; margin: 0 0 5px 0;">SEO-ROUTEN ADMIN</h2>
+                <p style="font-size: 13px; opacity: 0.9; margin: 0;">Overrides fuer Preis / km / min / Intro-Text pro Landing-Route</p>
+            </div>
+            <div style="padding: 15px 20px; background: #fef3c7; border-bottom: 2px solid #fcd34d; font-size: 13px; color: #78350f;">
+                💡 Aenderungen werden sofort in Firebase (<code>seoRouteOverrides</code>) gespeichert. Die statischen HTML-Landings werden beim naechsten
+                Deploy-Run neu generiert. Bis dahin sind die Overrides nur in dieser Uebersicht sichtbar.
+            </div>
+            <div style="padding: 12px 20px; background: #eff6ff; border-bottom: 2px solid #bfdbfe; display: flex; flex-wrap: wrap; gap: 10px; align-items: center;">
+                <span id="seoStatsTotal" style="font-size: 13px; color: #1e40af; font-weight: 600;">— Strecken</span>
+                <span id="seoStatsOverridden" style="font-size: 13px; color: #059669; font-weight: 600;">— mit Override</span>
+                <span id="seoStatsHidden" style="font-size: 13px; color: #dc2626; font-weight: 600;">— versteckt</span>
+                <input type="text" id="seoSearch" placeholder="🔍 Suche (Von/Nach)..." oninput="renderSeoRoutes()" style="padding: 8px 12px; border: 2px solid #bfdbfe; border-radius: 8px; font-size: 13px; flex: 1; min-width: 200px;">
+                <select id="seoFilter" onchange="renderSeoRoutes()" style="padding: 8px 12px; border: 2px solid #bfdbfe; border-radius: 8px; font-size: 13px;">
+                    <option value="">Alle Status</option>
+                    <option value="over">Nur mit Override</option>
+                    <option value="hidden">Nur versteckt</option>
+                    <option value="none">Ohne Override</option>
+                </select>
+                <button onclick="reloadSeoRoutes()" style="padding: 8px 14px; background: #3b82f6; color: white; border: none; border-radius: 8px; font-weight: 600; font-size: 13px; cursor: pointer;">🔄 Neu laden</button>
+            </div>
+            <div id="seoRoutesTableContainer" style="padding: 0; max-height: 70vh; overflow-y: auto;">
+                <div style="text-align: center; padding: 60px 20px; color: #9ca3af;">
+                    <div style="font-size: 64px; margin-bottom: 16px; opacity: 0.5;">⏳</div>
+                    <div style="font-size: 16px; font-weight: 600;">Lade SEO-Routen...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- v6.63.1012: SEO-Routen Edit-Modal -->
+    <div id="seoRouteEditModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:9999; align-items:center; justify-content:center; padding:16px;">
+        <div style="background:white; border-radius:12px; padding:20px; max-width:600px; width:100%; max-height:90vh; overflow:auto;">
+            <h2 style="color:#d97706; font-size:18px; margin:0 0 10px;">✏️ Route bearbeiten</h2>
+            <div id="seoRouteInfo" style="color:#64748b; font-size:13px; margin-bottom:14px; padding:8px; background:#f8fafc; border-radius:6px;"></div>
+            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                <div style="flex:1; min-width:140px;">
+                    <label style="display:block; font-size:12px; color:#64748b; margin-bottom:4px; font-weight:600;">Preis Override (€)</label>
+                    <input type="number" step="0.10" id="seoFPrice" style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:14px;">
+                    <div id="seoPhPrice" style="color:#94a3b8; font-size:11px; font-style:italic; margin-top:2px;"></div>
+                </div>
+                <div style="flex:1; min-width:140px;">
+                    <label style="display:block; font-size:12px; color:#64748b; margin-bottom:4px; font-weight:600;">km Override</label>
+                    <input type="number" step="0.1" id="seoFKm" style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:14px;">
+                    <div id="seoPhKm" style="color:#94a3b8; font-size:11px; font-style:italic; margin-top:2px;"></div>
+                </div>
+                <div style="flex:1; min-width:140px;">
+                    <label style="display:block; font-size:12px; color:#64748b; margin-bottom:4px; font-weight:600;">Min Override</label>
+                    <input type="number" step="1" id="seoFMin" style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:14px;">
+                    <div id="seoPhMin" style="color:#94a3b8; font-size:11px; font-style:italic; margin-top:2px;"></div>
+                </div>
+            </div>
+            <div style="margin-top:12px;">
+                <label style="display:block; font-size:12px; color:#64748b; margin-bottom:4px; font-weight:600;">Intro-Text Override (leer lassen = Standard-Intro)</label>
+                <textarea id="seoFIntro" placeholder="Leer = Standard-Intro (rotiert aus 3 Templates)" style="width:100%; min-height:80px; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:14px; font-family:inherit; resize:vertical;"></textarea>
+            </div>
+            <div style="margin-top:14px; padding:10px; background:#fef2f2; border-radius:6px; display:flex; align-items:center; gap:8px;">
+                <input type="checkbox" id="seoFHide" style="width:20px; height:20px;">
+                <label for="seoFHide" style="flex:1; cursor:pointer; font-size:14px;"><b>Route verstecken</b> (aus Sitemap raus, Landing wird nicht angezeigt)</label>
+            </div>
+            <div style="display:flex; gap:10px; margin-top:16px; justify-content:flex-end;">
+                <button onclick="resetSeoRouteOverride()" style="padding:10px 18px; border-radius:8px; border:none; cursor:pointer; font-weight:600; background:#7c2d12; color:#fef3c7;">↺ Override löschen</button>
+                <button onclick="closeSeoRouteEdit()" style="padding:10px 18px; border-radius:8px; border:none; cursor:pointer; font-weight:600; background:#475569; color:white;">Abbrechen</button>
+                <button onclick="saveSeoRouteOverride()" style="padding:10px 18px; border-radius:8px; border:none; cursor:pointer; font-weight:600; background:#10b981; color:white;">💾 Speichern</button>
+            </div>
+        </div>
+    </div>
+
     <!-- 🆕 v5.86.14: BACKUP VIEW -->
     <div id="backup-view" class="view admin-only" style="display:none; max-width: 1200px; margin: 20px auto; padding: 0 15px;">
         <div style="background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); overflow: hidden;">
@@ -13132,7 +13219,7 @@
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
         const APP_VERSION = '6.63.996';
-        const APP_BUILD = '29.08.2026 08:07';
+        const APP_BUILD = '29.08.2026 18:46';
         const APP_CHANGE = 'fix v6.63.643: ✓ Erledigt-Button im Wartepool-Banner + kunden.html Fahrhistorie per CRM-ID (kein globales Limit mehr).';
 
         // 🔧 FIX: Mache APP_VERSION global verfügbar
@@ -24797,7 +24884,7 @@ Aktuell: ${currentNum}`;
             // 🆕 v5.90.548: express-booking-view hinzugefügt!
             // 🆕 v5.90.678: angebote-view hinzugefügt!
             // 🆕 v5.95.0: error-log-view hinzugefügt!
-            const allViews = ['simulator-view', 'express-booking-view', 'passenger-view', 'schedule-view', 'history-view', 'angebote-view', 'rechnung-view', 'hotel-calendar-view', 'crm-view', 'email-inbox-view', 'error-log-view', 'driver-view', 'admin-view', 'shift-plan-view', 'debug-view', 'system-diagnostics-view', 'live-monitor-view', 'ai-assistant-view', 'booking-requests-view', 'backup-view', 'poi-management-view', 'fleet-overview-view', 'archive-view', 'konflikt-tester-view', 'disposition-view', 'address-database-view'];
+            const allViews = ['simulator-view', 'express-booking-view', 'passenger-view', 'schedule-view', 'history-view', 'angebote-view', 'rechnung-view', 'hotel-calendar-view', 'crm-view', 'email-inbox-view', 'error-log-view', 'driver-view', 'admin-view', 'shift-plan-view', 'debug-view', 'system-diagnostics-view', 'live-monitor-view', 'ai-assistant-view', 'booking-requests-view', 'backup-view', 'poi-management-view', 'fleet-overview-view', 'archive-view', 'konflikt-tester-view', 'disposition-view', 'address-database-view', 'seo-routes-view'];
             allViews.forEach(viewId => {
                 const viewEl = document.getElementById(viewId);
                 if (viewEl) {
@@ -25370,6 +25457,11 @@ Aktuell: ${currentNum}`;
             // 🆕 v6.25.5: Adressdatenbank laden
             if (view === 'address-database') {
                 setTimeout(() => loadGeocacheDatabase(), 100);
+            }
+
+            // v6.63.1012: SEO-Routen-Admin lazy-load
+            if (view === 'seo-routes') {
+                setTimeout(() => { if (typeof initSeoRoutesAdmin === 'function') initSeoRoutesAdmin(); }, 100);
             }
 
             // 🆕 v6.38.69: Error-Log + Driver-Reports laden
@@ -124405,6 +124497,227 @@ Zahlung: ${ride.paymentMethod || '-'}`;
 
             } catch (error) {
                 console.error('💾 Fehler beim Laden der POIs:', error);
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // v6.63.1012: SEO-ROUTEN ADMIN — Overrides fuer Preis/km/min/Text/hide
+        // ═══════════════════════════════════════════════════════════════
+        //   Datenquellen:
+        //     - Routen kommen aus taxi-preise.html (Table-Rows im 144-Routen-Hub)
+        //     - Overrides liegen in Firebase /seoRouteOverrides/{slug}
+        //   Overrides greifen erst nach naechstem Deploy-Regen der Landing-HTMLs.
+        //   Bis dahin nur in dieser Uebersicht sichtbar.
+        window._seoRoutes = [];      // aus taxi-preise.html geparste Routen
+        window._seoOverrides = {};   // aus Firebase-Listener
+        window._seoEditSlug = null;
+        window._seoOverridesRef = null;
+
+        function _seoSlugOf(fileOrHref) {
+            // taxi-heringsdorf-zu-asgard.html -> heringsdorf-zu-asgard
+            return String(fileOrHref).replace(/.*taxi-/, '').replace(/\.html.*$/, '');
+        }
+
+        async function initSeoRoutesAdmin() {
+            const container = document.getElementById('seoRoutesTableContainer');
+            if (!container) return;
+            // Wenn schon geladen -> nur neu rendern
+            if (window._seoRoutes && window._seoRoutes.length > 0) {
+                renderSeoRoutes();
+                return;
+            }
+            container.innerHTML = '<div style="text-align:center;padding:60px 20px;color:#9ca3af;"><div style="font-size:48px;">⏳</div><div style="margin-top:12px;font-weight:600;">Lade Routen aus taxi-preise.html...</div></div>';
+            try {
+                const res = await fetch('taxi-preise.html?_=' + Date.now());
+                const html = await res.text();
+                const doc = new DOMParser().parseFromString(html, 'text/html');
+                const rows = doc.querySelectorAll('tr');
+                const routes = [];
+                rows.forEach(tr => {
+                    const link = tr.querySelector('a[href^="taxi-"][href$=".html"]');
+                    if (!link) return;
+                    const tds = tr.querySelectorAll('td');
+                    if (tds.length < 5) return;
+                    const from = (tds[0].textContent || '').trim();
+                    const to = (tds[1].textContent || '').trim();
+                    const kmMatch = (tds[2].textContent || '').match(/([\d,\.]+)/);
+                    const priceMatch = (tds[3].textContent || '').match(/([\d,\.]+)/);
+                    const file = link.getAttribute('href');
+                    if (!from || !to || !file) return;
+                    routes.push({
+                        slug: _seoSlugOf(file),
+                        file: file,
+                        from: from,
+                        to: to,
+                        km: kmMatch ? parseFloat(kmMatch[1].replace(',', '.')) : null,
+                        price: priceMatch ? parseFloat(priceMatch[1].replace(',', '.')) : null
+                    });
+                });
+                window._seoRoutes = routes;
+                console.log('🗺️ v1012: SEO-Routen geladen:', routes.length);
+            } catch(e) {
+                console.error('❌ v1012: SEO-Routen laden fehlgeschlagen:', e);
+                container.innerHTML = '<div style="text-align:center;padding:40px 20px;color:#dc2626;">❌ Fehler beim Laden: ' + (e.message || e) + '</div>';
+                return;
+            }
+            // Firebase-Listener fuer Overrides (Realtime-Update)
+            try {
+                if (window._seoOverridesRef) window._seoOverridesRef.off();
+                window._seoOverridesRef = firebase.database().ref('seoRouteOverrides');
+                window._seoOverridesRef.on('value', snap => {
+                    window._seoOverrides = snap.val() || {};
+                    renderSeoRoutes();
+                });
+            } catch(e) {
+                console.warn('⚠️ v1012: Overrides-Listener konnte nicht starten:', e);
+                renderSeoRoutes();
+            }
+        }
+
+        function reloadSeoRoutes() {
+            window._seoRoutes = [];
+            initSeoRoutesAdmin();
+        }
+
+        function renderSeoRoutes() {
+            const container = document.getElementById('seoRoutesTableContainer');
+            if (!container || !window._seoRoutes) return;
+            const q = (document.getElementById('seoSearch')?.value || '').toLowerCase();
+            const filter = document.getElementById('seoFilter')?.value || '';
+            const overrides = window._seoOverrides || {};
+
+            const filtered = window._seoRoutes.filter(r => {
+                const ov = overrides[r.slug];
+                if (filter === 'over' && !ov) return false;
+                if (filter === 'hidden' && (!ov || !ov.hide)) return false;
+                if (filter === 'none' && ov) return false;
+                if (q && !((r.from + ' ' + r.to).toLowerCase().includes(q))) return false;
+                return true;
+            });
+
+            // Stats
+            const totalEl = document.getElementById('seoStatsTotal');
+            const overEl = document.getElementById('seoStatsOverridden');
+            const hidEl = document.getElementById('seoStatsHidden');
+            if (totalEl) totalEl.textContent = filtered.length + ' / ' + window._seoRoutes.length + ' Strecken';
+            const overCount = Object.keys(overrides).length;
+            const hideCount = Object.values(overrides).filter(o => o && o.hide).length;
+            if (overEl) overEl.textContent = overCount + ' mit Override';
+            if (hidEl) hidEl.textContent = hideCount + ' versteckt';
+
+            if (filtered.length === 0) {
+                container.innerHTML = '<div style="text-align:center;padding:40px 20px;color:#9ca3af;">Keine Routen — Filter/Suche pruefen.</div>';
+                return;
+            }
+
+            const rowsHtml = filtered.slice(0, 300).map(r => {
+                const ov = overrides[r.slug] || {};
+                const rowStyle = ov.hide ? 'background:#fef2f2;opacity:0.55;' : (Object.keys(ov).length ? 'background:#fefce8;' : '');
+                const dispPrice = ov.priceOverride != null ? ov.priceOverride : r.price;
+                const dispKm = ov.kmOverride != null ? ov.kmOverride : r.km;
+                const priceStr = dispPrice != null ? (Math.round(dispPrice * 10) / 10).toFixed(1).replace('.', ',') + '0 €' : '–';
+                const kmStr = dispKm != null ? dispKm.toFixed(1) + ' km' : '–';
+                const cls_price = ov.priceOverride != null ? 'color:#d97706;font-weight:700;' : 'color:#059669;font-weight:600;';
+                const cls_km = ov.kmOverride != null ? 'color:#d97706;font-weight:600;' : '';
+                const escFrom = (r.from || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                const escTo = (r.to || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                return '<tr style="' + rowStyle + 'border-bottom:1px solid #e5e7eb;">' +
+                    '<td style="padding:6px 10px;font-weight:600;">' + escFrom + (ov.hide ? ' 🚫' : '') + '</td>' +
+                    '<td style="padding:6px 10px;">' + escTo + '</td>' +
+                    '<td style="padding:6px 10px;text-align:right;' + cls_km + '">' + kmStr + '</td>' +
+                    '<td style="padding:6px 10px;text-align:right;' + cls_price + '">' + priceStr + '</td>' +
+                    '<td style="padding:6px 10px;text-align:center;"><button onclick="openSeoRouteEdit(\'' + r.slug + '\')" style="padding:4px 10px;background:#f59e0b;color:white;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;">✏️</button></td>' +
+                '</tr>';
+            }).join('');
+
+            const truncatedNote = filtered.length > 300
+                ? '<div style="padding:12px;text-align:center;color:#9ca3af;font-size:12px;">… ' + (filtered.length - 300) + ' weitere ausgeblendet — Suche einschraenken</div>'
+                : '';
+
+            container.innerHTML =
+                '<table style="width:100%;border-collapse:collapse;font-size:13px;">' +
+                '<thead style="position:sticky;top:0;background:#f3f4f6;z-index:1;">' +
+                '<tr style="border-bottom:2px solid #d1d5db;">' +
+                '<th style="text-align:left;padding:8px 10px;font-size:11px;text-transform:uppercase;color:#6b7280;">Von</th>' +
+                '<th style="text-align:left;padding:8px 10px;font-size:11px;text-transform:uppercase;color:#6b7280;">Nach</th>' +
+                '<th style="text-align:right;padding:8px 10px;font-size:11px;text-transform:uppercase;color:#6b7280;">km</th>' +
+                '<th style="text-align:right;padding:8px 10px;font-size:11px;text-transform:uppercase;color:#6b7280;">Preis Ø</th>' +
+                '<th style="text-align:center;padding:8px 10px;font-size:11px;text-transform:uppercase;color:#6b7280;">Aktion</th>' +
+                '</tr></thead><tbody>' + rowsHtml + '</tbody></table>' + truncatedNote;
+        }
+
+        function openSeoRouteEdit(slug) {
+            const route = (window._seoRoutes || []).find(r => r.slug === slug);
+            if (!route) { alert('Route nicht gefunden: ' + slug); return; }
+            window._seoEditSlug = slug;
+            const ov = (window._seoOverrides || {})[slug] || {};
+            const modal = document.getElementById('seoRouteEditModal');
+            if (!modal) return;
+            const info = document.getElementById('seoRouteInfo');
+            if (info) info.innerHTML = '<b>' + route.from + '</b> → <b>' + route.to + '</b><br><code>' + route.file + '</code>';
+            const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = (val != null ? val : ''); };
+            const setPh = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
+            setVal('seoFPrice', ov.priceOverride);
+            setPh('seoPhPrice', route.price != null ? 'Auto-Ø: ' + route.price.toFixed(2) + ' €' : 'kein Auto-Preis');
+            setVal('seoFKm', ov.kmOverride);
+            setPh('seoPhKm', route.km != null ? 'Auto: ' + route.km.toFixed(1) + ' km' : '–');
+            setVal('seoFMin', ov.minOverride);
+            setPh('seoPhMin', route.min != null ? 'Auto: ' + route.min + ' Min' : '–');
+            setVal('seoFIntro', ov.customIntro);
+            const hideCb = document.getElementById('seoFHide');
+            if (hideCb) hideCb.checked = !!ov.hide;
+            modal.style.display = 'flex';
+        }
+
+        function closeSeoRouteEdit() {
+            const modal = document.getElementById('seoRouteEditModal');
+            if (modal) modal.style.display = 'none';
+            window._seoEditSlug = null;
+        }
+
+        async function saveSeoRouteOverride() {
+            if (!window._seoEditSlug) return;
+            const parseNum = v => { const n = parseFloat(String(v).replace(',', '.')); return isNaN(n) ? null : n; };
+            const parseInt2 = v => { const n = parseInt(v, 10); return isNaN(n) ? null : n; };
+            const priceRaw = document.getElementById('seoFPrice')?.value;
+            const kmRaw = document.getElementById('seoFKm')?.value;
+            const minRaw = document.getElementById('seoFMin')?.value;
+            const introRaw = (document.getElementById('seoFIntro')?.value || '').trim();
+            const hide = !!document.getElementById('seoFHide')?.checked;
+
+            const update = {
+                priceOverride: parseNum(priceRaw),
+                kmOverride: parseNum(kmRaw),
+                minOverride: parseInt2(minRaw),
+                customIntro: introRaw || null,
+                hide: hide || null,
+                updatedAt: Date.now(),
+                updatedBy: (firebase.auth().currentUser && firebase.auth().currentUser.email) || 'admin-panel'
+            };
+            const hasAny = update.priceOverride != null || update.kmOverride != null ||
+                           update.minOverride != null || update.customIntro || update.hide;
+            try {
+                if (hasAny) {
+                    await firebase.database().ref('seoRouteOverrides/' + window._seoEditSlug).update(update);
+                } else {
+                    await firebase.database().ref('seoRouteOverrides/' + window._seoEditSlug).remove();
+                }
+                if (typeof showToast === 'function') showToast('✅ Override gespeichert');
+                closeSeoRouteEdit();
+            } catch(e) {
+                alert('Speichern fehlgeschlagen: ' + (e.message || e));
+            }
+        }
+
+        async function resetSeoRouteOverride() {
+            if (!window._seoEditSlug) return;
+            if (!confirm('Override komplett loeschen?')) return;
+            try {
+                await firebase.database().ref('seoRouteOverrides/' + window._seoEditSlug).remove();
+                if (typeof showToast === 'function') showToast('✅ Override entfernt');
+                closeSeoRouteEdit();
+            } catch(e) {
+                alert('Reset fehlgeschlagen: ' + (e.message || e));
             }
         }
 

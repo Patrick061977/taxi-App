@@ -24578,9 +24578,13 @@ exports.scheduledPublicPickupsSync = onSchedule(
             // v6.63.975 (Patrick 27.08. Bridge '21:30 in native app aber ich sehe die Fahrt nicht'):
             //   Fenster von 60 Min auf 90 Min erhöht — dann sieht Patrick 21:30-Fahrten bereits
             //   ab 20:00, nicht erst ab 20:30.
+            // v6.63.1033 (Patrick 30.08. Maxa-Fall 13:45 → wartepool): Rückwärts-Fenster von
+            //   5 Min auf 20 Min erhöht, damit überfällige nicht-zugeteilte Wartepool-Fahrten
+            //   auf der Karte sichtbar bleiben und noch gegrabbt werden können. Maxa war
+            //   um 14:00 im Banner, aber nicht mehr auf der Karte (13:45 + 5 Min = 13:50 Cutoff).
             const windowMs = 90 * 60 * 1000;
             const ridesSnap = await db.ref('rides').orderByChild('pickupTimestamp')
-                .startAt(now - 5 * 60000).endAt(now + windowMs).once('value');
+                .startAt(now - 20 * 60000).endAt(now + windowMs).once('value');
             const nowPublic = {};
             ridesSnap.forEach(c => {
                 const r = c.val();

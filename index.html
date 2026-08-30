@@ -13222,7 +13222,7 @@
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
         const APP_VERSION = '6.63.996';
-        const APP_BUILD = '30.08.2026 06:38';
+        const APP_BUILD = '30.08.2026 06:42';
         const APP_CHANGE = 'fix v6.63.643: ✓ Erledigt-Button im Wartepool-Banner + kunden.html Fahrhistorie per CRM-ID (kein globales Limit mehr).';
 
         // 🔧 FIX: Mache APP_VERSION global verfügbar
@@ -124567,8 +124567,11 @@ Zahlung: ${ride.paymentMethod || '-'}`;
                         if (tds.length < 5) { skipNoTds++; return; }
                         const from = (tds[0].textContent || '').trim();
                         const to = (tds[1].textContent || '').trim();
-                        const kmMatch = (tds[2].textContent || '').match(/([\d,.]+)/);
-                        const priceMatch = (tds[3].textContent || '').match(/([\d,.]+)/);
+                        // v6.63.1020 (Patrick Log 30.08. 06:40): regex hat den PUNKT in "ca."
+                        //   zuerst gematched -> parseFloat('.') = NaN. Jetzt: erst-Zeichen muss
+                        //   eine Ziffer sein. Match: "6.70" aus "ca. 6.70 EUR".
+                        const kmMatch = (tds[2].textContent || '').match(/(\d[\d,.]*)/);
+                        const priceMatch = (tds[3].textContent || '').match(/(\d[\d,.]*)/);
                         const file = link.getAttribute('href');
                         if (!from || !to || !file) { skipNoText++; return; }
                         routes.push({
@@ -124794,8 +124797,32 @@ Zahlung: ${ride.paymentMethod || '-'}`;
             if (fromC) L.marker([fromC.lat, fromC.lng], { icon: fromIcon }).bindPopup('<b>Von:</b><br>' + from).addTo(map);
             if (toC)   L.marker([toC.lat, toC.lng], { icon: toIcon }).bindPopup('<b>Nach:</b><br>' + to).addTo(map);
             if (fromC && toC) {
-                L.polyline([[fromC.lat, fromC.lng], [toC.lat, toC.lng]], { color: '#3b82f6', weight: 3, dashArray: '8,6', opacity: 0.85 }).addTo(map);
-                map.fitBounds([[fromC.lat, fromC.lng], [toC.lat, toC.lng]], { padding: [40, 40], maxZoom: 15 });
+                // v6.63.1020 (Patrick 30.08. "luftlinie willst du mich verarschen"):
+                //   Echte Strassen-Route via OSRM statt gerader Verbindungslinie.
+                //   Wie in der native Fahrer-App / im Live-Preis-Rechner.
+                try {
+                    const osrmUrl = 'https://router.project-osrm.org/route/v1/driving/' +
+                        fromC.lng + ',' + fromC.lat + ';' + toC.lng + ',' + toC.lat +
+                        '?overview=full&geometries=geojson';
+                    const osrmRes = await fetch(osrmUrl);
+                    const osrmData = await osrmRes.json();
+                    if (osrmData && osrmData.routes && osrmData.routes[0] && osrmData.routes[0].geometry) {
+                        const coords = osrmData.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+                        L.polyline(coords, { color: '#3b82f6', weight: 5, opacity: 0.85 }).addTo(map);
+                        map.fitBounds(coords, { padding: [30, 30], maxZoom: 15 });
+                        const kmR = (osrmData.routes[0].distance / 1000).toFixed(1);
+                        const minR = Math.round(osrmData.routes[0].duration / 60);
+                        console.log('🛣️ v1020 OSRM-Route: ' + kmR + ' km, ' + minR + ' Min');
+                    } else {
+                        console.warn('⚠️ v1020: OSRM keine Route - Fallback Luftlinie (grau, gestrichelt)');
+                        L.polyline([[fromC.lat, fromC.lng], [toC.lat, toC.lng]], { color: '#94a3b8', weight: 2, dashArray: '8,6', opacity: 0.5 }).addTo(map);
+                        map.fitBounds([[fromC.lat, fromC.lng], [toC.lat, toC.lng]], { padding: [40, 40], maxZoom: 15 });
+                    }
+                } catch(osrmErr) {
+                    console.warn('⚠️ v1020: OSRM-Aufruf fehlgeschlagen:', osrmErr);
+                    L.polyline([[fromC.lat, fromC.lng], [toC.lat, toC.lng]], { color: '#94a3b8', weight: 2, dashArray: '8,6', opacity: 0.5 }).addTo(map);
+                    map.fitBounds([[fromC.lat, fromC.lng], [toC.lat, toC.lng]], { padding: [40, 40], maxZoom: 15 });
+                }
             } else if (fromC || toC) {
                 const c = fromC || toC;
                 map.setView([c.lat, c.lng], 14);

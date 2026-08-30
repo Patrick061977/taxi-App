@@ -213,10 +213,49 @@ module.exports.isPrivateAddress = isPrivateAddress;
 module.exports.isPoiName = isPoiName;
 module.exports.shortName = shortName;
 
+// v6.63.1029 (Patrick 30.08. "grammatik fix"): Genus-Erkennung fuer 'zur' vs 'zum'
+// Beispiel: 'zum Kanalstraße' -> 'zur Kanalstraße' (Straße ist feminin)
+//           'vom Villa Anna' -> 'von der Villa Anna'
+// v6.63.1032 (Patrick 30.08.): Suffix erweitert um oase/welle/residenz/praxis/station/therme/burg
+//   + JEDES Wort im Namen wird geprüft (nicht nur das letzte) → 'Rehabilitationsklinik ...'
+//   matcht via 'klinik$' auch wenn 'GmbH' das letzte Wort ist.
+const FEM_SUFFIX_RE = /(strasse|straße|promenade|allee|chaussee|klinik|kliniken|sparkasse|apotheke|kirche|brücke|bruecke|halle|schule|bibliothek|oase|welle|residenz|praxis|station|therme|burg|pension|marina|akademie|kanzlei|werft)$/i;
+const FEM_PREFIX_RE = /^(Villa|Klinik|Praxis|Apotheke|Sparkasse|Kirche|Halle|Schule|Bibliothek|Rezeption|Anmeldung|Pension|Therme|Marina|Akademie|Werft)\b/;
+// Bei zusammengesetzten Namen dominiert der Kopf: "Hotel Residenz" → 'vom Hotel Residenz'
+// (nicht 'von der Hotel Residenz'). Bekannte maskuline/neutrale Präfixe brechen isFeminine.
+const MASC_NEUT_PREFIX_RE = /^(Hotel|Restaurant|Café|Cafe|Kurhaus|Kurpark|Bahnhof|Flughafen|Hafen|Schloss|Museum|Ferienpark|Ferienhaus|Sporthotel|Golfhotel|Aparthotel|Zentrum|Centrum|Landhotel|Seehotel|Strandhotel|Weihnachtshotel|Ostseehotel)/i;
+function isFeminine(name) {
+    if (!name) return false;
+    const words = name.split(/[\s\-]/).filter(Boolean);
+    if (!words.length) return false;
+    if (MASC_NEUT_PREFIX_RE.test(words[0])) return false;
+    if (FEM_PREFIX_RE.test(words[0])) return true;
+    return words.some(w => FEM_SUFFIX_RE.test(w));
+}
+// v6.63.1032 (Patrick 30.08.): Städte-Ausnahme — reine Ortsnamen bleiben ohne Artikel.
+//   Sonst käme "vom Ahlbeck" statt "von Ahlbeck", "zum Bansin" statt "nach Bansin".
+function isCity(name) {
+    if (!name) return false;
+    const low = name.trim().toLowerCase();
+    return ORT_NAMES.some(o => o === low);
+}
+function zumZur(name) {
+    if (isCity(name)) return `nach ${name}`;
+    return isFeminine(name) ? `zur ${name}` : `zum ${name}`;
+}
+function vomVonDer(name) {
+    if (isCity(name)) return `von ${name}`;
+    return isFeminine(name) ? `von der ${name}` : `vom ${name}`;
+}
+module.exports.isFeminine = isFeminine;
+module.exports.isCity = isCity;
+module.exports.zumZur = zumZur;
+module.exports.vomVonDer = vomVonDer;
+
 const INTROS_SL = [
-    ({f,t,km,min,eur,count}) => `Diese Route fahren wir regelmäßig — vom ${f} zum ${t} sind es ${km.toFixed(1)} km und typisch ${min} Minuten. Ø-Preis aus ${count} Fahrten: ${eur} €.`,
-    ({f,t,km,min,eur,count}) => `Vom ${f} zum ${t}: ${count}-mal in den letzten 90 Tagen von uns gefahren. Ø-Distanz ${km.toFixed(1)} km, Fahrtzeit ${min} Min, Preis ca. ${eur} €.`,
-    ({f,t,km,min,eur,count}) => `Erfahrungswerte: Die Fahrt vom ${f} zum ${t} dauert etwa ${min} Minuten (${km.toFixed(1)} km). Aus unseren letzten ${count} Fahrten: ca. ${eur} € Median-Preis.`,
+    ({f,t,km,min,eur,count}) => `Diese Route fahren wir regelmäßig — ${vomVonDer(f)} ${zumZur(t)} sind es ${km.toFixed(1)} km und typisch ${min} Minuten. Ø-Preis aus ${count} Fahrten: ${eur} €.`,
+    ({f,t,km,min,eur,count}) => `${vomVonDer(f).replace(/^v/, 'V')} ${zumZur(t)}: ${count}-mal in den letzten 90 Tagen von uns gefahren. Ø-Distanz ${km.toFixed(1)} km, Fahrtzeit ${min} Min, Preis ca. ${eur} €.`,
+    ({f,t,km,min,eur,count}) => `Erfahrungswerte: Die Fahrt ${vomVonDer(f)} ${zumZur(t)} dauert etwa ${min} Minuten (${km.toFixed(1)} km). Aus unseren letzten ${count} Fahrten: ca. ${eur} € Median-Preis.`,
 ];
 
 function generateHtml(from, to, km, min, eur, count, pickupSample, destSample) {
@@ -234,7 +273,12 @@ function generateHtml(from, to, km, min, eur, count, pickupSample, destSample) {
     const canonical = `https://umwelt-taxi-insel-usedom.de/${filename}`;
     const rawTitle = `Taxi ${from} → ${to} · Funk Taxi Heringsdorf`;
     const title = rawTitle.length > 65 ? rawTitle.slice(0, 62) + '...' : rawTitle;
-    const description = `Taxi vom ${from} zum ${to}: ca. ${priceStr} € (${km.toFixed(1)} km, ${min} Min). Aus ${count} echten Fahrten. 24/7 unter 038378/22022.`;
+    // v6.63.1032 (Patrick 30.08. "poi extrem wichtig" + Grammatik-Aktivierung):
+    //   Grammatik-Helpers aus v6.63.1029 (isFeminine/zumZur/vomVonDer) endlich
+    //   in generateHtml verdrahten — vorher waren die Funktionen definiert aber ungenutzt.
+    const _fromP = vomVonDer(from); // "von der Dünenstraße" / "vom Bahnhof Ahlbeck"
+    const _toP   = zumZur(to);      // "zur Kanalstraße" / "zum Bahnhof Heringsdorf"
+    const description = `Taxi ${_fromP} ${_toP}: ca. ${priceStr} € (${km.toFixed(1)} km, ${min} Min). Aus ${count} echten Fahrten. 24/7 unter 038378/22022.`;
 
     const jsonLd1 = {"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[
         {"@type":"ListItem","position":1,"name":"Startseite","item":"https://umwelt-taxi-insel-usedom.de/landing.html"},
@@ -243,7 +287,7 @@ function generateHtml(from, to, km, min, eur, count, pickupSample, destSample) {
     ]};
     const jsonLd2 = {"@context":"https://schema.org","@type":"TaxiService","name":"Funk Taxi Heringsdorf","telephone":"+493837822022","url":"https://umwelt-taxi-insel-usedom.de/","priceRange":`EUR ${priceStr}`};
     const jsonLd3 = {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[
-        {"@type":"Question","name":`Was kostet die Fahrt vom ${from} zum ${to}?`,"acceptedAnswer":{"@type":"Answer","text":`Median aus ${count} Fahrten: ca. ${priceStr} € (${km.toFixed(1)} km, ${min} Min). Kein Festpreis — nach Taxameter. Nacht +5 €, Großraum bis 8 Pers. +10 €.`}},
+        {"@type":"Question","name":`Was kostet die Fahrt ${_fromP} ${_toP}?`,"acceptedAnswer":{"@type":"Answer","text":`Median aus ${count} Fahrten: ca. ${priceStr} € (${km.toFixed(1)} km, ${min} Min). Kein Festpreis — nach Taxameter. Nacht +5 €, Großraum bis 8 Pers. +10 €.`}},
         {"@type":"Question","name":"Wie bestellen?","acceptedAnswer":{"@type":"Answer","text":"24/7 unter 038378 22022 oder online über anfrage.html. Vorbestellung ab 25 Min Vorlauf."}}
     ]};
 
@@ -280,7 +324,7 @@ footer a { color: #fbbf24; text-decoration: none; margin: 0 8px; }
 <body>
 <header>
 <span class="badge">${count}× gefahren</span>
-<h1>Taxi vom ${from} zum ${to}</h1>
+<h1>Taxi ${_fromP} ${_toP}</h1>
 <p class="meta">${km.toFixed(1)} km · ca. ${min} Min · Funk Taxi Heringsdorf</p>
 <div class="price">ca. ${priceStr} €</div>
 <div class="price-note">Median-Preis aus ${count} echten Fahrten</div>
@@ -296,7 +340,7 @@ footer a { color: #fbbf24; text-decoration: none; margin: 0 8px; }
 <p style="font-size:12px;color:#94a3b8;margin-top:6px;">Hinweis: Wir holen Sie an jeder Adresse in ${from.split(' ')[0]} ab — der Ort ist Beispiel aus echten Fahrten, Hausnummer natürlich frei wählbar.</p>
 </div>
 <h2>Häufige Fragen</h2>
-<div class="faq-item"><h3>Was kostet die Fahrt vom ${from} zum ${to}?</h3><p>Median aus ${count} Fahrten: ca. ${priceStr} €. Kein Festpreis, Endpreis nach Taxameter. Nacht +5 €, Großraum bis 8 Pers. +10 €.</p></div>
+<div class="faq-item"><h3>Was kostet die Fahrt ${_fromP} ${_toP}?</h3><p>Median aus ${count} Fahrten: ca. ${priceStr} €. Kein Festpreis, Endpreis nach Taxameter. Nacht +5 €, Großraum bis 8 Pers. +10 €.</p></div>
 <div class="faq-item"><h3>Wie bestellen?</h3><p>24/7 unter 038378 22022 oder online über <a href="anfrage.html" style="color:#fbbf24;">anfrage.html</a>. Vorbestellung ab 25 Min Vorlauf.</p></div>
 <div class="faq-item"><h3>Kartenzahlung?</h3><p>Ja — Bar, EC, Visa/MasterCard, Apple Pay, Google Pay direkt im Wagen.</p></div>
 <h2>Weitere Fahrten auf Usedom</h2>

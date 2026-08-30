@@ -76,6 +76,8 @@ on:
       #   Workflow-Run auslösen.
       - 'taxi-*-zu-*.html'
       - 'taxi-*.html'
+      - 'sitemap.xml'
+      - 'robots.txt'
       - 'images/**'
       - 'vendor/**'
       - 'strato/**'

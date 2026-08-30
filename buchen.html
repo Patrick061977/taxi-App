@@ -4922,11 +4922,11 @@
             if (searchKey.length >= 3 && results.length < 3 && !_gPlacesReady) {
                 try {
                     // Schritt 1: Mit ", Usedom" suchen
-                    let resp = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query + ', Usedom')}&limit=5&addressdetails=1&viewbox=13.60,54.20,14.45,53.75&bounded=0`, { headers: { 'User-Agent': 'TaxiUsedom/1.0' } });
+                    let resp = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query + ', Usedom')}&limit=5&addressdetails=1&namedetails=1&viewbox=13.60,54.20,14.45,53.75&bounded=0`, { headers: { 'User-Agent': 'TaxiUsedom/1.0' } });
                     let data = await resp.json();
                     // Schritt 2: Bei 0 Treffern → ohne Zusatz, aber Viewbox strikt auf Usedom
                     if (data.length === 0) {
-                        resp = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&addressdetails=1&viewbox=13.60,54.20,14.45,53.75&bounded=1`, { headers: { 'User-Agent': 'TaxiUsedom/1.0' } });
+                        resp = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&addressdetails=1&namedetails=1&viewbox=13.60,54.20,14.45,53.75&bounded=1`, { headers: { 'User-Agent': 'TaxiUsedom/1.0' } });
                         data = await resp.json();
                     }
                     data.forEach(item => {
@@ -4949,7 +4949,10 @@
                             else if (/\bHeringsdorf\b/i.test(town)) { town = 'Heringsdorf'; _pc = '17424'; }
                         }
                         // 🔧 v6.34.0: POI-Name (z.B. "Polizeirevier") vor Adresse anzeigen
-                        const poiName = item.name || '';
+                        // v6.63.1022 (Patrick 30.08.): namedetails.name als Fallback wenn item.name leer.
+                        //   Fuer "Rudolf Breitscheid Str 3" liefert Nominatim item.name='' aber
+                        //   namedetails.name='Weißes Schloss' -> jetzt sieht der Gast beides.
+                        const poiName = item.name || (item.namedetails && item.namedetails.name) || '';
                         let addr = road ? (road + (nr ? ' ' + nr : '')) : '';
                         if (town) addr += (addr ? ', ' : '') + `${pc ? pc + ' ' : ''}${town}`;
                         // 🆕 v6.62.694: Patrick (13.05. 19:12): POI als Ueberschrift, Adresse drunter

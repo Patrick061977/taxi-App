@@ -42878,6 +42878,46 @@ exports.scheduledPendingAcceptTimeout = onSchedule(
                 checkedCount++;
 
                 const rideId = c.key;
+                // 🆕 v6.63.1031 (Patrick 30.08. FIX-E "kein auto weg"):
+                //   Wenn Fahrer die Fahrt schon >30 Min hatte (etablierte Zuweisung,
+                //   nicht frisch rotiert), NIEMALS auto-wegnehmen. Stattdessen nach
+                //   3 Min ohne Accept einmal Bridge-Alert an Patrick (max 1x/30min),
+                //   er entscheidet manuell. Frisch rotierte Sofortfahrten
+                //   (assignedAt jung) laufen weiter mit normaler 60s-Rotation.
+                const _assignedAgeMs = now - assignedAt;
+                const _isEstablishedAssignment = _assignedAgeMs > 30 * 60 * 1000;
+                if (_isEstablishedAssignment) {
+                    const _timeSinceLosfahrMs = now - effectiveAssignedAt;
+                    if (_timeSinceLosfahrMs < 3 * 60 * 1000) return; // erst nach 3 Min alerten
+                    const _lastAlertAt = Number(r._noAcceptAlertSentAt) || 0;
+                    if (now - _lastAlertAt < 30 * 60 * 1000) return; // Cooldown 30 Min
+                    promises.push((async () => {
+                        try {
+                            const _msg = `⚠️ Fahrer reagiert nicht auf Losfahr-Alarm\n\n` +
+                                `Fahrt: ${r.customerName || '?'}\n` +
+                                `Fahrzeug: ${r.assignedVehicleName || veh}\n` +
+                                `Von: ${(r.pickup || '?').slice(0, 60)}\n` +
+                                `Nach: ${(r.destination || '?').slice(0, 60)}\n` +
+                                `Pickup: ${pickupTs ? new Date(pickupTs).toLocaleTimeString('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit' }) : '?'}\n` +
+                                `Zugewiesen: seit ${Math.round(_assignedAgeMs / 60000)} Min\n\n` +
+                                `Fahrt wird NICHT automatisch weggenommen (v6.63.1031 FIX-E).\n` +
+                                `Willst du manuell umverteilen?`;
+                            await db.ref('claudeBridge/outbox/' + now).set({
+                                message: _msg, targetChatId: 6229490043, via: 'claude', ts: now
+                            });
+                            await db.ref(`rides/${rideId}/_noAcceptAlertSentAt`).set(now);
+                            await addRideLog(rideId, '⚠️', `v6.63.1031 FIX-E: kein Auto-Weg — Bridge-Alert an Admin gesendet`, {
+                                fahrzeug: r.assignedVehicleName || veh,
+                                assignedAgeMin: Math.round(_assignedAgeMs / 60000)
+                            }).catch(() => {});
+                            console.log(`⚠️ v6.63.1031 FIX-E: ${rideId} (${r.customerName}) — Bridge-Alert gesendet, KEINE Rotation`);
+                        } catch (_alertErr) {
+                            console.error(`v6.63.1031 FIX-E Alert-Fehler ${rideId}:`, _alertErr.message);
+                        }
+                    })());
+                    return;
+                }
+
                 promises.push((async () => {
                     try {
                         // Schritt 1: aktuellen Fahrer in rejectedVehicles pushen und Vehicle freigeben

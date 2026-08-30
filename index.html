@@ -12238,7 +12238,8 @@
     <div id="seoRouteEditModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:9999; align-items:center; justify-content:center; padding:16px;">
         <div style="background:white; border-radius:12px; padding:20px; max-width:600px; width:100%; max-height:90vh; overflow:auto;">
             <h2 style="color:#d97706; font-size:18px; margin:0 0 10px;">✏️ Route bearbeiten</h2>
-            <div id="seoRouteInfo" style="color:#64748b; font-size:13px; margin-bottom:14px; padding:8px; background:#f8fafc; border-radius:6px;"></div>
+            <!-- v6.63.1017: Route prominent wie bei Vorbestellung -->
+            <div id="seoRouteInfo" style="margin-bottom:14px; padding:14px; background:linear-gradient(135deg,#eff6ff,#dbeafe); border:2px solid #3b82f6; border-radius:10px;"></div>
             <div style="display:flex; gap:10px; flex-wrap:wrap;">
                 <div style="flex:1; min-width:140px;">
                     <label style="display:block; font-size:12px; color:#64748b; margin-bottom:4px; font-weight:600;">Preis Override (€)</label>
@@ -13219,7 +13220,7 @@
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
         const APP_VERSION = '6.63.996';
-        const APP_BUILD = '29.08.2026 19:57';
+        const APP_BUILD = '30.08.2026 06:00';
         const APP_CHANGE = 'fix v6.63.643: ✓ Erledigt-Button im Wartepool-Banner + kunden.html Fahrhistorie per CRM-ID (kein globales Limit mehr).';
 
         // 🔧 FIX: Mache APP_VERSION global verfügbar
@@ -124547,36 +124548,49 @@ Zahlung: ${ride.paymentMethod || '-'}`;
                 return;
             }
             container.innerHTML = '<div style="text-align:center;padding:60px 20px;color:#9ca3af;"><div style="font-size:48px;">⏳</div><div style="margin-top:12px;font-weight:600;">Lade Routen aus taxi-preise.html...</div></div>';
+            let scanned = 0, kept = 0, skipNoLink = 0, skipNoTds = 0, skipNoText = 0, parseErr = 0;
             try {
                 const res = await fetch('taxi-preise.html?_=' + Date.now());
+                if (!res.ok) throw new Error('HTTP ' + res.status);
                 const html = await res.text();
                 const doc = new DOMParser().parseFromString(html, 'text/html');
                 const rows = doc.querySelectorAll('tr');
                 const routes = [];
                 rows.forEach(tr => {
-                    const link = tr.querySelector('a[href^="taxi-"][href$=".html"]');
-                    if (!link) return;
-                    const tds = tr.querySelectorAll('td');
-                    if (tds.length < 5) return;
-                    const from = (tds[0].textContent || '').trim();
-                    const to = (tds[1].textContent || '').trim();
-                    const kmMatch = (tds[2].textContent || '').match(/([\d,\.]+)/);
-                    const priceMatch = (tds[3].textContent || '').match(/([\d,\.]+)/);
-                    const file = link.getAttribute('href');
-                    if (!from || !to || !file) return;
-                    routes.push({
-                        slug: _seoSlugOf(file),
-                        file: file,
-                        from: from,
-                        to: to,
-                        km: kmMatch ? parseFloat(kmMatch[1].replace(',', '.')) : null,
-                        price: priceMatch ? parseFloat(priceMatch[1].replace(',', '.')) : null
-                    });
+                    scanned++;
+                    try {
+                        const link = tr.querySelector('a[href^="taxi-"][href$=".html"]');
+                        if (!link) { skipNoLink++; return; }
+                        const tds = tr.querySelectorAll('td');
+                        if (tds.length < 5) { skipNoTds++; return; }
+                        const from = (tds[0].textContent || '').trim();
+                        const to = (tds[1].textContent || '').trim();
+                        const kmMatch = (tds[2].textContent || '').match(/([\d,.]+)/);
+                        const priceMatch = (tds[3].textContent || '').match(/([\d,.]+)/);
+                        const file = link.getAttribute('href');
+                        if (!from || !to || !file) { skipNoText++; return; }
+                        routes.push({
+                            slug: _seoSlugOf(file),
+                            file: file,
+                            from: from,
+                            to: to,
+                            km: kmMatch ? parseFloat(kmMatch[1].replace(',', '.')) : null,
+                            price: priceMatch ? parseFloat(priceMatch[1].replace(',', '.')) : null
+                        });
+                        kept++;
+                    } catch(rowErr) {
+                        parseErr++;
+                        console.warn('⚠️ Zeile uebersprungen:', rowErr);
+                    }
                 });
                 window._seoRoutes = routes;
-                console.log('🗺️ v1012: SEO-Routen geladen:', routes.length);
+                console.log('🗺️ v1017 SEO-Routen: gescannt=' + scanned + ' behalten=' + kept + ' (skipNoLink=' + skipNoLink + ' skipNoTds=' + skipNoTds + ' skipNoText=' + skipNoText + ' parseErr=' + parseErr + ')');
+                if (kept === 0) {
+                    container.innerHTML = '<div style="text-align:center;padding:40px 20px;color:#dc2626;">❌ Keine Routen erkannt in taxi-preise.html. Bitte DevTools-Konsole zeigen.</div>';
+                    return;
+                }
             } catch(e) {
-                console.error('❌ v1012: SEO-Routen laden fehlgeschlagen:', e);
+                console.error('❌ v1017: SEO-Routen laden fehlgeschlagen:', e);
                 container.innerHTML = '<div style="text-align:center;padding:40px 20px;color:#dc2626;">❌ Fehler beim Laden: ' + (e.message || e) + '</div>';
                 return;
             }
@@ -124674,7 +124688,29 @@ Zahlung: ${ride.paymentMethod || '-'}`;
             const modal = document.getElementById('seoRouteEditModal');
             if (!modal) return;
             const info = document.getElementById('seoRouteInfo');
-            if (info) info.innerHTML = '<b>' + route.from + '</b> → <b>' + route.to + '</b><br><code>' + route.file + '</code>';
+            if (info) {
+                // v1017: Von/Nach prominent — Icon + Adresse pro Zeile, wie im Vorbestellungs-Modal
+                const escFrom = (route.from || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                const escTo = (route.to || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                const km = route.km != null ? route.km.toFixed(1) + ' km' : '';
+                const priceAuto = route.price != null ? (Math.round(route.price * 10) / 10).toFixed(1).replace('.', ',') + '0 €' : '';
+                info.innerHTML =
+                    '<div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:6px;">' +
+                        '<div style="font-size:20px;line-height:1;flex-shrink:0;">📍</div>' +
+                        '<div><div style="font-size:11px;color:#1e40af;text-transform:uppercase;font-weight:700;">Von</div>' +
+                        '<div style="font-size:15px;color:#1e3a8a;font-weight:700;">' + escFrom + '</div></div>' +
+                    '</div>' +
+                    '<div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:8px;">' +
+                        '<div style="font-size:20px;line-height:1;flex-shrink:0;">🎯</div>' +
+                        '<div><div style="font-size:11px;color:#1e40af;text-transform:uppercase;font-weight:700;">Nach</div>' +
+                        '<div style="font-size:15px;color:#1e3a8a;font-weight:700;">' + escTo + '</div></div>' +
+                    '</div>' +
+                    '<div style="display:flex;gap:14px;font-size:13px;color:#1e3a8a;padding-top:8px;border-top:1px solid #93c5fd;">' +
+                        (km ? '<span>📏 ' + km + '</span>' : '') +
+                        (priceAuto ? '<span>💰 Auto-Ø ' + priceAuto + '</span>' : '') +
+                        '<span style="margin-left:auto;color:#64748b;font-family:monospace;font-size:11px;">' + route.file + '</span>' +
+                    '</div>';
+            }
             const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = (val != null ? val : ''); };
             const setPh = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
             setVal('seoFPrice', ov.priceOverride);
@@ -124740,6 +124776,17 @@ Zahlung: ${ride.paymentMethod || '-'}`;
                 alert('Reset fehlgeschlagen: ' + (e.message || e));
             }
         }
+
+        // v6.63.1017: Explizite window-Bindings — auch wenn ein anderer Skript-Fehler
+        //   spaeter im file auftritt, sind die Funktionen fuer inline onclick-Handler
+        //   verfuegbar. (Sonst: 'openSeoRouteEdit is not defined' bei Button-Klick.)
+        window.initSeoRoutesAdmin = initSeoRoutesAdmin;
+        window.reloadSeoRoutes = reloadSeoRoutes;
+        window.renderSeoRoutes = renderSeoRoutes;
+        window.openSeoRouteEdit = openSeoRouteEdit;
+        window.closeSeoRouteEdit = closeSeoRouteEdit;
+        window.saveSeoRouteOverride = saveSeoRouteOverride;
+        window.resetSeoRouteOverride = resetSeoRouteOverride;
 
         // ═══════════════════════════════════════════════════════════════
         // 🆕 v6.25.5: ADRESSDATENBANK — Geocache verwalten

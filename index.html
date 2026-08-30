@@ -12239,7 +12239,9 @@
         <div style="background:white; border-radius:12px; padding:20px; max-width:600px; width:100%; max-height:90vh; overflow:auto;">
             <h2 style="color:#d97706; font-size:18px; margin:0 0 10px;">✏️ Route bearbeiten</h2>
             <!-- v6.63.1017: Route prominent wie bei Vorbestellung -->
-            <div id="seoRouteInfo" style="margin-bottom:14px; padding:14px; background:linear-gradient(135deg,#eff6ff,#dbeafe); border:2px solid #3b82f6; border-radius:10px;"></div>
+            <div id="seoRouteInfo" style="margin-bottom:10px; padding:14px; background:linear-gradient(135deg,#eff6ff,#dbeafe); border:2px solid #3b82f6; border-radius:10px;"></div>
+            <!-- v6.63.1019: Karte wie bei native Fahrer-App Abholort -->
+            <div id="seoRouteMap" style="height:240px; border-radius:10px; margin-bottom:14px; background:#f1f5f9; display:flex; align-items:center; justify-content:center; color:#94a3b8; font-size:13px;">🗺️ Karte wird geladen...</div>
             <div style="display:flex; gap:10px; flex-wrap:wrap;">
                 <div style="flex:1; min-width:140px;">
                     <label style="display:block; font-size:12px; color:#64748b; margin-bottom:4px; font-weight:600;">Preis Override (€)</label>
@@ -13220,7 +13222,7 @@
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
         const APP_VERSION = '6.63.996';
-        const APP_BUILD = '30.08.2026 06:33';
+        const APP_BUILD = '30.08.2026 06:38';
         const APP_CHANGE = 'fix v6.63.643: ✓ Erledigt-Button im Wartepool-Banner + kunden.html Fahrhistorie per CRM-ID (kein globales Limit mehr).';
 
         // 🔧 FIX: Mache APP_VERSION global verfügbar
@@ -124584,7 +124586,14 @@ Zahlung: ${ride.paymentMethod || '-'}`;
                     }
                 });
                 window._seoRoutes = routes;
-                console.log('🗺️ v1017 SEO-Routen: gescannt=' + scanned + ' behalten=' + kept + ' (skipNoLink=' + skipNoLink + ' skipNoTds=' + skipNoTds + ' skipNoText=' + skipNoText + ' parseErr=' + parseErr + ')');
+                console.log('🗺️ v1019 SEO-Routen: gescannt=' + scanned + ' behalten=' + kept + ' (skipNoLink=' + skipNoLink + ' skipNoTds=' + skipNoTds + ' skipNoText=' + skipNoText + ' parseErr=' + parseErr + ')');
+                // v1019: Preis-Diagnose - wieviele haben null als Preis?
+                const withPrice = routes.filter(r => r.price != null).length;
+                const withKm = routes.filter(r => r.km != null).length;
+                console.log('💰 v1019 Preis-Check: ' + withPrice + '/' + routes.length + ' haben Preis, ' + withKm + ' haben km');
+                if (routes[0]) console.log('  Sample [0]:', routes[0]);
+                if (routes[10]) console.log('  Sample [10]:', routes[10]);
+                if (routes[50]) console.log('  Sample [50]:', routes[50]);
                 if (kept === 0) {
                     container.innerHTML = '<div style="text-align:center;padding:40px 20px;color:#dc2626;">❌ Keine Routen erkannt in taxi-preise.html. Bitte DevTools-Konsole zeigen.</div>';
                     return;
@@ -124662,8 +124671,9 @@ Zahlung: ${ride.paymentMethod || '-'}`;
                 const rowStyle = ov.hide ? 'background:#fef2f2;opacity:0.55;' : (Object.keys(ov).length ? 'background:#fefce8;' : '');
                 const dispPrice = ov.priceOverride != null ? ov.priceOverride : r.price;
                 const dispKm = ov.kmOverride != null ? ov.kmOverride : r.km;
-                const priceStr = dispPrice != null ? (Math.round(dispPrice * 10) / 10).toFixed(1).replace('.', ',') + '0 €' : '–';
-                const kmStr = dispKm != null ? dispKm.toFixed(1) + ' km' : '–';
+                // v1019: Wenn Auto-Preis fehlt (Parser-Fehler), zeige "❓" statt "–" damit klar wird das war der Bug
+                const priceStr = dispPrice != null ? (Math.round(dispPrice * 10) / 10).toFixed(1).replace('.', ',') + '0 €' : (r.price === undefined ? '❓' : '–');
+                const kmStr = dispKm != null ? dispKm.toFixed(1) + ' km' : (r.km === undefined ? '❓' : '–');
                 const cls_price = ov.priceOverride != null ? 'color:#d97706;font-weight:700;' : 'color:#059669;font-weight:600;';
                 const cls_km = ov.kmOverride != null ? 'color:#d97706;font-weight:600;' : '';
                 const escFrom = (r.from || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -124736,13 +124746,68 @@ Zahlung: ${ride.paymentMethod || '-'}`;
             const hideCb = document.getElementById('seoFHide');
             if (hideCb) hideCb.checked = !!ov.hide;
             modal.style.display = 'flex';
+            // v6.63.1019: Karte zeichnen (Nominatim geocode + Leaflet)
+            setTimeout(() => { try { _seoDrawRouteMap(route.from, route.to); } catch(e) { console.warn('SEO-Karte:', e); } }, 150);
         }
 
         function closeSeoRouteEdit() {
             const modal = document.getElementById('seoRouteEditModal');
             if (modal) modal.style.display = 'none';
             window._seoEditSlug = null;
+            // v6.63.1019: Karte destroyen fuer sauberen naechsten Open
+            if (window._seoMap) { try { window._seoMap.remove(); } catch(_e){} window._seoMap = null; }
+            const mapDiv = document.getElementById('seoRouteMap');
+            if (mapDiv) mapDiv.innerHTML = '<div style="height:240px;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:13px;">🗺️ Karte wird geladen...</div>';
         }
+
+        // v6.63.1019: Nominatim + Leaflet Karte fuer SEO-Route-Edit-Modal
+        async function _seoGeocode(addr) {
+            if (!addr) return null;
+            try {
+                // Usedom + Poland-Boundary Viewbox (long-min,lat-max,long-max,lat-min)
+                const url = 'https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=de,pl&viewbox=13.6,54.3,14.7,53.6&bounded=0&q=' + encodeURIComponent(addr);
+                const res = await fetch(url);
+                const data = await res.json();
+                if (data && data[0]) return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon), display: data[0].display_name };
+            } catch(e) { console.warn('Geocode-Fehler:', addr, e); }
+            return null;
+        }
+
+        async function _seoDrawRouteMap(from, to) {
+            const container = document.getElementById('seoRouteMap');
+            if (!container) return;
+            if (typeof L === 'undefined') { container.innerHTML = '<div style="padding:14px;color:#dc2626;">❌ Leaflet nicht geladen</div>'; return; }
+            // Alte Karte aufraeumen
+            if (window._seoMap) { try { window._seoMap.remove(); } catch(_e){} window._seoMap = null; }
+            container.innerHTML = '';
+            container.style.height = '240px';
+            const map = L.map(container, { zoomControl: true }).setView([53.95, 14.15], 12);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                attribution: '© <a href="https://www.openstreetmap.org/copyright">OSM</a>'
+            }).addTo(map);
+            window._seoMap = map;
+            // Beide Adressen parallel geocoden
+            const [fromC, toC] = await Promise.all([_seoGeocode(from), _seoGeocode(to)]);
+            const fromIcon = L.divIcon({ html: '<div style="background:#10b981;color:white;font-weight:700;font-size:11px;padding:4px 8px;border-radius:12px;box-shadow:0 2px 6px rgba(0,0,0,0.3);white-space:nowrap;">📍 VON</div>', iconSize: [50,22], iconAnchor: [25,22], className: '' });
+            const toIcon = L.divIcon({ html: '<div style="background:#ef4444;color:white;font-weight:700;font-size:11px;padding:4px 8px;border-radius:12px;box-shadow:0 2px 6px rgba(0,0,0,0.3);white-space:nowrap;">🎯 NACH</div>', iconSize: [55,22], iconAnchor: [27,22], className: '' });
+            if (fromC) L.marker([fromC.lat, fromC.lng], { icon: fromIcon }).bindPopup('<b>Von:</b><br>' + from).addTo(map);
+            if (toC)   L.marker([toC.lat, toC.lng], { icon: toIcon }).bindPopup('<b>Nach:</b><br>' + to).addTo(map);
+            if (fromC && toC) {
+                L.polyline([[fromC.lat, fromC.lng], [toC.lat, toC.lng]], { color: '#3b82f6', weight: 3, dashArray: '8,6', opacity: 0.85 }).addTo(map);
+                map.fitBounds([[fromC.lat, fromC.lng], [toC.lat, toC.lng]], { padding: [40, 40], maxZoom: 15 });
+            } else if (fromC || toC) {
+                const c = fromC || toC;
+                map.setView([c.lat, c.lng], 14);
+                if (!fromC) console.warn('❌ VON konnte nicht geocoded werden:', from);
+                if (!toC) console.warn('❌ NACH konnte nicht geocoded werden:', to);
+            } else {
+                console.warn('❌ Beide Adressen konnten nicht geocoded werden:', from, to);
+            }
+            setTimeout(() => map.invalidateSize(), 100);
+        }
+        window._seoDrawRouteMap = _seoDrawRouteMap;
+        window._seoGeocode = _seoGeocode;
 
         async function saveSeoRouteOverride() {
             if (!window._seoEditSlug) return;

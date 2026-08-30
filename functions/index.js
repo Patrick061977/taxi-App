@@ -42852,7 +42852,18 @@ exports.scheduledPendingAcceptTimeout = onSchedule(
                 if (r.acceptedAt) return;
                 const assignedAt = Number(r.assignedAt) || 0;
                 if (!assignedAt) return;
-                if (now - assignedAt < minAssignAgeMs) return;
+                // 🆕 v6.63.1029 (Patrick 30.08. FIX-C, Hensel-Fall 12:40):
+                //   Bei Vorbestellungen erst rotieren wenn der Losfahr-Alarm-Zeitpunkt
+                //   erreicht ist. Sonst rotiert v989 alle 60s sinnlos zwischen Fahrzeugen,
+                //   die per v6.62.927-Design bei Vorbestellungen GAR KEINEN Push bekommen
+                //   (Losfahr-Alarm feuert erst pickupTs - 15min - Anfahrt).
+                //   Beispiel Hensel 12:40: um 10:26 zugewiesen, Losfahr-Alarm ~12:20 —
+                //   dazwischen rotierte v989 40+ Mal sinnlos.
+                const pickupTs = Number(r.pickupTimestamp) || 0;
+                const drivingMin = Number(r.drivingTimeToPickup) || 15;
+                const losfahrAlarmTs = pickupTs ? pickupTs - (15 + drivingMin) * 60000 : 0;
+                const effectiveAssignedAt = Math.max(assignedAt, losfahrAlarmTs);
+                if (now - effectiveAssignedAt < minAssignAgeMs) return;
                 checkedCount++;
 
                 const rideId = c.key;

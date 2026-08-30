@@ -723,6 +723,37 @@ async function anfSearch(query, inputId) {
             }
         }
     }
+    // v6.63.1024 (Patrick 30.08. Screenshot 3660 'weisses schloss nicht angezeigt'):
+    //   Nominatim mit namedetails=1 findet POI-Namen bei reinen Straßenadressen.
+    //   Google Places zeigt fuer 'Rudolf-Breitscheid-Str 3' nur die Straße; Nominatim
+    //   liefert das dort stehende Hotel 'Weißes Schloss' als namedetails.name.
+    //   Nominatim-Ergebnisse landen VOR Google - Prioritaet fuer POI-Enrichment.
+    if (searchKey.length >= 3) {
+        try {
+            var nomUrl = 'https://nominatim.openstreetmap.org/search?format=json&namedetails=1&addressdetails=1&limit=3&viewbox=13.60,54.20,14.45,53.75&bounded=0&q=' + encodeURIComponent(query + ', Usedom');
+            var nomRes = await fetch(nomUrl, { headers: { 'User-Agent': 'FunkTaxiHeringsdorf/1.0' } });
+            var nomData = await nomRes.json();
+            for (var ni = 0; ni < (nomData || []).length; ni++) {
+                var item = nomData[ni];
+                var poi = (item.namedetails && item.namedetails.name) || item.name || '';
+                if (!poi) continue;
+                var a = item.address || {};
+                var road = a.road || a.pedestrian || a.residential || '';
+                var nr = a.house_number || '';
+                var pc = a.postcode || '';
+                var town = a.city || a.town || a.village || '';
+                if (poi.toLowerCase() === road.toLowerCase()) continue; // POI==Straße redundant
+                var addrLine = road ? (road + (nr ? ' ' + nr : '')) : '';
+                if (pc || town) addrLine += (addrLine ? ', ' : '') + (pc ? pc + ' ' : '') + town;
+                // Duplikat-Check gegen bestehende results
+                var isDupNom = results.some(function(r) {
+                    return (r.main || '').toLowerCase() === poi.toLowerCase();
+                });
+                if (isDupNom) continue;
+                results.push({ main: poi, sec: addrLine, lat: parseFloat(item.lat), lon: parseFloat(item.lon), source: 'nominatim-poi' });
+            }
+        } catch(e) { /* Nominatim-Fehler nicht blockend */ }
+    }
     if (!_anfPlacesReady && results.length === 0) { dd.style.display='none'; return; }
     try {
         if (_anfPlacesReady) {

@@ -1561,8 +1561,19 @@ async function autoAssignRide(rideId, rideData, _excludeVehicleIds = []) {
             //   gefragt wurde. Fix: rejectedVehicles-Filter NUR bei Sofortfahrten
             //   anwenden. Bei Vorbestellungen ignorieren.
             const _rejectedList = rideData._rejectedVehicles || rideData.rejectedVehicles || [];
-            if (isSofort && _rejectedList.includes(vehicleId)) {
-                console.log(`   ❌ ${info.name}: Vom Fahrer abgelehnt/nicht bestätigt (Sofort)`);
+            // 🆕 v6.63.1030 (Patrick 30.08. FIX-D, Hensel-Fall Vito-Ping-Pong):
+            //   rejectedVehicles wird bei Vorbestellungen zusätzlich respektiert,
+            //   wenn wir bereits im Losfahr-Alarm-Fenster sind. Sonst wählt v989
+            //   nach Reject wieder das gleiche Fahrzeug weil Score-Vorteil bleibt —
+            //   MY↔Vito-Endlos-Rotation. Vor dem Losfahr-Fenster gilt v6.62.771
+            //   weiter (rejectedVehicles ignorieren, weil Fahrer noch nicht gefragt).
+            const _pickupTsRj = Number(rideData.pickupTimestamp) || 0;
+            const _drivingMinRj = Number(rideData.drivingTimeToPickup) || 15;
+            const _inLosfahrFensterRj = _pickupTsRj
+                ? Date.now() >= (_pickupTsRj - (15 + _drivingMinRj) * 60000)
+                : false;
+            if ((isSofort || _inLosfahrFensterRj) && _rejectedList.includes(vehicleId)) {
+                console.log(`   ❌ ${info.name}: Vom Fahrer abgelehnt/nicht bestätigt (${isSofort ? 'Sofort' : 'Vorbestellung im Losfahr-Fenster'})`);
                 vehicleScores[vehicleId] = { status: 'rejected', reason: 'Fahrer hat nicht bestätigt', check: 'driver_rejected' };
                 continue;
             }

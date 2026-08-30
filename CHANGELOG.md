@@ -6,6 +6,22 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [6.63.1028] - 2026-08-30 (SEO)
+
+### 🗺️ Sitemap lastmod-Bulk + Broken-URL-Cleanup (SEO B1)
+
+**Problem im Meta-Audit vom 30.08.:** von 387 URLs in `sitemap.xml` hatten nur 94 einen `<lastmod>` — die restlichen 293 sanken bei GSC/Bing im Ranking. Zusätzlich waren 44 URLs Zombie-Einträge (Datei existiert nicht mehr im Repo, Rest aus dem v6.63.1001 „Hausnummer strippen"-Cleanup).
+
+**Fix:**
+- **`scripts/fix-sitemap-lastmod.js`** — trägt lastmod-Tag aus `git log -1 --format=%as` nach, entfernt broken URLs (Datei fehlt).
+- **`scripts/meta-audit-landings.js`** — dauerhaftes Audit-Tool: prüft title/description/H1/canonical/og:*/twitter:card/sitemap-coverage über alle 379 Public-Landings.
+- **`sitemap.xml`** — 44 Zombie-URLs entfernt (Hausnummer-Slugs von v6.63.1001), 249 lastmod nachgetragen. Neuer Stand: 343/343 (100% lastmod-Coverage).
+- **`.github/workflows/strato-zip.yml`** — `sitemap.xml` + `robots.txt` als Path-Trigger nachgezogen (bisher lief Strato-Deploy nicht bei Sitemap-only-Änderungen).
+
+**Basis-Audit** (`seo-meta-audit.json`) legt Grundstock für die nächsten Steps: B2 (OG/Twitter-Bulk für 295 Landings) → B4 (41 zu lange Descriptions kürzen) → B3 (34 Canonicals + 6 Public-Descriptions).
+
+---
+
 ## [6.63.776] - 2026-07-22 (Cloud)
 
 ### 🧾 Rechnungs-Empfängername fehlte bei „Str"-Prefix + Straßen-Adresse

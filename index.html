@@ -13220,7 +13220,7 @@
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
         const APP_VERSION = '6.63.996';
-        const APP_BUILD = '30.08.2026 06:00';
+        const APP_BUILD = '30.08.2026 06:33';
         const APP_CHANGE = 'fix v6.63.643: ✓ Erledigt-Button im Wartepool-Banner + kunden.html Fahrhistorie per CRM-ID (kein globales Limit mehr).';
 
         // 🔧 FIX: Mache APP_VERSION global verfügbar
@@ -124594,17 +124594,30 @@ Zahlung: ${ride.paymentMethod || '-'}`;
                 container.innerHTML = '<div style="text-align:center;padding:40px 20px;color:#dc2626;">❌ Fehler beim Laden: ' + (e.message || e) + '</div>';
                 return;
             }
+            // v6.63.1018 (Patrick 30.08. Log: 4x Parse, 0 Render): SOFORT rendern nach
+            //   dem Parse (auch ohne Overrides). Firebase-Listener updated dann nur bei
+            //   spaeteren Aenderungen. Vorher: renderSeoRoutes lief NUR aus dem Listener-
+            //   Callback -> wenn der wegen Auth-Delay/Permission-Check haengt, sah der
+            //   User NIE eine Tabelle obwohl 144 Routen im Speicher waren.
+            console.log('🎨 v1018: Sofort-Render startet...');
+            try { renderSeoRoutes(); } catch(rErr) {
+                console.error('❌ v1018: Sofort-Render fehlgeschlagen:', rErr);
+            }
+
             // Firebase-Listener fuer Overrides (Realtime-Update)
             try {
                 if (window._seoOverridesRef) window._seoOverridesRef.off();
                 window._seoOverridesRef = firebase.database().ref('seoRouteOverrides');
                 window._seoOverridesRef.on('value', snap => {
                     window._seoOverrides = snap.val() || {};
+                    console.log('🔄 v1018: Overrides-Update von Firebase, ' + Object.keys(window._seoOverrides).length + ' Overrides');
                     renderSeoRoutes();
+                }, err => {
+                    // Auth/Permission-Fehler explizit loggen — bisher gingen sie silent
+                    console.warn('⚠️ v1018: Overrides-Listener error (Rendering NICHT betroffen):', err && (err.code || err.message || err));
                 });
             } catch(e) {
-                console.warn('⚠️ v1012: Overrides-Listener konnte nicht starten:', e);
-                renderSeoRoutes();
+                console.warn('⚠️ v1018: Overrides-Listener konnte nicht starten:', e);
             }
         }
 

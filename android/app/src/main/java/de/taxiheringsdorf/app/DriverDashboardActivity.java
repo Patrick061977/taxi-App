@@ -5601,12 +5601,23 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 String _st913 = r.status != null ? r.status.toLowerCase() : "";
                 boolean _isPickedUp913 = _st913.equals("picked_up");
                 if (_isPickedUp913) {
+                    // v6.63.913: Nav/Call/SMS + Preis + Live-ETA weg
                     if (activeToolbarTop != null) activeToolbarTop.setVisibility(View.GONE);
                     if (tvPriceDist != null) tvPriceDist.setVisibility(View.GONE);
                     if (tvLiveEta != null) tvLiveEta.setVisibility(View.GONE);
+                    // 🆕 v6.63.1034 (Patrick 31.08. Bridge 'warum kann ich nicht 3 fahrten
+                    //   gleichzeitig annehmen, cards blockieren immer noch'):
+                    //   RADIKAL kompakt bei picked_up — Pickup+Ziel ausblenden (Fahrer weiß es,
+                    //   Google Maps zeigt Nav). Nur Status-Badge, Uhrzeit, Name, 'Am Ziel'-Button
+                    //   und Cancel bleiben. Card sinkt von ~250-300dp auf ~130-150dp.
+                    //   Bei 2 picked_up + 1 pending passen alle 3 auf den Screen ohne scrollen.
+                    if (tvPickup != null) tvPickup.setVisibility(View.GONE);
+                    if (tvDest != null) tvDest.setVisibility(View.GONE);
                 } else {
                     if (activeToolbarTop != null) activeToolbarTop.setVisibility(View.VISIBLE);
                     if (tvPriceDist != null) tvPriceDist.setVisibility(View.VISIBLE);
+                    if (tvPickup != null) tvPickup.setVisibility(View.VISIBLE);
+                    if (tvDest != null) tvDest.setVisibility(View.VISIBLE);
                     // tvLiveEta wird separat unten gesteuert (Zeile 5035 etc.)
                 }
 

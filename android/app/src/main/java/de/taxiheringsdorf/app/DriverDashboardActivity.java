@@ -5588,38 +5588,18 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 actionRow.setVisibility((canAcceptReject || isWartepool) ? View.VISIBLE : View.GONE);
                 activeToolbar.setVisibility(isActive ? View.VISIBLE : View.GONE);
 
-                // 🆕 v6.63.913 (Patrick 19.08.2026 10:20 Ullmann-Scroll-Bug): Kompakt-Modus
-                //   bei picked_up damit die Card nicht den ganzen Screen frisst und der
-                //   Fahrer die zweite Card noch erreichen kann. Bei picked_up:
-                //     • Kunde im Wagen → Nav läuft schon in Google Maps → btn_navigate raus
-                //     • Kunde erreichbar durch Sitz-Nachbar → btn_call/sms selten nötig → raus
-                //     • Preis wird beim Abschluss angezeigt → tvPriceDist raus
-                //     • Live-ETA (Ziel-Ankunft) → tvLiveEta raus (Fahrer sieht Maps)
-                //   Nur der primäre "Am Ziel"-Button (btn_status_next) bleibt sichtbar.
-                //   Bei on_way/arrived (Anfahrt zum Kunden) bleibt alles wie bisher —
-                //   dort braucht Fahrer Nav + Anruf-Buttons.
-                String _st913 = r.status != null ? r.status.toLowerCase() : "";
-                boolean _isPickedUp913 = _st913.equals("picked_up");
-                if (_isPickedUp913) {
-                    // v6.63.913: Nav/Call/SMS + Preis + Live-ETA weg
-                    if (activeToolbarTop != null) activeToolbarTop.setVisibility(View.GONE);
-                    if (tvPriceDist != null) tvPriceDist.setVisibility(View.GONE);
-                    if (tvLiveEta != null) tvLiveEta.setVisibility(View.GONE);
-                    // 🆕 v6.63.1034 (Patrick 31.08. Bridge 'warum kann ich nicht 3 fahrten
-                    //   gleichzeitig annehmen, cards blockieren immer noch'):
-                    //   RADIKAL kompakt bei picked_up — Pickup+Ziel ausblenden (Fahrer weiß es,
-                    //   Google Maps zeigt Nav). Nur Status-Badge, Uhrzeit, Name, 'Am Ziel'-Button
-                    //   und Cancel bleiben. Card sinkt von ~250-300dp auf ~130-150dp.
-                    //   Bei 2 picked_up + 1 pending passen alle 3 auf den Screen ohne scrollen.
-                    if (tvPickup != null) tvPickup.setVisibility(View.GONE);
-                    if (tvDest != null) tvDest.setVisibility(View.GONE);
-                } else {
-                    if (activeToolbarTop != null) activeToolbarTop.setVisibility(View.VISIBLE);
-                    if (tvPriceDist != null) tvPriceDist.setVisibility(View.VISIBLE);
-                    if (tvPickup != null) tvPickup.setVisibility(View.VISIBLE);
-                    if (tvDest != null) tvDest.setVisibility(View.VISIBLE);
-                    // tvLiveEta wird separat unten gesteuert (Zeile 5035 etc.)
-                }
+                // 🆕 v6.63.1035 (Patrick 31.08.2026 10:15 Live-Test S9+): Card-Groessen
+                //   VEREINHEITLICHT ueber ALLE Status. Vorherige v6.63.913 + v6.63.1034
+                //   Ausblendungs-Logik (picked_up radikal kompakt) raus — Patrick sagt
+                //   'die muessten alle eine einheitliche groesse haben' + 'bei fahrt b
+                //   fehlen doch alle daten'. picked_up zeigt jetzt Pickup/Ziel/Preis/Nav-Row
+                //   identisch zu accepted, und die Card-Hoehe wird stattdessen im
+                //   item_ride_card.xml uniform ~20 % reduziert.
+                if (activeToolbarTop != null) activeToolbarTop.setVisibility(View.VISIBLE);
+                if (tvPriceDist != null) tvPriceDist.setVisibility(View.VISIBLE);
+                if (tvPickup != null) tvPickup.setVisibility(View.VISIBLE);
+                if (tvDest != null) tvDest.setVisibility(View.VISIBLE);
+                // tvLiveEta wird separat unten gesteuert (Zeile 5035 etc.)
 
                 if (canAcceptReject) {
                     if (isPast) {

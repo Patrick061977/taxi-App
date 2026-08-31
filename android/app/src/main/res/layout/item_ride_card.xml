@@ -1,22 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- v6.62.521: Patrick (09.05. 09:57): "das ist alles ein bischen zu gross".
-     Padding, Textgrößen, Button-Höhen und Margins ~25-30% reduziert,
+     Padding, Textgroessen, Button-Hoehen und Margins ~25-30% reduziert,
      damit auf dem Driver-Phone mehr Inhalt sichtbar ist. Tap-Targets
-     bleiben oberhalb der 44dp-Material-Mindestgröße. -->
+     bleiben oberhalb der 44dp-Material-Mindestgroesse.
+     v6.63.1035 (Patrick 31.08.2026 10:20 Live-Test S9+): Card-Groesse
+     nochmals ~20 % kompakter damit 3+ Rides auf den Screen passen, ohne
+     dass einzelne Status wie picked_up individuell schrumpfen muessen
+     (Option B — einheitliche Groesse). Padding 10->8, Text -1/-2sp,
+     Button-Hoehen -6..-8dp, Margins -1..-2dp. -->
 <androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginBottom="6dp"
+    android:layout_marginBottom="5dp"
     app:cardBackgroundColor="#1E293B"
-    app:cardCornerRadius="12dp"
+    app:cardCornerRadius="10dp"
     app:cardElevation="2dp">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="10dp">
+        android:padding="8dp">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -28,31 +33,31 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:background="#F59E0B"
-                android:paddingStart="8dp"
-                android:paddingTop="3dp"
-                android:paddingEnd="8dp"
-                android:paddingBottom="3dp"
+                android:paddingStart="6dp"
+                android:paddingTop="2dp"
+                android:paddingEnd="6dp"
+                android:paddingBottom="2dp"
                 android:text="🆕 NEU"
                 android:textColor="#FFFFFF"
-                android:textSize="10sp"
+                android:textSize="9sp"
                 android:textStyle="bold" />
 
             <!-- v6.63.258 (Patrick 10.06. 06:23): BEZAHLT-Badge wenn Kunde Stripe-Vorkasse
                  schon abgeschlossen hat. Fahrer kassiert dann NICHT mehr Bar/Karte.
-                 v6.63.506 (Patrick 28.06.): größer + prominenter (14sp, mehr Padding). -->
+                 v6.63.506 (Patrick 28.06.): groesser + prominenter (14sp, mehr Padding). -->
             <TextView
                 android:id="@+id/tv_paid_badge"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="6dp"
+                android:layout_marginStart="5dp"
                 android:background="#059669"
-                android:paddingStart="10dp"
-                android:paddingTop="4dp"
-                android:paddingEnd="10dp"
-                android:paddingBottom="4dp"
+                android:paddingStart="8dp"
+                android:paddingTop="3dp"
+                android:paddingEnd="8dp"
+                android:paddingBottom="3dp"
                 android:text="💵 BEZAHLT"
                 android:textColor="#FFFFFF"
-                android:textSize="14sp"
+                android:textSize="12sp"
                 android:textStyle="bold"
                 android:visibility="gone" />
 
@@ -67,7 +72,7 @@
                 android:layout_height="wrap_content"
                 android:text="Sofort"
                 android:textColor="#F8FAFC"
-                android:textSize="13sp"
+                android:textSize="11sp"
                 android:textStyle="bold" />
         </LinearLayout>
 
@@ -75,51 +80,51 @@
             android:id="@+id/tv_customer_name"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
+            android:layout_marginTop="4dp"
             android:text="Kundenname"
             android:textColor="#F8FAFC"
-            android:textSize="14sp"
+            android:textSize="12sp"
             android:textStyle="bold" />
 
         <TextView
             android:id="@+id/tv_pickup"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="5dp"
+            android:layout_marginTop="3dp"
             android:text="📍 Abholort"
             android:textColor="#CBD5E1"
-            android:textSize="12sp" />
+            android:textSize="10sp" />
 
         <TextView
             android:id="@+id/tv_destination"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="2dp"
+            android:layout_marginTop="1dp"
             android:text="🎯 Zielort"
             android:textColor="#CBD5E1"
-            android:textSize="12sp" />
+            android:textSize="10sp" />
 
         <TextView
             android:id="@+id/tv_price_distance"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
+            android:layout_marginTop="2dp"
             android:text="💰 -- € · 🛣️ -- km"
             android:textColor="#94A3B8"
-            android:textSize="11sp" />
+            android:textSize="9sp" />
 
-        <!-- v6.62.303: Live-ETA-Banner | v6.62.502: kompakter (16sp) | v6.62.521: 14sp -->
+        <!-- v6.62.303: Live-ETA-Banner | v6.62.502: kompakter (16sp) | v6.62.521: 14sp | v6.63.1035: 12sp -->
         <TextView
             android:id="@+id/tv_live_eta"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:padding="5dp"
+            android:layout_marginTop="3dp"
+            android:padding="4dp"
             android:background="#1E40AF"
             android:gravity="center"
             android:text=""
             android:textColor="#FFFFFF"
-            android:textSize="14sp"
+            android:textSize="12sp"
             android:textStyle="bold"
             android:visibility="gone" />
 
@@ -128,15 +133,15 @@
             android:id="@+id/action_row"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="5dp"
             android:orientation="horizontal"
             android:visibility="gone">
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_reject"
                 android:layout_width="0dp"
-                android:layout_height="48dp"
-                android:layout_marginEnd="5dp"
+                android:layout_height="40dp"
+                android:layout_marginEnd="4dp"
                 android:layout_weight="1"
                 android:insetLeft="0dp"
                 android:insetRight="0dp"
@@ -147,15 +152,15 @@
                 android:text="❌ Ablehnen"
                 android:textAllCaps="false"
                 android:textColor="#F8FAFC"
-                android:textSize="13sp"
+                android:textSize="11sp"
                 app:backgroundTint="#475569"
-                app:cornerRadius="9dp" />
+                app:cornerRadius="8dp" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_accept"
                 android:layout_width="0dp"
-                android:layout_height="48dp"
-                android:layout_marginStart="5dp"
+                android:layout_height="40dp"
+                android:layout_marginStart="4dp"
                 android:layout_weight="2"
                 android:insetLeft="0dp"
                 android:insetRight="0dp"
@@ -166,10 +171,10 @@
                 android:text="✅ Annehmen"
                 android:textAllCaps="false"
                 android:textColor="#FFFFFF"
-                android:textSize="14sp"
+                android:textSize="12sp"
                 android:textStyle="bold"
                 app:backgroundTint="#10B981"
-                app:cornerRadius="9dp" />
+                app:cornerRadius="8dp" />
         </LinearLayout>
 
         <!-- v6.43.0: Aktive-Fahrt-Toolbar — bei accepted/on_way/arrived/picked_up -->
@@ -177,15 +182,15 @@
             android:id="@+id/active_toolbar"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="5dp"
             android:orientation="vertical"
             android:visibility="gone">
 
             <!-- v6.63.913 (Patrick 19.08.2026 10:20-10:30 Ullmann-Scroll-Bug): Container
                  ID gegeben damit Adapter bei picked_up die 3 Nav/Call/SMS-Buttons kompakt
-                 machen kann. Bei picked_up ist der Kunde IM Wagen, Navigation läuft bereits
-                 in Google Maps, Anrufen selten nötig — Buttons ausblenden spart ~60dp
-                 pro Card, damit 2+ Cards auf den Screen passen und Scroll funktioniert. -->
+                 machen kann.
+                 v6.63.1035 (Patrick 31.08. Live-Test): Ausblendung bei picked_up raus —
+                 einheitliche Card-Groesse; Buttons hier zusaetzlich -8dp Hoehe / -3sp. -->
             <LinearLayout
                 android:id="@+id/active_toolbar_top"
                 android:layout_width="match_parent"
@@ -195,49 +200,49 @@
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btn_navigate"
                     android:layout_width="0dp"
-                    android:layout_height="44dp"
+                    android:layout_height="36dp"
                     android:layout_marginEnd="3dp"
                     android:layout_weight="1"
                     android:text="🧭"
-                    android:textSize="18sp"
+                    android:textSize="15sp"
                     app:backgroundTint="#3B82F6"
-                    app:cornerRadius="9dp" />
+                    app:cornerRadius="8dp" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btn_call"
                     android:layout_width="0dp"
-                    android:layout_height="44dp"
+                    android:layout_height="36dp"
                     android:layout_marginStart="3dp"
                     android:layout_marginEnd="3dp"
                     android:layout_weight="1"
                     android:text="📞"
-                    android:textSize="18sp"
+                    android:textSize="15sp"
                     app:backgroundTint="#10B981"
-                    app:cornerRadius="9dp" />
+                    app:cornerRadius="8dp" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btn_sms_track"
                     android:layout_width="0dp"
-                    android:layout_height="44dp"
+                    android:layout_height="36dp"
                     android:layout_marginStart="3dp"
                     android:layout_weight="1"
                     android:text="💬"
-                    android:textSize="18sp"
+                    android:textSize="15sp"
                     app:backgroundTint="#F59E0B"
-                    app:cornerRadius="9dp" />
+                    app:cornerRadius="8dp" />
             </LinearLayout>
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
+                android:layout_marginTop="4dp"
                 android:orientation="horizontal">
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btn_status_next"
                     android:layout_width="0dp"
-                    android:layout_height="50dp"
-                    android:layout_marginEnd="5dp"
+                    android:layout_height="42dp"
+                    android:layout_marginEnd="4dp"
                     android:layout_weight="4"
                     android:insetLeft="0dp"
                     android:insetRight="0dp"
@@ -248,16 +253,16 @@
                     android:text="▶ Bin unterwegs"
                     android:textAllCaps="false"
                     android:textColor="#FFFFFF"
-                    android:textSize="13sp"
+                    android:textSize="11sp"
                     android:textStyle="bold"
                     app:backgroundTint="#10B981"
-                    app:cornerRadius="10dp" />
+                    app:cornerRadius="9dp" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btn_cancel_ride"
                     android:layout_width="0dp"
-                    android:layout_height="50dp"
-                    android:layout_marginStart="5dp"
+                    android:layout_height="42dp"
+                    android:layout_marginStart="4dp"
                     android:layout_weight="1"
                     android:insetLeft="0dp"
                     android:insetRight="0dp"
@@ -268,9 +273,9 @@
                     android:text="✗"
                     android:textAllCaps="false"
                     android:textColor="#F8FAFC"
-                    android:textSize="20sp"
+                    android:textSize="16sp"
                     app:backgroundTint="#EF4444"
-                    app:cornerRadius="10dp" />
+                    app:cornerRadius="9dp" />
             </LinearLayout>
         </LinearLayout>
     </LinearLayout>

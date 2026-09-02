@@ -258,6 +258,20 @@
             android:textSize="15sp"
             android:layout_marginTop="8dp" />
 
+        <!-- v6.65.8 (Patrick 02.09.): "Bisherige Fahrten dieser Nummer anschauen" —
+             oeffnet CrmSearchActivity mit auto_history_customer_id (nur wenn Kunde
+             verknuepft ist, sonst haette man ja keine Historie). -->
+        <Button
+            android:id="@+id/popup_btn_history"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:text="📜  Bisherige Fahrten dieser Nummer"
+            android:textColor="#ffffff"
+            android:backgroundTint="#7c3aed"
+            android:textSize="14sp"
+            android:layout_marginTop="6dp"
+            android:visibility="gone" />
+
         <Button
             android:id="@+id/popup_btn_cancel"
             android:layout_width="match_parent"

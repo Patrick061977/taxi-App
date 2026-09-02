@@ -41,13 +41,48 @@ public class PhoneStateReceiver extends BroadcastReceiver {
             if (popupOn && !TelephonyManager.EXTRA_STATE_RINGING.equals(lastState)
                     && !TelephonyManager.EXTRA_STATE_OFFHOOK.equals(lastState)
                     && num != null && !num.isEmpty()) {
+                // v6.65.1 (Patrick 02.09. "popup geht nicht auf"): Direktes startActivity
+                //   scheitert auf Android 10+ an der Background-Activity-Launch-Restriction.
+                //   Fix: FullScreenIntent-Notification wie RideAlertActivity -- System startet
+                //   die Activity dann selbst ueber Lockscreen. Braucht Channel "incoming_popup"
+                //   mit IMPORTANCE_HIGH und USE_FULL_SCREEN_INTENT-Permission.
                 try {
                     Intent popup = new Intent(ctx, IncomingCallPopupActivity.class);
                     popup.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
                     popup.putExtra("phone", num);
-                    ctx.startActivity(popup);
+                    android.app.PendingIntent fullScreen = android.app.PendingIntent.getActivity(
+                        ctx, 6501, popup,
+                        android.app.PendingIntent.FLAG_UPDATE_CURRENT | android.app.PendingIntent.FLAG_IMMUTABLE);
+
+                    // Channel sicherstellen (Android O+)
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        android.app.NotificationManager nm =
+                            (android.app.NotificationManager) ctx.getSystemService(Context.NOTIFICATION_SERVICE);
+                        if (nm != null && nm.getNotificationChannel("incoming_popup") == null) {
+                            android.app.NotificationChannel ch = new android.app.NotificationChannel(
+                                "incoming_popup", "Eingehender Anruf Popup",
+                                android.app.NotificationManager.IMPORTANCE_HIGH);
+                            ch.setDescription("Vollbild-Popup bei eingehendem Anruf");
+                            ch.setLockscreenVisibility(android.app.Notification.VISIBILITY_PUBLIC);
+                            nm.createNotificationChannel(ch);
+                        }
+                    }
+
+                    androidx.core.app.NotificationCompat.Builder nb =
+                        new androidx.core.app.NotificationCompat.Builder(ctx, "incoming_popup")
+                            .setSmallIcon(android.R.drawable.sym_call_incoming)
+                            .setContentTitle("📞 Eingehender Anruf")
+                            .setContentText(num)
+                            .setPriority(androidx.core.app.NotificationCompat.PRIORITY_HIGH)
+                            .setCategory(androidx.core.app.NotificationCompat.CATEGORY_CALL)
+                            .setFullScreenIntent(fullScreen, true)
+                            .setAutoCancel(true)
+                            .setOngoing(false);
+
+                    androidx.core.app.NotificationManagerCompat.from(ctx).notify(6501, nb.build());
+                    Log.i(TAG, "v6.65.1 FullScreenIntent-Notification fuer Popup gepostet: " + num);
                 } catch (Throwable t) {
-                    Log.w(TAG, "Popup-Start fehlgeschlagen: " + t.getMessage());
+                    Log.w(TAG, "Popup-FullScreenIntent fehlgeschlagen: " + t.getMessage());
                 }
             }
             // 🆕 v6.63.020 (Patrick 29.05. 20:29 "Go Split"): Call-Waiting-Erkennung.

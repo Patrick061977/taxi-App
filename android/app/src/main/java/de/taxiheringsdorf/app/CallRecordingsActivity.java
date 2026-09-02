@@ -1320,6 +1320,15 @@ public class CallRecordingsActivity extends AppCompatActivity {
         labels.add("📅 Vorbestellung für " + mainLabel);
         actions.add(() -> openVorbestellungForPhone(r.phone, r.customerName, r.customerId, r.file != null ? r.file.getAbsolutePath() : null));
 
+        // v6.64.2 (Patrick 02.09. 11:02 Bridge "in der Anrufaufnahme auch CRM bearbeiten"):
+        //   Direkter Sprung ins CRM-Edit-Modal des verknuepften Kunden — spart den Umweg
+        //   ueber die CRM-Suche. Nur zeigen wenn Anrufer verknuepft ist.
+        if (r.customerId != null && !r.customerId.isEmpty()) {
+            labels.add("✏️ CRM bearbeiten: " + (r.customerName != null && !r.customerName.isEmpty() ? r.customerName : r.phone));
+            final String _mainCrmId = r.customerId;
+            actions.add(() -> openCrmEditForCustomer(_mainCrmId));
+        }
+
         // 3) Vorbestellung für jeden Partner
         if (r.parallelPartners != null) {
             java.util.HashSet<String> seen = new java.util.HashSet<>();
@@ -1337,6 +1346,12 @@ public class CallRecordingsActivity extends AppCompatActivity {
                 //   der 2. Vorbestell-Maske ebenso oben erscheint wie beim Haupt-Anrufer.
                 final String _recPath = r.file != null ? r.file.getAbsolutePath() : null;
                 actions.add(() -> openVorbestellungForPhone(pPhone, pName, pId, _recPath));
+                // v6.64.2: CRM-Bearbeiten fuer Partner (wenn verknuepft)
+                if (pId != null && !pId.isEmpty()) {
+                    labels.add("✏️ CRM bearbeiten: " + (pName != null && !pName.isEmpty() ? pName : pPhone));
+                    final String _pCrmId = pId;
+                    actions.add(() -> openCrmEditForCustomer(_pCrmId));
+                }
             }
         }
 
@@ -1359,6 +1374,19 @@ public class CallRecordingsActivity extends AppCompatActivity {
         if (phone != null) i.putExtra("auto_vorbestellung_phone", phone);
         if (customerName != null && !customerName.isEmpty()) i.putExtra("auto_vorbestellung_name", customerName);
         if (recordingPath != null) i.putExtra("auto_vorbestellung_recording_path", recordingPath);
+        startActivity(i);
+    }
+
+    // v6.64.2 (Patrick 02.09. 11:02 Bridge): Direktlink zum CRM-Edit-Modal.
+    //   Nutzt das bestehende auto_open_edit_customer_id Extra in CrmSearchActivity
+    //   (existiert seit v6.63.735 fuer InvoicesActivity-Rechnungskorrektur).
+    private void openCrmEditForCustomer(String customerId) {
+        if (customerId == null || customerId.isEmpty()) {
+            Toast.makeText(this, "Kein CRM-Eintrag verknuepft", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        android.content.Intent i = new android.content.Intent(this, CrmSearchActivity.class);
+        i.putExtra("auto_open_edit_customer_id", customerId);
         startActivity(i);
     }
 

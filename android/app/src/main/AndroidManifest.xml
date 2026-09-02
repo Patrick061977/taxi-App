@@ -304,6 +304,12 @@
     <!-- v6.63.015: In-App-Call-Recorder als ACR-Ersatz -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+    <!-- v6.65.1 (Patrick 02.09. "popup geht nicht auf"): USE_FULL_SCREEN_INTENT
+         damit die IncomingCallPopupActivity aus dem PhoneStateReceiver-Background
+         als FullScreenIntent-Notification ueber Lockscreen aufpoppen darf. Ab
+         Android 14 (API 34) wird bei nicht-CATEGORY_CALL-Notifications sonst nur
+         eine normale Heads-Up gezeigt. -->
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <!-- v6.63.018: Auto-Speakerphone (MIC nimmt beide Stimmen über Lautsprecher) +
          Auto-BT-SCO (MIC tappt Bluetooth-Headset-Stream) damit der Anrufer in der

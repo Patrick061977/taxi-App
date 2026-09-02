@@ -276,11 +276,31 @@ public class IncomingCallPopupActivity extends AppCompatActivity {
                                 for (int i = 0; i < arr.length(); i++) {
                                     try {
                                         org.json.JSONObject o = arr.getJSONObject(i);
-                                        String display = o.optString("display_name", "");
-                                        String[] parts = display.split(", ");
-                                        String label = parts.length > 0 ? parts[0] : display;
-                                        if (parts.length > 1) label += ", " + parts[1];
-                                        if (parts.length > 2) label += ", " + parts[2];
+                                        // v6.65.6 (Patrick 02.09. 15:18 Bridge): "Maxim-Gorki-Straße 22" statt
+                                        //   "22, Maxim-Gorki-Straße". Nominatim liefert strukturiertes addressdetails
+                                        //   Objekt -- selber zusammenbauen: road + house_number + PLZ + city.
+                                        org.json.JSONObject addr = o.optJSONObject("address");
+                                        String label;
+                                        if (addr != null) {
+                                            String road = addr.optString("road", addr.optString("pedestrian", addr.optString("footway", "")));
+                                            String hnr = addr.optString("house_number", "");
+                                            String plz = addr.optString("postcode", "");
+                                            String city = addr.optString("city", addr.optString("town", addr.optString("village", addr.optString("suburb", ""))));
+                                            StringBuilder sb = new StringBuilder();
+                                            if (!road.isEmpty()) { sb.append(road); if (!hnr.isEmpty()) sb.append(" ").append(hnr); }
+                                            else sb.append(o.optString("name", ""));
+                                            if (sb.length() > 0 && (!plz.isEmpty() || !city.isEmpty())) sb.append(", ");
+                                            if (!plz.isEmpty()) sb.append(plz).append(" ");
+                                            if (!city.isEmpty()) sb.append(city);
+                                            label = sb.toString().trim();
+                                            if (label.isEmpty()) label = o.optString("display_name", "");
+                                        } else {
+                                            String display = o.optString("display_name", "");
+                                            String[] parts = display.split(", ");
+                                            label = parts.length > 0 ? parts[0] : display;
+                                            if (parts.length > 1) label += ", " + parts[1];
+                                            if (parts.length > 2) label += ", " + parts[2];
+                                        }
                                         double lat = Double.parseDouble(o.optString("lat", "0"));
                                         double lon = Double.parseDouble(o.optString("lon", "0"));
                                         final String flabel = label;

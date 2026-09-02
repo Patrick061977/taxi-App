@@ -1,0 +1,261 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- v6.65.0 (Patrick 02.09.2026 12:00 Bridge "Schnellbutton fuer Anrufe"):
+     Vollbild-Popup wenn Anruf reinkommt. Ueber Lockscreen sichtbar wie
+     RideAlertActivity. Zeigt Kunde+Schnellwahl+SOFORT-Button so dass
+     Patrick waehrend des Telefonats in 3 Taps die Fahrt vergeben kann. -->
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#0f172a"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <!-- Header -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingBottom="12dp">
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="EINGEHENDER ANRUF"
+                android:textColor="#22d3ee"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+            <TextView
+                android:id="@+id/popup_time"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="--:--"
+                android:textColor="#94a3b8"
+                android:textSize="13sp" />
+        </LinearLayout>
+
+        <!-- Anrufer-Karte -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="#1e293b"
+            android:padding="14dp"
+            android:layout_marginBottom="12dp">
+            <TextView
+                android:id="@+id/popup_phone"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="+49 ..."
+                android:textColor="#e2e8f0"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+            <!-- Bei bekanntem Anrufer: Name als TextView. Bei Unbekannt: EditText -->
+            <TextView
+                android:id="@+id/popup_customer_name"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text=""
+                android:textColor="#4ade80"
+                android:textSize="20sp"
+                android:textStyle="bold"
+                android:paddingTop="4dp"
+                android:visibility="gone" />
+            <EditText
+                android:id="@+id/popup_name_input"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="Name des Anrufers eingeben..."
+                android:textColorHint="#64748b"
+                android:textColor="#e2e8f0"
+                android:background="#334155"
+                android:padding="10dp"
+                android:layout_marginTop="6dp"
+                android:visibility="gone"
+                android:inputType="textPersonName|textCapWords" />
+            <TextView
+                android:id="@+id/popup_customer_meta"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text=""
+                android:textColor="#94a3b8"
+                android:textSize="12sp"
+                android:paddingTop="2dp"
+                android:visibility="gone" />
+        </LinearLayout>
+
+        <!-- Cue-Cards -->
+        <TextView
+            android:id="@+id/popup_cue"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="📝 Wohin? · Wo abholen? · Zwischenstopp? · Personen? · Sonderwuensche?"
+            android:textColor="#fbbf24"
+            android:textSize="12sp"
+            android:background="#3f2a06"
+            android:padding="10dp"
+            android:layout_marginBottom="10dp" />
+
+        <!-- Abholung -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="📍 ABHOLUNG"
+            android:textColor="#22d3ee"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            android:paddingBottom="4dp" />
+        <LinearLayout
+            android:id="@+id/popup_pickup_buttons"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingBottom="4dp" />
+        <TextView
+            android:id="@+id/popup_pickup_chosen"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:textColor="#4ade80"
+            android:textSize="13sp"
+            android:paddingTop="4dp"
+            android:paddingBottom="8dp"
+            android:visibility="gone" />
+
+        <!-- Zwischenstopp (aufklappbar) -->
+        <Button
+            android:id="@+id/popup_zwischen_toggle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="＋ Zwischenstopp hinzufuegen"
+            android:textColor="#94a3b8"
+            android:background="@android:color/transparent"
+            android:textSize="12sp"
+            android:layout_marginBottom="8dp" />
+        <EditText
+            android:id="@+id/popup_zwischen_input"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Zwischenstopp-Adresse"
+            android:textColorHint="#64748b"
+            android:textColor="#e2e8f0"
+            android:background="#334155"
+            android:padding="10dp"
+            android:visibility="gone"
+            android:layout_marginBottom="12dp" />
+
+        <!-- Ziel -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="🎯 ZIEL"
+            android:textColor="#22d3ee"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            android:paddingBottom="4dp" />
+        <LinearLayout
+            android:id="@+id/popup_dest_buttons"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingBottom="4dp" />
+        <TextView
+            android:id="@+id/popup_dest_chosen"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:textColor="#4ade80"
+            android:textSize="13sp"
+            android:paddingTop="4dp"
+            android:paddingBottom="8dp"
+            android:visibility="gone" />
+
+        <!-- Personen -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingBottom="12dp">
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="👥 Personen"
+                android:textColor="#22d3ee"
+                android:textSize="13sp"
+                android:textStyle="bold" />
+            <Button
+                android:id="@+id/popup_pax_minus"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:text="－"
+                android:textSize="20sp" />
+            <TextView
+                android:id="@+id/popup_pax_value"
+                android:layout_width="56dp"
+                android:layout_height="wrap_content"
+                android:text="1"
+                android:textColor="#e2e8f0"
+                android:textSize="22sp"
+                android:textStyle="bold"
+                android:gravity="center" />
+            <Button
+                android:id="@+id/popup_pax_plus"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:text="＋"
+                android:textSize="20sp" />
+        </LinearLayout>
+
+        <!-- Bemerkung -->
+        <EditText
+            android:id="@+id/popup_notes"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="💬 Sonderwuensche (Kindersitz, Gepaeck...)"
+            android:textColorHint="#64748b"
+            android:textColor="#e2e8f0"
+            android:background="#334155"
+            android:padding="10dp"
+            android:layout_marginBottom="16dp"
+            android:inputType="text" />
+
+        <!-- SOFORT-Button -->
+        <Button
+            android:id="@+id/popup_btn_sofort"
+            android:layout_width="match_parent"
+            android:layout_height="64dp"
+            android:text="🚀  SOFORT + AN FAHRER"
+            android:textColor="#ffffff"
+            android:backgroundTint="#16a34a"
+            android:textSize="17sp"
+            android:textStyle="bold" />
+
+        <Button
+            android:id="@+id/popup_btn_vorbestellen"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:text="📅  VORBESTELLEN (Datum/Uhrzeit)"
+            android:textColor="#ffffff"
+            android:backgroundTint="#0ea5e9"
+            android:textSize="15sp"
+            android:layout_marginTop="8dp" />
+
+        <Button
+            android:id="@+id/popup_btn_cancel"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:text="❌ Nur mitschneiden (nichts anlegen)"
+            android:textColor="#94a3b8"
+            android:background="@android:color/transparent"
+            android:textSize="13sp"
+            android:layout_marginTop="6dp" />
+
+    </LinearLayout>
+</ScrollView>

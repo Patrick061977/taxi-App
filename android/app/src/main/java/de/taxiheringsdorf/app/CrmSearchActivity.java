@@ -405,13 +405,47 @@ public class CrmSearchActivity extends AppCompatActivity {
                         for (int _i = 0; _i < arr.length(); _i++) {
                             try {
                                 org.json.JSONObject r2 = arr.getJSONObject(_i);
-                                String display = r2.optString("display_name", "");
-                                // Kürzen: nur erste 2-3 Teile (Name, Straße, Stadt)
-                                String[] parts = display.split(", ");
-                                String short1 = parts.length > 0 ? parts[0] : display;
-                                String short2 = parts.length > 1 ? parts[1] : "";
-                                String short3 = parts.length > 2 ? parts[2] : "";
-                                String label = short1 + (short2.isEmpty() ? "" : ", " + short2) + (short3.isEmpty() ? "" : ", " + short3);
+                                // v6.66.1 (Patrick 02.09. 19:30 Bridge "die Adresssuche ist besser
+                                //   als bei Vorbestellungen — das geht schneller"):
+                                //   Strukturiertes address-Objekt statt display_name — Format
+                                //   "Strasse Hausnr, PLZ Ort" statt "Hausnr, Strasse, Kaiserbaeder".
+                                //   Suburb vor Kaiserbaeder-city, Ostseebad-Praefix strippen.
+                                org.json.JSONObject addr = r2.optJSONObject("address");
+                                String label;
+                                if (addr != null) {
+                                    String road = addr.optString("road",
+                                        addr.optString("pedestrian",
+                                        addr.optString("footway", "")));
+                                    String hnr = addr.optString("house_number", "");
+                                    String plz = addr.optString("postcode", "");
+                                    String cityRaw = addr.optString("city", "");
+                                    String city;
+                                    if (cityRaw.isEmpty() || cityRaw.contains("Kaiserb")) {
+                                        city = addr.optString("suburb",
+                                            addr.optString("town",
+                                            addr.optString("village",
+                                            addr.optString("municipality", ""))));
+                                    } else {
+                                        city = cityRaw;
+                                    }
+                                    if (city.startsWith("Ostseebad ")) city = city.substring(10);
+                                    if (city.startsWith("Seebad ")) city = city.substring(7);
+                                    StringBuilder sb = new StringBuilder();
+                                    if (!road.isEmpty()) { sb.append(road); if (!hnr.isEmpty()) sb.append(" ").append(hnr); }
+                                    else sb.append(r2.optString("name", ""));
+                                    if (sb.length() > 0 && (!plz.isEmpty() || !city.isEmpty())) sb.append(", ");
+                                    if (!plz.isEmpty()) sb.append(plz).append(" ");
+                                    if (!city.isEmpty()) sb.append(city);
+                                    label = sb.toString().trim();
+                                    if (label.isEmpty()) label = r2.optString("display_name", "");
+                                } else {
+                                    String display = r2.optString("display_name", "");
+                                    String[] parts = display.split(", ");
+                                    String short1 = parts.length > 0 ? parts[0] : display;
+                                    String short2 = parts.length > 1 ? parts[1] : "";
+                                    String short3 = parts.length > 2 ? parts[2] : "";
+                                    label = short1 + (short2.isEmpty() ? "" : ", " + short2) + (short3.isEmpty() ? "" : ", " + short3);
+                                }
                                 double _lat = Double.parseDouble(r2.optString("lat", "0"));
                                 double _lon = Double.parseDouble(r2.optString("lon", "0"));
                                 final String finalLabel = label;

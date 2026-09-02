@@ -183,6 +183,7 @@ public class IncomingCallPopupActivity extends AppCompatActivity {
         findViewById(R.id.popup_btn_sofort).setOnClickListener(v -> onSofort());
         findViewById(R.id.popup_btn_vorbestellen).setOnClickListener(v -> onVorbestellen());
         findViewById(R.id.popup_btn_cancel).setOnClickListener(v -> finish());
+        findViewById(R.id.popup_btn_history).setOnClickListener(v -> onHistory());
 
         // CRM-Lookup starten
         lookupCustomerByPhone(phone);
@@ -420,6 +421,9 @@ public class IncomingCallPopupActivity extends AppCompatActivity {
         tvCustMeta.setText("Stammkunde im CRM");
         tvCustMeta.setVisibility(View.VISIBLE);
         etName.setVisibility(View.GONE);
+        // v6.65.8: Historie-Button einblenden wenn Kunde verknuepft
+        View histBtn = findViewById(R.id.popup_btn_history);
+        if (histBtn != null) histBtn.setVisibility(View.VISIBLE);
         // Cue-Card ohne Name-Frage
         tvCue.setText("📝 Wohin? · Wo abholen? · Zwischenstopp? · Personen? · Sonderwuensche?");
         // Pickup-Buttons: CRM-Hauptadresse + GPS + andere
@@ -527,6 +531,20 @@ public class IncomingCallPopupActivity extends AppCompatActivity {
             .setPositiveButton("Ja, schliessen", (d, w) -> super.onBackPressed())
             .setNegativeButton("Nein, weiter", null)
             .show();
+    }
+
+    private void onHistory() {
+        // v6.65.8: Bisherige Fahrten dieses Kunden anzeigen. auto_history_customer_id
+        //   wird von CrmSearchActivity ausgewertet und oeffnet direkt die Historie
+        //   (gleicher Pfad wie in CallLog + ACR).
+        if (matchedCustomerId == null || matchedCustomerId.isEmpty()) {
+            Toast.makeText(this, "Kein CRM-Eintrag verknuepft", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        android.content.Intent i = new android.content.Intent(this, CrmSearchActivity.class);
+        i.putExtra("auto_history_customer_id", matchedCustomerId);
+        if (matchedCustomerName != null) i.putExtra("auto_history_customer_name", matchedCustomerName);
+        startActivity(i);
     }
 
     private void onVorbestellen() {

@@ -285,7 +285,15 @@ public class IncomingCallPopupActivity extends AppCompatActivity {
                                             String road = addr.optString("road", addr.optString("pedestrian", addr.optString("footway", "")));
                                             String hnr = addr.optString("house_number", "");
                                             String plz = addr.optString("postcode", "");
-                                            String city = addr.optString("city", addr.optString("town", addr.optString("village", addr.optString("suburb", ""))));
+                                            // v6.65.6b (Patrick 02.09. 15:19): "nicht Kaiserbäder" — Nominatim liefert
+                                            //   fuer die drei Kaiserbaeder (Ahlbeck/Heringsdorf/Bansin) manchmal city="Kaiserbaeder"
+                                            //   und suburb=konkreter Ortsname. Suburb bevorzugen wenn vorhanden — Patrick will
+                                            //   den konkreten Ort sehen (Ahlbeck), nicht die Sammelbezeichnung.
+                                            String city = addr.optString("suburb",
+                                                addr.optString("village",
+                                                addr.optString("town",
+                                                addr.optString("city",
+                                                addr.optString("municipality", "")))));
                                             StringBuilder sb = new StringBuilder();
                                             if (!road.isEmpty()) { sb.append(road); if (!hnr.isEmpty()) sb.append(" ").append(hnr); }
                                             else sb.append(o.optString("name", ""));

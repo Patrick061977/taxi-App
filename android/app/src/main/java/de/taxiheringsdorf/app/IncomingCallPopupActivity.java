@@ -277,9 +277,15 @@ public class IncomingCallPopupActivity extends AppCompatActivity {
             () -> showTextInput("Abhol-Adresse", (txt) -> selectPickup(txt, txt)));
     }
 
+    // v6.65.4 (Patrick 02.09.): Match ueber die letzten 7 Ziffern — gleich wie CallLogActivity
+    //   (Zeile 890). Damit matchen: "+493837822022" ↔ "0038-3782-2022" ↔ "004-938-37822022"
+    //   ↔ "22022" (Kurzwahl) — alle enden auf ...7822022 bzw. ..22022. Verhindert die "004"-
+    //   Tippfehler-Falle und CRM-Kurzwahl-Nichterkennung.
     private static String normalizePhone(String p) {
         if (p == null) return "";
-        return p.replaceAll("[^0-9]", "");
+        String d = p.replaceAll("[^0-9]", "");
+        if (d.length() >= 7) return d.substring(d.length() - 7);
+        return d;
     }
 
     private void onSofort() {

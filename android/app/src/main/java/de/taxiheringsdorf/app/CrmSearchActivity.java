@@ -1036,19 +1036,33 @@ public class CrmSearchActivity extends AppCompatActivity {
             }
             new AlertDialog.Builder(this)
                 .setTitle("🔗 Nummer " + _linkPhone + " hinzufügen?")
-                .setMessage("Soll die Telefonnummer " + _linkPhone + " bei '" + (e.name != null ? e.name : "?") + "' als zusätzliche Nummer hinterlegt werden?")
+                .setMessage((e.mobilePhone == null || e.mobilePhone.trim().isEmpty())
+                    ? "Soll die Nummer " + _linkPhone + " bei '" + (e.name != null ? e.name : "?") + "' als Mobilnummer hinterlegt werden?\n\nDamit erhaelt der Kunde SMS bei Terminaenderungen."
+                    : "Soll die Telefonnummer " + _linkPhone + " bei '" + (e.name != null ? e.name : "?") + "' als zusaetzliche Nummer hinterlegt werden?")
                 .setPositiveButton("Ja, verknüpfen", (d, w) -> {
-                    java.util.List<String> _newAddPh = new java.util.ArrayList<>(e.additionalPhones);
-                    if (!_newAddPh.contains(_linkPhone)) _newAddPh.add(_linkPhone);
+                    // v6.64.1 (Patrick 02.09. Maehler-Vorfall): mobilePhone-first.
+                    // Legacy war: neue Nummer immer in additionalPhones → SMS-Trigger fand nichts.
+                    final boolean _asMobile = (e.mobilePhone == null || e.mobilePhone.trim().isEmpty());
                     Map<String, Object> _upd = new HashMap<>();
-                    _upd.put("additionalPhones", _newAddPh);
+                    if (_asMobile) {
+                        _upd.put("mobilePhone", _linkPhone);
+                    } else {
+                        java.util.List<String> _newAddPh = new java.util.ArrayList<>(e.additionalPhones);
+                        if (!_newAddPh.contains(_linkPhone)) _newAddPh.add(_linkPhone);
+                        _upd.put("additionalPhones", _newAddPh);
+                    }
                     _upd.put("updatedAt", System.currentTimeMillis());
-                    _upd.put("updatedVia", "native_crm_linkPhone_v6.62.940");
+                    _upd.put("updatedVia", "native_crm_linkPhone_v6.64.1");
                     FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("customers/" + e.id)
                         .updateChildren(_upd)
                         .addOnSuccessListener(_ok -> {
-                            e.additionalPhones.add(_linkPhone);
-                            Toast.makeText(this, "✅ Nummer " + _linkPhone + " bei " + (e.name != null ? e.name : "Kunde") + " hinterlegt", Toast.LENGTH_LONG).show();
+                            if (_asMobile) {
+                                e.mobilePhone = _linkPhone;
+                            } else {
+                                e.additionalPhones.add(_linkPhone);
+                            }
+                            String _hint = _asMobile ? " als Mobilnummer" : " als Zusatznummer";
+                            Toast.makeText(this, "✅ " + _linkPhone + _hint + " bei " + (e.name != null ? e.name : "Kunde") + " hinterlegt", Toast.LENGTH_LONG).show();
                             getIntent().removeExtra("link_phone_to_crm");
                             finish();
                         })

@@ -48,11 +48,17 @@ public class PhoneStateReceiver extends BroadcastReceiver {
                 //   die Activity dann selbst ueber Lockscreen. Braucht Channel "incoming_popup"
                 //   mit IMPORTANCE_HIGH und USE_FULL_SCREEN_INTENT-Permission.
                 try {
-                    Intent popup = new Intent(ctx, IncomingCallPopupActivity.class);
+                    // v6.66.0 (Patrick 02.09. 19:29 Bridge): Statt eigenem primitive
+                    //   Popup direkt die bestehende Vorbestell-Maske oeffnen. Nutzt
+                    //   auto_vorbestellung_phone -> CrmSearchActivity macht Match und
+                    //   oeffnet showVorbestellungDialog (bei Match) oder Neukunden-Maske.
+                    //   Damit sind alle Autocomplete/Personen/Datum/Ziel/Zwischenstopp
+                    //   Felder schon fertig — kein Duplikat-UI im Popup mehr.
+                    Intent popup = new Intent(ctx, CrmSearchActivity.class);
                     popup.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-                    popup.putExtra("phone", num);
+                    popup.putExtra("auto_vorbestellung_phone", num);
                     android.app.PendingIntent fullScreen = android.app.PendingIntent.getActivity(
-                        ctx, 6501, popup,
+                        ctx, 6601, popup,
                         android.app.PendingIntent.FLAG_UPDATE_CURRENT | android.app.PendingIntent.FLAG_IMMUTABLE);
 
                     // Channel sicherstellen (Android O+)

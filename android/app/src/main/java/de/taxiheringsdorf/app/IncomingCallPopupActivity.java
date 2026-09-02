@@ -267,7 +267,7 @@ public class IncomingCallPopupActivity extends AppCompatActivity {
                             runOnUiThread(() -> {
                                 results.removeAllViews();
                                 if (arr.length() == 0) {
-                                    TextView none = new TextView(this);
+                                    TextView none = new TextView(IncomingCallPopupActivity.this);
                                     none.setText("Keine Vorschlaege — Netz oder Nominatim rate-limit");
                                     none.setTextColor(0xFF94a3b8);
                                     results.addView(none);
@@ -284,7 +284,7 @@ public class IncomingCallPopupActivity extends AppCompatActivity {
                                         double lat = Double.parseDouble(o.optString("lat", "0"));
                                         double lon = Double.parseDouble(o.optString("lon", "0"));
                                         final String flabel = label;
-                                        Button btn = new Button(this);
+                                        Button btn = new Button(IncomingCallPopupActivity.this);
                                         btn.setText("📍 " + flabel);
                                         btn.setAllCaps(false);
                                         btn.setGravity(android.view.Gravity.START | android.view.Gravity.CENTER_VERTICAL);
@@ -306,7 +306,7 @@ public class IncomingCallPopupActivity extends AppCompatActivity {
                         } catch (Exception _err) {
                             runOnUiThread(() -> {
                                 results.removeAllViews();
-                                TextView e = new TextView(this);
+                                TextView e = new TextView(IncomingCallPopupActivity.this);
                                 e.setText("Netzfehler: " + _err.getMessage());
                                 e.setTextColor(0xFFef4444);
                                 results.addView(e);

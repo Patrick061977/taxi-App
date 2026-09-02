@@ -909,6 +909,25 @@ public class CallRecordingsActivity extends AppCompatActivity {
         });
         root.addView(btnLink);
 
+        // v6.64.4 (Patrick 02.09. 11:02 Bridge "in der Anrufaufnahme auch CRM bearbeiten"):
+        //   Direkter Sprung ins CRM-Edit-Modal des verknuepften Kunden — spart Umweg
+        //   ueber "Bisherige Fahrten" oder CRM-Suche. Nur wenn Kunde verknuepft ist.
+        //   (v6.64.2 hatte den Fix nur im falschen Dialog showRecordingActionDialog,
+        //   nicht in diesem showRecordingDialog der tatsaechlich aufgerufen wird.)
+        if (hasCrm && r.customerId != null && !r.customerId.isEmpty()) {
+            android.widget.Button btnEditCrm = new android.widget.Button(this);
+            btnEditCrm.setText("✏️ CRM-Eintrag bearbeiten");
+            btnEditCrm.setTextColor(0xFF0f766e);
+            final String _editCid = r.customerId;
+            btnEditCrm.setOnClickListener(v -> {
+                android.content.Intent i = new android.content.Intent(this, CrmSearchActivity.class);
+                i.putExtra("auto_open_edit_customer_id", _editCid);
+                startActivity(i);
+                try { if (currentDetailDialog != null) { currentDetailDialog.dismiss(); currentDetailDialog = null; } } catch (Throwable _t) {}
+            });
+            root.addView(btnEditCrm);
+        }
+
         // 🆕 v6.62.895 (Patrick 23.05. 14:54): Verstecken-Button (zuverlaessig, anders als Loeschen)
         android.widget.Button btnHide = new android.widget.Button(this);
         btnHide.setText("👁️ Aufnahme verstecken");

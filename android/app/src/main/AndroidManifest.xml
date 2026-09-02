@@ -141,12 +141,17 @@
             android:launchMode="singleTask"
             android:exported="false" />
 
-        <!-- v6.57.0: CrmSearchActivity — direkter CRM-Zugriff ohne Anrufliste-Umweg -->
+        <!-- v6.57.0: CrmSearchActivity — direkter CRM-Zugriff ohne Anrufliste-Umweg
+             v6.66.0 (Patrick 02.09. 19:29 Bridge): showOnLockScreen/turnScreenOn damit
+             die Activity aus FullScreenIntent (PhoneStateReceiver bei RINGING) direkt
+             als Vorbestell-Popup ueber dem Lockscreen erscheinen kann. -->
         <activity
             android:name=".CrmSearchActivity"
             android:label="@string/title_activity_main"
             android:theme="@style/AppTheme.Driver"
             android:launchMode="singleTask"
+            android:showOnLockScreen="true"
+            android:turnScreenOn="true"
             android:exported="false" />
 
         <!-- v6.63.090: EmailPreviewActivity — Vorschau-Dialog vor Email-Versand -->

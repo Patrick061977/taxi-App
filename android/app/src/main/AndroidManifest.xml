@@ -62,6 +62,21 @@
             android:excludeFromRecents="true"
             android:exported="false" />
 
+        <!-- v6.65.0 (Patrick 02.09.2026 12:00 Bridge): IncomingCallPopupActivity —
+             Vollbild-Popup bei eingehendem Anruf. PhoneStateReceiver startet sie
+             bei RINGING. Kunde+Schnellwahl+SOFORT-Button so dass Patrick waehrend
+             des Telefonats in 3 Taps die Fahrt vergeben kann. Muster wie
+             RideAlertActivity (Lockscreen-faehig). -->
+        <activity
+            android:name=".IncomingCallPopupActivity"
+            android:label="@string/title_activity_main"
+            android:theme="@style/AppTheme.Driver"
+            android:launchMode="singleInstance"
+            android:showOnLockScreen="true"
+            android:turnScreenOn="true"
+            android:excludeFromRecents="true"
+            android:exported="false" />
+
         <!-- v6.45.0: Native LoginActivity (Email/Passwort + Telefon/SMS) -->
         <activity
             android:name=".LoginActivity"

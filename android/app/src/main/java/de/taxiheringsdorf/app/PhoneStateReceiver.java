@@ -30,6 +30,26 @@ public class PhoneStateReceiver extends BroadcastReceiver {
         if (TelephonyManager.EXTRA_STATE_RINGING.equals(state)) {
             wasRinging = true;
             if (num != null) lastIncomingNumber = num;
+
+            // v6.65.0 (Patrick 02.09.2026 12:00 Bridge "Schnellbutton fuer Anrufe"):
+            //   Vollbild-Popup starten bei RINGING mit num. Guard gegen doppeltes Start:
+            //   nur wenn lastState NICHT schon RINGING war (Android feuert RINGING mehrmals).
+            //   Bei Call-Waiting (RINGING waehrend OFFHOOK) NICHT triggern -- der Popup wuerde
+            //   den laufenden Anruf stoeren. Toggle in Prefs damit man's abschalten kann.
+            android.content.SharedPreferences popupPrefs = ctx.getSharedPreferences("call_popup_prefs", Context.MODE_PRIVATE);
+            boolean popupOn = popupPrefs.getBoolean("incoming_popup_enabled", true);
+            if (popupOn && !TelephonyManager.EXTRA_STATE_RINGING.equals(lastState)
+                    && !TelephonyManager.EXTRA_STATE_OFFHOOK.equals(lastState)
+                    && num != null && !num.isEmpty()) {
+                try {
+                    Intent popup = new Intent(ctx, IncomingCallPopupActivity.class);
+                    popup.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                    popup.putExtra("phone", num);
+                    ctx.startActivity(popup);
+                } catch (Throwable t) {
+                    Log.w(TAG, "Popup-Start fehlgeschlagen: " + t.getMessage());
+                }
+            }
             // 🆕 v6.63.020 (Patrick 29.05. 20:29 "Go Split"): Call-Waiting-Erkennung.
             //   RINGING während OFFHOOK = 2. eingehender Anruf während des ersten.
             //   Wir rotieren den Recorder: alten stoppen + neuen mit dem 2. Anruf

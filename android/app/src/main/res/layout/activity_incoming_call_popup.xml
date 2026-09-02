@@ -127,6 +127,17 @@
             android:paddingBottom="8dp"
             android:visibility="gone" />
 
+        <!-- v6.65.5: Swap Pickup <-> Ziel -->
+        <Button
+            android:id="@+id/popup_swap"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="⇅ Abholung und Ziel tauschen"
+            android:textColor="#22d3ee"
+            android:background="@android:color/transparent"
+            android:textSize="12sp"
+            android:layout_marginBottom="8dp" />
+
         <!-- Zwischenstopp (aufklappbar) -->
         <Button
             android:id="@+id/popup_zwischen_toggle"

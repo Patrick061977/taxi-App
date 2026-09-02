@@ -26815,9 +26815,57 @@ exports.onAnfrageCreated = onValueCreated(
                         createdBy: 'cloud-onAnfrageCreated-auto-' + anfrageId,
                         source: 'web-anfrage-' + (anfrage.channel || 'web')
                     };
+                    // v6.64.3+ (Patrick 02.09. Bridge): anfrage.invoice → billingAddresses
+                    //   uebernehmen wenn Kunde eine Rechnungsadresse mitgeschickt hat. Damit
+                    //   der Rechnungsgenerator sie automatisch nutzt ohne dass ich sie noch-
+                    //   mal eintippen muss. Format wie im nativen CRM (billingAddresses[isDefault]).
+                    if (anfrage.invoice && typeof anfrage.invoice === 'object') {
+                        const _inv = anfrage.invoice;
+                        const _hasContent = (_inv.name || _inv.strasse || _inv.ort);
+                        if (_hasContent) {
+                            _newCust.billingAddresses = {
+                                [Date.now()]: {
+                                    isDefault: true,
+                                    empfName: _inv.name || _name,
+                                    adrZusatz: _inv.zusatz || '',
+                                    strasse: _inv.strasse || '',
+                                    plz: _inv.plz || '',
+                                    ort: _inv.ort || '',
+                                    land: _inv.land || 'Deutschland',
+                                    ustid: _inv.ustid || '',
+                                    source: 'web-anfrage-' + anfrageId
+                                }
+                            };
+                        }
+                    }
                     await newRef.set(_newCust);
                     _matchedId = newRef.key;
-                    console.log(`👤 v6.62.896 Auto-CRM angelegt fuer ${_name} (${_phoneRaw}) → ${_matchedId}`);
+                    console.log(`👤 v6.62.896 Auto-CRM angelegt fuer ${_name} (${_phoneRaw}) → ${_matchedId}` + (_newCust.billingAddresses ? ' [+billingAddress]' : ''));
+                } else if (anfrage.invoice && typeof anfrage.invoice === 'object') {
+                    // v6.64.3+: Bestehender CRM-Kunde ohne billingAddresses → ergaenzen wenn Anfrage eine mitgibt
+                    try {
+                        const _existSnap = await db.ref(`customers/${_matchedId}/billingAddresses`).once('value');
+                        if (!_existSnap.exists()) {
+                            const _inv = anfrage.invoice;
+                            const _hasContent = (_inv.name || _inv.strasse || _inv.ort);
+                            if (_hasContent) {
+                                await db.ref(`customers/${_matchedId}/billingAddresses`).set({
+                                    [Date.now()]: {
+                                        isDefault: true,
+                                        empfName: _inv.name || (anfrage.name || ''),
+                                        adrZusatz: _inv.zusatz || '',
+                                        strasse: _inv.strasse || '',
+                                        plz: _inv.plz || '',
+                                        ort: _inv.ort || '',
+                                        land: _inv.land || 'Deutschland',
+                                        ustid: _inv.ustid || '',
+                                        source: 'web-anfrage-' + anfrageId
+                                    }
+                                });
+                                console.log(`🧾 v6.64.3+ billingAddress ergaenzt bei ${_matchedId} aus Anfrage ${anfrageId}`);
+                            }
+                        }
+                    } catch (_baErr) { console.error('BillingAddress-Ergaenzung Fehler:', _baErr.message); }
                 }
                 // CustomerId in der Anfrage zurueckschreiben (Native-Uebernahme nimmt sie mit)
                 if (_matchedId && _matchedId !== anfrage.customerId) {

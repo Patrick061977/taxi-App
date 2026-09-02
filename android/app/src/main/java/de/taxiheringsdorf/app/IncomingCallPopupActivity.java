@@ -53,13 +53,15 @@ public class IncomingCallPopupActivity extends AppCompatActivity {
         "https://taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.app";
 
     // Feste Schnellwahl-Ziele (haeufige Fahrtenziele — 90% aller Sofort-Fahrten)
+    // v6.65.5: mit hardcoded Coords damit Ride sofort geokodiert ist (kein Nominatim-Roundtrip).
+    // Format: {label, address, lat, lon}
     private static final String[][] QUICK_DESTS = {
-        {"✈ Flughafen Heringsdorf", "Flughafen Heringsdorf, 17419 Heringsdorf"},
-        {"🚂 Bahnhof Heringsdorf", "Bahnhof Heringsdorf, 17424 Heringsdorf"},
-        {"🚂 Bahnhof Ahlbeck", "Bahnhof Ahlbeck, 17419 Ahlbeck"},
-        {"🚂 Bahnhof Bansin", "Bahnhof Bansin, 17429 Bansin"},
-        {"🚂 Bahnhof Zuessow", "Bahnhof Zuessow, 17495 Zuessow"},
-        {"🇵🇱 Swinemuende Zentrum", "Świnoujście, Polen"}
+        {"✈ Flughafen Heringsdorf", "Flughafen Heringsdorf, 17419 Heringsdorf", "53.8788", "14.1524"},
+        {"🚂 Bahnhof Heringsdorf", "Bahnhof Heringsdorf, 17424 Heringsdorf", "53.9520", "14.1687"},
+        {"🚂 Bahnhof Ahlbeck", "Bahnhof Ahlbeck, 17419 Ahlbeck", "53.9364", "14.2153"},
+        {"🚂 Bahnhof Bansin", "Bahnhof Bansin, 17429 Bansin", "53.9713", "14.1263"},
+        {"🚂 Bahnhof Zuessow", "Bahnhof Zuessow, 17495 Zuessow", "53.9186", "13.6636"},
+        {"🇵🇱 Swinemuende Zentrum", "Świnoujście, Polen", "53.9106", "14.2483"}
     };
 
     private String phone;
@@ -68,7 +70,11 @@ public class IncomingCallPopupActivity extends AppCompatActivity {
     private String matchedCustomerHomeAddress;
 
     private String chosenPickup;
+    private Double chosenPickupLat, chosenPickupLon;
     private String chosenDest;
+    private Double chosenDestLat, chosenDestLon;
+    private String chosenZwischen;
+    private Double chosenZwischenLat, chosenZwischenLon;
     private int pax = 1;
     private long popupOpenedAt;
 
@@ -138,13 +144,39 @@ public class IncomingCallPopupActivity extends AppCompatActivity {
             etZwischen.setVisibility(vis ? View.GONE : View.VISIBLE);
             btnZw.setText(vis ? "＋ Zwischenstopp hinzufuegen" : "－ Zwischenstopp entfernen");
         });
+        // Zwischenstopp Autocomplete-Trigger bei Klick
+        etZwischen.setOnClickListener(v -> showAddressPicker("Zwischenstopp suchen", (label, lat, lon) -> {
+            etZwischen.setText(label);
+            chosenZwischen = label;
+            chosenZwischenLat = lat;
+            chosenZwischenLon = lon;
+        }));
 
-        // Ziel-Schnellwahl-Buttons statisch aufbauen (bekannte Top-Ziele)
+        // v6.65.5: Swap Pickup <-> Ziel
+        Button btnSwap = findViewById(R.id.popup_swap);
+        btnSwap.setOnClickListener(v -> {
+            String tPick = chosenPickup; Double tLat = chosenPickupLat, tLon = chosenPickupLon;
+            chosenPickup = chosenDest; chosenPickupLat = chosenDestLat; chosenPickupLon = chosenDestLon;
+            chosenDest = tPick; chosenDestLat = tLat; chosenDestLon = tLon;
+            if (chosenPickup != null) selectPickup(chosenPickup, chosenPickup); else tvPickupChosen.setVisibility(View.GONE);
+            if (chosenDest != null) selectDest(chosenDest, chosenDest); else tvDestChosen.setVisibility(View.GONE);
+            Toast.makeText(this, "⇅ Getauscht", Toast.LENGTH_SHORT).show();
+        });
+
+        // Ziel-Schnellwahl-Buttons statisch aufbauen (bekannte Top-Ziele mit hardcoded Coords)
         for (String[] d : QUICK_DESTS) {
-            addPickButton(llDestBtns, d[0], () -> selectDest(d[1], d[0]));
+            final String label = d[0], addr = d[1];
+            final double lat = Double.parseDouble(d[2]), lon = Double.parseDouble(d[3]);
+            addPickButton(llDestBtns, label, () -> {
+                chosenDestLat = lat; chosenDestLon = lon;
+                selectDest(addr, label);
+            });
         }
-        addPickButton(llDestBtns, "＋ Andere Adresse (tippen)", () -> {
-            showTextInput("Ziel-Adresse", (txt) -> selectDest(txt, txt));
+        addPickButton(llDestBtns, "＋ Andere Adresse (Autocomplete)", () -> {
+            showAddressPicker("Ziel-Adresse suchen", (label, lat, lon) -> {
+                chosenDestLat = lat; chosenDestLon = lon;
+                selectDest(label, label);
+            });
         });
 
         // Buttons
@@ -183,19 +215,117 @@ public class IncomingCallPopupActivity extends AppCompatActivity {
         tvDestChosen.setVisibility(View.VISIBLE);
     }
 
-    private void showTextInput(String hint, java.util.function.Consumer<String> cb) {
-        // Simpler AlertDialog mit EditText — Autocomplete kommt in v6.65.1
-        final EditText input = new EditText(this);
-        input.setHint(hint);
-        new androidx.appcompat.app.AlertDialog.Builder(this)
-            .setTitle(hint)
-            .setView(input)
-            .setPositiveButton("OK", (d, w) -> {
-                String s = input.getText().toString().trim();
-                if (!s.isEmpty()) cb.accept(s);
-            })
+    // v6.65.5 (Patrick 02.09. 14:58 Bridge "Adresse muss geokodiert werden"):
+    //   Nominatim-Autocomplete-Dialog. Debounced Fetch, viewbox Usedom, Ergebnisse als
+    //   Buttons. onPick liefert Label + lat/lon fuer Ride-Anlage.
+    private interface AddressPickCallback {
+        void onPick(String label, double lat, double lon);
+    }
+    private void showAddressPicker(String title, AddressPickCallback cb) {
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setPadding(24, 24, 24, 24);
+
+        EditText input = new EditText(this);
+        input.setHint("Adresse tippen (mind. 3 Buchstaben)");
+        root.addView(input);
+
+        LinearLayout results = new LinearLayout(this);
+        results.setOrientation(LinearLayout.VERTICAL);
+        results.setPadding(0, 12, 0, 0);
+        root.addView(results);
+
+        androidx.appcompat.app.AlertDialog dlg = new androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle(title)
+            .setView(root)
             .setNegativeButton("Abbrechen", null)
-            .show();
+            .create();
+
+        final android.os.Handler handler = new android.os.Handler(android.os.Looper.getMainLooper());
+        final Runnable[] pending = { null };
+        input.addTextChangedListener(new android.text.TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int a, int b, int c) {}
+            @Override public void onTextChanged(CharSequence s, int a, int b, int c) {}
+            @Override public void afterTextChanged(android.text.Editable s) {
+                if (pending[0] != null) handler.removeCallbacks(pending[0]);
+                final String q = s.toString().trim();
+                if (q.length() < 3) { results.removeAllViews(); return; }
+                pending[0] = () -> {
+                    new Thread(() -> {
+                        try {
+                            String enc = java.net.URLEncoder.encode(q, "UTF-8");
+                            String url = "https://nominatim.openstreetmap.org/search?format=json&limit=6&addressdetails=1"
+                                + "&viewbox=13.5%2C54.5%2C14.7%2C53.8&bounded=0&countrycodes=de%2Cpl&q=" + enc;
+                            java.net.HttpURLConnection c = (java.net.HttpURLConnection) new java.net.URL(url).openConnection();
+                            c.setRequestProperty("User-Agent", "TaxiHeringsdorf-App/6.65");
+                            c.setConnectTimeout(4000); c.setReadTimeout(4000);
+                            java.io.InputStream is = c.getInputStream();
+                            java.io.ByteArrayOutputStream bos = new java.io.ByteArrayOutputStream();
+                            byte[] buf = new byte[4096]; int n;
+                            while ((n = is.read(buf)) != -1) bos.write(buf, 0, n);
+                            org.json.JSONArray arr = new org.json.JSONArray(bos.toString("UTF-8"));
+                            runOnUiThread(() -> {
+                                results.removeAllViews();
+                                if (arr.length() == 0) {
+                                    TextView none = new TextView(this);
+                                    none.setText("Keine Vorschlaege — Netz oder Nominatim rate-limit");
+                                    none.setTextColor(0xFF94a3b8);
+                                    results.addView(none);
+                                    return;
+                                }
+                                for (int i = 0; i < arr.length(); i++) {
+                                    try {
+                                        org.json.JSONObject o = arr.getJSONObject(i);
+                                        String display = o.optString("display_name", "");
+                                        String[] parts = display.split(", ");
+                                        String label = parts.length > 0 ? parts[0] : display;
+                                        if (parts.length > 1) label += ", " + parts[1];
+                                        if (parts.length > 2) label += ", " + parts[2];
+                                        double lat = Double.parseDouble(o.optString("lat", "0"));
+                                        double lon = Double.parseDouble(o.optString("lon", "0"));
+                                        final String flabel = label;
+                                        Button btn = new Button(this);
+                                        btn.setText("📍 " + flabel);
+                                        btn.setAllCaps(false);
+                                        btn.setGravity(android.view.Gravity.START | android.view.Gravity.CENTER_VERTICAL);
+                                        btn.setTextSize(12);
+                                        btn.setTextColor(0xFFe2e8f0);
+                                        btn.setBackgroundColor(0xFF1e40af);
+                                        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                                            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+                                        lp.setMargins(0, 4, 0, 4);
+                                        btn.setLayoutParams(lp);
+                                        btn.setOnClickListener(v -> {
+                                            cb.onPick(flabel, lat, lon);
+                                            dlg.dismiss();
+                                        });
+                                        results.addView(btn);
+                                    } catch (Exception _e) { /* skip */ }
+                                }
+                            });
+                        } catch (Exception _err) {
+                            runOnUiThread(() -> {
+                                results.removeAllViews();
+                                TextView e = new TextView(this);
+                                e.setText("Netzfehler: " + _err.getMessage());
+                                e.setTextColor(0xFFef4444);
+                                results.addView(e);
+                            });
+                        }
+                    }).start();
+                };
+                handler.postDelayed(pending[0], 600);
+            }
+        });
+        dlg.show();
+    }
+
+    // Convenience wrapper — behält bestehende showTextInput-Signatur, aber unterlegt jetzt mit Autocomplete + Geo
+    private void showTextInput(String hint, java.util.function.Consumer<String> cb) {
+        showAddressPicker(hint, (label, lat, lon) -> {
+            // Coord-Zuordnung passiert via selectPickup/selectDest (siehe Aufrufer)
+            cb.accept(label);
+        });
     }
 
     private void lookupCustomerByPhone(String rawPhone) {
@@ -258,9 +388,12 @@ public class IncomingCallPopupActivity extends AppCompatActivity {
                 () -> selectPickup(matchedCustomerHomeAddress, "Zuhause"));
         }
         addPickButton(llPickupBtns, "📍 Aktueller GPS-Standort (Fahrer)",
-            () -> selectPickup("GPS-Standort", "GPS-Standort"));
-        addPickButton(llPickupBtns, "＋ Andere Adresse (tippen)",
-            () -> showTextInput("Abhol-Adresse", (txt) -> selectPickup(txt, txt)));
+            () -> { chosenPickupLat = null; chosenPickupLon = null; selectPickup("GPS-Standort", "GPS-Standort"); });
+        addPickButton(llPickupBtns, "＋ Andere Adresse (Autocomplete)",
+            () -> showAddressPicker("Abhol-Adresse suchen", (label, lat, lon) -> {
+                chosenPickupLat = lat; chosenPickupLon = lon;
+                selectPickup(label, label);
+            }));
     }
 
     private void showUnknown() {
@@ -272,9 +405,12 @@ public class IncomingCallPopupActivity extends AppCompatActivity {
         // Pickup: nur GPS + andere (kein CRM-Home)
         llPickupBtns.removeAllViews();
         addPickButton(llPickupBtns, "📍 Aktueller GPS-Standort (Fahrer)",
-            () -> selectPickup("GPS-Standort", "GPS-Standort"));
-        addPickButton(llPickupBtns, "＋ Adresse tippen",
-            () -> showTextInput("Abhol-Adresse", (txt) -> selectPickup(txt, txt)));
+            () -> { chosenPickupLat = null; chosenPickupLon = null; selectPickup("GPS-Standort", "GPS-Standort"); });
+        addPickButton(llPickupBtns, "＋ Adresse suchen (Autocomplete)",
+            () -> showAddressPicker("Abhol-Adresse suchen", (label, lat, lon) -> {
+                chosenPickupLat = lat; chosenPickupLon = lon;
+                selectPickup(label, label);
+            }));
     }
 
     // v6.65.4 (Patrick 02.09.): Match ueber die letzten 7 Ziffern — gleich wie CallLogActivity
@@ -303,9 +439,21 @@ public class IncomingCallPopupActivity extends AppCompatActivity {
         final String _custName = custName;
         Map<String, Object> ride = new HashMap<>();
         ride.put("pickup", chosenPickup);
+        if (chosenPickupLat != null && chosenPickupLon != null) {
+            ride.put("pickupLat", chosenPickupLat);
+            ride.put("pickupLon", chosenPickupLon);
+        }
         ride.put("destination", chosenDest);
+        if (chosenDestLat != null && chosenDestLon != null) {
+            ride.put("destinationLat", chosenDestLat);
+            ride.put("destinationLon", chosenDestLon);
+        }
         String zw = etZwischen.getVisibility() == View.VISIBLE ? etZwischen.getText().toString().trim() : "";
         if (!zw.isEmpty()) ride.put("zwischenstopp", zw);
+        if (chosenZwischenLat != null && chosenZwischenLon != null) {
+            ride.put("zwischenstoppLat", chosenZwischenLat);
+            ride.put("zwischenstoppLon", chosenZwischenLon);
+        }
         ride.put("passengers", pax);
         ride.put("customerName", _custName);
         ride.put("customerPhone", phone);

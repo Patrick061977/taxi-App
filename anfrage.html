@@ -300,6 +300,59 @@
                 <input type="email" id="anf-email" placeholder="ihre@email.de" style="width:100%;padding:10px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box;">
                 <div style="font-size:10px;color:#94a3b8;margin-top:3px;">F&uuml;r Ihre Buchungsbest&auml;tigung</div>
             </div>
+            <!-- 🆕 v6.64.3 (Patrick 02.09. 11:12 Bridge): Optionale Rechnungsadresse -->
+            <!--   direkt beim Anfrageformular abfragen. Wenn Kunde eine Rechnung -->
+            <!--   moechte, kann er hier Firma/Anschrift eintragen — spart Nachfragen. -->
+            <div style="margin-bottom:12px;">
+                <label onclick="toggleAnfInvoice()" style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:#f8fafc;border:2px solid #e2e8f0;border-radius:10px;cursor:pointer;user-select:none;" id="anf-invoice-toggle-label">
+                    <input type="checkbox" id="anf-invoice-check" style="width:18px;height:18px;flex-shrink:0;cursor:pointer;accent-color:#0ea5e9;">
+                    <div style="flex:1;">
+                        <div style="font-size:13px;font-weight:700;color:#1e293b;">🧾 Ich brauche eine Rechnung</div>
+                        <div style="font-size:11px;color:#64748b;margin-top:2px;">Firmen-/Rechnungsanschrift eingeben &mdash; damit die Rechnung direkt fertig ist</div>
+                    </div>
+                </label>
+                <div id="anf-invoice-fields" style="display:none;margin-top:10px;padding:12px;background:#f0f9ff;border:2px solid #bae6fd;border-radius:10px;">
+                    <div style="margin-bottom:8px;">
+                        <label style="display:block;font-size:11px;color:#0369a1;font-weight:600;margin-bottom:3px;">Rechnungsempf&auml;nger (Firma/Name) *</label>
+                        <input type="text" id="anf-inv-name" placeholder="z.B. Muster GmbH / Max Muster" style="width:100%;padding:9px;border:1.5px solid #bae6fd;border-radius:8px;font-size:14px;box-sizing:border-box;">
+                    </div>
+                    <div style="margin-bottom:8px;">
+                        <label style="display:block;font-size:11px;color:#0369a1;font-weight:600;margin-bottom:3px;">Adresszusatz (optional)</label>
+                        <input type="text" id="anf-inv-zusatz" placeholder="z.B. z.Hd. Buchhaltung" style="width:100%;padding:9px;border:1.5px solid #bae6fd;border-radius:8px;font-size:14px;box-sizing:border-box;">
+                    </div>
+                    <div style="margin-bottom:8px;">
+                        <label style="display:block;font-size:11px;color:#0369a1;font-weight:600;margin-bottom:3px;">Stra&szlig;e und Hausnummer *</label>
+                        <input type="text" id="anf-inv-strasse" placeholder="z.B. Hauptstra&szlig;e 12" style="width:100%;padding:9px;border:1.5px solid #bae6fd;border-radius:8px;font-size:14px;box-sizing:border-box;">
+                    </div>
+                    <div style="display:flex;gap:8px;margin-bottom:8px;">
+                        <div style="width:35%;">
+                            <label style="display:block;font-size:11px;color:#0369a1;font-weight:600;margin-bottom:3px;">PLZ *</label>
+                            <input type="text" id="anf-inv-plz" placeholder="17424" style="width:100%;padding:9px;border:1.5px solid #bae6fd;border-radius:8px;font-size:14px;box-sizing:border-box;">
+                        </div>
+                        <div style="flex:1;">
+                            <label style="display:block;font-size:11px;color:#0369a1;font-weight:600;margin-bottom:3px;">Ort *</label>
+                            <input type="text" id="anf-inv-ort" placeholder="Heringsdorf" style="width:100%;padding:9px;border:1.5px solid #bae6fd;border-radius:8px;font-size:14px;box-sizing:border-box;">
+                        </div>
+                    </div>
+                    <div style="display:flex;gap:8px;">
+                        <div style="width:40%;">
+                            <label style="display:block;font-size:11px;color:#0369a1;font-weight:600;margin-bottom:3px;">Land</label>
+                            <select id="anf-inv-land" style="width:100%;padding:9px;border:1.5px solid #bae6fd;border-radius:8px;font-size:14px;box-sizing:border-box;background:white;">
+                                <option value="Deutschland" selected>Deutschland</option>
+                                <option value="Polen">Polen</option>
+                                <option value="&Ouml;sterreich">&Ouml;sterreich</option>
+                                <option value="Schweiz">Schweiz</option>
+                                <option value="Sonstiges">Sonstiges</option>
+                            </select>
+                        </div>
+                        <div style="flex:1;">
+                            <label style="display:block;font-size:11px;color:#0369a1;font-weight:600;margin-bottom:3px;">USt-ID (optional)</label>
+                            <input type="text" id="anf-inv-ustid" placeholder="DE123456789" style="width:100%;padding:9px;border:1.5px solid #bae6fd;border-radius:8px;font-size:14px;box-sizing:border-box;">
+                        </div>
+                    </div>
+                    <div style="font-size:10px;color:#0369a1;margin-top:6px;">Diese Daten werden nur f&uuml;r die Rechnung verwendet.</div>
+                </div>
+            </div>
             <!-- Abholadresse bei Festpreis -->
             <div id="anf-festpreis-addr" style="display:none;margin-bottom:12px;">
                 <label style="display:block;font-size:12px;color:#f59e0b;font-weight:700;margin-bottom:4px;">📍 Ihre genaue Abholadresse *</label>
@@ -1093,6 +1146,40 @@ async function calcAnfPrice() {
     } catch(e) {}
 }
 
+// v6.64.3: aufklappbare Rechnungsadresse fuer Anfrageformular
+function toggleAnfInvoice() {
+    var cb = document.getElementById('anf-invoice-check');
+    var box = document.getElementById('anf-invoice-fields');
+    if (!cb || !box) return;
+    setTimeout(function(){ box.style.display = cb.checked ? 'block' : 'none'; }, 0);
+}
+function getAnfInvoiceData() {
+    var cb = document.getElementById('anf-invoice-check');
+    if (!cb || !cb.checked) return null;
+    var d = {
+        name: (document.getElementById('anf-inv-name').value || '').trim(),
+        zusatz: (document.getElementById('anf-inv-zusatz').value || '').trim(),
+        strasse: (document.getElementById('anf-inv-strasse').value || '').trim(),
+        plz: (document.getElementById('anf-inv-plz').value || '').trim(),
+        ort: (document.getElementById('anf-inv-ort').value || '').trim(),
+        land: (document.getElementById('anf-inv-land').value || 'Deutschland').trim(),
+        ustid: (document.getElementById('anf-inv-ustid').value || '').trim()
+    };
+    if (!d.name && !d.strasse && !d.ort) return null;
+    return d;
+}
+function formatAnfInvoiceText(inv) {
+    if (!inv) return '';
+    var lines = ['Rechnungsadresse:'];
+    if (inv.name) lines.push('  ' + inv.name);
+    if (inv.zusatz) lines.push('  ' + inv.zusatz);
+    if (inv.strasse) lines.push('  ' + inv.strasse);
+    if (inv.plz || inv.ort) lines.push('  ' + (inv.plz + ' ' + inv.ort).trim());
+    if (inv.land && inv.land !== 'Deutschland') lines.push('  ' + inv.land);
+    if (inv.ustid) lines.push('  USt-ID: ' + inv.ustid);
+    return '\n\n' + lines.join('\n');
+}
+
 function getAnfrageText() {
     var pickup = document.getElementById('anf-pickup').value || '?';
     var dest = document.getElementById('anf-dest').value || '?';
@@ -1109,7 +1196,8 @@ function getAnfrageText() {
     var festpreisAddr = document.getElementById('anf-festpreis-addr-input')?.value || '';
     var notes = document.getElementById('anf-notes').value || '';
     var email = (document.getElementById('anf-email').value || '').trim();
-    return 'Taxi-Anfrage:\n\ud83d\udccd Von: ' + pickup + (festpreisAddr ? '\n\ud83c\udfe0 Abholadresse: ' + festpreisAddr : '') + (stopp ? '\n\ud83d\udccd Zwischenstopp: ' + stopp : '') + '\n\ud83c\udfaf Nach: ' + dest + '\n\ud83d\udcc5 ' + date + ' um ' + time + ' Uhr\n\ud83d\udc65 ' + anfPax + ' Person(en)\n\ud83d\udc64 ' + nameMitAnrede + '\n\ud83d\udcf1 ' + phone + (email ? '\n\ud83d\udce7 ' + email : '') + '\n\ud83d\udcb0 ca. ' + price + (notes ? '\n\ud83d\udcac Bemerkung: ' + notes : '');
+    var _invText = formatAnfInvoiceText(getAnfInvoiceData());
+    return 'Taxi-Anfrage:\n\ud83d\udccd Von: ' + pickup + (festpreisAddr ? '\n\ud83c\udfe0 Abholadresse: ' + festpreisAddr : '') + (stopp ? '\n\ud83d\udccd Zwischenstopp: ' + stopp : '') + '\n\ud83c\udfaf Nach: ' + dest + '\n\ud83d\udcc5 ' + date + ' um ' + time + ' Uhr\n\ud83d\udc65 ' + anfPax + ' Person(en)\n\ud83d\udc64 ' + nameMitAnrede + '\n\ud83d\udcf1 ' + phone + (email ? '\n\ud83d\udce7 ' + email : '') + '\n\ud83d\udcb0 ca. ' + price + (notes ? '\n\ud83d\udcac Bemerkung: ' + notes : '') + _invText;
 }
 
 // Anfrage in Firebase speichern (Tracking)
@@ -1133,7 +1221,9 @@ function saveAnfrageToFirebase(channel) {
             channel: channel,
             type: 'taxi',
             status: 'offen',
-            createdAt: Date.now()
+            createdAt: Date.now(),
+            // v6.64.3: optionale Rechnungsadresse fuer Rechnungsversand
+            invoice: getAnfInvoiceData() || null
         };
         fetch('https://taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.app/anfragen.json', {
             method: 'POST',

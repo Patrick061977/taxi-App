@@ -285,15 +285,20 @@ public class IncomingCallPopupActivity extends AppCompatActivity {
                                             String road = addr.optString("road", addr.optString("pedestrian", addr.optString("footway", "")));
                                             String hnr = addr.optString("house_number", "");
                                             String plz = addr.optString("postcode", "");
-                                            // v6.65.6b (Patrick 02.09. 15:19): "nicht Kaiserbäder" — Nominatim liefert
-                                            //   fuer die drei Kaiserbaeder (Ahlbeck/Heringsdorf/Bansin) manchmal city="Kaiserbaeder"
-                                            //   und suburb=konkreter Ortsname. Suburb bevorzugen wenn vorhanden — Patrick will
-                                            //   den konkreten Ort sehen (Ahlbeck), nicht die Sammelbezeichnung.
-                                            String city = addr.optString("suburb",
-                                                addr.optString("village",
-                                                addr.optString("town",
-                                                addr.optString("city",
-                                                addr.optString("municipality", "")))));
+                                            // v6.65.7 (Patrick 02.09.): "Maxim Gorki Strasse ist in 17424 Heringsdorf" — Nominatim
+                                            //   liefert je nach Adresse mal city="Kaiserbaeder"+suburb="Ahlbeck" (dann suburb richtig),
+                                            //   mal city="Ostseebad Heringsdorf"+suburb="Kaiserbaeder" (dann city richtig). Fix:
+                                            //   city bevorzugen, aber wenn city Sammelbezeichnung ("Kaiserbaeder") -> auf suburb
+                                            //   ausweichen. Plus "Ostseebad "-Praefix entfernen.
+                                            String city = addr.optString("city", "");
+                                            if (city.isEmpty() || city.contains("Kaiserb")) {
+                                                city = addr.optString("suburb",
+                                                    addr.optString("town",
+                                                    addr.optString("village",
+                                                    addr.optString("municipality", ""))));
+                                            }
+                                            if (city.startsWith("Ostseebad ")) city = city.substring(10);
+                                            if (city.startsWith("Seebad ")) city = city.substring(7);
                                             StringBuilder sb = new StringBuilder();
                                             if (!road.isEmpty()) { sb.append(road); if (!hnr.isEmpty()) sb.append(" ").append(hnr); }
                                             else sb.append(o.optString("name", ""));
@@ -358,10 +363,15 @@ public class IncomingCallPopupActivity extends AppCompatActivity {
 
     private void lookupCustomerByPhone(String rawPhone) {
         final String pNorm = normalizePhone(rawPhone);
-        if (pNorm.isEmpty()) { showUnknown(); return; }
+        Log.i(TAG, "v6.65.7 lookupCustomerByPhone raw=" + rawPhone + " pNorm=" + pNorm);
+        if (pNorm.isEmpty()) { runOnUiThread(this::showUnknown); return; }
         FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("customers")
             .addListenerForSingleValueEvent(new ValueEventListener() {
                 @Override public void onDataChange(DataSnapshot snap) {
+                    // v6.65.7 (Patrick 02.09. "name steht trotzdem noch nicht oben"):
+                    //   Firebase-Callback laeuft auf Background-Thread. showMatched/
+                    //   showUnknown machen UI-Updates — MUESSEN via runOnUiThread laufen.
+                    //   Vorher: UI-Update im Background-Thread → silent no-op oder Crash.
                     for (DataSnapshot cs : snap.getChildren()) {
                         Object[] fields = new Object[]{
                             cs.child("phone").getValue(String.class),
@@ -374,7 +384,8 @@ public class IncomingCallPopupActivity extends AppCompatActivity {
                                 matchedCustomerId = cs.getKey();
                                 matchedCustomerName = cs.child("name").getValue(String.class);
                                 matchedCustomerHomeAddress = cs.child("address").getValue(String.class);
-                                showMatched();
+                                Log.i(TAG, "v6.65.7 MATCH id=" + matchedCustomerId + " name=" + matchedCustomerName);
+                                runOnUiThread(() -> showMatched());
                                 return;
                             }
                         }
@@ -386,17 +397,19 @@ public class IncomingCallPopupActivity extends AppCompatActivity {
                                     matchedCustomerId = cs.getKey();
                                     matchedCustomerName = cs.child("name").getValue(String.class);
                                     matchedCustomerHomeAddress = cs.child("address").getValue(String.class);
-                                    showMatched();
+                                    Log.i(TAG, "v6.65.7 MATCH (addPhones) id=" + matchedCustomerId + " name=" + matchedCustomerName);
+                                    runOnUiThread(() -> showMatched());
                                     return;
                                 }
                             }
                         }
                     }
-                    showUnknown();
+                    Log.i(TAG, "v6.65.7 kein Match fuer pNorm=" + pNorm);
+                    runOnUiThread(() -> showUnknown());
                 }
                 @Override public void onCancelled(DatabaseError e) {
                     Log.w(TAG, "CRM-Lookup Fehler: " + e.getMessage());
-                    showUnknown();
+                    runOnUiThread(() -> showUnknown());
                 }
             });
     }

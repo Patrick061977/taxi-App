@@ -15,8 +15,8 @@ android {
         // v6.41.91: + Firebase Crashlytics für native Crash-Diagnose (heute Heartbeat-Timeout
         // gesehen — JS-Logger fing nichts, also nativer Prozess-Tod. Crashlytics liefert Stacktrace).
         // versionCode-Format: Major*1_000_000 + Minor*1_000 + Patch → 6.41.91 = 6_041_091
-        versionCode 6065006
-        versionName "6.65.6"
+        versionCode 6065007
+        versionName "6.65.7"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.

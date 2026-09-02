@@ -92,9 +92,15 @@ public class IncomingCallPopupActivity extends AppCompatActivity {
             getWindow().addFlags(
                 WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED
                 | WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
-                | WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
             );
         }
+        // v6.65.3 (Patrick 02.09. "Bildschirm darf sich nicht von alleine schliessen"):
+        //   KEEP_SCREEN_ON IMMER, unabhaengig von SDK. Verhindert dass der Popup
+        //   waehrend Patrick die Adresse tippt vom Screen-Timeout ausgeblendet wird.
+        //   Plus KEEP_ON_WHILE_LOCKED damit auch bei Lockscreen der Screen anbleibt.
+        getWindow().addFlags(
+            WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+        );
 
         setContentView(R.layout.activity_incoming_call_popup);
 
@@ -314,6 +320,18 @@ public class IncomingCallPopupActivity extends AppCompatActivity {
         }).addOnFailureListener(err -> {
             Toast.makeText(this, "❌ Fehler: " + err.getMessage(), Toast.LENGTH_LONG).show();
         });
+    }
+
+    @Override
+    public void onBackPressed() {
+        // v6.65.3 (Patrick 02.09.): BACK abfangen mit Bestaetigungs-Dialog damit
+        //   der Popup nicht versehentlich beim Weg-Tippen geschlossen wird.
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Popup schliessen?")
+            .setMessage("Deine Eingaben gehen verloren. Wirklich schliessen?")
+            .setPositiveButton("Ja, schliessen", (d, w) -> super.onBackPressed())
+            .setNegativeButton("Nein, weiter", null)
+            .show();
     }
 
     private void onVorbestellen() {

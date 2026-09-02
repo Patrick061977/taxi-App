@@ -144,6 +144,21 @@ public class DriverDashboardActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         setContentView(R.layout.activity_driver_dashboard);
+
+        // v6.65.2 (Patrick 02.09.2026 14:xx): READ_PHONE_STATE Runtime-Request beim
+        //   Dashboard-Start. Ohne diese Permission bekommt PhoneStateReceiver keine
+        //   Anrufer-Nummer (EXTRA_INCOMING_NUMBER = null) und das v6.65.0-Popup wird
+        //   still nicht getriggert. Nach fresh install war die Permission auf
+        //   granted=false und das Popup blieb aus (adb dumpsys bestaetigt).
+        try {
+            if (androidx.core.content.ContextCompat.checkSelfPermission(this,
+                    android.Manifest.permission.READ_PHONE_STATE)
+                    != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                androidx.core.app.ActivityCompat.requestPermissions(this,
+                    new String[]{ android.Manifest.permission.READ_PHONE_STATE },
+                    6502);
+            }
+        } catch (Throwable _t) { Log.w(TAG, "READ_PHONE_STATE request Fehler: " + _t.getMessage()); }
         // 🆕 v6.62.935: Lautlos-Override-Alarm stoppen sobald Dashboard offen ist
         //   (Fahrer hat die Notification getippt oder App selbst geoeffnet).
         try { AlertSoundService.stop(this); } catch (Throwable _ignore) {}

@@ -5392,6 +5392,37 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 }
                 tvTime.setText(_displayTime);
 
+                // v6.66.4 (Patrick 03.09. Bridge "es muss auch die Uhrzeit geaendert werden
+                //   koennen wenn wir schon eine Fahrt angenommen haben, das man 5/10/15 Minuten
+                //   spaeter kommt mit lange druecken oben auf die Pickup-Zeit"):
+                //   Long-Press auf tvTime bei accepted/new/assigned/on_way → Popup mit +5/+10/+15 Min.
+                //   Update pickupTimestamp in Firebase — Konflikt-Checker (autoResolveConflicts)
+                //   sieht die neue Zeit automatisch.
+                final Ride _rideForShift = r;
+                tvTime.setOnLongClickListener(_v -> {
+                    if (_rideForShift.id == null || _rideForShift.pickupTimestamp == null) {
+                        Toast.makeText(this, "Keine Pickup-Zeit zum Aendern", Toast.LENGTH_SHORT).show();
+                        return true;
+                    }
+                    String _stChk = _rideForShift.status != null ? _rideForShift.status.toLowerCase() : "";
+                    if (!(_stChk.equals("accepted") || _stChk.equals("new") || _stChk.equals("assigned") || _stChk.equals("sofort") || _stChk.equals("on_way"))) {
+                        Toast.makeText(this, "Nur bei aktiver Fahrt aenderbar", Toast.LENGTH_SHORT).show();
+                        return true;
+                    }
+                    final long _origTs = _rideForShift.pickupTimestamp;
+                    java.text.SimpleDateFormat _fmt = new java.text.SimpleDateFormat("HH:mm", Locale.GERMANY);
+                    _fmt.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
+                    String _origStr = _fmt.format(new java.util.Date(_origTs));
+                    new AlertDialog.Builder(this)
+                        .setTitle("⏰ Pickup-Zeit verschieben")
+                        .setMessage("Aktuell: " + _origStr + " Uhr\n\nSpaeter kommen um…")
+                        .setPositiveButton("+5 Min", (d, w) -> shiftPickupTimestamp(_rideForShift.id, _origTs, 5))
+                        .setNeutralButton("+10 Min", (d, w) -> shiftPickupTimestamp(_rideForShift.id, _origTs, 10))
+                        .setNegativeButton("+15 Min", (d, w) -> shiftPickupTimestamp(_rideForShift.id, _origTs, 15))
+                        .show();
+                    return true;
+                });
+
                 // v6.62.320: Patrick (06.05. 07:35): Native uebernimmt 1:1 die Web-Logik
                 // aus index.html:27258 updateLiveEtaForRideCards. Vier klare Status-Phasen:
                 //   • assigned/sofort/new: 'Anfahrt zum Kunden: N Min · X km'

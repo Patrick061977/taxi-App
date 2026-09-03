@@ -6,6 +6,26 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [6.66.8] - 2026-09-03 (Crash-Fix)
+
+### 🐛 CallRecorderService: „did not call startForeground" (Crashlytics-Fund)
+
+**Vorfall 03.09.:** Tesla MY222 crashte 4x über den Tag (11:29 / 12:40 / 14:03 / 17:35) — Auto-Shift-End weil Heartbeat 10+ Min ausblieb. Crashlytics-Trace (22:03) zeigt die Ursache:
+
+```
+Fatal Exception: android.app.RemoteServiceException:
+  Context.startForegroundService() did not then call Service.startForeground()
+```
+
+**Root Cause:** `CallRecorderService` rief `startForeground()` erst in `startRecording()` auf (defensiv seit v6.63.028) — in einem try/catch, der die Exception schluckte (z.B. bei fehlender MICROPHONE-Permission auf Android 14+). Danach lief der Toggle-OFF-Pfad → `stopSelf()` OHNE dass Foreground-Zustand jemals aktiv war → Android tötet den Service nach 5 Sekunden mit exakt dieser Exception. Der Kill-Switch v6.66.7 (Popup deaktiviert) hat nichts geholfen, weil das Popup nicht die Ursache war.
+
+**Fix:**
+- **`CallRecorderService.onCreate()`** neu — ruft `startForeground()` mit Placeholder-Notification SOFORT beim Service-Start, VOR jedem Toggle-Check. Ohne `foregroundServiceType` (braucht keine spezielle Permission). Damit ist der Foreground-Zustand garantiert aktiv, egal was `onStartCommand` danach macht.
+- **`PhoneStateReceiver` Call-Waiting-Block** bekommt den Toggle-Check, den er bisher fehlte (nur der OFFHOOK-Start hatte ihn) — Service wird bei Auto-Recording=OFF gar nicht erst gestartet.
+- **v6.66.7 KILL-SWITCH zurückgenommen** — `popupOn = popupPrefs.get...` wieder aktiv. Popup ist unschuldig.
+
+---
+
 ## [6.66.7] - 2026-09-03 (Kill-Switch)
 
 ### 🚨 Popup-Notification bei Anruf HART DEAKTIVIERT

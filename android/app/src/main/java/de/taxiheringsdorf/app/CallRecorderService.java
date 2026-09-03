@@ -60,6 +60,46 @@ public class CallRecorderService extends Service {
 
     @Nullable @Override public IBinder onBind(Intent intent) { return null; }
 
+    // 🐛 v6.66.8 (Crashlytics-Trace 03.09. 22:03 Patrick):
+    //   "Context.startForegroundService() did not then call Service.startForeground()"
+    //   Ursache: startForeground wurde erst in startRecording() aufgerufen und dort
+    //   in try/catch geschluckt (z.B. wenn MICROPHONE-Permission fehlt auf Android 14+).
+    //   Dann lief Toggle-OFF-Pfad -> stopSelf() OHNE dass Foreground jemals aktiv war
+    //   -> Android tötet nach 5s mit exakt dieser Exception.
+    //   Fix: startForeground SOFORT in onCreate mit Placeholder-Notification, VOR
+    //   jedem Toggle-Check oder Recording-Setup. Damit ist Foreground garantiert
+    //   aktiv, bevor onStartCommand irgendwas macht.
+    @Override
+    public void onCreate() {
+        super.onCreate();
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                NotificationManager _nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+                if (_nm != null && _nm.getNotificationChannel(CHANNEL_ID) == null) {
+                    NotificationChannel _ch = new NotificationChannel(CHANNEL_ID, "Anruf-Aufnahme",
+                        NotificationManager.IMPORTANCE_LOW);
+                    _ch.setDescription("Läuft während eines Anrufs zur Aufzeichnung");
+                    _ch.setShowBadge(false);
+                    _nm.createNotificationChannel(_ch);
+                }
+            }
+            Notification _placeholder = new NotificationCompat.Builder(this, CHANNEL_ID)
+                .setSmallIcon(android.R.drawable.ic_btn_speak_now)
+                .setContentTitle("Anruf-Service")
+                .setContentText("Vorbereitung...")
+                .setOngoing(true)
+                .setPriority(NotificationCompat.PRIORITY_LOW)
+                .build();
+            // Ohne foregroundServiceType — braucht keine spezielle Permission.
+            // Wenn Recording läuft, ersetzt startRecording() die Notification durch
+            // die richtige (mit MICROPHONE-Typ). Wenn Toggle-OFF, wird der Service
+            // in onStartCommand ordentlich mit stopSelf() beendet — kein Crash mehr.
+            startForeground(NOTIFICATION_ID, _placeholder);
+        } catch (Throwable _t) {
+            Log.e(TAG, "onCreate startForeground fehlgeschlagen: " + _t.getMessage(), _t);
+        }
+    }
+
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         if (intent == null) return START_NOT_STICKY;

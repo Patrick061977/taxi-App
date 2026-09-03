@@ -38,13 +38,10 @@ public class PhoneStateReceiver extends BroadcastReceiver {
             //   Bei Call-Waiting (RINGING waehrend OFFHOOK) NICHT triggern -- der Popup wuerde
             //   den laufenden Anruf stoeren. Toggle in Prefs damit man's abschalten kann.
             android.content.SharedPreferences popupPrefs = ctx.getSharedPreferences("call_popup_prefs", Context.MODE_PRIVATE);
-            // 🚨 v6.66.7 KILL-SWITCH (Patrick 03.09. 19:33 Bridge): App crashte
-            //   heute wiederholt (4x Auto-Shift-End 11:29 / 12:40 / 14:03 / 17:35),
-            //   Verdacht auf Popup-Notification-Flow (v6.66.0 Vorbestell-Maske
-            //   direkt als Popup). Ohne Stack-Trace kein gezielter Fix moeglich.
-            //   HART DEAKTIVIERT bis Firebase-Crashlytics den Trace liefert.
-            //   Anruf-Handling laeuft normal, nur die Notification wird nicht gepostet.
-            boolean popupOn = false && popupPrefs.getBoolean("incoming_popup_enabled", true);
+            // v6.66.8 (03.09. 22:03 Crashlytics): KILL-SWITCH aus v6.66.7 zurueckgenommen.
+            //   Der Crash-Trace zeigte "did not call startForeground" im CallRecorderService,
+            //   NICHT im Popup-Code. Popup ist unschuldig. Fix ist in CallRecorderService.onCreate().
+            boolean popupOn = popupPrefs.getBoolean("incoming_popup_enabled", true);
             if (popupOn && !TelephonyManager.EXTRA_STATE_RINGING.equals(lastState)
                     && !TelephonyManager.EXTRA_STATE_OFFHOOK.equals(lastState)
                     && num != null && !num.isEmpty()) {
@@ -111,6 +108,15 @@ public class PhoneStateReceiver extends BroadcastReceiver {
             //   starten. Suffix "-CW-" markiert die Call-Waiting-Datei.
             if (TelephonyManager.EXTRA_STATE_OFFHOOK.equals(lastState) && num != null) {
                 Log.i(TAG, "Call-Waiting erkannt — Recorder rotieren (neuer Anruf: " + num + ")");
+                // v6.66.8: Toggle-Check wie bei OFFHOOK-Start unten. Ohne Check startete
+                //   der Service auch bei Auto-Recording=OFF und crashte wenn onCreate/
+                //   startForeground scheiterte.
+                android.content.SharedPreferences _spCW = ctx.getSharedPreferences("call_recorder_prefs", Context.MODE_PRIVATE);
+                if (!_spCW.getBoolean("auto_record_enabled", false)) {
+                    Log.i(TAG, "Call-Waiting: Auto-Recording per Toggle deaktiviert — kein Service-Start");
+                    lastState = TelephonyManager.EXTRA_STATE_OFFHOOK;
+                    return;
+                }
                 Intent stopSvc = new Intent(ctx, CallRecorderService.class);
                 stopSvc.setAction(CallRecorderService.ACTION_STOP);
                 try { ctx.startService(stopSvc); } catch (Throwable _t) {}

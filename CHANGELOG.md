@@ -6,6 +6,20 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [6.66.7] - 2026-09-03 (Kill-Switch)
+
+### 🚨 Popup-Notification bei Anruf HART DEAKTIVIERT
+
+**Problem heute:** Patrick's Tesla MY222 hat 4x Auto-Shift-End über den Tag verteilt (11:29 / 12:40 / 14:03 / 17:35 Uhr) — der Heartbeat-Watchdog beendet die Schicht wenn die App 10+ Minuten nichts mehr sendet. Symptom = App-Crash. Patrick verdächtigt den v6.66.0-Umbau (Vorbestell-Maske direkt als Anruf-Popup) als Ursache.
+
+**Ohne Stack-Trace kein gezielter Fix möglich** (Firebase Realtime-DB hat keine Crash-Logs, Crashlytics-Console-Zugriff nur manuell).
+
+**Sicherheitsnetz:** `PhoneStateReceiver.java` — `popupOn = false && ...`. Damit läuft der komplette Popup-Notification-Code (Channel-Anlage, PendingIntent, NotificationManager) nicht mehr — egal was in `SharedPreferences` steht. Anruf-Handling + Call-Waiting-Split-Recorder bleiben aktiv, nur die auto-öffnende Vorbestell-Maske ist temporär raus.
+
+**Nächster Schritt:** Patrick prüft Crashlytics → Stack-Trace → gezielter Fix in v6.66.8.
+
+---
+
 ## [6.66.6] - 2026-09-03 (Bug-Fix)
 
 ### 🐛 Anfrage-Preis: Großraum-Zuschlag verschluckt bei Race Condition

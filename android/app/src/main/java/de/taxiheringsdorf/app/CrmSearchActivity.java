@@ -915,6 +915,45 @@ public class CrmSearchActivity extends AppCompatActivity {
             Toast.makeText(this, "❌ Kunde nicht (mehr) im CRM", Toast.LENGTH_LONG).show();
             return;
         }
+        // v6.66.2 (Patrick 03.09. "Hotel Residenz wurde nicht erkannt im Popup"):
+        //   Nur mit Phone → CRM-Match ueber die letzten 7 Ziffern (gleiche Logik wie
+        //   IncomingCallPopupActivity + CallLogActivity). Wenn Match: showVorbestellungDialog
+        //   mit dem echten Kunden statt Neukunden-Fallback.
+        if (_pendingVorbestellungPhone != null && !_pendingVorbestellungPhone.isEmpty()) {
+            String pNorm = _pendingVorbestellungPhone.replaceAll("[^0-9]", "");
+            if (pNorm.length() >= 7) pNorm = pNorm.substring(pNorm.length() - 7);
+            for (CrmEntry e : all) {
+                String[] cand = new String[]{ e.phone, e.mobilePhone, e.phone2 };
+                for (String c : cand) {
+                    if (c == null) continue;
+                    String cn = c.replaceAll("[^0-9]", "");
+                    if (cn.length() >= 7) cn = cn.substring(cn.length() - 7);
+                    if (!cn.isEmpty() && cn.equals(pNorm)) {
+                        _callerPhoneForVorbestellung = _pendingVorbestellungPhone;
+                        _pendingVorbestellungCustomerId = null;
+                        _pendingVorbestellungPhone = null;
+                        _pendingVorbestellungName = null;
+                        showVorbestellungDialog(e);
+                        return;
+                    }
+                }
+                if (e.additionalPhones != null) {
+                    for (String ap : e.additionalPhones) {
+                        if (ap == null) continue;
+                        String an = ap.replaceAll("[^0-9]", "");
+                        if (an.length() >= 7) an = an.substring(an.length() - 7);
+                        if (!an.isEmpty() && an.equals(pNorm)) {
+                            _callerPhoneForVorbestellung = _pendingVorbestellungPhone;
+                            _pendingVorbestellungCustomerId = null;
+                            _pendingVorbestellungPhone = null;
+                            _pendingVorbestellungName = null;
+                            showVorbestellungDialog(e);
+                            return;
+                        }
+                    }
+                }
+            }
+        }
         // Neukunde: temporaeres CrmEntry mit Phone + Name bauen
         CrmEntry temp = new CrmEntry();
         temp.id = null;

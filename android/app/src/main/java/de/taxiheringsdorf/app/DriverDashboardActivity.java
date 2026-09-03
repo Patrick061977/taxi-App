@@ -4341,6 +4341,32 @@ public class DriverDashboardActivity extends AppCompatActivity {
             .show();
     }
 
+    // v6.66.4 (Patrick 03.09. Bridge): Long-Press auf Pickup-Zeit verschiebt die
+    //   Fahrt um +N Min. Cloud-Function autoResolveConflicts sieht die neue Zeit
+    //   automatisch und plant um wenn Konflikt entsteht.
+    private void shiftPickupTimestamp(String rideId, long origTs, int addMin) {
+        long newTs = origTs + addMin * 60_000L;
+        java.text.SimpleDateFormat _fmt = new java.text.SimpleDateFormat("HH:mm", Locale.GERMANY);
+        _fmt.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
+        String newTimeStr = _fmt.format(new java.util.Date(newTs));
+        java.text.SimpleDateFormat _dfmt = new java.text.SimpleDateFormat("yyyy-MM-dd", Locale.GERMANY);
+        _dfmt.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
+        String newDateStr = _dfmt.format(new java.util.Date(newTs));
+
+        if (db == null || rideId == null) return;
+        Map<String, Object> upd = new HashMap<>();
+        upd.put("pickupTimestamp", newTs);
+        upd.put("pickupTime", newTimeStr);
+        upd.put("pickupDate", newDateStr);
+        upd.put("updatedAt", System.currentTimeMillis());
+        upd.put("shiftedByDriver", true);
+        upd.put("shiftedByMin", addMin);
+        upd.put("shiftedAt", System.currentTimeMillis());
+        db.getReference("rides/" + rideId).updateChildren(upd)
+            .addOnSuccessListener(_ok -> Toast.makeText(this, "⏰ Pickup +" + addMin + " Min → " + newTimeStr + " Uhr", Toast.LENGTH_LONG).show())
+            .addOnFailureListener(err -> Toast.makeText(this, "❌ Fehler: " + err.getMessage(), Toast.LENGTH_LONG).show());
+    }
+
     // v6.62.316: Patrick (05.05. 20:40): "Kann ich die Rechnung nicht nach der
     //   Barzahlung oder stripe Zahlung erstellen". → Receipt-Screen analog Web
     //   showReceiptScreen — nach Bezahlung 2 grosse Buttons: 'Rechnung erstellen'

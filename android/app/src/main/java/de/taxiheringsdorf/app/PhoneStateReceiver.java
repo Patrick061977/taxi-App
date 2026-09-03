@@ -75,19 +75,26 @@ public class PhoneStateReceiver extends BroadcastReceiver {
                         }
                     }
 
+                    // v6.66.5 (Patrick 03.09. 11:00 Bridge "die Vorbestell-Maske
+                    //   ueberdeckt den Anruf jetzt, wenn ich obendrauf klicke muesste
+                    //   sich erst die Maske oeffnen"):
+                    //   FullScreenIntent ENTFERNT — nur normale Heads-Up-Notification.
+                    //   Patrick tippt Anruf normal an, sieht Heads-Up-Notif mit Nummer,
+                    //   tippt SIE bei Bedarf → dann oeffnet Vorbestell-Maske. Anruf-UI
+                    //   bleibt bedienbar.
                     androidx.core.app.NotificationCompat.Builder nb =
                         new androidx.core.app.NotificationCompat.Builder(ctx, "incoming_popup")
                             .setSmallIcon(android.R.drawable.sym_call_incoming)
                             .setContentTitle("📞 Eingehender Anruf")
-                            .setContentText(num)
+                            .setContentText(num + " — tippen für Vorbestellung")
                             .setPriority(androidx.core.app.NotificationCompat.PRIORITY_HIGH)
                             .setCategory(androidx.core.app.NotificationCompat.CATEGORY_CALL)
-                            .setFullScreenIntent(fullScreen, true)
+                            .setContentIntent(fullScreen)
                             .setAutoCancel(true)
                             .setOngoing(false);
 
                     androidx.core.app.NotificationManagerCompat.from(ctx).notify(6501, nb.build());
-                    Log.i(TAG, "v6.65.1 FullScreenIntent-Notification fuer Popup gepostet: " + num);
+                    Log.i(TAG, "v6.66.5 Heads-Up-Notification (kein FullScreen) fuer " + num);
                 } catch (Throwable t) {
                     Log.w(TAG, "Popup-FullScreenIntent fehlgeschlagen: " + t.getMessage());
                 }

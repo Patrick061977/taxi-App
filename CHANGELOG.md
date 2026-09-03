@@ -6,6 +6,18 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [6.66.6] - 2026-09-03 (Bug-Fix)
+
+### 🐛 Anfrage-Preis: Großraum-Zuschlag verschluckt bei Race Condition
+
+**Vorfall Susanne Lehmann (04.08. 21:19):** Anfrage Bansin → Ahlbeck, 5 Personen, 19:00 — gespeichert mit `price: "19.50€"` statt korrekten 29.50€ (10€-Großraum-Zuschlag ab 5 Pax fehlte). Die Rückfahrt derselben Kundin (22:20, Nacht-Tarif) hatte den Zuschlag korrekt drin. Beide Anfragen kamen aus `anfrage.html` via E-Mail und wurden per Native-App (`anfrage-uebernahme-native`) in Rides überführt.
+
+**Ursache:** `calcAnfPrice()` in `anfrage.html` ist async (OSRM-Fetch für Route). Bei schnellen Klicks — z.B. User klickt erst Pax=4, sieht Preis, dann Pax=5 — konnte der DOM-Preis-Text auf dem Wert der vorherigen Berechnung „hängen bleiben", obwohl `anfPax` bereits auf 5 stand. Weder Coords-Timing noch Festpreis-Modus waren der Trigger (in der DB waren beide Coords sauber gespeichert).
+
+**Fix:** In `sendAnfrageWhatsApp()` + `sendAnfrageEmail()` vor `saveAnfrageToFirebase()` ein finales `await calcAnfPrice()` erzwungen. Damit ist garantiert, dass der zum Senden verwendete Preis mit dem aktuellen `anfPax` frisch neu gerechnet wurde. Kein Doppel-Zählen, weil `calcAnfPrice` den Preis komplett neu berechnet (nicht drauflegt).
+
+---
+
 ## [6.63.1028] - 2026-08-30 (SEO)
 
 ### 🗺️ Sitemap lastmod-Bulk + Broken-URL-Cleanup (SEO B1)

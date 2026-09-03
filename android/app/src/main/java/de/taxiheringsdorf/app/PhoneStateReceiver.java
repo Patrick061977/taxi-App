@@ -38,7 +38,13 @@ public class PhoneStateReceiver extends BroadcastReceiver {
             //   Bei Call-Waiting (RINGING waehrend OFFHOOK) NICHT triggern -- der Popup wuerde
             //   den laufenden Anruf stoeren. Toggle in Prefs damit man's abschalten kann.
             android.content.SharedPreferences popupPrefs = ctx.getSharedPreferences("call_popup_prefs", Context.MODE_PRIVATE);
-            boolean popupOn = popupPrefs.getBoolean("incoming_popup_enabled", true);
+            // 🚨 v6.66.7 KILL-SWITCH (Patrick 03.09. 19:33 Bridge): App crashte
+            //   heute wiederholt (4x Auto-Shift-End 11:29 / 12:40 / 14:03 / 17:35),
+            //   Verdacht auf Popup-Notification-Flow (v6.66.0 Vorbestell-Maske
+            //   direkt als Popup). Ohne Stack-Trace kein gezielter Fix moeglich.
+            //   HART DEAKTIVIERT bis Firebase-Crashlytics den Trace liefert.
+            //   Anruf-Handling laeuft normal, nur die Notification wird nicht gepostet.
+            boolean popupOn = false && popupPrefs.getBoolean("incoming_popup_enabled", true);
             if (popupOn && !TelephonyManager.EXTRA_STATE_RINGING.equals(lastState)
                     && !TelephonyManager.EXTRA_STATE_OFFHOOK.equals(lastState)
                     && num != null && !num.isEmpty()) {

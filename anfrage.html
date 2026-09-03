@@ -1262,17 +1262,26 @@ function validateAnfrage(requireEmail) {
     return true;
 }
 
-function sendAnfrageWhatsApp() {
+// 🔧 v6.66.6 (Patrick 03.09.2026 Bridge 18:35): Preis-Neuberechnung vor
+//   dem Absenden erzwingen. Susanne-Lehmann-Vorfall (04.08.): 5 Pax Hinfahrt
+//   Bansin→Ahlbeck 19:00 speicherte 19.50€ statt 29.50€ — 10€-Grossraum-
+//   Zuschlag verschluckt. Ursache: calcAnfPrice ist async (OSRM-Fetch), bei
+//   schnellen Pax-Klicks konnte der DOM-Preis-Text auf dem Wert der vorherigen
+//   Berechnung haengen bleiben. Fix: vor saveAnfrageToFirebase ein finales
+//   await calcAnfPrice() → garantiert frischer Preis mit aktuellem anfPax.
+async function sendAnfrageWhatsApp() {
     if (!validateAnfrage(false)) return;
+    try { await calcAnfPrice(); } catch(_) {}
     saveAnfrageToFirebase('whatsapp');
     window.open('https://wa.me/4915127585179?text=' + encodeURIComponent(getAnfrageText()), '_blank');
     showAnfrageSuccess();
 }
 
-function sendAnfrageEmail() {
+async function sendAnfrageEmail() {
     if (!validateAnfrage(true)) return;
     var btn = event.target.closest('button');
     if (btn) { btn.disabled = true; btn.innerHTML = '<span style="font-size:22px;">⏳</span> <span>Wird gesendet...</span>'; }
+    try { await calcAnfPrice(); } catch(_) {}
     saveAnfrageToFirebase('email');
     // Direkt über Server senden (Cloud Function)
     var email = (document.getElementById('anf-email').value || '').trim();

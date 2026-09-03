@@ -296,7 +296,19 @@ public class CallRecordingsActivity extends AppCompatActivity {
                     String cid = c.getKey();
                     String name = c.child("name").getValue(String.class);
                     String firma = c.child("firmenname").getValue(String.class);
+                    // v6.66.3 (Patrick 03.09. Bridge "Hotel steht in der Anrede aber in ACR
+                    //   wird nur Residenz angezeigt"): Anrede voranstellen wenn vorhanden und
+                    //   noch nicht im Namen enthalten. Reihenfolge: anrede -> salutation ->
+                    //   Fallback bei customerKind="Hotel" -> "Hotel {name}".
+                    String anrede = c.child("anrede").getValue(String.class);
+                    if (anrede == null || anrede.isEmpty()) anrede = c.child("salutation").getValue(String.class);
+                    String kind = c.child("customerKind").getValue(String.class);
                     String displayName = name != null ? name : (firma != null ? firma : "?");
+                    if (anrede != null && !anrede.isEmpty() && !displayName.toLowerCase().startsWith(anrede.toLowerCase())) {
+                        displayName = anrede + " " + displayName;
+                    } else if ((anrede == null || anrede.isEmpty()) && "Hotel".equalsIgnoreCase(kind) && !displayName.toLowerCase().startsWith("hotel")) {
+                        displayName = "Hotel " + displayName;
+                    }
                     String[] phoneFields = {"phone","mobilePhone","mobile","phone1","phone2","phone3"};
                     for (String f : phoneFields) {
                         String p = c.child(f).getValue(String.class);

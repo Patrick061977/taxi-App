@@ -4364,16 +4364,31 @@ public class DriverDashboardActivity extends AppCompatActivity {
         //   Preises verwirrt den Fahrgast ("die Leute werden nur verrückt").
         boolean _hidePriceKK = "transportschein_kk".equals(paymentMethod);
         String amountStr = String.format(Locale.GERMANY, "%.2f €", amount);
-        String _title = _hidePriceKK ? ("✅ " + methodLabel) : ("✅ " + methodLabel + " — " + amountStr);
-        String _msg = _hidePriceKK
-            ? ("🏥 Fahrgast bezahlt NICHTS — Krankenkasse zahlt.\n\n" +
+
+        // v6.66.3 (Patrick 03.09. Bridge "die Frage ob Rechnung oder nicht nach jeder
+        //   Fahrt kann auch erstmal weg, weil es wird ja jedesmal eine Rechnung erstellt
+        //   bei Bar-Fahrten"): bei Bar/Karte/Stripe/Ueberweisung KEIN Dialog mehr —
+        //   invoiceRequested=true automatisch, kurzer Toast statt Frage.
+        //   Bei Krankenkasse (transportschein_kk) bleibt die Frage (spezieller Fall
+        //   weil Krankenkasse getrennt abrechnet und 10€-Zuzahlung separat laeuft).
+        if (!_hidePriceKK) {
+            if (db != null && r.id != null) {
+                Map<String, Object> upd = new HashMap<>();
+                upd.put("invoiceRequested", true);
+                upd.put("needsInvoice", true);
+                db.getReference("rides/" + r.id).updateChildren(upd);
+            }
+            Toast.makeText(this, "✅ " + methodLabel + " — " + amountStr + " · Rechnung wird erstellt", Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        // Krankenkasse-Fall — Dialog bleibt
+        String _title = "✅ " + methodLabel;
+        String _msg = "🏥 Fahrgast bezahlt NICHTS — Krankenkasse zahlt.\n\n" +
                "Soll für " + displayCustomerName(r) + " eine Rechnung an die Krankenkasse erstellt werden?\n\n" +
                "Wenn Ja → Rechnung wird generiert (interner Betrag " + amountStr + " für Krankenkasse).\n" +
                "10€-Zuzahlung wird separat abgerechnet.\n" +
-               "Wenn Nein → nur Krankenschein-Foto reicht.")
-            : ("Soll für " + displayCustomerName(r) + " eine Rechnung erstellt werden?\n\n" +
-               "Wenn Ja → Kunde sieht in track.html '⬇️ Rechnung herunterladen'.\n" +
-               "Wenn Nein → keine Rechnung (Walk-In ohne Beleg).");
+               "Wenn Nein → nur Krankenschein-Foto reicht.";
         new AlertDialog.Builder(this)
             .setTitle(_title)
             .setMessage(_msg)

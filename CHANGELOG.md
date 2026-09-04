@@ -6,6 +6,20 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [6.66.9] - 2026-09-04 (Lock-Fix)
+
+### 🔒 Native-Reject respektiert jetzt assignmentLocked
+
+**Vorfall 04.09. morgens:** Patrick locked Familie Jeche (08:04:24) auf Tesla MY → 52 Sekunden später Tesla MY tippt Reject → Lock ignoriert, `assignedVehicle=null` → Auto-Assign findet keinen Ersatz → Fahrt hängt als `new` ohne Vehicle bis 08:30-Pickup. Gleicher Ablauf bei Ruppenstein (08:08 Lock → 08:33 Reject Prius IK → danach Grab durch Prius IK selbst). Patrick 08:12 Bridge: „Gesperrt ist gesperrt."
+
+**Root Cause:** `DriverDashboardActivity.rejectRide()` schrieb Vehicle-Felder auf `null` ohne den Lock zu prüfen. Cloud-Function `rideAction` (FCM-Path, `functions/index.js:41403`) hatte den Check bereits seit v6.63.087 — der native In-App-Reject-Button war die Lücke. Da `assignedVehicle` nach Reject `null` ist, greift auch der bestehende Grab-Check (`acceptRide` Z5797) nicht mehr — die Fahrt kann von jedem Fahrer grabbed werden.
+
+**Fix:** `rejectRide` liest die Ride, prüft `assignmentLocked === true` als ersten Schritt. Wenn Lock aktiv → Toast „🔒 Diese Fahrt ist fest zugewiesen — Ablehnen nicht möglich. Bitte Patrick anrufen wenn du sie nicht fahren kannst." + Lifecycle-Log-Eintrag, kein DB-Write. Damit ist der Lock hart: nur Patrick (Admin) kann ihn per Dashboard entfernen, kein Fahrer-Tap überschreibt ihn mehr.
+
+**Nicht angefasst:** Cloud-Function rideAction (schon fein), acceptRide Grab-Check (funktioniert korrekt sobald assignedVehicle nicht mehr geleert wird), Rejection-Timeout (v6.63.504).
+
+---
+
 ## [6.66.8] - 2026-09-03 (Crash-Fix)
 
 ### 🐛 CallRecorderService: „did not call startForeground" (Crashlytics-Fund)

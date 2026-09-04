@@ -5892,6 +5892,22 @@ public class DriverDashboardActivity extends AppCompatActivity {
         final String myVid = currentVehicleId;
         db.getReference("rides/" + rideId).get().addOnSuccessListener(snap -> {
             try {
+                // 🔒 v6.66.9 (Patrick 04.09. 08:12+08:38 Bridge "Gesperrt ist gesperrt"):
+                //   Wenn assignmentLocked=true, MUSS Native-Reject genau wie der FCM-Reject
+                //   (Cloud rideAction Z41403) blockieren. Sonst hebt ein Doppel-Tap oder
+                //   versehentlicher Reject die manuelle Disposition auf → assignedVehicle=null,
+                //   dann grabbed sich ein anderer Fahrer die Fahrt (native_dashboard_grab)
+                //   → Lock unbrauchbar. Vorfall Familie Jeche 08:05 + Ruppenstein 08:33.
+                Object _lockObj = snap.child("assignmentLocked").getValue();
+                boolean isLocked = (_lockObj instanceof Boolean) && (Boolean) _lockObj;
+                if (isLocked) {
+                    runOnUiThread(() -> Toast.makeText(DriverDashboardActivity.this,
+                        "🔒 Diese Fahrt ist fest zugewiesen — Ablehnen nicht möglich.\nBitte Patrick anrufen wenn du sie nicht fahren kannst.",
+                        Toast.LENGTH_LONG).show());
+                    logLifecycleTap(rideId, "🔒", "Reject BLOCKIERT: assignmentLocked=true", null);
+                    return;
+                }
+
                 java.util.List<String> existingRejected = new java.util.ArrayList<>();
                 Object _raw = snap.child("rejectedVehicles").getValue();
                 if (_raw instanceof java.util.List) {

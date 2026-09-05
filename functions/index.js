@@ -2800,8 +2800,22 @@ async function autoAssignRide(rideId, rideData, _excludeVehicleIds = []) {
         //   Selbst wenn pickupTs schon in Vergangenheit ist. Ivonne König: Fahrt war
         //   14:00, Kulpa rejected → Wartepool → 14:27 reassign wurde 'sofort'. Patrick:
         //   "Vorbestellung bleibt Vorbestellung mit gleicher Uhrzeit."
+        // 🔒 v6.66.11 (Patrick 05.09. 06:42 Bridge, Antje-Bug 2): Web-Booking-Rides
+        //   bleiben Vorbestellung auch nach Reject-Reassign, selbst wenn Pickup <25 Min.
+        //   Antje 04.09.: web-booking Ride 15:20, Reassign 15:05 (14 Min vor Pickup) →
+        //   isSofort=true → status="sofort" gesetzt → Zeit vorverschoben. Falsch.
+        //   Vorbestellungs-Sources: web-booking, anfrage-uebernahme-*, telegram-vorbestellung,
+        //   native_vorbestellung_*.
+        const _vorbestellungsSource = typeof rideData.source === 'string' && (
+            rideData.source === 'web-booking' ||
+            rideData.source.startsWith('anfrage-uebernahme') ||
+            rideData.source.startsWith('telegram-vorbestellung') ||
+            rideData.source.startsWith('native_vorbestellung')
+        );
         const _wasVorbestellung = rideData.statusBeforeWartepool === 'vorbestellt'
-            || (rideData.status === 'wartepool' && rideData.statusBeforeWartepool !== 'sofort');
+            || (rideData.status === 'wartepool' && rideData.statusBeforeWartepool !== 'sofort')
+            || (rideData.status === 'vorbestellt')
+            || _vorbestellungsSource;
         const _finalStatus = _wasVorbestellung ? 'vorbestellt' : (isSofort ? 'sofort' : 'vorbestellt');
         const rideUpdate = {
             status: _finalStatus,

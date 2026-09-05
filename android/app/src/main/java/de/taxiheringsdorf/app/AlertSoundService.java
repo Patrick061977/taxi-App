@@ -41,6 +41,8 @@ public class AlertSoundService extends Service {
     private static final String TAG = "AlertSoundService";
     public static final String ACTION_START = "de.taxiheringsdorf.app.ACTION_ALERT_START";
     public static final String ACTION_STOP = "de.taxiheringsdorf.app.ACTION_ALERT_STOP";
+    // 🆕 v6.66.19 (Patrick 05.09. 11:39 Bridge): Losfahr-Alarm muss ANDEREN Ton als Pickup haben.
+    public static final String ACTION_PLAY_LOSFAHR = "PLAY_LOSFAHR";
     private static final int NOTIF_ID = 9112; // unique
     // v6.63.126: 30s → 5s (Uber-Style)
     // 🆕 v6.63.774 (Patrick 22.07. Bridge "[KURZ-B] Sound verschwindet zu schnell"):
@@ -139,8 +141,14 @@ public class AlertSoundService extends Service {
         //   Handy-Volume, ohne die Wecker-Peinlichkeit von USAGE_ALARM. Heads-Up-Banner
         //   ("Licht") bleibt gleich. Wenn Patrick komplett stumm hat, bleibt es weiterhin
         //   stumm — kein force-loud, kein STREAM-Override.
+        // 🆕 v6.66.19 (Patrick 05.09. 11:39 Bridge): Losfahr-Alarm anderer Ton als Pickup.
+        //   Losfahr → TYPE_ALARM (Wecker-Ton, deutlich dringlicher — signalisiert "jetzt starten")
+        //   Standard/Pickup → TYPE_RINGTONE (Ringtone-Style — "neue Fahrt verfuegbar")
+        final boolean _isLosfahr = ACTION_PLAY_LOSFAHR.equals(action);
         try {
-            Uri sound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE);
+            Uri sound = _isLosfahr
+                ? RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+                : RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE);
             if (sound == null) sound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
             if (sound == null) {
                 Log.w(TAG, "Keine System-Sound-URI gefunden");
@@ -150,7 +158,7 @@ public class AlertSoundService extends Service {
 
             player = new MediaPlayer();
             AudioAttributes attrs = new AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
+                .setUsage(_isLosfahr ? AudioAttributes.USAGE_ALARM : AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
                 .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                 .build();
             player.setAudioAttributes(attrs);
@@ -160,7 +168,7 @@ public class AlertSoundService extends Service {
             player.start();
             _activePlayer = player;
             _activeServiceCtx = getApplicationContext();
-            Log.i(TAG, "MediaPlayer started — Notification-Sound (Uber-Style)");
+            Log.i(TAG, "MediaPlayer started — " + (_isLosfahr ? "LOSFAHR-Alarm (TYPE_ALARM)" : "Pickup-Ringtone (TYPE_RINGTONE)"));
         } catch (Throwable t) {
             Log.e(TAG, "MediaPlayer start fail: " + t.getMessage(), t);
             // Service trotzdem weiterlaufen lassen — Foreground-Notif ist da

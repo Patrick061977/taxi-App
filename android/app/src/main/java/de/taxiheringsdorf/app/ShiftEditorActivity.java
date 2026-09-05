@@ -84,6 +84,13 @@ public class ShiftEditorActivity extends AppCompatActivity {
     //   attachListener() pro vid einmal initial geladen + per ChildEventListener
     //   aktualisiert. Map<vehicleId, online-bool>.
     private final java.util.Map<String, Boolean> vehiclesOnlineCache = new java.util.HashMap<>();
+    // 🆕 v6.66.29 (Patrick 05.09. 14:27 Bridge "Es geht auch um den Standort weil das
+    //   ist nicht so einfach ersichtlich"): GPS-Position pro Fahrzeug fuer Tab-3-Anzeige
+    //   (Wochenplan-Uebersicht). Vorher musste Patrick pro Zeile in den Editor-Dialog
+    //   tappen um zu sehen wo das Fahrzeug steht.
+    private final java.util.Map<String, Double> vehiclesLatCache = new java.util.HashMap<>();
+    private final java.util.Map<String, Double> vehiclesLonCache = new java.util.HashMap<>();
+    private final java.util.Map<String, Long> vehiclesHbCache = new java.util.HashMap<>();
     private DatabaseReference vehiclesRef;
     private ValueEventListener vehiclesListener;
 
@@ -401,6 +408,26 @@ public class ShiftEditorActivity extends AppCompatActivity {
                 else sb.append("aktiv");
                 sb.append("  · Tap+Override-löschen im Dialog");
             }
+            // 🆕 v6.66.29 (Patrick 05.09. 14:27 Bridge): Standort direkt in der Tab-3-Zeile
+            //   sichtbar — kein extra Tap in den Editor-Dialog noetig. Grau wenn Fahrzeug
+            //   aktuell nicht online (dann ist die GPS-Position moeglicherweise veraltet).
+            Double _lat = vehiclesLatCache.get(vs.vehicleId);
+            Double _lon = vehiclesLonCache.get(vs.vehicleId);
+            Long _hb = vehiclesHbCache.get(vs.vehicleId);
+            boolean _vOnline = vehiclesOnlineCache.getOrDefault(vs.vehicleId, false);
+            if (_lat != null && _lon != null) {
+                String _ort = reverseLookupOrt(_lat, _lon);
+                if (_ort != null) {
+                    long _hbAge = (_hb != null) ? (System.currentTimeMillis() - _hb) / 60_000L : -1L;
+                    String _hbStr;
+                    if (_hbAge < 0) _hbStr = "keine Heartbeats";
+                    else if (_hbAge < 2) _hbStr = "live";
+                    else if (_hbAge < 60) _hbStr = "vor " + _hbAge + " Min";
+                    else _hbStr = "vor " + (_hbAge / 60) + "h";
+                    String _prefix = _vOnline ? "📍" : "📍(offline) ";
+                    sb.append("\n").append(_prefix).append(" Standort: ").append(_ort).append("  · ").append(_hbStr);
+                }
+            }
             h.days.setText(sb.toString());
         }
         @Override public int getItemCount() { return data.size(); }
@@ -528,13 +555,25 @@ public class ShiftEditorActivity extends AppCompatActivity {
         vehiclesListener = new ValueEventListener() {
             @Override public void onDataChange(@NonNull DataSnapshot snap) {
                 vehiclesOnlineCache.clear();
+                vehiclesLatCache.clear();     // v6.66.29
+                vehiclesLonCache.clear();     // v6.66.29
+                vehiclesHbCache.clear();      // v6.66.29
                 for (DataSnapshot c : snap.getChildren()) {
+                    String vid = c.getKey();
                     Object onlineRaw = c.child("online").getValue();
                     boolean online = onlineRaw instanceof Boolean && (Boolean) onlineRaw;
-                    vehiclesOnlineCache.put(c.getKey(), online);
+                    vehiclesOnlineCache.put(vid, online);
+                    // v6.66.29: GPS + Heartbeat cachen fuer Tab-3-Standort-Zeile
+                    Object latRaw = c.child("lat").getValue();
+                    Object lonRaw = c.child("lon").getValue();
+                    if (latRaw instanceof Number) vehiclesLatCache.put(vid, ((Number) latRaw).doubleValue());
+                    if (lonRaw instanceof Number) vehiclesLonCache.put(vid, ((Number) lonRaw).doubleValue());
+                    Object hbRaw = c.child("shift/lastHeartbeat").getValue();
+                    if (hbRaw instanceof Number) vehiclesHbCache.put(vid, ((Number) hbRaw).longValue());
                 }
-                // Mini-Cards neu rendern damit Sortierung sich aktualisiert
+                // Mini-Cards + Tab-3 neu rendern damit Sortierung + Standort sich aktualisieren
                 renderTodayCards();
+                if (_drvAdapter != null) _drvAdapter.notifyDataSetChanged();
             }
             @Override public void onCancelled(@NonNull DatabaseError error) {
                 Log.w(TAG, "vehiclesListener err: " + error.getMessage());

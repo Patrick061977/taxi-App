@@ -740,19 +740,11 @@ public class ShiftEditorActivity extends AppCompatActivity {
                                 String chosen = names.get(idx);
                                 double lat = lats.get(idx);
                                 double lon = lons.get(idx);
-                                Map<String, Object> upd = new HashMap<>();
-                                upd.put("homeLocation", chosen);
-                                Map<String, Object> coords = new HashMap<>();
-                                coords.put("lat", lat);
-                                coords.put("lon", lon);
-                                upd.put("homeCoords", coords);
-                                FirebaseDatabase.getInstance(DB_URL)
-                                    .getReference("vehicleShifts/" + vehicleId + "/defaultTimes/" + dow)
-                                    .updateChildren(upd)
-                                    .addOnSuccessListener(_ok -> Toast.makeText(ShiftEditorActivity.this,
-                                        "📍 Warteplatz: " + chosen, Toast.LENGTH_SHORT).show())
-                                    .addOnFailureListener(e -> Toast.makeText(ShiftEditorActivity.this,
-                                        "Standort-Fehler: " + e.getMessage(), Toast.LENGTH_SHORT).show());
+                                // 🆕 v6.66.31 (Patrick 05.09. 14:33 Bridge "im Wochenplan
+                                //   moechte ich auch die ganze Woche einstellen koennen"):
+                                //   Zwischen-Dialog fuer Zeitraum-Wahl statt sofort nur
+                                //   fuer den einen dow zu speichern.
+                                askStandortZeitraumAndSave(vehicleId, dow, chosen, lat, lon);
                             })
                             .setNegativeButton("Abbrechen", null)
                             .show();
@@ -765,6 +757,87 @@ public class ShiftEditorActivity extends AppCompatActivity {
                     Toast.makeText(ShiftEditorActivity.this, "Firebase-Fehler: " + error.getMessage(), Toast.LENGTH_SHORT).show();
                 }
             });
+    }
+
+    // 🆕 v6.66.31 (Patrick 05.09. 14:33 Bridge): Zwischen-Dialog nach Standort-Auswahl.
+    //   Fragt fuer welchen Zeitraum der gewaehlte Standort gelten soll — genau die
+    //   Frage die Patrick vermisst hat ("wenn ich Wochenplan aufhabe, will ich auch
+    //   die ganze Woche einstellen koennen").
+    private void askStandortZeitraumAndSave(String vehicleId, int dow, String name, double lat, double lon) {
+        String[] dayNames = new String[] { "Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag" };
+        String dayLabel = (dow >= 0 && dow < 7) ? dayNames[dow] : "diesen Tag";
+        String[] opts = new String[] {
+            "📅 Ganze Woche (alle Mo–So)",
+            "📆 Nur alle " + dayLabel + "e (Wochenplan-Slot)",
+            "1️⃣ Nur HEUTE (Override, ueberschreibt Wochenplan)"
+        };
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("📍 " + name + " — fuer welchen Zeitraum?")
+            .setItems(opts, (d, w) -> {
+                switch (w) {
+                    case 0: saveHomeForAllWeekdays(vehicleId, name, lat, lon); break;
+                    case 1: saveHomeForOneWeekday(vehicleId, dow, name, lat, lon); break;
+                    case 2: saveHomeForTodayOverride(vehicleId, name, lat, lon); break;
+                }
+            })
+            .setNegativeButton("Abbrechen", null)
+            .show();
+    }
+
+    private void saveHomeForOneWeekday(String vehicleId, int dow, String name, double lat, double lon) {
+        Map<String, Object> upd = new HashMap<>();
+        upd.put("homeLocation", name);
+        Map<String, Object> coords = new HashMap<>();
+        coords.put("lat", lat); coords.put("lon", lon);
+        upd.put("homeCoords", coords);
+        FirebaseDatabase.getInstance(DB_URL)
+            .getReference("vehicleShifts/" + vehicleId + "/defaultTimes/" + dow)
+            .updateChildren(upd)
+            .addOnSuccessListener(_ok -> Toast.makeText(this, "📍 " + name + " gesetzt fuer alle "
+                + new String[] { "Sonntage", "Montage", "Dienstage", "Mittwoche", "Donnerstage", "Freitage", "Samstage" }[dow], Toast.LENGTH_SHORT).show())
+            .addOnFailureListener(e -> Toast.makeText(this, "Fehler: " + e.getMessage(), Toast.LENGTH_LONG).show());
+    }
+
+    private void saveHomeForAllWeekdays(String vehicleId, String name, double lat, double lon) {
+        Map<String, Object> upd = new HashMap<>();
+        upd.put("homeLocation", name);
+        Map<String, Object> coords = new HashMap<>();
+        coords.put("lat", lat); coords.put("lon", lon);
+        upd.put("homeCoords", coords);
+        final int[] okCount = {0};
+        final int[] errCount = {0};
+        for (int _d = 0; _d < 7; _d++) {
+            FirebaseDatabase.getInstance(DB_URL)
+                .getReference("vehicleShifts/" + vehicleId + "/defaultTimes/" + _d)
+                .updateChildren(upd)
+                .addOnSuccessListener(_ok -> {
+                    okCount[0]++;
+                    if (okCount[0] + errCount[0] == 7) {
+                        Toast.makeText(this, "📅 " + name + " fuer GANZE Woche gesetzt (" + okCount[0] + "/7)", Toast.LENGTH_LONG).show();
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    errCount[0]++;
+                    if (okCount[0] + errCount[0] == 7) {
+                        Toast.makeText(this, "⚠️ Woche teilweise gesetzt " + okCount[0] + "/7 — Fehler: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                    }
+                });
+        }
+    }
+
+    private void saveHomeForTodayOverride(String vehicleId, String name, double lat, double lon) {
+        String todayKey = todayDateKey();
+        Map<String, Object> upd = new HashMap<>();
+        upd.put("homeLocation", name);
+        Map<String, Object> coords = new HashMap<>();
+        coords.put("lat", lat); coords.put("lon", lon);
+        upd.put("homeCoords", coords);
+        upd.put("active", true); // sicherstellen dass der Override den Tag als aktiv markiert
+        FirebaseDatabase.getInstance(DB_URL)
+            .getReference("vehicleShifts/" + vehicleId + "/" + todayKey)
+            .updateChildren(upd)
+            .addOnSuccessListener(_ok -> Toast.makeText(this, "1️⃣ " + name + " nur HEUTE (Override " + todayKey + ")", Toast.LENGTH_LONG).show())
+            .addOnFailureListener(e -> Toast.makeText(this, "Fehler: " + e.getMessage(), Toast.LENGTH_LONG).show());
     }
 
     // 🆕 v6.63.581: "09:00" → "9", "09:30" → "9:30" — kompakte Darstellung für Wochentag-Buttons

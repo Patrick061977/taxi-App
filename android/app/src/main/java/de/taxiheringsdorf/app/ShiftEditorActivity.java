@@ -91,6 +91,12 @@ public class ShiftEditorActivity extends AppCompatActivity {
     private final java.util.Map<String, Double> vehiclesLatCache = new java.util.HashMap<>();
     private final java.util.Map<String, Double> vehiclesLonCache = new java.util.HashMap<>();
     private final java.util.Map<String, Long> vehiclesHbCache = new java.util.HashMap<>();
+    // 🆕 v6.66.30 (Patrick 05.09. 14:31 Bridge "der Malus habe ich vorhin zum Beispiel
+    //   gar nicht gesehen, ist oben versteckt"): Malus direkt in Tab-3-Zeile anzeigen +
+    //   editierbar via Tap. Bisher war Malus nur ueber Toolbar-Icon 🏆 erreichbar.
+    private final java.util.Map<String, Integer> vehiclesMalusCache = new java.util.HashMap<>();
+    private com.google.firebase.database.DatabaseReference _malusRef;
+    private com.google.firebase.database.ValueEventListener _malusListener;
     private DatabaseReference vehiclesRef;
     private ValueEventListener vehiclesListener;
 
@@ -428,7 +434,23 @@ public class ShiftEditorActivity extends AppCompatActivity {
                     sb.append("\n").append(_prefix).append(" Standort: ").append(_ort).append("  · ").append(_hbStr);
                 }
             }
+            // 🆕 v6.66.30 (Patrick 05.09. 14:31 Bridge): Malus direkt in der Zeile.
+            //   Wird immer angezeigt (auch 0), damit Patrick sieht dass ein Fahrzeug
+            //   NICHT weg-priorisiert ist. Der Zeilen-Tap unten oeffnet den Quick-Edit-
+            //   Dialog (Standort + Malus + voller Editor).
+            Integer _malus = vehiclesMalusCache.get(vs.vehicleId);
+            int _malusInt = (_malus != null) ? _malus : 0;
+            if (_malusInt > 0) {
+                sb.append("\n🏆 Malus: ").append(_malusInt).append(" Min · wird seltener gewaehlt");
+            } else if (_malus != null) {
+                sb.append("\n🏆 Malus: 0 Min (freie Wahl)");
+            }
             h.days.setText(sb.toString());
+            // 🆕 v6.66.30: gesamte Zeile clickable → Quick-Edit-Auswahl-Dialog.
+            //   3 Optionen: Standort setzen, Malus aendern, oder in den vollen Editor.
+            //   Der Tap ersetzt das "muss ich immer erst tappen um zu sehen wo".
+            h.itemView.setOnClickListener(_v -> showQuickEditDialog(vs));
+            h.itemView.setClickable(true);
         }
         @Override public int getItemCount() { return data.size(); }
         class VH extends RecyclerView.ViewHolder {
@@ -580,6 +602,105 @@ public class ShiftEditorActivity extends AppCompatActivity {
             }
         };
         vehiclesRef.addValueEventListener(vehiclesListener);
+
+        // 🆕 v6.66.30: settings/vehiclePrioMalus live listen + Tab-3-Refresh triggern
+        _malusRef = FirebaseDatabase.getInstance(DB_URL).getReference("settings/vehiclePrioMalus");
+        _malusListener = new ValueEventListener() {
+            @Override public void onDataChange(@NonNull DataSnapshot snap) {
+                vehiclesMalusCache.clear();
+                for (DataSnapshot c : snap.getChildren()) {
+                    Object v = c.getValue();
+                    if (v instanceof Number) vehiclesMalusCache.put(c.getKey(), ((Number) v).intValue());
+                }
+                if (_drvAdapter != null) _drvAdapter.notifyDataSetChanged();
+            }
+            @Override public void onCancelled(@NonNull DatabaseError error) {
+                Log.w(TAG, "_malusListener err: " + error.getMessage());
+            }
+        };
+        _malusRef.addValueEventListener(_malusListener);
+    }
+
+    // 🆕 v6.66.30 (Patrick 05.09. 14:31 Bridge "Malus habe ich vorhin zum Beispiel gar
+    //   nicht gesehen"): Quick-Edit-Dialog fuer Tab-3-Zeilentap. Bietet die drei haeufigsten
+    //   Aenderungen fuer HEUTE — Standort, Malus, oder in den Vollen-Editor springen.
+    //   Fuer Wochenplan-Aenderungen weiter Tab 1 (Editor) nutzen — siehe v6.66.31 fuer
+    //   Standort-fuer-ganze-Woche im Editor.
+    private void showQuickEditDialog(final VehicleShift vs) {
+        if (vs == null || vs.vehicleId == null) return;
+        final int dow = todayDow();
+        final Integer currMalus = vehiclesMalusCache.get(vs.vehicleId);
+        final int currMalusInt = (currMalus != null) ? currMalus : 0;
+        String[] items = new String[] {
+            "📍 Standort HEUTE setzen (Taxistand-Picker)",
+            "🏆 Prio-Malus fuer " + (vs.name != null ? vs.name : vs.vehicleId) + " (aktuell " + currMalusInt + " Min)",
+            "✏️ Voller Editor-Dialog (Wochenplan + Override)"
+        };
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle(vs.name != null ? vs.name : vs.vehicleId)
+            .setItems(items, (d, w) -> {
+                switch (w) {
+                    case 0:
+                        showStandortPickerDialog(vs.vehicleId, dow);
+                        break;
+                    case 1:
+                        showSingleMalusDialog(vs, currMalusInt);
+                        break;
+                    case 2:
+                        // Bestehender Editor-Dialog via Tab-1-Adapter → wir triggern manuell.
+                        // Simplest weg: Toast + hint to switch tab. showEditorForVehicle waere
+                        // die saubere Variante, aber sie ist an das Tab-1-Adapter-Konstrukt
+                        // gebunden. Statt Duplizierung: Tab-Switch anregen.
+                        if (tabs != null) tabs.selectTab(tabs.getTabAt(0));
+                        Toast.makeText(ShiftEditorActivity.this,
+                            "Editor-Tab geoeffnet — tippe " + (vs.name != null ? vs.name : vs.vehicleId) + " an", Toast.LENGTH_LONG).show();
+                        break;
+                }
+            })
+            .setNegativeButton("Abbrechen", null)
+            .show();
+    }
+
+    // v6.66.30: Single-Vehicle-Malus-Dialog — schnelles Aendern ohne den grossen
+    //   showPrioMalusDialog (der ALLE Fahrzeuge zeigt).
+    private void showSingleMalusDialog(final VehicleShift vs, int currentMalus) {
+        final android.widget.EditText input = new android.widget.EditText(this);
+        input.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+        input.setText(currentMalus > 0 ? String.valueOf(currentMalus) : "");
+        input.setHint("0 = keine Malus");
+        input.setSelectAllOnFocus(true);
+        int pad = (int)(16 * getResources().getDisplayMetrics().density);
+        android.widget.FrameLayout wrap = new android.widget.FrameLayout(this);
+        wrap.setPadding(pad, pad, pad, pad);
+        wrap.addView(input);
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("🏆 Prio-Malus · " + (vs.name != null ? vs.name : vs.vehicleId))
+            .setMessage("Malus in Minuten. Hoeher = wird seltener gewaehlt. Leer/0 = freie Wahl.")
+            .setView(wrap)
+            .setPositiveButton("Speichern", (d, w) -> {
+                String raw = input.getText().toString().trim();
+                Object val;
+                if (raw.isEmpty() || "0".equals(raw)) {
+                    val = null;
+                } else {
+                    try {
+                        int n = Integer.parseInt(raw);
+                        if (n < 0) return;
+                        val = n;
+                    } catch (NumberFormatException nfe) { return; }
+                }
+                FirebaseDatabase.getInstance(DB_URL).getReference("settings/vehiclePrioMalus/" + vs.vehicleId)
+                    .setValue(val)
+                    .addOnSuccessListener(_ok -> Toast.makeText(ShiftEditorActivity.this,
+                        val == null
+                            ? "✅ Malus fuer " + vs.name + " entfernt"
+                            : "✅ Malus fuer " + vs.name + " = " + val + " Min",
+                        Toast.LENGTH_LONG).show())
+                    .addOnFailureListener(_err -> Toast.makeText(ShiftEditorActivity.this,
+                        "Fehler: " + _err.getMessage(), Toast.LENGTH_LONG).show());
+            })
+            .setNegativeButton("Abbrechen", null)
+            .show();
     }
 
     private static Boolean bool(Object o) {

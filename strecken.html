@@ -8,6 +8,7 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth-compat.js"></script>
 <style>
 body { margin:0; font-family:system-ui,-apple-system,sans-serif; background:#0f172a; color:#e2e8f0; }
 .header { background:#1e293b; padding:12px 16px; display:flex; gap:12px; align-items:center; flex-wrap:wrap; border-bottom:1px solid #334155; }
@@ -59,6 +60,21 @@ const firebaseConfig = {
 };
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
+const auth = firebase.auth();
+// Auth-Persistence hat den Session-Cookie von index.html falls dort eingeloggt.
+// Falls kein User: Hinweis zeigen (die Ride-Query bei loadRoutes wird sonst permission_denied werfen).
+auth.onAuthStateChanged(user => {
+    if (!user) {
+        document.getElementById('stats').innerHTML =
+            '⚠️ <b>Nicht eingeloggt</b><br>' +
+            'Diese Seite braucht Firebase-Auth zum Rides-Lesen.<br>' +
+            'Bitte zuerst auf <a href="/index.html" style="color:#fbbf24">index.html einloggen</a>, ' +
+            'dann F5 hier.';
+        document.getElementById('status').textContent = '❌ Login noetig';
+    } else {
+        console.log('🔐 Auth OK:', user.email || user.uid);
+    }
+});
 
 // Vehicle-Farben (konsistent)
 const VEHICLE_COLORS = {

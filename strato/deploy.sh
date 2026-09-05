@@ -52,6 +52,7 @@ APP_FILES=(
     "landing-v2.html"
     "kein-bock-zu-laufen.html"
     "fahrer-map.html"
+    "strecken.html"
     "berlin.html"
     "berlin-uebersicht.html"
     "tagesplan.html"

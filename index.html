@@ -13222,7 +13222,7 @@
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
         const APP_VERSION = '6.63.996';
-        const APP_BUILD = '30.08.2026 06:58';
+        const APP_BUILD = '05.09.2026 04:48';
         const APP_CHANGE = 'fix v6.63.643: ✓ Erledigt-Button im Wartepool-Banner + kunden.html Fahrhistorie per CRM-ID (kein globales Limit mehr).';
 
         // 🔧 FIX: Mache APP_VERSION global verfügbar
@@ -19715,6 +19715,13 @@ Funk Taxi Heringsdorf`;
 
                 // 2️⃣ ERSTELLE UPDATE-DATEN
                 // 🔧 v6.40.18: Vorbestellungen (>60min vor Pickup) bleiben 'vorbestellt' — sonst greift autoResolveConflicts nicht mehr!
+                // 🔒 v6.66.10 (Patrick 05.09. 06:42 Bridge nach Antje-Duenenweg-Vorfall):
+                //   Web-App-Admin-Zuweisung MUSS Lock setzen — sonst verhaelt sich
+                //   web-booking anders als native_vorbestellung (Native setzt IMMER
+                //   assignmentLocked=true, siehe AdminDashboardActivity Z3115/4199/
+                //   4641/5785). Ohne Lock triggerte v6.63.631 Sofort-Re-Assign
+                //   nach Reject → Antje's Vorbestellung wurde weggenommen.
+                //   Altes Verhalten (v6.1.0 "manuell sperrbar") war zu locker.
                 const updateData = {
                     vehicleId: vehicleId,
                     vehicle: vehicleName,
@@ -19723,7 +19730,9 @@ Funk Taxi Heringsdorf`;
                     status: _isSofortCentral ? 'assigned' : 'vorbestellt',
                     assignedAt: Date.now(),
                     assignedBy: 'admin',
-                    assignmentLocked: false, // 🆕 v6.1.0: Admin-Zuweisung NICHT mehr automatisch gesperrt – manuell sperrbar!
+                    assignmentLocked: true, // v6.66.10: Admin-Zuweisung = harter Lock, wie in Native
+                    lockedBy: 'web_admin_assign',
+                    lockedAt: Date.now(),
                     updatedAt: Date.now() // 🆕 Für Google Calendar Sync!
                 };
 

@@ -79,16 +79,33 @@ const auth = firebase.auth();
 //   Selbe Origin → Firebase-Auth-Session (IndexedDB) wird automatisch geteilt.
 auth.onAuthStateChanged(user => {
     if (!user) {
+        // 🔧 v6.66.39 (Patrick 05.09. 19:02 Bridge "[G] ja mach"): 1-Klick-Google-Login
+        //   umgeht Origin-Mismatch komplett. Google-OAuth-Session ist kontenweit,
+        //   nicht origin-scoped. Nach 1x Login bleibt es persistent auf diesem Geraet.
         document.getElementById('stats').innerHTML =
             '⚠️ <b>Nicht eingeloggt</b><br>' +
-            'Sollte automatisch vom Haupt-Tab kommen — falls du hier direkt aufrufst, '+
-            'oeffne <a href="index.html" style="color:#fbbf24">index.html</a> im selben Fenster erst.';
+            '<button onclick="loginGoogle()" style="margin-top:8px;padding:10px 18px;background:#4285f4;color:white;border:0;border-radius:6px;cursor:pointer;font-size:14px;font-weight:600">🔐 Mit Google einloggen</button>' +
+            '<div style="font-size:11px;color:#94a3b8;margin-top:6px">1 Klick, danach nie wieder noetig auf diesem Geraet.</div>';
         document.getElementById('status').textContent = '❌ Login noetig';
     } else {
         console.log('🔐 Auth OK:', user.email || user.uid);
         try { loadRoutes(); } catch (_e) { console.warn('loadRoutes bei Auth:', _e.message); }
     }
 });
+
+// v6.66.39: Google-Popup-Login-Handler
+window.loginGoogle = async function() {
+    try {
+        const provider = new firebase.auth.GoogleAuthProvider();
+        await auth.signInWithPopup(provider);
+        // onAuthStateChanged uebernimmt Rest — loadRoutes wird dort getriggert
+    } catch (e) {
+        console.error('Google Login-Fehler:', e);
+        document.getElementById('stats').innerHTML =
+            '❌ <b>Google-Login fehlgeschlagen:</b><br>' + (e.message || e.code) +
+            '<br><button onclick="loginGoogle()" style="margin-top:8px;padding:8px 14px;background:#4285f4;color:white;border:0;border-radius:6px;cursor:pointer">🔄 Nochmal versuchen</button>';
+    }
+};
 
 // Vehicle-Farben (konsistent)
 const VEHICLE_COLORS = {

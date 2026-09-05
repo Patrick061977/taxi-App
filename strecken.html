@@ -53,15 +53,21 @@ body { margin:0; font-family:system-ui,-apple-system,sans-serif; background:#0f1
 
 <script>
 // Firebase Config (identisch zu index.html damit Auth-Persistence greift)
-// 🔧 v6.66.33 (Patrick 05.09. 15:35 Bridge "bin nicht eingeloggt obwohl ich eingeloggt bin"):
-//   authDomain + projectId waren unvollstaendig — ohne authDomain findet Firebase-Auth
-//   die persistierte Session (indexedDB firebaseLocalStorageDb) nicht. Config jetzt
-//   1:1 wie index.html Z. 12972ff.
+// 🚨 v6.66.40 (Patrick 05.09. 19:07 Bridge "auth/api-key-not-valid"):
+//   ECHTER Root-Cause der ganzen Session-Share-Saga gefunden — der apiKey
+//   AIzaSyDaC8jn-... war FALSCH (frei erfunden beim Initial-Build). Firebase
+//   speichert Auth-Sessions unter 'firebase:authUser:{apiKey}:[DEFAULT]' —
+//   mit falschem apiKey ist der Session-Store-Key ANDERS als in index.html,
+//   deshalb konnte die Session NIEMALS wiedergefunden werden. Und Google-Login
+//   scheitert sowieso weil der Key kein echter Firebase-Project-Key ist.
+//   Jetzt 1:1 der Key aus index.html Z. 12973.
 const firebaseConfig = {
-    apiKey: "AIzaSyDaC8jn-oSJ5xIC6Ky9WHDaJTNjbGrXP8g",
+    apiKey: "AIzaSyD2eHFuplImxBCijd3MWlKyCwXUZHLmhhE",
     authDomain: "taxi-heringsdorf.firebaseapp.com",
     databaseURL: "https://taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.app",
-    projectId: "taxi-heringsdorf"
+    projectId: "taxi-heringsdorf",
+    storageBucket: "taxi-heringsdorf.firebasestorage.app",
+    messagingSenderId: "886448281276"
 };
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();

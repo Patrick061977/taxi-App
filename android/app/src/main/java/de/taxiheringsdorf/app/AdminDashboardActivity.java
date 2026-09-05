@@ -4190,12 +4190,21 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 .setPositiveButton("Sperren + Zusammenlegen", (d, w) -> {
                     String[] pick = vList.get(chosenIdx[0]);
                     String vid = pick[0];
+                    // 🔧 v6.66.28 (Patrick 05.09. 14:16 Bridge "steht noch IK und Mercedes obwohl
+                    //   auf SK gelockt"): Vehicle-Name aus dem Label extrahieren und mitschreiben.
+                    //   Vorher fehlte assignedVehicleName in dem update() → DispoActivity + Ride-Cards
+                    //   lasen den alten Namen weiter, obwohl assignedVehicle=SK korrekt gesetzt war.
+                    String vname = pick[1];
+                    int _dot = vname.indexOf(" · ");
+                    if (_dot > 0) vname = vname.substring(0, _dot); // Plate weglassen ("Renault · KE-XX 42" → "Renault")
                     String groupId = current.id.substring(1, 9);
                     Map<String, Object> u = new HashMap<>();
                     u.put("linkedGroupId", groupId);
                     u.put("_linkedAt", System.currentTimeMillis());
                     u.put("assignedVehicle", vid);
                     u.put("vehicleId", vid);
+                    u.put("assignedVehicleName", vname); // v6.66.28
+                    u.put("vehicleName", vname);         // v6.66.28
                     u.put("assignmentLocked", true);
                     u.put("assignmentLockedBy", "sammelfahrt-native-v734");
                     u.put("assignedBy", "sammelfahrt-manual-v734");

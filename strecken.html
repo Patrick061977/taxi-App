@@ -233,11 +233,23 @@ async function loadRoutes() {
     let totalPrice = 0;
     const byVehicle = {};
 
-    rides.forEach(r => {
+    // 🔧 v6.66.41 (Patrick 05.09. 19:14 Screenshot: Stats "Lade Daten..." bleibt haengen
+    //   obwohl Console 21 Rides zeigt): Fehler pro Ride abfangen + Coords-Sanity-Check
+    //   sonst killt EIN kaputter Ride die ganze forEach-Loop → render() endet nicht.
+    let renderErrors = 0;
+    rides.forEach((r, idx) => {
+      try {
         const vid = r.assignedVehicle || r.vehicleId || 'unknown';
         const color = VEHICLE_COLORS[vid]?.color || '#94a3b8';
-        const startPt = [parseFloat(r.pickupLat), parseFloat(r.pickupLon)];
-        const endPt = [parseFloat(r.destinationLat), parseFloat(r.destinationLon)];
+        const pLat = parseFloat(r.pickupLat), pLon = parseFloat(r.pickupLon);
+        const dLat = parseFloat(r.destinationLat), dLon = parseFloat(r.destinationLon);
+        if (!Number.isFinite(pLat) || !Number.isFinite(pLon) || !Number.isFinite(dLat) || !Number.isFinite(dLon)) {
+            console.warn('Ride ' + idx + ' skip (NaN coords)', r.customerName);
+            renderErrors++;
+            return;
+        }
+        const startPt = [pLat, pLon];
+        const endPt = [dLat, dLon];
 
         const line = L.polyline([startPt, endPt], {
             color, weight: 3, opacity: 0.55
@@ -292,7 +304,12 @@ async function loadRoutes() {
         byVehicle[vid].count++;
         byVehicle[vid].km += (r.distance || 0);
         byVehicle[vid].price += parseFloat(r.price) || 0;
+      } catch (rideErr) {
+        renderErrors++;
+        console.warn('Ride-Render-Fehler #' + idx, rideErr.message, r.customerName);
+      }
     });
+    console.log('🎨 Rendered ' + (rides.length - renderErrors) + ' polylines, ' + renderErrors + ' errors');
 
     document.getElementById('status').textContent = `${rides.length} Rides geladen`;
     // Stats + Diagnose-Zeile falls 0 Rides
@@ -325,13 +342,16 @@ async function loadRoutes() {
 
 // v6.66.34: loadVehicles darf nicht scheitern-lassen. loadRoutes triggert onAuthStateChanged
 //   ODER hier direkt sobald User schon eingeloggt.
+// 🔧 v6.66.41: loadVehicles NICHT loadRoutes triggern lassen — Race-Bug beobachtet:
+//   Der Auth-Callback triggerte loadRoutes zwischen loadVehicles-Start und -Ende, dann
+//   feuerte loadVehicles.then() ein ZWEITER loadRoutes-Aufruf → 2 parallele render()
+//   raecen sich und clearen sich gegenseitig die Polylines. Jetzt: NUR der Auth-Callback
+//   triggert loadRoutes.
 loadVehicles().catch(e => {
     console.warn('loadVehicles error:', e);
     document.getElementById('stats').innerHTML = '⚠️ Vehicle-Liste-Fehler: ' + e.message + ' — Rides trotzdem versuchen';
-}).then(() => {
-    // wenn Auth-User schon da → sofort laden, sonst wartet onAuthStateChanged
-    if (auth.currentUser) loadRoutes();
 });
+// loadRoutes() wird ausschliesslich in onAuthStateChanged(user!=null) getriggert.
 </script>
 
 </body>

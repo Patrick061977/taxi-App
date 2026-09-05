@@ -2381,6 +2381,23 @@
             ">
                 🎯 Angebote
             </button>
+            <!-- 🆕 v6.66.23 (Patrick 05.09. 12:15 Bridge): Direktlink zu strecken.html —
+                 Fahrzeug-Routen pro Tag als Karte visualisiert (Filter Tag/Fahrzeug/Uhrzeit,
+                 Rich-Popup mit voller Ride-History bei Klick). -->
+            <button onclick="window.open('/strecken.html', '_blank')" class="admin-tab-btn admin-only" style="
+                padding: 10px 16px;
+                border: 2px solid #10b981;
+                background: white;
+                color: #10b981;
+                border-radius: 8px;
+                font-weight: 600;
+                font-size: 13px;
+                cursor: pointer;
+                white-space: nowrap;
+                transition: all 0.2s;
+            ">
+                🗺️ Strecken
+            </button>
             <!-- 🆕 v5.89: KALENDER-TAB (Direkt-Sprung zu Vorbestellungen!) -->
             <button onclick="switchView('calendar')" class="admin-tab-btn admin-only tab-toggleable" data-view="calendar" data-tab-id="calendar" style="
                 padding: 10px 16px;
@@ -13222,7 +13239,7 @@
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
         const APP_VERSION = '6.63.996';
-        const APP_BUILD = '05.09.2026 09:55';
+        const APP_BUILD = '05.09.2026 10:16';
         const APP_CHANGE = 'fix v6.63.643: ✓ Erledigt-Button im Wartepool-Banner + kunden.html Fahrhistorie per CRM-ID (kein globales Limit mehr).';
 
         // 🔧 FIX: Mache APP_VERSION global verfügbar

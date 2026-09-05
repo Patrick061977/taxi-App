@@ -169,10 +169,41 @@ async function loadRoutes() {
         const line = L.polyline([startPt, endPt], {
             color, weight: 3, opacity: 0.55
         }).addTo(map);
+        // Kurz-Tooltip beim Hover
         line.bindTooltip(
             `${new Date(r.pickupTimestamp).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'})} · ${(r.distance || 0).toFixed(1)}km · €${r.price || '?'}<br>` +
-            `<b>${VEHICLE_COLORS[vid]?.name || vid}</b>`
+            `<b>${VEHICLE_COLORS[vid]?.name || vid}</b> — Klick fuer Details`
         );
+        // v6.66.21 (Patrick 05.09. 11:53 Bridge): Rich-Popup beim Klick mit voller Ride-History.
+        //   "wann eingeladen wurden, von wem, vorige Preis, was es dann gekostet hat".
+        const fmtDT = ts => ts ? new Date(ts).toLocaleString('de-DE',{timeZone:'Europe/Berlin',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '—';
+        const fmtEUR = p => p != null ? (typeof p === 'number' ? p.toFixed(2) : p) + '€' : '?';
+        const priceChange = (r.estimatedPrice != null && r.price != null && parseFloat(r.estimatedPrice) !== parseFloat(r.price))
+            ? ` <span style="color:#f59e0b">→ ${fmtEUR(r.price)}</span>`
+            : '';
+        const waitMin = r.acceptedAt && r.pickupTimestamp ? Math.round((r.pickupTimestamp - r.acceptedAt) / 60000) : null;
+        const durationMin = r.pickup_up_at && r.completedAt ? Math.round((r.completedAt - r.pickup_up_at) / 60000) : (r.duration || null);
+        const popupHtml = `<div style="min-width:260px;font-size:12px;line-height:1.5">
+            <div style="font-weight:700;color:${color};margin-bottom:6px;font-size:13px">${VEHICLE_COLORS[vid]?.name || vid}</div>
+            <div><b>Kunde:</b> ${r.customerName || '?'}</div>
+            <div><b>Status:</b> ${r.status} · ${r.passengers || 1} Pax</div>
+            <hr style="margin:6px 0;border:0;border-top:1px solid #334155">
+            <div><b>📍 Pickup:</b> ${(r.pickup || '?').slice(0, 45)}</div>
+            <div><b>🎯 Ziel:</b> ${(r.destination || '?').slice(0, 45)}</div>
+            <div><b>Distanz:</b> ${(r.distance || 0).toFixed(1)} km${durationMin ? ' · '+durationMin+' Min' : ''}</div>
+            <hr style="margin:6px 0;border:0;border-top:1px solid #334155">
+            <div><b>📅 Angelegt:</b> ${fmtDT(r.createdAt)}</div>
+            <div><b>Von:</b> ${r.source || r.createdBy || '?'}</div>
+            ${r.acceptedAt ? `<div><b>✅ Angenommen:</b> ${fmtDT(r.acceptedAt)}${waitMin != null ? ` (${waitMin} Min vor Pickup)` : ''}</div>` : ''}
+            ${r.pickupTimeShifted ? `<div style="color:#f59e0b"><b>🕐 Zeit verschoben:</b> ${r.pickupShiftReason || ''}</div>` : ''}
+            <div><b>🚗 Pickup:</b> ${fmtDT(r.pickupTimestamp)}</div>
+            ${r.completedAt ? `<div><b>🏁 Abgeschlossen:</b> ${fmtDT(r.completedAt)}</div>` : ''}
+            <hr style="margin:6px 0;border:0;border-top:1px solid #334155">
+            <div><b>💰 Preis:</b> ${r.estimatedPrice != null ? '~'+fmtEUR(r.estimatedPrice) : '?'}${priceChange}</div>
+            <div><b>Zahlung:</b> ${r.paymentMethod || '?'}${r.invoiceNumber ? ' · Rg '+r.invoiceNumber : ''}</div>
+            ${r.notes ? `<div style="margin-top:6px;color:#94a3b8;font-size:11px"><b>📝</b> ${r.notes.slice(0, 100)}</div>` : ''}
+        </div>`;
+        line.bindPopup(popupHtml, { maxWidth: 320 });
         const startMarker = L.circleMarker(startPt, {
             radius: 4, color: color, fillColor: color, fillOpacity: 0.9
         }).addTo(map);

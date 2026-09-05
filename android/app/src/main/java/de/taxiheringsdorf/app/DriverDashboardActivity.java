@@ -5869,7 +5869,13 @@ public class DriverDashboardActivity extends AppCompatActivity {
                     final long[] _minUntilLosArr = { 0 };
                     if (_stateAccepted && r.pickupTimestamp != null) {
                         long _driveMinBtn = (r.drivingTimeToPickup != null && r.drivingTimeToPickup > 0) ? r.drivingTimeToPickup : 15;
-                        long _losfahrTs = r.pickupTimestamp - (5 + _driveMinBtn) * 60_000L;
+                        // 🔧 v6.66.27 (Patrick 05.09. 13:11 Bridge Korrektur):
+                        //   "eigentlich muesste immer so 15 Minuten vor der Zeit, natuerlich,
+                        //   wie gesagt, wir haben das ja inklusive Anfahrt, muesste der
+                        //   Losfahr-Button entriegelt werden. Also 15 Minuten vor der Zeit."
+                        //   Vorher (5 + driveMin) war ein Buffer-Minuten-Fehler. Jetzt (15 + driveMin)
+                        //   deckungsgleich mit Cloud-Losfahr-Alarm v989 (v6.63.1029).
+                        long _losfahrTs = r.pickupTimestamp - (15 + _driveMinBtn) * 60_000L;
                         long _msUntilLos = _losfahrTs - System.currentTimeMillis();
                         if (_msUntilLos > 0) {
                             // Vor Losfahr-Zeit: grau + Countdown + Override moeglich

@@ -1421,9 +1421,57 @@ public class DriverDashboardActivity extends AppCompatActivity {
     // v6.62.320: Display-Tick — rendert NUR die Adapter-Items neu (kein OSRM).
     // So zaehlt 'Losfahren in 25 Min' alle 5s sichtbar runter ohne Battery-Drain.
     private final Handler displayTickHandler = new Handler(Looper.getMainLooper());
+    // 🆕 v6.66.18 (Patrick 05.09. 11:26 Bridge "Losfahr-Alarm kommt nicht immer"):
+    //   Lokaler Losfahr-Alarm-Timer im displayTick — unabhaengig vom Cloud-FCM-Push.
+    //   Bei Doze-Mode / Netz-Aussetzer bleibt der Alarm zuverlaessig.
+    //   Set trackt welche Rides schon lokal alarmiert wurden (kein Wiederholungs-Spam).
+    private final java.util.Set<String> _localLosfahrAlarmSent = new java.util.concurrent.ConcurrentSkipListSet<>();
+
     private final Runnable displayTick = new Runnable() {
         @Override public void run() {
             try {
+                // v6.66.18 Local Losfahr-Alarm
+                if (myAssignedRides != null) {
+                    long _nowLocalAlarm = System.currentTimeMillis();
+                    for (Ride _lr : new java.util.ArrayList<>(myAssignedRides)) {
+                        if (_lr == null || _lr.id == null || _lr.pickupTimestamp == null) continue;
+                        String _lst = _lr.status != null ? _lr.status.toLowerCase() : "";
+                        if (!"accepted".equals(_lst)) continue;
+                        if (_localLosfahrAlarmSent.contains(_lr.id)) continue;
+                        long _driveMinLA = (_lr.drivingTimeToPickup != null && _lr.drivingTimeToPickup > 0) ? _lr.drivingTimeToPickup : 15;
+                        long _losTsLA = _lr.pickupTimestamp - (5 + _driveMinLA) * 60_000L;
+                        long _msSinceLos = _nowLocalAlarm - _losTsLA;
+                        // Alarm feuert wenn Losfahr-Zeit erreicht + weniger als 90s vergangen (verhindert alte Alarme beim Start)
+                        if (_msSinceLos >= 0 && _msSinceLos < 90_000L) {
+                            _localLosfahrAlarmSent.add(_lr.id);
+                            final Ride _alarmRide = _lr;
+                            runOnUiThread(() -> {
+                                try {
+                                    // Vibration
+                                    android.os.Vibrator _vib = (android.os.Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
+                                    if (_vib != null && _vib.hasVibrator()) {
+                                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                                            _vib.vibrate(android.os.VibrationEffect.createWaveform(new long[]{0, 400, 200, 400, 200, 400}, -1));
+                                        } else {
+                                            _vib.vibrate(new long[]{0, 400, 200, 400, 200, 400}, -1);
+                                        }
+                                    }
+                                    // Sound (AlertSound-Service kurz starten)
+                                    try {
+                                        Intent _snd = new Intent(DriverDashboardActivity.this, AlertSoundService.class);
+                                        _snd.setAction("PLAY_LOSFAHR");
+                                        startService(_snd);
+                                    } catch (Throwable _sndE) {}
+                                    // Toast
+                                    Toast.makeText(DriverDashboardActivity.this,
+                                        "🚗 JETZT LOSFAHREN: " + (_alarmRide.customerName != null ? _alarmRide.customerName : "Fahrt"),
+                                        Toast.LENGTH_LONG).show();
+                                    logLifecycleTap(_alarmRide.id, "🚗", "Lokaler Losfahr-Alarm (v6.66.18)", null);
+                                } catch (Throwable _alarmE) {}
+                            });
+                        }
+                    }
+                }
                 // 🆕 v6.63.504: Annehmen-Timeout — auto-zugewiesene Fahrten ablaufen lassen
                 if (!acceptWindowStart.isEmpty()) {
                     long _nowMs = System.currentTimeMillis();

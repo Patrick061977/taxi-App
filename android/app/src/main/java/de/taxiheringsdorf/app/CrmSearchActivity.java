@@ -2481,9 +2481,15 @@ public class CrmSearchActivity extends AppCompatActivity {
     }
 
     // v6.62.293: Top-5 Ziele dieses Kunden laden, dann unified Maske oeffnen.
+    // 🆕 v6.66.20 (Patrick 05.09. 10:09 Bridge): "ich sehe nicht wo die Leute
+    //   hingefahren sind — die letzten Routen sollten unten angezeigt werden".
+    //   Neben Top-5-Zielen laden wir jetzt die letzten 3 kompletten Rides
+    //   (Datum + Pickup + Ziel + Preis) und uebergeben sie via _recentRidesForMaske.
+    private List<Map<String,Object>> _recentRidesForMaske = null;
+
     private void showVorbestellungDialog(CrmEntry e) {
         if (e.id == null) {
-            // Kein CRM-ID → Maske ohne Quick-Ziele oeffnen
+            _recentRidesForMaske = null;
             showVorbestellungMaske(e, new ArrayList<>(), new HashMap<>());
             return;
         }
@@ -2493,6 +2499,8 @@ public class CrmSearchActivity extends AppCompatActivity {
                 @Override public void onDataChange(@NonNull DataSnapshot snap) {
                     Map<String, Integer> destCount = new HashMap<>();
                     Map<String, double[]> destCoordsMap = new HashMap<>();
+                    // 🆕 v6.66.20: alle Rides in Liste sammeln fuer die letzten-3-Anzeige
+                    List<Map<String,Object>> _allRides = new ArrayList<>();
                     for (DataSnapshot c : snap.getChildren()) {
                         String dest = c.child("destination").getValue(String.class);
                         if (dest == null || dest.isEmpty()) continue;
@@ -2504,13 +2512,36 @@ public class CrmSearchActivity extends AppCompatActivity {
                         if (dl instanceof Number && dn instanceof Number && !destCoordsMap.containsKey(dest)) {
                             destCoordsMap.put(dest, new double[]{((Number)dl).doubleValue(), ((Number)dn).doubleValue()});
                         }
+                        // Sammle Ride-Details fuer die letzten-3-Anzeige
+                        Map<String,Object> _rideEntry = new HashMap<>();
+                        _rideEntry.put("id", c.getKey());
+                        _rideEntry.put("pickup", c.child("pickup").getValue(String.class));
+                        _rideEntry.put("destination", dest);
+                        Object _pts = c.child("pickupTimestamp").getValue();
+                        if (_pts instanceof Number) _rideEntry.put("pickupTimestamp", ((Number)_pts).longValue());
+                        Object _price = c.child("price").getValue();
+                        if (_price != null) _rideEntry.put("price", _price);
+                        _rideEntry.put("status", c.child("status").getValue(String.class));
+                        _rideEntry.put("pickupLat", c.child("pickupLat").getValue());
+                        _rideEntry.put("pickupLon", c.child("pickupLon").getValue());
+                        _rideEntry.put("destLat", dl);
+                        _rideEntry.put("destLon", dn);
+                        _allRides.add(_rideEntry);
                     }
+                    // Sort nach Timestamp desc, nimm letzte 3
+                    _allRides.sort((a, b) -> {
+                        long ta = a.get("pickupTimestamp") instanceof Long ? (long)a.get("pickupTimestamp") : 0L;
+                        long tb = b.get("pickupTimestamp") instanceof Long ? (long)b.get("pickupTimestamp") : 0L;
+                        return Long.compare(tb, ta);
+                    });
+                    _recentRidesForMaske = _allRides.size() > 3 ? new ArrayList<>(_allRides.subList(0, 3)) : new ArrayList<>(_allRides);
                     List<Map.Entry<String,Integer>> sorted = new ArrayList<>(destCount.entrySet());
                     sorted.sort((a,b) -> b.getValue() - a.getValue());
                     List<Map.Entry<String,Integer>> top = sorted.subList(0, Math.min(5, sorted.size()));
                     showVorbestellungMaske(e, top, destCoordsMap);
                 }
                 @Override public void onCancelled(@NonNull DatabaseError err) {
+                    _recentRidesForMaske = null;
                     showVorbestellungMaske(e, new ArrayList<>(), new HashMap<>());
                 }
             });
@@ -3076,6 +3107,63 @@ public class CrmSearchActivity extends AppCompatActivity {
             destCoords[0] = pl; destCoords[1] = pn;
             Toast.makeText(this, "🔄 Getauscht", Toast.LENGTH_SHORT).show();
         });
+
+        // 🆕 v6.66.20 (Patrick 05.09. 10:09 Bridge): Letzte 3 Fahrten prominent oben zeigen.
+        //   "ich sehe nicht wo die Leute hingefahren sind — die letzten Routen sollten
+        //   unten angezeigt werden" (Frau Hensel — vom Bahnhof gefahren).
+        //   Tap uebernimmt Pickup + Ziel + Coords in einem Rutsch.
+        if (_recentRidesForMaske != null && !_recentRidesForMaske.isEmpty()) {
+            TextView tvRecentHeader = new TextView(this);
+            tvRecentHeader.setText("📅 Letzte Fahrten (Tap = Route uebernehmen):");
+            tvRecentHeader.setTextSize(12);
+            tvRecentHeader.setTextColor(0xFF64748B);
+            tvRecentHeader.setPadding(0, padHalf, 0, padHalf / 2);
+            layout.addView(tvRecentHeader);
+
+            java.text.SimpleDateFormat _sdfRecent = new java.text.SimpleDateFormat("dd.MM. HH:mm", Locale.GERMANY);
+            _sdfRecent.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
+
+            for (Map<String,Object> _rr : _recentRidesForMaske) {
+                final String _rrPickup = (String) _rr.get("pickup");
+                final String _rrDest = (String) _rr.get("destination");
+                final Long _rrTs = _rr.get("pickupTimestamp") instanceof Long ? (Long) _rr.get("pickupTimestamp") : null;
+                final Object _rrPrice = _rr.get("price");
+                final Object _rrPLat = _rr.get("pickupLat");
+                final Object _rrPLon = _rr.get("pickupLon");
+                final Object _rrDLat = _rr.get("destLat");
+                final Object _rrDLon = _rr.get("destLon");
+                if (_rrPickup == null || _rrDest == null) continue;
+                String _dateStr = _rrTs != null ? _sdfRecent.format(new Date(_rrTs)) : "?";
+                String _priceStr = _rrPrice != null ? " · " + _rrPrice + "€" : "";
+                String _shortPickup = _rrPickup.length() > 22 ? _rrPickup.substring(0, 20) + "…" : _rrPickup;
+                String _shortDest = _rrDest.length() > 22 ? _rrDest.substring(0, 20) + "…" : _rrDest;
+
+                TextView _rideChip = new TextView(this);
+                _rideChip.setText("📅 " + _dateStr + _priceStr + "\n📍 " + _shortPickup + "\n🎯 " + _shortDest);
+                _rideChip.setTextSize(12);
+                _rideChip.setTextColor(0xFF166534);
+                _rideChip.setBackgroundColor(0xFFDCFCE7);
+                _rideChip.setPadding(padHalf, padHalf, padHalf, padHalf);
+                LinearLayout.LayoutParams _chipLp = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+                _chipLp.setMargins(0, padHalf / 4, 0, padHalf / 4);
+                _rideChip.setLayoutParams(_chipLp);
+                _rideChip.setOnClickListener(_v -> {
+                    tvPickup.setText("📍 " + _rrPickup);
+                    tvDest.setText("🎯 " + _rrDest);
+                    if (_rrPLat instanceof Number && _rrPLon instanceof Number) {
+                        pickupCoords[0] = ((Number)_rrPLat).doubleValue();
+                        pickupCoords[1] = ((Number)_rrPLon).doubleValue();
+                    }
+                    if (_rrDLat instanceof Number && _rrDLon instanceof Number) {
+                        destCoords[0] = ((Number)_rrDLat).doubleValue();
+                        destCoords[1] = ((Number)_rrDLon).doubleValue();
+                    }
+                    Toast.makeText(this, "📅 Route uebernommen: " + _shortPickup + " → " + _shortDest, Toast.LENGTH_SHORT).show();
+                });
+                layout.addView(_rideChip);
+            }
+        }
 
         // Haeufige Ziele als Quick-Tap-Chips (Tap fuellt Zielfeld + Coords)
         if (!topDests.isEmpty()) {

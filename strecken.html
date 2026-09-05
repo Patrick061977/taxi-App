@@ -66,8 +66,11 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 const auth = firebase.auth();
-// v6.66.33: explizit LOCAL-Persistence setzen (Default ist schon LOCAL, aber sicherheitshalber)
-auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(_e => console.warn('setPersistence:', _e.message));
+// 🔧 v6.66.38 (Patrick 05.09. 18:56 Bridge Screenshot: 'Nicht eingeloggt' obwohl auf
+//   umwelt-taxi-insel-usedom.de gleiche Origin): setPersistence-Aufruf entfernt.
+//   Firebase-Docs: setPersistence kann den aktuellen User TEMPORAER clearen bevor die
+//   neue Persistence aktiv ist. Default ist ohnehin LOCAL — der Aufruf war unnoetig
+//   und hat womoeglich den geshareten Session-State zerstoert.
 // v6.66.36 (Patrick 05.09. 17:49 "Ich kann mich doch nicht fuer jeden Tab einzeln
 //   einloggen. Es soll ueber Index funktionieren."): eigenes Login-Feld raus.
 //   Fix ist stattdessen relativer Pfad im Button in index.html: window.open('strecken.html')

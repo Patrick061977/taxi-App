@@ -1,9 +1,48 @@
 {
-  "generatedAt": 1788629604990,
+  "generatedAt": 1788629824814,
   "windowMonths": 24,
   "weeksInWindow": 104,
   "totalRides": 19021,
-  "totalRevenue": 354607.89999999927,
+  "totalRevenue": 354608,
+  "allTimeRides": 62442,
+  "allTimeRevenue": 1126641,
+  "yearBreakdown": [
+    {
+      "year": 2020,
+      "revenue": 133086,
+      "rides": 8436
+    },
+    {
+      "year": 2021,
+      "revenue": 129871,
+      "rides": 7857
+    },
+    {
+      "year": 2022,
+      "revenue": 184091,
+      "rides": 10288
+    },
+    {
+      "year": 2023,
+      "revenue": 197121,
+      "rides": 10209
+    },
+    {
+      "year": 2024,
+      "revenue": 180663,
+      "rides": 9450
+    },
+    {
+      "year": 2025,
+      "revenue": 169326,
+      "rides": 9088
+    },
+    {
+      "year": 2026,
+      "revenue": 132485,
+      "rides": 7113
+    }
+  ],
   "matrix": [
     [
       {

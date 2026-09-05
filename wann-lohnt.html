@@ -63,11 +63,16 @@ let MODE = 'eurWeek';
 async function load() {
     const r = await fetch('/stats/wann-lohnt-matrix.json?t=' + Date.now());
     DATA = await r.json();
+    const ytdRow = (DATA.yearBreakdown||[]).map(y =>
+        `<span style="color:${y.year===new Date().getFullYear()?'#fbbf24':'#94a3b8'}">${y.year}: <b style="color:#e2e8f0">${(y.revenue/1000).toFixed(0)}k</b></span>`
+    ).join(' · ');
     document.getElementById('meta').innerHTML =
-        `<div><b>${DATA.totalRides.toLocaleString('de-DE')}</b><span>Kunden-Fahrten (24 Mon)</span></div>
-         <div><b>${DATA.totalRevenue.toLocaleString('de-DE',{maximumFractionDigits:0})} €</b><span>Umsatz gesamt</span></div>
-         <div><b>${DATA.weeksInWindow}</b><span>Wochen im Fenster</span></div>
-         <div><b>${new Date(DATA.generatedAt).toLocaleDateString('de-DE')}</b><span>Stand</span></div>`;
+        `<div><b>${DATA.totalRides.toLocaleString('de-DE')}</b><span>Fahrten (Matrix-Fenster ${DATA.windowMonths}M)</span></div>
+         <div><b>${DATA.totalRevenue.toLocaleString('de-DE')} €</b><span>Umsatz Fenster</span></div>
+         <div><b>${(DATA.allTimeRides||0).toLocaleString('de-DE')}</b><span>Fahrten All-Time</span></div>
+         <div><b>${(DATA.allTimeRevenue||0).toLocaleString('de-DE')} €</b><span>Umsatz All-Time</span></div>
+         <div style="flex:1;min-width:100%"><b style="font-size:13px;color:#e2e8f0">Jahres-Umsatz:</b><br><span style="font-size:11px">${ytdRow}</span></div>
+         <div style="flex:1;min-width:100%;color:#64748b;font-size:11px">Stand ${new Date(DATA.generatedAt).toLocaleString('de-DE',{timeZone:'Europe/Berlin'})} · ${DATA.weeksInWindow} Wochen im Matrix-Fenster</div>`;
     render();
 }
 

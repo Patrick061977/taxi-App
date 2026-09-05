@@ -327,10 +327,23 @@
             android:id="@+id/btn_colleagues"
             android:layout_width="56dp"
             android:layout_height="56dp"
-            android:layout_marginEnd="6dp"
+            android:layout_marginEnd="4dp"
             android:text="👥"
             android:textSize="20sp"
             app:backgroundTint="#0EA5E9"
+            app:cornerRadius="14dp" />
+
+        <!-- v6.66.12 (Patrick 05.09. 06:39 Bridge): Dispo-12h-Vorschau-Button.
+             "Dispo sollte in Native-App die naechsten 12h zeigen wo die Fahrzeuge
+             eingeplant sind — dass Fahrer auch sehen wer wofuer eingeplant ist". -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_dispo_12h"
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:layout_marginEnd="6dp"
+            android:text="📅"
+            android:textSize="20sp"
+            app:backgroundTint="#10B981"
             app:cornerRadius="14dp" />
 
         <com.google.android.material.button.MaterialButton

@@ -5858,30 +5858,60 @@ public class DriverDashboardActivity extends AppCompatActivity {
                     //   Losfahr-Zeit = pickup - (Anfahrt + 5 Min)
                     //   Formel wie in Cloud v989 (v6.63.1029): losfahrAlarm = pickupTs - (15 + drivingMin) * 60000
                     //   Hier fuer UI verwenden wir (5 + drivingMin) — der Losfahr-Alarm ist enger als der v989-Pacing.
+                    // 🆕 v6.66.26 (Patrick 05.09. 13:11 Bridge Korrektur): der Lock war
+                    //   kontraproduktiv — wenn Fahrgast schon da ist, will Patrick sofort
+                    //   losfahren koennen ohne bis zur berechneten Losfahr-Zeit warten.
+                    //   Neue Logik: Button bleibt IMMER klickbar. Vor der Losfahr-Zeit
+                    //   nur "grau" (Alpha 0.5) + Countdown-Text; Short-Tap zeigt Hinweis
+                    //   Toast, Long-Press = manueller Override → advanceStatus().
                     boolean _stateAccepted = "accepted".equalsIgnoreCase(s);
+                    final boolean[] _isLocked = { false };
+                    final long[] _minUntilLosArr = { 0 };
                     if (_stateAccepted && r.pickupTimestamp != null) {
                         long _driveMinBtn = (r.drivingTimeToPickup != null && r.drivingTimeToPickup > 0) ? r.drivingTimeToPickup : 15;
                         long _losfahrTs = r.pickupTimestamp - (5 + _driveMinBtn) * 60_000L;
                         long _msUntilLos = _losfahrTs - System.currentTimeMillis();
                         if (_msUntilLos > 0) {
-                            // Vor Losfahr-Zeit: grau + Countdown
-                            long _minUntilLos = (_msUntilLos + 30_000L) / 60_000L; // aufgerundet
-                            btnStatusNext.setText("🔒 Losfahren in " + _minUntilLos + " Min");
-                            btnStatusNext.setEnabled(false);
-                            btnStatusNext.setAlpha(0.5f);
+                            // Vor Losfahr-Zeit: grau + Countdown + Override moeglich
+                            long _minUntilLos = (_msUntilLos + 30_000L) / 60_000L;
+                            _isLocked[0] = true;
+                            _minUntilLosArr[0] = _minUntilLos;
+                            btnStatusNext.setText("🔒 Losfahren in " + _minUntilLos + " Min · lang druecken");
+                            btnStatusNext.setEnabled(true);   // bleibt klickbar (v6.66.26)
+                            btnStatusNext.setAlpha(0.55f);
                         } else {
-                            // In Losfahr-Fenster: orange + aktiv
                             btnStatusNext.setText("🚗 JETZT LOSFAHREN");
                             btnStatusNext.setEnabled(true);
                             btnStatusNext.setAlpha(1.0f);
                         }
                     } else {
-                        // on_way / arrived / picked_up: normaler Text + immer aktiv
                         btnStatusNext.setText(nextStatusLabel(r.status));
                         btnStatusNext.setEnabled(true);
                         btnStatusNext.setAlpha(1.0f);
                     }
-                    btnStatusNext.setOnClickListener(v -> advanceStatus(r));
+                    btnStatusNext.setOnClickListener(v -> {
+                        if (_isLocked[0]) {
+                            android.widget.Toast.makeText(DriverDashboardActivity.this,
+                                "🔒 Noch " + _minUntilLosArr[0] + " Min bis Losfahr-Zeit.\n\nLANG druecken um sofort loszufahren.",
+                                android.widget.Toast.LENGTH_LONG).show();
+                            return;
+                        }
+                        advanceStatus(r);
+                    });
+                    // 🆕 v6.66.26: Long-Press-Override — Patrick will manuell entsperren
+                    //   koennen wenn Fahrgast schon vor der berechneten Losfahr-Zeit da ist.
+                    //   Long-Press feuert IMMER advanceStatus() (auch im gesperrten Zustand),
+                    //   Toast quittiert den Override.
+                    btnStatusNext.setLongClickable(true);
+                    btnStatusNext.setOnLongClickListener(_lv -> {
+                        if (_isLocked[0]) {
+                            android.widget.Toast.makeText(DriverDashboardActivity.this,
+                                "🔓 Manuell entsperrt — losfahren", android.widget.Toast.LENGTH_SHORT).show();
+                            logLifecycleTap(r.id, "🔓", "Losfahr-Override (v6.66.26 Long-Press) — " + _minUntilLosArr[0] + " Min vor Losfahr-Zeit", null);
+                        }
+                        advanceStatus(r);
+                        return true;
+                    });
                     // Navigation: vor Pickup → pickup-Adresse, ab picked_up → destination
                     String navAddr = (stl.equals("picked_up") || stl.equals("arrived"))
                         ? (r.destination != null ? r.destination : r.pickup)

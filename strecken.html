@@ -52,27 +52,35 @@ body { margin:0; font-family:system-ui,-apple-system,sans-serif; background:#0f1
 <div class="stats" id="stats">Lade Daten...</div>
 
 <script>
-// Firebase Config (Read-Only für Rides)
+// Firebase Config (identisch zu index.html damit Auth-Persistence greift)
+// 🔧 v6.66.33 (Patrick 05.09. 15:35 Bridge "bin nicht eingeloggt obwohl ich eingeloggt bin"):
+//   authDomain + projectId waren unvollstaendig — ohne authDomain findet Firebase-Auth
+//   die persistierte Session (indexedDB firebaseLocalStorageDb) nicht. Config jetzt
+//   1:1 wie index.html Z. 12972ff.
 const firebaseConfig = {
     apiKey: "AIzaSyDaC8jn-oSJ5xIC6Ky9WHDaJTNjbGrXP8g",
+    authDomain: "taxi-heringsdorf.firebaseapp.com",
     databaseURL: "https://taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.app",
     projectId: "taxi-heringsdorf"
 };
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 const auth = firebase.auth();
-// Auth-Persistence hat den Session-Cookie von index.html falls dort eingeloggt.
-// Falls kein User: Hinweis zeigen (die Ride-Query bei loadRoutes wird sonst permission_denied werfen).
+// v6.66.33: explizit LOCAL-Persistence setzen (Default ist schon LOCAL, aber sicherheitshalber)
+auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(_e => console.warn('setPersistence:', _e.message));
 auth.onAuthStateChanged(user => {
     if (!user) {
+        // Path relativ setzen: strecken.html liegt im gleichen Ordner wie index.html (/Taxi-App/)
         document.getElementById('stats').innerHTML =
             '⚠️ <b>Nicht eingeloggt</b><br>' +
             'Diese Seite braucht Firebase-Auth zum Rides-Lesen.<br>' +
-            'Bitte zuerst auf <a href="/index.html" style="color:#fbbf24">index.html einloggen</a>, ' +
+            'Bitte zuerst auf <a href="index.html" style="color:#fbbf24">index.html einloggen</a>, ' +
             'dann F5 hier.';
         document.getElementById('status').textContent = '❌ Login noetig';
     } else {
         console.log('🔐 Auth OK:', user.email || user.uid);
+        // v6.66.33: sofort loadRoutes triggern sobald User verifiziert ist
+        try { loadRoutes(); } catch (_e) { console.warn('loadRoutes bei Auth:', _e.message); }
     }
 });
 

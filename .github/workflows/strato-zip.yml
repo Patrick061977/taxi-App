@@ -22,6 +22,7 @@ on:
       - 'landing.html'
       - 'landing-v2.html'
       - 'fahrer-map.html'
+      - 'strecken.html'
       - 'urlaub.html'
       - 'reise-radar.html'
       - 'taxi-preise.html'

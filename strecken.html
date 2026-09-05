@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>🗺️ Streckenführung — Funk Taxi Heringsdorf</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-database-compat.js"></script>
+<style>
+body { margin:0; font-family:system-ui,-apple-system,sans-serif; background:#0f172a; color:#e2e8f0; }
+.header { background:#1e293b; padding:12px 16px; display:flex; gap:12px; align-items:center; flex-wrap:wrap; border-bottom:1px solid #334155; }
+.header h1 { margin:0; font-size:18px; color:#fbbf24; }
+.header label { color:#94a3b8; font-size:12px; font-weight:600; }
+.header select, .header input { background:#0f172a; color:#e2e8f0; border:1px solid #334155; border-radius:6px; padding:6px 10px; font-size:12px; }
+.header button { background:#0ea5e9; color:white; border:none; border-radius:6px; padding:8px 14px; font-weight:600; cursor:pointer; }
+#map { height: calc(100vh - 60px); }
+.legend { background:#1e293b; padding:12px; border-radius:8px; border:1px solid #334155; font-size:12px; line-height:1.5; }
+.legend .color-dot { display:inline-block; width:12px; height:12px; border-radius:50%; margin-right:8px; vertical-align:middle; }
+.stats { position:absolute; top:70px; left:16px; z-index:1000; background:rgba(15,23,42,0.9); padding:12px; border-radius:8px; font-size:12px; color:#e2e8f0; max-width:280px; box-shadow:0 4px 12px rgba(0,0,0,0.4); }
+.stats b { color:#fbbf24; }
+</style>
+</head>
+<body>
+
+<div class="header">
+    <h1>🗺️ Streckenführung</h1>
+    <label>Zeitraum:</label>
+    <select id="f-range">
+        <option value="today" selected>Heute</option>
+        <option value="yesterday">Gestern</option>
+        <option value="week">Letzte 7 Tage</option>
+        <option value="30d">Letzte 30 Tage</option>
+    </select>
+    <label>Fahrzeug:</label>
+    <select id="f-vehicle"><option value="">Alle Fahrzeuge</option></select>
+    <label>Zeitfenster:</label>
+    <select id="f-hour">
+        <option value="all" selected>Ganztags</option>
+        <option value="morning">06-12 Uhr</option>
+        <option value="afternoon">12-18 Uhr</option>
+        <option value="evening">18-24 Uhr</option>
+        <option value="night">00-06 Uhr</option>
+    </select>
+    <button onclick="loadRoutes()">🔄 Neu laden</button>
+    <span id="status" style="color:#94a3b8;font-size:11px;margin-left:auto;"></span>
+</div>
+
+<div id="map"></div>
+<div class="stats" id="stats">Lade Daten...</div>
+
+<script>
+// Firebase Config (Read-Only für Rides)
+const firebaseConfig = {
+    apiKey: "AIzaSyDaC8jn-oSJ5xIC6Ky9WHDaJTNjbGrXP8g",
+    databaseURL: "https://taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "taxi-heringsdorf"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+// Vehicle-Farben (konsistent)
+const VEHICLE_COLORS = {
+    'pw-my-222-e':   { color: '#ef4444', name: 'Tesla MY (Patrick)' },
+    'pw-ym-222-e':   { color: '#f59e0b', name: 'Tesla YM (Danilo)' },
+    'pw-ik-222':     { color: '#10b981', name: 'Prius IK (Kulpa)' },
+    'pw-ki-222':     { color: '#06b6d4', name: 'Prius II' },
+    'pw-sk-222':     { color: '#8b5cf6', name: 'Renault 8 Pax' },
+    'vg-lk-111':     { color: '#3b82f6', name: 'Vito 8 Pax' },
+    'ovp-ii-600':    { color: '#ec4899', name: 'Renault (alt)' },
+    'ovp-ik-222':    { color: '#a3a3a3', name: 'VW Passat (alt)' },
+    'pw-sj-222':     { color: '#64748b', name: 'VW Caravelle (alt)' },
+    'sbg-v-104':     { color: '#94a3b8', name: 'Mazda' },
+    'unknown':       { color: '#475569', name: 'Ohne Fahrzeug' }
+};
+
+// Karte initialisieren — Zentrum Insel Usedom
+const map = L.map('map').setView([53.95, 14.15], 11);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 18,
+    attribution: '© OpenStreetMap'
+}).addTo(map);
+
+// Legend
+const legend = L.control({ position: 'bottomright' });
+legend.onAdd = function() {
+    const div = L.DomUtil.create('div', 'legend');
+    div.innerHTML = '<b>Fahrzeuge:</b><br>' +
+        Object.entries(VEHICLE_COLORS).slice(0, 6).map(([id, v]) =>
+            `<span class="color-dot" style="background:${v.color}"></span>${v.name}`
+        ).join('<br>');
+    return div;
+};
+legend.addTo(map);
+
+let routeLayers = [];
+let allRides = [];
+
+function getRange() {
+    const range = document.getElementById('f-range').value;
+    const now = Date.now();
+    const startOfDay = (offsetDays = 0) => {
+        const d = new Date();
+        d.setHours(0,0,0,0);
+        d.setDate(d.getDate() + offsetDays);
+        return d.getTime();
+    };
+    switch(range) {
+        case 'today': return { start: startOfDay(0), end: now };
+        case 'yesterday': return { start: startOfDay(-1), end: startOfDay(0) };
+        case 'week': return { start: startOfDay(-7), end: now };
+        case '30d': return { start: startOfDay(-30), end: now };
+    }
+}
+
+async function loadVehicles() {
+    const sel = document.getElementById('f-vehicle');
+    const snap = await db.ref('vehicles').once('value');
+    const veh = snap.val() || {};
+    Object.entries(veh).forEach(([id, v]) => {
+        const opt = document.createElement('option');
+        opt.value = id;
+        opt.textContent = VEHICLE_COLORS[id]?.name || (v.name || id);
+        sel.appendChild(opt);
+    });
+}
+
+async function loadRoutes() {
+    document.getElementById('status').textContent = '⏳ Lade Rides...';
+    routeLayers.forEach(l => map.removeLayer(l));
+    routeLayers = [];
+
+    const { start, end } = getRange();
+    const vFilter = document.getElementById('f-vehicle').value;
+    const hourFilter = document.getElementById('f-hour').value;
+
+    const snap = await db.ref('rides')
+        .orderByChild('pickupTimestamp')
+        .startAt(start).endAt(end)
+        .once('value');
+    const rides = [];
+    snap.forEach(c => {
+        const r = c.val();
+        if (!r) return;
+        if (!r.pickupLat || !r.pickupLon || !r.destinationLat || !r.destinationLon) return;
+        if (!['completed', 'picked_up', 'on_way', 'arrived', 'accepted'].includes(r.status)) return;
+        if (vFilter && (r.assignedVehicle || r.vehicleId) !== vFilter) return;
+        if (hourFilter !== 'all') {
+            const h = new Date(r.pickupTimestamp).getHours();
+            if (hourFilter === 'morning' && !(h >= 6 && h < 12)) return;
+            if (hourFilter === 'afternoon' && !(h >= 12 && h < 18)) return;
+            if (hourFilter === 'evening' && !(h >= 18 && h < 24)) return;
+            if (hourFilter === 'night' && !(h >= 0 && h < 6)) return;
+        }
+        rides.push(r);
+    });
+
+    let totalKm = 0;
+    let totalPrice = 0;
+    const byVehicle = {};
+
+    rides.forEach(r => {
+        const vid = r.assignedVehicle || r.vehicleId || 'unknown';
+        const color = VEHICLE_COLORS[vid]?.color || '#94a3b8';
+        const startPt = [parseFloat(r.pickupLat), parseFloat(r.pickupLon)];
+        const endPt = [parseFloat(r.destinationLat), parseFloat(r.destinationLon)];
+
+        const line = L.polyline([startPt, endPt], {
+            color, weight: 3, opacity: 0.55
+        }).addTo(map);
+        line.bindTooltip(
+            `${new Date(r.pickupTimestamp).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'})} · ${(r.distance || 0).toFixed(1)}km · €${r.price || '?'}<br>` +
+            `<b>${VEHICLE_COLORS[vid]?.name || vid}</b>`
+        );
+        const startMarker = L.circleMarker(startPt, {
+            radius: 4, color: color, fillColor: color, fillOpacity: 0.9
+        }).addTo(map);
+        const endMarker = L.circleMarker(endPt, {
+            radius: 4, color: color, fillColor: '#fff', fillOpacity: 0.8
+        }).addTo(map);
+
+        routeLayers.push(line, startMarker, endMarker);
+
+        totalKm += (r.distance || 0);
+        totalPrice += parseFloat(r.price) || 0;
+        if (!byVehicle[vid]) byVehicle[vid] = { count: 0, km: 0, price: 0 };
+        byVehicle[vid].count++;
+        byVehicle[vid].km += (r.distance || 0);
+        byVehicle[vid].price += parseFloat(r.price) || 0;
+    });
+
+    document.getElementById('status').textContent = `${rides.length} Rides geladen`;
+    // Stats
+    const statsHtml = `<b>${rides.length}</b> Fahrten · <b>${totalKm.toFixed(0)}</b> km · <b>${totalPrice.toFixed(0)}€</b> Umsatz<br><br>` +
+        Object.entries(byVehicle).sort((a,b) => b[1].count - a[1].count).map(([vid, s]) =>
+            `<span class="color-dot" style="background:${VEHICLE_COLORS[vid]?.color || '#666'}"></span>` +
+            `${VEHICLE_COLORS[vid]?.name || vid}: <b>${s.count}</b> · ${s.km.toFixed(0)}km · ${s.price.toFixed(0)}€`
+        ).join('<br>');
+    document.getElementById('stats').innerHTML = statsHtml;
+}
+
+// Auto-Filter-Change → neu laden
+['f-range', 'f-vehicle', 'f-hour'].forEach(id => {
+    document.getElementById(id).addEventListener('change', loadRoutes);
+});
+
+loadVehicles().then(loadRoutes);
+</script>
+
+</body>
+</html>

@@ -48,19 +48,6 @@ body { margin:0; font-family:system-ui,-apple-system,sans-serif; background:#0f1
     <span id="status" style="color:#94a3b8;font-size:11px;margin-left:auto;"></span>
 </div>
 
-<!-- 🆕 v6.66.35 (Patrick 05.09. 17:45 Bridge): eigenes Login-Feld weil
-     Session-Sharing mit index.html nur bei identischer Origin klappt. -->
-<div id="login-box" style="display:none;background:#1e293b;padding:14px 18px;border-radius:8px;margin:10px;border:1px solid #334155">
-    <div style="color:#fbbf24;font-weight:600;margin-bottom:8px">🔐 Login (Taxi-App-Zugang)</div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-        <input id="str-email" type="email" placeholder="Email" autocomplete="username" style="padding:8px 10px;background:#0f172a;color:#e2e8f0;border:1px solid #475569;border-radius:6px;font-size:13px;min-width:200px">
-        <input id="str-pass" type="password" placeholder="Passwort" autocomplete="current-password" onkeydown="if(event.key==='Enter')strLogin()" style="padding:8px 10px;background:#0f172a;color:#e2e8f0;border:1px solid #475569;border-radius:6px;font-size:13px;min-width:160px">
-        <button onclick="strLogin()" style="padding:8px 14px;background:#3b82f6;color:white;border:0;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600">Einloggen</button>
-        <span id="str-login-err" style="color:#f87171;font-size:12px"></span>
-    </div>
-    <div style="color:#64748b;font-size:11px;margin-top:6px">Nach Login bleibt die Session lokal gespeichert — 1x reicht.</div>
-</div>
-
 <div id="map"></div>
 <div class="stats" id="stats">Lade Daten...</div>
 
@@ -81,43 +68,24 @@ const db = firebase.database();
 const auth = firebase.auth();
 // v6.66.33: explizit LOCAL-Persistence setzen (Default ist schon LOCAL, aber sicherheitshalber)
 auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(_e => console.warn('setPersistence:', _e.message));
+// v6.66.36 (Patrick 05.09. 17:49 "Ich kann mich doch nicht fuer jeden Tab einzeln
+//   einloggen. Es soll ueber Index funktionieren."): eigenes Login-Feld raus.
+//   Fix ist stattdessen relativer Pfad im Button in index.html: window.open('strecken.html')
+//   statt '/strecken.html'. Damit oeffnet der Tab dieselbe Origin wie index.html —
+//   z.B. /Taxi-App/strecken.html statt /strecken.html (was auf Strato 404 gab).
+//   Selbe Origin → Firebase-Auth-Session (IndexedDB) wird automatisch geteilt.
 auth.onAuthStateChanged(user => {
-    const loginBox = document.getElementById('login-box');
     if (!user) {
-        // 🔧 v6.66.35 (Patrick 05.09. 17:45 Bridge): Session-Sharing mit index.html
-        //   funktioniert nur wenn beide Seiten dieselbe Origin haben. Wenn Patrick auf
-        //   z.B. taxi-heringsdorf.web.app eingeloggt ist, aber strecken.html auf
-        //   umwelt-taxi-insel-usedom.de lädt, sind das getrennte IndexedDB-Speicher →
-        //   Session nicht auffindbar. Fix: eigenes Login-Feld direkt in strecken.html.
-        if (loginBox) loginBox.style.display = 'block';
         document.getElementById('stats').innerHTML =
             '⚠️ <b>Nicht eingeloggt</b><br>' +
-            'Bitte oben Email+Passwort eingeben (dein normaler Taxi-App-Login).<br>' +
-            '<span style="font-size:11px;color:#94a3b8">Session wird lokal gespeichert (LocalPersistence) — nur 1x noetig.</span>';
+            'Sollte automatisch vom Haupt-Tab kommen — falls du hier direkt aufrufst, '+
+            'oeffne <a href="index.html" style="color:#fbbf24">index.html</a> im selben Fenster erst.';
         document.getElementById('status').textContent = '❌ Login noetig';
     } else {
         console.log('🔐 Auth OK:', user.email || user.uid);
-        if (loginBox) loginBox.style.display = 'none';
-        // v6.66.33: sofort loadRoutes triggern sobald User verifiziert ist
         try { loadRoutes(); } catch (_e) { console.warn('loadRoutes bei Auth:', _e.message); }
     }
 });
-
-// v6.66.35: Login-Form-Handler
-window.strLogin = async function() {
-    const email = document.getElementById('str-email').value.trim();
-    const pass = document.getElementById('str-pass').value;
-    const err = document.getElementById('str-login-err');
-    err.textContent = '';
-    if (!email || !pass) { err.textContent = 'Email + Passwort noetig'; return; }
-    try {
-        await auth.signInWithEmailAndPassword(email, pass);
-        // onAuthStateChanged uebernimmt Rest (loadRoutes + hide loginBox)
-    } catch (e) {
-        console.error('Login-Fehler:', e);
-        err.textContent = '❌ ' + (e.message || e.code);
-    }
-};
 
 // Vehicle-Farben (konsistent)
 const VEHICLE_COLORS = {

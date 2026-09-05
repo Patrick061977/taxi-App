@@ -3936,9 +3936,28 @@ public class DriverDashboardActivity extends AppCompatActivity {
         }
     }
 
+    // v6.66.16 (Patrick 05.09. 10:02 Bridge): Doppelklick-Schutz auf advanceStatus.
+    //   "Wir muessen zumindest 10, 15 oder vielleicht eine Minute warten koennen,
+    //    weil sonst wird das ein Doppelklick."
+    //   → 10 Sek Cooldown pro Ride pro Status-Advance.
+    //   Prevents versehentliches Doppel-Tap das Status ueberspringen wuerde.
+    private final java.util.Map<String, Long> _advanceStatusLastClick = new java.util.concurrent.ConcurrentHashMap<>();
+
     private void advanceStatus(Ride r) {
         String next = nextStatus(r.status);
         if (next == null) return;
+
+        // v6.66.16 Doppelklick-Schutz: 10 Sek Cooldown pro Ride
+        if (r.id != null) {
+            long _now = System.currentTimeMillis();
+            Long _lastClick = _advanceStatusLastClick.get(r.id);
+            if (_lastClick != null && (_now - _lastClick) < 10_000L) {
+                long _restSec = 10 - (_now - _lastClick) / 1000L;
+                Toast.makeText(this, "⏱ Bitte " + _restSec + "s warten (Doppelklick-Schutz)", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            _advanceStatusLastClick.put(r.id, _now);
+        }
 
         // v6.44.0: Vor Status=completed → erst Bezahl-Dialog zeigen
         // v6.63.188 (Patrick 06.06. 08:37): Bei Einsteiger ohne Vorab-Ziel — wenn destination

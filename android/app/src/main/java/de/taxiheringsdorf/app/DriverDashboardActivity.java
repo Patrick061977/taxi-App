@@ -5772,7 +5772,35 @@ public class DriverDashboardActivity extends AppCompatActivity {
                     btnReject.setOnClickListener(v -> showHandoverChoiceDialog(r.id));
                 }
                 if (isActive) {
-                    btnStatusNext.setText(nextStatusLabel(r.status));
+                    // 🆕 v6.66.17 (Patrick 05.09. 10:09 Bridge, Hybrid-Design):
+                    //   Bin-Unterwegs-Button NUR im Losfahr-Fenster aktiv, davor grau + Countdown.
+                    //   Vermeidet zu-frueh-klicken 30 Min vor Pickup.
+                    //   Losfahr-Zeit = pickup - (Anfahrt + 5 Min)
+                    //   Formel wie in Cloud v989 (v6.63.1029): losfahrAlarm = pickupTs - (15 + drivingMin) * 60000
+                    //   Hier fuer UI verwenden wir (5 + drivingMin) — der Losfahr-Alarm ist enger als der v989-Pacing.
+                    boolean _stateAccepted = "accepted".equalsIgnoreCase(s);
+                    if (_stateAccepted && r.pickupTimestamp != null) {
+                        long _driveMinBtn = (r.drivingTimeToPickup != null && r.drivingTimeToPickup > 0) ? r.drivingTimeToPickup : 15;
+                        long _losfahrTs = r.pickupTimestamp - (5 + _driveMinBtn) * 60_000L;
+                        long _msUntilLos = _losfahrTs - System.currentTimeMillis();
+                        if (_msUntilLos > 0) {
+                            // Vor Losfahr-Zeit: grau + Countdown
+                            long _minUntilLos = (_msUntilLos + 30_000L) / 60_000L; // aufgerundet
+                            btnStatusNext.setText("🔒 Losfahren in " + _minUntilLos + " Min");
+                            btnStatusNext.setEnabled(false);
+                            btnStatusNext.setAlpha(0.5f);
+                        } else {
+                            // In Losfahr-Fenster: orange + aktiv
+                            btnStatusNext.setText("🚗 JETZT LOSFAHREN");
+                            btnStatusNext.setEnabled(true);
+                            btnStatusNext.setAlpha(1.0f);
+                        }
+                    } else {
+                        // on_way / arrived / picked_up: normaler Text + immer aktiv
+                        btnStatusNext.setText(nextStatusLabel(r.status));
+                        btnStatusNext.setEnabled(true);
+                        btnStatusNext.setAlpha(1.0f);
+                    }
                     btnStatusNext.setOnClickListener(v -> advanceStatus(r));
                     // Navigation: vor Pickup → pickup-Adresse, ab picked_up → destination
                     String navAddr = (stl.equals("picked_up") || stl.equals("arrived"))

@@ -5343,21 +5343,32 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 //   → NamePosterActivity (Handy als Pinnwand fuer Bahnhof-Abholung).
                 //   Muss auf tvName sitzen, damit itemView-Long-Press (Sofort-Rechnung
                 //   unten) nicht blockiert wird — die Bereiche sind visuell getrennt.
+                // 🔧 v6.66.25 hotfix (Patrick 05.09. 13:06 Bridge "steht da immer noch
+                //   Bar oder Barrechnung"): TextView ist per default nicht clickable,
+                //   ohne setClickable(true) reicht setOnLongClickListener nicht — das
+                //   ACTION_DOWN bubblet zum itemView, welches den Long-Press dann fuer
+                //   die Sofort-Rechnung abfaengt. Fix: clickable+longClickable explizit
+                //   erzwingen, damit tvName den Touch konsumiert.
                 if (tvName != null) {
                     final String _custPoster = displayCustomerName(r);
+                    tvName.setClickable(true);
+                    tvName.setLongClickable(true);
                     tvName.setOnLongClickListener(_lv -> {
                         try {
-                            if (_custPoster == null || _custPoster.trim().isEmpty()) return false;
+                            if (_custPoster == null || _custPoster.trim().isEmpty()) return true;
                             android.content.Intent _it = new android.content.Intent(
                                 DriverDashboardActivity.this, NamePosterActivity.class);
                             _it.putExtra("name", _custPoster);
                             startActivity(_it);
-                            return true;
                         } catch (Throwable _t) {
                             android.util.Log.w("DriverDashboard", "NamePoster start fail: " + _t.getMessage());
-                            return false;
                         }
+                        return true; // IMMER konsumieren, damit itemView-Long-Press nicht mehr feuert
                     });
+                    // v6.66.25: kurzer Tap auf den Namen soll nichts tun — aber muss
+                    // konsumiert werden (return true nicht noetig, click reicht) damit
+                    // Long-Press-Erkennung sauber funktioniert.
+                    tvName.setOnClickListener(_v -> { /* no-op — bloss um Click zu konsumieren */ });
                 }
 
                 // 🆕 v6.62.972 (Patrick 27.05. 19:47): Sofort-Rechnung per Long-Press

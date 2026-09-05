@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  v6.66.24 (Patrick 05.09. 12:20 Bridge): Vollbild-Poster fuer Gast-Abholung am Bahnhof.
+  Long-Press auf Kunden-Namen in der Ride-Card → diese Activity → Handy als Pinnwand.
+  Tap = Farb-Toggle (schwarz/weiss).
+-->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/np_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#000000"
+    android:keepScreenOn="true"
+    android:padding="16dp">
+
+    <TextView
+        android:id="@+id/np_name"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:gravity="center"
+        android:textColor="#FFFFFF"
+        android:textStyle="bold"
+        android:includeFontPadding="false"
+        android:text="Name"
+        android:autoSizeTextType="uniform"
+        android:autoSizeMinTextSize="60sp"
+        android:autoSizeMaxTextSize="400sp"
+        android:autoSizeStepGranularity="2sp" />
+
+    <TextView
+        android:id="@+id/np_hint"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|center_horizontal"
+        android:layout_marginBottom="12dp"
+        android:text="Tippen: Farbe umschalten · Zurück: schließen"
+        android:textColor="#66FFFFFF"
+        android:textSize="12sp" />
+
+</FrameLayout>

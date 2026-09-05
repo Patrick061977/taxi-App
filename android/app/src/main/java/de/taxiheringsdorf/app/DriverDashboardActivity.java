@@ -5339,6 +5339,27 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 itemView.setOnClickListener(null);  // v6.62.523: Storno-Click-Listener entfernen
                 itemView.setBackgroundColor(Color.parseColor("#1E293B"));
 
+                // 🆕 v6.66.24 (Patrick 05.09. 12:20 Bridge): Long-Press auf Kunden-Name
+                //   → NamePosterActivity (Handy als Pinnwand fuer Bahnhof-Abholung).
+                //   Muss auf tvName sitzen, damit itemView-Long-Press (Sofort-Rechnung
+                //   unten) nicht blockiert wird — die Bereiche sind visuell getrennt.
+                if (tvName != null) {
+                    final String _custPoster = displayCustomerName(r);
+                    tvName.setOnLongClickListener(_lv -> {
+                        try {
+                            if (_custPoster == null || _custPoster.trim().isEmpty()) return false;
+                            android.content.Intent _it = new android.content.Intent(
+                                DriverDashboardActivity.this, NamePosterActivity.class);
+                            _it.putExtra("name", _custPoster);
+                            startActivity(_it);
+                            return true;
+                        } catch (Throwable _t) {
+                            android.util.Log.w("DriverDashboard", "NamePoster start fail: " + _t.getMessage());
+                            return false;
+                        }
+                    });
+                }
+
                 // 🆕 v6.62.972 (Patrick 27.05. 19:47): Sofort-Rechnung per Long-Press
                 // 'Kunde sitzt schon im Auto, ich klick einmal' — überspringt bin-fertig/bin-hier-Workflow.
                 // Long-Press auf Karte → Dialog mit Preis (estimatedPrice editierbar) → Confirm:

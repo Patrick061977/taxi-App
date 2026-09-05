@@ -181,6 +181,16 @@
             android:launchMode="singleTask"
             android:exported="false" />
 
+        <!-- 🆕 v6.66.24 (Patrick 05.09. 12:20 Bridge): NamePosterActivity — Vollbild-Poster
+             fuer Bahnhof-Abholung. Long-Press auf Kunden-Name in Ride-Card oeffnet diese
+             Activity mit dem Namen in riesigem Text; Tap = Farb-Toggle schwarz/weiss. -->
+        <activity
+            android:name=".NamePosterActivity"
+            android:label="Namensschild"
+            android:theme="@style/AppTheme.Driver"
+            android:screenOrientation="unspecified"
+            android:exported="false" />
+
         <!-- v6.63.598: InvoicesActivity — Rechnungen-Übersicht + Versand -->
         <activity
             android:name=".InvoicesActivity"

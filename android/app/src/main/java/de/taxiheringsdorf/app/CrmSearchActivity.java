@@ -3133,7 +3133,7 @@ public class CrmSearchActivity extends AppCompatActivity {
                 final Object _rrDLat = _rr.get("destLat");
                 final Object _rrDLon = _rr.get("destLon");
                 if (_rrPickup == null || _rrDest == null) continue;
-                String _dateStr = _rrTs != null ? _sdfRecent.format(new Date(_rrTs)) : "?";
+                String _dateStr = _rrTs != null ? _sdfRecent.format(new java.util.Date(_rrTs)) : "?";
                 String _priceStr = _rrPrice != null ? " · " + _rrPrice + "€" : "";
                 String _shortPickup = _rrPickup.length() > 22 ? _rrPickup.substring(0, 20) + "…" : _rrPickup;
                 String _shortDest = _rrDest.length() > 22 ? _rrDest.substring(0, 20) + "…" : _rrDest;

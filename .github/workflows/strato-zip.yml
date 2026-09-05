@@ -23,6 +23,8 @@ on:
       - 'landing-v2.html'
       - 'fahrer-map.html'
       - 'strecken.html'
+      - 'wann-lohnt.html'
+      - 'stats/**'
       - 'urlaub.html'
       - 'reise-radar.html'
       - 'taxi-preise.html'

@@ -2398,6 +2398,23 @@
             ">
                 🗺️ Strecken
             </button>
+            <!-- 🆕 v6.66.42 (Patrick 05.09. 22:20 Bridge [T]): Wann-lohnt 7x24-Matrix
+                 aus HALE-24-Monats-Analyse. Damit Patrick morgens beim Kaffee sieht
+                 welche Slots heute prio sind (Sa 17-22h Peak, Werktag-Nacht Flop). -->
+            <button onclick="window.open('wann-lohnt.html', '_blank')" class="admin-tab-btn admin-only" style="
+                padding: 10px 16px;
+                border: 2px solid #f59e0b;
+                background: white;
+                color: #f59e0b;
+                border-radius: 8px;
+                font-weight: 600;
+                font-size: 13px;
+                cursor: pointer;
+                white-space: nowrap;
+                transition: all 0.2s;
+            ">
+                📈 Wann lohnt
+            </button>
             <!-- 🆕 v5.89: KALENDER-TAB (Direkt-Sprung zu Vorbestellungen!) -->
             <button onclick="switchView('calendar')" class="admin-tab-btn admin-only tab-toggleable" data-view="calendar" data-tab-id="calendar" style="
                 padding: 10px 16px;
@@ -13239,7 +13256,7 @@
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
         const APP_VERSION = '6.63.996';
-        const APP_BUILD = '05.09.2026 15:51';
+        const APP_BUILD = '05.09.2026 17:35';
         const APP_CHANGE = 'fix v6.63.643: ✓ Erledigt-Button im Wartepool-Banner + kunden.html Fahrhistorie per CRM-ID (kein globales Limit mehr).';
 
         // 🔧 FIX: Mache APP_VERSION global verfügbar

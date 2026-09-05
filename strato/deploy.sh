@@ -53,6 +53,7 @@ APP_FILES=(
     "kein-bock-zu-laufen.html"
     "fahrer-map.html"
     "strecken.html"
+    "wann-lohnt.html"
     "berlin.html"
     "berlin-uebersicht.html"
     "tagesplan.html"
@@ -144,6 +145,17 @@ if [ -d "$PROJECT_ROOT/images" ]; then
     mkdir -p "$OUTPUT_DIR/Taxi-App/images"
     cp -r "$PROJECT_ROOT/images/"* "$OUTPUT_DIR/Taxi-App/images/" 2>/dev/null || true
     find "$OUTPUT_DIR/Taxi-App/images" -type f | while read f; do
+        echo "   -> ${f#$OUTPUT_DIR/Taxi-App/}"
+    done
+fi
+
+# 🆕 v6.66.42 (Patrick 05.09. 22:20 Bridge [T]): stats/ Ordner mitkopieren
+#   fuer wann-lohnt.html + Kuenftige Statistik-Auswertungen (HALE-Analyse etc.)
+if [ -d "$PROJECT_ROOT/stats" ]; then
+    echo "5e) stats/ Ordner kopieren..."
+    mkdir -p "$OUTPUT_DIR/Taxi-App/stats"
+    cp -r "$PROJECT_ROOT/stats/"* "$OUTPUT_DIR/Taxi-App/stats/" 2>/dev/null || true
+    find "$OUTPUT_DIR/Taxi-App/stats" -type f | while read f; do
         echo "   -> ${f#$OUTPUT_DIR/Taxi-App/}"
     done
 fi

@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>📈 Wann lohnt es sich? — Funk Taxi Heringsdorf</title>
+<style>
+* { box-sizing: border-box; }
+body {
+    background: #0a1120; color: #e2e8f0; font-family: -apple-system, system-ui, sans-serif;
+    margin: 0; padding: 20px; min-height: 100vh;
+}
+h1 { color: #fbbf24; margin: 0 0 6px 0; font-size: 22px; }
+.sub { color: #94a3b8; font-size: 13px; margin-bottom: 24px; }
+.meta { display: flex; gap: 20px; margin-bottom: 24px; flex-wrap: wrap; }
+.meta > div { background: #1e293b; padding: 12px 18px; border-radius: 8px; border: 1px solid #334155; }
+.meta b { color: #fbbf24; display: block; font-size: 18px; }
+.meta span { color: #94a3b8; font-size: 11px; text-transform: uppercase; }
+table.matrix { border-collapse: collapse; width: 100%; max-width: 1200px; }
+table.matrix th, table.matrix td { padding: 6px 4px; text-align: center; font-size: 12px; border: 1px solid #0a1120; }
+table.matrix th { background: #1e293b; color: #94a3b8; font-weight: 600; }
+table.matrix td.day { background: #1e293b; color: #fbbf24; font-weight: 700; text-align: right; padding-right: 10px; }
+table.matrix td.cell { color: #e2e8f0; font-weight: 600; cursor: default; transition: transform 0.1s; }
+table.matrix td.cell:hover { transform: scale(1.15); z-index: 10; position: relative; box-shadow: 0 0 0 2px #fbbf24; }
+.legend { margin-top: 20px; padding: 12px; background: #1e293b; border-radius: 8px; font-size: 12px; color: #94a3b8; }
+.legend b { color: #e2e8f0; }
+.tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+.tab-btn { padding: 8px 16px; background: #1e293b; border: 1px solid #334155; color: #94a3b8; border-radius: 6px; cursor: pointer; font-size: 13px; }
+.tab-btn.active { background: #fbbf24; color: #0a1120; border-color: #fbbf24; font-weight: 700; }
+.hint { color: #64748b; font-size: 11px; margin-top: 8px; }
+a { color: #fbbf24; text-decoration: none; }
+a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+
+<h1>📈 Wann lohnt es sich?</h1>
+<div class="sub">7×24-Umsatz-Matrix aus HALE-Daten der letzten 24 Monate · <a href="index.html">← zurueck zum Admin</a></div>
+
+<div class="meta" id="meta">Lade...</div>
+
+<div class="tabs">
+    <button class="tab-btn active" onclick="setMode('eurWeek')">💰 EUR/Woche</button>
+    <button class="tab-btn" onclick="setMode('countWeek')">🚗 Fahrten/Woche</button>
+    <button class="tab-btn" onclick="setMode('avgEurRide')">💎 Ø EUR/Fahrt</button>
+</div>
+
+<table class="matrix" id="mtx"></table>
+
+<div class="legend">
+    <b>Farbcode:</b>
+    <span style="background:#dc2626;color:white;padding:2px 6px;border-radius:3px;margin:0 4px">Flop</span>
+    <span style="background:#f59e0b;color:#0a1120;padding:2px 6px;border-radius:3px;margin:0 4px">mittel</span>
+    <span style="background:#22c55e;color:#0a1120;padding:2px 6px;border-radius:3px;margin:0 4px">gut</span>
+    <span style="background:#facc15;color:#0a1120;padding:2px 6px;border-radius:3px;margin:0 4px">🔥 Peak</span>
+    <div class="hint">Werte sind Wochen-Durchschnitte aus 24 Monaten HALE-Daten. Ein Feld = Wochentag × Stunde. Hover fuer Details.</div>
+</div>
+
+<script>
+let DATA = null;
+let MODE = 'eurWeek';
+
+async function load() {
+    const r = await fetch('/stats/wann-lohnt-matrix.json?t=' + Date.now());
+    DATA = await r.json();
+    document.getElementById('meta').innerHTML =
+        `<div><b>${DATA.totalRides.toLocaleString('de-DE')}</b><span>Kunden-Fahrten (24 Mon)</span></div>
+         <div><b>${DATA.totalRevenue.toLocaleString('de-DE',{maximumFractionDigits:0})} €</b><span>Umsatz gesamt</span></div>
+         <div><b>${DATA.weeksInWindow}</b><span>Wochen im Fenster</span></div>
+         <div><b>${new Date(DATA.generatedAt).toLocaleDateString('de-DE')}</b><span>Stand</span></div>`;
+    render();
+}
+
+function setMode(m) {
+    MODE = m;
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    event.target.classList.add('active');
+    render();
+}
+
+function colorFor(v, max) {
+    if (v === 0) return '#0f172a';
+    const pct = v / max;
+    if (pct >= 0.75) return '#facc15';    // Peak gelb
+    if (pct >= 0.50) return '#22c55e';    // gut gruen
+    if (pct >= 0.25) return '#f59e0b';    // mittel orange
+    return '#7f1d1d';                     // flop dunkelrot
+}
+function textColorFor(bg) {
+    return (bg === '#facc15' || bg === '#22c55e' || bg === '#f59e0b') ? '#0a1120' : '#e2e8f0';
+}
+
+function render() {
+    if (!DATA) return;
+    const dayOrder = [1,2,3,4,5,6,0]; // Mo-So (statt So=0 zuerst)
+    const dayLbl = ['So','Mo','Di','Mi','Do','Fr','Sa'];
+    let max = 0;
+    DATA.matrix.forEach(row => row.forEach(c => { if (c[MODE] > max) max = c[MODE]; }));
+    let html = '<thead><tr><th></th>';
+    for (let h = 0; h < 24; h++) html += `<th>${h.toString().padStart(2,'0')}</th>`;
+    html += '</tr></thead><tbody>';
+    for (const d of dayOrder) {
+        html += `<tr><td class="day">${dayLbl[d]}</td>`;
+        for (let h = 0; h < 24; h++) {
+            const c = DATA.matrix[d][h];
+            const v = c[MODE];
+            const bg = colorFor(v, max);
+            const fg = textColorFor(bg);
+            let disp = '';
+            if (MODE === 'eurWeek') disp = v >= 1 ? Math.round(v) : (v > 0 ? '·' : '');
+            else if (MODE === 'countWeek') disp = v >= 1 ? Math.round(v * 10) / 10 : (v > 0 ? '·' : '');
+            else disp = v >= 1 ? Math.round(v) : '';
+            const tip = `${dayLbl[d]} ${h}:00\n💰 ${c.eurWeek} €/Woche\n🚗 ${c.countWeek} Fahrten/Woche\n💎 Ø ${c.avgEurRide} €/Fahrt`;
+            html += `<td class="cell" style="background:${bg};color:${fg}" title="${tip}">${disp}</td>`;
+        }
+        html += '</tr>';
+    }
+    html += '</tbody>';
+    document.getElementById('mtx').innerHTML = html;
+}
+
+load();
+</script>
+
+</body>
+</html>

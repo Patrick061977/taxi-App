@@ -1,0 +1,872 @@
+{
+  "generatedAt": 1788629604990,
+  "windowMonths": 24,
+  "weeksInWindow": 104,
+  "totalRides": 19021,
+  "totalRevenue": 354607.89999999927,
+  "matrix": [
+    [
+      {
+        "eurWeek": 34.3,
+        "countWeek": 1.4,
+        "avgEurRide": 24.7
+      },
+      {
+        "eurWeek": 26.5,
+        "countWeek": 1,
+        "avgEurRide": 25.7
+      },
+      {
+        "eurWeek": 21.4,
+        "countWeek": 0.7,
+        "avgEurRide": 32.7
+      },
+      {
+        "eurWeek": 6,
+        "countWeek": 0.2,
+        "avgEurRide": 25
+      },
+      {
+        "eurWeek": 2.1,
+        "countWeek": 0.1,
+        "avgEurRide": 27.6
+      },
+      {
+        "eurWeek": 1.8,
+        "countWeek": 0,
+        "avgEurRide": 45.7
+      },
+      {
+        "eurWeek": 1.6,
+        "countWeek": 0.1,
+        "avgEurRide": 11.9
+      },
+      {
+        "eurWeek": 10.8,
+        "countWeek": 0.7,
+        "avgEurRide": 15.1
+      },
+      {
+        "eurWeek": 21.6,
+        "countWeek": 1.2,
+        "avgEurRide": 18.2
+      },
+      {
+        "eurWeek": 30.5,
+        "countWeek": 1.7,
+        "avgEurRide": 17.7
+      },
+      {
+        "eurWeek": 44.4,
+        "countWeek": 2.4,
+        "avgEurRide": 18.8
+      },
+      {
+        "eurWeek": 34.6,
+        "countWeek": 1.8,
+        "avgEurRide": 19.7
+      },
+      {
+        "eurWeek": 24.4,
+        "countWeek": 1.4,
+        "avgEurRide": 16.9
+      },
+      {
+        "eurWeek": 35.4,
+        "countWeek": 1.6,
+        "avgEurRide": 22.2
+      },
+      {
+        "eurWeek": 28.1,
+        "countWeek": 1.7,
+        "avgEurRide": 16.8
+      },
+      {
+        "eurWeek": 33.3,
+        "countWeek": 1.8,
+        "avgEurRide": 18.2
+      },
+      {
+        "eurWeek": 30.6,
+        "countWeek": 1.7,
+        "avgEurRide": 18.3
+      },
+      {
+        "eurWeek": 24.6,
+        "countWeek": 1.4,
+        "avgEurRide": 17.7
+      },
+      {
+        "eurWeek": 31.8,
+        "countWeek": 1.6,
+        "avgEurRide": 20.2
+      },
+      {
+        "eurWeek": 23.6,
+        "countWeek": 1.4,
+        "avgEurRide": 17.4
+      },
+      {
+        "eurWeek": 20.2,
+        "countWeek": 1.3,
+        "avgEurRide": 16.1
+      },
+      {
+        "eurWeek": 22.4,
+        "countWeek": 1.2,
+        "avgEurRide": 19.1
+      },
+      {
+        "eurWeek": 17.9,
+        "countWeek": 0.8,
+        "avgEurRide": 22.2
+      },
+      {
+        "eurWeek": 5.3,
+        "countWeek": 0.3,
+        "avgEurRide": 19.1
+      }
+    ],
+    [
+      {
+        "eurWeek": 1.6,
+        "countWeek": 0.1,
+        "avgEurRide": 20.3
+      },
+      {
+        "eurWeek": 0.4,
+        "countWeek": 0,
+        "avgEurRide": 14.1
+      },
+      {
+        "eurWeek": 0,
+        "countWeek": 0,
+        "avgEurRide": 0
+      },
+      {
+        "eurWeek": 0,
+        "countWeek": 0,
+        "avgEurRide": 0
+      },
+      {
+        "eurWeek": 0,
+        "countWeek": 0,
+        "avgEurRide": 0
+      },
+      {
+        "eurWeek": 0.5,
+        "countWeek": 0,
+        "avgEurRide": 27.6
+      },
+      {
+        "eurWeek": 4.8,
+        "countWeek": 0.1,
+        "avgEurRide": 35.6
+      },
+      {
+        "eurWeek": 9.4,
+        "countWeek": 0.6,
+        "avgEurRide": 16.9
+      },
+      {
+        "eurWeek": 13.3,
+        "countWeek": 0.9,
+        "avgEurRide": 15.4
+      },
+      {
+        "eurWeek": 17.6,
+        "countWeek": 1.1,
+        "avgEurRide": 15.9
+      },
+      {
+        "eurWeek": 27.5,
+        "countWeek": 1.4,
+        "avgEurRide": 19.6
+      },
+      {
+        "eurWeek": 28.2,
+        "countWeek": 1.5,
+        "avgEurRide": 18.3
+      },
+      {
+        "eurWeek": 24.3,
+        "countWeek": 1.4,
+        "avgEurRide": 17.2
+      },
+      {
+        "eurWeek": 28.3,
+        "countWeek": 1.6,
+        "avgEurRide": 18.1
+      },
+      {
+        "eurWeek": 25.1,
+        "countWeek": 1.5,
+        "avgEurRide": 16.6
+      },
+      {
+        "eurWeek": 26.6,
+        "countWeek": 1.6,
+        "avgEurRide": 16.2
+      },
+      {
+        "eurWeek": 22,
+        "countWeek": 1.5,
+        "avgEurRide": 14.2
+      },
+      {
+        "eurWeek": 26,
+        "countWeek": 1.5,
+        "avgEurRide": 17.5
+      },
+      {
+        "eurWeek": 19.7,
+        "countWeek": 1.3,
+        "avgEurRide": 15.7
+      },
+      {
+        "eurWeek": 20.9,
+        "countWeek": 1.5,
+        "avgEurRide": 13.5
+      },
+      {
+        "eurWeek": 17.9,
+        "countWeek": 1.1,
+        "avgEurRide": 15.8
+      },
+      {
+        "eurWeek": 17.7,
+        "countWeek": 1,
+        "avgEurRide": 16.9
+      },
+      {
+        "eurWeek": 15.9,
+        "countWeek": 0.8,
+        "avgEurRide": 19.6
+      },
+      {
+        "eurWeek": 6.7,
+        "countWeek": 0.2,
+        "avgEurRide": 30.2
+      }
+    ],
+    [
+      {
+        "eurWeek": 1,
+        "countWeek": 0,
+        "avgEurRide": 51.2
+      },
+      {
+        "eurWeek": 0,
+        "countWeek": 0,
+        "avgEurRide": 0
+      },
+      {
+        "eurWeek": 0,
+        "countWeek": 0,
+        "avgEurRide": 0
+      },
+      {
+        "eurWeek": 0,
+        "countWeek": 0,
+        "avgEurRide": 0
+      },
+      {
+        "eurWeek": 0,
+        "countWeek": 0,
+        "avgEurRide": 0
+      },
+      {
+        "eurWeek": 1.3,
+        "countWeek": 0,
+        "avgEurRide": 65
+      },
+      {
+        "eurWeek": 1.9,
+        "countWeek": 0.1,
+        "avgEurRide": 25
+      },
+      {
+        "eurWeek": 8.2,
+        "countWeek": 0.6,
+        "avgEurRide": 13.9
+      },
+      {
+        "eurWeek": 11.1,
+        "countWeek": 0.8,
+        "avgEurRide": 14.1
+      },
+      {
+        "eurWeek": 20.9,
+        "countWeek": 1.4,
+        "avgEurRide": 14.8
+      },
+      {
+        "eurWeek": 21.9,
+        "countWeek": 1.4,
+        "avgEurRide": 15.6
+      },
+      {
+        "eurWeek": 22.3,
+        "countWeek": 1.3,
+        "avgEurRide": 16.7
+      },
+      {
+        "eurWeek": 23.3,
+        "countWeek": 1.2,
+        "avgEurRide": 19
+      },
+      {
+        "eurWeek": 27.9,
+        "countWeek": 1.6,
+        "avgEurRide": 17.8
+      },
+      {
+        "eurWeek": 29.4,
+        "countWeek": 1.6,
+        "avgEurRide": 18.3
+      },
+      {
+        "eurWeek": 28.5,
+        "countWeek": 1.9,
+        "avgEurRide": 14.8
+      },
+      {
+        "eurWeek": 20.2,
+        "countWeek": 1.1,
+        "avgEurRide": 17.7
+      },
+      {
+        "eurWeek": 22.8,
+        "countWeek": 1.2,
+        "avgEurRide": 19
+      },
+      {
+        "eurWeek": 19.3,
+        "countWeek": 1.3,
+        "avgEurRide": 15
+      },
+      {
+        "eurWeek": 25.2,
+        "countWeek": 1.5,
+        "avgEurRide": 17.2
+      },
+      {
+        "eurWeek": 19.2,
+        "countWeek": 1.2,
+        "avgEurRide": 15.5
+      },
+      {
+        "eurWeek": 25.5,
+        "countWeek": 1.3,
+        "avgEurRide": 19.1
+      },
+      {
+        "eurWeek": 17.6,
+        "countWeek": 0.9,
+        "avgEurRide": 20.4
+      },
+      {
+        "eurWeek": 3.4,
+        "countWeek": 0.2,
+        "avgEurRide": 20.7
+      }
+    ],
+    [
+      {
+        "eurWeek": 0.7,
+        "countWeek": 0,
+        "avgEurRide": 14.4
+      },
+      {
+        "eurWeek": 0.8,
+        "countWeek": 0,
+        "avgEurRide": 20.8
+      },
+      {
+        "eurWeek": 0.7,
+        "countWeek": 0,
+        "avgEurRide": 19.2
+      },
+      {
+        "eurWeek": 0.8,
+        "countWeek": 0,
+        "avgEurRide": 39.3
+      },
+      {
+        "eurWeek": 2,
+        "countWeek": 0,
+        "avgEurRide": 67.7
+      },
+      {
+        "eurWeek": 2.1,
+        "countWeek": 0.1,
+        "avgEurRide": 35.5
+      },
+      {
+        "eurWeek": 5.5,
+        "countWeek": 0.2,
+        "avgEurRide": 30.1
+      },
+      {
+        "eurWeek": 12.9,
+        "countWeek": 0.7,
+        "avgEurRide": 18.9
+      },
+      {
+        "eurWeek": 14.5,
+        "countWeek": 0.8,
+        "avgEurRide": 18.9
+      },
+      {
+        "eurWeek": 25.4,
+        "countWeek": 1.3,
+        "avgEurRide": 19.9
+      },
+      {
+        "eurWeek": 23.3,
+        "countWeek": 1.3,
+        "avgEurRide": 17.9
+      },
+      {
+        "eurWeek": 27.2,
+        "countWeek": 1.5,
+        "avgEurRide": 18
+      },
+      {
+        "eurWeek": 21.8,
+        "countWeek": 1.3,
+        "avgEurRide": 16.4
+      },
+      {
+        "eurWeek": 26.7,
+        "countWeek": 1.5,
+        "avgEurRide": 18.4
+      },
+      {
+        "eurWeek": 29,
+        "countWeek": 1.5,
+        "avgEurRide": 19.8
+      },
+      {
+        "eurWeek": 28.9,
+        "countWeek": 1.6,
+        "avgEurRide": 18.3
+      },
+      {
+        "eurWeek": 24.5,
+        "countWeek": 1.3,
+        "avgEurRide": 18.7
+      },
+      {
+        "eurWeek": 20.7,
+        "countWeek": 1.1,
+        "avgEurRide": 18.1
+      },
+      {
+        "eurWeek": 24.1,
+        "countWeek": 1.4,
+        "avgEurRide": 16.8
+      },
+      {
+        "eurWeek": 24.9,
+        "countWeek": 1.6,
+        "avgEurRide": 15.6
+      },
+      {
+        "eurWeek": 24.3,
+        "countWeek": 1.4,
+        "avgEurRide": 17.5
+      },
+      {
+        "eurWeek": 24.9,
+        "countWeek": 1.4,
+        "avgEurRide": 17.9
+      },
+      {
+        "eurWeek": 24.3,
+        "countWeek": 1.2,
+        "avgEurRide": 20.6
+      },
+      {
+        "eurWeek": 6.9,
+        "countWeek": 0.3,
+        "avgEurRide": 24
+      }
+    ],
+    [
+      {
+        "eurWeek": 2.3,
+        "countWeek": 0.1,
+        "avgEurRide": 26.1
+      },
+      {
+        "eurWeek": 3.4,
+        "countWeek": 0.1,
+        "avgEurRide": 25
+      },
+      {
+        "eurWeek": 1.8,
+        "countWeek": 0.1,
+        "avgEurRide": 23.3
+      },
+      {
+        "eurWeek": 0.6,
+        "countWeek": 0,
+        "avgEurRide": 16.8
+      },
+      {
+        "eurWeek": 0,
+        "countWeek": 0,
+        "avgEurRide": 0
+      },
+      {
+        "eurWeek": 0.5,
+        "countWeek": 0,
+        "avgEurRide": 24.6
+      },
+      {
+        "eurWeek": 4.1,
+        "countWeek": 0.1,
+        "avgEurRide": 30.7
+      },
+      {
+        "eurWeek": 6.5,
+        "countWeek": 0.5,
+        "avgEurRide": 13.2
+      },
+      {
+        "eurWeek": 14.4,
+        "countWeek": 0.7,
+        "avgEurRide": 20.5
+      },
+      {
+        "eurWeek": 25.7,
+        "countWeek": 1.5,
+        "avgEurRide": 17.3
+      },
+      {
+        "eurWeek": 25.5,
+        "countWeek": 1.7,
+        "avgEurRide": 15.2
+      },
+      {
+        "eurWeek": 26.3,
+        "countWeek": 1.5,
+        "avgEurRide": 17.3
+      },
+      {
+        "eurWeek": 27.6,
+        "countWeek": 1.4,
+        "avgEurRide": 19.1
+      },
+      {
+        "eurWeek": 23.7,
+        "countWeek": 1.5,
+        "avgEurRide": 16.2
+      },
+      {
+        "eurWeek": 29.6,
+        "countWeek": 1.7,
+        "avgEurRide": 17.9
+      },
+      {
+        "eurWeek": 27.9,
+        "countWeek": 1.6,
+        "avgEurRide": 17.3
+      },
+      {
+        "eurWeek": 25.6,
+        "countWeek": 1.3,
+        "avgEurRide": 20.3
+      },
+      {
+        "eurWeek": 34.3,
+        "countWeek": 1.7,
+        "avgEurRide": 20.6
+      },
+      {
+        "eurWeek": 30.9,
+        "countWeek": 1.8,
+        "avgEurRide": 17.7
+      },
+      {
+        "eurWeek": 31.9,
+        "countWeek": 1.9,
+        "avgEurRide": 16.8
+      },
+      {
+        "eurWeek": 26.6,
+        "countWeek": 1.5,
+        "avgEurRide": 18.1
+      },
+      {
+        "eurWeek": 34.8,
+        "countWeek": 1.8,
+        "avgEurRide": 19.4
+      },
+      {
+        "eurWeek": 29.3,
+        "countWeek": 1.5,
+        "avgEurRide": 19
+      },
+      {
+        "eurWeek": 16,
+        "countWeek": 0.8,
+        "avgEurRide": 19.6
+      }
+    ],
+    [
+      {
+        "eurWeek": 4.5,
+        "countWeek": 0.2,
+        "avgEurRide": 29.6
+      },
+      {
+        "eurWeek": 1,
+        "countWeek": 0,
+        "avgEurRide": 20.3
+      },
+      {
+        "eurWeek": 1,
+        "countWeek": 0,
+        "avgEurRide": 20.1
+      },
+      {
+        "eurWeek": 0,
+        "countWeek": 0,
+        "avgEurRide": 0
+      },
+      {
+        "eurWeek": 0,
+        "countWeek": 0,
+        "avgEurRide": 0
+      },
+      {
+        "eurWeek": 1.1,
+        "countWeek": 0.1,
+        "avgEurRide": 14.8
+      },
+      {
+        "eurWeek": 1.8,
+        "countWeek": 0.1,
+        "avgEurRide": 20.4
+      },
+      {
+        "eurWeek": 15.4,
+        "countWeek": 0.6,
+        "avgEurRide": 25.5
+      },
+      {
+        "eurWeek": 15.4,
+        "countWeek": 1.1,
+        "avgEurRide": 14.5
+      },
+      {
+        "eurWeek": 26,
+        "countWeek": 1.3,
+        "avgEurRide": 20.8
+      },
+      {
+        "eurWeek": 30.4,
+        "countWeek": 1.8,
+        "avgEurRide": 17.2
+      },
+      {
+        "eurWeek": 33,
+        "countWeek": 1.7,
+        "avgEurRide": 19.7
+      },
+      {
+        "eurWeek": 28.7,
+        "countWeek": 1.5,
+        "avgEurRide": 18.8
+      },
+      {
+        "eurWeek": 35.3,
+        "countWeek": 1.5,
+        "avgEurRide": 23.1
+      },
+      {
+        "eurWeek": 23.6,
+        "countWeek": 1.5,
+        "avgEurRide": 15.8
+      },
+      {
+        "eurWeek": 31.1,
+        "countWeek": 1.7,
+        "avgEurRide": 17.9
+      },
+      {
+        "eurWeek": 25.4,
+        "countWeek": 1.4,
+        "avgEurRide": 18.1
+      },
+      {
+        "eurWeek": 32,
+        "countWeek": 1.8,
+        "avgEurRide": 17.7
+      },
+      {
+        "eurWeek": 43,
+        "countWeek": 2.4,
+        "avgEurRide": 17.6
+      },
+      {
+        "eurWeek": 37.9,
+        "countWeek": 2.4,
+        "avgEurRide": 15.5
+      },
+      {
+        "eurWeek": 32.1,
+        "countWeek": 1.8,
+        "avgEurRide": 17.9
+      },
+      {
+        "eurWeek": 32.8,
+        "countWeek": 1.8,
+        "avgEurRide": 18.5
+      },
+      {
+        "eurWeek": 41.1,
+        "countWeek": 2.3,
+        "avgEurRide": 18.3
+      },
+      {
+        "eurWeek": 43.5,
+        "countWeek": 1.9,
+        "avgEurRide": 22.8
+      }
+    ],
+    [
+      {
+        "eurWeek": 19.1,
+        "countWeek": 0.9,
+        "avgEurRide": 21.1
+      },
+      {
+        "eurWeek": 17.3,
+        "countWeek": 0.6,
+        "avgEurRide": 30.5
+      },
+      {
+        "eurWeek": 7.3,
+        "countWeek": 0.3,
+        "avgEurRide": 27.2
+      },
+      {
+        "eurWeek": 1.1,
+        "countWeek": 0,
+        "avgEurRide": 28.6
+      },
+      {
+        "eurWeek": 1.1,
+        "countWeek": 0,
+        "avgEurRide": 109.2
+      },
+      {
+        "eurWeek": 1,
+        "countWeek": 0,
+        "avgEurRide": 20.4
+      },
+      {
+        "eurWeek": 2.6,
+        "countWeek": 0.1,
+        "avgEurRide": 17.7
+      },
+      {
+        "eurWeek": 13.4,
+        "countWeek": 0.9,
+        "avgEurRide": 14.5
+      },
+      {
+        "eurWeek": 19.3,
+        "countWeek": 1.3,
+        "avgEurRide": 14.6
+      },
+      {
+        "eurWeek": 29.5,
+        "countWeek": 1.8,
+        "avgEurRide": 16.8
+      },
+      {
+        "eurWeek": 41.8,
+        "countWeek": 2.3,
+        "avgEurRide": 17.8
+      },
+      {
+        "eurWeek": 30,
+        "countWeek": 1.6,
+        "avgEurRide": 18.3
+      },
+      {
+        "eurWeek": 30.8,
+        "countWeek": 1.6,
+        "avgEurRide": 18.7
+      },
+      {
+        "eurWeek": 44.1,
+        "countWeek": 2.1,
+        "avgEurRide": 21
+      },
+      {
+        "eurWeek": 46,
+        "countWeek": 2.2,
+        "avgEurRide": 20.8
+      },
+      {
+        "eurWeek": 51.6,
+        "countWeek": 2.4,
+        "avgEurRide": 21.6
+      },
+      {
+        "eurWeek": 60.8,
+        "countWeek": 2.6,
+        "avgEurRide": 23.2
+      },
+      {
+        "eurWeek": 66.9,
+        "countWeek": 3.2,
+        "avgEurRide": 21
+      },
+      {
+        "eurWeek": 68.3,
+        "countWeek": 3.1,
+        "avgEurRide": 22
+      },
+      {
+        "eurWeek": 50.5,
+        "countWeek": 2.7,
+        "avgEurRide": 18.6
+      },
+      {
+        "eurWeek": 48.5,
+        "countWeek": 2.4,
+        "avgEurRide": 20.5
+      },
+      {
+        "eurWeek": 45.6,
+        "countWeek": 2.3,
+        "avgEurRide": 20.3
+      },
+      {
+        "eurWeek": 49,
+        "countWeek": 2.3,
+        "avgEurRide": 21.2
+      },
+      {
+        "eurWeek": 43.4,
+        "countWeek": 2,
+        "avgEurRide": 21.8
+      }
+    ]
+  ],
+  "dayNames": [
+    "So",
+    "Mo",
+    "Di",
+    "Mi",
+    "Do",
+    "Fr",
+    "Sa"
+  ]
+}

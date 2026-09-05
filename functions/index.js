@@ -26523,9 +26523,15 @@ exports.scheduledAutoAssign = onSchedule(
                                     pickupTimeShifted: true,
                                     originalPickupTimestamp: ride.pickupTimestamp,
                                     pickupShiftReason: `Fahrzeug ${bestCandidate.name} erst ab ${_sPrevEndFormatted} frei (Vorfahrt)`,
-                                    pickupShiftMinutes: _sDelayMin
+                                    pickupShiftMinutes: _sDelayMin,
+                                    // 🆕 v6.66.13 (Patrick 05.09. 07:41 Bridge, Mayer-Vorfall):
+                                    //   Marker fuer onRideUpdated damit Karenz-Regel (SMS-Skip <=5 Min)
+                                    //   greifen kann. shiftedBy = welcher Cron-Handler war der Ausloeser.
+                                    _shiftedByCloud: true,
+                                    _shiftedByHandler: 'v6.25.5-autoResolveConflicts',
+                                    editedBy: 'cloud-autoResolveConflicts'
                                 };
-                                console.log(`   🔄 v6.25.5: Abholzeit verschoben → ${_sNewFormatted} (+${_sDelayMin} Min)`);
+                                console.log(`   🔄 v6.25.5: Abholzeit verschoben → ${_sNewFormatted} (+${_sDelayMin} Min) [ride ${rideId}, orig=${new Date(ride.pickupTimestamp).toLocaleTimeString('de-DE',{timeZone:'Europe/Berlin',hour:'2-digit',minute:'2-digit'})}, reason=${_shiftInfo.pickupShiftReason}]`);
                             }
                         }
                     }
@@ -31973,7 +31979,21 @@ exports.onRideUpdated = onValueUpdated(
                 if (!_skipChangeSms) {
                     if (_norm(before.pickup) !== _norm(after.pickup)) _changed.push('Abholort');
                     if (_norm(before.destination) !== _norm(after.destination)) _changed.push('Zielort');
-                    if (_normTs(before.pickupTimestamp) !== _normTs(after.pickupTimestamp)) _changed.push('Abholzeit');
+                    if (_normTs(before.pickupTimestamp) !== _normTs(after.pickupTimestamp)) {
+                        // 🆕 v6.66.13 (Patrick 05.09. 07:41 Bridge, Mayer-Vorfall):
+                        //   Wenn Cloud-Auto-Shift <=5 Min (v6.25.5-Konflikt oder Karenz-Regel)
+                        //   → KEINE Aenderungs-SMS an Kunde. Grund: 2-Min-Shift + 4 Min spaeter
+                        //   Rueckgaengig-Machung = 2 SMS an Kundin fuer nichts. Karenz-Regel
+                        //   (Memory feedback_karenz-5min-beide-richtungen): bis 5 Min egal.
+                        const _shiftMs = Math.abs(_normTs(after.pickupTimestamp) - _normTs(before.pickupTimestamp));
+                        const _shiftMin = _shiftMs / 60000;
+                        const _isCloudShift = after.editedBy === 'cloud-autoResolveConflicts' || after._shiftedByCloud === true;
+                        if (_isCloudShift && _shiftMin <= 5) {
+                            console.log(`📲 ChangeSMS skip (Karenz-Regel v6.66.13: Cloud-Shift ${_shiftMin.toFixed(1)} Min <=5, quelle=${after.editedBy || '?'}) ${rideId}`);
+                        } else {
+                            _changed.push('Abholzeit');
+                        }
+                    }
                     if (_wpBefore !== _wpAfter) _changed.push('Zwischenstop(s)');
                 } else if (_ageMs < 60_000) {
                     console.log(`📲 ChangeSMS skip (Sofort-Buchung-Cooldown, age ${Math.round(_ageMs/1000)}s, isJetzt=${after.isJetzt}) ${rideId}`);

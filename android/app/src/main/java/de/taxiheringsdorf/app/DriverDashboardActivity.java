@@ -262,6 +262,16 @@ public class DriverDashboardActivity extends AppCompatActivity {
         btnPinRecordings = findViewById(R.id.btn_pin_recordings);
         btnPinMap = findViewById(R.id.btn_pin_map);
         btnColleagues = findViewById(R.id.btn_colleagues);
+        // v6.66.12 (Patrick 05.09. Bridge): 12h-Dispo-Vorschau — Fahrer sieht wer wofuer eingeplant
+        View btnDispo12h = findViewById(R.id.btn_dispo_12h);
+        if (btnDispo12h != null) {
+            btnDispo12h.setOnClickListener(v -> {
+                Intent intent = new Intent(this, DispoActivity.class);
+                intent.putExtra("horizon_hours", 12);
+                intent.putExtra("driver_view", true);
+                startActivity(intent);
+            });
+        }
         shiftStatsRow = findViewById(R.id.shift_stats_row);
         rvRides = findViewById(R.id.rv_rides);
         emptyState = findViewById(R.id.empty_state);

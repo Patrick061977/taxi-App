@@ -65,6 +65,11 @@ public class DispoActivity extends AppCompatActivity {
         llUpcoming = findViewById(R.id.ll_upcoming_rides);
         tvMeta = findViewById(R.id.tv_dispo_meta);
 
+        // v6.66.12 (Patrick 05.09. Bridge): wenn von DriverDashboard mit horizon_hours=12 kommt,
+        //   Default-Horizont ueberschreiben (statt aus settings/dispo laden).
+        int _extraHorizon = getIntent().getIntExtra("horizon_hours", 0);
+        if (_extraHorizon > 0) _horizonHours = _extraHorizon;
+
         loadAndRender();
     }
 

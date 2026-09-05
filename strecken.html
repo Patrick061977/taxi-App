@@ -155,30 +155,50 @@ async function loadRoutes() {
     routeLayers.forEach(l => map.removeLayer(l));
     routeLayers = [];
 
+    // v6.66.34 (Patrick 17:41 Bridge "eingeloggt, funktioniert trotzdem nicht"):
+    //   sichtbares Error-Reporting statt still-scheitern. Diagnostik in stats-Box.
+    if (!auth.currentUser) {
+        document.getElementById('stats').innerHTML = '⚠️ Auth-User ist null zum Query-Zeitpunkt — warte auf onAuthStateChanged';
+        document.getElementById('status').textContent = '❌ warte auf Auth';
+        return;
+    }
+
     const { start, end } = getRange();
     const vFilter = document.getElementById('f-vehicle').value;
     const hourFilter = document.getElementById('f-hour').value;
+    console.log('🔍 loadRoutes:', { user: auth.currentUser.email || auth.currentUser.uid, start: new Date(start).toISOString(), end: new Date(end).toISOString(), vFilter, hourFilter });
 
-    const snap = await db.ref('rides')
-        .orderByChild('pickupTimestamp')
-        .startAt(start).endAt(end)
-        .once('value');
+    let snap;
+    try {
+        snap = await db.ref('rides')
+            .orderByChild('pickupTimestamp')
+            .startAt(start).endAt(end)
+            .once('value');
+    } catch (err) {
+        console.error('❌ Rides-Query error:', err);
+        document.getElementById('stats').innerHTML = '❌ <b>Firebase-Fehler beim Laden:</b><br>' + (err.message || err.code || String(err));
+        document.getElementById('status').textContent = '❌ ' + (err.code || 'error');
+        return;
+    }
+    const totalSnap = snap.numChildren();
+    let skipNoCoords = 0, skipStatus = 0, skipVehicle = 0, skipHour = 0;
     const rides = [];
     snap.forEach(c => {
         const r = c.val();
         if (!r) return;
-        if (!r.pickupLat || !r.pickupLon || !r.destinationLat || !r.destinationLon) return;
-        if (!['completed', 'picked_up', 'on_way', 'arrived', 'accepted'].includes(r.status)) return;
-        if (vFilter && (r.assignedVehicle || r.vehicleId) !== vFilter) return;
+        if (!r.pickupLat || !r.pickupLon || !r.destinationLat || !r.destinationLon) { skipNoCoords++; return; }
+        if (!['completed', 'picked_up', 'on_way', 'arrived', 'accepted'].includes(r.status)) { skipStatus++; return; }
+        if (vFilter && (r.assignedVehicle || r.vehicleId) !== vFilter) { skipVehicle++; return; }
         if (hourFilter !== 'all') {
             const h = new Date(r.pickupTimestamp).getHours();
-            if (hourFilter === 'morning' && !(h >= 6 && h < 12)) return;
-            if (hourFilter === 'afternoon' && !(h >= 12 && h < 18)) return;
-            if (hourFilter === 'evening' && !(h >= 18 && h < 24)) return;
-            if (hourFilter === 'night' && !(h >= 0 && h < 6)) return;
+            if (hourFilter === 'morning' && !(h >= 6 && h < 12)) { skipHour++; return; }
+            if (hourFilter === 'afternoon' && !(h >= 12 && h < 18)) { skipHour++; return; }
+            if (hourFilter === 'evening' && !(h >= 18 && h < 24)) { skipHour++; return; }
+            if (hourFilter === 'night' && !(h >= 0 && h < 6)) { skipHour++; return; }
         }
         rides.push(r);
     });
+    console.log('🔍 Filter:', { totalSnap, kept: rides.length, skipNoCoords, skipStatus, skipVehicle, skipHour });
 
     let totalKm = 0;
     let totalPrice = 0;
@@ -246,13 +266,27 @@ async function loadRoutes() {
     });
 
     document.getElementById('status').textContent = `${rides.length} Rides geladen`;
-    // Stats
+    // Stats + Diagnose-Zeile falls 0 Rides
+    let diag = '';
+    if (rides.length === 0) {
+        diag = `<div style="color:#f59e0b;margin-top:8px;font-size:11px">
+            ⚠️ Keine Rides passen zum Filter. Snapshot hatte ${totalSnap} Kinder im Zeitraum.<br>
+            Skips: ${skipNoCoords} ohne Coords · ${skipStatus} falscher Status · ${skipVehicle} Vehicle-Filter · ${skipHour} Stunden-Filter
+        </div>`;
+    }
     const statsHtml = `<b>${rides.length}</b> Fahrten · <b>${totalKm.toFixed(0)}</b> km · <b>${totalPrice.toFixed(0)}€</b> Umsatz<br><br>` +
         Object.entries(byVehicle).sort((a,b) => b[1].count - a[1].count).map(([vid, s]) =>
             `<span class="color-dot" style="background:${VEHICLE_COLORS[vid]?.color || '#666'}"></span>` +
             `${VEHICLE_COLORS[vid]?.name || vid}: <b>${s.count}</b> · ${s.km.toFixed(0)}km · ${s.price.toFixed(0)}€`
-        ).join('<br>');
+        ).join('<br>') + diag;
     document.getElementById('stats').innerHTML = statsHtml;
+    // Bounds auf alle Rides zoomen wenn welche geladen — Karte war vorher immer auf Init-View
+    if (rides.length > 0) {
+        try {
+            const group = L.featureGroup(routeLayers.filter(l => l instanceof L.Polyline));
+            if (group.getLayers().length) map.fitBounds(group.getBounds().pad(0.05));
+        } catch (_e) { console.warn('fitBounds:', _e.message); }
+    }
 }
 
 // Auto-Filter-Change → neu laden
@@ -260,7 +294,15 @@ async function loadRoutes() {
     document.getElementById(id).addEventListener('change', loadRoutes);
 });
 
-loadVehicles().then(loadRoutes);
+// v6.66.34: loadVehicles darf nicht scheitern-lassen. loadRoutes triggert onAuthStateChanged
+//   ODER hier direkt sobald User schon eingeloggt.
+loadVehicles().catch(e => {
+    console.warn('loadVehicles error:', e);
+    document.getElementById('stats').innerHTML = '⚠️ Vehicle-Liste-Fehler: ' + e.message + ' — Rides trotzdem versuchen';
+}).then(() => {
+    // wenn Auth-User schon da → sofort laden, sonst wartet onAuthStateChanged
+    if (auth.currentUser) loadRoutes();
+});
 </script>
 
 </body>

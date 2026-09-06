@@ -5869,13 +5869,16 @@ public class DriverDashboardActivity extends AppCompatActivity {
                     final long[] _minUntilLosArr = { 0 };
                     if (_stateAccepted && r.pickupTimestamp != null) {
                         long _driveMinBtn = (r.drivingTimeToPickup != null && r.drivingTimeToPickup > 0) ? r.drivingTimeToPickup : 15;
-                        // 🔧 v6.66.27 (Patrick 05.09. 13:11 Bridge Korrektur):
-                        //   "eigentlich muesste immer so 15 Minuten vor der Zeit, natuerlich,
-                        //   wie gesagt, wir haben das ja inklusive Anfahrt, muesste der
-                        //   Losfahr-Button entriegelt werden. Also 15 Minuten vor der Zeit."
-                        //   Vorher (5 + driveMin) war ein Buffer-Minuten-Fehler. Jetzt (15 + driveMin)
-                        //   deckungsgleich mit Cloud-Losfahr-Alarm v989 (v6.63.1029).
-                        long _losfahrTs = r.pickupTimestamp - (15 + _driveMinBtn) * 60_000L;
+                        // 🔧 v6.66.28 (Patrick 06.09. 11:27 Bridge Korrektur):
+                        //   "15 Min vor Pickup GESAMT, nicht zusaetzlich zur Anfahrt".
+                        //   Alte Formel (15 + driveMin) war zu konservativ bei kurzen Fahrten
+                        //   (6 Min Anfahrt = 21 Min vor Pickup losfahren = 15 Min warten).
+                        //   Neue Formel: max(15 Min, Anfahrt + 5 Min Puffer).
+                        //   Bei 6 Min Anfahrt: max(15, 11) = 15 Min vor Pickup (9 Min warten)
+                        //   Bei 20 Min Anfahrt: max(15, 25) = 25 Min vor Pickup (5 Min warten)
+                        //   Bei 45 Min: max(15, 50) = 50 Min vor.
+                        long _bufMin = Math.max(15, _driveMinBtn + 5);
+                        long _losfahrTs = r.pickupTimestamp - _bufMin * 60_000L;
                         long _msUntilLos = _losfahrTs - System.currentTimeMillis();
                         if (_msUntilLos > 0) {
                             // Vor Losfahr-Zeit: grau + Countdown + Override moeglich

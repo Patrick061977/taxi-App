@@ -34168,10 +34168,21 @@ exports.scheduledDepartureAlert = onSchedule(
                 //   Vorher wartete Timer erst auf den LOSFAHR-Alarm (pickup-15-drivingTime) —
                 //   deshalb saß eine Ride nach Zuweisung ohne 1-Min-Deadline. Jetzt: jeder
                 //   assign startet 90s-Timer sofort.
+                // 🔧 v6.66.43 (Patrick 06.09. 11:27 + 11:58 Bridge "Ok" Freigabe):
+                //   Bei ACCEPTED-Fahrten NUR nach Losfahr-Alarm reassignen. Zwischen Accept
+                //   und Losfahr-Alarm (der bei Nicole erst 15 Min vor Pickup feuert) bleibt
+                //   die Fahrt beim Fahrer. Sonst passiert Patricks Problem: Fahrer akzeptiert
+                //   30 Min vor Pickup, geht zum Auto, 90s spaeter → Fahrt weg.
+                //   Bei NICHT-accepted (assigned/sofort/vorbestellt) bleibt v6.63.821 aktiv:
+                //   90s ohne Accept-Klick → Reassign.
                 const _sentAt = r.departureAlertSentAt || 0;
                 const _assignedAt821 = r.assignedAt || 0;
-                const _startTs = _sentAt || _assignedAt821;
-                if (!_startTs) return; // weder push noch assign
+                const _statusLow = String(r.status || '').toLowerCase();
+                const _isAccepted = _statusLow === 'accepted';
+                const _startTs = _isAccepted
+                    ? _sentAt                             // v6.66.43: bei accepted NUR Losfahr-Alarm
+                    : (_sentAt || _assignedAt821);       // v6.63.821: bei assigned/sofort auch assign
+                if (!_startTs) return; // weder push noch assign (bei accepted: kein Losfahr-Alarm = kein Reassign)
                 const _ageMs = Date.now() - _startTs;
                 if (_ageMs < 90_000) return; // < 90s → warten
                 if (_ageMs > 10 * 60_000) return; // > 10 Min → skip (v6.63.770 15-Min-Timeout übernimmt)

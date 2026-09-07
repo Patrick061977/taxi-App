@@ -13270,7 +13270,15 @@ async function applyAdminAddressChange(chatId, rideId, field, addressText, geo) 
         const dLon = field === 'destination' ? (geo ? geo.lon : null) : existingRide.destinationLon;
         if (pLat && pLon && dLat && dLon) {
             try {
-                const route = await calculateRoute({ lat: pLat, lon: pLon }, { lat: dLat, lon: dLon });
+                // v6.66.46 (Patrick 07.09. Spandau-Bug): calculateRoute MUSS die Waypoints
+                // mitbekommen — sonst berechnet OSRM nur Pickup→Ziel Luftlinie und der
+                // Preis ist zu niedrig. Spandau-Ride hatte 1.3 km / 9.80€ statt ~5 km / ~15€.
+                const _wpCoords = Array.isArray(existingRide.waypoints)
+                    ? existingRide.waypoints
+                        .filter(w => w && typeof w.lat === 'number' && typeof w.lon === 'number')
+                        .map(w => ({ lat: w.lat, lon: w.lon }))
+                    : [];
+                const route = await calculateRoute({ lat: pLat, lon: pLon }, { lat: dLat, lon: dLon }, _wpCoords);
                 if (route && route.distance && parseFloat(route.distance) <= 500) {
                     const pickupTs = existingRide.pickupTimestamp || Date.now();
                     // v6.62.440: persons + waypointCount aus existingRide weitergeben

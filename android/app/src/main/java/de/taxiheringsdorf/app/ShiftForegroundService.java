@@ -376,9 +376,13 @@ public class ShiftForegroundService extends Service {
                     // v6.62.1: Patrick: 'GPS-Sprünge — Bülowstraße statt Neuhoferstraße'.
                     // FusedLocationProvider mischt GPS + Wifi + Cell. Bei schwachem GPS
                     // schaltet er auf Wifi (Accuracy 50-200m) → Position springt 100m+ um.
-                    // Filter: Accuracy > 50m verwerfen (außer wir hatten noch keine).
-                    if (loc.hasAccuracy() && loc.getAccuracy() > 50f && lastLat != null) {
-                        Log.d(TAG, "📍 GPS verworfen (Accuracy " + loc.getAccuracy() + "m > 50m)");
+                    // 🔧 v6.66.44 (Patrick 06.09. 19:26 Bridge "Handy in Tesla-Ladeschale
+                    //   → GPS 100-300m Ungenauigkeit → autoArrived triggert nie"): Filter
+                    //   von 50m auf 100m gelockert. Dashboard hat adaptiven Radius
+                    //   (bis 200m) — kommt mit der zusaetzlichen Ungenauigkeit klar.
+                    //   Ohne diesen Fix wurden alle Tesla-Ladeschalen-Updates verworfen.
+                    if (loc.hasAccuracy() && loc.getAccuracy() > 100f && lastLat != null) {
+                        Log.d(TAG, "📍 GPS verworfen (Accuracy " + loc.getAccuracy() + "m > 100m — auch nach v6.66.44-Lockerung)");
                         return;
                     }
                     // v6.62.1: Implausibel schnelle Sprünge filtern (Teleport-Glitch).

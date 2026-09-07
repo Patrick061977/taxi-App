@@ -712,6 +712,10 @@ public class DriverDashboardActivity extends AppCompatActivity {
         Object latObj = s.child("lat").getValue();
         Object lonObj = s.child("lon").getValue();
         Object tsObj = s.child("timestamp").getValue();
+        // 🆕 v6.66.44: GPS-Accuracy aus vehicles/{id}/accuracy lesen (falls ShiftForegroundService
+        //   das mitschreibt) — sonst mit letztem bekannten Wert weiter arbeiten.
+        Object accObj = s.child("accuracy").getValue();
+        if (accObj instanceof Number) setLastGpsAccuracy(((Number) accObj).floatValue());
         if (latObj instanceof Number && lonObj instanceof Number) {
             double vLat = ((Number) latObj).doubleValue();
             double vLon = ((Number) lonObj).doubleValue();
@@ -736,9 +740,24 @@ public class DriverDashboardActivity extends AppCompatActivity {
     private final java.util.Map<String, Double> _arrivedAtLon = new java.util.HashMap<>();
     private final java.util.Map<String, double[]> _lastGpsForSpeed = new java.util.HashMap<>(); // [lat, lon, ts]
 
+    // 🆕 v6.66.44 (Patrick 06.09. 19:26 Bridge): adaptiver GPS-Radius je nach Accuracy.
+    //   Bei schlechtem GPS-Signal (z.B. Handy in Tesla-Ladeschale = Metall-Kaefig)
+    //   ist accuracy 100-300m — 80m-Fixradius wird NIE getroffen → Auto-arrived
+    //   feuert nie. Fix: Radius adaptiv wachsen.
+    private volatile float _lastGpsAccuracy = -1f;
+    public void setLastGpsAccuracy(float acc) { this._lastGpsAccuracy = acc; }
+    private double adaptiveArrivedRadius() {
+        // GPS accuracy unbekannt → konservativ 100m
+        if (_lastGpsAccuracy < 0) return 100.0;
+        if (_lastGpsAccuracy <= 30f) return 80.0;    // gutes GPS → enge Praezision
+        if (_lastGpsAccuracy <= 100f) return 150.0;  // mittleres GPS → Toleranz
+        return 200.0;                                 // ungenaues GPS (Ladeschale/Tunnel) → Ladeschalen-Modus
+    }
+
     private void checkGpsAutoStatus(double vLat, double vLon) {
         if (myAssignedRides == null) return;
         long now = System.currentTimeMillis();
+        final double arrivedRadius = adaptiveArrivedRadius();
         for (Ride r : new ArrayList<>(myAssignedRides)) {
             if (r == null || r.id == null) continue;
             String st = r.status != null ? r.status.toLowerCase() : "";
@@ -748,13 +767,13 @@ public class DriverDashboardActivity extends AppCompatActivity {
             if (st.equals("on_way")) {
                 if (r.pickupLat == null || r.pickupLon == null) continue;
                 double dist = haversineMeters(vLat, vLon, r.pickupLat, r.pickupLon);
-                if (dist < 80.0) {
+                if (dist < arrivedRadius) {
                     // 5s Stabilitaet — erstes Mal innerhalb 80m? Merke ts. Zweites Mal nach 5s? Trigger.
                     Long firstSeen = _autoArrivedFirstSeen.get(r.id);
                     if (firstSeen == null) {
                         _autoArrivedFirstSeen.put(r.id, now);
                     } else if (now - firstSeen >= 5_000) {
-                        triggerAutoStatus(r, "arrived", "GPS " + Math.round(dist) + "m vom Pickup");
+                        triggerAutoStatus(r, "arrived", "GPS " + Math.round(dist) + "m vom Pickup (Radius " + Math.round(arrivedRadius) + "m, accuracy " + Math.round(_lastGpsAccuracy) + "m)");
                         _autoArrivedFirstSeen.remove(r.id);
                         _arrivedAtLat.put(r.id, vLat);
                         _arrivedAtLon.put(r.id, vLon);

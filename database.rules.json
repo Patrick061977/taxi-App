@@ -22,6 +22,11 @@
       ".indexOn": ["pickupTs"]
     },
 
+    "gvWatchlist": {
+      ".read": true,
+      ".write": true
+    },
+
     "archiveRides": {
       ".read": "auth != null",
       ".write": "auth != null",

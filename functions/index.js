@@ -1809,8 +1809,15 @@ async function autoAssignRide(rideId, rideData, _excludeVehicleIds = []) {
             //   Anfahrt > 15+10 Min → RAUS, nächster Kandidat kommt dran.
             if (rideData.pickupLat && rideData.pickupLon && _vData.lat && _vData.lon && _vData.timestamp) {
                 const _msUntilPickup = rideData.pickupTimestamp ? (rideData.pickupTimestamp - Date.now()) : 0;
-                const _inDistributionWindow = _msUntilPickup <= 30 * 60 * 1000; // Sofort (≤0) + Vorbestellung ≤30min
-                const _hasFreshGps = (Date.now() - _vData.timestamp) < 30 * 60 * 1000;
+                // 🔧 v6.66.45 (Patrick 07.09. 10:47 Bridge "solange Fahrer nicht im Umkreis
+                //   ist, brauchst du den gar nicht vorschlagen"): Fenster erweitert von
+                //   30min-Cap auf 120min. Vorher: Vorbestellung 66min → Check greift NICHT →
+                //   Kulpa in Greifswald bekam Ahlbeck-Bahnhofsfahrt zugewiesen (unschaffbar).
+                //   Neu: auch bei 30-120min Pickup pruefen ob Anfahrt realistisch — nur bei
+                //   >120min Vorlauf annehmen dass der Fahrer sich noch woanders hinbewegt.
+                //   GPS-Alter-Fenster analog erweitert (bis 60min alt fuer Vorbestellungen).
+                const _inDistributionWindow = _msUntilPickup <= 120 * 60 * 1000;
+                const _hasFreshGps = (Date.now() - _vData.timestamp) < (_msUntilPickup <= 30 * 60 * 1000 ? 30 : 60) * 60 * 1000;
                 if (_inDistributionWindow && _hasFreshGps) {
                     const _R = 6371;
                     const _lat1 = Number(_vData.lat) * Math.PI / 180;
@@ -1822,9 +1829,12 @@ async function autoAssignRide(rideId, rideData, _excludeVehicleIds = []) {
                     const _estAnfahrtMin = Math.ceil(_distKm * 1.5);
                     // Sofort-Baseline: min. 15 Min ansetzen (Kunde erwartet Wagen in Kürze)
                     const _minsUntilPickup = Math.max(15, Math.floor(_msUntilPickup / 60000));
-                    const _bufferMin = 10;
+                    // Puffer je nach Vorlauf: bei Sofort 10 Min, bei Vorbestellung 5 Min
+                    // (Puffer im 30-120-Min-Bereich waere zu grosszuegig — Fahrer sollte
+                    // realistisch dahin fahren koennen mit kleinerem Puffer).
+                    const _bufferMin = _msUntilPickup <= 30 * 60 * 1000 ? 10 : 5;
                     if (_estAnfahrtMin > _minsUntilPickup + _bufferMin) {
-                        console.log(`   ❌ ${info.name}: v6.63.876 GPS-Reality — ~${_estAnfahrtMin}min Anfahrt für ${_distKm.toFixed(1)}km, Pickup in ${_minsUntilPickup}min → schafft es nicht`);
+                        console.log(`   ❌ ${info.name}: v6.66.45 GPS-Reality — ~${_estAnfahrtMin}min Anfahrt für ${_distKm.toFixed(1)}km, Pickup in ${_minsUntilPickup}min (+${_bufferMin}min Puffer) → schafft es nicht`);
                         vehicleScores[vehicleId] = { status: 'rejected', reason: `GPS-Reality: ~${_estAnfahrtMin}min Anfahrt (${_distKm.toFixed(1)}km) vs. Pickup in ${_minsUntilPickup}min`, check: 'gps-reality', distKm: Math.round(_distKm * 10) / 10, estAnfahrtMin: _estAnfahrtMin, minsUntilPickup: _minsUntilPickup };
                         continue;
                     }
@@ -35096,7 +35106,14 @@ exports.scheduledLateCheck = onSchedule(
                     //   später"): Default umgestellt von opt-out auf opt-in. Nur wenn
                     //   notifyLateSms === true wird eine Verspaetungs-SMS an den Kunden
                     //   verschickt. Undefined/false/null → keine SMS.
-                    const _rideSmsAllowed = ride.notifyLateSms === true;
+                    // 🔧 v6.66.45 (Patrick 07.09. 10:47 Bridge: "Du sollst nur intern
+                    //   ueberpruefen, keine SMS an Kunde"): Master-Off ueber
+                    //   settings/pricing/disableAutoLateSms. Wenn true → NIE Late-SMS,
+                    //   auch wenn Buchung notifyLateSms=true hat.
+                    //   Hintergrund: Hensel-Fall 07.09. — Cloud-Function hat 66min-SMS
+                    //   raus BEVOR LATE-RESCUE Vito zuwies. Kunde erhielt falsche Warnung.
+                    const _masterOff = settings.disableAutoLateSms === true;
+                    const _rideSmsAllowed = !_masterOff && ride.notifyLateSms === true;
                     if (_customerSmsEnabled && _rideSmsAllowed && Math.round(delayMin) >= _customerNotifyThreshold && !ride.lateCustomerNotifiedAt) {
                         const _custPhone = ride.customerMobile || ride.customerPhone;
                         if (_custPhone && /[0-9]/.test(_custPhone)) {

@@ -4014,13 +4014,12 @@ public class DriverDashboardActivity extends AppCompatActivity {
         String next = nextStatus(r.status);
         if (next == null) return;
 
-        // v6.66.16 Doppelklick-Schutz: 10 Sek Cooldown pro Ride
+        // v6.66.48 (Patrick 08.09. 21:44): Klickschutz 10s → 2s. 10s waren zu strikt fuer normalen Workflow.
         if (r.id != null) {
             long _now = System.currentTimeMillis();
             Long _lastClick = _advanceStatusLastClick.get(r.id);
-            if (_lastClick != null && (_now - _lastClick) < 10_000L) {
-                long _restSec = 10 - (_now - _lastClick) / 1000L;
-                Toast.makeText(this, "⏱ Bitte " + _restSec + "s warten (Doppelklick-Schutz)", Toast.LENGTH_SHORT).show();
+            if (_lastClick != null && (_now - _lastClick) < 2_000L) {
+                Toast.makeText(this, "⏱ Bitte kurz warten (Doppelklick-Schutz)", Toast.LENGTH_SHORT).show();
                 return;
             }
             _advanceStatusLastClick.put(r.id, _now);

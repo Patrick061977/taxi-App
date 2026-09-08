@@ -32989,6 +32989,76 @@ exports.onVehicleShiftPlanChanged = onValueUpdated(
     }
 );
 
+// 🆕 v6.66.47 (Patrick 08.09.: "wenn ich HomeCoords aendere, soll Score live neu berechnet werden"):
+// Wenn admin homeCoords eines Fahrzeugs aendert → alle unassigned/vorbestellt-Rides in naechsten
+// 120min recomputen, weil sich Anfahrt-Malus geaendert hat.
+exports.onVehicleHomeCoordsChanged = onValueUpdated(
+    {
+        ref: '/vehicles/{vehicleId}/homeCoords',
+        region: 'europe-west1',
+        instance: 'taxi-heringsdorf-default-rtdb',
+        memory: '512MiB',
+        timeoutSeconds: 60
+    },
+    async (event) => {
+        const vid = event.params.vehicleId;
+        const before = event.data.before.val();
+        const after = event.data.after.val();
+        if (!after || !after.lat || !after.lon) return;
+        // Kein echter Change (gleiche Coords) → skip
+        if (before && before.lat === after.lat && before.lon === after.lon) return;
+        console.log(`🏠 onVehicleHomeCoordsChanged: ${vid} homeCoords geaendert → recompute Vorbestellungs-Scores`);
+        try {
+            const now = Date.now();
+            const WINDOW_MS = 120 * 60 * 1000;
+            // 1. Rides mit assignedVehicle=vid + vorbestellt/assigned in nachsten 120min → neu evaluieren
+            //    (dieses Fahrzeug ist jetzt evtl weiter weg als optimal)
+            // 2. Wartepool-Rides (kein assignedVehicle) in naechsten 120min → autoAssign
+            const ridesSnap = await db.ref('rides').once('value');
+            const rides = ridesSnap.val() || {};
+            const candidates = [];
+            for (const [id, r] of Object.entries(rides)) {
+                if (!r || !r.pickupTimestamp) continue;
+                if (r.pickupTimestamp <= now || r.pickupTimestamp > now + WINDOW_MS) continue;
+                if (r.status === 'completed' || r.status === 'cancelled') continue;
+                // NUR reassignable — Locks respektieren (Patrick's Regel)
+                if (r.assignmentLocked === true) continue;
+                if (r.assignedBy && (r.assignedBy.startsWith('claude-manual-') || r.assignedBy === 'manual-admin' || r.assignedBy === 'native_dashboard_grab')) continue;
+                // Nur wenn NOCH nicht angenommen (accepted-Rides nicht anfassen)
+                if (r.status === 'accepted' || r.status === 'on_way' || r.status === 'picked_up') continue;
+                candidates.push([id, r]);
+            }
+            console.log(`🏠 ${candidates.length} Rides in Reassign-Window`);
+            let reassigned = 0, unchanged = 0;
+            const changes = [];
+            for (const [id, r] of candidates) {
+                const oldVeh = r.assignedVehicle;
+                try {
+                    const result = await autoAssignRide(id, r);
+                    if (result && result.vehicleId && result.vehicleId !== oldVeh) {
+                        reassigned++;
+                        changes.push(`${r.customerName || '?'} ${r.pickupTime || ''}: ${oldVeh || 'unassigned'} → ${result.name || result.vehicleId}`);
+                        try { await addRideLog(id, '🔄', `Reassign nach HomeCoords-Change (${vid}): → ${result.name || result.vehicleId}`, { quelle: 'onVehicleHomeCoordsChanged v6.66.47' }); } catch(_){}
+                    } else {
+                        unchanged++;
+                    }
+                } catch (e) {
+                    console.warn(`autoAssignRide-Fehler ${id}: ${e.message}`);
+                }
+            }
+            if (reassigned > 0) {
+                const vehSnap = await db.ref('vehicles/' + vid).once('value');
+                const vn = vehSnap.val() || {};
+                const msg = `🏠 <b>${vn.name || vid} HomeCoords geaendert</b> → ${reassigned} Fahrt(en) umverteilt:\n\n` + changes.slice(0, 8).join('\n') + (changes.length > 8 ? `\n... +${changes.length - 8}` : '');
+                try { await sendToAllAdmins(msg, 'homecoords_reassign'); } catch(_){}
+            }
+            console.log(`🏠 Reassign done: ${reassigned} changed, ${unchanged} unchanged`);
+        } catch (err) {
+            console.error('onVehicleHomeCoordsChanged Fehler:', err.message);
+        }
+    }
+);
+
 // 🆕 v6.63.846 (Patrick 01.08. 06:31 Bridge Schaeffert-Bug): Wenn ein Fahrer online
 //   geht (shift.status wechselt auf 'active') → sofort Wartepool-Fahrten checken die
 //   fuer sein Vehicle passen. Ohne diesen Trigger wartet der Fahrer bis zu 10 Min auf

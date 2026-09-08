@@ -71465,6 +71465,46 @@ console.log('✅ v5.90.594: Battery Monitor läuft!');
             }
         }
         
+        // 🏠 v6.66.47 (Patrick 08.09.): HomeCoords direkt aus Live-Monitor aendern.
+        // Einfacher Prompt-basierter Editor — Adresse eingeben, dann geocoden, dann speichern.
+        // Backend-Trigger onVehicleHomeCoordsChanged (v6.66.47) recomputed dann alle Vorbestellungen ≤120min.
+        async function editVehicleHomeCoords(vehicleId) {
+            if (!isFirebaseReady) { alert('Firebase nicht bereit'); return; }
+            const snap = await db.ref('vehicles/' + vehicleId).once('value');
+            const v = snap.val() || {};
+            const oldAddr = v.homeLocation || '';
+            const newAddr = prompt(
+                `🏠 Rueckfahr-Standort fuer ${v.name || vehicleId}\n\n` +
+                `Aktuell: ${oldAddr || '(nicht gesetzt)'}\n\n` +
+                `Neue Adresse (mit PLZ + Ort — wird via OSM geocoded):\n` +
+                `Beispiel: "Bahnhofstr 3, 17419 Ahlbeck"`,
+                oldAddr
+            );
+            if (!newAddr || newAddr.trim() === '' || newAddr === oldAddr) return;
+            const clean = newAddr.trim();
+            // Nominatim-Geocode
+            try {
+                const url = 'https://nominatim.openstreetmap.org/search?format=json&limit=1&addressdetails=1&q=' + encodeURIComponent(clean);
+                const r = await fetch(url, { headers: { 'Accept-Language': 'de' } });
+                const arr = await r.json();
+                if (!arr || arr.length === 0) { alert('❌ Adresse nicht gefunden: ' + clean); return; }
+                const g = arr[0];
+                const lat = parseFloat(g.lat), lon = parseFloat(g.lon);
+                if (!lat || !lon) { alert('❌ Geocode fehlgeschlagen'); return; }
+                if (!confirm(`Wirklich setzen?\n\n${clean}\n${lat.toFixed(5)}, ${lon.toFixed(5)}\n\n→ Cloud-Function recomputed dann alle Vorbestellungen naechste 120 Min mit neuem Malus.`)) return;
+                await db.ref('vehicles/' + vehicleId).update({
+                    homeLocation: clean,
+                    homeCoords: { lat, lon },
+                    homeCoordsUpdatedAt: Date.now(),
+                    homeCoordsUpdatedBy: 'admin-live-monitor'
+                });
+                alert(`✅ HomeCoords fuer ${v.name || vehicleId} gesetzt.\n\n${clean}\n\nBackend-Trigger recomputed Scores in <5 Sek.`);
+                loadLiveMonitorData();
+            } catch (e) {
+                alert('❌ Geocoding-Fehler: ' + e.message);
+            }
+        }
+
         // 📱 Lade Live Monitor Daten
         async function loadLiveMonitorData() {
             const container = document.getElementById('live-monitor-container');
@@ -71563,6 +71603,23 @@ console.log('✅ v5.90.594: Battery Monitor läuft!');
                                     <div style="font-size: 11px; color: #6b7280; margin-top: 4px; font-family: monospace;">
                                         ${gpsStatus.lat.toFixed(6)}, ${gpsStatus.lon.toFixed(6)}
                                         ${gpsStatus.accuracy ? `• ±${Math.round(gpsStatus.accuracy)}m` : ''}
+                                    </div>
+                                    ` : ''}
+                                </div>
+
+                                <!-- 🏠 v6.66.47 HomeCoords (Patrick 08.09.: "Standort sichtbar + editierbar in Live-Monitor"):
+                                     Der Rueckfahr-Standort wird bei Vorbestellungs-Score genutzt (Anfahrt-Malus). -->
+                                <div style="background: #eff6ff; border-left: 4px solid #6366f1; padding: 12px; margin-bottom: 15px; border-radius: 6px;">
+                                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+                                        <div style="font-size: 12px; color: #6b7280; font-weight: 600;">🏠 HOME (Rückfahr-Standort für Vorbestellungs-Malus)</div>
+                                        <button onclick="editVehicleHomeCoords('${vehicleId}')" style="background:#6366f1;color:white;border:0;padding:4px 10px;border-radius:4px;font-size:11px;font-weight:700;cursor:pointer">🖉 Ändern</button>
+                                    </div>
+                                    <div style="font-size: 13px; font-weight: 600; color: #1e3a8a;">
+                                        ${vehicle.homeLocation || '<span style="color:#dc2626">nicht gesetzt (Score-Malus rechnet ab Kaiserbaeder-Center)</span>'}
+                                    </div>
+                                    ${vehicle.homeCoords && vehicle.homeCoords.lat ? `
+                                    <div style="font-size: 10px; color: #6b7280; margin-top: 4px; font-family: monospace;">
+                                        ${vehicle.homeCoords.lat.toFixed(5)}, ${vehicle.homeCoords.lon.toFixed(5)}
                                     </div>
                                     ` : ''}
                                 </div>

@@ -115,7 +115,10 @@ public class VehiclePickerActivity extends AppCompatActivity {
                         boolean lockStale = v.lockHeartbeat == null || (now - v.lockHeartbeat) > STALE_LOCK_MS;
                         boolean ownDevice = v.lockedByDeviceId != null && v.lockedByDeviceId.equals(myDeviceId);
                         boolean lockedByOther = v.lockedByUid != null && !lockStale && !ownDevice;
-                        if (lockedByOther && !isAdmin) { hiddenCount++; continue; }
+                        // 🆕 v6.66.60 Ghost-Driver-Sperre: Schicht auto-ended aber GPS läuft
+                        //   → Fahrzeug für Fahrer AUSBLENDEN (Admin sieht mit Warn-Badge im Tap-Dialog)
+                        boolean ghostDriver = isGhostDriverActive(v, now);
+                        if ((lockedByOther || ghostDriver) && !isAdmin) { hiddenCount++; continue; }
                         vs.add(v);
                     }
                     vs.sort((a, b) -> {
@@ -135,6 +138,21 @@ public class VehiclePickerActivity extends AppCompatActivity {
                     Toast.makeText(VehiclePickerActivity.this, "Fehler: " + error.getMessage(), Toast.LENGTH_LONG).show();
                 }
             });
+    }
+
+    // 🆕 v6.66.60 (Patrick 09.09. Bridge 13:24 Prius-IK-Bug):
+    //   Ghost-Driver-Erkennung — Fahrer's Schicht ist auto-ended aber GPS läuft noch weiter
+    //   (Handy im Hintergrund, ForegroundService sendet weiter). Bisher: activeDevice.lastHeartbeat
+    //   veraltet → Lock stale → jeder kann übernehmen. Fix Cloud-Function v6.66.60 hält
+    //   activeDevice.lastHeartbeat frisch, hier zusätzliches Sicherheitsnetz falls alte
+    //   Native-Version oder Cloud-Function-Ausfall.
+    private static final long GHOST_LOCK_AGE_MS = 30 * 60 * 1000L;   // shift auto-ended vor <30 Min
+    private static final long GHOST_GPS_FRESH_MS = 5 * 60 * 1000L;   // GPS-Update <5 Min alt
+    private static boolean isGhostDriverActive(Vehicle v, long now) {
+        if (v.shiftAutoEndedAt == null || v.gpsLastUpdate == null) return false;
+        long shiftAge = now - v.shiftAutoEndedAt;
+        long gpsAge = now - v.gpsLastUpdate;
+        return shiftAge < GHOST_LOCK_AGE_MS && gpsAge < GHOST_GPS_FRESH_MS;
     }
 
     // v6.50.1/v6.51.3/v6.60.1/v6.60.3: Tap-Handler.
@@ -165,6 +183,21 @@ public class VehiclePickerActivity extends AppCompatActivity {
                     + "Bitte erst dort 'Schicht beenden' drücken, dann hier einloggen.\n\n"
                     + "(Lock läuft nach 5 Min ohne Heartbeat automatisch ab.)")
                 .setPositiveButton("OK", null)
+                .setCancelable(true)
+                .show();
+            return;
+        }
+        // 🆕 v6.66.60: Ghost-Driver-Erkennung — Schicht auto-ended aber GPS läuft
+        if (isGhostDriverActive(v, now)) {
+            String driver = v.shiftDriverName != null ? v.shiftDriverName : "Ex-Fahrer";
+            new AlertDialog.Builder(this)
+                .setTitle("👻 Fahrzeug möglicherweise noch aktiv")
+                .setMessage(v.name + "\n\n" + driver + " war zuletzt eingeloggt. Schicht wurde vor Kurzem "
+                    + "auto-beendet (Heartbeat-Timeout), aber GPS-Position wird weiter aktualisiert.\n\n"
+                    + "→ Fahrer fährt möglicherweise physisch weiter.\n\n"
+                    + "Bitte prüfen (Fahrer anrufen/Live-Karte) bevor du das Fahrzeug übernimmst.")
+                .setPositiveButton("Trotzdem übernehmen", (dlg, w) -> selectVehicle(v))
+                .setNegativeButton("Abbrechen", null)
                 .setCancelable(true)
                 .show();
             return;
@@ -242,6 +275,11 @@ public class VehiclePickerActivity extends AppCompatActivity {
         String lockedByLabel;
         String lockedByDeviceId; // v6.60.1: per-Install-UUID — Patrick darf eigenes Gerät reclaimen
         Long lockHeartbeat;
+        // 🆕 v6.66.60 (Patrick 09.09. Bridge 13:24 Prius-IK-Bug):
+        //   Ghost-Driver-Erkennung — Schicht auto-ended aber GPS läuft weiter.
+        Long shiftAutoEndedAt;
+        String shiftDriverName;
+        Long gpsLastUpdate;
 
         static Vehicle fromSnap(DataSnapshot s) {
             try {
@@ -266,6 +304,13 @@ public class VehiclePickerActivity extends AppCompatActivity {
                     Object hb = dev.child("lastHeartbeat").getValue();
                     if (hb instanceof Number) v.lockHeartbeat = ((Number) hb).longValue();
                 }
+                // 🆕 v6.66.60: Ghost-Driver-Felder
+                Object aeAt = s.child("shift").child("autoEndedAt").getValue();
+                if (aeAt instanceof Number) v.shiftAutoEndedAt = ((Number) aeAt).longValue();
+                v.shiftDriverName = s.child("shift").child("driverName").getValue(String.class);
+                Object gpsUpd = s.child("lastUpdate").getValue();
+                if (gpsUpd == null) gpsUpd = s.child("timestamp").getValue();
+                if (gpsUpd instanceof Number) v.gpsLastUpdate = ((Number) gpsUpd).longValue();
                 return v;
             } catch (Throwable _t) { return null; }
         }

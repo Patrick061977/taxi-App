@@ -13256,7 +13256,7 @@
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
         const APP_VERSION = '6.63.996';
-        const APP_BUILD = '09.09.2026 09:08';
+        const APP_BUILD = '09.09.2026 10:24';
         const APP_CHANGE = 'fix v6.63.643: ✓ Erledigt-Button im Wartepool-Banner + kunden.html Fahrhistorie per CRM-ID (kein globales Limit mehr).';
 
         // 🔧 FIX: Mache APP_VERSION global verfügbar
@@ -40871,7 +40871,7 @@ Aktuell: ${currentNum}`;
                     const isException = !!(dayEntry && dayEntry.isException === true);
                     const isAdditiveEx = !!(dayEntry && dayEntry.additiveException === true);
                     const exceptionBadge = isException
-                        ? `<div onclick="event.stopPropagation();openShiftTimeEditor('${vehicleId}','${ds}')" style="font-size:8px;color:#9ca3af;margin-top:1px;cursor:pointer;" title="${isAdditiveEx ? 'Additive Ausnahme – Standard bleibt erhalten' : 'Einmalige Ausnahme'} – klicken zum Bearbeiten oder Löschen">✎</div>`
+                        ? `<div onclick="event.stopPropagation();openShiftDetailModal('${vehicleId}','${ds}')" style="font-size:8px;color:#9ca3af;margin-top:1px;cursor:pointer;" title="${isAdditiveEx ? 'Additive Ausnahme – Standard bleibt erhalten' : 'Einmalige Ausnahme'} – klicken zum Bearbeiten oder Löschen">✎</div>`
                         : '';
                     // Split-Shift Anzeige: Standard-Schicht immer groß, Ausnahme klein darunter
                     let timeLabel = '';
@@ -40883,7 +40883,7 @@ Aktuell: ${currentNum}`;
                             const exRanges = shiftTimes.timeRanges.filter(r => r._isException === true);
                             const stdStr = stdRanges.map(r => `${r.startTime}–${r.endTime}`).join(', ');
                             const exStr = exRanges.map(r => `${r.startTime}–${r.endTime}`).join(', ');
-                            timeLabel = `<div onclick="event.stopPropagation();openShiftTimeEditor('${vehicleId}','${ds}')" style="font-size:10px;margin-top:3px;line-height:1.3;cursor:pointer;" title="${isAdditiveEx ? 'Standard + Ausnahme-Blöcke' : 'Split-Schicht'} – Klicken zum Ändern">`;
+                            timeLabel = `<div onclick="event.stopPropagation();openShiftDetailModal('${vehicleId}','${ds}')" style="font-size:10px;margin-top:3px;line-height:1.3;cursor:pointer;" title="${isAdditiveEx ? 'Standard + Ausnahme-Blöcke' : 'Split-Schicht'} – Klicken zum Ändern">`;
                             if (stdStr) timeLabel += `<div style="color:#065f46;background:#a7f3d0;padding:2px 4px;border-radius:4px;font-weight:600;">${stdStr}</div>`;
                             if (exStr) timeLabel += `<div style="color:#6b7280;font-size:8px;margin-top:2px;font-weight:400;">Na ${exStr}</div>`;
                             timeLabel += `</div>`;
@@ -40893,23 +40893,23 @@ Aktuell: ${currentNum}`;
                             const dow = d.getDay();
                             const defTimes = shifts?.defaultTimes?.[dow];
                             const defStr = defTimes ? `${defTimes.startTime || '06:00'} – ${defTimes.endTime || '22:00'}` : '';
-                            timeLabel = `<div onclick="event.stopPropagation();openShiftTimeEditor('${vehicleId}','${ds}')" style="font-size:10px;margin-top:3px;line-height:1.3;cursor:pointer;" title="Ausnahme ersetzt Standard – Klicken zum Ändern">`;
+                            timeLabel = `<div onclick="event.stopPropagation();openShiftDetailModal('${vehicleId}','${ds}')" style="font-size:10px;margin-top:3px;line-height:1.3;cursor:pointer;" title="Ausnahme ersetzt Standard – Klicken zum Ändern">`;
                             if (defStr) timeLabel += `<div style="color:#065f46;background:#a7f3d0;padding:2px 4px;border-radius:4px;font-weight:600;">${defStr}</div>`;
                             timeLabel += `<div style="color:#6b7280;font-size:8px;margin-top:2px;font-weight:400;">Na ${shiftTimes.startTime}–${shiftTimes.endTime}</div>`;
                             timeLabel += `</div>`;
                         } else {
-                            timeLabel = `<div onclick="event.stopPropagation();openShiftTimeEditor('${vehicleId}','${ds}')" style="font-size:10px;color:#065f46;margin-top:3px;line-height:1.3;cursor:pointer;background:#a7f3d0;padding:2px 4px;border-radius:4px;font-weight:600;" title="Klicken um Zeiten zu ändern">${shiftTimes.startTime} – ${shiftTimes.endTime}</div>`;
+                            timeLabel = `<div onclick="event.stopPropagation();openShiftDetailModal('${vehicleId}','${ds}')" style="font-size:10px;color:#065f46;margin-top:3px;line-height:1.3;cursor:pointer;background:#a7f3d0;padding:2px 4px;border-radius:4px;font-weight:600;" title="Klicken um Zeiten zu ändern">${shiftTimes.startTime} – ${shiftTimes.endTime}</div>`;
                         }
                     } else if (isActive) {
-                        timeLabel = `<div onclick="event.stopPropagation();openShiftTimeEditor('${vehicleId}','${ds}')" style="font-size:10px;color:#059669;margin-top:3px;cursor:pointer;background:#a7f3d0;padding:2px 4px;border-radius:4px;font-weight:600;" title="Klicken um Zeiten festzulegen">⏰ Zeiten</div>`;
+                        timeLabel = `<div onclick="event.stopPropagation();openShiftDetailModal('${vehicleId}','${ds}')" style="font-size:10px;color:#059669;margin-top:3px;cursor:pointer;background:#a7f3d0;padding:2px 4px;border-radius:4px;font-weight:600;" title="Klicken um Zeiten festzulegen">⏰ Zeiten</div>`;
                     }
                     // Standort für dieses Fahrzeug/Tag anzeigen
                     const _cellHome = isActive ? getVehicleHomeForTime(vehicleId, ds, shiftTimes?.startTime || '06:00') : null;
                     const _cellHomeLoc = _cellHome?.homeLocation;
                     const _cellHomeShort = _cellHomeLoc ? (_cellHomeLoc.length > 16 ? _cellHomeLoc.substring(0, 14) + '…' : _cellHomeLoc) : '';
                     const homeLabel = _cellHomeShort
-                        ? `<div onclick="event.stopPropagation();openShiftTimeEditor('${vehicleId}','${ds}')" style="font-size:8px;color:#1d4ed8;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:70px;cursor:pointer;background:#eff6ff;padding:1px 3px;border-radius:3px;" title="🏠 Standort: ${_cellHomeLoc} (${_cellHome?.source || ''}) – klicken zum Ändern">🏠 ${_cellHomeShort}</div>`
-                        : `<div onclick="event.stopPropagation();openShiftTimeEditor('${vehicleId}','${ds}')" style="font-size:8px;color:#9ca3af;margin-top:2px;cursor:pointer;" title="Kein Standort konfiguriert – klicken zum Festlegen">${isActive ? '🏠 –' : ''}</div>`;
+                        ? `<div onclick="event.stopPropagation();openShiftDetailModal('${vehicleId}','${ds}')" style="font-size:8px;color:#1d4ed8;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:70px;cursor:pointer;background:#eff6ff;padding:1px 3px;border-radius:3px;" title="🏠 Standort: ${_cellHomeLoc} (${_cellHome?.source || ''}) – klicken zum Ändern">🏠 ${_cellHomeShort}</div>`
+                        : `<div onclick="event.stopPropagation();openShiftDetailModal('${vehicleId}','${ds}')" style="font-size:8px;color:#9ca3af;margin-top:2px;cursor:pointer;" title="Kein Standort konfiguriert – klicken zum Festlegen">${isActive ? '🏠 –' : ''}</div>`;
                     html += `<td style="text-align:center;padding:6px 4px;border-radius:8px;`
                         + `background:${isActive ? '#d1fae5' : '#fee2e2'};`
                         + `border:2px solid ${isException ? '#f59e0b' : (isActive ? '#10b981' : '#ef4444')};`
@@ -41503,6 +41503,255 @@ Aktuell: ${currentNum}`;
         // ═══════════════════════════════════════════════════════════
 
         // Öffne Zeit-Editor für einen bestimmten Tag + Fahrzeug
+        // 🆕 v6.66.58 (Patrick 09.09. SVG-Mockup msgId 47216 "bau so"):
+        //   Web-Schicht-Editor Detail-Modal — synchron zu Native v6.66.56.
+        //   Öffnet 7-Blöcke-Modal (HEUTE / Wochen-Standard / Tages-Ausnahme /
+        //   Nächste Vorbestellung / Inline-Zeit-Editor / Aktionen / Sync-Status).
+        //   Firebase-Pfade identisch: /vehicleShifts/{vid}/{ds}/, /defaultTimes/{dow}/, /vehicles/{vid}/.
+        async function openShiftDetailModal(vehicleId, dateStr) {
+            const info = (OFFICIAL_VEHICLES || {})[vehicleId] || {};
+            const globalV = (window.VEHICLES || {})[vehicleId] || {};
+            const d = new Date(dateStr + 'T00:00:00');
+            const dow = d.getDay();
+            const dayNamesFull = ['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'];
+            const dayNamesShort = ['So','Mo','Di','Mi','Do','Fr','Sa'];
+            const dateLabel = d.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
+            const shifts = vehicleShiftsData[vehicleId] || {};
+            const dayEntry = shifts[dateStr] || {};
+            const defaultTimes = (shifts.defaultTimes || {})[dow] || {};
+            const hasDayOverride = !!(dayEntry.homeLocation || dayEntry.startTime || dayEntry.active === false || dayEntry.active === true || dayEntry.isException);
+            // Effektiver Home mit Kaskade — spiegelt Native getEffectiveHomeForToday
+            const tagesHome = dayEntry.homeLocation || null;
+            const tagesCoords = dayEntry.homeCoords || null;
+            const wochenHome = defaultTimes.homeLocation || null;
+            const wochenCoords = defaultTimes.homeCoords || null;
+            const globalHome = globalV.homeLocation || info.homeLocation || null;
+            const globalCoords = globalV.homeCoords || info.homeCoords || null;
+            let effHome, effSource, effCoordsOk;
+            if (tagesHome) { effHome = tagesHome; effSource = 'Tages'; effCoordsOk = !!(tagesCoords?.lat); }
+            else if (wochenHome) { effHome = wochenHome; effSource = 'Wochen'; effCoordsOk = !!(wochenCoords?.lat); }
+            else if (globalHome) { effHome = globalHome; effSource = 'Global'; effCoordsOk = !!(globalCoords?.lat); }
+            else { effHome = null; effSource = null; effCoordsOk = false; }
+            // Aktive Schichtzeit
+            const isActive = hasDayOverride ? (dayEntry.active !== false) : ((shifts.defaults || {})[dow] === true);
+            const activeStart = dayEntry.startTime || defaultTimes.startTime || '';
+            const activeEnd = dayEntry.endTime || defaultTimes.endTime || '';
+            // Nächste Vorbestellung fuer dieses Fahrzeug an diesem Tag
+            const nowMs = Date.now();
+            const dayStart = new Date(dateStr + 'T00:00:00').getTime();
+            const dayEnd = dayStart + 24*60*60*1000;
+            const upcoming = (rides || []).filter(r => r.pickupTimestamp && r.pickupTimestamp > nowMs && r.pickupTimestamp < dayEnd
+                && (r.assignedVehicle === vehicleId || r.vehicleId === vehicleId || (!r.assignedVehicle && !r.vehicleId))
+                && !['deleted','cancelled','storniert','completed'].includes(r.status))
+                .sort((a,b) => a.pickupTimestamp - b.pickupTimestamp)[0];
+            let malusHtml = '<div style="color:#a7f3d0;font-size:12px;">(keine Vorbestellung heute nach jetzt)</div>';
+            if (upcoming) {
+                const zeitBis = Math.floor((upcoming.pickupTimestamp - nowMs) / 60000);
+                // Distanz vom effektiven Home (oder Kaiserbäder-Fallback)
+                const refLat = effCoordsOk ? (tagesCoords || wochenCoords || globalCoords).lat : 53.95;
+                const refLon = effCoordsOk ? (tagesCoords || wochenCoords || globalCoords).lon : 14.15;
+                let malus = null;
+                if (upcoming.pickupLat && upcoming.pickupLon && typeof _distKm === 'function') {
+                    malus = _distKm(refLat, refLon, upcoming.pickupLat, upcoming.pickupLon);
+                }
+                const anfahrtMin = malus != null ? Math.ceil(malus * 1.5) : null;
+                let ampel = '⚪', bewertung = '?';
+                if (anfahrtMin == null) { ampel = '⚪'; bewertung = 'keine Coords'; }
+                else if (anfahrtMin <= zeitBis + 5) { ampel = '🟢'; bewertung = 'schaffbar'; }
+                else if (anfahrtMin <= zeitBis + 15) { ampel = '🟡'; bewertung = 'knapp'; }
+                else { ampel = '🔴'; bewertung = 'zu weit'; }
+                const t = new Date(upcoming.pickupTimestamp).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
+                malusHtml = `
+                    <div style="color:#f0fdf4;font-size:14px;font-weight:700;">🕐 ${t} · ${upcoming.customerName || upcoming.guestName || '?'} · ${upcoming.passengers || 1} Pax</div>
+                    <div style="color:#a7f3d0;font-size:12px;margin-top:3px;">${(upcoming.pickup||'?').split(',')[0]} → ${(upcoming.destination||'?').split(',')[0]}</div>
+                    <div style="color:#22c55e;font-size:14px;font-weight:800;margin-top:6px;">${ampel} ${bewertung}${anfahrtMin != null ? ` · ${anfahrtMin} Min Anfahrt ab HOME (${malus.toFixed(1)} km)` : ''}</div>
+                    <div style="color:#4ade80;font-size:11px;margin-top:3px;">Puffer bis Pickup: ${zeitBis} Min</div>
+                `;
+            }
+            // Modal aufbauen
+            const modalId = 'shift-detail-modal';
+            let existing = document.getElementById(modalId);
+            if (existing) existing.remove();
+            const overlay = document.createElement('div');
+            overlay.id = modalId;
+            overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:99999;display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:20px 10px;';
+            const modal = document.createElement('div');
+            modal.style.cssText = 'background:#0b1220;border:2px solid #3b82f6;border-radius:12px;max-width:640px;width:100%;color:#f1f5f9;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.5);';
+            const srcColor = { 'Tages':'#f59e0b','Wochen':'#60a5fa','Global':'#93c5fd' }[effSource] || '#ef4444';
+            modal.innerHTML = `
+                <!-- Header -->
+                <div style="background:#1e3a8a;padding:16px 20px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                        <div>
+                            <div style="font-size:18px;font-weight:800;">🚗 ${info.name || vehicleId} ${info.plate ? ' — ' + info.plate : ''}</div>
+                            <div style="font-size:13px;color:#93c5fd;margin-top:4px;">${dateLabel}</div>
+                        </div>
+                        <button onclick="document.getElementById('${modalId}').remove()" style="background:#dc2626;color:#fff;border:0;border-radius:8px;width:40px;height:40px;font-size:18px;font-weight:800;cursor:pointer;">✕</button>
+                    </div>
+                </div>
+                <div style="padding:16px 20px;">
+                    <!-- Block 1: HEUTE -->
+                    <div style="color:#60a5fa;font-size:12px;font-weight:800;margin-top:4px;">━━━ HEUTE ${dayNamesShort[dow]} ${dateStr} ━━━</div>
+                    <div style="background:#0c1a3d;border-radius:8px;padding:10px;margin-top:6px;">
+                        <div style="color:${isActive ? '#22c55e' : '#ef4444'};font-size:15px;font-weight:800;">${isActive ? '🕐 ' + (activeStart || '?') + '–' + (activeEnd || '?') + ' · IM DIENST' : '❌ KEIN DIENST'}</div>
+                        <div style="color:#cbd5e1;font-size:12px;margin-top:4px;">Quelle: ${hasDayOverride ? '🟨 Tages-Override' : '🟦 Wochen-Standard ' + dayNamesShort[dow]}</div>
+                    </div>
+
+                    <!-- Block 2: WOCHEN-STANDARD -->
+                    <div style="color:#93c5fd;font-size:12px;font-weight:800;margin-top:16px;">━━━ 🏠 WOCHEN-STANDARD (${dayNamesShort[dow]}) ━━━</div>
+                    <div style="background:#1e3a8a;border-radius:8px;padding:10px;margin-top:6px;">
+                        <div style="color:#dbeafe;font-size:14px;font-weight:700;">${wochenHome || '(nicht gesetzt)'}</div>
+                        <div style="color:#93c5fd;font-size:10px;margin-top:3px;">/vehicleShifts/${vehicleId}/defaultTimes/${dow}/homeLocation</div>
+                        <button onclick="editWochenStandardHome('${vehicleId}',${dow})" style="margin-top:8px;background:#6366f1;color:#fff;border:0;padding:8px 14px;border-radius:6px;font-weight:700;cursor:pointer;">✏️ Wochen-Standard ändern</button>
+                    </div>
+
+                    <!-- Block 3: TAGES-AUSNAHME -->
+                    <div style="color:#fbbf24;font-size:12px;font-weight:800;margin-top:16px;">━━━ 📌 HEUTE-AUSNAHME (nur ${dateStr}) ━━━</div>
+                    <div style="background:#78350f;border-radius:8px;padding:10px;margin-top:6px;">
+                        <div style="color:#fef3c7;font-size:14px;font-weight:700;">${tagesHome || '(keine gesetzt)'}</div>
+                        <div style="color:#fcd34d;font-size:11px;margin-top:3px;">${tagesHome ? 'Überschreibt Wochen-Standard heute' : 'Fällt zurück auf Wochen-Standard'}</div>
+                        <div style="color:#fcd34d;font-size:10px;margin-top:2px;">/vehicleShifts/${vehicleId}/${dateStr}/homeLocation</div>
+                        <button onclick="editTagesAusnahmeHome('${vehicleId}','${dateStr}')" style="margin-top:8px;background:#f59e0b;color:#fff;border:0;padding:8px 14px;border-radius:6px;font-weight:700;cursor:pointer;">${tagesHome ? '✏️ Ändern' : '+ Heute-Ausnahme'}</button>
+                    </div>
+
+                    <!-- Block 4: NÄCHSTE VORBESTELLUNG -->
+                    <div style="color:#f97316;font-size:12px;font-weight:800;margin-top:16px;">━━━ 🎯 NÄCHSTE VORBESTELLUNG ━━━</div>
+                    <div style="background:#0c2818;border:1px solid #22c55e;border-radius:8px;padding:10px;margin-top:6px;">
+                        ${malusHtml}
+                    </div>
+
+                    <!-- Block 5: SCHICHTZEIT-EDITOR (Inline) -->
+                    <div style="color:#a5b4fc;font-size:12px;font-weight:800;margin-top:16px;">━━━ ⏰ SCHICHTZEIT ÄNDERN ━━━</div>
+                    <div style="background:#312e81;border-radius:8px;padding:10px;margin-top:6px;">
+                        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+                            <span style="color:#e0e7ff;font-size:12px;font-weight:700;min-width:180px;">🟦 Wochen-Standard ${dayNamesShort[dow]}:</span>
+                            <input type="time" id="sdm-week-start" value="${defaultTimes.startTime || ''}" style="background:#0f172a;color:#dbeafe;border:1px solid #475569;border-radius:4px;padding:4px 6px;">
+                            <span style="color:#c7d2fe;">–</span>
+                            <input type="time" id="sdm-week-end" value="${defaultTimes.endTime || ''}" style="background:#0f172a;color:#dbeafe;border:1px solid #475569;border-radius:4px;padding:4px 6px;">
+                            <button onclick="saveWochenStandardZeit('${vehicleId}',${dow})" style="background:#6366f1;color:#fff;border:0;padding:6px 12px;border-radius:4px;font-weight:700;cursor:pointer;font-size:11px;">💾 Speichern</button>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                            <span style="color:#fef3c7;font-size:12px;font-weight:700;min-width:180px;">🟨 Heute-Ausnahme:</span>
+                            <input type="time" id="sdm-day-start" value="${dayEntry.startTime || ''}" style="background:#0f172a;color:#fef3c7;border:1px solid #475569;border-radius:4px;padding:4px 6px;">
+                            <span style="color:#fcd34d;">–</span>
+                            <input type="time" id="sdm-day-end" value="${dayEntry.endTime || ''}" style="background:#0f172a;color:#fef3c7;border:1px solid #475569;border-radius:4px;padding:4px 6px;">
+                            <button onclick="saveTagesAusnahmeZeit('${vehicleId}','${dateStr}')" style="background:#f59e0b;color:#fff;border:0;padding:6px 12px;border-radius:4px;font-weight:700;cursor:pointer;font-size:11px;">${dayEntry.startTime ? '💾 Speichern' : '+ Ausnahme'}</button>
+                        </div>
+                        <div style="color:#c7d2fe;font-size:10px;margin-top:6px;">Nicht-additive Ausnahme ersetzt Wochen-Standard heute komplett.</div>
+                    </div>
+
+                    <!-- Block 6: AKTIONEN -->
+                    <div style="color:#f472b6;font-size:12px;font-weight:800;margin-top:16px;">━━━ ⚡ AKTIONEN ━━━</div>
+                    <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap;">
+                        <button onclick="markVehicleFreeForDate('${vehicleId}','${dateStr}')" style="flex:1;min-width:160px;background:#dc2626;color:#fff;border:0;padding:12px;border-radius:8px;font-weight:700;cursor:pointer;">❌ Frei<br><span style="font-size:10px;font-weight:400;color:#fecaca;">Heute abmelden</span></button>
+                        <button onclick="openShiftTimeEditor('${vehicleId}','${dateStr}');document.getElementById('${modalId}').remove();" style="flex:1;min-width:160px;background:#7c3aed;color:#fff;border:0;padding:12px;border-radius:8px;font-weight:700;cursor:pointer;">⚙️ Erweitert<br><span style="font-size:10px;font-weight:400;color:#e9d5ff;">Split-Shifts, Karten-Picker</span></button>
+                        <button onclick="openShiftDefaults();document.getElementById('${modalId}').remove();" style="flex:1;min-width:160px;background:#0891b2;color:#fff;border:0;padding:12px;border-radius:8px;font-weight:700;cursor:pointer;">📋 Standard-Tage<br><span style="font-size:10px;font-weight:400;color:#a5f3fc;">Wochenplan</span></button>
+                    </div>
+
+                    <!-- Block 7: SYNC-STATUS -->
+                    <div style="color:#a3e635;font-size:12px;font-weight:800;margin-top:16px;">━━━ 🔄 EFFEKTIVER HOME (Kaskade) ━━━</div>
+                    <div style="background:#14532d;border-radius:8px;padding:10px;margin-top:6px;">
+                        <div style="color:${srcColor};font-size:14px;font-weight:700;">${effCoordsOk ? '🏠' : '⚠️'} ${effHome || '(nirgends gesetzt — Score-Malus rechnet ab Kaiserbäder-Center)'} <span style="font-size:11px;">[${effSource || 'fehlt'}]</span></div>
+                        <div style="color:#d9f99d;font-size:11px;margin-top:6px;">Reihenfolge: Tages-Override → Wochen-Standard(dow) → Global-Fallback</div>
+                        <div style="color:#bef264;font-size:10px;margin-top:2px;">Synchron mit Native Dispo-Live v6.66.57 + Native Schicht-Editor v6.66.56</div>
+                    </div>
+
+                    <div style="display:flex;gap:8px;margin-top:20px;padding-top:14px;border-top:1px solid #334155;">
+                        <button onclick="document.getElementById('${modalId}').remove()" style="flex:1;background:#374151;color:#f1f5f9;border:0;padding:12px;border-radius:8px;font-weight:700;cursor:pointer;">Schließen</button>
+                    </div>
+                </div>
+            `;
+            overlay.appendChild(modal);
+            overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+            document.body.appendChild(overlay);
+        }
+
+        // v6.66.58 Helpers — Save-Handler für Detail-Modal (nutzen bestehende Nominatim-Geocoder)
+        async function editWochenStandardHome(vehicleId, dow) {
+            const dayFull = ['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'][dow];
+            const shifts = vehicleShiftsData[vehicleId] || {};
+            const cur = ((shifts.defaultTimes || {})[dow] || {}).homeLocation || '';
+            const addr = prompt(`🟦 Wochen-Standard-Home für alle ${dayFull}e\n\nAktuell: ${cur || '(nicht gesetzt)'}\n\nNeue Adresse (mit PLZ + Ort):`, cur);
+            if (!addr || addr.trim() === '' || addr === cur) return;
+            const clean = addr.trim();
+            try {
+                const r = await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&addressdetails=1&q=' + encodeURIComponent(clean), { headers: { 'Accept-Language': 'de' } });
+                const arr = await r.json();
+                if (!arr || arr.length === 0) { alert('❌ Adresse nicht gefunden'); return; }
+                const g = arr[0];
+                await db.ref(`vehicleShifts/${vehicleId}/defaultTimes/${dow}`).update({
+                    homeLocation: clean,
+                    homeCoords: { lat: parseFloat(g.lat), lon: parseFloat(g.lon) },
+                    homeCoordsUpdatedAt: Date.now(),
+                    homeCoordsUpdatedBy: 'web-schicht-editor-detail-modal-v6.66.58'
+                });
+                alert(`✅ Wochen-Standard ${dayFull}: ${clean}`);
+                if (typeof renderShiftCalendar === 'function') renderShiftCalendar();
+                document.getElementById('shift-detail-modal')?.remove();
+            } catch (e) { alert('❌ ' + e.message); }
+        }
+
+        async function editTagesAusnahmeHome(vehicleId, dateStr) {
+            const shifts = vehicleShiftsData[vehicleId] || {};
+            const cur = (shifts[dateStr] || {}).homeLocation || '';
+            const addr = prompt(`🟨 Tages-Ausnahme-Home NUR für ${dateStr}\n\nAktuell: ${cur || '(nicht gesetzt)'}\n\nNeue Adresse (mit PLZ + Ort):`, cur);
+            if (!addr || addr.trim() === '' || addr === cur) return;
+            const clean = addr.trim();
+            try {
+                const r = await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&addressdetails=1&q=' + encodeURIComponent(clean), { headers: { 'Accept-Language': 'de' } });
+                const arr = await r.json();
+                if (!arr || arr.length === 0) { alert('❌ Adresse nicht gefunden'); return; }
+                const g = arr[0];
+                await db.ref(`vehicleShifts/${vehicleId}/${dateStr}`).update({
+                    homeLocation: clean,
+                    homeCoords: { lat: parseFloat(g.lat), lon: parseFloat(g.lon) },
+                    active: true,
+                    homeCoordsUpdatedAt: Date.now(),
+                    homeCoordsUpdatedBy: 'web-schicht-editor-detail-modal-v6.66.58'
+                });
+                alert(`✅ Tages-Ausnahme ${dateStr}: ${clean}`);
+                if (typeof renderShiftCalendar === 'function') renderShiftCalendar();
+                document.getElementById('shift-detail-modal')?.remove();
+            } catch (e) { alert('❌ ' + e.message); }
+        }
+
+        async function saveWochenStandardZeit(vehicleId, dow) {
+            const start = document.getElementById('sdm-week-start')?.value;
+            const end = document.getElementById('sdm-week-end')?.value;
+            if (!start || !end) { alert('Beide Zeiten ausfüllen'); return; }
+            try {
+                await db.ref(`vehicleShifts/${vehicleId}/defaultTimes/${dow}`).update({
+                    startTime: start, endTime: end
+                });
+                await db.ref(`vehicleShifts/${vehicleId}/defaults/${dow}`).set(true);
+                alert(`✅ Wochen-Standard: ${start}–${end}`);
+                if (typeof renderShiftCalendar === 'function') renderShiftCalendar();
+            } catch (e) { alert('❌ ' + e.message); }
+        }
+
+        async function saveTagesAusnahmeZeit(vehicleId, dateStr) {
+            const start = document.getElementById('sdm-day-start')?.value;
+            const end = document.getElementById('sdm-day-end')?.value;
+            if (!start || !end) { alert('Beide Zeiten ausfüllen'); return; }
+            try {
+                await db.ref(`vehicleShifts/${vehicleId}/${dateStr}`).update({
+                    startTime: start, endTime: end, active: true, isException: true
+                });
+                alert(`✅ Tages-Ausnahme ${dateStr}: ${start}–${end}`);
+                if (typeof renderShiftCalendar === 'function') renderShiftCalendar();
+            } catch (e) { alert('❌ ' + e.message); }
+        }
+
+        async function markVehicleFreeForDate(vehicleId, dateStr) {
+            if (!confirm(`Fahrzeug ${vehicleId} am ${dateStr} als FREI markieren?`)) return;
+            try {
+                await db.ref(`vehicleShifts/${vehicleId}/${dateStr}`).update({ active: false, isException: true });
+                alert(`❌ ${vehicleId} am ${dateStr} frei`);
+                if (typeof renderShiftCalendar === 'function') renderShiftCalendar();
+                document.getElementById('shift-detail-modal')?.remove();
+            } catch (e) { alert('❌ ' + e.message); }
+        }
+
         function openShiftTimeEditor(vehicleId, dateStr) {
             const info = (OFFICIAL_VEHICLES || {})[vehicleId] || {};
             const d = new Date(dateStr + 'T00:00:00');

@@ -746,6 +746,9 @@ public class DriverDashboardActivity extends AppCompatActivity {
     private final java.util.Map<String, Double> _arrivedAtLat = new java.util.HashMap<>();
     private final java.util.Map<String, Double> _arrivedAtLon = new java.util.HashMap<>();
     private final java.util.Map<String, double[]> _lastGpsForSpeed = new java.util.HashMap<>(); // [lat, lon, ts]
+    // 🆕 v6.66.63: 15s-Sperrzeit nach arrived — Fahrzeug muss ERST anhalten, dann 15s warten.
+    private final java.util.Map<String, Long> _arrivedStillFirstSeen = new java.util.HashMap<>();
+    private final java.util.Map<String, Long> _arrivedStoppedAt = new java.util.HashMap<>();
 
     // 🆕 v6.66.44 (Patrick 06.09. 19:26 Bridge): adaptiver GPS-Radius je nach Accuracy.
     //   Bei schlechtem GPS-Signal (z.B. Handy in Tesla-Ladeschale = Metall-Kaefig)
@@ -797,10 +800,6 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 // Wenn Activity gerade gestartet wurde sind die maps leer → ziehe aus Firebase
                 if (aLat == null && r.pickupLat != null) { aLat = r.pickupLat; aLon = r.pickupLon; }
                 if (aLat == null || arrivedAt == null) continue;
-                // 🆕 v6.63.026 (Patrick 30.05. 06:23 "Eingestiegen übernimmt er nicht, nur wenn
-                //   ich angehalten habe"): 30s-Wait nach arrived entfernt — der hat den Trigger
-                //   um halbe Minute verzögert wenn Gast sofort einsteigt. GPS-Jitter wird
-                //   weiterhin via 5s-moving-Filter abgefangen.
                 double distFromArrived = haversineMeters(vLat, vLon, aLat, aLon);
                 // Speed berechnen aus letztem GPS-Punkt
                 double[] last = _lastGpsForSpeed.get(r.id);
@@ -811,20 +810,48 @@ public class DriverDashboardActivity extends AppCompatActivity {
                     double dSec = (now - last[2]) / 1000.0;
                     if (dSec > 0 && dSec < 30) speedKmh = (dM / dSec) * 3.6;
                 }
-                // 🆕 v6.63.026: Express-Path — wenn klar auf Fahrt (>80m vom Pickup +
-                //   >15 km/h), sofort picked_up ohne Moving-Sustain. Verhindert
-                //   verspätete Übergänge bei flüssigem Wegfahren.
+                // 🆕 v6.66.63 (Patrick 09.09. Bridge 21:11 Nowak): 15 Sek Sperrzeit nach arrived.
+                //   Patrick: "System muss registrieren, okay Fahrzeug hat angehalten, dann muessen
+                //   15 Sekunden vergehen bis sich das Auto wieder bewegt, sonst springt Status
+                //   immer gleich von einem im anderen, und Kunde bekommt nichts mit."
+                //   Vorher (v6.63.026): Express-Path bei dist>80m+speed>15km/h feuerte sofort
+                //   picked_up ohne Wartezeit. GPS-Jitter nach arrived-Trigger konnte in
+                //   4 Sekunden vom "arrived" auf "picked_up" springen (Nowak-Ride 20:36:22 → 20:36:26).
+                //   Fix: Fahrzeug muss ERST angehalten haben (speed < 3 km/h) + dann 15s warten.
+                Long stoppedAt = _arrivedStoppedAt.get(r.id);
+                if (stoppedAt == null) {
+                    // Warten auf Stillstand (speed < 3 km/h)
+                    if (speedKmh < 3.0) {
+                        // Muss 3 Sek stabil "gestoppt" sein (nicht nur 1 GPS-Punkt zufaellig)
+                        Long stillFirst = _arrivedStillFirstSeen.get(r.id);
+                        if (stillFirst == null) {
+                            _arrivedStillFirstSeen.put(r.id, now);
+                        } else if (now - stillFirst >= 3_000) {
+                            _arrivedStoppedAt.put(r.id, now);
+                            _arrivedStillFirstSeen.remove(r.id);
+                            android.util.Log.i(TAG, "v6.66.63 arrived→stopped für " + r.id + " (speed " + Math.round(speedKmh) + " km/h)");
+                        }
+                    } else {
+                        _arrivedStillFirstSeen.remove(r.id); // Reset wenn wieder Bewegung
+                    }
+                    continue; // Kein picked_up bevor gestoppt
+                }
+                // Fahrzeug hat gestoppt — pruefe 15s-Sperrzeit
+                long msSinceStop = now - stoppedAt;
+                if (msSinceStop < 15_000) continue;
+
+                // Express-Path (dist>80m + speed>15km/h) — jetzt mit Sperrzeit-Puffer OK
                 if (distFromArrived > 80.0 && speedKmh > 15.0) {
-                    triggerAutoStatus(r, "picked_up", "Express GPS " + Math.round(distFromArrived) + "m + " + Math.round(speedKmh) + " km/h");
+                    triggerAutoStatus(r, "picked_up", "Express GPS " + Math.round(distFromArrived) + "m + " + Math.round(speedKmh) + " km/h (nach " + (msSinceStop / 1000) + "s Sperre)");
                     _autoPickedUpFirstMoving.remove(r.id);
                 }
-                // 🆕 v6.62.987 / v6.63.026: gelockerte Schwelle 30m + 5 km/h + 3s
+                // Normal-Path: dist>30m + speed>5km/h + 3s Sustain
                 else if (distFromArrived > 30.0 && speedKmh > 5.0) {
                     Long firstMoving = _autoPickedUpFirstMoving.get(r.id);
                     if (firstMoving == null) {
                         _autoPickedUpFirstMoving.put(r.id, now);
                     } else if (now - firstMoving >= 3_000) {
-                        triggerAutoStatus(r, "picked_up", "GPS " + Math.round(distFromArrived) + "m weg, " + Math.round(speedKmh) + " km/h");
+                        triggerAutoStatus(r, "picked_up", "GPS " + Math.round(distFromArrived) + "m weg, " + Math.round(speedKmh) + " km/h (nach " + (msSinceStop / 1000) + "s Sperre)");
                         _autoPickedUpFirstMoving.remove(r.id);
                     }
                 } else {
@@ -4105,6 +4132,11 @@ public class DriverDashboardActivity extends AppCompatActivity {
         if (next.equals("arrived") && myCurrentLat != null && myCurrentLon != null) {
             _arrivedAtLat.put(r.id, myCurrentLat);
             _arrivedAtLon.put(r.id, myCurrentLon);
+        }
+        // 🆕 v6.66.63: 15s-Sperrzeit-Maps resetten bei jedem Status-Wechsel
+        if (next.equals("arrived") || next.equals("picked_up") || next.equals("on_way")) {
+            _arrivedStillFirstSeen.remove(r.id);
+            _arrivedStoppedAt.remove(r.id);
         }
 
         // v6.62.69: Tap-Audit — wer hat den Status-Tap ausgeloest. Cloud onRideUpdated

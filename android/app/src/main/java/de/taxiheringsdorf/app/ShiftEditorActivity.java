@@ -840,6 +840,240 @@ public class ShiftEditorActivity extends AppCompatActivity {
             .addOnFailureListener(e -> Toast.makeText(this, "Fehler: " + e.getMessage(), Toast.LENGTH_LONG).show());
     }
 
+    // 🆕 v6.66.56 (Patrick 09.09. SVG-Mockup): Detail-Dialog beim Klick auf Fahrzeug-Card
+    //   im Schicht-Editor. Zeigt 5 Blöcke: HEUTE / Wochen-Standard / Tages-Ausnahme /
+    //   (Nächste Vorbestellung kommt v6.66.57) / Aktionen. Farbcode:
+    //   🟦 blau=Wochen-Standard  🟨 gelb=Tages-Ausnahme  🟥 rot=fehlt
+    private void showFahrzeugTagDetailDialog(final VehicleShift vs, final int dow) {
+        float dp = getResources().getDisplayMetrics().density;
+        String[] dayNamesFull = { "Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag" };
+        String[] dayNamesShort = { "So", "Mo", "Di", "Mi", "Do", "Fr", "Sa" };
+        String todayKey = todayDateKey();
+
+        // Root scrollable container
+        android.widget.ScrollView scroll = new android.widget.ScrollView(this);
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        int pad = (int)(14 * dp);
+        root.setPadding(pad, pad, pad, pad);
+        root.setBackgroundColor(0xFF0B1220);
+        scroll.addView(root);
+
+        // Aktueller Zustand ermitteln
+        boolean activeToday = vs.todayOverride
+            ? (vs.todayActive != null && vs.todayActive)
+            : (vs.defaults != null && vs.defaults[dow]);
+        String startT = vs.todayOverride ? vs.todayStartTime : (vs.defaultTimes != null ? vs.defaultTimes[dow][0] : null);
+        String endT   = vs.todayOverride ? vs.todayEndTime   : (vs.defaultTimes != null ? vs.defaultTimes[dow][1] : null);
+        String webHome = vs.homeLocations != null ? vs.homeLocations[dow] : null;
+        boolean hasWebCoords = vs.homeCoordsSet != null && vs.homeCoordsSet[dow];
+        boolean todayOverrideHome = vs.todayOverride && webHome != null;
+
+        // ─── Block 1: HEUTE ───
+        addSectionHeader(root, dp, "━━━ HEUTE " + dayNamesShort[dow] + " " + todayKey + " ━━━", 0xFF60A5FA);
+        LinearLayout heute = boxCard(dp, 0xFF0C1A3D);
+        addLine(heute, dp, activeToday ? "🕐 " + (startT != null ? startT : "?") + "–" + (endT != null ? endT : "?") + " · IM DIENST"
+                                        : "❌ KEIN DIENST",
+                14, activeToday ? 0xFF22C55E : 0xFFEF4444, true);
+        String quelle = vs.todayOverride ? "Quelle: Tages-Override (" + todayKey + ")"
+                                          : "Quelle: Wochen-Standard " + dayNamesShort[dow];
+        addLine(heute, dp, quelle, 12, 0xFFCBD5E1, false);
+        root.addView(heute);
+
+        // ─── Block 2: WOCHEN-STANDARD ───
+        addSectionHeader(root, dp, "━━━ 🏠 WOCHEN-STANDARD (" + dayNamesShort[dow] + ") ━━━", 0xFF93C5FD);
+        LinearLayout woche = boxCard(dp, 0xFF1E3A8A);
+        String wochenHome = (!vs.todayOverride && webHome != null) ? webHome : null;
+        // Wochen-Home aus defaultTimes[dow].homeLocation direkt lesen (auch wenn Tages-Override aktiv)
+        addLine(woche, dp,
+            wochenHome != null ? wochenHome
+                              : (webHome != null && !vs.todayOverride ? webHome : "(nicht gesetzt)"),
+            13, 0xFFDBEAFE, true);
+        addLine(woche, dp, "gilt jeden " + dayNamesFull[dow] + " wenn keine Tages-Ausnahme", 11, 0xFF93C5FD, false);
+        addActionButton(woche, dp, "✏️ Wochen-Standard ändern", 0xFF6366F1,
+            _v -> showStandortPickerForDowOnly(vs.vehicleId, dow));
+        root.addView(woche);
+
+        // ─── Block 3: TAGES-AUSNAHME ───
+        addSectionHeader(root, dp, "━━━ 📌 HEUTE-AUSNAHME (nur " + todayKey + ") ━━━", 0xFFFBBF24);
+        LinearLayout tages = boxCard(dp, 0xFF78350F);
+        addLine(tages, dp,
+            todayOverrideHome ? webHome : "(keine gesetzt)",
+            13, 0xFFFEF3C7, true);
+        addLine(tages, dp,
+            todayOverrideHome ? "aktiv — überschreibt Wochen-Standard heute"
+                              : "Fällt zurück auf Wochen-Standard",
+            11, 0xFFFCD34D, false);
+        addActionButton(tages, dp, "+ Heute-Ausnahme setzen", 0xFFF59E0B,
+            _v -> showStandortPickerForTodayOnly(vs.vehicleId));
+        root.addView(tages);
+
+        // ─── Block 4: NÄCHSTE VORBESTELLUNG (Placeholder v6.66.57) ───
+        addSectionHeader(root, dp, "━━━ 🎯 NÄCHSTE VORBESTELLUNG ━━━", 0xFFF97316);
+        LinearLayout naechste = boxCard(dp, 0xFF0C2818);
+        addLine(naechste, dp, "(kommt in v6.66.57 mit Anfahrt-Malus)", 12, 0xFFA7F3D0, false);
+        root.addView(naechste);
+
+        // ─── Block 5: AKTIONEN ───
+        addSectionHeader(root, dp, "━━━ AKTIONEN ━━━", 0xFFA5B4FC);
+        LinearLayout aktionen = new LinearLayout(this);
+        aktionen.setOrientation(LinearLayout.HORIZONTAL);
+        LinearLayout.LayoutParams alp = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        alp.topMargin = (int)(8 * dp);
+        aktionen.setLayoutParams(alp);
+        addActionButton3col(aktionen, dp, "✏️ Zeit\nHeute", 0xFF2563EB,
+            _v -> Toast.makeText(this, "Tap eine Zelle im Kalender-Grid um die Zeit zu ändern", Toast.LENGTH_LONG).show());
+        addActionButton3col(aktionen, dp, "🏠 Standort\nHeute", 0xFF7C3AED,
+            _v -> showStandortPickerForTodayOnly(vs.vehicleId));
+        addActionButton3col(aktionen, dp, "❌ Frei\nHeute", 0xFFDC2626,
+            _v -> markVehicleFreeToday(vs.vehicleId, todayKey));
+        root.addView(aktionen);
+
+        String vNameShort = vs.name != null ? vs.name : vs.vehicleId;
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("🚗 " + vNameShort)
+            .setView(scroll)
+            .setNegativeButton("Schließen", null)
+            .show();
+    }
+
+    // Layout-Helpers für Detail-Dialog v6.66.56
+    private void addSectionHeader(LinearLayout parent, float dp, String text, int color) {
+        TextView tv = new TextView(this);
+        tv.setText(text);
+        tv.setTextColor(color);
+        tv.setTextSize(12);
+        tv.setTypeface(null, android.graphics.Typeface.BOLD);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        lp.topMargin = (int)(12 * dp);
+        tv.setLayoutParams(lp);
+        parent.addView(tv);
+    }
+
+    private LinearLayout boxCard(float dp, int bgColor) {
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setBackgroundColor(bgColor);
+        int p = (int)(10 * dp);
+        box.setPadding(p, p, p, p);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        lp.topMargin = (int)(4 * dp);
+        box.setLayoutParams(lp);
+        return box;
+    }
+
+    private void addLine(LinearLayout parent, float dp, String text, int size, int color, boolean bold) {
+        TextView tv = new TextView(this);
+        tv.setText(text);
+        tv.setTextColor(color);
+        tv.setTextSize(size);
+        if (bold) tv.setTypeface(null, android.graphics.Typeface.BOLD);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        lp.topMargin = (int)(2 * dp);
+        tv.setLayoutParams(lp);
+        parent.addView(tv);
+    }
+
+    private void addActionButton(LinearLayout parent, float dp, String text, int bgColor, View.OnClickListener listener) {
+        TextView tv = new TextView(this);
+        tv.setText(text);
+        tv.setTextColor(0xFFFFFFFF);
+        tv.setTextSize(12);
+        tv.setTypeface(null, android.graphics.Typeface.BOLD);
+        tv.setBackgroundColor(bgColor);
+        int p = (int)(10 * dp);
+        tv.setPadding(p, p / 2, p, p / 2);
+        tv.setGravity(android.view.Gravity.CENTER);
+        tv.setClickable(true);
+        tv.setOnClickListener(listener);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        lp.topMargin = (int)(8 * dp);
+        tv.setLayoutParams(lp);
+        parent.addView(tv);
+    }
+
+    private void addActionButton3col(LinearLayout parent, float dp, String text, int bgColor, View.OnClickListener listener) {
+        TextView tv = new TextView(this);
+        tv.setText(text);
+        tv.setTextColor(0xFFFFFFFF);
+        tv.setTextSize(11);
+        tv.setTypeface(null, android.graphics.Typeface.BOLD);
+        tv.setBackgroundColor(bgColor);
+        int p = (int)(10 * dp);
+        tv.setPadding(p, p, p, p);
+        tv.setGravity(android.view.Gravity.CENTER);
+        tv.setClickable(true);
+        tv.setOnClickListener(listener);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        lp.setMargins((int)(2 * dp), 0, (int)(2 * dp), 0);
+        tv.setLayoutParams(lp);
+        parent.addView(tv);
+    }
+
+    // Standort-Picker: NUR für den gewählten Wochentag (skippt Zeitraum-Dialog)
+    private void showStandortPickerForDowOnly(final String vehicleId, final int dow) {
+        FirebaseDatabase.getInstance(DB_URL).getReference("settings/taxiStands")
+            .addListenerForSingleValueEvent(new ValueEventListener() {
+                @Override public void onDataChange(@NonNull DataSnapshot snap) {
+                    List<String> names = new ArrayList<>();
+                    List<Double> lats = new ArrayList<>();
+                    List<Double> lons = new ArrayList<>();
+                    for (DataSnapshot child : snap.getChildren()) {
+                        String n = child.child("name").getValue(String.class);
+                        Double la = child.child("lat").getValue(Double.class);
+                        Double lo = child.child("lon").getValue(Double.class);
+                        if (n != null && la != null && lo != null) { names.add(n); lats.add(la); lons.add(lo); }
+                    }
+                    if (names.isEmpty()) { Toast.makeText(ShiftEditorActivity.this, "Keine Taxistände", Toast.LENGTH_SHORT).show(); return; }
+                    new androidx.appcompat.app.AlertDialog.Builder(ShiftEditorActivity.this)
+                        .setTitle("📍 Warteplatz für Wochen-Standard")
+                        .setItems(names.toArray(new String[0]), (d, idx) -> saveHomeForOneWeekday(vehicleId, dow, names.get(idx), lats.get(idx), lons.get(idx)))
+                        .setNegativeButton("Abbrechen", null).show();
+                }
+                @Override public void onCancelled(@NonNull DatabaseError error) { }
+            });
+    }
+
+    // Standort-Picker: NUR für heute (Tages-Override)
+    private void showStandortPickerForTodayOnly(final String vehicleId) {
+        FirebaseDatabase.getInstance(DB_URL).getReference("settings/taxiStands")
+            .addListenerForSingleValueEvent(new ValueEventListener() {
+                @Override public void onDataChange(@NonNull DataSnapshot snap) {
+                    List<String> names = new ArrayList<>();
+                    List<Double> lats = new ArrayList<>();
+                    List<Double> lons = new ArrayList<>();
+                    for (DataSnapshot child : snap.getChildren()) {
+                        String n = child.child("name").getValue(String.class);
+                        Double la = child.child("lat").getValue(Double.class);
+                        Double lo = child.child("lon").getValue(Double.class);
+                        if (n != null && la != null && lo != null) { names.add(n); lats.add(la); lons.add(lo); }
+                    }
+                    if (names.isEmpty()) { Toast.makeText(ShiftEditorActivity.this, "Keine Taxistände", Toast.LENGTH_SHORT).show(); return; }
+                    new androidx.appcompat.app.AlertDialog.Builder(ShiftEditorActivity.this)
+                        .setTitle("📍 Warteplatz nur HEUTE")
+                        .setItems(names.toArray(new String[0]), (d, idx) -> saveHomeForTodayOverride(vehicleId, names.get(idx), lats.get(idx), lons.get(idx)))
+                        .setNegativeButton("Abbrechen", null).show();
+                }
+                @Override public void onCancelled(@NonNull DatabaseError error) { }
+            });
+    }
+
+    // Fahrzeug HEUTE komplett abmelden (active=false Override)
+    private void markVehicleFreeToday(String vehicleId, String todayKey) {
+        Map<String, Object> upd = new HashMap<>();
+        upd.put("active", false);
+        FirebaseDatabase.getInstance(DB_URL)
+            .getReference("vehicleShifts/" + vehicleId + "/" + todayKey)
+            .updateChildren(upd)
+            .addOnSuccessListener(_ok -> Toast.makeText(this, "❌ " + vehicleId + " heute frei (" + todayKey + ")", Toast.LENGTH_SHORT).show())
+            .addOnFailureListener(e -> Toast.makeText(this, "Fehler: " + e.getMessage(), Toast.LENGTH_LONG).show());
+    }
+
     // 🆕 v6.63.581: "09:00" → "9", "09:30" → "9:30" — kompakte Darstellung für Wochentag-Buttons
     private static String shortTime(String hhmm) {
         if (hhmm == null) return "?";
@@ -2211,11 +2445,15 @@ public class ShiftEditorActivity extends AppCompatActivity {
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
             olp.topMargin = (int)(2 * dp);
             ortText.setLayoutParams(olp);
-            // Direkt antippbar — öffnet Taxistand-Schnellwahl (v6.63.587)
+            // 🆕 v6.66.56 (Patrick 09.09. SVG-Mockup bestätigt): ganze Card klickbar,
+            //   öffnet Detail-Dialog mit 5 Blöcken (HEUTE / Wochen / Tages / Nächste / Aktionen).
+            //   ortText bleibt separat klickbar für direkten Standort-Picker (Shortcut).
             final int _cardDow = dow;
             ortText.setClickable(true);
             ortText.setOnClickListener(_vv -> showStandortPickerDialog(vs.vehicleId, _cardDow));
             card.addView(ortText);
+            card.setClickable(true);
+            card.setOnClickListener(_vv -> showFahrzeugTagDetailDialog(vs, _cardDow));
             // Fahrername asynchron nachladen (kein GPS mehr — nur Name)
             try {
                 FirebaseDatabase.getInstance(DB_URL).getReference("vehicles/" + vs.vehicleId + "/currentDriverName")

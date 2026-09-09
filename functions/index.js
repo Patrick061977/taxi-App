@@ -33588,6 +33588,52 @@ exports.scheduledDepartureReminder = onSchedule(
     }
 );
 
+// 🆕 v6.66.49 (Patrick 09.09.: "Fahrten im Wartepool nach 12h auto auf completed"):
+// Alte unassigned Wartepool-Rides (Pickup > 12h vorbei, kein Fahrzeug) → completed.
+// Grund: sie sind eh nicht mehr fahrbar, blockieren nur Wartepool-Anzeige.
+// completed (nicht cancelled) wegen Buchhaltung (Patricks Regel 23.07.).
+exports.scheduledWartepoolCleanup = onSchedule(
+    {
+        schedule: 'every 60 minutes',
+        region: 'europe-west1',
+        timeoutSeconds: 60,
+        memory: '256MiB'
+    },
+    async (event) => {
+        try {
+            const now = Date.now();
+            const CUTOFF = 12 * 60 * 60 * 1000;
+            const ridesSnap = await db.ref('rides')
+                .orderByChild('pickupTimestamp')
+                .startAt(now - 30 * 24 * 60 * 60 * 1000)  // Nur letzten 30 Tage anschauen (Kosten)
+                .endAt(now - CUTOFF)
+                .once('value');
+            const updates = {};
+            let count = 0;
+            ridesSnap.forEach(c => {
+                const r = c.val();
+                if (!r) return;
+                if (r.status === 'completed' || r.status === 'cancelled') return;
+                // Nur unassigned oder wartepool-Rides (Locks respektieren!)
+                if (r.assignedVehicle && r.status !== 'wartepool' && r.status !== 'vorbestellt') return;
+                if (r.assignmentLocked === true) return;
+                updates[c.key + '/status'] = 'completed';
+                updates[c.key + '/completedAt'] = now;
+                updates[c.key + '/completedBy'] = 'cloud-wartepool-cleanup-v6.66.49';
+                updates[c.key + '/cleanupReason'] = 'Wartepool >12h ueberfaellig (Pickup ' + (r.pickupTime || '?') + '), nie zugewiesen';
+                updates[c.key + '/updatedAt'] = now;
+                count++;
+            });
+            if (count > 0) {
+                await db.ref('rides').update(updates);
+                console.log('🧹 scheduledWartepoolCleanup: ' + count + ' Rides auf completed gesetzt (>12h overdue)');
+            }
+        } catch (err) {
+            console.error('scheduledWartepoolCleanup Fehler:', err.message);
+        }
+    }
+);
+
 exports.scheduledOpenRideCheck = onSchedule(
     {
         // v6.47.1: 1 → 2 Min — halbiert Cloud-Function-Aufrufe ohne Funktions-Verlust

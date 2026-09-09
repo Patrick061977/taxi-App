@@ -1848,6 +1848,57 @@ public class ShiftEditorActivity extends AppCompatActivity {
                     hdr.setPadding(0, 0, 0, pad / 2);
                     root.addView(hdr);
 
+                    // 🆕 v6.66.59 (Patrick 09.09. Bridge 12:37 "da steht nirgendwo was von Homecords"):
+                    //   Home-Info-Block oben — zeigt Wochen-Standard + Coords-Status klar sichtbar.
+                    //   Vorher nur Standort-Button unten -> Info war versteckt hinter Klick.
+                    android.widget.LinearLayout _homeInfoBox = new android.widget.LinearLayout(ShiftEditorActivity.this);
+                    _homeInfoBox.setOrientation(android.widget.LinearLayout.VERTICAL);
+                    _homeInfoBox.setBackgroundColor(0xFF1E3A8A);
+                    int _hbP = (int)(10 * getResources().getDisplayMetrics().density);
+                    _homeInfoBox.setPadding(_hbP, _hbP, _hbP, _hbP);
+                    android.widget.LinearLayout.LayoutParams _hbLp = new android.widget.LinearLayout.LayoutParams(
+                        android.widget.LinearLayout.LayoutParams.MATCH_PARENT, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
+                    _hbLp.bottomMargin = pad / 2;
+                    _homeInfoBox.setLayoutParams(_hbLp);
+
+                    android.widget.TextView _hbTitle = new android.widget.TextView(ShiftEditorActivity.this);
+                    _hbTitle.setText("🏠 WOCHEN-STANDARD-HOME (" + dayNames[dow] + ")");
+                    _hbTitle.setTextColor(0xFF93C5FD);
+                    _hbTitle.setTextSize(11);
+                    _hbTitle.setTypeface(null, android.graphics.Typeface.BOLD);
+                    _homeInfoBox.addView(_hbTitle);
+
+                    boolean _hbHasCoords = s.child("homeCoords").exists()
+                        && s.child("homeCoords/lat").exists()
+                        && s.child("homeCoords/lon").exists();
+                    android.widget.TextView _hbLoc = new android.widget.TextView(ShiftEditorActivity.this);
+                    if (_homeLocTxt != null && !_homeLocTxt.isEmpty()) {
+                        _hbLoc.setText(_homeLocTxt + (_hbHasCoords ? "" : "  ⚠️ keine Coords!"));
+                        _hbLoc.setTextColor(_hbHasCoords ? 0xFFDBEAFE : 0xFFFBBF24);
+                    } else {
+                        _hbLoc.setText("(nicht gesetzt — Score-Malus rechnet ab Kaiserbaeder-Center)");
+                        _hbLoc.setTextColor(0xFFF87171);
+                    }
+                    _hbLoc.setTextSize(13);
+                    _hbLoc.setTypeface(null, android.graphics.Typeface.BOLD);
+                    android.widget.LinearLayout.LayoutParams _hbLocLp = new android.widget.LinearLayout.LayoutParams(
+                        android.widget.LinearLayout.LayoutParams.MATCH_PARENT, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
+                    _hbLocLp.topMargin = (int)(4 * getResources().getDisplayMetrics().density);
+                    _hbLoc.setLayoutParams(_hbLocLp);
+                    _homeInfoBox.addView(_hbLoc);
+
+                    android.widget.TextView _hbPath = new android.widget.TextView(ShiftEditorActivity.this);
+                    _hbPath.setText("gilt jeden " + dayNames[dow] + " wenn keine Tages-Ausnahme");
+                    _hbPath.setTextColor(0xFF93C5FD);
+                    _hbPath.setTextSize(10);
+                    android.widget.LinearLayout.LayoutParams _hbPathLp = new android.widget.LinearLayout.LayoutParams(
+                        android.widget.LinearLayout.LayoutParams.MATCH_PARENT, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
+                    _hbPathLp.topMargin = (int)(2 * getResources().getDisplayMetrics().density);
+                    _hbPath.setLayoutParams(_hbPathLp);
+                    _homeInfoBox.addView(_hbPath);
+
+                    root.addView(_homeInfoBox);
+
                     // 🆕 v6.63.583: Pausen-Info anzeigen + Löschen-Button
                     final android.widget.Button[] _btnDelPausenArr = {null};
                     if (_existingRanges.size() > 1) {
@@ -2422,21 +2473,24 @@ public class ShiftEditorActivity extends AppCompatActivity {
             final TextView ortText = new TextView(this);
             String _webHome = vs.homeLocations != null ? vs.homeLocations[dow] : null;
             boolean _hasCoords = vs.homeCoordsSet != null && vs.homeCoordsSet[dow];
+            // 🆕 v6.66.59 (Patrick 09.09. Bridge 12:36): 🏠 fuer Home statt 📍
+            //   — 📍 bleibt dem Live-GPS-Standort (in liveStatus-Zeile) vorbehalten.
+            //   Vorher: beide zeigten 📍 -> sah aus wie Widerspruch (Bahnhof Ahlbeck vs Heringsdorf).
             if (_webHome != null && !_webHome.isEmpty()) {
                 if (_hasCoords) {
-                    ortText.setText("📍 " + _webHome);
-                    ortText.setTextColor(0xFF94A3B8);
+                    ortText.setText("🏠 " + _webHome);
+                    ortText.setTextColor(0xFF60A5FA);
                 } else {
-                    ortText.setText("⚠️ " + _webHome + " (keine Koord!)");
+                    ortText.setText("⚠️ 🏠 " + _webHome + " (keine Koord!)");
                     ortText.setTextColor(0xFFF59E0B);
                     ortText.setTypeface(null, android.graphics.Typeface.BOLD);
                 }
             } else if (activeToday) {
-                ortText.setText("⚠️ Kein Standort — tippen!");
+                ortText.setText("⚠️ 🏠 Kein Home — tippen!");
                 ortText.setTextColor(0xFFEF4444);
                 ortText.setTypeface(null, android.graphics.Typeface.BOLD);
             } else {
-                ortText.setText("📍 Standort wählen…");
+                ortText.setText("🏠 Home wählen…");
                 ortText.setTextColor(0xFF475569);
             }
             ortText.setTextSize(10);

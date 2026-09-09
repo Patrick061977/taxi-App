@@ -71514,11 +71514,36 @@ console.log('✅ v5.90.594: Battery Monitor läuft!');
                 // Lade alle Monitoring-Daten
                 const monitoringSnap = await db.ref('monitoring/drivers').once('value');
                 const monitoring = monitoringSnap.val() || {};
-                
+
                 // Lade Fahrzeug-Daten
                 const vehiclesSnap = await db.ref('vehicles').once('value');
                 const vehicles = vehiclesSnap.val() || {};
-                
+
+                // v6.66.50 (Patrick 09.09.: "mehr Uebersicht in Live-Monitor"):
+                // Lade auch upcoming Vorbestellungen (naechste 120 Min) fuer Malus-Anzeige pro Fahrzeug
+                const nowMs = Date.now();
+                const upcomingSnap = await db.ref('rides').once('value');
+                const upcomingRides = [];
+                upcomingSnap.forEach(c => {
+                    const r = c.val();
+                    if (!r || !r.pickupTimestamp) return;
+                    if (r.pickupTimestamp < nowMs || r.pickupTimestamp > nowMs + 120*60*1000) return;
+                    if (r.status === 'completed' || r.status === 'cancelled') return;
+                    if (r.assignmentLocked === true) return;
+                    if (r.assignedVehicle && ['accepted','on_way','picked_up'].includes(r.status)) return;
+                    upcomingRides.push({ id: c.key, ...r });
+                });
+                upcomingRides.sort((a,b) => a.pickupTimestamp - b.pickupTimestamp);
+                // Helper: Haversine-Distanz
+                function _distKm(lat1, lon1, lat2, lon2) {
+                    if (!lat1 || !lon1 || !lat2 || !lon2) return null;
+                    const R = 6371;
+                    const dLat = (lat2-lat1) * Math.PI / 180;
+                    const dLon = (lon2-lon1) * Math.PI / 180;
+                    const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLon/2)**2;
+                    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                }
+
                 const vehicleIds = Object.keys(monitoring);
                 
                 if (vehicleIds.length === 0) {
@@ -71623,6 +71648,35 @@ console.log('✅ v5.90.594: Battery Monitor läuft!');
                                     </div>
                                     ` : ''}
                                 </div>
+
+                                <!-- 🎯 v6.66.50 Naechste Vorbestellung + Malus (Patrick 09.09.) -->
+                                ${(() => {
+                                    if (upcomingRides.length === 0) return '';
+                                    // Referenz-Coords: Live-GPS wenn frisch, sonst HomeCoords, sonst Kaiserbaeder-Center
+                                    const refLat = (gpsStatus.lat && gpsAge < 1800) ? gpsStatus.lat : (vehicle.homeCoords?.lat || 53.95);
+                                    const refLon = (gpsStatus.lon && gpsAge < 1800) ? gpsStatus.lon : (vehicle.homeCoords?.lon || 14.15);
+                                    const refSource = (gpsStatus.lat && gpsAge < 1800) ? 'live-GPS' : (vehicle.homeCoords?.lat ? 'HomeCoords' : 'Kaiserbaeder');
+                                    // Berechne Malus fuer die naechsten 3 Vorbestellungen
+                                    const cards = upcomingRides.slice(0, 3).map(r => {
+                                        const d = _distKm(refLat, refLon, r.pickupLat, r.pickupLon);
+                                        const anfahrtMin = d != null ? Math.ceil(d * 1.5) : null;
+                                        const zeitBisPickup = Math.floor((r.pickupTimestamp - nowMs) / 60000);
+                                        let ampel = '⚪', bewertung = '?';
+                                        if (d == null) { ampel = '⚪'; bewertung = 'keine GPS'; }
+                                        else if (anfahrtMin <= zeitBisPickup + 5) { ampel = '🟢'; bewertung = 'schaffbar'; }
+                                        else if (anfahrtMin <= zeitBisPickup + 15) { ampel = '🟡'; bewertung = 'knapp'; }
+                                        else { ampel = '🔴'; bewertung = 'zu weit'; }
+                                        const isAssigned = r.assignedVehicle === vehicleId;
+                                        return `<div style="background:#0a1020;padding:5px 8px;border-radius:4px;margin-top:3px;font-size:11px;line-height:1.4;${isAssigned ? 'border-left:3px solid #22c55e;' : ''}">
+                                            ${ampel} <b>${r.customerName || '?'}</b> in ${zeitBisPickup}min · ${(r.pickup || '?').split(',')[0].slice(0,25)}
+                                            <div style="color:#6b7280;font-size:10px">${d != null ? d.toFixed(1) + 'km · ~' + anfahrtMin + 'min Anfahrt · ' + bewertung : bewertung}${isAssigned ? ' · <b style="color:#22c55e">DIESES Fahrzeug</b>' : ''}</div>
+                                        </div>`;
+                                    }).join('');
+                                    return `<div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 10px 12px; margin-bottom: 15px; border-radius: 6px;">
+                                        <div style="font-size: 11px; color: #6b7280; font-weight: 600; margin-bottom: 4px;">🎯 NÄCHSTE VORBESTELLUNGEN (Malus ab ${refSource})</div>
+                                        ${cards}
+                                    </div>`;
+                                })()}
                                 
                                 <!-- Letzte Aktion -->
                                 <div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 12px; margin-bottom: 15px; border-radius: 6px;">

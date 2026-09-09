@@ -36804,6 +36804,20 @@ exports.shiftHeartbeatPing = onRequest(
             const now = Date.now();
             const updates = {};
             updates['vehicles/' + vehicleId + '/shift/lastHeartbeat'] = now;
+            // 🆕 v6.66.60 (Patrick 09.09. Bridge 13:24 Prius-IK-Bug):
+            //   activeDevice.lastHeartbeat auch aktualisieren solange Schicht active +
+            //   activeDevice existiert. Vorher: nur DriverDashboardActivity.lockHeartbeatTick
+            //   schrieb das alle 60s. Wenn Handy im Hintergrund/Doze → Tick pausiert →
+            //   activeDevice.lastHeartbeat > 5 Min alt → Vehicle-Lock STALE →
+            //   Fahrzeug für andere frei WÄHREND Fahrer noch physisch fährt.
+            //   Kulpa's shiftHistory.heartbeats liefen weiter (via ShiftForegroundService),
+            //   aber activeDevice.lastHeartbeat blieb bei 09:58 stehen. Patrick konnte um
+            //   13:21 IK übernehmen obwohl Kulpa noch fuhr.
+            //   Fix: solange die Schicht aktiv ist + activeDevice existiert, muss der
+            //   Lock genau so frisch bleiben wie die Schicht selbst.
+            if (v.activeDevice && v.activeDevice.deviceId) {
+                updates['vehicles/' + vehicleId + '/activeDevice/lastHeartbeat'] = now;
+            }
             // v6.42.6: online-Flag automatisch setzen wenn nativer Service Heartbeat schickt
             // (vorher nur durch WebView-JS — bei Native-Only blieb online=false)
             // v6.62.21: NICHT ueberschreiben wenn Fahrer manuell auf Pause geschaltet hat

@@ -392,14 +392,29 @@ public class DispoActivity extends AppCompatActivity {
         tvShift.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
         tvShift.setPadding(0, 0, dp(8), 0);
         homeRow.addView(tvShift);
+        // 🆕 v6.66.57 (Patrick 09.09. Bridge 11:34): Effektiven Home lesen —
+        //   Kaskade Tages-Override → Wochen-Standard → Global-Fallback.
+        //   Vorher: nur /vehicles/homeLocation → verpasste Standorte die im
+        //   Schicht-Editor unter /vehicleShifts gesetzt wurden.
+        String[] _effHome = getEffectiveHomeForToday(v.id, v.homeLocation, v.homeLat, v.homeLon);
+        String _hLoc = _effHome[0];  // Adresse
+        String _hSrc = _effHome[1];  // "Tages" / "Wochen" / "Global" / null
+        boolean _hasCoords = _effHome[2] != null;
         // Home-Standort
         TextView tvHome = new TextView(this);
-        boolean _hasHome = v.homeLocation != null && !v.homeLocation.isEmpty();
-        String _hStr = _hasHome ? shorten(v.homeLocation, 28) : "kein Standort";
-        boolean _hasCoords = v.homeLat != null && v.homeLon != null;
+        boolean _hasHome = _hLoc != null && !_hLoc.isEmpty();
+        String _hStr = _hasHome ? shorten(_hLoc, 22) : "kein Standort";
+        String _srcTag = _hSrc != null ? (" [" + _hSrc + "]") : "";
         String _hIcon = _hasHome ? (_hasCoords ? "🏠" : "⚠️") : "🏠";
-        tvHome.setText(_hIcon + " " + _hStr);
-        tvHome.setTextColor(Color.parseColor(_hasHome ? (_hasCoords ? "#60A5FA" : "#FBBF24") : "#EF4444"));
+        tvHome.setText(_hIcon + " " + _hStr + _srcTag);
+        // Farbcode: Tages=gelb, Wochen=blau, Global=hellblau, fehlt=rot, ohne Coords=orange
+        int _homeColor;
+        if (!_hasHome) _homeColor = Color.parseColor("#EF4444");
+        else if (!_hasCoords) _homeColor = Color.parseColor("#FBBF24");
+        else if ("Tages".equals(_hSrc)) _homeColor = Color.parseColor("#F59E0B");
+        else if ("Wochen".equals(_hSrc)) _homeColor = Color.parseColor("#60A5FA");
+        else _homeColor = Color.parseColor("#93C5FD");
+        tvHome.setTextColor(_homeColor);
         tvHome.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
         tvHome.setTypeface(null, _hasHome ? Typeface.NORMAL : Typeface.BOLD);
         LinearLayout.LayoutParams tvhLp = new LinearLayout.LayoutParams(
@@ -416,8 +431,8 @@ public class DispoActivity extends AppCompatActivity {
         btnEdit.setClickable(true);
         final String vidFinal = v.id;
         final String vNameFinal = v.name;
-        final String oldHome = v.homeLocation;
-        btnEdit.setOnClickListener(_v -> showHomeEditDialog(vidFinal, vNameFinal, oldHome));
+        final String oldHomeFinal = _hLoc;
+        btnEdit.setOnClickListener(_v -> showHomeEditDialog(vidFinal, vNameFinal, oldHomeFinal));
         homeRow.addView(btnEdit);
         card.addView(homeRow);
 
@@ -1066,19 +1081,86 @@ public class DispoActivity extends AppCompatActivity {
         return "🕐 ganztags " + dNames[dow];
     }
 
-    // 🆕 v6.66.55: Home-Editor-Dialog mit Nominatim-Geocode.
-    //   Speichert /vehicles/{vid}/homeLocation + homeCoords.
+    // 🆕 v6.66.57: Effektiver Home mit Kaskade: Tages-Override → Wochen-Standard → Global.
+    //   Return: [address, source, coordsMarker]. coordsMarker="yes" wenn lat/lon vorhanden.
+    private String[] getEffectiveHomeForToday(String vid, String globalLoc, Double globalLat, Double globalLon) {
+        if (_cachedShiftsSnap != null) {
+            DataSnapshot vSnap = _cachedShiftsSnap.child(vid);
+            if (vSnap.exists()) {
+                java.util.Calendar cal = java.util.Calendar.getInstance();
+                String dateStr = new SimpleDateFormat("yyyy-MM-dd", Locale.GERMANY).format(cal.getTime());
+                int dow = cal.get(java.util.Calendar.DAY_OF_WEEK) - 1;
+                // 1. Tages-Override
+                DataSnapshot dayEntry = vSnap.child(dateStr);
+                if (dayEntry.exists()) {
+                    String tHome = strOrNull(dayEntry.child("homeLocation").getValue());
+                    if (tHome != null && !tHome.isEmpty()) {
+                        boolean tCoords = dayEntry.child("homeCoords/lat").exists() && dayEntry.child("homeCoords/lon").exists();
+                        return new String[]{ tHome, "Tages", tCoords ? "yes" : null };
+                    }
+                }
+                // 2. Wochen-Standard
+                DataSnapshot defT = vSnap.child("defaultTimes").child(String.valueOf(dow));
+                if (defT.exists()) {
+                    String wHome = strOrNull(defT.child("homeLocation").getValue());
+                    if (wHome != null && !wHome.isEmpty()) {
+                        boolean wCoords = defT.child("homeCoords/lat").exists() && defT.child("homeCoords/lon").exists();
+                        return new String[]{ wHome, "Wochen", wCoords ? "yes" : null };
+                    }
+                }
+            }
+        }
+        // 3. Global-Fallback
+        if (globalLoc != null && !globalLoc.isEmpty()) {
+            return new String[]{ globalLoc, "Global", (globalLat != null && globalLon != null) ? "yes" : null };
+        }
+        return new String[]{ null, null, null };
+    }
+
+    // 🆕 v6.66.55/57: Home-Editor-Dialog. v6.66.57: fragt Zeitraum wie Schicht-Editor.
+    //   Speichert je nach Wahl in /vehicles/{vid}/, /vehicleShifts/{vid}/defaultTimes/{dow}/
+    //   oder /vehicleShifts/{vid}/YYYY-MM-DD/.
     //   Cloud-Trigger onVehicleHomeCoordsChanged (v6.66.47) recomputed dann Malus.
     private void showHomeEditDialog(final String vehicleId, final String vehicleName, final String oldAddr) {
+        // v6.66.57: erst Zeitraum wählen (wie im Schicht-Editor Native), dann Adresse.
+        java.util.Calendar cal = java.util.Calendar.getInstance();
+        final int dowNow = cal.get(java.util.Calendar.DAY_OF_WEEK) - 1;
+        final String[] dayNamesFull = { "Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag" };
+        final String todayKey = new SimpleDateFormat("yyyy-MM-dd", Locale.GERMANY).format(cal.getTime());
+        String[] opts = new String[] {
+            "🟨 Nur HEUTE (" + todayKey + ") — Tages-Ausnahme",
+            "🟦 Alle " + dayNamesFull[dowNow] + "e — Wochen-Standard",
+            "📅 Ganze Woche (Mo–So)",
+            "🌐 Global-Fallback (/vehicles/{vid}/homeLocation)"
+        };
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("🏠 " + vehicleName + " — Wo speichern?")
+            .setMessage("Aktuell: " + (oldAddr == null || oldAddr.isEmpty() ? "(nicht gesetzt)" : oldAddr))
+            .setItems(opts, (d, which) -> {
+                askAddressAndSaveHome(vehicleId, vehicleName, oldAddr, which, dowNow, todayKey);
+            })
+            .setNegativeButton("Abbrechen", null)
+            .show();
+    }
+
+    private void askAddressAndSaveHome(final String vehicleId, final String vehicleName, final String oldAddr,
+                                        final int scope, final int dowNow, final String todayKey) {
         final android.widget.EditText et = new android.widget.EditText(this);
         et.setHint("z.B. Bahnhofstr 3, 17419 Ahlbeck");
         if (oldAddr != null) et.setText(oldAddr);
         et.setSingleLine(true);
+        String scopeLabel;
+        switch (scope) {
+            case 0: scopeLabel = "🟨 Nur HEUTE " + todayKey; break;
+            case 1: scopeLabel = "🟦 Alle Wochentage " + dowNow; break;
+            case 2: scopeLabel = "📅 Ganze Woche"; break;
+            default: scopeLabel = "🌐 Global-Fallback";
+        }
         new androidx.appcompat.app.AlertDialog.Builder(this)
-            .setTitle("🏠 Home-Standort für " + vehicleName)
-            .setMessage("Adresse mit PLZ + Ort — wird via OSM geocoded.\n\nAktuell: " + (oldAddr == null || oldAddr.isEmpty() ? "(nicht gesetzt)" : oldAddr))
+            .setTitle(scopeLabel)
+            .setMessage("Adresse mit PLZ + Ort (via OSM geocoded).")
             .setView(et)
-            .setPositiveButton("Speichern", (d, w) -> {
+            .setPositiveButton("Speichern", (d2, w2) -> {
                 final String addr = et.getText().toString().trim();
                 if (addr.isEmpty()) return;
                 new Thread(() -> {
@@ -1087,7 +1169,7 @@ public class DispoActivity extends AppCompatActivity {
                             + java.net.URLEncoder.encode(addr, "UTF-8");
                         java.net.HttpURLConnection conn = (java.net.HttpURLConnection) new java.net.URL(url).openConnection();
                         conn.setRequestProperty("Accept-Language", "de");
-                        conn.setRequestProperty("User-Agent", "FunkTaxiHeringsdorf-Dispo/6.66.55");
+                        conn.setRequestProperty("User-Agent", "FunkTaxiHeringsdorf-Dispo/6.66.57");
                         conn.setConnectTimeout(6000);
                         conn.setReadTimeout(10000);
                         int rc = conn.getResponseCode();
@@ -1104,13 +1186,37 @@ public class DispoActivity extends AppCompatActivity {
                         Map<String, Object> upd = new HashMap<>();
                         upd.put("homeLocation", addr);
                         Map<String, Object> hc = new HashMap<>();
-                        hc.put("lat", lat);
-                        hc.put("lon", lon);
+                        hc.put("lat", lat); hc.put("lon", lon);
                         upd.put("homeCoords", hc);
                         upd.put("homeCoordsUpdatedAt", System.currentTimeMillis());
-                        upd.put("homeCoordsUpdatedBy", "native_dispo_v6.66.55");
-                        FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("vehicles/" + vehicleId).updateChildren(upd)
-                            .addOnSuccessListener(_r -> runOnUiThread(() -> Toast.makeText(this, "✅ Home gesetzt: " + addr, Toast.LENGTH_LONG).show()))
+                        upd.put("homeCoordsUpdatedBy", "native_dispo_v6.66.57");
+                        String targetPath;
+                        String label;
+                        switch (scope) {
+                            case 0:
+                                targetPath = "vehicleShifts/" + vehicleId + "/" + todayKey;
+                                upd.put("active", true);
+                                label = "🟨 Nur HEUTE (" + todayKey + ")";
+                                break;
+                            case 1:
+                                targetPath = "vehicleShifts/" + vehicleId + "/defaultTimes/" + dowNow;
+                                label = "🟦 Alle Wochentage (dow=" + dowNow + ")";
+                                break;
+                            case 2:
+                                // Ganze Woche: 7 Writes an defaultTimes/{0..6}
+                                for (int _d = 0; _d < 7; _d++) {
+                                    FirebaseDatabase.getInstance(DB_INSTANCE_URL)
+                                        .getReference("vehicleShifts/" + vehicleId + "/defaultTimes/" + _d)
+                                        .updateChildren(upd);
+                                }
+                                runOnUiThread(() -> Toast.makeText(this, "📅 " + addr + " für GANZE Woche gesetzt", Toast.LENGTH_LONG).show());
+                                return;
+                            default:
+                                targetPath = "vehicles/" + vehicleId;
+                                label = "🌐 Global-Fallback";
+                        }
+                        FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference(targetPath).updateChildren(upd)
+                            .addOnSuccessListener(_r -> runOnUiThread(() -> Toast.makeText(this, "✅ " + label + " gesetzt: " + addr, Toast.LENGTH_LONG).show()))
                             .addOnFailureListener(_e -> runOnUiThread(() -> Toast.makeText(this, "❌ DB-Fehler: " + _e.getMessage(), Toast.LENGTH_LONG).show()));
                     } catch (Throwable t) {
                         runOnUiThread(() -> Toast.makeText(this, "❌ " + t.getMessage(), Toast.LENGTH_LONG).show());

@@ -13256,7 +13256,7 @@
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
         const APP_VERSION = '6.63.996';
-        const APP_BUILD = '05.09.2026 17:37';
+        const APP_BUILD = '09.09.2026 09:08';
         const APP_CHANGE = 'fix v6.63.643: ✓ Erledigt-Button im Wartepool-Banner + kunden.html Fahrhistorie per CRM-ID (kein globales Limit mehr).';
 
         // 🔧 FIX: Mache APP_VERSION global verfügbar
@@ -23082,6 +23082,8 @@ Aktuell: ${currentNum}`;
                             showAvailableTaxis();
                             checkDriverAvailability();
                             if (currentView === 'admin') updateAdminView();
+                            // 🆕 v6.66.54: Dispo-Live re-rendern wenn HomeCoords o.a. geaendert
+                            if (currentView === 'disposition' && typeof updateDispositionsMonitor === 'function') updateDispositionsMonitor();
                         }, 500);
                     }
 
@@ -39710,12 +39712,22 @@ Aktuell: ${currentNum}`;
                             const shiftLabel = inShiftToday ? 'Im Dienst' : 'Kein Dienst';
                             // Warnung wenn Fahrt auf Fahrzeug ohne Dienst
                             const hasViolation = shiftViolations.some(sv => sv.vid === vid);
+                            // 🆕 v6.66.54 (Patrick 09.09.: "HomeCoords in Dispo-Live sichtbar+editierbar"):
+                            //   HomeCoords aus drivers-Cache lesen (wird von /vehicles-Listener gefuellt).
+                            const _vDrv = (typeof drivers !== 'undefined' ? drivers[vid] : null) || {};
+                            const _hLoc = _vDrv.homeLocation || '';
+                            const _hasHome = !!(_vDrv.homeCoords && _vDrv.homeCoords.lat);
+                            const _homeLabel = _hasHome
+                                ? `<span style="font-size:11px;color:#1e40af;background:#dbeafe;padding:2px 6px;border-radius:4px;" title="${_hLoc}">🏠 ${(_hLoc || '?').slice(0,22)}${(_hLoc||'').length>22?'…':''}</span>`
+                                : `<span style="font-size:11px;color:#b91c1c;background:#fee2e2;padding:2px 6px;border-radius:4px;">🏠 ohne Standort</span>`;
 
                             return `<div style="margin-bottom:8px;${hasViolation ? 'background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:8px;' : ''}">
-                                <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+                                <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap;">
                                     <span style="font-weight:700;font-size:13px;min-width:100px;">${vInfo.name || vid}</span>
                                     <span style="font-size:11px;color:${shiftColor};font-weight:600;background:${shiftColor}15;padding:1px 6px;border-radius:4px;">${shiftLabel}</span>
                                     <span style="font-size:11px;color:#6b7280;">P${prio}</span>
+                                    ${_homeLabel}
+                                    <button onclick="editVehicleHomeCoords('${vid}')" style="background:#6366f1;color:white;border:0;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;cursor:pointer;" title="Rueckfahr-Standort setzen">🖉</button>
                                     <span style="font-size:12px;font-weight:600;margin-left:auto;">${vRides.length} Fahrten</span>
                                     ${hasViolation ? '<span style="font-size:11px;color:#dc2626;font-weight:700;">⚠️ SCHICHT!</span>' : ''}
                                 </div>
@@ -40838,9 +40850,17 @@ Aktuell: ${currentNum}`;
                 const capBadge = info.capacity
                     ? `<span style="background:${info.capacity > 4 ? '#dbeafe' : '#f3f4f6'};color:${info.capacity > 4 ? '#1d4ed8' : '#6b7280'};font-size:9px;font-weight:700;padding:1px 4px;border-radius:3px;margin-left:4px;">${info.capacity}P</span>`
                     : '';
+                // 🆕 v6.66.54 (Patrick 09.09.: "HomeCoords im Schicht-Editor sichtbar+editierbar"):
+                //   Global-Homebase + Edit-Button in Fahrzeug-Spalte — unabhaengig ob heute aktiv.
+                const _globalV = (window.VEHICLES || {})[vehicleId] || info || {};
+                const _globalHome = _globalV.homeLocation || info.homeLocation || '';
+                const _globalHomeShort = _globalHome ? (_globalHome.length > 22 ? _globalHome.slice(0, 20) + '…' : _globalHome) : '';
+                const _homeBadge = _globalHomeShort
+                    ? `<span onclick="event.stopPropagation();editVehicleHomeCoords('${vehicleId}')" style="font-size:10px;color:#1e40af;background:#dbeafe;padding:1px 5px;border-radius:3px;cursor:pointer;" title="${_globalHome} — klicken zum Ändern">🏠 ${_globalHomeShort}</span>`
+                    : `<span onclick="event.stopPropagation();editVehicleHomeCoords('${vehicleId}')" style="font-size:10px;color:#b91c1c;background:#fee2e2;padding:1px 5px;border-radius:3px;cursor:pointer;" title="Kein globaler Standort — klicken zum Setzen">🏠 setzen</span>`;
                 html += `<td style="padding:6px 6px;font-size:12px;font-weight:600;color:#1f2937;white-space:nowrap;">`
                     + (info.plate || vehicleId) + capBadge + `<br><span style="font-size:10px;color:#6b7280;font-weight:400;">`
-                    + (info.name || '') + '</span></td>';
+                    + (info.name || '') + '</span><br>' + _homeBadge + '</td>';
                 weekDays.forEach(d => {
                     const ds = getLocalDateString(d);
                     const isActive = getVehicleActiveForDate(vehicleId, ds);

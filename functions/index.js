@@ -27547,6 +27547,15 @@ exports.scheduledLosfahrCheck = onSchedule(
         memory: '256MiB'
     },
     async (event) => {
+        // 🆕 v6.66.62 (Patrick 09.09. Bridge 14:41): "Wenn ein Fahrer eine Fahrt akzeptiert
+        //   hat, dann kann die nicht automatisch wieder vom System weggenommen werden.
+        //   Akzeptiert ist akzeptiert. Der Fahrer ist dann verantwortlich, was er mit der
+        //   Fahrt macht. Aber die Fahrten werden nicht automatisch wieder ihm entrissen."
+        // → Watchdog no-op. Code bleibt als Referenz für spätere Reaktivierung, aber
+        //   feuert nicht mehr. Wartepool-Rückwurf gab's zuletzt v6.63.779 Alert-getriggert.
+        console.log('⏸️ scheduledLosfahrCheck no-op (v6.66.62 Patrick: akzeptiert=akzeptiert)');
+        return;
+        // eslint-disable-next-line no-unreachable
         try {
             const now = Date.now();
             const TIMEOUT_MS = 120 * 1000;

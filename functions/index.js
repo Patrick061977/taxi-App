@@ -31987,7 +31987,16 @@ exports.onRideUpdated = onValueUpdated(
                 // sofort_confirmation gelesen hat. Symptom: 2-3 SMS in 4 Sekunden, alle
                 // mit minimal verschobener Abholzeit.
                 const _ageMs = Date.now() - (after.createdAt || 0);
-                const _skipChangeSms = (after.isJetzt === true) || (_ageMs < 60_000);
+                // v6.66.51 (Patrick 09.09.): Manuelle Admin-Korrekturen NICHT vom 60s-Cooldown blockieren.
+                // Bisher: <60s alt → skip. Aber wenn Admin selbst korrigiert (updatedBy=native_admin_dispo_edit
+                // oder claude-manual-*), ist das eine ECHTE Aenderung die der Kunde erfahren soll.
+                // Cooldown bleibt fuer Cloud-Recomputes (Auto-Assign/autoResolveConflicts) — dort war der Sinn.
+                const _isManualEdit = after.updatedBy && (
+                    String(after.updatedBy).startsWith('native_admin_') ||
+                    String(after.updatedBy).startsWith('claude-manual-') ||
+                    String(after.updatedBy) === 'admin-web-dispo'
+                );
+                const _skipChangeSms = !_isManualEdit && ((after.isJetzt === true) || (_ageMs < 60_000));
                 // Aktiver Status, kein Status-Wechsel → checke Aenderungen
                 const _norm = (v) => (v == null ? '' : String(v).trim());
                 const _normTs = (v) => (v == null ? 0 : Number(v));

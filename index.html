@@ -97302,7 +97302,9 @@ Funk Taxi Team`;
                     }));
                 } else {
                     // Neue Rechnung: Initialisiere Positionen mit Hauptfahrt + MwSt
-                    const grossPrice = parseFloat(ride.price) || 0;
+                    // 🆕 v6.66.52 (Patrick 09.09. Schulz 20-26-2372): actualPrice + paymentAmount
+                    //   vor price. Bug: nur ride.price → 20.60 statt tatsächlich bezahlten 21.40.
+                    const grossPrice = parseFloat(ride.actualPrice) || parseFloat(ride.paymentAmount) || parseFloat(ride.price) || 0;
                     // v6.63.1013 (Patrick 29.08. Vorkasse-Vetter): Personenzahl in Description +
                     //   Grossraumzuschlag bei >=5 Pax — vorher NUR im Sammel-Auftrag-Pfad
                     //   (Z. ~99680 v6.62.727/730) implementiert, der Einzel-Vorkasse-Pfad hier

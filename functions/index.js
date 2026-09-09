@@ -29180,8 +29180,23 @@ exports.onRideCreated = onValueCreated(
         // Geocoding klappte". Native-CallLog (CallLogActivity) speichert nur pickup/dest/
         // coords aber kein price-Feld -> Telegram-Notif zeigt "Preis: 0€". Fix: Cloud-
         // Function holt OSRM-Distanz + calculatePrice und schreibt das Ergebnis zurueck.
-        if ((!ride.price || ride.price === '0' || ride.price === 0) &&
+        // 🆕 v6.66.53 (Patrick 09.09. Knechtl 10:40 Bridge): Auch neu-rechnen wenn
+        //   passengers>=5 ODER waypoints>0 UND Preis nicht mit Wissen berechnet.
+        //   Bug: Native _fetchOsrmPricePreview_v710 sendet passengers/waypoints NICHT an
+        //   previewRidePrice → Preis 8.90 ohne 10€ Großraum, ohne Zwischenstopp-Distanz.
+        //   Native schreibt trotzdem in ride.price → onRideCreated skipte Neuberechnung.
+        //   Fix: FixedPrice/Festpreis (isFixedPrice/priceSource='manual'|'fixedRoute')
+        //   bleiben unangetastet; alles andere wird bei Großraum/Waypoints neu gerechnet.
+        const _persForce = parseInt(ride.persons || ride.passengers || ride.personenzahl || 1, 10);
+        const _wpForceArr = Array.isArray(ride.waypoints) ? ride.waypoints : Object.values(ride.waypoints || {});
+        const _wpForceCount = _wpForceArr.filter(w => w && (w.address || w.lat)).length;
+        const _isFixedPrice = ride.isFixedPrice === true || ride.priceSource === 'fixedRoute' || ride.priceSource === 'manual';
+        const _needsRecalc = !_isFixedPrice && (_persForce >= 5 || _wpForceCount > 0);
+        if (((!ride.price || ride.price === '0' || ride.price === 0) || _needsRecalc) &&
             ride.pickupLat && ride.pickupLon && ride.destinationLat && ride.destinationLon) {
+            if (_needsRecalc && ride.price) {
+                console.log(`💰 v6.66.53 onRideCreated: Force-Recalc (persons=${_persForce}, waypoints=${_wpForceCount}, alter Preis=${ride.price})`);
+            }
             try {
                 console.log(`💰 onRideCreated: Kein Preis gesetzt — berechne via OSRM (${rideId})`);
                 // 🆕 v6.62.309: Patrick (05.05. 15:40): Zwischenstopp wird in der Native-App
@@ -32148,7 +32163,24 @@ exports.onRideUpdated = onValueUpdated(
                 console.log(`🏥 Auto-Rechnung skip: ${rideId} ist Transportschein/Krankenfahrt — Abrechnung über DMRZ`);
                 try { await addRideLog(rideId, '🏥', 'Auto-Rechnung übersprungen — Transportschein/Krankenfahrt', { quelle: 'v6.63.096', paymentMethod: after.paymentMethod }); } catch(_){}
             }
-            if ((_justCompleted || _retroInvoiceFlip) && _invoiceWanted && _hasNoInvoiceYet && _hasPriceData && _completedRecently && !_isTransportschein) {
+            // 🆕 v6.66.52 (Patrick 09.09. Schulz 20-26-2372 Bridge): Stripe-Wait vor Auto-Rechnung.
+            //   Bug: Auto-Rechnung feuerte 1.1s nach completed → Stripe-Webhook war noch nicht durch
+            //   → actualPrice/paymentAmount noch nicht gesetzt → Rechnung mit price=20.60 (String
+            //   estimatedPrice) statt tatsächlich bezahlten 21.40. Fix: bei Stripe-Fahrten warten
+            //   bis stripePaymentStatus='paid' ODER paymentStatus='bezahlt'. Der Trigger feuert
+            //   erneut wenn Stripe-Webhook diese Felder setzt.
+            //   PLUS: Retro-Trigger _stripeJustPaid — wenn Ride bereits completed war (also
+            //   _justCompleted=false beim Stripe-Update) aber Zahlung gerade durch ging.
+            const _isStripePayment = after.paymentMethod === 'stripe';
+            const _stripeIsPaid = after.stripePaymentStatus === 'paid' || after.paymentStatus === 'bezahlt';
+            const _stripeWasPaid = before.stripePaymentStatus === 'paid' || before.paymentStatus === 'bezahlt';
+            const _stripeJustPaid = _isStripePayment && _stripeIsPaid && !_stripeWasPaid && _statusAfter === 'completed';
+            if (_isStripePayment && !_stripeIsPaid && _statusAfter === 'completed' && _hasNoInvoiceYet) {
+                console.log(`💳 Auto-Rechnung wait: ${rideId} Stripe-Zahlung noch nicht bestätigt (stripePaymentStatus=${after.stripePaymentStatus}, paymentStatus=${after.paymentStatus}) — Trigger feuert erneut bei Webhook`);
+                try { await addRideLog(rideId, '⏳', 'Auto-Rechnung wartet auf Stripe-Zahlungsbestätigung', { quelle: 'v6.66.52', stripePaymentStatus: after.stripePaymentStatus, paymentStatus: after.paymentStatus }); } catch(_){}
+            }
+            const _blockStripeWait = _isStripePayment && !_stripeIsPaid && _hasNoInvoiceYet;
+            if ((_justCompleted || _retroInvoiceFlip || _stripeJustPaid) && _invoiceWanted && _hasNoInvoiceYet && _hasPriceData && _completedRecently && !_isTransportschein && !_blockStripeWait) {
                 console.log(`🧾 ${_retroInvoiceFlip ? 'v6.62.598 RETRO' : 'v6.62.312'} Auto-Rechnung trigger ${rideId}: completed + invoiceRequested + price`);
                 // 🆕 v6.62.731 (Patrick 15.05. 10:57 'a'): Auto-Rechnung nutzt nun den
                 //   gleichen invoiceCounter/{Jahr} wie das manuelle UI — Format '20-YY-NNN'
@@ -43253,18 +43285,25 @@ exports.previewRidePrice = onRequest(
         if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
         if (req.method !== 'POST') { res.status(405).json({ error: 'POST only' }); return; }
         try {
-            const { pickupLat, pickupLon, destLat, destLon, pickupTimestamp, passengers, vehicleCapacity } = req.body || {};
+            // 🆕 v6.66.53 (Patrick 09.09. Knechtl-Bug): waypoints als optionaler Parameter,
+            //   wird an calculateRoute weitergereicht + waypointCount in calculatePrice.
+            const { pickupLat, pickupLon, destLat, destLon, pickupTimestamp, passengers, vehicleCapacity, waypoints } = req.body || {};
             const _pLat = parseFloat(pickupLat), _pLon = parseFloat(pickupLon);
             const _dLat = parseFloat(destLat), _dLon = parseFloat(destLon);
             if (isNaN(_pLat) || isNaN(_pLon) || isNaN(_dLat) || isNaN(_dLon)) {
                 res.status(400).json({ error: 'pickupLat/pickupLon/destLat/destLon required (numbers)' });
                 return;
             }
-            const route = await calculateRoute({ lat: _pLat, lon: _pLon }, { lat: _dLat, lon: _dLon });
+            const _wpArr = Array.isArray(waypoints) ? waypoints : [];
+            const _wpCoords = _wpArr
+                .filter(w => w && typeof w.lat === 'number' && typeof w.lon === 'number')
+                .map(w => ({ lat: parseFloat(w.lat), lon: parseFloat(w.lon) }));
+            const route = await calculateRoute({ lat: _pLat, lon: _pLon }, { lat: _dLat, lon: _dLon }, _wpCoords);
             if (!route) { res.status(502).json({ error: 'routing failed' }); return; }
             const priceInfo = calculatePrice(parseFloat(route.distance), pickupTimestamp ? Number(pickupTimestamp) : null, {
                 persons: passengers ? parseInt(passengers) : 1,
-                vehicleCapacity: vehicleCapacity ? parseInt(vehicleCapacity) : 4
+                vehicleCapacity: vehicleCapacity ? parseInt(vehicleCapacity) : 4,
+                waypointCount: _wpCoords.length
             });
             res.status(200).json({
                 success: true,
@@ -43273,7 +43312,9 @@ exports.previewRidePrice = onRequest(
                 price: parseFloat(priceInfo.total),
                 priceFormatted: priceInfo.total,
                 breakdown: priceInfo.zuschlagText || [],
-                source: route.source
+                source: route.source,
+                waypointCount: _wpCoords.length,
+                persons: passengers ? parseInt(passengers) : 1
             });
         } catch (e) {
             console.error('previewRidePrice error:', e.message);

@@ -3855,8 +3855,11 @@ public class CrmSearchActivity extends AppCompatActivity {
             tvFpBadge.setVisibility(View.GONE);
             // v6.63.710 (Patrick 15.07.): Kein Festpreis → OSRM-Preis-Vorschlag holen
             //   Nur wenn etPrice leer ist (User-Eingabe nicht überschreiben)
+            // 🆕 v6.66.53: passengers + waypoints + pickupTimestamp mitgeben (Großraum-Bug Knechtl)
             if (etPrice.getText().toString().trim().isEmpty()) {
-                _fetchOsrmPricePreview_v710(pickupCoords, destCoords, etPrice);
+                int _paxForPreview = (spnPax != null) ? spnPax.getSelectedItemPosition() + 1 : 1;
+                long _tsForPreview = (datetime != null && datetime.length > 0) ? datetime[0] : 0L;
+                _fetchOsrmPricePreview_v710(pickupCoords, destCoords, etPrice, _paxForPreview, waypointCoords, _tsForPreview);
             }
         };
         // Trigger nach Picker-Returns: launchPlaces schreibt erst setText(addr) und
@@ -6366,12 +6369,24 @@ addQuickPickChip(row, "🚉 Bf Heringsdorf", "Heringsdorf, Bahnhof, Am Bahnhof, 
     private long _lastOsrmFetch_v710 = 0;
     private String _lastOsrmKey_v710 = "";
     private void _fetchOsrmPricePreview_v710(final double[] pickupCoords, final double[] destCoords, final android.widget.EditText etPrice) {
+        _fetchOsrmPricePreview_v710(pickupCoords, destCoords, etPrice, 1, null, 0L);
+    }
+    // 🆕 v6.66.53 (Patrick 09.09. Knechtl-Bug): Overload mit passengers + waypoints + pickupTs.
+    //   Vorher: previewRidePrice wurde OHNE persons + waypoints aufgerufen → Preis ohne
+    //   10€ Großraumzuschlag (persons>=5) und ohne Zwischenstopp-Distanz. Fahrten für
+    //   5 Personen zeigten 8.90 statt 18.90.
+    private void _fetchOsrmPricePreview_v710(final double[] pickupCoords, final double[] destCoords,
+            final android.widget.EditText etPrice, final int passengers,
+            final java.util.List<double[]> waypointCoords, final long pickupTs) {
         if (pickupCoords == null || destCoords == null) return;
         if (pickupCoords.length < 2 || destCoords.length < 2) return;
         if (Double.isNaN(pickupCoords[0]) || Double.isNaN(pickupCoords[1])) return;
         if (Double.isNaN(destCoords[0]) || Double.isNaN(destCoords[1])) return;
-        // Dedupe: gleiche Coords + < 2 Sek → skip (mehrfache TextWatcher-Trigger absorbieren)
-        String _key = pickupCoords[0] + "," + pickupCoords[1] + "→" + destCoords[0] + "," + destCoords[1];
+        // Dedupe: gleiche Coords + persons + waypoints + < 2 Sek → skip (Multi-TextWatcher)
+        StringBuilder _wpKey = new StringBuilder();
+        if (waypointCoords != null) for (double[] w : waypointCoords) { _wpKey.append('|').append(w[0]).append(',').append(w[1]); }
+        String _key = pickupCoords[0] + "," + pickupCoords[1] + "→" + destCoords[0] + "," + destCoords[1]
+            + "p" + passengers + "ts" + pickupTs + _wpKey.toString();
         long _now = System.currentTimeMillis();
         if (_key.equals(_lastOsrmKey_v710) && (_now - _lastOsrmFetch_v710) < 2000) return;
         _lastOsrmKey_v710 = _key;
@@ -6383,6 +6398,19 @@ addQuickPickChip(row, "🚉 Bf Heringsdorf", "Heringsdorf, Bahnhof, Am Bahnhof, 
                 body.put("pickupLon", pickupCoords[1]);
                 body.put("destLat", destCoords[0]);
                 body.put("destLon", destCoords[1]);
+                body.put("passengers", passengers);
+                if (pickupTs > 0) body.put("pickupTimestamp", pickupTs);
+                if (waypointCoords != null && !waypointCoords.isEmpty()) {
+                    org.json.JSONArray _wpArr = new org.json.JSONArray();
+                    for (double[] _wc : waypointCoords) {
+                        if (_wc == null || _wc.length < 2) continue;
+                        org.json.JSONObject _wp = new org.json.JSONObject();
+                        _wp.put("lat", _wc[0]);
+                        _wp.put("lon", _wc[1]);
+                        _wpArr.put(_wp);
+                    }
+                    body.put("waypoints", _wpArr);
+                }
                 java.net.URL url = new java.net.URL("https://europe-west1-taxi-heringsdorf.cloudfunctions.net/previewRidePrice");
                 java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("POST");

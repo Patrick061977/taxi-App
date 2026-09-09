@@ -63,6 +63,9 @@ public class DriverDashboardActivity extends AppCompatActivity {
     // v6.62.304: Patrick (05.05. 14:11): Fahrer-Name unter dem App-Titel anzeigen
     private TextView tvDriverName;
     private TextView tvPauseBanner; // v6.62.26: grosser Pause-Banner
+    // 🆕 v6.66.61 (Patrick 09.09. SVG-Mockup 47280): Home-Karte im Fahrer-Dashboard
+    private LinearLayout homeCard;
+    private TextView tvHomeLocation, tvHomeSource;
     private MaterialButton btnMenu, btnEinsteiger, btnCallLog;
     // v6.63.895: Pin-Direktbuttons (Aufnahmen + Karte) — Patrick 18.08. 12:00
     private MaterialButton btnPinRecordings, btnPinMap, btnColleagues;
@@ -234,6 +237,10 @@ public class DriverDashboardActivity extends AppCompatActivity {
         tvDriverName = findViewById(R.id.tv_driver_name);
         tvShiftStatus = findViewById(R.id.tv_shift_status);
         tvPauseBanner = findViewById(R.id.tv_pause_banner);
+        // 🆕 v6.66.61 Home-Karte
+        homeCard = findViewById(R.id.home_card);
+        tvHomeLocation = findViewById(R.id.tv_home_location);
+        tvHomeSource = findViewById(R.id.tv_home_source);
         // v6.62.26: Pause-Banner-Tap schaltet direkt Online (schneller als Hamburger-Menue)
         // 🆕 v6.62.681: Patrick (13.05. 15:20): "Banner sagt 'tippen um zu starten',
         //   passiert aber nichts — beim 2. Tap kommt Pause." Bug: onClick rief immer
@@ -5090,6 +5097,100 @@ public class DriverDashboardActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         TaxiFCMService.setForeground(true);
+        // 🆕 v6.66.61: Home-Karte aktualisieren bei jedem Resume (User kommt aus Menu zurück)
+        refreshHomeCard();
+    }
+
+    // 🆕 v6.66.61 (Patrick 09.09. SVG-Mockup msgId 47280): Home-Karte im Dashboard-Header.
+    //   Fahrer sieht permanent wo sein Standort HEUTE ist (Wochen-Standard oder Tages-Ausnahme).
+    //   Kaskade: /vehicleShifts/{vid}/{YYYY-MM-DD}/homeLocation
+    //         -> /vehicleShifts/{vid}/defaultTimes/{dow}/homeLocation
+    //         -> /vehicles/{vid}/homeLocation
+    //   Farbcode: 🟨 Tages-Ausnahme, 🟦 Wochen-Standard, 🌐 Global, 🟥 nicht gesetzt.
+    private void refreshHomeCard() {
+        if (homeCard == null || tvHomeLocation == null || tvHomeSource == null) return;
+        if (currentVehicleId == null || currentVehicleId.isEmpty()) {
+            homeCard.setVisibility(android.view.View.GONE);
+            return;
+        }
+        java.util.Calendar cal = java.util.Calendar.getInstance();
+        final String todayKey = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.GERMANY).format(cal.getTime());
+        final int dow = cal.get(java.util.Calendar.DAY_OF_WEEK) - 1;
+        final String[] dayNamesFull = { "Sonntag","Montag","Dienstag","Mittwoch","Donnerstag","Freitag","Samstag" };
+        try {
+            FirebaseDatabase.getInstance(DB_INSTANCE_URL)
+                .getReference("vehicleShifts/" + currentVehicleId)
+                .addListenerForSingleValueEvent(new ValueEventListener() {
+                    @Override public void onDataChange(@NonNull DataSnapshot s) {
+                        String loc = null, src = null;
+                        boolean coordsOk = false;
+                        // 1. Tages-Ausnahme
+                        DataSnapshot tSnap = s.child(todayKey);
+                        if (tSnap.exists()) {
+                            Object t = tSnap.child("homeLocation").getValue();
+                            if (t instanceof String && !((String) t).isEmpty()) {
+                                loc = (String) t;
+                                src = "🟨 Tages-Ausnahme heute";
+                                coordsOk = tSnap.child("homeCoords/lat").exists() && tSnap.child("homeCoords/lon").exists();
+                            }
+                        }
+                        // 2. Wochen-Standard
+                        if (loc == null) {
+                            DataSnapshot wSnap = s.child("defaultTimes").child(String.valueOf(dow));
+                            Object w = wSnap.child("homeLocation").getValue();
+                            if (w instanceof String && !((String) w).isEmpty()) {
+                                loc = (String) w;
+                                src = "🟦 Wochen-Standard (" + dayNamesFull[dow] + ")";
+                                coordsOk = wSnap.child("homeCoords/lat").exists() && wSnap.child("homeCoords/lon").exists();
+                            }
+                        }
+                        // 3. Global-Fallback
+                        if (loc == null) {
+                            FirebaseDatabase.getInstance(DB_INSTANCE_URL)
+                                .getReference("vehicles/" + currentVehicleId)
+                                .addListenerForSingleValueEvent(new ValueEventListener() {
+                                    @Override public void onDataChange(@NonNull DataSnapshot vs) {
+                                        Object g = vs.child("homeLocation").getValue();
+                                        boolean cOk = vs.child("homeCoords/lat").exists() && vs.child("homeCoords/lon").exists();
+                                        if (g instanceof String && !((String) g).isEmpty()) {
+                                            applyHomeCard((String) g, "🌐 Global-Fallback", cOk);
+                                        } else {
+                                            applyHomeCard(null, null, false);
+                                        }
+                                    }
+                                    @Override public void onCancelled(@NonNull DatabaseError e) {}
+                                });
+                            return;
+                        }
+                        applyHomeCard(loc, src, coordsOk);
+                    }
+                    @Override public void onCancelled(@NonNull DatabaseError e) {}
+                });
+        } catch (Throwable _t) {
+            Log.w(TAG, "refreshHomeCard error: " + _t.getMessage());
+        }
+    }
+
+    private void applyHomeCard(String loc, String src, boolean coordsOk) {
+        if (homeCard == null) return;
+        runOnUiThread(() -> {
+            homeCard.setVisibility(android.view.View.VISIBLE);
+            if (loc == null || loc.isEmpty()) {
+                homeCard.setBackgroundColor(0xFF7F1D1D);
+                tvHomeLocation.setText("🟥 Kein Standort gesetzt");
+                tvHomeLocation.setTextColor(0xFFFEE2E2);
+                tvHomeSource.setText("Score-Malus rechnet ab Kaiserbäder-Center — bitte im Schicht-Editor setzen");
+                tvHomeSource.setTextColor(0xFFFCA5A5);
+            } else {
+                if (src != null && src.startsWith("🟨")) homeCard.setBackgroundColor(0xFF78350F);
+                else if (src != null && src.startsWith("🟦")) homeCard.setBackgroundColor(0xFF1E40AF);
+                else homeCard.setBackgroundColor(0xFF334155);
+                tvHomeLocation.setText(loc + (coordsOk ? "" : "  ⚠️ keine Coords"));
+                tvHomeLocation.setTextColor(coordsOk ? 0xFFDBEAFE : 0xFFFBBF24);
+                tvHomeSource.setText(src != null ? src : "");
+                tvHomeSource.setTextColor(0xFF93C5FD);
+            }
+        });
     }
 
     @Override

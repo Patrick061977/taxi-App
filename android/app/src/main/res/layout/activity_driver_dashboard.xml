@@ -161,6 +161,53 @@
                 android:textStyle="bold" />
         </LinearLayout>
 
+        <!-- 🆕 v6.66.61 (Patrick 09.09. SVG-Mockup msgId 47280 "Ja"):
+             Home-Karte im Header — Fahrer sieht permanent wo sein Standort heute ist.
+             Kaskade: Tages-Ausnahme -> Wochen-Standard(dow) -> Global-Fallback. -->
+        <LinearLayout
+            android:id="@+id/home_card"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="#1E40AF"
+            android:padding="10dp"
+            android:layout_marginStart="10dp"
+            android:layout_marginEnd="10dp"
+            android:layout_marginTop="4dp"
+            android:layout_marginBottom="4dp"
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/tv_home_title"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="🏠 DEIN STANDORT HEUTE"
+                android:textColor="#93C5FD"
+                android:textSize="10sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tv_home_location"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:textColor="#DBEAFE"
+                android:textSize="15sp"
+                android:textStyle="bold"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:text="(wird geladen…)" />
+
+            <TextView
+                android:id="@+id/tv_home_source"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:textColor="#60A5FA"
+                android:textSize="10sp"
+                android:text="" />
+        </LinearLayout>
+
         <!-- v6.47.8: Schicht-Stats-Banner KOMPLETT WEG - Patrick will den Platz für Aufträge.
              Timer + Verdienst sind in StatsActivity (Hamburger-Menü → Statistik) zugänglich.
              Felder bleiben als unsichtbare Keepalive für die Activity (sonst NPE). -->

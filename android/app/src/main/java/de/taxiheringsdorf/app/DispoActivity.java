@@ -375,6 +375,52 @@ public class DispoActivity extends AppCompatActivity {
         top.addView(vName);
         card.addView(top);
 
+        // 🆕 v6.66.55 (Patrick 09.09. Bridge 11:14): HomeCoords + Schichtzeit heute
+        //   sichtbar+editierbar in Native Dispo-Live. Vorher nur im Web-Live-Monitor.
+        LinearLayout homeRow = new LinearLayout(this);
+        homeRow.setOrientation(LinearLayout.HORIZONTAL);
+        homeRow.setGravity(Gravity.CENTER_VERTICAL);
+        LinearLayout.LayoutParams hlp = new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        hlp.topMargin = dp(6);
+        homeRow.setLayoutParams(hlp);
+        // Schichtzeit heute
+        String _shiftLbl = getTodayShiftLabelForVehicle(v.id);
+        TextView tvShift = new TextView(this);
+        tvShift.setText(_shiftLbl);
+        tvShift.setTextColor(Color.parseColor(_shiftLbl.contains("Dienst") ? "#94A3B8" : "#22C55E"));
+        tvShift.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+        tvShift.setPadding(0, 0, dp(8), 0);
+        homeRow.addView(tvShift);
+        // Home-Standort
+        TextView tvHome = new TextView(this);
+        boolean _hasHome = v.homeLocation != null && !v.homeLocation.isEmpty();
+        String _hStr = _hasHome ? shorten(v.homeLocation, 28) : "kein Standort";
+        boolean _hasCoords = v.homeLat != null && v.homeLon != null;
+        String _hIcon = _hasHome ? (_hasCoords ? "🏠" : "⚠️") : "🏠";
+        tvHome.setText(_hIcon + " " + _hStr);
+        tvHome.setTextColor(Color.parseColor(_hasHome ? (_hasCoords ? "#60A5FA" : "#FBBF24") : "#EF4444"));
+        tvHome.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+        tvHome.setTypeface(null, _hasHome ? Typeface.NORMAL : Typeface.BOLD);
+        LinearLayout.LayoutParams tvhLp = new LinearLayout.LayoutParams(
+            0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        tvHome.setLayoutParams(tvhLp);
+        homeRow.addView(tvHome);
+        // Edit-Button
+        TextView btnEdit = new TextView(this);
+        btnEdit.setText("✏️");
+        btnEdit.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
+        btnEdit.setPadding(dp(10), dp(2), dp(10), dp(2));
+        btnEdit.setBackgroundColor(Color.parseColor("#3730A3"));
+        btnEdit.setTextColor(Color.WHITE);
+        btnEdit.setClickable(true);
+        final String vidFinal = v.id;
+        final String vNameFinal = v.name;
+        final String oldHome = v.homeLocation;
+        btnEdit.setOnClickListener(_v -> showHomeEditDialog(vidFinal, vNameFinal, oldHome));
+        homeRow.addView(btnEdit);
+        card.addView(homeRow);
+
         if (ride != null) {
             TextView line1 = new TextView(this);
             String cust = ride.customerName != null ? ride.customerName : "?";
@@ -974,6 +1020,107 @@ public class DispoActivity extends AppCompatActivity {
         return s.substring(0, max - 1) + "…";
     }
 
+    // 🆕 v6.66.55: Heutige Schichtzeit fuer Fahrzeug aus /vehicleShifts lesen.
+    //   Format: "06:00–22:30 Di" oder "kein Dienst". Nutzt _cachedShiftsSnap.
+    private String getTodayShiftLabelForVehicle(String vid) {
+        if (_cachedShiftsSnap == null) return "";
+        DataSnapshot vSnap = _cachedShiftsSnap.child(vid);
+        if (!vSnap.exists()) return "kein Dienst";
+        java.util.Calendar cal = java.util.Calendar.getInstance();
+        String dateStr = new SimpleDateFormat("yyyy-MM-dd", Locale.GERMANY).format(cal.getTime());
+        int dow = cal.get(java.util.Calendar.DAY_OF_WEEK) - 1; // 0=So
+        String[] dNames = {"So","Mo","Di","Mi","Do","Fr","Sa"};
+        // Tag-Override zuerst
+        DataSnapshot dayEntry = vSnap.child(dateStr);
+        if (dayEntry.exists()) {
+            Object actObj = dayEntry.child("active").getValue();
+            if (Boolean.FALSE.equals(actObj)) return "❌ heute frei";
+            String s1 = strOrNull(dayEntry.child("startTime").getValue());
+            String e1 = strOrNull(dayEntry.child("endTime").getValue());
+            if (s1 != null && e1 != null) return "🕐 " + s1 + "–" + e1 + " (heute)";
+            // timeRanges Split-Shift
+            DataSnapshot rn = dayEntry.child("timeRanges");
+            if (rn.exists() && rn.getChildrenCount() > 0) {
+                StringBuilder sb = new StringBuilder("🕐 ");
+                boolean first = true;
+                for (DataSnapshot tr : rn.getChildren()) {
+                    if (!first) sb.append(", ");
+                    sb.append(strOf(tr.child("startTime").getValue(), "?"))
+                      .append("–")
+                      .append(strOf(tr.child("endTime").getValue(), "?"));
+                    first = false;
+                }
+                sb.append(" (heute)");
+                return sb.toString();
+            }
+        }
+        // Wochenplan
+        Object defActive = vSnap.child("defaults").child(String.valueOf(dow)).getValue();
+        if (!Boolean.TRUE.equals(defActive)) return "❌ " + dNames[dow] + " frei";
+        DataSnapshot defT = vSnap.child("defaultTimes").child(String.valueOf(dow));
+        if (defT.exists()) {
+            String s2 = strOrNull(defT.child("startTime").getValue());
+            String e2 = strOrNull(defT.child("endTime").getValue());
+            if (s2 != null && e2 != null) return "🕐 " + s2 + "–" + e2 + " " + dNames[dow];
+        }
+        return "🕐 ganztags " + dNames[dow];
+    }
+
+    // 🆕 v6.66.55: Home-Editor-Dialog mit Nominatim-Geocode.
+    //   Speichert /vehicles/{vid}/homeLocation + homeCoords.
+    //   Cloud-Trigger onVehicleHomeCoordsChanged (v6.66.47) recomputed dann Malus.
+    private void showHomeEditDialog(final String vehicleId, final String vehicleName, final String oldAddr) {
+        final android.widget.EditText et = new android.widget.EditText(this);
+        et.setHint("z.B. Bahnhofstr 3, 17419 Ahlbeck");
+        if (oldAddr != null) et.setText(oldAddr);
+        et.setSingleLine(true);
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("🏠 Home-Standort für " + vehicleName)
+            .setMessage("Adresse mit PLZ + Ort — wird via OSM geocoded.\n\nAktuell: " + (oldAddr == null || oldAddr.isEmpty() ? "(nicht gesetzt)" : oldAddr))
+            .setView(et)
+            .setPositiveButton("Speichern", (d, w) -> {
+                final String addr = et.getText().toString().trim();
+                if (addr.isEmpty()) return;
+                new Thread(() -> {
+                    try {
+                        String url = "https://nominatim.openstreetmap.org/search?format=json&limit=1&addressdetails=1&q="
+                            + java.net.URLEncoder.encode(addr, "UTF-8");
+                        java.net.HttpURLConnection conn = (java.net.HttpURLConnection) new java.net.URL(url).openConnection();
+                        conn.setRequestProperty("Accept-Language", "de");
+                        conn.setRequestProperty("User-Agent", "FunkTaxiHeringsdorf-Dispo/6.66.55");
+                        conn.setConnectTimeout(6000);
+                        conn.setReadTimeout(10000);
+                        int rc = conn.getResponseCode();
+                        if (rc != 200) { conn.disconnect(); runOnUiThread(() -> Toast.makeText(this, "❌ Nominatim HTTP " + rc, Toast.LENGTH_LONG).show()); return; }
+                        java.io.InputStream is = conn.getInputStream();
+                        java.util.Scanner sc = new java.util.Scanner(is, "UTF-8").useDelimiter("\\A");
+                        String resp = sc.hasNext() ? sc.next() : "";
+                        conn.disconnect();
+                        org.json.JSONArray arr = new org.json.JSONArray(resp);
+                        if (arr.length() == 0) { runOnUiThread(() -> Toast.makeText(this, "❌ Adresse nicht gefunden", Toast.LENGTH_LONG).show()); return; }
+                        org.json.JSONObject o = arr.getJSONObject(0);
+                        final double lat = o.getDouble("lat");
+                        final double lon = o.getDouble("lon");
+                        Map<String, Object> upd = new HashMap<>();
+                        upd.put("homeLocation", addr);
+                        Map<String, Object> hc = new HashMap<>();
+                        hc.put("lat", lat);
+                        hc.put("lon", lon);
+                        upd.put("homeCoords", hc);
+                        upd.put("homeCoordsUpdatedAt", System.currentTimeMillis());
+                        upd.put("homeCoordsUpdatedBy", "native_dispo_v6.66.55");
+                        FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("vehicles/" + vehicleId).updateChildren(upd)
+                            .addOnSuccessListener(_r -> runOnUiThread(() -> Toast.makeText(this, "✅ Home gesetzt: " + addr, Toast.LENGTH_LONG).show()))
+                            .addOnFailureListener(_e -> runOnUiThread(() -> Toast.makeText(this, "❌ DB-Fehler: " + _e.getMessage(), Toast.LENGTH_LONG).show()));
+                    } catch (Throwable t) {
+                        runOnUiThread(() -> Toast.makeText(this, "❌ " + t.getMessage(), Toast.LENGTH_LONG).show());
+                    }
+                }).start();
+            })
+            .setNegativeButton("Abbrechen", null)
+            .show();
+    }
+
     // ───────── Parser ─────────
     private VehicleInfo parseVehicle(DataSnapshot s) {
         VehicleInfo v = new VehicleInfo();
@@ -986,6 +1133,12 @@ public class DispoActivity extends AppCompatActivity {
         Object shStatus = s.child("shift/status").getValue();
         Object forceEnded = s.child("shift/forceEnded").getValue();
         v.shiftActive = "active".equals(shStatus) && !Boolean.TRUE.equals(forceEnded);
+        // 🆕 v6.66.55: Global-Home aus /vehicles/{vid}/homeLocation + homeCoords lesen
+        v.homeLocation = strOrNull(s.child("homeLocation").getValue());
+        Object hcLat = s.child("homeCoords/lat").getValue();
+        Object hcLon = s.child("homeCoords/lon").getValue();
+        if (hcLat instanceof Number) v.homeLat = ((Number) hcLat).doubleValue();
+        if (hcLon instanceof Number) v.homeLon = ((Number) hcLon).doubleValue();
         return v;
     }
 
@@ -1095,6 +1248,11 @@ public class DispoActivity extends AppCompatActivity {
         boolean online;
         boolean shiftActive;
         Long lastHeartbeat;
+        // 🆕 v6.66.55 (Patrick 09.09. Bridge: "in der Live-Dispo Native seh ich das ja auch nicht")
+        //   Global-Home (Fallback wenn Schicht-spezifische Home nicht gesetzt).
+        String homeLocation;
+        Double homeLat;
+        Double homeLon;
     }
 
     static class RideInfo {

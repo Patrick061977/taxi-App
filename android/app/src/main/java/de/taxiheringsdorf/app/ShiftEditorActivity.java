@@ -825,19 +825,50 @@ public class ShiftEditorActivity extends AppCompatActivity {
         }
     }
 
-    private void saveHomeForTodayOverride(String vehicleId, String name, double lat, double lon) {
-        String todayKey = todayDateKey();
-        Map<String, Object> upd = new HashMap<>();
-        upd.put("homeLocation", name);
-        Map<String, Object> coords = new HashMap<>();
-        coords.put("lat", lat); coords.put("lon", lon);
-        upd.put("homeCoords", coords);
-        upd.put("active", true); // sicherstellen dass der Override den Tag als aktiv markiert
+    private void saveHomeForTodayOverride(final String vehicleId, final String name, final double lat, final double lon) {
+        final String todayKey = todayDateKey();
+        // 🆕 v6.66.69 (Patrick 10.09. 07:53 Bridge "Zeit fehlt — ich will doch einfach bloß
+        //   den Homecourt overrid, warum fehlt die Zeit?"): startTime/endTime aus Wochen-
+        //   Standard übernehmen. Sonst hat der Tages-Override nur homeLocation + active=true,
+        //   keine Zeit → renderTodayCards zeigt "Zeit fehlt".
+        java.util.Calendar cal = java.util.Calendar.getInstance();
+        final int dow = cal.get(java.util.Calendar.DAY_OF_WEEK) - 1;
         FirebaseDatabase.getInstance(DB_URL)
-            .getReference("vehicleShifts/" + vehicleId + "/" + todayKey)
-            .updateChildren(upd)
-            .addOnSuccessListener(_ok -> Toast.makeText(this, "1️⃣ " + name + " nur HEUTE (Override " + todayKey + ")", Toast.LENGTH_LONG).show())
-            .addOnFailureListener(e -> Toast.makeText(this, "Fehler: " + e.getMessage(), Toast.LENGTH_LONG).show());
+            .getReference("vehicleShifts/" + vehicleId + "/defaultTimes/" + dow)
+            .addListenerForSingleValueEvent(new ValueEventListener() {
+                @Override public void onDataChange(@NonNull DataSnapshot s) {
+                    String wkStart = strOrNull(s.child("startTime").getValue());
+                    String wkEnd = strOrNull(s.child("endTime").getValue());
+                    Map<String, Object> upd = new HashMap<>();
+                    upd.put("homeLocation", name);
+                    Map<String, Object> coords = new HashMap<>();
+                    coords.put("lat", lat); coords.put("lon", lon);
+                    upd.put("homeCoords", coords);
+                    upd.put("active", true);
+                    // Zeit aus Wochen-Standard uebernehmen wenn im Tages-Override noch nicht gesetzt
+                    if (wkStart != null) upd.put("startTime", wkStart);
+                    if (wkEnd != null) upd.put("endTime", wkEnd);
+                    FirebaseDatabase.getInstance(DB_URL)
+                        .getReference("vehicleShifts/" + vehicleId + "/" + todayKey)
+                        .updateChildren(upd)
+                        .addOnSuccessListener(_ok -> Toast.makeText(ShiftEditorActivity.this,
+                            "1️⃣ " + name + " nur HEUTE (Override " + todayKey + ", Zeit " + (wkStart != null ? wkStart : "?") + "–" + (wkEnd != null ? wkEnd : "?") + ")",
+                            Toast.LENGTH_LONG).show())
+                        .addOnFailureListener(e -> Toast.makeText(ShiftEditorActivity.this, "Fehler: " + e.getMessage(), Toast.LENGTH_LONG).show());
+                }
+                @Override public void onCancelled(@NonNull DatabaseError e) {
+                    // Fallback: ohne Zeit speichern (alter Verhalten)
+                    Map<String, Object> upd = new HashMap<>();
+                    upd.put("homeLocation", name);
+                    Map<String, Object> coords = new HashMap<>();
+                    coords.put("lat", lat); coords.put("lon", lon);
+                    upd.put("homeCoords", coords);
+                    upd.put("active", true);
+                    FirebaseDatabase.getInstance(DB_URL)
+                        .getReference("vehicleShifts/" + vehicleId + "/" + todayKey)
+                        .updateChildren(upd);
+                }
+            });
     }
 
     // 🆕 v6.66.56 (Patrick 09.09. SVG-Mockup): Detail-Dialog beim Klick auf Fahrzeug-Card

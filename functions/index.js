@@ -1829,10 +1829,16 @@ async function autoAssignRide(rideId, rideData, _excludeVehicleIds = []) {
                     const _estAnfahrtMin = Math.ceil(_distKm * 1.5);
                     // Sofort-Baseline: min. 15 Min ansetzen (Kunde erwartet Wagen in Kürze)
                     const _minsUntilPickup = Math.max(15, Math.floor(_msUntilPickup / 60000));
-                    // Puffer je nach Vorlauf: bei Sofort 10 Min, bei Vorbestellung 5 Min
-                    // (Puffer im 30-120-Min-Bereich waere zu grosszuegig — Fahrer sollte
-                    // realistisch dahin fahren koennen mit kleinerem Puffer).
-                    const _bufferMin = _msUntilPickup <= 30 * 60 * 1000 ? 10 : 5;
+                    const _bufferMin = 10;
+                    // 🆕 v6.66.67 (Patrick 10.09. 07:47 Bridge "Fahrer nur berücksichtigen die
+                    //   wirklich in dem Korridor von 5 Kilometern sind"): 5-km-Hardgrenze
+                    //   innerhalb des 30-Min-Verteil-Fensters. Fahrer weiter weg → raus.
+                    const _CORRIDOR_KM = 5;
+                    if (_distKm > _CORRIDOR_KM) {
+                        console.log(`   ❌ ${info.name}: v6.66.67 5-km-Korridor — ${_distKm.toFixed(1)}km >${_CORRIDOR_KM}km entfernt`);
+                        vehicleScores[vehicleId] = { status: 'rejected', reason: `Ausserhalb ${_CORRIDOR_KM}-km-Korridor: ${_distKm.toFixed(1)}km entfernt`, check: 'corridor', distKm: Math.round(_distKm * 10) / 10 };
+                        continue;
+                    }
                     if (_estAnfahrtMin > _minsUntilPickup + _bufferMin) {
                         console.log(`   ❌ ${info.name}: v6.66.45 GPS-Reality — ~${_estAnfahrtMin}min Anfahrt für ${_distKm.toFixed(1)}km, Pickup in ${_minsUntilPickup}min (+${_bufferMin}min Puffer) → schafft es nicht`);
                         vehicleScores[vehicleId] = { status: 'rejected', reason: `GPS-Reality: ~${_estAnfahrtMin}min Anfahrt (${_distKm.toFixed(1)}km) vs. Pickup in ${_minsUntilPickup}min`, check: 'gps-reality', distKm: Math.round(_distKm * 10) / 10, estAnfahrtMin: _estAnfahrtMin, minsUntilPickup: _minsUntilPickup };

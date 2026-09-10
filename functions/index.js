@@ -1553,30 +1553,20 @@ async function autoAssignRide(rideId, rideData, _excludeVehicleIds = []) {
                 continue;
             }
 
-            // 🆕 v6.38.97: Abgelehnte Fahrzeuge überspringen (Fahrer hat nicht bestätigt / abgelehnt)
-            // 🔧 v6.62.771 (Patrick 16.05. 09:54): "Wie soll er die Fahrt bestaetigen?
-            //   Er braucht doch gar keine Fahrt bestaetigen! Er wird doch gar nicht
-            //   erst gefragt." — Bei VORBESTELLUNGEN wird der Fahrer erst kurz vor
-            //   Losfahren per Push gefragt. Wenn rejectedVehicles aus einer frueheren
-            //   Sofort-Iteration noch dranhaengt, blockiert es das Fahrzeug komplett —
-            //   obwohl der Fahrer fuer die jetzt-anstehende Vorbestellung gar nicht
-            //   gefragt wurde. Fix: rejectedVehicles-Filter NUR bei Sofortfahrten
-            //   anwenden. Bei Vorbestellungen ignorieren.
+            // 🆕 v6.66.72 (Patrick 10.09. 08:38 Bridge: "Wenn ich einmal abgelehnt habe,
+            //   dann habe ich abgelehnt. Nicht 5x zuteilen. Kann im Banner sein, aber
+            //   nicht immer neu pushen"):
+            //   rejectedVehicles wird IMMER respektiert, egal Sofort oder Vorbestellung,
+            //   egal welches Zeitfenster. Fahrt kommt genau einmal pro Fahrzeug.
+            //   Nach Reject: Wartepool-Banner, kein Push mehr an denselben Fahrer.
+            //
+            //   ÜBERSCHREIBT:
+            //   - v6.62.771 (Reject nur bei Sofort respektieren)
+            //   - v6.63.1030 (Reject bei Vorbestellung nur im Losfahr-Fenster)
             const _rejectedList = rideData._rejectedVehicles || rideData.rejectedVehicles || [];
-            // 🆕 v6.63.1030 (Patrick 30.08. FIX-D, Hensel-Fall Vito-Ping-Pong):
-            //   rejectedVehicles wird bei Vorbestellungen zusätzlich respektiert,
-            //   wenn wir bereits im Losfahr-Alarm-Fenster sind. Sonst wählt v989
-            //   nach Reject wieder das gleiche Fahrzeug weil Score-Vorteil bleibt —
-            //   MY↔Vito-Endlos-Rotation. Vor dem Losfahr-Fenster gilt v6.62.771
-            //   weiter (rejectedVehicles ignorieren, weil Fahrer noch nicht gefragt).
-            const _pickupTsRj = Number(rideData.pickupTimestamp) || 0;
-            const _drivingMinRj = Number(rideData.drivingTimeToPickup) || 15;
-            const _inLosfahrFensterRj = _pickupTsRj
-                ? Date.now() >= (_pickupTsRj - (15 + _drivingMinRj) * 60000)
-                : false;
-            if ((isSofort || _inLosfahrFensterRj) && _rejectedList.includes(vehicleId)) {
-                console.log(`   ❌ ${info.name}: Vom Fahrer abgelehnt/nicht bestätigt (${isSofort ? 'Sofort' : 'Vorbestellung im Losfahr-Fenster'})`);
-                vehicleScores[vehicleId] = { status: 'rejected', reason: 'Fahrer hat nicht bestätigt', check: 'driver_rejected' };
+            if (_rejectedList.includes(vehicleId)) {
+                console.log(`   ❌ ${info.name}: v6.66.72 vom Fahrer abgelehnt — kein erneutes Angebot`);
+                vehicleScores[vehicleId] = { status: 'rejected', reason: 'Fahrer hat abgelehnt (v6.66.72: einmal abgelehnt = abgelehnt)', check: 'driver_rejected' };
                 continue;
             }
 

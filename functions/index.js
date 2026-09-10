@@ -1829,21 +1829,16 @@ async function autoAssignRide(rideId, rideData, _excludeVehicleIds = []) {
                     const _estAnfahrtMin = Math.ceil(_distKm * 1.5);
                     // Sofort-Baseline: min. 15 Min ansetzen (Kunde erwartet Wagen in Kürze)
                     const _minsUntilPickup = Math.max(15, Math.floor(_msUntilPickup / 60000));
-                    const _bufferMin = 10;
-                    // 🆕 v6.66.68 (Patrick 10.09. 07:52 Bridge "Sinnhaftigkeit — Fahrer nach
-                    //   Greifswald für Ortsfahrt macht keinen Sinn"): Korridor auf 10 km.
-                    //   Bansin → Ahlbeck (7 km) drin, Greifswald/Wolgast (>20 km) raus.
-                    //   Vorher v6.66.67: 5 km — war für 30-Min-Vorbestellungen zu restriktiv
-                    //   (Bansin-Fahrer hätte Ahlbeck-Fahrt nicht bekommen).
-                    const _CORRIDOR_KM = 10;
-                    if (_distKm > _CORRIDOR_KM) {
-                        console.log(`   ❌ ${info.name}: v6.66.67 5-km-Korridor — ${_distKm.toFixed(1)}km >${_CORRIDOR_KM}km entfernt`);
-                        vehicleScores[vehicleId] = { status: 'rejected', reason: `Ausserhalb ${_CORRIDOR_KM}-km-Korridor: ${_distKm.toFixed(1)}km entfernt`, check: 'corridor', distKm: Math.round(_distKm * 10) / 10 };
-                        continue;
-                    }
-                    if (_estAnfahrtMin > _minsUntilPickup + _bufferMin) {
-                        console.log(`   ❌ ${info.name}: v6.66.45 GPS-Reality — ~${_estAnfahrtMin}min Anfahrt für ${_distKm.toFixed(1)}km, Pickup in ${_minsUntilPickup}min (+${_bufferMin}min Puffer) → schafft es nicht`);
-                        vehicleScores[vehicleId] = { status: 'rejected', reason: `GPS-Reality: ~${_estAnfahrtMin}min Anfahrt (${_distKm.toFixed(1)}km) vs. Pickup in ${_minsUntilPickup}min`, check: 'gps-reality', distKm: Math.round(_distKm * 10) / 10, estAnfahrtMin: _estAnfahrtMin, minsUntilPickup: _minsUntilPickup };
+                    // 🆕 v6.66.70 (Patrick 10.09. 07:54 Bridge "Ich will hier keine 5 Kilometer,
+                    //   keine 10 Kilometer. Ich will einfach nur ob der Fahrer die Zeit ob er
+                    //   5 Minuten vor dem Termin da sein kann"): km-Korridor komplett raus.
+                    //   Nur noch Zeit-Check: Fahrer muss 5 Min VOR Pickup ankommen können.
+                    //   Anfahrt > (Pickup-Min - 5) → RAUS.
+                    //   Fahrer 20 km bei 30 Min Vorlauf: 30 Min Anfahrt vs 25 verfügbar → raus.
+                    //   Fahrer 12 km bei 30 Min: 18 vs 25 → OK, schafft's mit 7 Min Puffer.
+                    if (_estAnfahrtMin > _minsUntilPickup - 5) {
+                        console.log(`   ❌ ${info.name}: v6.66.70 GPS-Reality — ~${_estAnfahrtMin}min Anfahrt für ${_distKm.toFixed(1)}km, muss aber 5 Min vor ${_minsUntilPickup}min-Pickup ankommen (max ${_minsUntilPickup - 5}min) → zu spät`);
+                        vehicleScores[vehicleId] = { status: 'rejected', reason: `GPS-Reality: ~${_estAnfahrtMin}min Anfahrt (${_distKm.toFixed(1)}km) — kommt nicht 5 Min vor Pickup an`, check: 'gps-reality', distKm: Math.round(_distKm * 10) / 10, estAnfahrtMin: _estAnfahrtMin, minsUntilPickup: _minsUntilPickup };
                         continue;
                     }
                 }

@@ -1830,10 +1830,12 @@ async function autoAssignRide(rideId, rideData, _excludeVehicleIds = []) {
                     // Sofort-Baseline: min. 15 Min ansetzen (Kunde erwartet Wagen in Kürze)
                     const _minsUntilPickup = Math.max(15, Math.floor(_msUntilPickup / 60000));
                     const _bufferMin = 10;
-                    // 🆕 v6.66.67 (Patrick 10.09. 07:47 Bridge "Fahrer nur berücksichtigen die
-                    //   wirklich in dem Korridor von 5 Kilometern sind"): 5-km-Hardgrenze
-                    //   innerhalb des 30-Min-Verteil-Fensters. Fahrer weiter weg → raus.
-                    const _CORRIDOR_KM = 5;
+                    // 🆕 v6.66.68 (Patrick 10.09. 07:52 Bridge "Sinnhaftigkeit — Fahrer nach
+                    //   Greifswald für Ortsfahrt macht keinen Sinn"): Korridor auf 10 km.
+                    //   Bansin → Ahlbeck (7 km) drin, Greifswald/Wolgast (>20 km) raus.
+                    //   Vorher v6.66.67: 5 km — war für 30-Min-Vorbestellungen zu restriktiv
+                    //   (Bansin-Fahrer hätte Ahlbeck-Fahrt nicht bekommen).
+                    const _CORRIDOR_KM = 10;
                     if (_distKm > _CORRIDOR_KM) {
                         console.log(`   ❌ ${info.name}: v6.66.67 5-km-Korridor — ${_distKm.toFixed(1)}km >${_CORRIDOR_KM}km entfernt`);
                         vehicleScores[vehicleId] = { status: 'rejected', reason: `Ausserhalb ${_CORRIDOR_KM}-km-Korridor: ${_distKm.toFixed(1)}km entfernt`, check: 'corridor', distKm: Math.round(_distKm * 10) / 10 };

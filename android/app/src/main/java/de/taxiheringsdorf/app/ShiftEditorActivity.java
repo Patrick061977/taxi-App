@@ -1378,9 +1378,9 @@ public class ShiftEditorActivity extends AppCompatActivity {
         _homeDayBox.setLayoutParams(_hdLp);
 
         android.widget.TextView _tvHomeDayTitle = new android.widget.TextView(this);
-        final SimpleDateFormat _dfKey = new SimpleDateFormat("yyyy-MM-dd", Locale.GERMANY);
-        final String _todayKey = _dfKey.format(selDate.getTime());
-        _tvHomeDayTitle.setText("📌 HEUTE-AUSNAHME (nur " + _todayKey + ")");
+        final SimpleDateFormat _dfKey64 = new SimpleDateFormat("yyyy-MM-dd", Locale.GERMANY);
+        final String _dateKey64 = _dfKey64.format(selDate.getTime());
+        _tvHomeDayTitle.setText("📌 HEUTE-AUSNAHME (nur " + _dateKey64 + ")");
         _tvHomeDayTitle.setTextColor(0xFFFBBF24);
         _tvHomeDayTitle.setTextSize(11);
         _tvHomeDayTitle.setTypeface(null, android.graphics.Typeface.BOLD);
@@ -1405,7 +1405,7 @@ public class ShiftEditorActivity extends AppCompatActivity {
         root.addView(_homeDayBox);
 
         // Tages-Override-Home async laden
-        FirebaseDatabase.getInstance(DB_URL).getReference("vehicleShifts/" + _vidHome + "/" + _todayKey + "/homeLocation")
+        FirebaseDatabase.getInstance(DB_URL).getReference("vehicleShifts/" + _vidHome + "/" + _dateKey64 + "/homeLocation")
             .addListenerForSingleValueEvent(new ValueEventListener() {
                 @Override public void onDataChange(@NonNull DataSnapshot s) {
                     Object v = s.getValue();

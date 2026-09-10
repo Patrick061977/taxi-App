@@ -14,6 +14,8 @@ const { onRequest } = require('firebase-functions/v2/https');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { onValueCreated, onValueUpdated, onValueDeleted, onValueWritten } = require('firebase-functions/v2/database');
 const admin = require('firebase-admin');
+// 🆕 v6.66.71 Historic-Route-Cache — echte gemessene Fahrzeiten aus /rides
+const routeHistory = require('./route-history');
 
 // v6.61.1: WICHTIG — databaseURL muss explizit gesetzt werden für europe-west1 RTDB.
 // Ohne URL nimmt admin.database() den US-Central-Default (taxi-heringsdorf.firebaseio.com)
@@ -2020,20 +2022,36 @@ async function autoAssignRide(rideId, rideData, _excludeVehicleIds = []) {
 
                     let rEnd, newEnd;
                     let _chainMin = null; // v6.63.431: außerhalb des if-Blocks für späteres _conflictMath
+                    let _chainSource = 'osrm';
+                    // 🆕 v6.66.71 (Patrick 10.09.): Historic-Route-Cache priorisieren.
+                    //   Wenn ≥3 Samples aus /rides für gleiche Coord-Bucket-Route, nimm Median.
+                    //   Sonst OSRM. Sonst calcReturnMsAsync-Fallback.
+                    async function _chainMinFromHistory(oLat, oLon, dLat, dLon) {
+                        try {
+                            const rh = await routeHistory.getRouteTimeMinutes(admin.database(), oLat, oLon, dLat, dLon);
+                            if (rh && rh.source && rh.source.startsWith('history')) {
+                                _chainSource = rh.source + '(' + rh.samples + ')';
+                                return rh.minutes;
+                            }
+                        } catch (_e) { /* fall through to OSRM */ }
+                        return null;
+                    }
                     if (rStart < newPickup) {
                         // Bestehende Fahrt r ist Vorgaenger der neuen Fahrt.
-                        // r.dest → new.pickup als ECHTE Leerfahrt via OSRM.
-                        _chainMin = await osrmDrivingMin(rDestLat, rDestLon, newPickupLat, newPickupLon);
+                        _chainMin = await _chainMinFromHistory(rDestLat, rDestLon, newPickupLat, newPickupLon);
+                        if (_chainMin === null) _chainMin = await osrmDrivingMin(rDestLat, rDestLon, newPickupLat, newPickupLon);
                         const _chainMs = (_chainMin !== null) ? (_chainMin * 60000) : (await calcReturnMsAsync(r));
                         rEnd = rStart + rDur + bufferMs + _chainMs;
                         newEnd = newPickup + newDur + bufferMs;
                     } else {
                         // Neue Fahrt ist Vorgaenger der bestehenden Fahrt r.
-                        _chainMin = await osrmDrivingMin(newDestLat, newDestLon, rPickupLat, rPickupLon);
+                        _chainMin = await _chainMinFromHistory(newDestLat, newDestLon, rPickupLat, rPickupLon);
+                        if (_chainMin === null) _chainMin = await osrmDrivingMin(newDestLat, newDestLon, rPickupLat, rPickupLon);
                         const _chainMs = (_chainMin !== null) ? (_chainMin * 60000) : (isSofort ? 0 : (await calcReturnMsAsync(rideData)));
                         newEnd = newPickup + newDur + bufferMs + _chainMs;
                         rEnd = rStart + rDur + bufferMs;
                     }
+                    if (_chainMin !== null) console.log(`   ⏱️ v6.66.71 Chain-Zeit: ${_chainMin} Min via ${_chainSource}`);
                     // 🆕 v6.63.314 (Patrick 13.06. 07:38 Bridge: 'Nayef-Fahrt nicht auto
                     //   zugeteilt obwohl Marion knapp davor endet'): Karenz-Toleranz 5 Min
                     //   einbauen (Patrick-Regel '2 Min zu spaet ist egal, alles unter 5 Min

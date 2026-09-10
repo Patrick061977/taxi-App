@@ -1320,6 +1320,105 @@ public class ShiftEditorActivity extends AppCompatActivity {
         dateRow.addView(btnDate);
         root.addView(dateRow);
 
+        // 🆕 v6.66.64 (Patrick 10.09. 07:34 Bridge: "wo sehe ich hier den Standort? Wär doch am
+        //   einfachsten, das reinzusetzen"): Home-Standort-Blöcke oben im Zeit-Editor,
+        //   direkt sichtbar UND direkt änderbar via 2 Buttons.
+        final String _vidHome = vs.vehicleId;
+        // Wochen-Standard-Block (blau)
+        android.widget.LinearLayout _homeWkBox = new android.widget.LinearLayout(this);
+        _homeWkBox.setOrientation(android.widget.LinearLayout.VERTICAL);
+        _homeWkBox.setBackgroundColor(0xFF1E3A8A);
+        int _hbPad = (int)(10 * getResources().getDisplayMetrics().density);
+        _homeWkBox.setPadding(_hbPad, _hbPad, _hbPad, _hbPad);
+        android.widget.LinearLayout.LayoutParams _hbLp = new android.widget.LinearLayout.LayoutParams(
+            android.widget.LinearLayout.LayoutParams.MATCH_PARENT, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
+        _hbLp.topMargin = (int)(8 * getResources().getDisplayMetrics().density);
+        _homeWkBox.setLayoutParams(_hbLp);
+
+        android.widget.TextView _tvHomeWkTitle = new android.widget.TextView(this);
+        _tvHomeWkTitle.setText("🏠 WOCHEN-STANDARD-STANDORT");
+        _tvHomeWkTitle.setTextColor(0xFF93C5FD);
+        _tvHomeWkTitle.setTextSize(11);
+        _tvHomeWkTitle.setTypeface(null, android.graphics.Typeface.BOLD);
+        _homeWkBox.addView(_tvHomeWkTitle);
+
+        final android.widget.TextView _tvHomeWkAddr = new android.widget.TextView(this);
+        String _wkHome = (vs.homeLocations != null) ? vs.homeLocations[_initDow] : null;
+        _tvHomeWkAddr.setText(_wkHome != null && !_wkHome.isEmpty() ? _wkHome : "(nicht gesetzt)");
+        _tvHomeWkAddr.setTextColor(0xFFDBEAFE);
+        _tvHomeWkAddr.setTextSize(14);
+        _tvHomeWkAddr.setTypeface(null, android.graphics.Typeface.BOLD);
+        android.widget.LinearLayout.LayoutParams _addrLp = new android.widget.LinearLayout.LayoutParams(
+            android.widget.LinearLayout.LayoutParams.MATCH_PARENT, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
+        _addrLp.topMargin = (int)(4 * getResources().getDisplayMetrics().density);
+        _tvHomeWkAddr.setLayoutParams(_addrLp);
+        _homeWkBox.addView(_tvHomeWkAddr);
+
+        android.widget.Button _btnHomeWk = new android.widget.Button(this);
+        _btnHomeWk.setText("✏️ Wochen-Standard ändern");
+        _btnHomeWk.setTextColor(0xFFFFFFFF);
+        _btnHomeWk.setBackgroundColor(0xFF6366F1);
+        _btnHomeWk.setTextSize(12);
+        android.widget.LinearLayout.LayoutParams _btnLp = new android.widget.LinearLayout.LayoutParams(
+            android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
+        _btnLp.topMargin = (int)(6 * getResources().getDisplayMetrics().density);
+        _btnHomeWk.setLayoutParams(_btnLp);
+        _btnHomeWk.setOnClickListener(_v -> showStandortPickerForDowOnly(_vidHome, _initDow));
+        _homeWkBox.addView(_btnHomeWk);
+        root.addView(_homeWkBox);
+
+        // Tages-Override-Block (gelb) — async gelesen aus DB
+        final android.widget.LinearLayout _homeDayBox = new android.widget.LinearLayout(this);
+        _homeDayBox.setOrientation(android.widget.LinearLayout.VERTICAL);
+        _homeDayBox.setBackgroundColor(0xFF78350F);
+        _homeDayBox.setPadding(_hbPad, _hbPad, _hbPad, _hbPad);
+        android.widget.LinearLayout.LayoutParams _hdLp = new android.widget.LinearLayout.LayoutParams(
+            android.widget.LinearLayout.LayoutParams.MATCH_PARENT, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
+        _hdLp.topMargin = (int)(6 * getResources().getDisplayMetrics().density);
+        _homeDayBox.setLayoutParams(_hdLp);
+
+        android.widget.TextView _tvHomeDayTitle = new android.widget.TextView(this);
+        final SimpleDateFormat _dfKey = new SimpleDateFormat("yyyy-MM-dd", Locale.GERMANY);
+        final String _todayKey = _dfKey.format(selDate.getTime());
+        _tvHomeDayTitle.setText("📌 HEUTE-AUSNAHME (nur " + _todayKey + ")");
+        _tvHomeDayTitle.setTextColor(0xFFFBBF24);
+        _tvHomeDayTitle.setTextSize(11);
+        _tvHomeDayTitle.setTypeface(null, android.graphics.Typeface.BOLD);
+        _homeDayBox.addView(_tvHomeDayTitle);
+
+        final android.widget.TextView _tvHomeDayAddr = new android.widget.TextView(this);
+        _tvHomeDayAddr.setText("(wird geladen…)");
+        _tvHomeDayAddr.setTextColor(0xFFFEF3C7);
+        _tvHomeDayAddr.setTextSize(14);
+        _tvHomeDayAddr.setTypeface(null, android.graphics.Typeface.BOLD);
+        _tvHomeDayAddr.setLayoutParams(_addrLp);
+        _homeDayBox.addView(_tvHomeDayAddr);
+
+        android.widget.Button _btnHomeDay = new android.widget.Button(this);
+        _btnHomeDay.setText("+ Heute-Ausnahme setzen");
+        _btnHomeDay.setTextColor(0xFFFFFFFF);
+        _btnHomeDay.setBackgroundColor(0xFFF59E0B);
+        _btnHomeDay.setTextSize(12);
+        _btnHomeDay.setLayoutParams(_btnLp);
+        _btnHomeDay.setOnClickListener(_v -> showStandortPickerForTodayOnly(_vidHome));
+        _homeDayBox.addView(_btnHomeDay);
+        root.addView(_homeDayBox);
+
+        // Tages-Override-Home async laden
+        FirebaseDatabase.getInstance(DB_URL).getReference("vehicleShifts/" + _vidHome + "/" + _todayKey + "/homeLocation")
+            .addListenerForSingleValueEvent(new ValueEventListener() {
+                @Override public void onDataChange(@NonNull DataSnapshot s) {
+                    Object v = s.getValue();
+                    if (v instanceof String && !((String) v).isEmpty()) {
+                        _tvHomeDayAddr.setText((String) v);
+                        _btnHomeDay.setText("✏️ Heute-Ausnahme ändern");
+                    } else {
+                        _tvHomeDayAddr.setText("(keine gesetzt — Wochen-Standard gilt)");
+                    }
+                }
+                @Override public void onCancelled(@NonNull DatabaseError e) {}
+            });
+
         // Abstand
         android.view.View spacer = new android.view.View(this);
         android.widget.LinearLayout.LayoutParams spLp = new android.widget.LinearLayout.LayoutParams(

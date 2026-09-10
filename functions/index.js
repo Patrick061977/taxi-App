@@ -1809,15 +1809,15 @@ async function autoAssignRide(rideId, rideData, _excludeVehicleIds = []) {
             //   Anfahrt > 15+10 Min → RAUS, nächster Kandidat kommt dran.
             if (rideData.pickupLat && rideData.pickupLon && _vData.lat && _vData.lon && _vData.timestamp) {
                 const _msUntilPickup = rideData.pickupTimestamp ? (rideData.pickupTimestamp - Date.now()) : 0;
-                // 🔧 v6.66.45 (Patrick 07.09. 10:47 Bridge "solange Fahrer nicht im Umkreis
-                //   ist, brauchst du den gar nicht vorschlagen"): Fenster erweitert von
-                //   30min-Cap auf 120min. Vorher: Vorbestellung 66min → Check greift NICHT →
-                //   Kulpa in Greifswald bekam Ahlbeck-Bahnhofsfahrt zugewiesen (unschaffbar).
-                //   Neu: auch bei 30-120min Pickup pruefen ob Anfahrt realistisch — nur bei
-                //   >120min Vorlauf annehmen dass der Fahrer sich noch woanders hinbewegt.
-                //   GPS-Alter-Fenster analog erweitert (bis 60min alt fuer Vorbestellungen).
-                const _inDistributionWindow = _msUntilPickup <= 120 * 60 * 1000;
-                const _hasFreshGps = (Date.now() - _vData.timestamp) < (_msUntilPickup <= 30 * 60 * 1000 ? 30 : 60) * 60 * 1000;
+                // 🔧 v6.66.66 (Patrick 10.09. 07:43 Bridge "Du und den Realitätscheck, den
+                //   brauchst du nicht 138 Minuten vor einer Fahrt zu machen. Erst 30 Minuten
+                //   vor der Fahrt kannst du setzen, wer schafft es, wer nicht"):
+                //   Fenster zurück auf 30 Min. Zwischen v6.66.45 (120min) und heute war das
+                //   Fenster zu aggressiv — Fahrer der 66min vor Pickup in Greifswald ist,
+                //   könnte 30min vor Pickup in Ahlbeck sein. Das ist Fahrer-Eigenverantwortung.
+                //   Reality-Check nur wenn Pickup ≤30 Min entfernt (aktives Verteil-Fenster).
+                const _inDistributionWindow = _msUntilPickup <= 30 * 60 * 1000;
+                const _hasFreshGps = (Date.now() - _vData.timestamp) < 30 * 60 * 1000;
                 if (_inDistributionWindow && _hasFreshGps) {
                     const _R = 6371;
                     const _lat1 = Number(_vData.lat) * Math.PI / 180;

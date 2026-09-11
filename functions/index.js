@@ -32839,16 +32839,32 @@ exports.onShiftStatusChanged = onValueUpdated(
         const endedStates = ['ended', 'auto-ended'];
         if (!endedStates.includes(newStatus)) return;
         if (endedStates.includes(oldStatus)) return; // schon ended → war doppel-trigger
-        // 🆕 v6.62.709: Patrick (14.05. 10:08): "warum versucht er alles immer zuzuweisen?
-        //   Vorbestellung weg, Vorbestellung hin — das hat doch nichts mit GPS zu tun".
-        //   Bei 'auto-ended' (Heartbeat-Timeout) sind oft App-Pause/-Crash die Ursache,
-        //   nicht ein bewusstes Schicht-Ende. Reassign-Logik nur bei manuellem 'ended'.
-        //   Bei 'auto-ended' nur loggen, keine Vorbestellungen umverteilen — der Fahrer
-        //   ist meist gleich wieder da. Wenn die Schicht laenger weg ist → naechster
-        //   scheduledAutoAssign-Lauf bemerkt es selbst.
+        // 🆕 v6.66.73 (Patrick 11.09. 06:50 Bridge "sobald Schicht geändert, GPS nicht da,
+        //   ab in den Wartepool"): Differenzierte Logik bei auto-ended:
+        //   - Rides mit Pickup <= 30 Min in Zukunft: SOFORT reassign (Kunde wartet gleich)
+        //   - Rides mit Pickup > 30 Min: warten (v6.62.709 bisheriges Verhalten,
+        //     Fahrer kommt vielleicht zurück, sonst greift scheduledAutoAssign)
+        //
+        //   Marion-Fall 11.09. 06:31: IK-Schicht auto-ended, Marion Pickup 06:45 = 14 Min später
+        //   → auto-ended blockte Reassign, Marion hing an totem IK bis autoResolveConflicts
+        //     nach 6 Min manuell umverteilte. Neu: sofort reassign wenn Pickup <=30min.
         if (newStatus === 'auto-ended') {
-            console.log(`⏸️ onShiftStatusChanged: ${vid} auto-ended (Heartbeat-Timeout) — Reassign uebersprungen, scheduledAutoAssign uebernimmt naechsten Lauf`);
-            return;
+            const _now = Date.now();
+            const _urgentSnap = await db.ref('rides').orderByChild('assignedVehicle').equalTo(vid).once('value');
+            let _hasUrgent = false;
+            _urgentSnap.forEach(c => {
+                const r = c.val();
+                if (!r || !['assigned', 'vorbestellt', 'accepted'].includes(r.status)) return;
+                if (r.assignmentLocked === true) return;
+                if (!r.pickupTimestamp || r.pickupTimestamp <= _now) return;
+                if (r.pickupTimestamp - _now <= 30 * 60 * 1000) { _hasUrgent = true; }
+            });
+            if (!_hasUrgent) {
+                console.log(`⏸️ onShiftStatusChanged: ${vid} auto-ended (keine Rides <=30min) — Reassign uebersprungen`);
+                return;
+            }
+            console.log(`⚡ onShiftStatusChanged: ${vid} auto-ended + Rides <=30min → SOFORT reassign (v6.66.73)`);
+            // fall through to reassign logic
         }
         console.log(`🛑 onShiftStatusChanged: ${vid} ${oldStatus}→${newStatus} — suche zugewiesene Vorbestellungen`);
         try {

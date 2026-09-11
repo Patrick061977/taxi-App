@@ -1586,13 +1586,13 @@ async function autoAssignRide(rideId, rideData, _excludeVehicleIds = []) {
                 }
             }
 
-            // 🆕 v6.63.437 (Patrick 20.06. 10:50 + 11:18 Bridge: "LK ist offline, GPS
-            //   1015 Min alt, trotzdem wurde Nicole Schindel zugewiesen — Shift status
-            //   muss berücksichtigt werden"):
-            //   Wenn Vehicle Shift heute 'ended' / 'auto-ended' UND Pickup <4h weg
-            //   → Vehicle kommt nicht mehr in Zeit. Wochenplan-Eintrag ist statisch,
-            //   aber wenn der Fahrer schon abgemeldet ist, ist die Wochenplan-Schicht
-            //   für heute beendet. Auto-Assign skipped.
+            // 🆕 v6.66.74 (Patrick 11.09. 07:19 Bridge Voigt-Fall):
+            //   "Reality-Check kommt erst 30 Min vor Fahrt. Bei mehr Vorlauf hat der Fahrer
+            //   noch Zeit sich anzumelden."
+            //   ERSETZT v6.63.437 (4h-Regel — war zu aggressiv, "kommt nicht mehr in Zeit"
+            //   klang wie Reality-Check obwohl Pickup 3.5h weg war).
+            //   Neu: shift ended heute UND Pickup ≤30 Min → skip. Bei mehr Vorlauf →
+            //   Fahrzeug bleibt Kandidat, autoResolveConflicts probiert alle 60s neu.
             try {
                 const _shiftStatus = _vData.shift && _vData.shift.status;
                 const _isEnded = _shiftStatus === 'ended' || _shiftStatus === 'auto-ended' || _shiftStatus === 'force-ended';
@@ -1600,19 +1600,19 @@ async function autoAssignRide(rideId, rideData, _excludeVehicleIds = []) {
                 const _todayBerlin = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Berlin' });
                 const _endedDateBerlin = _endedAt ? new Date(_endedAt).toLocaleDateString('sv-SE', { timeZone: 'Europe/Berlin' }) : null;
                 const _endedToday = _endedDateBerlin === _todayBerlin;
-                const _pickupSoon = rideData.pickupTimestamp && (rideData.pickupTimestamp - Date.now()) < 4 * 60 * 60 * 1000;
+                const _pickupInPhase2 = rideData.pickupTimestamp && (rideData.pickupTimestamp - Date.now()) <= 30 * 60 * 1000;
 
-                if (_isEnded && _endedToday && _pickupSoon) {
-                    console.log(`   ❌ ${info.name}: Schicht heute ${_shiftStatus} (${new Date(_endedAt).toLocaleTimeString('de-DE', { timeZone: 'Europe/Berlin' })}), Pickup <4h → skip`);
+                if (_isEnded && _endedToday && _pickupInPhase2) {
+                    console.log(`   ❌ ${info.name}: v6.66.74 Schicht ${_shiftStatus} + Pickup ≤30min → skip`);
                     vehicleScores[vehicleId] = {
                         status: 'rejected',
-                        reason: `Schicht heute ${_shiftStatus} um ${new Date(_endedAt).toLocaleTimeString('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit' })} — Fahrer kommt nicht mehr in Zeit`,
-                        check: 'shift-ended-today'
+                        reason: `Schicht heute ${_shiftStatus} um ${new Date(_endedAt).toLocaleTimeString('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit' })} — Fahrer offline, kann Pickup ≤30 Min nicht schaffen`,
+                        check: 'shift-ended-phase2'
                     };
                     continue;
                 }
             } catch (_endedErr) {
-                console.warn('v6.63.437 Shift-Ended-Check Fehler:', _endedErr.message);
+                console.warn('v6.66.74 Shift-Ended-Check Fehler:', _endedErr.message);
             }
 
             // 🆕 v6.63.439 (Patrick 20.06. 11:40 Bridge: "Rückfahrt zum Standort muss

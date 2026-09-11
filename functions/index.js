@@ -25849,7 +25849,11 @@ exports.scheduledAutoAssign = onSchedule(
                     //   Lead 15+Anfahrt auf 10+Anfahrt reduziert. Plus: ETA-Faktor wird
                     //   evtl. ueberschaetzt (veraltet, ohne Live-Vehicle-Position) → spaeter
                     //   ggf. ETA-Refresh vor Push einbauen.
-                    const _reminderLeadMs = (10 + _anfahrt) * 60000;
+                    // 🔧 v6.66.76 (Patrick 11.09. 09:32 Bridge "30 Minuten vorher wenn ich
+                    //   die Fahrt annehmen soll, dann möchte ich eine Benachrichtigung
+                    //   oder einen Alarm bekommen"):
+                    //   Baseline auf 30 Min fix, bei langer Anfahrt greift 10+Anfahrt-Fallback.
+                    const _reminderLeadMs = Math.max(30, 10 + _anfahrt) * 60000;
                     if ((r.pickupTimestamp - now) > _reminderLeadMs) return false; // zu weit in Zukunft
                     if ((r.pickupTimestamp - now) < -10 * 60000) return false; // schon >10 min überfällig
                     // v6.62.804: acceptedAt-Check NUR fuer 'vorbestellt'. Bei 'accepted' wurde
@@ -25880,12 +25884,8 @@ exports.scheduledAutoAssign = onSchedule(
                     if (!_vid) return false;
                     if (!r.pickupTimestamp) return false;
                     const _anfahrt = (r.drivingTimeToPickup && r.drivingTimeToPickup > 0) ? r.drivingTimeToPickup : 10;
-                    // 🔧 v6.63.044 (Patrick 30.05. 16:52 "10 Minuten entfernt von Labömitz,
-                    //   maximal 25 Min vor Pickup haette ich Signal bekommen muessen"):
-                    //   Lead 15+Anfahrt auf 10+Anfahrt reduziert. Plus: ETA-Faktor wird
-                    //   evtl. ueberschaetzt (veraltet, ohne Live-Vehicle-Position) → spaeter
-                    //   ggf. ETA-Refresh vor Push einbauen.
-                    const _reminderLeadMs = (10 + _anfahrt) * 60000;
+                    // v6.66.76: synchron zum Reminder-Filter oben (30 Min Baseline)
+                    const _reminderLeadMs = Math.max(30, 10 + _anfahrt) * 60000;
                     if ((r.pickupTimestamp - now) > _reminderLeadMs) return false;
                     if ((r.pickupTimestamp - now) < -10 * 60000) return false;
                     if (!r.acceptedAt) return false; // wir wollen NUR die mit acceptedAt
@@ -31748,6 +31748,19 @@ exports.onRideUpdated = onValueUpdated(
             //   habe oder nicht. Wenn eine Fahrt zugeteilt wird, dann Alarm."
             //   → ALLE Zuweisungen triggern Alarm — auch Selbst-Grab / Wartepool-Banner /
             //     Admin-Assign / Claude-Manual.
+            //
+            // 🔧 v6.66.76 (Patrick 11.09. 09:32 Bridge "wenn ich die Fahrt aus dem
+            //   Banner rausnehme brauche ich keinen Push, das habe ich doch mitgekriegt
+            //   dass ich die Fahrt angenommen habe"):
+            //   Ausnahme wieder eingebaut: Selbst-Grab (native_dashboard_grab) → KEIN
+            //   Push. Der Fahrer hat aktiv am Handy die Fahrt aus dem Wartepool-Banner
+            //   gewählt, hat sie bereits gesehen. Ein zusätzlicher Alarm-Push ist störend.
+            //   ALLE ANDEREN Zuweisungen (Cloud-Auto / Admin / Claude-Manual) bekommen
+            //   weiterhin den Alarm — dort weiss der Fahrer noch nicht Bescheid.
+            else if (after.assignedBy === 'native_dashboard_grab') {
+                console.log(`🤫 v6.66.76 Selbst-Grab (native_dashboard_grab) — kein Alarm-Push an ${newVehicle}`);
+                try { await addRideLog(rideId, '🤫', `Kein Alarm-Push: Fahrer hat aus Banner selbst gegrabbt`, { quelle: 'onRideUpdated v6.66.76', vehicle: newVehicle }); } catch(_) {}
+            }
             else {
                 try {
                     const _pickupLabel = after.pickupTime || 'Sofort';

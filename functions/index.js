@@ -25849,11 +25849,18 @@ exports.scheduledAutoAssign = onSchedule(
                     //   Lead 15+Anfahrt auf 10+Anfahrt reduziert. Plus: ETA-Faktor wird
                     //   evtl. ueberschaetzt (veraltet, ohne Live-Vehicle-Position) → spaeter
                     //   ggf. ETA-Refresh vor Push einbauen.
-                    // 🔧 v6.66.76 (Patrick 11.09. 09:32 Bridge "30 Minuten vorher wenn ich
-                    //   die Fahrt annehmen soll, dann möchte ich eine Benachrichtigung
-                    //   oder einen Alarm bekommen"):
-                    //   Baseline auf 30 Min fix, bei langer Anfahrt greift 10+Anfahrt-Fallback.
-                    const _reminderLeadMs = Math.max(30, 10 + _anfahrt) * 60000;
+                    // 🔧 v6.66.76 (Patrick 11.09. 09:32 Bridge): "30 Minuten vorher wenn ich
+                    //   die Fahrt annehmen soll, möchte ich eine Benachrichtigung bekommen."
+                    // 🔧 v6.66.76b (Patrick 11.09. 09:40 Bridge): "wenn wir Wolgast-Fahrt
+                    //   haben, wir fahren 30 Minuten hin, dann sollte auch 30 Minuten
+                    //   vorher plus 30 Minuten vorher, also eine Stunde mindestens vorher
+                    //   den Alarm bekommen".
+                    //   Formel: 30 Min Vorlauf + reine Anfahrtszeit zum Kunden.
+                    //   Beispiele:
+                    //     Anfahrt 5 Min (Ahlbeck-Bansin) → Alarm 35 Min vor Pickup
+                    //     Anfahrt 30 Min (Wolgast) → Alarm 60 Min vor Pickup
+                    //     Anfahrt 60 Min (Greifswald) → Alarm 90 Min vor Pickup
+                    const _reminderLeadMs = (30 + _anfahrt) * 60000;
                     if ((r.pickupTimestamp - now) > _reminderLeadMs) return false; // zu weit in Zukunft
                     if ((r.pickupTimestamp - now) < -10 * 60000) return false; // schon >10 min überfällig
                     // v6.62.804: acceptedAt-Check NUR fuer 'vorbestellt'. Bei 'accepted' wurde
@@ -25885,7 +25892,7 @@ exports.scheduledAutoAssign = onSchedule(
                     if (!r.pickupTimestamp) return false;
                     const _anfahrt = (r.drivingTimeToPickup && r.drivingTimeToPickup > 0) ? r.drivingTimeToPickup : 10;
                     // v6.66.76: synchron zum Reminder-Filter oben (30 Min Baseline)
-                    const _reminderLeadMs = Math.max(30, 10 + _anfahrt) * 60000;
+                    const _reminderLeadMs = (30 + _anfahrt) * 60000;
                     if ((r.pickupTimestamp - now) > _reminderLeadMs) return false;
                     if ((r.pickupTimestamp - now) < -10 * 60000) return false;
                     if (!r.acceptedAt) return false; // wir wollen NUR die mit acceptedAt

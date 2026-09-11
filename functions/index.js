@@ -32991,10 +32991,17 @@ exports.onVehicleShiftPlanChanged = onValueUpdated(
             const REASSIGN_WINDOW_MS = 6 * 60 * 60 * 1000; // 6h
             const affected = [];
             const skippedLocked = [];
+            // 🆕 v6.66.75 (Patrick 11.09. 07:40 Bridge "wenn IK gar keine Schicht mehr
+            //   hat weil ich das geä habe kann er nicht mit einer Fahrt hängen bleiben"):
+            //   ACCEPTED-Rides jetzt AUCH inbegriffen — Marion-Fall 11.09.: IK hatte Marion
+            //   bereits akzeptiert (status='accepted'), Wochenplan wurde später geändert →
+            //   Trigger hat 'accepted' gefiltert, Marion hing an IK ohne Schicht.
+            //   'akzeptiert ist akzeptiert' (v6.66.62) galt gegen Optimierungs-Wegnahme;
+            //   hier ist der Fahrer objektiv OHNE DIENST — kein Optimierungsvorwand.
             ridesSnap.forEach(c => {
                 const r = c.val();
                 if (!r) return;
-                if (!['assigned', 'vorbestellt'].includes(r.status)) return;
+                if (!['assigned', 'vorbestellt', 'accepted'].includes(r.status)) return;
                 if (!r.pickupTimestamp || r.pickupTimestamp <= now) return;
                 if (r.assignmentLocked === true) {
                     skippedLocked.push({ id: c.key, customerName: r.customerName, pickupTime: r.pickupTime });
@@ -33008,7 +33015,7 @@ exports.onVehicleShiftPlanChanged = onValueUpdated(
                 // isVehicleInShift mit NEUEN Schichtdaten prüfen
                 const stillInShift = isVehicleInShift(vid, { [vid]: newShiftData }, dateStr, timeStr);
                 if (!stillInShift) {
-                    affected.push({ id: c.key, ride: r, pickupDateStr: dateStr, pickupTimeStr: timeStr });
+                    affected.push({ id: c.key, ride: r, pickupDateStr: dateStr, pickupTimeStr: timeStr, wasAccepted: r.status === 'accepted' });
                 }
             });
             if (skippedLocked.length > 0) {
@@ -33022,7 +33029,7 @@ exports.onVehicleShiftPlanChanged = onValueUpdated(
             const _vehName = (OFFICIAL_VEHICLES[vid] || {}).name || vid;
             const reassigned = [];
             const failed = [];
-            for (const { id, ride, pickupDateStr, pickupTimeStr } of affected) {
+            for (const { id, ride, pickupDateStr, pickupTimeStr, wasAccepted } of affected) {
                 try {
                     await db.ref('rides/' + id).update({
                         assignedVehicle: null,
@@ -33033,15 +33040,18 @@ exports.onVehicleShiftPlanChanged = onValueUpdated(
                         vehiclePlate: null,
                         assignedAt: null,
                         assignedBy: null,
+                        acceptedAt: null,
+                        acceptedByDriver: null,
                         status: 'vorbestellt',
-                        reassignReason: `${_vehName} hat zu ${pickupTimeStr} kein Schicht mehr — Schichtplan geändert`,
+                        reassignReason: `${_vehName} hat zu ${pickupTimeStr} kein Schicht mehr — Schichtplan geändert${wasAccepted ? ' (war akzeptiert)' : ''}`,
                         reassignedAt: now,
                         updatedAt: now
                     });
-                    await addRideLog(id, '🔄', `Fahrzeug entfernt: ${_vehName} hat zu ${pickupTimeStr} kein Schicht (Schichtplan-Änderung)`, {
-                        quelle: 'onVehicleShiftPlanChanged v6.63.570',
+                    await addRideLog(id, '🔄', `Fahrzeug entfernt: ${_vehName} hat zu ${pickupTimeStr} kein Schicht${wasAccepted ? ' (accepted-Status aufgehoben v6.66.75)' : ''}`, {
+                        quelle: 'onVehicleShiftPlanChanged v6.66.75',
                         altFahrzeug: _vehName,
-                        pickupTime: pickupTimeStr
+                        pickupTime: pickupTimeStr,
+                        wasAccepted: !!wasAccepted
                     });
                     const result = await autoAssignRide(id, { ...ride, _rejectedVehicles: [vid] });
                     if (result && result.vehicleId) {

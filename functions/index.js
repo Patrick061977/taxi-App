@@ -31892,25 +31892,34 @@ exports.onRideUpdated = onValueUpdated(
         // Wenn sich Zeit, Fahrzeug, Dauer oder Status ändert, stimmen die
         // Scores anderer Fahrten am selben Tag nicht mehr!
         // ═══════════════════════════════════════════════════════════════
-        // 🆕 v6.66.77 (Patrick 12.09. 15:56 Bridge "wenn sich eine Fahrt ändert
-        //   muss doch erst mal das System resettet werden und dann neu umverteilt"):
-        //   Bei manueller Zeit-Verschiebung >15 Min → alte Zuweisung nullen und
-        //   autoAssignRide neu aufrufen. Bisher lief nur vehicleScores-Recompute
-        //   fuer Nachbarfahrten, aber die verschobene Ride selbst blieb beim
-        //   ursprunglichen Fahrzeug (Petra-Steffen-Fall 12.09. 15:22).
+        // 🆕 v6.66.77/78 (Patrick 12.09. 15:56 + 17:32 Bridge):
+        //   "Wenn eine Fahrt BEARBEITET wird und mehr als 30 Min bis Pickup ist,
+        //    muss das System resettet werden und neu verteilen."
+        //
+        //   Praezisierung 17:32:
+        //   • <30 Min vor Pickup: nichts mehr aendern, Fahrer ist schon dabei
+        //   • >=30 Min vor Pickup: bei manueller Aenderung reassignen
+        //   • Egal was geaendert wird (Zeit, Ort, Waypoint) — Hauptsache manuell
         //
         //   Trigger-Bedingungen:
-        //   • pickupTimestamp-Diff > 15 Min
+        //   • Zeit-bis-Pickup >= 30 Min (neuer pickupTimestamp)
+        //   • Reassign-relevante Felder geaendert: pickupTimestamp / pickup /
+        //     destination / waypoints / passengers
         //   • Ride NICHT assignmentLocked (Patrick-Lock respektieren)
-        //   • Status in ['vorbestellt','assigned','accepted'] (kein completed/cancelled)
-        //   • Zeit-Change wurde MANUELL gemacht (updatedBy = native_admin_* oder
-        //     claude-manual-* oder admin-web-dispo) — NICHT durch Cloud-Auto-Shift
-        //     (autoResolveConflicts hat eigene Logik)
+        //   • Status in ['vorbestellt','assigned','accepted']
+        //   • MANUELLER Edit (updatedBy = native_admin_* / claude-manual-* / admin-web-dispo)
+        //     → keine Cloud-Auto-Shifts (autoResolveConflicts) erneut triggern
         try {
-            const _beforePickupTs = Number(before.pickupTimestamp) || 0;
             const _afterPickupTs = Number(after.pickupTimestamp) || 0;
-            const _timeShiftMin = Math.abs(_afterPickupTs - _beforePickupTs) / 60000;
-            const _isManualTimeEdit = _timeShiftMin > 15
+            const _minsUntilPickup = _afterPickupTs > 0 ? (_afterPickupTs - Date.now()) / 60000 : 0;
+            const _relevantChanged =
+                (Number(before.pickupTimestamp) || 0) !== _afterPickupTs ||
+                (before.pickup || '') !== (after.pickup || '') ||
+                (before.destination || '') !== (after.destination || '') ||
+                JSON.stringify(before.waypoints || []) !== JSON.stringify(after.waypoints || []) ||
+                (before.passengers || 0) !== (after.passengers || 0);
+            const _isManualEdit = _relevantChanged
+                && _minsUntilPickup >= 30
                 && !after.assignmentLocked
                 && ['vorbestellt','assigned','accepted'].includes(after.status)
                 && after.updatedBy && (
@@ -31918,10 +31927,16 @@ exports.onRideUpdated = onValueUpdated(
                     String(after.updatedBy).startsWith('claude-manual-') ||
                     String(after.updatedBy) === 'admin-web-dispo'
                 );
-            if (_isManualTimeEdit) {
-                console.log(`🔄 v6.66.77 Zeit-Change ${_timeShiftMin.toFixed(0)} Min manuell → reassign ${rideId} (updatedBy=${after.updatedBy})`);
+            if (_isManualEdit) {
+                console.log(`🔄 v6.66.78 Manuelle Bearbeitung + ${Math.round(_minsUntilPickup)}min Vorlauf → reassign ${rideId} (updatedBy=${after.updatedBy})`);
                 try {
                     const _oldVehName = (OFFICIAL_VEHICLES[after.assignedVehicle] || {}).name || after.assignedVehicle || '?';
+                    const _whatChanged = [];
+                    if ((Number(before.pickupTimestamp) || 0) !== _afterPickupTs) _whatChanged.push('Zeit');
+                    if ((before.pickup || '') !== (after.pickup || '')) _whatChanged.push('Abholort');
+                    if ((before.destination || '') !== (after.destination || '')) _whatChanged.push('Zielort');
+                    if (JSON.stringify(before.waypoints || []) !== JSON.stringify(after.waypoints || [])) _whatChanged.push('Zwischenstop');
+                    if ((before.passengers || 0) !== (after.passengers || 0)) _whatChanged.push('Personen');
                     await db.ref('rides/' + rideId).update({
                         assignedVehicle: null,
                         vehicleId: null,
@@ -31934,26 +31949,29 @@ exports.onRideUpdated = onValueUpdated(
                         acceptedAt: null,
                         acceptedByDriver: null,
                         status: 'vorbestellt',
-                        reassignReason: `Zeit-Change ${_timeShiftMin.toFixed(0)} Min manuell — Fahrzeug neu evaluiert`,
+                        reassignReason: `Manuelle Bearbeitung (${_whatChanged.join(', ')}) — Fahrzeug neu evaluiert`,
                         reassignedAt: Date.now()
                     });
-                    await addRideLog(rideId, '🔄', `v6.66.77 Reassign nach manueller Zeit-Aenderung (${_timeShiftMin.toFixed(0)} Min): ${_oldVehName} entfernt`, {
-                        quelle: 'onRideUpdated v6.66.77',
+                    await addRideLog(rideId, '🔄', `v6.66.78 Reassign nach manueller Bearbeitung [${_whatChanged.join('+')}]: ${_oldVehName} entfernt`, {
+                        quelle: 'onRideUpdated v6.66.78',
                         altFahrzeug: _oldVehName,
-                        zeitShiftMin: Math.round(_timeShiftMin),
+                        geaendert: _whatChanged,
+                        minutenBisPickup: Math.round(_minsUntilPickup),
                         updatedBy: after.updatedBy
                     });
                     const _reassignResult = await autoAssignRide(rideId, { ...after, assignedVehicle: null, vehicleId: null, assignedBy: null, acceptedAt: null, status: 'vorbestellt' });
                     if (_reassignResult && _reassignResult.vehicleId) {
-                        console.log(`   ✅ v6.66.77 neu zugewiesen: ${_reassignResult.name || _reassignResult.vehicleId}`);
+                        console.log(`   ✅ v6.66.78 neu zugewiesen: ${_reassignResult.name || _reassignResult.vehicleId}`);
                     } else {
-                        console.log(`   ⚠️ v6.66.77 kein Kandidat gefunden — Ride in Wartepool`);
+                        console.log(`   ⚠️ v6.66.78 kein Kandidat gefunden — Ride in Wartepool`);
                     }
                 } catch (_reErr) {
-                    console.warn('v6.66.77 Reassign-Fehler:', _reErr.message);
+                    console.warn('v6.66.78 Reassign-Fehler:', _reErr.message);
                 }
+            } else if (_relevantChanged && _minsUntilPickup < 30 && _minsUntilPickup > 0) {
+                console.log(`⏸️ v6.66.78 Manuelle Bearbeitung + nur ${Math.round(_minsUntilPickup)}min Vorlauf → KEIN Reassign (unter 30 Min bleibt Fahrzeug)`);
             }
-        } catch (_v6677Err) { console.warn('v6.66.77 Zeit-Change-Handler Fehler:', _v6677Err.message); }
+        } catch (_v6678Err) { console.warn('v6.66.78 Bearbeitungs-Handler Fehler:', _v6678Err.message); }
 
         try {
             const _scoreRelevantChange =

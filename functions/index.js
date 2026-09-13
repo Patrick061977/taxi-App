@@ -3754,14 +3754,39 @@ async function getCustomerWhatsAppNumber(ride) {
     return null;
 }
 
+// 🆕 v6.66.79 (Patrick 13.09. 08:14 Bridge "Auch bei Stornierungen saubere anrede zeigen"):
+//   Zentrale Helper-Function für formale Anrede.
+//   Nutzt customer.anrede aus CRM (Herr/Frau) + Nachname aus guestName oder customerName.
+//   Fallback: "Hallo <Vorname>," (wie zuvor) oder generisch "Guten Tag,".
+async function getFormalGreeting(ride, opts = {}) {
+    const withNewlines = opts.withNewlines !== false; // Default: mit "\n\n"
+    const shortMode = !!opts.shortMode; // "Hallo X, " statt "Hallo X,\n\n"
+    const passengerName = ride.guestName || ride.customerName || '';
+    const lastName = passengerName ? passengerName.trim().split(/\s+/).pop() : '';
+    try {
+        if (ride.customerId) {
+            const _cust = (await db.ref(`customers/${ride.customerId}`).once('value')).val();
+            if (_cust && _cust.anrede && lastName) {
+                const a = String(_cust.anrede).trim();
+                if (/^herr$/i.test(a)) return shortMode ? `Sehr geehrter Herr ${lastName}, ` : `Sehr geehrter Herr ${lastName},${withNewlines ? '\n\n' : ' '}`;
+                if (/^frau$/i.test(a)) return shortMode ? `Sehr geehrte Frau ${lastName}, ` : `Sehr geehrte Frau ${lastName},${withNewlines ? '\n\n' : ' '}`;
+            }
+        }
+    } catch (_) {}
+    // Fallback: Hallo + Vorname/Name (wie vorher) — bei Hotels/Firmen: nichts (nur "Guten Tag")
+    if (!passengerName) return shortMode ? `Guten Tag, ` : `Guten Tag,${withNewlines ? '\n\n' : ' '}`;
+    return shortMode ? `Hallo ${passengerName}, ` : `Hallo ${passengerName},${withNewlines ? '\n\n' : ' '}`;
+}
+
 // WhatsApp-Kunden-Benachrichtigung senden (Text ohne HTML-Tags)
 async function sendCustomerWhatsAppNotification(ride, rideId, type) {
     const phone = await getCustomerWhatsAppNumber(ride);
     if (!phone) return false;
 
     // 🔧 v6.36.0: Gastname hat Priorität über Hotel/CRM-Name
+    // 🔧 v6.66.79: Formale Anrede aus customer.anrede + Nachname (Fallback Hallo X)
     const passengerName = ride.guestName || ride.customerName;
-    const greeting = passengerName ? `Hallo ${passengerName},\n\n` : '';
+    const greeting = await getFormalGreeting(ride);
 
     const trackingLink = `https://umwelt-taxi-insel-usedom.de/Taxi-App/track.html?ride=${rideId}`;
     let message = '';
@@ -31239,8 +31264,9 @@ exports.onRideUpdated = onValueUpdated(
                                 console.log(`☎️ Storno-SMS skip (Festnetz): ${_custPhoneCancel}`);
                                 await addRideLog(rideId, '☎️', `Storno-SMS übersprungen (Festnetz)`, { phone: _custPhoneCancel });
                             } else {
-                                const _passengerName3 = after.guestName || after.customerName || '';
-                                const _smsBody = (_passengerName3 ? `Hallo ${_passengerName3}, ` : '') +
+                                // 🔧 v6.66.79 (Patrick 13.09. 08:14): Formale Anrede statt "Hallo X"
+                                const _greeting = await getFormalGreeting(after, { shortMode: true });
+                                const _smsBody = _greeting +
                                     `Ihre Taxi-Buchung` +
                                     (after.pickupTime ? ` um ${after.pickupTime}` : '') +
                                     (after.pickup ? ` ab "${String(after.pickup).slice(0, 40)}"` : '') +

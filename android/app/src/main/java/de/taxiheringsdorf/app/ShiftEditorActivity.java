@@ -95,8 +95,13 @@ public class ShiftEditorActivity extends AppCompatActivity {
     //   gar nicht gesehen, ist oben versteckt"): Malus direkt in Tab-3-Zeile anzeigen +
     //   editierbar via Tap. Bisher war Malus nur ueber Toolbar-Icon 🏆 erreichbar.
     private final java.util.Map<String, Integer> vehiclesMalusCache = new java.util.HashMap<>();
+    // v6.66.80 (Patrick 13.09. 09:28): Wochentag-Override auch fetchen und anzeigen.
+    // Struktur: dayMalusCache[dow][vid] = 30 (dow = "Mo"|"Di"|"Mi"|"Do"|"Fr"|"Sa"|"So")
+    private final java.util.Map<String, java.util.Map<String, Integer>> dayMalusCache = new java.util.HashMap<>();
     private com.google.firebase.database.DatabaseReference _malusRef;
     private com.google.firebase.database.ValueEventListener _malusListener;
+    private com.google.firebase.database.DatabaseReference _dayOvRef;
+    private com.google.firebase.database.ValueEventListener _dayOvListener;
     private DatabaseReference vehiclesRef;
     private ValueEventListener vehiclesListener;
 
@@ -435,15 +440,19 @@ public class ShiftEditorActivity extends AppCompatActivity {
                 }
             }
             // 🆕 v6.66.30 (Patrick 05.09. 14:31 Bridge): Malus direkt in der Zeile.
-            //   Wird immer angezeigt (auch 0), damit Patrick sieht dass ein Fahrzeug
-            //   NICHT weg-priorisiert ist. Der Zeilen-Tap unten oeffnet den Quick-Edit-
-            //   Dialog (Standort + Malus + voller Editor).
-            Integer _malus = vehiclesMalusCache.get(vs.vehicleId);
-            int _malusInt = (_malus != null) ? _malus : 0;
-            if (_malusInt > 0) {
-                sb.append("\n🏆 Malus: ").append(_malusInt).append(" Min · wird seltener gewaehlt");
-            } else if (_malus != null) {
-                sb.append("\n🏆 Malus: 0 Min (freie Wahl)");
+            // 🔧 v6.66.80 (Patrick 13.09. 09:28 Bridge "sehe den MY-Malus nicht"):
+            //   EFFEKTIVEN Wert HEUTE zeigen (Override vor Static). Bei Override auch
+            //   den Wochentag benennen damit Patrick weiss WO er es aendern kann.
+            Integer _malusStatic = vehiclesMalusCache.get(vs.vehicleId);
+            String _todayDow = getTodayDowKey();
+            java.util.Map<String, Integer> _todayOv = dayMalusCache.get(_todayDow);
+            Integer _malusOv = _todayOv != null ? _todayOv.get(vs.vehicleId) : null;
+            int _malusEff = _malusOv != null ? _malusOv : (_malusStatic != null ? _malusStatic : 0);
+            String _quelle = _malusOv != null ? (" · " + _todayDow + "-Override") : (_malusStatic != null ? " · Standard" : "");
+            if (_malusEff > 0) {
+                sb.append("\n🏆 Malus heute: ").append(_malusEff).append(" Min").append(_quelle).append(" · wird seltener gewaehlt");
+            } else if (_malusStatic != null || _malusOv != null) {
+                sb.append("\n🏆 Malus heute: 0 Min").append(_quelle).append(" (freie Wahl)");
             }
             h.days.setText(sb.toString());
             // 🆕 v6.66.30: gesamte Zeile clickable → Quick-Edit-Auswahl-Dialog.
@@ -619,6 +628,49 @@ public class ShiftEditorActivity extends AppCompatActivity {
             }
         };
         _malusRef.addValueEventListener(_malusListener);
+
+        // 🆕 v6.66.80 (Patrick 13.09. 09:28 "sehe den MY-Malus nicht"): Wochentag-Overrides
+        //   auch listen (settings/optimizationByDay). Struktur:
+        //   {Sa: {vehicleMalus: {pw-my-222-e: 30}}, So: {vehicleMalus: {pw-my-222-e: 30}}}
+        _dayOvRef = FirebaseDatabase.getInstance(DB_URL).getReference("settings/optimizationByDay");
+        _dayOvListener = new ValueEventListener() {
+            @Override public void onDataChange(@NonNull DataSnapshot snap) {
+                dayMalusCache.clear();
+                for (DataSnapshot dowSnap : snap.getChildren()) {
+                    String dow = dowSnap.getKey();
+                    if (dow == null) continue;
+                    java.util.Map<String, Integer> vmMap = new java.util.HashMap<>();
+                    DataSnapshot vm = dowSnap.child("vehicleMalus");
+                    for (DataSnapshot vSnap : vm.getChildren()) {
+                        Object v = vSnap.getValue();
+                        if (v instanceof Number) vmMap.put(vSnap.getKey(), ((Number) v).intValue());
+                    }
+                    dayMalusCache.put(dow, vmMap);
+                }
+                if (adapter != null) adapter.notifyDataSetChanged();
+            }
+            @Override public void onCancelled(@NonNull DatabaseError error) {
+                Log.w(TAG, "_dayOvListener err: " + error.getMessage());
+            }
+        };
+        _dayOvRef.addValueEventListener(_dayOvListener);
+    }
+
+    // v6.66.80: Helper — heutiger Wochentag als "Mo"/"Di"/.../"So"
+    private String getTodayDowKey() {
+        java.util.Calendar cal = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("Europe/Berlin"));
+        int dow = cal.get(java.util.Calendar.DAY_OF_WEEK); // 1=Sun ... 7=Sat
+        String[] map = {"So","Mo","Di","Mi","Do","Fr","Sa"};
+        return map[dow - 1];
+    }
+
+    // v6.66.80: Effektiver Malus für Fahrzeug HEUTE (Override vor Static)
+    private int getEffectiveMalusToday(String vehicleId) {
+        String dow = getTodayDowKey();
+        java.util.Map<String, Integer> dayMap = dayMalusCache.get(dow);
+        if (dayMap != null && dayMap.containsKey(vehicleId)) return dayMap.get(vehicleId);
+        Integer staticMalus = vehiclesMalusCache.get(vehicleId);
+        return staticMalus != null ? staticMalus : 0;
     }
 
     // 🆕 v6.66.30 (Patrick 05.09. 14:31 Bridge "Malus habe ich vorhin zum Beispiel gar

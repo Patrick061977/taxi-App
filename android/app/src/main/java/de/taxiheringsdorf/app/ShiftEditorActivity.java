@@ -1207,26 +1207,86 @@ public class ShiftEditorActivity extends AppCompatActivity {
     //   Zeigt pro Fahrzeug einen EditText fuer Malus (Min). Leer = kein Override.
     //   Speichert in settings/vehiclePrioMalus/{vid} — gleiche Struktur wie Web-App.
     //   Fahrzeug-Liste kommt aus dem bereits geladenen 'data' (VehicleShift-Liste).
+    // v6.66.81 (Patrick 13.09. 09:32 Bridge "Malus fuer Wochentage selber einstellen"):
+    //   Wochentag-Auswahl im Malus-Dialog. Standard = settings/vehiclePrioMalus (statisch).
+    //   Wochentag = settings/optimizationByDay/{Tag}/vehicleMalus/{vid}.
+    private String _currentDialogScope = "Standard"; // Standard | Mo|Di|Mi|Do|Fr|Sa|So
     private void showPrioMalusDialog() {
-        // Aktuellen Malus laden
+        // Aktuellen Static-Malus laden UND Wochentag-Overrides
         FirebaseDatabase.getInstance(DB_URL).getReference("settings/vehiclePrioMalus")
             .addListenerForSingleValueEvent(new ValueEventListener() {
-                @Override public void onDataChange(@NonNull DataSnapshot snap) {
-                    final java.util.Map<String, Integer> currentMalus = new java.util.HashMap<>();
-                    for (DataSnapshot c : snap.getChildren()) {
+                @Override public void onDataChange(@NonNull DataSnapshot snapStatic) {
+                    final java.util.Map<String, Integer> staticMalus = new java.util.HashMap<>();
+                    for (DataSnapshot c : snapStatic.getChildren()) {
                         Object v = c.getValue();
-                        if (v instanceof Number) currentMalus.put(c.getKey(), ((Number) v).intValue());
+                        if (v instanceof Number) staticMalus.put(c.getKey(), ((Number) v).intValue());
                     }
-                    // Dialog-Layout: ScrollView mit LinearLayout, pro Fahrzeug Row (Name + EditText + Min-Label)
+                    // Dann Wochentag-Overrides laden
+                    FirebaseDatabase.getInstance(DB_URL).getReference("settings/optimizationByDay").addListenerForSingleValueEvent(new ValueEventListener() {
+                        @Override public void onDataChange(@NonNull DataSnapshot snapDay) {
+                            final java.util.Map<String, java.util.Map<String, Integer>> dayOv = new java.util.HashMap<>();
+                            for (DataSnapshot dowSnap : snapDay.getChildren()) {
+                                String dow = dowSnap.getKey();
+                                java.util.Map<String, Integer> vmap = new java.util.HashMap<>();
+                                for (DataSnapshot vs : dowSnap.child("vehicleMalus").getChildren()) {
+                                    Object v = vs.getValue();
+                                    if (v instanceof Number) vmap.put(vs.getKey(), ((Number) v).intValue());
+                                }
+                                dayOv.put(dow, vmap);
+                            }
+                            _showMalusDialogInner(staticMalus, dayOv);
+                        }
+                        @Override public void onCancelled(@NonNull DatabaseError error) { _showMalusDialogInner(staticMalus, new java.util.HashMap<>()); }
+                    });
+                }
+                @Override public void onCancelled(@NonNull DatabaseError error) {
+                    Toast.makeText(ShiftEditorActivity.this, "Firebase-Fehler: " + error.getMessage(), Toast.LENGTH_LONG).show();
+                }
+            });
+    }
+
+    private void _showMalusDialogInner(final java.util.Map<String, Integer> staticMalus,
+                                         final java.util.Map<String, java.util.Map<String, Integer>> dayOv) {
+        // Aktueller Scope + Werte laden
+        final String[] scopes = {"Standard","Mo","Di","Mi","Do","Fr","Sa","So"};
+        _currentDialogScope = getTodayDowKey(); // Default: heutiger Wochentag
+        final java.util.Map<String, Integer> currentMalus = new java.util.HashMap<>();
+        java.util.function.Consumer<String> loadScope = (String scope) -> {
+            currentMalus.clear();
+            if ("Standard".equals(scope)) currentMalus.putAll(staticMalus);
+            else { java.util.Map<String, Integer> vm = dayOv.get(scope); if (vm != null) currentMalus.putAll(vm); }
+        };
+        loadScope.accept(_currentDialogScope);
+
+        {
                     android.widget.LinearLayout container = new android.widget.LinearLayout(ShiftEditorActivity.this);
                     container.setOrientation(android.widget.LinearLayout.VERTICAL);
                     int pad = (int) (16 * getResources().getDisplayMetrics().density);
                     container.setPadding(pad, pad, pad, pad);
+
+                    // v6.66.81: Wochentag-Auswahl-Spinner
+                    android.widget.LinearLayout scopeRow = new android.widget.LinearLayout(ShiftEditorActivity.this);
+                    scopeRow.setOrientation(android.widget.LinearLayout.HORIZONTAL);
+                    scopeRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
+                    android.widget.TextView scopeLabel = new android.widget.TextView(ShiftEditorActivity.this);
+                    scopeLabel.setText("Fuer: ");
+                    scopeLabel.setTextColor(0xFF0F172A);
+                    scopeLabel.setTextSize(14);
+                    scopeLabel.setTypeface(null, android.graphics.Typeface.BOLD);
+                    scopeRow.addView(scopeLabel);
+                    final android.widget.Spinner scopeSpinner = new android.widget.Spinner(ShiftEditorActivity.this);
+                    android.widget.ArrayAdapter<String> spinAdapter = new android.widget.ArrayAdapter<>(ShiftEditorActivity.this, android.R.layout.simple_spinner_dropdown_item, scopes);
+                    scopeSpinner.setAdapter(spinAdapter);
+                    int selIdx = 0; for (int i=0;i<scopes.length;i++) if (scopes[i].equals(_currentDialogScope)) { selIdx = i; break; }
+                    scopeSpinner.setSelection(selIdx);
+                    scopeRow.addView(scopeSpinner);
+                    container.addView(scopeRow);
+
                     android.widget.TextView hint = new android.widget.TextView(ShiftEditorActivity.this);
-                    hint.setText("Malus in Minuten (leer = kein Override). Höher = Fahrzeug wird seltener gewählt.\nSpeichert in settings/vehiclePrioMalus — synchron mit Web-App.");
+                    hint.setText("Malus in Minuten (leer = keiner). Höher = Fahrzeug wird seltener gewählt.\n'Standard' gilt fuer alle Tage. Wochentag-Override hat Vorrang.");
                     hint.setTextColor(0xFF475569);
                     hint.setTextSize(12);
-                    hint.setPadding(0, 0, 0, pad);
+                    hint.setPadding(0, pad/2, 0, pad);
                     container.addView(hint);
 
                     final java.util.Map<String, android.widget.EditText> inputs = new java.util.HashMap<>();
@@ -1274,16 +1334,36 @@ public class ShiftEditorActivity extends AppCompatActivity {
                     android.widget.ScrollView scroll = new android.widget.ScrollView(ShiftEditorActivity.this);
                     scroll.addView(container);
 
+                    // v6.66.81: Wenn Wochentag gewaehlt → Werte in Inputs umladen
+                    scopeSpinner.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
+                        @Override public void onItemSelected(android.widget.AdapterView<?> parent, android.view.View view, int position, long id) {
+                            String newScope = scopes[position];
+                            if (newScope.equals(_currentDialogScope)) return;
+                            _currentDialogScope = newScope;
+                            loadScope.accept(_currentDialogScope);
+                            for (java.util.Map.Entry<String, android.widget.EditText> e : inputs.entrySet()) {
+                                Integer val = currentMalus.get(e.getKey());
+                                e.getValue().setText(val != null ? String.valueOf(val) : "");
+                            }
+                        }
+                        @Override public void onNothingSelected(android.widget.AdapterView<?> parent) {}
+                    });
+
                     new androidx.appcompat.app.AlertDialog.Builder(ShiftEditorActivity.this)
                         .setTitle("🏆 Prio-Malus pro Fahrzeug")
                         .setView(scroll)
                         .setPositiveButton("Speichern", (d, w) -> {
+                            // v6.66.81: Speichern in Standard ODER Wochentag-Override
+                            String scope = _currentDialogScope;
+                            String basePath = "Standard".equals(scope) ? "settings/vehiclePrioMalus" : ("settings/optimizationByDay/" + scope + "/vehicleMalus");
                             java.util.Map<String, Object> updates = new java.util.HashMap<>();
-                            final int[] counters = {0, 0}; // [0]=saved, [1]=cleared — Array-Trick fuer effectively-final in Lambda
+                            // Aktuelle Werte fuer diesen Scope wie in currentMalus
+                            java.util.Map<String, Integer> prevMap = new java.util.HashMap<>(currentMalus);
+                            final int[] counters = {0, 0}; // [0]=saved, [1]=cleared
                             for (java.util.Map.Entry<String, android.widget.EditText> e : inputs.entrySet()) {
                                 String raw = e.getValue().getText().toString().trim();
                                 if (raw.isEmpty()) {
-                                    if (currentMalus.containsKey(e.getKey())) {
+                                    if (prevMap.containsKey(e.getKey())) {
                                         updates.put(e.getKey(), null);
                                         counters[1]++;
                                     }
@@ -1291,7 +1371,7 @@ public class ShiftEditorActivity extends AppCompatActivity {
                                     try {
                                         int n = Integer.parseInt(raw);
                                         if (n < 0) continue;
-                                        Integer prev = currentMalus.get(e.getKey());
+                                        Integer prev = prevMap.get(e.getKey());
                                         if (prev == null || prev != n) {
                                             updates.put(e.getKey(), n);
                                             counters[0]++;
@@ -1303,20 +1383,16 @@ public class ShiftEditorActivity extends AppCompatActivity {
                                 Toast.makeText(ShiftEditorActivity.this, "Keine Aenderung", Toast.LENGTH_SHORT).show();
                                 return;
                             }
-                            FirebaseDatabase.getInstance(DB_URL).getReference("settings/vehiclePrioMalus")
+                            FirebaseDatabase.getInstance(DB_URL).getReference(basePath)
                                 .updateChildren(updates)
                                 .addOnSuccessListener(_ok -> Toast.makeText(ShiftEditorActivity.this,
-                                    "✅ Malus gespeichert (" + counters[0] + " gesetzt, " + counters[1] + " entfernt)", Toast.LENGTH_LONG).show())
+                                    "✅ " + scope + ": " + counters[0] + " gesetzt, " + counters[1] + " entfernt", Toast.LENGTH_LONG).show())
                                 .addOnFailureListener(_err -> Toast.makeText(ShiftEditorActivity.this,
                                     "Fehler: " + _err.getMessage(), Toast.LENGTH_LONG).show());
                         })
                         .setNegativeButton("Abbrechen", null)
                         .show();
                 }
-                @Override public void onCancelled(@NonNull DatabaseError error) {
-                    Toast.makeText(ShiftEditorActivity.this, "Firebase-Fehler: " + error.getMessage(), Toast.LENGTH_LONG).show();
-                }
-            });
     }
 
     /* ─── v6.62.955 Time-Edit-Dialog (Patrick 25.05. 21:28 "selbst veraendern") ─── */

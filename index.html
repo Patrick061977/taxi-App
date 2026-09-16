@@ -13255,9 +13255,9 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '6.63.996';
-        const APP_BUILD = '13.09.2026 06:16';
-        const APP_CHANGE = 'fix v6.63.643: ✓ Erledigt-Button im Wartepool-Banner + kunden.html Fahrhistorie per CRM-ID (kein globales Limit mehr).';
+        const APP_VERSION = '6.66.82';
+        const APP_BUILD = '16.09.2026 09:57';
+        const APP_CHANGE = 'v6.66.82: Duplikat-Rechnungen-Fix in generateInvoicePDF + generateAndEmailInvoice (Stecher/Hildebrand/Strandhotel-Bug).';
 
         // 🔧 FIX: Mache APP_VERSION global verfügbar
         window.APP_VERSION = APP_VERSION;
@@ -103121,13 +103121,39 @@ Funk Taxi Team`;
                     alert('💾 Fahrt nicht gefunden!');
                     return;
                 }
-                
-                // Hole nächste Rechnungsnummer
-                const invoiceNumber = await getNextInvoiceNumber();
-                
-                // 🆕 v5.90.549: invoiceDate MUSS definiert werden!
-                const invoiceDate = new Date();
-                
+
+                // 🔒 v6.66.82 (16.09.2026): Duplikat-Schutz - bestehende Rechnungsnummer
+                // aus ride.invoiceNumber wiederverwenden, sonst NEUE Nummer holen und
+                // SOFORT in ride speichern. Fix für Stecher/Hildebrand/Strandhotel-Bug
+                // wo zwei aufeinanderfolgende Nummern für dieselbe rideId erstellt wurden.
+                let invoiceNumber;
+                let invoiceDate;
+                const _rideId = document.getElementById('invoice-ride-id')?.value;
+                if (_rideId) {
+                    const _rSnap = await db.ref('rides/' + _rideId).once('value');
+                    const _rData = _rSnap.val();
+                    if (_rData && _rData.invoiceNumber) {
+                        invoiceNumber = _rData.invoiceNumber;
+                        invoiceDate = _rData.invoiceCreatedAt ? new Date(_rData.invoiceCreatedAt) : new Date();
+                        console.log('🔄 v6.66.82: generateInvoicePDF - Verwende bestehende Nummer:', invoiceNumber);
+                    } else {
+                        invoiceNumber = await getNextInvoiceNumber();
+                        invoiceDate = new Date();
+                        try {
+                            await db.ref('rides/' + _rideId).update({
+                                invoiceNumber: invoiceNumber,
+                                invoiceCreatedAt: invoiceDate.getTime()
+                            });
+                            console.log('✅ v6.66.82: Rechnungsnummer in Fahrt gespeichert (generateInvoicePDF):', invoiceNumber);
+                            const _invF = document.getElementById('invoice-number');
+                            if (_invF) _invF.value = invoiceNumber;
+                        } catch (_e) { console.error('⚠️ Fehler beim Speichern:', _e); }
+                    }
+                } else {
+                    invoiceNumber = await getNextInvoiceNumber();
+                    invoiceDate = new Date();
+                }
+
                 console.log('📱 Erstelle PDF:', invoiceNumber);
                 
                 // 🆕 v6.26.0: DIN 5008 PDF-LAYOUT
@@ -103302,12 +103328,35 @@ Funk Taxi Team`;
                 const totalGross = invoicePositions.reduce((sum, pos) => sum + (parseFloat(pos.amount) || 0), 0);
                 const netPrice = totalGross / (1 + (vatRate / 100));
                 const vatAmount = totalGross - netPrice;
-                
-                // Hole nächste Rechnungsnummer
-                const invoiceNumber = await getNextInvoiceNumber();
 
-                // 🆕 v5.90.549: invoiceDate MUSS definiert werden!
-                const invoiceDate = new Date();
+                // 🔒 v6.66.82 (16.09.2026): Duplikat-Schutz - bestehende Nummer aus ride
+                // wiederverwenden. Fix für Stecher/Hildebrand/Strandhotel-Duplikate.
+                let invoiceNumber;
+                let invoiceDate;
+                if (rideId) {
+                    const _rSnap = await db.ref('rides/' + rideId).once('value');
+                    const _rData = _rSnap.val();
+                    if (_rData && _rData.invoiceNumber) {
+                        invoiceNumber = _rData.invoiceNumber;
+                        invoiceDate = _rData.invoiceCreatedAt ? new Date(_rData.invoiceCreatedAt) : new Date();
+                        console.log('🔄 v6.66.82: generateAndEmailInvoice - Verwende bestehende Nummer:', invoiceNumber);
+                    } else {
+                        invoiceNumber = await getNextInvoiceNumber();
+                        invoiceDate = new Date();
+                        try {
+                            await db.ref('rides/' + rideId).update({
+                                invoiceNumber: invoiceNumber,
+                                invoiceCreatedAt: invoiceDate.getTime()
+                            });
+                            console.log('✅ v6.66.82: Rechnungsnummer in Fahrt gespeichert (generateAndEmailInvoice):', invoiceNumber);
+                            const _invF = document.getElementById('invoice-number');
+                            if (_invF) _invF.value = invoiceNumber;
+                        } catch (_e) { console.error('⚠️ Fehler beim Speichern:', _e); }
+                    }
+                } else {
+                    invoiceNumber = await getNextInvoiceNumber();
+                    invoiceDate = new Date();
+                }
 
                 console.log('📱 Erstelle Rechnung:', invoiceNumber);
 

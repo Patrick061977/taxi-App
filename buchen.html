@@ -4795,7 +4795,8 @@
             return null;
         }
 
-        // 🆕 v6.62.590: robusterer Fallback — wenn road fehlt, display_name nutzen statt Koords zeigen
+        // v6.66.84 (Patrick 16.09.2026 12:01): saubere deutsche Adressformatierung
+        // Format IMMER: "Straße Nr, PLZ Ort" · niemals "Nr, Straße, ..."
         async function reverseGeocode(lat, lon) {
             try {
                 const resp = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&addressdetails=1&zoom=18`, { headers: { 'User-Agent': 'TaxiUsedom/1.0' } });
@@ -4804,13 +4805,25 @@
                     const a = data.address;
                     const road = a.road || a.residential || a.pedestrian || a.footway || a.path || '';
                     const nr = a.house_number || '';
+                    const plz = a.postcode || '';
                     const town = a.town || a.city || a.village || a.suburb || a.hamlet || a.municipality || '';
-                    if (road && town) return road + (nr ? ' ' + nr : '') + ', ' + town;
-                    if (road) return road + (nr ? ' ' + nr : '');
-                    if (town) return town;
+                    const strasseTeil = road + (nr ? ' ' + nr : '');
+                    const ortTeil = (plz ? plz + ' ' : '') + town;
+                    if (strasseTeil && ortTeil) return strasseTeil + ', ' + ortTeil.trim();
+                    if (strasseTeil) return strasseTeil;
+                    if (ortTeil) return ortTeil.trim();
                 }
+                // Fallback: display_name — Nominatim liefert oft "10, Amselring, Neuhof, ..."
+                // → wenn erstes Segment nur Zahl ist, mit zweitem (Straßenname) tauschen
                 if (data.display_name) {
-                    return data.display_name.split(',').slice(0, 3).map(s => s.trim()).filter(Boolean).join(', ');
+                    const parts = data.display_name.split(',').map(s => s.trim()).filter(Boolean);
+                    if (parts.length >= 2 && /^\d+[a-z]?$/i.test(parts[0])) {
+                        // Hausnummer + Straße + ggf. Ort
+                        const strasse = parts[1] + ' ' + parts[0];
+                        const ort = parts.slice(2, 4).join(', ');
+                        return ort ? strasse + ', ' + ort : strasse;
+                    }
+                    return parts.slice(0, 3).join(', ');
                 }
             } catch(e) { console.warn('reverseGeocode error:', e.message); }
             return null;

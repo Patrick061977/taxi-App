@@ -4777,6 +4777,16 @@
                 }
                 checkRoute();
                 showToast('✅ Standort übernommen');
+                // v6.66.85 (Patrick 12:48 „auch nach GPS soll Liste unten aufgehen"):
+                // Autocomplete-Dropdown mit Alternativen zeigen
+                if (field === 'pickup' && typeof searchAndShow === 'function') {
+                    const inputId = 'b-pickup';
+                    const input = document.getElementById(inputId);
+                    if (input && addr) {
+                        // Nach kurzem Delay auslösen damit Focus/checkRoute erst durch sind
+                        setTimeout(() => { input.focus(); searchAndShow(addr, inputId); }, 200);
+                    }
+                }
             } catch(err) {
                 console.error('GPS Fehler:', err);
                 showToast('GPS-Fehler: ' + (err.message || err));

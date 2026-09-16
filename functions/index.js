@@ -51,6 +51,18 @@ async function getStripe() {
 // ═══════════════════════════════════════════════════════════════
 
 // 🔧 v6.14.6: Mobilnummer-Erkennung (DE/AT/CH) — gleiche Logik wie index.html
+// v6.66.83 (Patrick 16.09.2026 11:50 „Fahrtdauer > 60 Min auch in Stunden umrechnen"):
+// Formatiert Minuten. Bei > 60 zusätzlich Stunden/Minuten-Darstellung.
+//   45  → "45 Min"
+//   330 → "330 Min (5 Std 30 Min)"
+//   180 → "180 Min (3 Std)"
+function formatDauer(min) {
+    if (!min || min <= 60) return `${min} Min`;
+    const h = Math.floor(min / 60);
+    const r = min % 60;
+    return r === 0 ? `${min} Min (${h} Std)` : `${min} Min (${h} Std ${r} Min)`;
+}
+
 function isMobileNumber(phone) {
     if (!phone) return false;
     const n = String(phone).replace(/[\s\-\/\(\)]/g, '');
@@ -9668,7 +9680,7 @@ function buildTelegramConfirmMsg(booking, routePrice) {
     const payMethod = booking.paymentMethod || 'bar';
     msg += `💳 Zahlung: ${payMethod === 'karte' ? 'Kartenzahlung' : 'Barzahlung'}\n`;
     if (routePrice) {
-        msg += `\n🗺️ Strecke: ca. ${routePrice.distance} km (~${routePrice.duration} Min)\n`;
+        msg += `\n🗺️ Strecke: ca. ${routePrice.distance} km (~${formatDauer(routePrice.duration)})\n`;
         msg += `💰 Geschätzter Preis: ca. ${routePrice.price} €`;
         if (routePrice.zuschlagText && routePrice.zuschlagText.length > 0) msg += ` (${routePrice.zuschlagText.join(', ')})`;
         msg += '\n';
@@ -14931,7 +14943,7 @@ async function handleCallback(callback) {
                 `📍 ${rideData.pickup} → ${rideData.destination}\n` +
                 `👤 ${rideData.customerName}` + (rideData.customerPhone ? ` · 📱 ${rideData.customerPhone}` : '') + '\n' +
                 `👥 ${passengers} Person(en)\n` +
-                (telegramRoutePrice ? `🗺️ ca. ${telegramRoutePrice.distance} km (~${telegramRoutePrice.duration} Min)\n💰 ca. ${telegramRoutePrice.price} €\n` : '') +
+                (telegramRoutePrice ? `🗺️ ca. ${telegramRoutePrice.distance} km (~${formatDauer(telegramRoutePrice.duration)})\n💰 ca. ${telegramRoutePrice.price} €\n` : '') +
                 (_assignedVehicleName
                     ? `🚕 <b>Fahrzeug: ${_assignedVehicleName}</b>\n`
                     : '') +

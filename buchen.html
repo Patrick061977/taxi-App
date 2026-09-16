@@ -5349,7 +5349,10 @@
                     // 🆕 v6.63.017: Funnel-Step Preis-Anzeige sichtbar
                     if (!isNaN(_pTotal)) logBuchen('💰', 'Preis-Anzeige: ' + _pTotalStr + '€ · ' + km + 'km');
                     document.getElementById('r-distance').textContent = km;
-                    document.getElementById('r-duration').textContent = '~' + min;
+                    // v6.66.83: bei >60 Min zusätzlich Stunden zeigen
+                    document.getElementById('r-duration').textContent = min > 60
+                        ? `~${min} (${Math.floor(min/60)}h ${min%60}min)`
+                        : `~${min}`;
                     // Tarif-Hinweis
                     const hinweisEl = document.getElementById('r-price');
                     if (pricing.hinweise.length > 0) {

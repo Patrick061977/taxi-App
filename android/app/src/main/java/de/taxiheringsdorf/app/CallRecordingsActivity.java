@@ -1060,8 +1060,15 @@ public class CallRecordingsActivity extends AppCompatActivity {
             root.addView(btnDelete);
         }
 
+        // 🐛 v6.66.92 (Patrick 17.09. 19:44 Bridge "es fehlen bisherige Fahrten + löschen +
+        //   schliessen"): Detail-Dialog hatte >10 Buttons unter dem Player, LinearLayout
+        //   wurde länger als Screen → unterste Buttons + AlertDialog-NegativeButton nicht
+        //   sichtbar. Fix: root in ScrollView packen damit alles scrollbar wird.
+        android.widget.ScrollView scroll = new android.widget.ScrollView(this);
+        scroll.addView(root);
+
         currentDetailDialog = new androidx.appcompat.app.AlertDialog.Builder(this)
-            .setView(root)
+            .setView(scroll)
             .setNegativeButton("Schliessen", (d, w) -> stopPlayback())
             .setOnDismissListener(d -> { stopPlayback(); currentDetailDialog = null; })
             .show();

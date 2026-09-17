@@ -13255,9 +13255,9 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '6.66.85';
-        const APP_BUILD = '16.09.2026 12:55';
-        const APP_CHANGE = 'v6.66.85: Nach GPS-Standort öffnet sich Autocomplete-Liste mit Alternativen zum Auswählen.';
+        const APP_VERSION = '6.66.86';
+        const APP_BUILD = '17.09.2026 10:00';
+        const APP_CHANGE = 'v6.66.86: Fahrzeug-Status zeigt effektiven Malus mit Quelle (Standard/Wochentag/Fahrzeug-Override).';
 
         // 🔧 FIX: Mache APP_VERSION global verfügbar
         window.APP_VERSION = APP_VERSION;
@@ -86926,6 +86926,8 @@ Funk Taxi Team`;
                 </div>
             `;
 
+            // v6.66.86 (Patrick 17.09. 09:47): effektiven Malus je Fahrzeug anzeigen
+            const _optToday = (typeof getEffectiveOptimization === 'function') ? getEffectiveOptimization(Date.now()) : null;
             sorted.forEach(v => {
                 const ds = v.dispatchStatus || 'offline';
                 const num = v.number ? `#${v.number}` : '';
@@ -86936,6 +86938,21 @@ Funk Taxi Team`;
                 };
                 const sc = statusColors[ds] || statusColors.offline;
 
+                // Malus für heute — Reihenfolge Fahrzeug-Override > Tag-Override > Standard
+                let malusHtml = '';
+                if (_optToday) {
+                    const vehicleOv = _optToday.vehicleMalus[v.id];
+                    const dayOvActive = Number.isFinite(vehicleOv);
+                    const effektiv = dayOvActive
+                        ? vehicleOv
+                        : (Number.isFinite(_optToday.lastenmalus) ? _optToday.lastenmalus : 0);
+                    let quelle = 'Standard';
+                    if (dayOvActive) quelle = 'Fahrzeug-Override';
+                    else if ((optimizationByDayData || {})[_optToday.day] && Number.isFinite(((optimizationByDayData || {})[_optToday.day] || {}).lastenmalus)) quelle = _optToday.day + '-Override';
+                    const malusColor = dayOvActive ? '#7c3aed' : (quelle !== 'Standard' ? '#0891b2' : '#475569');
+                    malusHtml = `<span style="color:${malusColor};font-weight:600;">⏱ Malus ${effektiv} Min <span style="opacity:0.7;font-size:11px;">(${quelle})</span></span>`;
+                }
+
                 html += `
                     <div style="background:${sc.bg};border:2px solid ${sc.border};border-radius:10px;padding:12px 14px;margin-bottom:10px;">
                         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
@@ -86944,7 +86961,7 @@ Funk Taxi Team`;
                                     <span style="background:${sc.dot};color:white;border-radius:50%;display:inline-block;width:22px;height:22px;text-align:center;line-height:22px;font-size:11px;font-weight:800;margin-right:6px;">${v.number || '?'}</span>
                                     ${v.name}
                                 </div>
-                                <div style="font-size:13px;color:#475569;margin-top:3px;">🪪 ${v.plate} &nbsp;·&nbsp; 👥 ${v.capacity || 4} Pers.</div>
+                                <div style="font-size:13px;color:#475569;margin-top:3px;">🪪 ${v.plate} &nbsp;·&nbsp; 👥 ${v.capacity || 4} Pers.${malusHtml ? ' &nbsp;·&nbsp; ' + malusHtml : ''}</div>
                                 <div style="font-size:12px;color:${sc.dot};font-weight:600;margin-top:4px;">${sc.label}</div>
                             </div>
                             <div style="display:flex;flex-direction:column;gap:4px;min-width:110px;">

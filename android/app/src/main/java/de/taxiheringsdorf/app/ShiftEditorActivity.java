@@ -2781,6 +2781,46 @@ public class ShiftEditorActivity extends AppCompatActivity {
                     });
             } catch (Throwable _t) { /* non-critical */ }
 
+            // 🆕 v6.66.91 (Patrick 17.09. 12:44+12:46 Bridge "da drunter, weil da uebersieht
+            //   man den nicht" + "wenn Standard 30, muss er auch Mo-So 30 sein"):
+            //   Malus auch in HEUTE-IM-DIENST-Mini-Card, direkt unter Home Base.
+            //   Farb-Semantik:
+            //     grau = permanenter Standard (settings/vehiclePrioMalus, gilt Mo-So gleich)
+            //     cyan = Wochentag-Override (weicht heute vom Standard ab)
+            //   Nur sichtbar wenn > 0. Tap auf Malus-Text -> Prio-Malus-Dialog.
+            try {
+                Integer _staticM = vehiclesMalusCache.get(vs.vehicleId);
+                String _dowKey = getTodayDowKey();
+                java.util.Map<String, Integer> _dovMap = dayMalusCache.get(_dowKey);
+                Integer _dayOv = _dovMap != null ? _dovMap.get(vs.vehicleId) : null;
+                int _eff = _dayOv != null ? _dayOv : (_staticM != null ? _staticM : 0);
+                boolean _isDayOverride = _dayOv != null && (_staticM == null || !_dayOv.equals(_staticM));
+                if (_eff > 0) {
+                    TextView malusText = new TextView(this);
+                    String _lbl;
+                    int _col;
+                    if (_isDayOverride) {
+                        _lbl = "⏱ Malus: " + _eff + " Min · " + _dowKey + "-Override";
+                        _col = 0xFF22D3EE; // cyan
+                    } else {
+                        _lbl = "⏱ Malus: " + _eff + " Min · Standard (Mo–So)";
+                        _col = 0xFF94A3B8; // grau
+                    }
+                    malusText.setText(_lbl);
+                    malusText.setTextColor(_col);
+                    malusText.setTextSize(10);
+                    malusText.setMaxLines(1);
+                    malusText.setTypeface(null, android.graphics.Typeface.BOLD);
+                    LinearLayout.LayoutParams mlp = new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+                    mlp.topMargin = (int)(2 * dp);
+                    malusText.setLayoutParams(mlp);
+                    malusText.setClickable(true);
+                    malusText.setOnClickListener(_v2 -> showPrioMalusDialog());
+                    card.addView(malusText);
+                }
+            } catch (Throwable _mt) { /* non-critical */ }
+
             // 🆕 v6.63.260 (Patrick 10.06. 08:45 "Card klick"): Tap auf Card → Zeit-Edit-Dialog
             final VehicleShift _vs = vs;
             card.setClickable(true);
@@ -2822,6 +2862,8 @@ public class ShiftEditorActivity extends AppCompatActivity {
         // v6.63.265: Live-Online-Badge + Status-Zeile
         private final TextView onlineBadge;
         private final TextView liveStatus;
+        // v6.66.91 (Patrick 17.09. 12:00): Malus-Zeile pro Fahrzeug
+        private final TextView malusLine;
 
         VehicleViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -2833,6 +2875,7 @@ public class ShiftEditorActivity extends AppCompatActivity {
             weekSummary = itemView.findViewById(R.id.shift_week_summary);
             onlineBadge = itemView.findViewById(R.id.shift_online_badge);
             liveStatus = itemView.findViewById(R.id.shift_live_status);
+            malusLine = itemView.findViewById(R.id.shift_malus_line);
         }
 
         void bind(VehicleShift vs) {
@@ -2988,6 +3031,42 @@ public class ShiftEditorActivity extends AppCompatActivity {
             //   Tap auf die Zusammenfassung öffnet den kompletten Wochenplan-Dialog
             //   mit allen 7 Tagen gleichzeitig (Switch + Zeiten pro Tag).
             weekSummary.setOnClickListener(v -> showFullWeekPlanDialog(vs));
+
+            // 🆕 v6.66.91 (Patrick 17.09. 12:00+12:46 "Malus sichtbar" + "Standard gilt Mo-So"):
+            //   Zeile unter Standort/Zeiten mit dem HEUTE effektiven Malus + Farb-Code der Quelle.
+            //   Farb-Semantik:
+            //     grau = permanenter Standard (settings/vehiclePrioMalus, gilt Mo-So gleich)
+            //     cyan = Wochentag-Override (weicht heute vom Standard ab)
+            //   Nur zeigen wenn > 0. Tap → springt zum Prio-Malus-Dialog.
+            if (malusLine != null) {
+                try {
+                    Integer _staticM = vehiclesMalusCache.get(vs.vehicleId);
+                    String _dow = getTodayDowKey();
+                    java.util.Map<String, Integer> _dovMap = dayMalusCache.get(_dow);
+                    Integer _dayOv = _dovMap != null ? _dovMap.get(vs.vehicleId) : null;
+                    int _eff = _dayOv != null ? _dayOv : (_staticM != null ? _staticM : 0);
+                    boolean _isDayOverride = _dayOv != null && (_staticM == null || !_dayOv.equals(_staticM));
+                    if (_eff > 0) {
+                        String _label;
+                        int _color;
+                        if (_isDayOverride) {
+                            _label = "⏱ Malus: " + _eff + " Min · " + _dow + "-Override";
+                            _color = 0xFF22D3EE; // cyan
+                        } else {
+                            _label = "⏱ Malus: " + _eff + " Min · Standard (Mo–So)";
+                            _color = 0xFF94A3B8; // grau
+                        }
+                        malusLine.setText(_label);
+                        malusLine.setTextColor(_color);
+                        malusLine.setVisibility(View.VISIBLE);
+                        malusLine.setOnClickListener(v -> showPrioMalusDialog());
+                    } else {
+                        malusLine.setVisibility(View.GONE);
+                    }
+                } catch (Throwable _t) {
+                    malusLine.setVisibility(View.GONE);
+                }
+            }
         }
     }
 

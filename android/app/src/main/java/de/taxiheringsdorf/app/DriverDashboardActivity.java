@@ -5211,82 +5211,18 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 homeCard.setBackgroundColor(0xFF7F1D1D);
                 tvHomeLocation.setText("🟥 Kein Standort gesetzt");
                 tvHomeLocation.setTextColor(0xFFFEE2E2);
-                tvHomeSource.setText("bitte im Schicht-Editor setzen");
+                tvHomeSource.setText("Score-Malus rechnet ab Kaiserbäder-Center — bitte im Schicht-Editor setzen");
                 tvHomeSource.setTextColor(0xFFFCA5A5);
             } else {
                 if (src != null && src.startsWith("🟨")) homeCard.setBackgroundColor(0xFF78350F);
                 else if (src != null && src.startsWith("🟦")) homeCard.setBackgroundColor(0xFF1E40AF);
                 else homeCard.setBackgroundColor(0xFF334155);
-                // v6.66.89: kompakter Text — Home Base + Malus in einer Zeile.
-                // Malus wird durch loadMalusForCompactHeader() nachgereicht.
-                tvHomeLocation.setText("🏠 " + loc + (coordsOk ? "" : "  ⚠️"));
+                tvHomeLocation.setText(loc + (coordsOk ? "" : "  ⚠️ keine Coords"));
                 tvHomeLocation.setTextColor(coordsOk ? 0xFFDBEAFE : 0xFFFBBF24);
-                tvHomeSource.setText(src != null ? src.replace("🟦 ", "").replace("🟨 ", "").replace("🌐 ", "") : "");
+                tvHomeSource.setText(src != null ? src : "");
                 tvHomeSource.setTextColor(0xFF93C5FD);
             }
         });
-        // v6.66.89: Malus in Header nachreichen (asynchron aus Firebase)
-        loadMalusForCompactHeader();
-    }
-
-    // v6.66.89 (Patrick 17.09. Mockup 49501): Effektiven Malus anzeigen.
-    // Priorität: Fahrzeug-Override (lila) > Wochentag-Override (cyan) > Standard (grau).
-    private void loadMalusForCompactHeader() {
-        if (currentVehicleId == null || currentVehicleId.isEmpty()) return;
-        try {
-            java.util.Calendar cal = java.util.Calendar.getInstance();
-            final String[] daysDe = { "So","Mo","Di","Mi","Do","Fr","Sa" };
-            final String dayKey = daysDe[cal.get(java.util.Calendar.DAY_OF_WEEK) - 1];
-            FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("settings")
-                .addListenerForSingleValueEvent(new ValueEventListener() {
-                    @Override public void onDataChange(@NonNull DataSnapshot s) {
-                        try {
-                            Integer standardMalus = null;
-                            Object pm = s.child("pricing").child("lastverteilungMalusMinuten").getValue();
-                            if (pm instanceof Number) standardMalus = ((Number) pm).intValue();
-                            // Wochentag-Override auf Fahrzeug-Ebene
-                            DataSnapshot dayVeh = s.child("optimizationByDay").child(dayKey)
-                                .child("vehicleMalus").child(currentVehicleId);
-                            // Wochentag-Override global (lastenmalus für alle)
-                            DataSnapshot dayGlobal = s.child("optimizationByDay").child(dayKey).child("lastenmalus");
-                            // Fahrzeug-Standard-Override (permanent)
-                            DataSnapshot vehPerm = s.child("vehiclePrioMalus").child(currentVehicleId);
-                            Integer effMalus = null;
-                            String quelle = "Standard";
-                            int color = 0xFF94A3B8;
-                            if (dayVeh.exists() && dayVeh.getValue() instanceof Number) {
-                                effMalus = ((Number) dayVeh.getValue()).intValue();
-                                quelle = dayKey + "-Fzg-Override"; color = 0xFF22D3EE;
-                            } else if (vehPerm.exists() && vehPerm.getValue() instanceof Number) {
-                                effMalus = ((Number) vehPerm.getValue()).intValue();
-                                quelle = "Fzg-Override"; color = 0xFFC084FC;
-                            } else if (dayGlobal.exists() && dayGlobal.getValue() instanceof Number) {
-                                effMalus = ((Number) dayGlobal.getValue()).intValue();
-                                quelle = dayKey + "-Override"; color = 0xFF22D3EE;
-                            } else if (standardMalus != null) {
-                                effMalus = standardMalus;
-                            }
-                            if (effMalus != null && effMalus > 0) {
-                                final int m = effMalus, c = color;
-                                final String q = quelle;
-                                runOnUiThread(() -> {
-                                    if (tvHomeSource != null) {
-                                        // Zeile: "Wochen-Standard (Do) · ⏱ 30 Min (Fzg-Override)"
-                                        String src = tvHomeSource.getText() != null ? tvHomeSource.getText().toString() : "";
-                                        String malusText = " · ⏱ " + m + " Min (" + q + ")";
-                                        // SpannableString für farbigen Malus-Teil
-                                        android.text.SpannableString sp = new android.text.SpannableString(src + malusText);
-                                        int start = src.length();
-                                        sp.setSpan(new android.text.style.ForegroundColorSpan(c), start, sp.length(), 0);
-                                        tvHomeSource.setText(sp);
-                                    }
-                                });
-                            }
-                        } catch (Throwable _t) { Log.w(TAG, "loadMalusForCompactHeader err: " + _t.getMessage()); }
-                    }
-                    @Override public void onCancelled(@NonNull DatabaseError e) {}
-                });
-        } catch (Throwable _t) { Log.w(TAG, "loadMalusForCompactHeader outer: " + _t.getMessage()); }
     }
 
     @Override

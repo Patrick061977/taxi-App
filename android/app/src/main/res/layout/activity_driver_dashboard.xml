@@ -323,88 +323,88 @@
             android:textSize="13sp" />
     </LinearLayout>
 
-    <!-- Bottom-Aktion-Bar: Anrufliste + EINSTEIGER -->
+    <!-- Bottom-Aktion-Bar: v6.66.88 (Patrick 17.09. S7-Fix + S9 Losfahren-verschluckt):
+         Kompakte 1-Zeile-Anordnung. EINSTEIGER-Text raus (nur Icon), 6 gleiche
+         weight=1 Buttons — passt garantiert auf 360dp. Losfahren-Puffer
+         paddingBottom bleibt 400dp fuer die RecyclerView. -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom"
         android:background="#1E293B"
         android:orientation="horizontal"
-        android:paddingStart="16dp"
-        android:paddingTop="12dp"
-        android:paddingEnd="16dp"
-        android:paddingBottom="14dp">
+        android:paddingStart="8dp"
+        android:paddingTop="10dp"
+        android:paddingEnd="8dp"
+        android:paddingBottom="12dp">
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_call_log"
-            android:layout_width="56dp"
-            android:layout_height="56dp"
-            android:layout_marginEnd="4dp"
+            android:layout_width="0dp"
+            android:layout_height="52dp"
+            android:layout_marginEnd="3dp"
+            android:layout_weight="1"
             android:text="📞"
-            android:textSize="20sp"
+            android:textSize="19sp"
             app:backgroundTint="#3B82F6"
-            app:cornerRadius="14dp" />
+            app:cornerRadius="12dp" />
 
-        <!-- v6.63.895 (Patrick 18.08. 12:00 'Menü ist umständlich, will Direkt-Buttons'):
-             Aufnahmen + Karte als Pin-Buttons — 1 Klick statt 2 (☰ + Item). -->
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_pin_recordings"
-            android:layout_width="56dp"
-            android:layout_height="56dp"
-            android:layout_marginEnd="4dp"
+            android:layout_width="0dp"
+            android:layout_height="52dp"
+            android:layout_marginEnd="3dp"
+            android:layout_weight="1"
             android:text="🎙"
-            android:textSize="20sp"
+            android:textSize="19sp"
             app:backgroundTint="#8B5CF6"
-            app:cornerRadius="14dp" />
+            app:cornerRadius="12dp" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_pin_map"
-            android:layout_width="56dp"
-            android:layout_height="56dp"
-            android:layout_marginEnd="4dp"
+            android:layout_width="0dp"
+            android:layout_height="52dp"
+            android:layout_marginEnd="3dp"
+            android:layout_weight="1"
             android:text="🗺"
-            android:textSize="20sp"
+            android:textSize="19sp"
             app:backgroundTint="#8B5CF6"
-            app:cornerRadius="14dp" />
+            app:cornerRadius="12dp" />
 
-        <!-- v6.63.916 (Patrick 20.08.2026 04:52): Kollegen-Anruf-Button.
-             Öffnet Dialog mit aktiven Fahrern (aus /vehicles.shift + /users)
-             + Extras aus /settings/quickCallContacts. Anruf via Intent.ACTION_DIAL. -->
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_colleagues"
-            android:layout_width="56dp"
-            android:layout_height="56dp"
-            android:layout_marginEnd="4dp"
+            android:layout_width="0dp"
+            android:layout_height="52dp"
+            android:layout_marginEnd="3dp"
+            android:layout_weight="1"
             android:text="👥"
-            android:textSize="20sp"
+            android:textSize="19sp"
             app:backgroundTint="#0EA5E9"
-            app:cornerRadius="14dp" />
+            app:cornerRadius="12dp" />
 
-        <!-- v6.66.12 (Patrick 05.09. 06:39 Bridge): Dispo-12h-Vorschau-Button.
-             "Dispo sollte in Native-App die naechsten 12h zeigen wo die Fahrzeuge
-             eingeplant sind — dass Fahrer auch sehen wer wofuer eingeplant ist". -->
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_dispo_12h"
-            android:layout_width="56dp"
-            android:layout_height="56dp"
-            android:layout_marginEnd="6dp"
+            android:layout_width="0dp"
+            android:layout_height="52dp"
+            android:layout_marginEnd="3dp"
+            android:layout_weight="1"
             android:text="📅"
-            android:textSize="20sp"
+            android:textSize="19sp"
             app:backgroundTint="#10B981"
-            app:cornerRadius="14dp" />
+            app:cornerRadius="12dp" />
 
+        <!-- v6.66.88: EINSTEIGER nur mit Icon (Text quetscht auf S7).
+             Tooltip zeigt vollen Text bei Long-Press. -->
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_einsteiger"
             android:layout_width="0dp"
-            android:layout_height="56dp"
-            android:layout_marginStart="6dp"
+            android:layout_height="52dp"
             android:layout_weight="1"
-            android:text="🚖 EINSTEIGER"
-            android:textColor="#FFFFFF"
-            android:textSize="16sp"
-            android:textStyle="bold"
+            android:text="🚖"
+            android:textSize="22sp"
+            android:tooltipText="Einsteiger — Standort-Kunde direkt abholen"
             app:backgroundTint="#F97316"
-            app:cornerRadius="14dp" />
+            app:cornerRadius="12dp" />
     </LinearLayout>
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

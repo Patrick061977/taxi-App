@@ -1234,7 +1234,13 @@ async function buildWartepoolOptions(wpRide, allRides, vehicles, shiftsData) {
 // v6.63.649: Settings ebenfalls gecacht (5 Min TTL — ändern sich selten)
 const _aarCache = { vehicles: null, shifts: null, rides: null, ts: 0, priorities: null, pricing: null, prioMalus: null, optByDay: null, settingsTs: 0 };
 const _AAR_CACHE_TTL = 30 * 1000;
-const _AAR_SETTINGS_TTL = 5 * 60 * 1000;
+// v6.66.87 (Patrick 17.09. 10:00 „override greift nicht"): TTL von 5 Min auf 15 Sek
+// runtergesetzt. Ursache: wenn Patrick einen Malus/Override in der App aendert
+// und sofort testet, greift der 5-Min-alte Cache und der neue Wert kommt nicht durch.
+// 15 Sek Cache ist Kompromiss: Malus-Einstellungen sind sehr klein (~1kB) und
+// werden pro Fahrt genau einmal gelesen — der Cache spart wenig bei enger TTL,
+// aber der schnelle Sichtbarkeitseffekt fuer Overrides ist Patrick wichtiger.
+const _AAR_SETTINGS_TTL = 15 * 1000;
 async function autoAssignRide(rideId, rideData, _excludeVehicleIds = []) {
     console.log(`🎯 v6.25.4: Cloud-AutoAssign für Fahrt: ${rideId}${_excludeVehicleIds.length ? ' (exclude: ' + _excludeVehicleIds.join(',') + ')' : ''}`);
 

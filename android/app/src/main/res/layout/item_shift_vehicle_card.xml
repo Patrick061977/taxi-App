@@ -83,6 +83,20 @@
             android:textColor="#94A3B8"
             android:textSize="12sp" />
 
+        <!-- v6.66.91 (Patrick 17.09. 12:00): Malus pro Fahrzeug sichtbar machen.
+             Farbe = Quelle: grau=Standard, cyan=Wochentag-Override, lila=Fahrzeug-Override.
+             Nur sichtbar wenn Malus > 0. Klickbar → springt zu Malus-Setter. -->
+        <TextView
+            android:id="@+id/shift_malus_line"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingTop="4dp"
+            android:text=""
+            android:textColor="#94A3B8"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:visibility="gone" />
+
         <!-- Day-Override-Toggle -->
         <LinearLayout
             android:layout_width="match_parent"

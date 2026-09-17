@@ -52,7 +52,13 @@ public class CallRecordingsActivity extends AppCompatActivity {
     private static final int REQ_PERM = 9101;
     private static final String DB_URL = "https://taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.app";
     // ACR Phone speichert in: /sdcard/ACRCalls/ACRPhone/{YYYY}/{MM}/{DD}/+TelNr/+TelNr-direction-ts.m4a
+    // 🆕 v6.66.91 (Patrick 17.09.): ACR hat den Standard-Pfad in neueren Versionen geaendert.
+    //   Auf S20 FE liegen aktuelle Aufnahmen unter /sdcard/Acr/ACRPhone/... (statt ACRCalls).
+    //   Und ab Android 14: /sdcard/Recordings/ACRPhone/ (System-Ordner). Wir scannen alle drei.
     private static final File ACR_ROOT = new File(Environment.getExternalStorageDirectory(), "ACRCalls/ACRPhone");
+    private static final File ACR_ROOT_ALT1 = new File(Environment.getExternalStorageDirectory(), "Acr/ACRPhone");
+    private static final File ACR_ROOT_ALT2 = new File(Environment.getExternalStorageDirectory(), "Recordings/ACRPhone");
+    private static final String ACR_PACKAGE = "com.nll.cb"; // Call Recorder – ACR Phone (NLL Apps)
     // 🆕 v6.63.015 (Patrick 29.05. 19:13): In-App-Call-Recorder speichert in /sdcard/FunktaxiCalls/{YYYY}/{MM}/{DD}/
     //   Gleiche Schema-Konvention damit dieselbe Scan-Logik beide Verzeichnisse abdeckt.
     private static final File FUNKTAXI_ROOT = new File(Environment.getExternalStorageDirectory(), "FunktaxiCalls");
@@ -61,6 +67,8 @@ public class CallRecordingsActivity extends AppCompatActivity {
     private ProgressBar progress;
     private TextView header, permHint;
     private RecAdapter adapter;
+    // 🆕 v6.66.91: ACR-Install-Banner (nur sichtbar wenn ACR nicht installiert)
+    private LinearLayout acrInstallBanner;
     private Map<String, String> crmByPhone = new HashMap<>();
     // v6.63.597: Hilfe-Karte (ACR-Einrichtung) — Instance-Fields für Zugriff aus scanRecordings()
     private LinearLayout helpCard;
@@ -156,6 +164,12 @@ public class CallRecordingsActivity extends AppCompatActivity {
         header.setTextColor(0xFF94a3b8);
         header.setText("Lade …");
         root.addView(header);
+
+        // 🆕 v6.66.91: ACR-Install-Banner-Container — bleibt leer bis scanRecordings entscheidet.
+        acrInstallBanner = new LinearLayout(this);
+        acrInstallBanner.setOrientation(LinearLayout.VERTICAL);
+        acrInstallBanner.setVisibility(View.GONE);
+        root.addView(acrInstallBanner);
 
         // 🆕 v6.62.892 (Patrick 23.05. 11:15): Bulk-Loesch-Button (alle aelter als 30 Tage).
         //   Patrick: 'ich muss die Fahrten ja loeschen koennen damit das nicht ueberquillt'.
@@ -257,6 +271,59 @@ public class CallRecordingsActivity extends AppCompatActivity {
     }
 
     private int dp(int v) { return (int)(v * getResources().getDisplayMetrics().density); }
+
+    // 🆕 v6.66.91 (Patrick 17.09.): Prüft ob Call Recorder – ACR Phone (com.nll.cb) installiert ist.
+    //   Wird beim Empty-State genutzt um den richtigen Hinweis + Play-Store-Link zu zeigen.
+    private boolean isAcrInstalled() {
+        try {
+            getPackageManager().getPackageInfo(ACR_PACKAGE, 0);
+            return true;
+        } catch (PackageManager.NameNotFoundException e) {
+            return false;
+        }
+    }
+
+    // 🆕 v6.66.91: Play-Store-Banner unter dem Header — nur sichtbar wenn ACR fehlt bzw. leer.
+    //   Der Fahrer sieht sofort was zu tun ist statt sich durch die Hilfe-Karte lesen zu müssen.
+    private void showAcrInstallBanner(boolean acrInstalled) {
+        if (acrInstallBanner == null) return;
+        acrInstallBanner.removeAllViews();
+        if (acrInstalled) {
+            // ACR ist da aber Ordner leer → gedämpfter Hinweis
+            TextView t = new TextView(this);
+            t.setText("✅ ACR installiert — noch keine Aufnahmen. Tätige einen Anruf.");
+            t.setTextColor(0xFF10B981);
+            t.setTextSize(13);
+            t.setPadding(dp(12), dp(10), dp(12), dp(10));
+            acrInstallBanner.addView(t);
+        } else {
+            // ACR fehlt → grosser roter Install-Button mit Play-Store-Intent
+            android.widget.Button b = new android.widget.Button(this);
+            b.setText("📥 ACR jetzt installieren (Play Store)");
+            b.setTextColor(0xFFFFFFFF);
+            b.setBackgroundColor(0xFFDC2626);
+            b.setTypeface(null, android.graphics.Typeface.BOLD);
+            b.setOnClickListener(v -> {
+                try {
+                    android.content.Intent i = new android.content.Intent(android.content.Intent.ACTION_VIEW,
+                        android.net.Uri.parse("market://details?id=" + ACR_PACKAGE));
+                    i.setFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
+                    startActivity(i);
+                } catch (android.content.ActivityNotFoundException e) {
+                    // Fallback: Web-Play-Store falls kein Play Store installiert
+                    android.content.Intent i = new android.content.Intent(android.content.Intent.ACTION_VIEW,
+                        android.net.Uri.parse("https://play.google.com/store/apps/details?id=" + ACR_PACKAGE));
+                    startActivity(i);
+                }
+            });
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+            lp.setMargins(dp(16), dp(8), dp(16), dp(8));
+            b.setLayoutParams(lp);
+            acrInstallBanner.addView(b);
+        }
+        acrInstallBanner.setVisibility(View.VISIBLE);
+    }
 
     private void checkPermsAndLoad() {
         // 🐛 v6.63.030 (Patrick 30.05. 08:14 "kann Aufnahmen nicht mehr sehen"):
@@ -523,20 +590,40 @@ public class CallRecordingsActivity extends AppCompatActivity {
             return;
         }
         // 🆕 v6.63.015: Beide Verzeichnisse scannen (ACR + In-App-Recorder).
+        // 🆕 v6.66.91 (Patrick 17.09. Bridge S20 FE): neue ACR-Versionen speichern in
+        //   /sdcard/Acr/ACRPhone/ und /sdcard/Recordings/ACRPhone/ statt in ACRCalls/.
+        //   Wir scannen alle bekannten Pfade + zeigen wenn ACR installiert aber Ordner leer
+        //   sind einen sauberen Play-Store-Button statt "kein Ordner"-Fehler.
         java.util.List<File> roots = new java.util.ArrayList<>();
         if (ACR_ROOT.exists() && ACR_ROOT.isDirectory()) roots.add(ACR_ROOT);
+        if (ACR_ROOT_ALT1.exists() && ACR_ROOT_ALT1.isDirectory()) roots.add(ACR_ROOT_ALT1);
+        if (ACR_ROOT_ALT2.exists() && ACR_ROOT_ALT2.isDirectory()) roots.add(ACR_ROOT_ALT2);
         if (FUNKTAXI_ROOT.exists() && FUNKTAXI_ROOT.isDirectory()) roots.add(FUNKTAXI_ROOT);
         if (roots.isEmpty()) {
-            header.setText("⚠️ Kein ACR-Ordner gefunden — bitte ACR Phone App installieren.\nSiehe Hilfe-Button oben.");
+            boolean _acrInstalled = isAcrInstalled();
+            if (_acrInstalled) {
+                header.setText("⚠️ ACR Phone ist installiert, aber es gibt noch keine Aufnahmen.\nTätige einen Anruf — die Aufnahme erscheint dann hier.");
+            } else {
+                header.setText("⚠️ ACR Phone ist noch nicht installiert.\nTippe unten auf 'ACR jetzt installieren' → Play Store.");
+            }
             progress.setVisibility(View.GONE);
             // Hilfe automatisch aufklappen damit der Fahrer sofort sieht was zu tun ist
             runOnUiThread(() -> {
                 helpCard.setVisibility(View.VISIBLE);
                 helpOpen[0] = true;
                 btnHelp.setText("✖ Hilfe schließen");
+                showAcrInstallBanner(_acrInstalled);
             });
             return;
         }
+        // ACR-Files gefunden → Hilfe-Karte einklappen falls offen
+        runOnUiThread(() -> {
+            if (helpOpen[0]) {
+                helpCard.setVisibility(View.GONE);
+                helpOpen[0] = false;
+                btnHelp.setText("❓ Hilfe: ACR einrichten");
+            }
+        });
         new Thread(() -> {
             List<Recording> all = new ArrayList<>();
             // v6.63.020: optionales -CW-Suffix für Call-Waiting-Aufnahmen

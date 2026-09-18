@@ -32171,11 +32171,23 @@ exports.onRideUpdated = onValueUpdated(
                 // Bisher: <60s alt → skip. Aber wenn Admin selbst korrigiert (updatedBy=native_admin_dispo_edit
                 // oder claude-manual-*), ist das eine ECHTE Aenderung die der Kunde erfahren soll.
                 // Cooldown bleibt fuer Cloud-Recomputes (Auto-Assign/autoResolveConflicts) — dort war der Sinn.
-                const _isManualEdit = after.updatedBy && (
-                    String(after.updatedBy).startsWith('native_admin_') ||
-                    String(after.updatedBy).startsWith('claude-manual-') ||
-                    String(after.updatedBy) === 'admin-web-dispo'
-                );
+                // 🔧 v6.66.103 (Patrick 18.09. 18:39 Bridge Schneider-Sonntag-10:15-Fall): Nicht nur
+                //   updatedBy prüfen — die native App schreibt bei CRM-History-Edit erst editedVia +
+                //   resetBy, updatedBy wird erst beim nächsten Update gesetzt. Wir prüfen deshalb alle
+                //   vier Attribution-Felder (updatedBy, editedVia, editedBy, resetBy).
+                const _isManualPrefix = (v) => {
+                    if (!v) return false;
+                    const s = String(v);
+                    return s.startsWith('native_admin_')
+                        || s.startsWith('native_crm_')
+                        || s.startsWith('native_dispo_')
+                        || s.startsWith('claude-manual-')
+                        || s === 'admin-web-dispo';
+                };
+                const _isManualEdit = _isManualPrefix(after.updatedBy)
+                    || _isManualPrefix(after.editedVia)
+                    || _isManualPrefix(after.editedBy)
+                    || _isManualPrefix(after.resetBy);
                 const _skipChangeSms = !_isManualEdit && ((after.isJetzt === true) || (_ageMs < 60_000));
                 // Aktiver Status, kein Status-Wechsel → checke Aenderungen
                 const _norm = (v) => (v == null ? '' : String(v).trim());

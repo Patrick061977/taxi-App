@@ -5418,6 +5418,8 @@ public class DriverDashboardActivity extends AppCompatActivity {
 
         class VH extends RecyclerView.ViewHolder {
             TextView tvBadge, tvPaidBadge, tvTime, tvName, tvPickup, tvDest, tvPriceDist, tvLiveEta;
+            // v6.66.93: Email + Warnung bei unvollstaendiger Adresse
+            TextView tvCustomerEmail, tvPickupIncomplete;
             MaterialButton btnAccept, btnReject, btnNavigate, btnCall, btnSmsTrack, btnStatusNext, btnCancelRide;
             LinearLayout actionRow, activeToolbar, activeToolbarTop;
             VH(View v) {
@@ -5430,6 +5432,8 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 tvDest = v.findViewById(R.id.tv_destination);
                 tvPriceDist = v.findViewById(R.id.tv_price_distance);
                 tvLiveEta = v.findViewById(R.id.tv_live_eta);
+                tvCustomerEmail = v.findViewById(R.id.tv_customer_email);
+                tvPickupIncomplete = v.findViewById(R.id.tv_pickup_incomplete);
                 btnAccept = v.findViewById(R.id.btn_accept);
                 btnReject = v.findViewById(R.id.btn_reject);
                 actionRow = v.findViewById(R.id.action_row);
@@ -5609,6 +5613,44 @@ public class DriverDashboardActivity extends AppCompatActivity {
 
                 tvName.setText(displayCustomerName(r));
                 tvPickup.setText("📍 " + (r.pickup != null ? r.pickup : "-"));
+
+                // 🆕 v6.66.93 (Patrick 18.09. 07:07+07:09 Bridge Petra-Abt-Fall):
+                //   Warnung wenn Abholort keine Hausnummer enthaelt (Regex \d in pickup).
+                //   Und Email-Zeile wenn Kunde online per Mail gebucht hat, damit Fahrer
+                //   direkt Rueckfrage senden kann.
+                if (tvPickupIncomplete != null) {
+                    boolean _hasHausnummer = r.pickup != null && r.pickup.matches(".*\\d.*");
+                    tvPickupIncomplete.setVisibility((r.pickup != null && !_hasHausnummer) ? View.VISIBLE : View.GONE);
+                }
+                if (tvCustomerEmail != null) {
+                    String _mail = firstNonEmpty(r.customerEmail, r.email);
+                    if (_mail != null && !_mail.isEmpty()) {
+                        tvCustomerEmail.setText("✉️ " + _mail + "  ·  tippen zum Schreiben");
+                        tvCustomerEmail.setVisibility(View.VISIBLE);
+                        final String _mailF = _mail;
+                        final Ride _rF = r;
+                        tvCustomerEmail.setOnClickListener(v -> {
+                            try {
+                                java.text.SimpleDateFormat _fmt = new java.text.SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.GERMANY);
+                                _fmt.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
+                                String _dt = (_rF.pickupTimestamp != null && _rF.pickupTimestamp > 0)
+                                    ? _fmt.format(new java.util.Date(_rF.pickupTimestamp)) : "";
+                                String _subj = "Ihre Fahrt am " + _dt + " – Funk Taxi Heringsdorf";
+                                android.content.Intent i = new android.content.Intent(android.content.Intent.ACTION_SENDTO);
+                                i.setData(android.net.Uri.parse("mailto:" + _mailF
+                                    + "?subject=" + android.net.Uri.encode(_subj)));
+                                startActivity(i);
+                            } catch (Throwable _t) {
+                                Toast.makeText(DriverDashboardActivity.this,
+                                    "Kein Mail-Programm gefunden", Toast.LENGTH_SHORT).show();
+                            }
+                        });
+                    } else {
+                        tvCustomerEmail.setVisibility(View.GONE);
+                        tvCustomerEmail.setOnClickListener(null);
+                    }
+                }
+
                 // v6.62.2: Patrick: 'Zwischenstopp wird nicht angezeigt bei Frau Balzer'.
                 // Waypoints VOR dem Ziel anzeigen — Fahrer muss da durch.
                 String _destText = "🎯 " + (r.destination != null ? r.destination : "-");

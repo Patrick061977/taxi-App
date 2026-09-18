@@ -587,11 +587,31 @@ public class CallLogActivity extends AppCompatActivity {
                         t.setBackgroundColor(0xFFFFFFFF);
                         t.setClickable(true);
                         t.setOnClickListener(_v -> {
-                            edit.setText(icon + " " + labels.get(idx));
+                            String label = labels.get(idx);
+                            double lat = coords.get(idx)[0];
+                            double lon = coords.get(idx)[1];
+                            edit.setText(icon + " " + label);
                             edit.setSelection(edit.getText().length());
-                            coordsOut[0] = coords.get(idx)[0];
-                            coordsOut[1] = coords.get(idx)[1];
+                            coordsOut[0] = lat;
+                            coordsOut[1] = lon;
                             suggBox.removeAllViews();
+                            // 🆕 v6.66.100 (Patrick 18.09. 11:25 'Wo ist die Hausnummer'):
+                            //   Wenn Label keine Ziffer enthält (typisch POIs wie 'Villa Neptun'),
+                            //   Nominatim Reverse-Geocode mit layer=address holt die HN dahinter.
+                            if (!label.matches(".*\\d.*")) {
+                                reverseLookupHouseNumber(lat, lon, hn -> {
+                                    if (hn != null && !hn.isEmpty()) {
+                                        // HN vor PLZ einfügen — 'Villa Neptun, Maxim-Gorki-Str, 17424 …'
+                                        // → 'Villa Neptun, Maxim-Gorki-Str 53, 17424 …'
+                                        String enriched = label.replaceFirst(
+                                            "(?i)(Maxim-Gorki-Straße|[A-ZÄÖÜ][\\wäöüß.\\- ]{2,})(,\\s*\\d{5})",
+                                            "$1 " + hn + "$2");
+                                        if (enriched.equals(label)) enriched = label + " (Nr. " + hn + ")";
+                                        edit.setText(icon + " " + enriched);
+                                        edit.setSelection(edit.getText().length());
+                                    }
+                                });
+                            }
                         });
                         suggBox.addView(t);
                         View div = new View(this);
@@ -610,6 +630,39 @@ public class CallLogActivity extends AppCompatActivity {
                     suggBox.addView(tv);
                 });
             }
+        }).start();
+    }
+
+    // 🆕 v6.66.100: Reverse-Geocode auf POI-Coords um die Hausnummer zu holen.
+    //   Nominatim liefert für POIs (Villa Neptun, Hotels) oft keine house_number im
+    //   Forward-Search, aber Reverse mit layer=address&zoom=18 findet die naechste
+    //   Adresse mit HN am gleichen Gebäude. Callback wird auf UI-Thread aufgerufen.
+    private void reverseLookupHouseNumber(final double lat, final double lon,
+                                           final java.util.function.Consumer<String> cb) {
+        new Thread(() -> {
+            String hn = null;
+            try {
+                String url = "https://nominatim.openstreetmap.org/reverse?format=json&zoom=18&addressdetails=1&layer=address"
+                    + "&lat=" + lat + "&lon=" + lon;
+                java.net.HttpURLConnection conn = (java.net.HttpURLConnection) new java.net.URL(url).openConnection();
+                conn.setRequestProperty("User-Agent", "TaxiApp/v6.66.100 patrick@funktaxi-heringsdorf.de");
+                conn.setConnectTimeout(5000); conn.setReadTimeout(5000);
+                java.io.BufferedReader br = new java.io.BufferedReader(
+                    new java.io.InputStreamReader(conn.getInputStream(), "UTF-8"));
+                StringBuilder sb = new StringBuilder(); String line;
+                while ((line = br.readLine()) != null) sb.append(line);
+                br.close();
+                org.json.JSONObject o = new org.json.JSONObject(sb.toString());
+                org.json.JSONObject ad = o.optJSONObject("address");
+                if (ad != null) {
+                    String h = ad.optString("house_number", "");
+                    if (!h.isEmpty()) hn = h;
+                }
+            } catch (Throwable _ig) { /* Netzwerkfehler -> kein HN */ }
+            final String hnFinal = hn;
+            runOnUiThread(() -> {
+                try { cb.accept(hnFinal); } catch (Throwable _ig) {}
+            });
         }).start();
     }
 

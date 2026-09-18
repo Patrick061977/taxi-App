@@ -1360,8 +1360,9 @@ public class CallLogActivity extends AppCompatActivity {
             String destTxt = tvDest.getText().toString();
             String pickAddr = pickTxt.replaceFirst("^📍\\s*", "").replaceFirst("^🎯\\s*", "").trim();
             String destAddr = destTxt.replaceFirst("^📍\\s*", "").replaceFirst("^🎯\\s*", "").trim();
-            tvPickup.setText("📍 " + (destAddr.endsWith("wählen…") ? "Abholort wählen…" : destAddr));
-            tvDest.setText("🎯 " + (pickAddr.endsWith("wählen…") ? "Zielort wählen…" : pickAddr));
+            // v6.66.99: leere Felder bleiben leer (Hint sichtbar)
+            tvPickup.setText(destAddr.isEmpty() ? "" : "📍 " + destAddr);
+            tvDest.setText(pickAddr.isEmpty() ? "" : "🎯 " + pickAddr);
             double pl = pickupCoords[0], pn = pickupCoords[1];
             pickupCoords[0] = destCoords[0]; pickupCoords[1] = destCoords[1];
             destCoords[0] = pl; destCoords[1] = pn;
@@ -2023,27 +2024,44 @@ public class CallLogActivity extends AppCompatActivity {
         }
 
         // v6.53.0: Pickup + Destination als TextView-Buttons → öffnen Places-Autocomplete.
+        // 🆕 v6.66.99 (Patrick 18.09. 11:05 Bridge "bei Vorbestellungen können wir das auch so
+        //   übernehmen, das andere sieht auch schick aus mit der Karte — parallel"):
+        //   EditText mit Live-Autocomplete + 🗺 Karten-Button daneben als Fallback für Map-Picker.
         final double[] pickupCoords = { Double.NaN, Double.NaN };
         final double[] destCoords = { Double.NaN, Double.NaN };
-        TextView tvPickup = new TextView(this);
-        // Hotel: Pickup default LEER (Hotel ist Ziel — Gast wird zum Hotel gefahren).
-        // Stammkunde: Pickup = CRM-Adresse (Default-Verhalten beibehalten).
-        if (!isHotelCustomer && crm != null && crm.address != null) {
-            tvPickup.setText("📍 " + crm.address);
-        } else {
-            tvPickup.setText("📍 Abholort wählen…");
+
+        LinearLayout rowPickup = new LinearLayout(this);
+        rowPickup.setOrientation(LinearLayout.HORIZONTAL);
+        final android.widget.EditText etPickup2 = new android.widget.EditText(this);
+        etPickup2.setHint("📍 Abholort tippen — Vorschläge unten");
+        etPickup2.setSingleLine();
+        etPickup2.setBackgroundColor(0xFFF1F5F9);
+        etPickup2.setPadding(pad / 2, pad, pad / 2, pad);
+        LinearLayout.LayoutParams etPLp = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        etPickup2.setLayoutParams(etPLp);
+        if (!isHotelCustomer && crm != null && crm.address != null && !crm.address.isEmpty()) {
+            etPickup2.setText("📍 " + crm.address);
+            if (crm.lat != null && crm.lon != null) {
+                pickupCoords[0] = crm.lat; pickupCoords[1] = crm.lon;
+            } else {
+                geocodeAndFill(crm.address, etPickup2, pickupCoords);
+            }
         }
-        tvPickup.setPadding(pad / 2, pad, pad / 2, pad);
-        tvPickup.setOnClickListener(v -> launchPlaces(tvPickup, pickupCoords));
-        layout.addView(tvPickup);
-        // CRM-Koords nur als Pickup-Vorbelegung wenn NICHT Hotel
-        if (!isHotelCustomer && crm != null && crm.lat != null && crm.lon != null) {
-            pickupCoords[0] = crm.lat; pickupCoords[1] = crm.lon;
-        } else if (!isHotelCustomer && crm != null && crm.address != null && !crm.address.isEmpty()) {
-            // v6.62.35: Patrick: 'Birgit Lenzkes Abholort nicht geocodierbar'.
-            // Background-Geocode bei CRM-Adresse ohne Coords.
-            geocodeAndFill(crm.address, tvPickup, pickupCoords);
-        }
+        rowPickup.addView(etPickup2);
+        TextView btnMapPickup = new TextView(this);
+        btnMapPickup.setText("🗺");
+        btnMapPickup.setTextSize(18);
+        btnMapPickup.setPadding(padHalf, pad, padHalf, pad);
+        btnMapPickup.setBackgroundColor(0xFFDBEAFE);
+        btnMapPickup.setOnClickListener(v -> launchPlaces(etPickup2, pickupCoords));
+        rowPickup.addView(btnMapPickup);
+        layout.addView(rowPickup);
+        final LinearLayout suggBoxPickup2 = new LinearLayout(this);
+        suggBoxPickup2.setOrientation(LinearLayout.VERTICAL);
+        suggBoxPickup2.setBackgroundColor(0xFFF3F4F6);
+        layout.addView(suggBoxPickup2);
+        wireAutocomplete(etPickup2, suggBoxPickup2, pickupCoords, "📍");
+        final TextView tvPickup = etPickup2;
 
         // v6.62.38: Tausch-Button zwischen Pickup und Ziel (analog index.html swapPickupDest).
         TextView btnSwap = new TextView(this);
@@ -2060,21 +2078,39 @@ public class CallLogActivity extends AppCompatActivity {
         btnSwap.setClickable(true);
         layout.addView(btnSwap);
 
-        TextView tvDest = new TextView(this);
-        // Hotel: Ziel default = Hotel-Adresse (Gast wird zum Hotel gefahren).
-        if (isHotelCustomer && crm.address != null) {
-            tvDest.setText("🎯 " + crm.address);
+        // 🆕 v6.66.99: Ziel analog Pickup — EditText + Autocomplete + Karten-Button.
+        LinearLayout rowDest = new LinearLayout(this);
+        rowDest.setOrientation(LinearLayout.HORIZONTAL);
+        final android.widget.EditText etDest2 = new android.widget.EditText(this);
+        etDest2.setHint("🎯 Zielort tippen — Vorschläge unten");
+        etDest2.setSingleLine();
+        etDest2.setBackgroundColor(0xFFF1F5F9);
+        etDest2.setPadding(pad / 2, pad, pad / 2, pad);
+        LinearLayout.LayoutParams etDLp = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        etDest2.setLayoutParams(etDLp);
+        if (isHotelCustomer && crm != null && crm.address != null && !crm.address.isEmpty()) {
+            etDest2.setText("🎯 " + crm.address);
             if (crm.lat != null && crm.lon != null) {
                 destCoords[0] = crm.lat; destCoords[1] = crm.lon;
-            } else if (!crm.address.isEmpty()) {
-                geocodeAndFill(crm.address, tvDest, destCoords);
+            } else {
+                geocodeAndFill(crm.address, etDest2, destCoords);
             }
-        } else {
-            tvDest.setText("🎯 Zielort wählen…");
         }
-        tvDest.setPadding(pad / 2, pad, pad / 2, pad);
-        tvDest.setOnClickListener(v -> launchPlaces(tvDest, destCoords));
-        layout.addView(tvDest);
+        rowDest.addView(etDest2);
+        TextView btnMapDest = new TextView(this);
+        btnMapDest.setText("🗺");
+        btnMapDest.setTextSize(18);
+        btnMapDest.setPadding(padHalf, pad, padHalf, pad);
+        btnMapDest.setBackgroundColor(0xFFDBEAFE);
+        btnMapDest.setOnClickListener(v -> launchPlaces(etDest2, destCoords));
+        rowDest.addView(btnMapDest);
+        layout.addView(rowDest);
+        final LinearLayout suggBoxDest2 = new LinearLayout(this);
+        suggBoxDest2.setOrientation(LinearLayout.VERTICAL);
+        suggBoxDest2.setBackgroundColor(0xFFF3F4F6);
+        layout.addView(suggBoxDest2);
+        wireAutocomplete(etDest2, suggBoxDest2, destCoords, "🎯");
+        final TextView tvDest = etDest2;
 
         // v6.62.38: Tausch-Click — vertauscht tvPickup-Text und tvDest-Text + die Coords-Arrays.
         // Der placesLauncher-Callback nutzt die Array-Refs (pickupCoords / destCoords), die
@@ -2085,8 +2121,9 @@ public class CallLogActivity extends AppCompatActivity {
             // Symbol-Prefix beibehalten: tvPickup → 📍, tvDest → 🎯
             String pickAddr = pickTxt.replaceFirst("^📍\\s*", "").replaceFirst("^🎯\\s*", "").trim();
             String destAddr = destTxt.replaceFirst("^📍\\s*", "").replaceFirst("^🎯\\s*", "").trim();
-            tvPickup.setText("📍 " + (destAddr.endsWith("wählen…") ? "Abholort wählen…" : destAddr));
-            tvDest.setText("🎯 " + (pickAddr.endsWith("wählen…") ? "Zielort wählen…" : pickAddr));
+            // v6.66.99: leere Felder bleiben leer (Hint sichtbar), sonst mit Prefix setzen
+            tvPickup.setText(destAddr.isEmpty() ? "" : "📍 " + destAddr);
+            tvDest.setText(pickAddr.isEmpty() ? "" : "🎯 " + pickAddr);
             double pl = pickupCoords[0], pn = pickupCoords[1];
             pickupCoords[0] = destCoords[0]; pickupCoords[1] = destCoords[1];
             destCoords[0] = pl; destCoords[1] = pn;

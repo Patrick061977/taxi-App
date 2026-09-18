@@ -1,17 +1,18 @@
 package de.taxiheringsdorf.app;
 
 import android.app.DownloadManager;
+import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageInfo;
+import android.content.pm.PackageInstaller;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.net.Uri;
-import android.os.Environment;
-
-import androidx.core.content.FileProvider;
+import android.os.Build;
+import android.widget.Toast;
 
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
@@ -20,15 +21,17 @@ import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.InputStream;
+import java.io.OutputStream;
 
 /**
- * v6.40.1: Liefert APK-Versionsinfo an die Web-App und öffnet Downloads
- * im System-Browser (nicht-APK) oder via DownloadManager (APK).
- *
- * v6.63.520: openExternal für .apk-URLs nutzt jetzt DownloadManager statt
- * Intent.ACTION_VIEW — Chrome blockiert APK-Downloads per Security-Policy
- * ("Download failed"). DownloadManager lädt direkt, FileProvider stellt
- * content://-URI bereit, REQUEST_INSTALL_PACKAGES öffnet den System-Installer.
+ * v6.40.1: Liefert APK-Versionsinfo an die Web-App und öffnet Downloads.
+ * v6.63.520: DownloadManager für APK-URLs.
+ * v6.66.95 (Patrick 18.09.): Session-basierter PackageInstaller mit
+ *   BroadcastReceiver-Callback statt ACTION_VIEW-Intent. Zeigt den ECHTEN
+ *   Fehlergrund an — "kann nicht abgeschlossen werden" ohne Details war
+ *   Blackbox für Play-Protect/Signatur/Speicher-Probleme.
  *
  * Aufruf aus JS:
  *   Capacitor.Plugins.AppUpdate.getAppInfo()     → { versionName, versionCode, packageName }
@@ -36,6 +39,8 @@ import java.io.File;
  */
 @CapacitorPlugin(name = "AppUpdate")
 public class AppUpdatePlugin extends Plugin {
+
+    public static final String INSTALL_STATUS_ACTION = "de.taxiheringsdorf.app.INSTALL_STATUS";
 
     @PluginMethod
     public void getAppInfo(PluginCall call) {
@@ -47,7 +52,7 @@ public class AppUpdatePlugin extends Plugin {
             JSObject ret = new JSObject();
             ret.put("versionName", info.versionName != null ? info.versionName : "");
             long code;
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                 code = info.getLongVersionCode();
             } else {
                 code = (long) info.versionCode;
@@ -89,7 +94,6 @@ public class AppUpdatePlugin extends Plugin {
             Context ctx = getContext();
             DownloadManager dm = (DownloadManager) ctx.getSystemService(Context.DOWNLOAD_SERVICE);
 
-            // Ziel: app-private externer Speicher → FileProvider kann diesen Pfad bereitstellen
             File destDir = ctx.getExternalFilesDir(null);
             if (destDir == null) destDir = ctx.getFilesDir();
             File destFile = new File(destDir, "taxi-app-update.apk");
@@ -110,9 +114,7 @@ public class AppUpdatePlugin extends Plugin {
                 public void onReceive(Context context, Intent intent) {
                     long id = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1);
                     if (id != downloadId) return;
-                    try {
-                        context.unregisterReceiver(this);
-                    } catch (Exception ignored) {}
+                    try { context.unregisterReceiver(this); } catch (Exception ignored) {}
 
                     DownloadManager.Query q = new DownloadManager.Query();
                     q.setFilterById(downloadId);
@@ -125,25 +127,12 @@ public class AppUpdatePlugin extends Plugin {
                         }
                         c.close();
                     }
-
-                    if (!success || !finalDest.exists()) return;
-
-                    try {
-                        Uri apkUri;
-                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
-                            apkUri = FileProvider.getUriForFile(context,
-                                context.getPackageName() + ".fileprovider", finalDest);
-                        } else {
-                            apkUri = Uri.fromFile(finalDest);
-                        }
-                        Intent install = new Intent(Intent.ACTION_VIEW);
-                        install.setDataAndType(apkUri, "application/vnd.android.package-archive");
-                        install.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                        install.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-                        context.startActivity(install);
-                    } catch (Exception ex) {
-                        android.util.Log.e("AppUpdatePlugin", "Install-Intent fehlgeschlagen: " + ex.getMessage());
+                    if (!success || !finalDest.exists()) {
+                        Toast.makeText(context, "❌ Update-Download fehlgeschlagen", Toast.LENGTH_LONG).show();
+                        return;
                     }
+                    // 🆕 v6.66.95: Session-Installer statt ACTION_VIEW
+                    installViaSession(context, finalDest);
                 }
             };
 
@@ -156,6 +145,50 @@ public class AppUpdatePlugin extends Plugin {
 
         } catch (Exception e) {
             call.reject("APK-Download fehlgeschlagen: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Installiert die APK via PackageInstaller.Session. Anders als ACTION_VIEW
+     * bekommt der Aufrufer Status-Broadcasts mit KONKRETEN Fehlercodes
+     * (STATUS_FAILURE_BLOCKED, STATUS_FAILURE_CONFLICT, STATUS_FAILURE_STORAGE, …).
+     * Der {@link InstallStatusReceiver} übersetzt sie in Klartext-Toasts.
+     */
+    private static void installViaSession(Context context, File apkFile) {
+        PackageInstaller pi = context.getPackageManager().getPackageInstaller();
+        int sessionId;
+        try {
+            PackageInstaller.SessionParams params = new PackageInstaller.SessionParams(
+                PackageInstaller.SessionParams.MODE_FULL_INSTALL);
+            params.setAppPackageName(context.getPackageName());
+            sessionId = pi.createSession(params);
+        } catch (Exception e) {
+            Toast.makeText(context, "❌ Update-Session konnte nicht erstellt werden: " + e.getMessage(),
+                Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        try (PackageInstaller.Session session = pi.openSession(sessionId)) {
+            try (OutputStream out = session.openWrite("update.apk", 0, apkFile.length());
+                 InputStream in = new FileInputStream(apkFile)) {
+                byte[] buf = new byte[64 * 1024];
+                int n;
+                while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
+                session.fsync(out);
+            }
+            Intent statusIntent = new Intent(context, InstallStatusReceiver.class);
+            statusIntent.setAction(INSTALL_STATUS_ACTION);
+            int pendingFlags = PendingIntent.FLAG_UPDATE_CURRENT;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                pendingFlags |= PendingIntent.FLAG_MUTABLE;
+            }
+            PendingIntent statusPending = PendingIntent.getBroadcast(
+                context, sessionId, statusIntent, pendingFlags);
+            session.commit(statusPending.getIntentSender());
+        } catch (Exception e) {
+            try { pi.abandonSession(sessionId); } catch (Exception ignored) {}
+            Toast.makeText(context, "❌ Update-Datei konnte nicht übertragen werden: " + e.getMessage(),
+                Toast.LENGTH_LONG).show();
         }
     }
 }

@@ -301,6 +301,11 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths"></meta-data>
         </provider>
+
+        <!-- v6.66.95: Empfängt PackageInstaller.Session-Status-Callbacks — zeigt Klartext-Fehler. -->
+        <receiver
+            android:name=".InstallStatusReceiver"
+            android:exported="false" />
     </application>
 
     <!-- Permissions -->

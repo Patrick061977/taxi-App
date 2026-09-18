@@ -40661,6 +40661,9 @@ exports.scheduledSmsRetry = onSchedule(
 
             for (const smsId of ids) {
                 const smsData = pending[smsId] || {};
+                // 🆕 v6.66.104 (Patrick 18.09. 21:09 Bridge): Debug-Log damit wir sehen
+                //   was für einen text-Wert der Cron beim Push in FCM einbaut.
+                console.log(`🐞 SMS-Retry ${smsId}: textType=${typeof smsData.text}, textLen=${smsData.text?.length || 0}, textPrefix=${JSON.stringify(String(smsData.text || '').slice(0, 40))}`);
                 const _now = Date.now();
                 const _firstAttempt = smsData.firstAttemptAt || _now;
                 const _waitMin = Math.round((_now - _firstAttempt) / 60000);

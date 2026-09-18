@@ -526,9 +526,46 @@ public class TaxiFCMService extends FirebaseMessagingService {
     private void handleSmsRelay(Map<String, String> data) {
         final String smsId = data.get("smsId");
         final String phone = data.get("phone");
-        final String text = data.get("text");
-        if (smsId == null || phone == null || text == null) {
-            Log.w(TAG, "send_sms: smsId/phone/text fehlt");
+        String text = data.get("text");
+        // 🆕 v6.66.104 (Patrick 18.09. 21:09 Bridge Schneider-'Invalid message body'):
+        //   Vollständiges Debug in errorLogs damit wir sehen was tatsächlich am Handy
+        //   ankommt. Plus: wenn text leer/null trotz DB-Wert -> DB-Fallback lesen.
+        try {
+            java.util.Map<String, Object> _dbg = new java.util.HashMap<>();
+            _dbg.put("event", "send_sms_received");
+            _dbg.put("smsId", smsId);
+            _dbg.put("phone", phone);
+            _dbg.put("textNull", text == null);
+            _dbg.put("textLength", text == null ? -1 : text.length());
+            _dbg.put("textPrefix", text == null ? null : text.substring(0, Math.min(text.length(), 40)));
+            _dbg.put("dataKeys", new java.util.ArrayList<>(data.keySet()));
+            _dbg.put("ts", System.currentTimeMillis());
+            com.google.firebase.database.FirebaseDatabase.getInstance("https://taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.app").getReference("errorLogs").push().setValue(_dbg);
+        } catch (Throwable _ig) {}
+        if (smsId == null || phone == null) {
+            Log.w(TAG, "send_sms: smsId/phone fehlt");
+            return;
+        }
+        // Wenn text leer/null aber DB hat einen -> lokaler Fallback (nur SMSId nötig)
+        if (text == null || text.isEmpty()) {
+            Log.w(TAG, "send_sms: text leer, versuche DB-Fallback für " + smsId);
+            try {
+                final Object[] _hold = new Object[1];
+                final Object _lock = new Object();
+                com.google.firebase.database.FirebaseDatabase.getInstance("https://taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.app").getReference("smsQueue/" + smsId + "/text")
+                    .get().addOnCompleteListener(_task -> {
+                        synchronized (_lock) {
+                            _hold[0] = _task.isSuccessful() && _task.getResult() != null
+                                ? _task.getResult().getValue(String.class) : null;
+                            _lock.notify();
+                        }
+                    });
+                synchronized (_lock) { _lock.wait(5000); }
+                if (_hold[0] instanceof String) text = (String) _hold[0];
+            } catch (Throwable _dbErr) { Log.w(TAG, "DB-Fallback fehlgeschlagen: " + _dbErr.getMessage()); }
+        }
+        if (text == null || text.isEmpty()) {
+            updateSmsStatus(smsId, "failed", "text leer trotz DB-Fallback");
             return;
         }
         // SEND_SMS-Permission pruefen

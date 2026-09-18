@@ -66,6 +66,8 @@ public class DriverDashboardActivity extends AppCompatActivity {
     // 🆕 v6.66.61 (Patrick 09.09. SVG-Mockup 47280): Home-Karte im Fahrer-Dashboard
     private LinearLayout homeCard;
     private TextView tvHomeLocation, tvHomeSource;
+    // 🆕 v6.66.96: Inline-Standort im Header (ersetzt homeCard)
+    private TextView tvHomeInline;
     private MaterialButton btnMenu, btnEinsteiger, btnCallLog;
     // v6.63.895: Pin-Direktbuttons (Aufnahmen + Karte) — Patrick 18.08. 12:00
     private MaterialButton btnPinRecordings, btnPinMap, btnColleagues;
@@ -239,6 +241,7 @@ public class DriverDashboardActivity extends AppCompatActivity {
         tvPauseBanner = findViewById(R.id.tv_pause_banner);
         // 🆕 v6.66.61 Home-Karte
         homeCard = findViewById(R.id.home_card);
+        tvHomeInline = findViewById(R.id.tv_home_inline);
         tvHomeLocation = findViewById(R.id.tv_home_location);
         tvHomeSource = findViewById(R.id.tv_home_source);
         // v6.62.26: Pause-Banner-Tap schaltet direkt Online (schneller als Hamburger-Menue)
@@ -691,8 +694,10 @@ public class DriverDashboardActivity extends AppCompatActivity {
         }
 
         // v6.47.0: Mini-Status-Badge im Header (statt großer Schicht-Karte)
+        // v6.66.96 (Patrick 18.09.): Text weg — nur Icon reicht. Spart Header-Breite,
+        //   Farbe zeigt Zustand: grün=Aktiv, orange=Pause, rot=Aus.
         if (shiftActive) {
-            tvShiftStatus.setText(onlineState ? "🟢 Aktiv" : "⏸ Pause");
+            tvShiftStatus.setText(onlineState ? "🟢" : "⏸");
             tvShiftStatus.setBackgroundColor(onlineState ? Color.parseColor("#10B981") : Color.parseColor("#F59E0B"));
             String detail = "";
             if (lastHb != null) {
@@ -706,7 +711,7 @@ public class DriverDashboardActivity extends AppCompatActivity {
         } else {
             // 🆕 v6.62.666: Badge ROT auch wenn Schicht einfach 'ended'/null (vorher slate
             //   #475569 — viel zu unauffaellig). Nur Auto-Ende war vorher rot.
-            tvShiftStatus.setText("auto-ended".equals(status) ? "⚠ Auto-Ende" : "🔴 Aus");
+            tvShiftStatus.setText("auto-ended".equals(status) ? "⚠" : "🔴");
             tvShiftStatus.setBackgroundColor(Color.parseColor("#DC2626"));
             tvShiftStatus.setTextColor(Color.WHITE);
             tvShiftDetail.setText("");
@@ -2005,13 +2010,10 @@ public class DriverDashboardActivity extends AppCompatActivity {
         rideAdapter.setRides(all);
         emptyState.setVisibility(all.isEmpty() ? View.VISIBLE : View.GONE);
         rvRides.setVisibility(all.isEmpty() ? View.GONE : View.VISIBLE);
-        // 🆕 v6.66.94 (Patrick 18.09. 08:11 Bridge, Mockup-Option A): Wenn 2+ Fahrten
-        //   in der Liste sind, Home-Card einklappen — spart ~90dp damit alle Buttons
-        //   inkl. Los-Button der zweiten Karte auf den Screen passen. Bei 0-1 Fahrt
-        //   bleibt die Home-Card sichtbar (der Standort ist im Leerlauf wichtig).
-        if (homeCard != null) {
-            homeCard.setVisibility(all.size() >= 2 ? View.GONE : View.VISIBLE);
-        }
+        // 🆕 v6.66.96 (Patrick 18.09. 09:12 Bridge): Home-Card komplett raus,
+        //   Standort steht jetzt inline im Header (tv_home_inline). Spart permanent
+        //   ~80dp — auch bei 0-1 Fahrt zählt der Platz.
+        if (homeCard != null) homeCard.setVisibility(View.GONE);
         // v6.63.339 (Patrick 14.06. 17:08 'Wartepool-Banner wird von Frei/Besetzt uebertuencht'):
         //   Wartepool ZUERST aufrufen, FreeBusy nachher — dadurch ueberschreibt FreeBusy den
         //   Wartepool-Banner NICHT (Wartepool returnt early wenn wartepool empty + FreeBusy
@@ -5147,9 +5149,12 @@ public class DriverDashboardActivity extends AppCompatActivity {
     //         -> /vehicles/{vid}/homeLocation
     //   Farbcode: 🟨 Tages-Ausnahme, 🟦 Wochen-Standard, 🌐 Global, 🟥 nicht gesetzt.
     private void refreshHomeCard() {
-        if (homeCard == null || tvHomeLocation == null || tvHomeSource == null) return;
+        // v6.66.96: tvHomeLocation/tvHomeSource sind nicht mehr Pflicht (Home-Card raus).
+        //   Wenn Vehicle fehlt → nur Inline verstecken, aber die Firebase-Query trotzdem
+        //   NICHT starten (kein Ziel-View).
         if (currentVehicleId == null || currentVehicleId.isEmpty()) {
-            homeCard.setVisibility(android.view.View.GONE);
+            if (homeCard != null) homeCard.setVisibility(android.view.View.GONE);
+            if (tvHomeInline != null) tvHomeInline.setVisibility(android.view.View.GONE);
             return;
         }
         java.util.Calendar cal = java.util.Calendar.getInstance();
@@ -5211,24 +5216,29 @@ public class DriverDashboardActivity extends AppCompatActivity {
     }
 
     private void applyHomeCard(String loc, String src, boolean coordsOk) {
-        if (homeCard == null) return;
+        // 🆕 v6.66.96: Home-Card ist raus, Standort wird jetzt in tv_home_inline im
+        //   Header angezeigt. applyHomeCard bleibt als API bestehen und aktualisiert
+        //   nur noch die Inline-TextView. homeCard/tvHomeLocation/tvHomeSource nur
+        //   noch als No-Op weitergepflegt (falls andere Codepfade sie füllen).
         runOnUiThread(() -> {
-            homeCard.setVisibility(android.view.View.VISIBLE);
-            if (loc == null || loc.isEmpty()) {
-                homeCard.setBackgroundColor(0xFF7F1D1D);
-                tvHomeLocation.setText("🟥 Kein Standort gesetzt");
-                tvHomeLocation.setTextColor(0xFFFEE2E2);
-                tvHomeSource.setText("Score-Malus rechnet ab Kaiserbäder-Center — bitte im Schicht-Editor setzen");
-                tvHomeSource.setTextColor(0xFFFCA5A5);
-            } else {
-                if (src != null && src.startsWith("🟨")) homeCard.setBackgroundColor(0xFF78350F);
-                else if (src != null && src.startsWith("🟦")) homeCard.setBackgroundColor(0xFF1E40AF);
-                else homeCard.setBackgroundColor(0xFF334155);
-                tvHomeLocation.setText(loc + (coordsOk ? "" : "  ⚠️ keine Coords"));
-                tvHomeLocation.setTextColor(coordsOk ? 0xFFDBEAFE : 0xFFFBBF24);
-                tvHomeSource.setText(src != null ? src : "");
-                tvHomeSource.setTextColor(0xFF93C5FD);
-            }
+            try {
+                if (homeCard != null) homeCard.setVisibility(android.view.View.GONE);
+                if (tvHomeInline != null) {
+                    if (loc == null || loc.isEmpty()) {
+                        tvHomeInline.setText("🟥 Kein Standort gesetzt");
+                        tvHomeInline.setTextColor(0xFFFCA5A5);
+                        tvHomeInline.setVisibility(android.view.View.VISIBLE);
+                    } else {
+                        String suffix = coordsOk ? "" : "  ⚠️";
+                        tvHomeInline.setText("🏠 " + loc + suffix);
+                        tvHomeInline.setTextColor(coordsOk ? 0xFF60A5FA : 0xFFFBBF24);
+                        tvHomeInline.setVisibility(android.view.View.VISIBLE);
+                    }
+                }
+                // Alte TextViews trotzdem befüllen für Kompatibilität (falls andere Views sie zeigen)
+                if (tvHomeLocation != null && loc != null) tvHomeLocation.setText(loc);
+                if (tvHomeSource != null && src != null) tvHomeSource.setText(src);
+            } catch (Throwable _ig) { /* nicht crashen — v6.66.89-Lehre */ }
         });
     }
 

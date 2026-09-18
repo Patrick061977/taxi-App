@@ -310,10 +310,26 @@ public class MapPickerActivity extends AppCompatActivity {
     }
 
     private void updatePopup() {
-        ArrayAdapter<String> adp = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, _suggestLabels);
-        _suggestPopup.setAdapter(adp);
-        if (!_suggestPopup.isShowing()) _suggestPopup.show();
-        else adp.notifyDataSetChanged();
+        // 🐛 v6.66.102 (Patrick 18.09. Bridge Crashlytics BadTokenException):
+        //   Async-Callback von Nominatim/Places kommt nach dem finish() der Activity —
+        //   _suggestPopup.show() wirft dann 'unable to add window — token null is not
+        //   valid; is your activity running?'. Guard mit isFinishing/isDestroyed +
+        //   try/catch als letzte Sicherung.
+        if (isFinishing() || isDestroyed()) return;
+        try {
+            ArrayAdapter<String> adp = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, _suggestLabels);
+            _suggestPopup.setAdapter(adp);
+            if (!_suggestPopup.isShowing()) {
+                // WindowToken erst verfügbar wenn View im Window ist
+                if (etSearch != null && etSearch.getWindowToken() != null) {
+                    _suggestPopup.show();
+                }
+            } else {
+                adp.notifyDataSetChanged();
+            }
+        } catch (android.view.WindowManager.BadTokenException | IllegalStateException _ig) {
+            // Activity zwischen Check und show() weg — kein Crash, kein Popup
+        }
     }
 
     private String formatNominatimAddress(String name, JSONObject a) {

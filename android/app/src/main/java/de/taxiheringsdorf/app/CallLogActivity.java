@@ -1292,20 +1292,23 @@ public class CallLogActivity extends AppCompatActivity {
         //   Wrapper-Trick: der bestehende Code arbeitet mit "TextView tvPickup" — wir geben
         //   den EditText als TextView-Referenz weiter (EditText extends TextView).
         final android.widget.EditText etPickupEdit = new android.widget.EditText(this);
-        etPickupEdit.setHint("Abholort tippen — Vorschläge erscheinen unten");
+        // 🔧 v6.66.98 (Patrick 18.09. 10:31): "Abholort wählen" MUSS Hint sein (grauer
+        //   Platzhalter der beim Tippen verschwindet), nicht setText — sonst müsste
+        //   Patrick den Placeholder erst löschen. Nur CRM-Adresse wird als echter Text
+        //   vorbelegt.
+        etPickupEdit.setHint("📍 Abholort tippen — Vorschläge erscheinen unten");
         etPickupEdit.setPadding(padHalf, pad, padHalf, pad);
         etPickupEdit.setBackgroundColor(0xFFF1F5F9);
         etPickupEdit.setSingleLine();
-        if (!isHotel && crm != null && crm.address != null) {
+        if (!isHotel && crm != null && crm.address != null && !crm.address.isEmpty()) {
             etPickupEdit.setText("📍 " + crm.address);
             if (crm.lat != null && crm.lon != null) {
                 pickupCoords[0] = crm.lat; pickupCoords[1] = crm.lon;
-            } else if (!crm.address.isEmpty()) {
+            } else {
                 geocodeAndFill(crm.address, etPickupEdit, pickupCoords);
             }
-        } else {
-            etPickupEdit.setText("📍 Abholort wählen…");
         }
+        // Kein else — leer bleiben, Hint sichtbar
         layout.addView(etPickupEdit);
         final LinearLayout suggBoxPickup = new LinearLayout(this);
         suggBoxPickup.setOrientation(LinearLayout.VERTICAL);
@@ -1330,20 +1333,20 @@ public class CallLogActivity extends AppCompatActivity {
 
         // 🆕 v6.66.97: EditText+Autocomplete für Ziel — gleiche Logik wie Pickup.
         final android.widget.EditText etDestEdit = new android.widget.EditText(this);
-        etDestEdit.setHint("Zielort tippen — Vorschläge erscheinen unten");
+        // 🔧 v6.66.98: analog Pickup — Hint statt Text.
+        etDestEdit.setHint("🎯 Zielort tippen — Vorschläge erscheinen unten");
         etDestEdit.setPadding(padHalf, pad, padHalf, pad);
         etDestEdit.setBackgroundColor(0xFFF1F5F9);
         etDestEdit.setSingleLine();
-        if (isHotel && crm != null && crm.address != null) {
+        if (isHotel && crm != null && crm.address != null && !crm.address.isEmpty()) {
             etDestEdit.setText("🎯 " + crm.address);
             if (crm.lat != null && crm.lon != null) {
                 destCoords[0] = crm.lat; destCoords[1] = crm.lon;
-            } else if (!crm.address.isEmpty()) {
+            } else {
                 geocodeAndFill(crm.address, etDestEdit, destCoords);
             }
-        } else {
-            etDestEdit.setText("🎯 Zielort wählen…");
         }
+        // Kein else — leer, Hint bleibt sichtbar
         layout.addView(etDestEdit);
         final LinearLayout suggBoxDest = new LinearLayout(this);
         suggBoxDest.setOrientation(LinearLayout.VERTICAL);
@@ -1439,7 +1442,7 @@ public class CallLogActivity extends AppCompatActivity {
             .setPositiveButton("✅ Anlegen", (d, w) -> {
                 String pickup = tvPickup.getText().toString().replaceFirst("^📍\\s*", "").trim();
                 String destination = tvDest.getText().toString().replaceFirst("^🎯\\s*", "").trim();
-                if (pickup.isEmpty() || pickup.endsWith("wählen…")) {
+                if (pickup.isEmpty()) {
                     Toast.makeText(this, "Abholort fehlt", Toast.LENGTH_SHORT).show(); return;
                 }
                 int pax = (Integer) spPax.getSelectedItem();
@@ -1463,7 +1466,7 @@ public class CallLogActivity extends AppCompatActivity {
                     r.put("pickupLat", pickupCoords[0]);
                     r.put("pickupLon", pickupCoords[1]);
                 }
-                if (!destination.isEmpty() && !destination.endsWith("wählen…")) {
+                if (!destination.isEmpty()) {
                     r.put("destination", destination);
                     if (!Double.isNaN(destCoords[0])) {
                         r.put("destinationLat", destCoords[0]);

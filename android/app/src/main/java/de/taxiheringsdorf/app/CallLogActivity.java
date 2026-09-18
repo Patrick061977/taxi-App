@@ -1510,11 +1510,15 @@ public class CallLogActivity extends AppCompatActivity {
                 r.put("customerPhone", e.number);
                 r.put("customerMobile", crm != null && crm.mobilePhone != null ? crm.mobilePhone : e.number);
                 // 🆕 v6.66.97: Ausgewähltes Fahrzeug (default = eigenes)
+                // 🆕 v6.66.101 (Patrick 18.09. 11:45 Bridge): SOFORT-Fahrt an ANDERES
+                //   Fahrzeug NICHT direkt accepted — anderer Fahrer muss Angebot annehmen.
+                //   Nur eigenes Fahrzeug: 'accepted' (ich fahre selbst hin).
                 int selVehIdx = spVeh.getSelectedItemPosition();
                 String selVeh = (selVehIdx >= 0 && selVehIdx < vehIds.size()) ? vehIds.get(selVehIdx) : vehicleId;
+                boolean assigningToSelf = selVeh.equals(vehicleId);
                 r.put("vehicleId", selVeh);
                 r.put("assignedVehicle", selVeh);
-                r.put("status", "accepted");
+                r.put("status", assigningToSelf ? "accepted" : "sofort");
                 r.put("pickup", pickup);
                 if (!Double.isNaN(pickupCoords[0])) {
                     r.put("pickupLat", pickupCoords[0]);
@@ -1532,15 +1536,21 @@ public class CallLogActivity extends AppCompatActivity {
                 r.put("pickupTimestamp", now);
                 r.put("createdAt", now);
                 r.put("updatedAt", now);
-                r.put("acceptedAt", now);
                 r.put("assignedAt", now);
                 r.put("assignedBy", crm != null ? "native_sofort_calllog_crm" : "native_sofort_calllog");
-                r.put("acceptedVia", crm != null ? "native_sofort_calllog_crm" : "native_sofort_calllog");
+                if (assigningToSelf) {
+                    r.put("acceptedAt", now);
+                    r.put("acceptedVia", crm != null ? "native_sofort_calllog_crm" : "native_sofort_calllog");
+                }
                 r.put("source", crm != null ? "native_sofort_call_crm" : "native_sofort_call");
                 r.put("isSofort", true);
                 r.put("passengers", pax);
+                final boolean _selfFinal = assigningToSelf;
                 ref.setValue(r).addOnSuccessListener(_v -> {
-                    Toast.makeText(this, "✅ SOFORT-Fahrt angelegt: " + custName, Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, _selfFinal
+                        ? "✅ SOFORT-Fahrt angelegt: " + custName
+                        : "📤 SOFORT-Angebot an " + selVeh + " gesendet — wartet auf Annahme",
+                        Toast.LENGTH_LONG).show();
                     startActivity(new Intent(this, DriverDashboardActivity.class));
                     finish();
                 }).addOnFailureListener(ex -> Toast.makeText(this, "Fehler: " + ex.getMessage(), Toast.LENGTH_LONG).show());

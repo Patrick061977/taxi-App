@@ -2005,6 +2005,13 @@ public class DriverDashboardActivity extends AppCompatActivity {
         rideAdapter.setRides(all);
         emptyState.setVisibility(all.isEmpty() ? View.VISIBLE : View.GONE);
         rvRides.setVisibility(all.isEmpty() ? View.GONE : View.VISIBLE);
+        // 🆕 v6.66.94 (Patrick 18.09. 08:11 Bridge, Mockup-Option A): Wenn 2+ Fahrten
+        //   in der Liste sind, Home-Card einklappen — spart ~90dp damit alle Buttons
+        //   inkl. Los-Button der zweiten Karte auf den Screen passen. Bei 0-1 Fahrt
+        //   bleibt die Home-Card sichtbar (der Standort ist im Leerlauf wichtig).
+        if (homeCard != null) {
+            homeCard.setVisibility(all.size() >= 2 ? View.GONE : View.VISIBLE);
+        }
         // v6.63.339 (Patrick 14.06. 17:08 'Wartepool-Banner wird von Frei/Besetzt uebertuencht'):
         //   Wartepool ZUERST aufrufen, FreeBusy nachher — dadurch ueberschreibt FreeBusy den
         //   Wartepool-Banner NICHT (Wartepool returnt early wenn wartepool empty + FreeBusy

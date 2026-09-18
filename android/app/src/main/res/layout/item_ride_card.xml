@@ -95,6 +95,29 @@
             android:textColor="#CBD5E1"
             android:textSize="10sp" />
 
+        <!-- v6.66.93 (Patrick 18.09. 07:07 Bridge): Email + Warnung bei unvollstaendiger Adresse.
+             Nur sichtbar wenn r.customerEmail gesetzt bzw. Hausnummer fehlt. -->
+        <TextView
+            android:id="@+id/tv_customer_email"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="1dp"
+            android:text=""
+            android:textColor="#60A5FA"
+            android:textSize="10sp"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/tv_pickup_incomplete"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:text="⚠️ Abholort ohne Hausnummer — bitte prüfen"
+            android:textColor="#F59E0B"
+            android:textSize="10sp"
+            android:textStyle="bold"
+            android:visibility="gone" />
+
         <TextView
             android:id="@+id/tv_destination"
             android:layout_width="match_parent"

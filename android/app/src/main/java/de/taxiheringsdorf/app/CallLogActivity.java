@@ -485,6 +485,134 @@ public class CallLogActivity extends AppCompatActivity {
                 }
             });
 
+    // 🆕 v6.66.97 (Patrick 18.09. 10:17+10:18 Bridge "muss so runterkommen wie bei Anfrage"):
+    //   Live-Autocomplete für Adress-Eingabefelder. Hängt einen TextWatcher an, der ab
+    //   3 Zeichen mit 400ms Debounce Nominatim abruft und die 6 besten Treffer als
+    //   klickbare Zeilen unter das Feld rendert. Tap → Feld gefüllt + coords gesetzt.
+    private void wireAutocomplete(final android.widget.EditText edit, final LinearLayout suggBox,
+                                   final double[] coordsOut, final String icon) {
+        final android.os.Handler h = new android.os.Handler(android.os.Looper.getMainLooper());
+        final Runnable[] pending = new Runnable[]{null};
+        edit.addTextChangedListener(new android.text.TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int a, int b, int c) {}
+            @Override public void onTextChanged(CharSequence s, int a, int b, int c) {}
+            @Override public void afterTextChanged(android.text.Editable e) {
+                if (pending[0] != null) h.removeCallbacks(pending[0]);
+                String q = e.toString().replaceFirst("^[📍🎯]\\s*", "").trim();
+                if (q.length() < 3 || q.endsWith("wählen…")) {
+                    suggBox.removeAllViews();
+                    return;
+                }
+                pending[0] = () -> nominatimSuggestForField(q, suggBox, edit, coordsOut, icon);
+                h.postDelayed(pending[0], 400);
+            }
+        });
+    }
+
+    private void nominatimSuggestForField(final String query, final LinearLayout suggBox,
+                                           final android.widget.EditText edit,
+                                           final double[] coordsOut, final String icon) {
+        new Thread(() -> {
+            try {
+                String url = "https://nominatim.openstreetmap.org/search?format=json&limit=6&addressdetails=1&countrycodes=de&q="
+                    + java.net.URLEncoder.encode(query, "UTF-8");
+                java.net.HttpURLConnection conn = (java.net.HttpURLConnection) new java.net.URL(url).openConnection();
+                conn.setRequestProperty("User-Agent", "TaxiApp/v6.66.97 patrick@funktaxi-heringsdorf.de");
+                conn.setConnectTimeout(6000); conn.setReadTimeout(6000);
+                java.io.BufferedReader br = new java.io.BufferedReader(new java.io.InputStreamReader(conn.getInputStream(), "UTF-8"));
+                StringBuilder sb = new StringBuilder(); String line;
+                while ((line = br.readLine()) != null) sb.append(line);
+                br.close();
+                org.json.JSONArray arr = new org.json.JSONArray(sb.toString());
+                final java.util.List<double[]> coords = new java.util.ArrayList<>();
+                final java.util.List<String> labels = new java.util.ArrayList<>();
+                for (int i = 0; i < arr.length() && i < 6; i++) {
+                    org.json.JSONObject o = arr.getJSONObject(i);
+                    double lat = Double.parseDouble(o.getString("lat"));
+                    double lon = Double.parseDouble(o.getString("lon"));
+                    String disp = o.optString("display_name", "");
+                    org.json.JSONObject ad = o.optJSONObject("address");
+                    String shortLabel = disp;
+                    if (ad != null) {
+                        String road = ad.optString("road", "");
+                        String hn = ad.optString("house_number", "");
+                        String plz = ad.optString("postcode", "");
+                        String ort = ad.optString("city", "");
+                        if (ort.isEmpty()) ort = ad.optString("town", "");
+                        if (ort.isEmpty()) ort = ad.optString("village", "");
+                        if (ort.isEmpty()) ort = ad.optString("suburb", "");
+                        String name = ad.optString("amenity", "");
+                        if (name.isEmpty()) name = ad.optString("shop", "");
+                        if (name.isEmpty()) name = ad.optString("tourism", "");
+                        if (name.isEmpty()) name = ad.optString("building", "");
+                        if (name.isEmpty()) name = ad.optString("railway", "");
+                        StringBuilder sb2 = new StringBuilder();
+                        if (!name.isEmpty() && !name.equalsIgnoreCase("yes")) sb2.append(name).append(", ");
+                        if (!road.isEmpty()) {
+                            sb2.append(road);
+                            if (!hn.isEmpty()) sb2.append(" ").append(hn);
+                            sb2.append(", ");
+                        }
+                        if (!plz.isEmpty()) sb2.append(plz).append(" ");
+                        sb2.append(ort);
+                        String built = sb2.toString().replaceAll(",\\s*$", "").trim();
+                        if (!built.isEmpty()) shortLabel = built;
+                    }
+                    shortLabel = shortLabel
+                        .replaceAll(",?\\s*Vorpommern-Greifswald", "")
+                        .replaceAll(",?\\s*Mecklenburg-Vorpommern", "")
+                        .replaceAll(",?\\s*Kaiserbäder", "")
+                        .replaceAll(",?\\s*Deutschland", "")
+                        .replaceAll("\\s{2,}", " ")
+                        .trim();
+                    coords.add(new double[]{lat, lon});
+                    labels.add(shortLabel);
+                }
+                runOnUiThread(() -> {
+                    suggBox.removeAllViews();
+                    if (labels.isEmpty()) {
+                        TextView t = new TextView(this);
+                        t.setText("Keine Treffer");
+                        t.setTextColor(0xFF9CA3AF);
+                        t.setPadding(12, 8, 12, 8);
+                        suggBox.addView(t);
+                        return;
+                    }
+                    for (int i = 0; i < labels.size(); i++) {
+                        final int idx = i;
+                        TextView t = new TextView(this);
+                        t.setText("▸ " + labels.get(i));
+                        t.setPadding(12, 10, 12, 10);
+                        t.setTextColor(0xFF1F2937);
+                        t.setBackgroundColor(0xFFFFFFFF);
+                        t.setClickable(true);
+                        t.setOnClickListener(_v -> {
+                            edit.setText(icon + " " + labels.get(idx));
+                            edit.setSelection(edit.getText().length());
+                            coordsOut[0] = coords.get(idx)[0];
+                            coordsOut[1] = coords.get(idx)[1];
+                            suggBox.removeAllViews();
+                        });
+                        suggBox.addView(t);
+                        View div = new View(this);
+                        div.setBackgroundColor(0xFFE5E7EB);
+                        div.setLayoutParams(new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 1));
+                        suggBox.addView(div);
+                    }
+                });
+            } catch (Throwable t) {
+                runOnUiThread(() -> {
+                    suggBox.removeAllViews();
+                    TextView tv = new TextView(this);
+                    tv.setText("(Suche fehlgeschlagen)");
+                    tv.setTextColor(0xFF9CA3AF);
+                    tv.setPadding(12, 8, 12, 8);
+                    suggBox.addView(tv);
+                });
+            }
+        }).start();
+    }
+
     private void launchPlaces(TextView targetField, double[] coordsOut) {
         // v6.62.220: Patrick (03.05. 17:49): "kannst du da so einen Stecknadel-
         // Picker einbauen, dass man vielleicht auch ueber die Stecknadel auf
@@ -1158,21 +1286,33 @@ public class CallLogActivity extends AppCompatActivity {
         final double[] pickupCoords = { Double.NaN, Double.NaN };
         final double[] destCoords = { Double.NaN, Double.NaN };
 
-        TextView tvPickup = new TextView(this);
+        // 🆕 v6.66.97 (Patrick 18.09. 10:17+10:18 Bridge):
+        //   EditText mit Live-Autocomplete statt TextView+MapPicker-Umweg. Ab 3 Zeichen
+        //   holt Nominatim Vorschläge (400ms Debounce), Tap-Vorschlag setzt Adresse+Coords.
+        //   Wrapper-Trick: der bestehende Code arbeitet mit "TextView tvPickup" — wir geben
+        //   den EditText als TextView-Referenz weiter (EditText extends TextView).
+        final android.widget.EditText etPickupEdit = new android.widget.EditText(this);
+        etPickupEdit.setHint("Abholort tippen — Vorschläge erscheinen unten");
+        etPickupEdit.setPadding(padHalf, pad, padHalf, pad);
+        etPickupEdit.setBackgroundColor(0xFFF1F5F9);
+        etPickupEdit.setSingleLine();
         if (!isHotel && crm != null && crm.address != null) {
-            tvPickup.setText("📍 " + crm.address);
+            etPickupEdit.setText("📍 " + crm.address);
             if (crm.lat != null && crm.lon != null) {
                 pickupCoords[0] = crm.lat; pickupCoords[1] = crm.lon;
             } else if (!crm.address.isEmpty()) {
-                geocodeAndFill(crm.address, tvPickup, pickupCoords);
+                geocodeAndFill(crm.address, etPickupEdit, pickupCoords);
             }
         } else {
-            tvPickup.setText("📍 Abholort wählen…");
+            etPickupEdit.setText("📍 Abholort wählen…");
         }
-        tvPickup.setPadding(padHalf, pad, padHalf, pad);
-        tvPickup.setBackgroundColor(0xFFF1F5F9);
-        tvPickup.setOnClickListener(v -> launchPlaces(tvPickup, pickupCoords));
-        layout.addView(tvPickup);
+        layout.addView(etPickupEdit);
+        final LinearLayout suggBoxPickup = new LinearLayout(this);
+        suggBoxPickup.setOrientation(LinearLayout.VERTICAL);
+        suggBoxPickup.setBackgroundColor(0xFFF3F4F6);
+        layout.addView(suggBoxPickup);
+        wireAutocomplete(etPickupEdit, suggBoxPickup, pickupCoords, "📍");
+        final TextView tvPickup = etPickupEdit;
 
         TextView btnSwap = new TextView(this);
         btnSwap.setText("⇅ Abholort ↔ Ziel tauschen");
@@ -1188,21 +1328,29 @@ public class CallLogActivity extends AppCompatActivity {
         btnSwap.setClickable(true);
         layout.addView(btnSwap);
 
-        TextView tvDest = new TextView(this);
+        // 🆕 v6.66.97: EditText+Autocomplete für Ziel — gleiche Logik wie Pickup.
+        final android.widget.EditText etDestEdit = new android.widget.EditText(this);
+        etDestEdit.setHint("Zielort tippen — Vorschläge erscheinen unten");
+        etDestEdit.setPadding(padHalf, pad, padHalf, pad);
+        etDestEdit.setBackgroundColor(0xFFF1F5F9);
+        etDestEdit.setSingleLine();
         if (isHotel && crm != null && crm.address != null) {
-            tvDest.setText("🎯 " + crm.address);
+            etDestEdit.setText("🎯 " + crm.address);
             if (crm.lat != null && crm.lon != null) {
                 destCoords[0] = crm.lat; destCoords[1] = crm.lon;
             } else if (!crm.address.isEmpty()) {
-                geocodeAndFill(crm.address, tvDest, destCoords);
+                geocodeAndFill(crm.address, etDestEdit, destCoords);
             }
         } else {
-            tvDest.setText("🎯 Zielort wählen…");
+            etDestEdit.setText("🎯 Zielort wählen…");
         }
-        tvDest.setPadding(padHalf, pad, padHalf, pad);
-        tvDest.setBackgroundColor(0xFFF1F5F9);
-        tvDest.setOnClickListener(v -> launchPlaces(tvDest, destCoords));
-        layout.addView(tvDest);
+        layout.addView(etDestEdit);
+        final LinearLayout suggBoxDest = new LinearLayout(this);
+        suggBoxDest.setOrientation(LinearLayout.VERTICAL);
+        suggBoxDest.setBackgroundColor(0xFFF3F4F6);
+        layout.addView(suggBoxDest);
+        wireAutocomplete(etDestEdit, suggBoxDest, destCoords, "🎯");
+        final TextView tvDest = etDestEdit;
 
         btnSwap.setOnClickListener(_v -> {
             String pickTxt = tvPickup.getText().toString();
@@ -1244,6 +1392,47 @@ public class CallLogActivity extends AppCompatActivity {
         spPax.setSelection(0);
         layout.addView(spPax);
 
+        // 🆕 v6.66.97 (Patrick 18.09. 10:20 Bridge): Fahrzeug-Auswahl —
+        //   Fahrt ist nicht immer für den anrufenden Admin selbst. Default = eigenes Fzg.
+        TextView lblVeh = new TextView(this);
+        lblVeh.setText("🚗 Fahrzeug");
+        lblVeh.setTextSize(12);
+        lblVeh.setPadding(0, pad, 0, padHalf);
+        layout.addView(lblVeh);
+        final android.widget.Spinner spVeh = new android.widget.Spinner(this);
+        final java.util.List<String> vehIds = new java.util.ArrayList<>();
+        final java.util.List<String> vehLabels = new java.util.ArrayList<>();
+        // Erst-Eintrag = aktuelles Fahrzeug (nichts geändert)
+        vehIds.add(vehicleId);
+        vehLabels.add("Selbst (" + vehicleId + ")");
+        final android.widget.ArrayAdapter<String> vehAdapter =
+            new android.widget.ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, vehLabels);
+        spVeh.setAdapter(vehAdapter);
+        spVeh.setSelection(0);
+        layout.addView(spVeh);
+        // Fahrzeuge asynchron laden
+        FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("vehicles")
+            .addListenerForSingleValueEvent(new ValueEventListener() {
+                @Override public void onDataChange(@NonNull DataSnapshot snap) {
+                    try {
+                        for (DataSnapshot c : snap.getChildren()) {
+                            String vid = c.getKey();
+                            if (vid == null || vid.equals(vehicleId)) continue;
+                            String vname = c.child("name").getValue(String.class);
+                            String driver = c.child("currentDriverName").getValue(String.class);
+                            Boolean online = c.child("online").getValue(Boolean.class);
+                            String label = (vname != null ? vname : vid);
+                            if (driver != null && !driver.isEmpty()) label += " · " + driver;
+                            if (Boolean.TRUE.equals(online)) label += " 🟢";
+                            vehIds.add(vid);
+                            vehLabels.add(label);
+                        }
+                        vehAdapter.notifyDataSetChanged();
+                    } catch (Throwable _ig) { /* nicht crashen */ }
+                }
+                @Override public void onCancelled(@NonNull DatabaseError err) {}
+            });
+
         new AlertDialog.Builder(this)
             .setTitle("🚗 SOFORT-Fahrt anlegen")
             .setView(scroll)
@@ -1263,8 +1452,11 @@ public class CallLogActivity extends AppCompatActivity {
                 if (crm != null) r.put("customerId", crm.id);
                 r.put("customerPhone", e.number);
                 r.put("customerMobile", crm != null && crm.mobilePhone != null ? crm.mobilePhone : e.number);
-                r.put("vehicleId", vehicleId);
-                r.put("assignedVehicle", vehicleId);
+                // 🆕 v6.66.97: Ausgewähltes Fahrzeug (default = eigenes)
+                int selVehIdx = spVeh.getSelectedItemPosition();
+                String selVeh = (selVehIdx >= 0 && selVehIdx < vehIds.size()) ? vehIds.get(selVehIdx) : vehicleId;
+                r.put("vehicleId", selVeh);
+                r.put("assignedVehicle", selVeh);
                 r.put("status", "accepted");
                 r.put("pickup", pickup);
                 if (!Double.isNaN(pickupCoords[0])) {

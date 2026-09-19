@@ -32596,6 +32596,44 @@ exports.onRideUpdated = onValueUpdated(
                     });
                 }
 
+                // 🆕 v6.66.106 (Patrick 19.09. 11:00-11:15 Bridge 'Rechnung an Auftraggeber
+                //   automatisch wie beim Hotel — Vetter ist auch nur eine Art Hotel/Firma/
+                //   Lieferant/Auftraggeber, gleicher Ablauf'):
+                //   Wenn Ride einen Auftraggeber-Kunden hat und autoSendMail noch NICHT gesetzt
+                //   ist -> setze invoiceEmail (CRM defaultInvoiceEmail bzw. Fallback
+                //   taxiwydra@googlemail.com zur Prüfung) und autoSendMail=true. Damit greift
+                //   der v6.63.729-Mail-Trigger unten automatisch für ALLE Auftraggeber ohne
+                //   dass der Fahrer im Dialog was tippen muss.
+                // 🎯 v6.66.106 FIX Patrick 19.09. 11:19: 'nur für Vetter' — nicht auf alle
+                //   Auftraggeber breitgezogen. Explizite Whitelist der customerId(s).
+                //   Weitere Kunden koennen spaeter dazu (in _AUTO_MAIL_WHITELIST hinzufügen).
+                try {
+                    const _AUTO_MAIL_WHITELIST = new Set([
+                        'customer_1776579773525'  // Vetter Touristik (Kdnr LF000009)
+                    ]);
+                    const _autoMailUndef = after.autoSendMail === undefined || after.autoSendMail === null;
+                    const _custIdForMail = after.customerId;
+                    if (_autoMailUndef && _custIdForMail && !after.invoiceMailSentAt
+                            && _AUTO_MAIL_WHITELIST.has(_custIdForMail)) {
+                        const _cSnap = await db.ref(`customers/${_custIdForMail}`).once('value');
+                        const _c = _cSnap.val() || {};
+                        const _mailTo = String(_c.defaultInvoiceEmail || _c.rechnungsEmail || _c.billingEmail
+                            || 'taxiwydra@googlemail.com').trim();
+                        if (_mailTo.includes('@')) {
+                            await db.ref(`rides/${rideId}`).update({
+                                invoiceEmail: _mailTo,
+                                autoSendMail: true,
+                                autoSendMailSetBy: 'cloud-auftraggeber-v6.66.106'
+                            });
+                            after.invoiceEmail = _mailTo;
+                            after.autoSendMail = true;
+                            console.log(`📬 v6.66.106 Auftraggeber-Auto-Mail-Flag: ${_c.name || _custIdForMail} → ${_mailTo}`);
+                        }
+                    }
+                } catch (_autoFlagErr) {
+                    console.warn('v6.66.106 Auftraggeber-Auto-Flag Fehler (nicht kritisch):', _autoFlagErr.message);
+                }
+
                 // v6.63.729 (Patrick 18.07. 12:08 Bridge): AUTO-MAIL nach Rechnungsanlage.
                 //   Native App setzt invoiceEmail + autoSendMail=true wenn Fahrer 'Rechnung an
                 //   Auftraggeber' bestätigt. Bisher wurden die Felder aber NIRGENDS in der

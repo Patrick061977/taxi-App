@@ -36881,26 +36881,47 @@ exports.scheduledAutoCompleteStuckRides = onSchedule(
     async () => {
         try {
             const now = Date.now();
-            const cutoff = now - 2 * 60 * 60 * 1000; // 2h vor jetzt
-            const snap = await db.ref('rides').orderByChild('status').equalTo('new').once('value');
-            const data = snap.val() || {};
+            // 🆕 v6.66.105 (Patrick 19.09. 09:41 Bridge 'Schichten die 1000 Min über der Zeit
+            //   sind... Fahrten die 30 Min mind. oder mind. 1 Std über sind, weil Kollege das
+            //   nicht abgearbeitet hat, können wir als erledigt markieren'):
+            //   Erweitert um vorbestellt/assigned/accepted/sofort/warteschlange — nicht nur 'new'.
+            //   Threshold pro Status differenziert: 'new'/'sofort'/'warteschlange' schon nach 2h
+            //   completed (bisheriges Verhalten), aktiv-zugewiesene Rides erst nach 60 Min
+            //   (accepted/assigned/vorbestellt) — die konnten evtl. noch gefahren sein.
+            //   'on_way' und 'picked_up' NICHT — die sind ja bereits in Ausführung.
+            const STUCK_THRESHOLDS = {
+                'new':            2 * 60 * 60 * 1000,   // 2h (wie bisher)
+                'sofort':         2 * 60 * 60 * 1000,   // 2h
+                'warteschlange':  2 * 60 * 60 * 1000,   // 2h
+                'assigned':       60 * 60 * 1000,       // 1h
+                'accepted':       60 * 60 * 1000,       // 1h
+                'vorbestellt':    60 * 60 * 1000        // 1h
+            };
             const updates = {};
             let count = 0;
-            for (const rideId in data) {
-                const r = data[rideId];
-                if (!r || !r.pickupTimestamp) continue;
-                if (r.pickupTimestamp > cutoff) continue; // noch nicht 2h vorbei
-                if (r.assignmentLocked) continue; // manuelle Sperre respektieren
-                updates[rideId + '/status'] = 'completed';
-                updates[rideId + '/completedAt'] = now;
-                updates[rideId + '/completedBy'] = 'auto-stuck-completion';
-                updates[rideId + '/completionNote'] = 'Auto-abgeschlossen: new-Ride >2h nach Pickup-Zeit';
-                updates[rideId + '/updatedAt'] = now;
-                count++;
+            const perStatus = {};
+            // Alle offenen Statuse einzeln abfragen (Firebase-Query pro Status)
+            for (const [statusKey, thresholdMs] of Object.entries(STUCK_THRESHOLDS)) {
+                const cutoff = now - thresholdMs;
+                const snap = await db.ref('rides').orderByChild('status').equalTo(statusKey).once('value');
+                const data = snap.val() || {};
+                for (const rideId in data) {
+                    const r = data[rideId];
+                    if (!r || !r.pickupTimestamp) continue;
+                    if (r.pickupTimestamp > cutoff) continue; // noch nicht überfällig
+                    if (r.assignmentLocked) continue; // manuelle Sperre respektieren
+                    updates[rideId + '/status'] = 'completed';
+                    updates[rideId + '/completedAt'] = now;
+                    updates[rideId + '/completedBy'] = 'auto-stuck-completion-v105';
+                    updates[rideId + '/completionNote'] = `Auto-abgeschlossen: ${statusKey}-Ride >${thresholdMs / 60000} Min nach Pickup-Zeit`;
+                    updates[rideId + '/updatedAt'] = now;
+                    count++;
+                    perStatus[statusKey] = (perStatus[statusKey] || 0) + 1;
+                }
             }
             if (count > 0) {
                 await db.ref('rides').update(updates);
-                console.log(`✅ scheduledAutoCompleteStuckRides: ${count} stuck-new-Rides auf completed gesetzt`);
+                console.log(`✅ scheduledAutoCompleteStuckRides v105: ${count} stuck-Rides auf completed`, perStatus);
             }
         } catch (e) {
             console.error('scheduledAutoCompleteStuckRides Fehler:', e.message);

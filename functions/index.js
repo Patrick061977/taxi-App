@@ -32461,12 +32461,22 @@ exports.onRideUpdated = onValueUpdated(
                 //   rechnung. Überweisung brauchen wir nicht."
                 //   Bisher griff das nur für Hotel+bar. Jetzt: preferredPayment respektieren
                 //   für alle CRM-Werte. ueberweisung-Schreibvarianten als rechnung mappen.
+                // 🔧 v6.66.107 (Patrick 19.09. 11:19 Bridge Vetter): auch bei
+                //   ride.paymentMethod = stripe/karte/ec das CRM preferredPayment=rechnung
+                //   respektieren, WENN die Ride nicht tatsächlich (Stripe) bezahlt wurde.
+                //   Symptom: 20-26-2279 zeigte 'per Stripe Online-Zahlung erhalten' obwohl
+                //   Vetter preferredPayment=rechnung hat → 'Zahlbar innerhalb 14 Tagen'.
                 const _ueberweisungVariants = ['ueberweisung', 'uberweisung', 'überweisung'];
                 let _effectivePaymentMethod = after.paymentMethod || 'cash';
+                const _actualStripePaid = after.paymentMethod === 'stripe' && (after.stripePaymentStatus === 'paid' || after.paymentStatus === 'bezahlt');
                 if (after.paymentMethod === 'invoice_auftraggeber' || after.paymentMethod === 'bar') {
                     if (_preferredPayment === 'bar') _effectivePaymentMethod = 'bar';
                     else if (_preferredPayment === 'rechnung' || _ueberweisungVariants.includes(_preferredPayment)) _effectivePaymentMethod = 'rechnung';
                     // sonst: ride.paymentMethod beibehalten
+                } else if (!_actualStripePaid && (_preferredPayment === 'rechnung' || _ueberweisungVariants.includes(_preferredPayment))) {
+                    // 🔧 v6.66.107: CRM preferredPayment=rechnung überschreibt auch stripe/karte/ec/…
+                    //   solange die Fahrt nicht tatsächlich per Stripe bezahlt wurde.
+                    _effectivePaymentMethod = 'rechnung';
                 }
                 const _hotelZahltBar = _effectivePaymentMethod === 'bar';
                 // 🔧 v6.63.641: Stripe-bezahlte Fahrten ebenfalls als "jetzt bezahlt" markieren

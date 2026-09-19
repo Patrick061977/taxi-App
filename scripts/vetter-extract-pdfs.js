@@ -15,16 +15,30 @@ const PROMPT = `Du analysierst einen Vetter-Touristik Fahrauftrag (PDF, oft Scan
 
 Extrahiere ALLE Fahrten aus dem Dokument. Ein Dokument kann mehrere Fahrten enthalten.
 
+⚠️ WICHTIG — Struktur der Vetter-Aufträge:
+- Es gibt EIN Bulletin je Tag mit "Abreiseplanung" und "Ankunftsplanung".
+- Pro Uhrzeit steht ein PICKUP-ORT ("Seetelhotel Villa Esplanade" o.ä.) als Überschrift.
+- DARUNTER folgt eine TABELLE mit Fahrgästen: NACHNAME, VORNAME | Telefon | Zuweisungs-Code (V… oder 01505) | Bemerkung.
+- Zeilen wie "Übergabe folgender Kunden an / <Name>" oder "Übernahme folgender Kunden von / <Name>"
+  bezeichnen den BUS-FAHRER/ÜBERGABEPERSON (z.B. "Taranu, Mihaita Cristinel") — das ist KEIN Fahrgast!
+  Sie stehen als Trennzeile ZWISCHEN Pickup-Header und der Fahrgast-Tabelle.
+
+Regel: extrahiere als kunde_name/passagiere NUR Namen aus der Fahrgast-Tabelle unterhalb des Pickup-Orts.
+Ignoriere die "Übergabe/Übernahme folgender Kunden"-Zeile komplett — das ist der Bus-Fahrer.
+
+Wenn eine Uhrzeit MEHRERE Fahrgäste hat (z.B. Ehepaar Handschuh, Günter + Handschuh, Ingrid),
+mach EINE Fahrt mit personen_anzahl=Summe und kunde_name="Handschuh, Günter + Ingrid" bzw. "Fam. Handschuh".
+
 Pro Fahrt extrahiere:
 - datum (TT.MM.JJJJ)
-- zeit_abholung (HH:MM) — wann Patient abgeholt werden soll
-- pickup_adresse (Strasse, PLZ, Ort — meist Interferry/Faehre Swinemuende oder Hotel)
-- ziel_adresse (Strasse, PLZ, Ort — meist Patienten-Adresse oder Klinik)
-- personen_anzahl (Zahl)
-- kunde_name (Name des Passagiers, falls erkennbar)
-- telefon (falls vorhanden)
-- richtung (entweder "Anreise" wenn von Faehre/Bahnhof zum Patient/Hotel ODER "Abreise" wenn umgekehrt ODER "Transfer" sonst)
-- notizen (sonstige relevante Infos: Gepaeck, Rollstuhl, etc.)
+- zeit_abholung (HH:MM) — wann Fahrgast abgeholt werden soll
+- pickup_adresse (Strasse, PLZ, Ort — meist Hotel Interferie/Faehre Swinemuende oder ein Hotel Heringsdorf/Bansin/Ahlbeck)
+- ziel_adresse (Strasse, PLZ, Ort — meist Patienten-Hotel oder umgekehrt)
+- personen_anzahl (Zahl der Fahrgäste in DIESER Fahrt)
+- kunde_name (Nachname des/der Fahrgast(e) aus der Tabelle — NICHT der Bus-Fahrer aus Übergabe/Übernahme-Zeile!)
+- telefon (aus der Fahrgast-Tabelle, falls vorhanden)
+- richtung ("Anreise" wenn Fahrgast von Faehre/Bahnhof zum Patient/Hotel, "Abreise" umgekehrt, sonst "Transfer")
+- notizen (Sitzplatz, Gepaeck, Rollstuhl, etc.)
 
 Antworte AUSSCHLIESSLICH mit reinem JSON in diesem Format (KEIN Markdown, KEIN Text drumherum):
 {"fahrten": [{"datum": "...", "zeit_abholung": "...", "pickup_adresse": "...", "ziel_adresse": "...", "personen_anzahl": N, "kunde_name": "...", "telefon": "...", "richtung": "...", "notizen": "..."}]}

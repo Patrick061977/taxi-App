@@ -288,11 +288,15 @@ function buildInvoiceHtml({ invoiceNumber, ride, customer, settings, invoice }) 
         : '';
 
     // Fahrtdetails-Box (nur wenn Route/Daten vorhanden)
+    // 🆕 Patrick 19.09. 09:44 Bridge 'wegen Übersicht + Großraumzuschlag ab 5 Personen':
+    //   Personenzahl direkt in Fahrtdetails-Kopf statt nur in Positions-Bezeichnung.
+    const passengers = parseInt(r.passengers || r.paxCount || 0) || 0;
     const showRouteBox = pickup || destination || guestName || fahrtDatum;
     const fahrtBox = showRouteBox ? `
         <div class="fahrt-box">
             <div class="fahrt-title">Fahrtdetails:</div>
             ${guestName ? `<div>Fahrgast: ${esc(guestName)}</div>` : ''}
+            ${passengers > 0 ? `<div>Personen: ${passengers}</div>` : ''}
             ${fahrtDatum ? `<div>Datum: ${esc(fahrtDatum)}${fahrtZeit ? '  |  Uhrzeit: ' + esc(fahrtZeit) + ' Uhr' : ''}</div>` : ''}
             ${pickup ? `<div>Von: ${esc(pickup)}</div>` : ''}
             ${destination ? `<div>Nach: ${esc(destination)}</div>` : ''}

@@ -42,25 +42,6 @@
                 android:textSize="9sp"
                 android:textStyle="bold" />
 
-            <!-- v6.63.258 (Patrick 10.06. 06:23): BEZAHLT-Badge wenn Kunde Stripe-Vorkasse
-                 schon abgeschlossen hat. Fahrer kassiert dann NICHT mehr Bar/Karte.
-                 v6.63.506 (Patrick 28.06.): groesser + prominenter (14sp, mehr Padding). -->
-            <TextView
-                android:id="@+id/tv_paid_badge"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="5dp"
-                android:background="#059669"
-                android:paddingStart="6dp"
-                android:paddingTop="2dp"
-                android:paddingEnd="6dp"
-                android:paddingBottom="2dp"
-                android:text="💵 BEZAHLT"
-                android:textColor="#FFFFFF"
-                android:textSize="10sp"
-                android:textStyle="bold"
-                android:visibility="gone" />
-
             <View
                 android:layout_width="0dp"
                 android:layout_height="1dp"
@@ -72,9 +53,29 @@
                 android:layout_height="wrap_content"
                 android:text="Sofort"
                 android:textColor="#F8FAFC"
-                android:textSize="14sp"
+                android:textSize="13sp"
                 android:textStyle="bold" />
         </LinearLayout>
+
+        <!-- v6.66.119 (Patrick 20.09. 16:24 Bridge "das sieht scheisse aus, das passt
+             nicht auf den Bildschirm"): Payment-Badge auf eigene Zeile UNTER Status +
+             Zeit. Vorher war Badge in Status-Zeile, hat aber Zeit rausgedraengt bei
+             langem Text wie "RECHNUNG → Strandhotel Ostseeblick". -->
+        <TextView
+            android:id="@+id/tv_paid_badge"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="3dp"
+            android:background="#059669"
+            android:paddingStart="6dp"
+            android:paddingTop="2dp"
+            android:paddingEnd="6dp"
+            android:paddingBottom="2dp"
+            android:text="💵 BEZAHLT"
+            android:textColor="#FFFFFF"
+            android:textSize="10sp"
+            android:textStyle="bold"
+            android:visibility="gone" />
 
         <TextView
             android:id="@+id/tv_customer_name"

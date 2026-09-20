@@ -7,7 +7,7 @@
  */
 
 // 🆕 v6.25.5: Cloud Function Version — wird in Firebase gespeichert für App-Anzeige
-const CLOUD_FUNCTIONS_VERSION = '6.66.116';
+const CLOUD_FUNCTIONS_VERSION = '6.66.119';
 const CLOUD_FUNCTIONS_BUILD = '20.09.2026 CET';
 
 const { onRequest } = require('firebase-functions/v2/https');
@@ -13654,6 +13654,20 @@ async function sendBookingConfirmationEmail(ride, rideId) {
     } catch (_) {}
     const priceLine = (ride.price && Number(ride.price) > 0) ? `Preis: ${Number(ride.price).toFixed(2)} EUR\n\n` : '';
     const personenLine = (ride.passengers && Number(ride.passengers) > 1) ? `Personen: ${ride.passengers}\n` : '';
+    // 🆕 v6.66.119 (Patrick 20.09. 16:25 Bridge Frau Kretschmar): Zwischenstopps in
+    //   Email-Bestätigung. Vorher fehlte das Feld komplett — Buchung "Bahnhof → Brise
+    //   → Bansin" zeigte nur "Von Bahnhof, Nach Bansin", die Brise verschwand.
+    let waypointsLine = '';
+    if (Array.isArray(ride.waypoints) && ride.waypoints.length > 0) {
+        const wpAddrs = ride.waypoints
+            .map(w => (typeof w === 'string') ? w : (w && w.address ? w.address : ''))
+            .filter(a => a && a.trim().length > 0);
+        if (wpAddrs.length > 0) {
+            waypointsLine = wpAddrs.length === 1
+                ? `Zwischenstopp: ${wpAddrs[0]}\n`
+                : `Zwischenstopps: ${wpAddrs.join(' → ')}\n`;
+        }
+    }
     const subject = `Ihre Taxi-Buchung am ${dateStr} um ${timeStr} Uhr — Funk Taxi Heringsdorf`;
     const text =
         anrede + ',\n\n' +
@@ -13662,6 +13676,7 @@ async function sendBookingConfirmationEmail(ride, rideId) {
         `Datum: ${weekday}, ${dateStr}\n` +
         `Abholzeit: ${timeStr} Uhr\n` +
         `Von: ${ride.pickup || '-'}\n` +
+        waypointsLine +
         `Nach: ${ride.destination || '-'}\n` +
         personenLine +
         priceLine +

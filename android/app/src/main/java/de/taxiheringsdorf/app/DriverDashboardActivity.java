@@ -5726,32 +5726,26 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 //   • Vorbestellung in Zukunft + Losfahrt noch NICHT faellig → 'HH:MM → 🚗 HH:MM (Nmin)'
                 //   • Vorbestellung in Zukunft + Losfahrt schon faellig     → 'HH:MM → ⚠️ JETZT (Nmin)'
                 //   • Sofort (pickupTimestamp = jetzt / Vergangenheit)      → 'Sofort → 🚗 Nmin'
-                // 🔧 v6.66.118 (Patrick 20.09. 16:11 Bridge: "sehe die Ankunftszeit nicht,
-                //   was heißt eigentlich bis?"): Pickup-Zeit prominent voraus, Anfahrt/Losfahrt
-                //   klar labeln ("los 16:19") damit Fahrer den Wert nicht als "bis" liest.
+                // 🔧 v6.66.119 (Patrick 20.09. 16:24 Bridge "passt nicht auf den Bildschirm"):
+                //   Zurueck zu KOMPAKTEM Format. 📍-Symbol vorne, keine langen Losfahrt-
+                //   Zusaetze rechts (nur Anfahrt-Min, kein extra HH:mm Wert der als "bis"
+                //   missverstanden wird).
                 String _stLowT = r.status != null ? r.status.toLowerCase() : "";
+                _displayTime = "📍 " + _displayTime;
                 if (r.drivingTimeToPickup != null && r.drivingTimeToPickup > 0) {
                     if (r.pickupTimestamp != null && r.pickupTimestamp > System.currentTimeMillis()) {
                         long _losfahrtMs = r.pickupTimestamp - r.drivingTimeToPickup * 60_000L;
-                        if (_losfahrtMs > System.currentTimeMillis()) {
-                            java.text.SimpleDateFormat _lfFmt = new java.text.SimpleDateFormat("HH:mm", Locale.GERMANY);
-                            _lfFmt.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
-                            _displayTime = "📍 " + _displayTime + "  · los " + _lfFmt.format(new java.util.Date(_losfahrtMs))
-                                + " (" + r.drivingTimeToPickup + "min)";
-                        } else {
-                            _displayTime = "📍 " + _displayTime + "  · ⚠️ JETZT LOS (" + r.drivingTimeToPickup + "min)";
+                        if (_losfahrtMs <= System.currentTimeMillis()) {
+                            _displayTime += " ⚠️ los!";
                         }
+                        // sonst: nur pickup-Zeit reicht, Fahrer weiss selbst wann losfahren
                     } else {
-                        // Sofortfahrt oder pickupTimestamp in Vergangenheit — einfach Anfahrt anzeigen
-                        _displayTime = "📍 " + _displayTime + "  · 🚗 " + r.drivingTimeToPickup + " min";
+                        // Sofort/vergangen — Anfahrt-Minuten
+                        _displayTime += " 🚗 " + r.drivingTimeToPickup + "min";
                     }
-                } else {
-                    _displayTime = "📍 " + _displayTime;
                 }
-                // v6.62.75: Wenn Status picked_up + Live-ETA zum Ziel verfuegbar
-                // v6.62.81: kompakter — '⏱️ X min' statt 'Ziel in X Min'
                 if (_stLowT.equals("picked_up") && r.drivingTimeToDestination != null && r.drivingTimeToDestination > 0) {
-                    _displayTime += "  · 🎯 " + r.drivingTimeToDestination + "min";
+                    _displayTime += " 🎯 " + r.drivingTimeToDestination + "min";
                 }
                 tvTime.setText(_displayTime);
 

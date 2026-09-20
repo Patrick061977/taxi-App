@@ -7,7 +7,7 @@
  */
 
 // 🆕 v6.25.5: Cloud Function Version — wird in Firebase gespeichert für App-Anzeige
-const CLOUD_FUNCTIONS_VERSION = '6.66.112';
+const CLOUD_FUNCTIONS_VERSION = '6.66.116';
 const CLOUD_FUNCTIONS_BUILD = '20.09.2026 CET';
 
 const { onRequest } = require('firebase-functions/v2/https');
@@ -3855,6 +3855,13 @@ async function sendCustomerWhatsAppNotification(ride, rideId, type) {
     const trackingLink = `https://umwelt-taxi-insel-usedom.de/Taxi-App/track.html?ride=${rideId}`;
     let message = '';
 
+    // 🆕 v6.66.116 (Patrick 20.09. 15:59 Bridge): kein Preis in Kunden-SMS bei
+    //   Transportschein/Krankenschein — Krankenkasse zahlt, Kunde will/soll den
+    //   Preis nicht sehen. Gleiches Prinzip wie bei bereits-vorab-bezahlten Fahrten.
+    const _pm = (ride.paymentMethod || '').toLowerCase();
+    const _skipPriceForCustomer = _pm.startsWith('transportschein') || _pm === 'invoice_auftraggeber';
+    const _priceLine = (ride.price && !_skipPriceForCustomer) ? `💰 Preis: ca. ${ride.price}€` : '';
+
     if (type === 'booking_confirmed') {
         const driverInfo = ride.driverName ? `\n👤 Fahrer: ${ride.driverName}` : '';
         const vehicleInfo = ride.vehicle ? `\n🚗 Fahrzeug: ${ride.vehicle}${ride.vehiclePlate ? ' (' + ride.vehiclePlate + ')' : ''}` : '';
@@ -3863,7 +3870,7 @@ async function sendCustomerWhatsAppNotification(ride, rideId, type) {
             `📍 Von: ${ride.pickup || '?'}\n` +
             `🎯 Nach: ${ride.destination || '?'}\n` +
             `🕐 Abholung: ${ride.pickupTime || 'Sofort'}\n` +
-            (ride.price ? `💰 Preis: ca. ${ride.price}€` : '') +
+            _priceLine +
             driverInfo + vehicleInfo +
             `\n\n📲 Fahrt live verfolgen:\n${trackingLink}\n\n` +
             `📞 Bei Fragen: 038378/22022`;
@@ -3874,7 +3881,7 @@ async function sendCustomerWhatsAppNotification(ride, rideId, type) {
             `📍 Von: ${ride.pickup || '?'}\n` +
             `🎯 Nach: ${ride.destination || '?'}\n` +
             `🕐 Abholung: ${ride.pickupTime || 'Sofort'}\n` +
-            (ride.price ? `💰 Preis: ca. ${ride.price}€` : '') +
+            _priceLine +
             `\n\n✅ Sie erhalten Updates sobald ein Fahrer zugewiesen wird.\n\n` +
             `📞 Bei Fragen: 038378/22022`;
 

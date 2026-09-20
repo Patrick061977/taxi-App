@@ -6,6 +6,12 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [6.66.116] - 2026-09-20 (Kein Preis in SMS bei Transportschein)
+
+**Patrick 20.09. 15:59 Bridge:** *„sobald Krankenschein oder Transportschein angeklickt ist, braucht der Kunde keinen Fahrpreis bekommen."* Kunden-SMS/WhatsApp `booking_confirmed` und `booking_new` lassen die `💰 Preis:`-Zeile weg wenn `paymentMethod` startsWith `transportschein` oder `invoice_auftraggeber`. Krankenkasse/Sozialamt zahlt, Kunde soll den Preis nicht sehen.
+
+---
+
 ## [6.66.115] - 2026-09-20 (Payment-Badge kompakter)
 
 **Patrick 20.09. 15:57 Bridge:** *„Ja genau schon so wie ich das haben wollte aber ist ein bisschen groß, das kann ruhig ein bisschen kleiner sein. Das muss ruhig daneben dass der fahrer weiß okay das muss ich danach drücken."* Text von 15sp auf 10sp, Padding 8dp→6dp / 3dp→2dp.

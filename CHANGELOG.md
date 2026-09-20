@@ -6,6 +6,32 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [6.66.113] - 2026-09-20 (Payment-Badge im Fahrer-Hauptscreen)
+
+### 🧾 Fahrer sieht die Bezahlmethode oben auf der Ride-Card
+
+**Patrick 20.09. 15:46-15:47 Bridge:** *„Was ich jetzt vielleicht auch noch machen würde, wenn der Fahrer jetzt die Fahrt sieht in seinem Hauptscreen, dass man da noch sieht, was das für eine Bezahlmethode ist ... Hotel-Fahrten Rechnung an Auftraggeber oder Barzahlung oder Vorkasse ... Transportschein oder schon bezahlt oder Rechnung an Auftraggeber, alles was den Kunden betrifft, dass der Fahrer Bescheid weiß was er machen muss."*
+
+**Vorher:** `tvPaidBadge` zeigte NUR "💵 VORAB BEZAHLT" bei Stripe/Vorkasse. Alle anderen Zahlmethoden waren unsichtbar bis der Fahrer den Bezahl-Dialog öffnet.
+
+**Fix `DriverDashboardActivity.java`:**
+- Ride-Model erweitert um `isAuftraggeberBooking`, `auftraggeberName`, `paymentResponsible`
+- Badge-Renderer entscheidet:
+  - `stripePaymentStatus='paid'` oder `paymentMethod='vorkasse'` → "💵 VORAB BEZAHLT" (dunkelgrün)
+  - Auftraggeber-Booking + Rechnung → "🧾 RECHNUNG → {AuftraggeberName}" (blau)
+  - Rechnung/Überweisung normal → "🧾 RECHNUNG" (blau)
+  - `paymentMethod` startsWith `transportschein` → "📄 TRANSPORTSCHEIN" (lila)
+  - Bar → "💵 BAR" (amber)
+  - Karte/EC/Stripe (nicht paid) → "💳 KARTE" (amber)
+  - Kein paymentMethod + kein Auftraggeber → kein Badge (Fahrer wählt frei)
+
+**Beispiel Vetter-Fahrt:** Badge oben "🧾 RECHNUNG → Vetter Touristik" — Fahrer weiß sofort dass er nichts kassiert.
+**Beispiel Vorkasse-Buchung:** Badge "💵 VORAB BEZAHLT" dunkelgrün — Fahrer merkt sofort, kein Kassieren mehr.
+
+**Android versionCode/versionName** auf 6066113/6.66.113 gebumpt (AppUpdatePlugin-Trigger).
+
+---
+
 ## [6.66.112] - 2026-09-20 (30-Min-Cutoff-Freeze + 5-Min-Karenz)
 
 ### 🔒 Zuweisung wird 30 Min vor Pickup fest — kein Ping-Pong mehr in der heißen Zone

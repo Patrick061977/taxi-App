@@ -5315,6 +5315,11 @@ public class DriverDashboardActivity extends AppCompatActivity {
         //   und stripeCheckoutUrl gesetzt — der Webhook kann verspätet kommen. Native erkennt
         //   damit die Vorkasse-Absicht auch VOR Bezahl-Bestätigung.
         String stripeCheckoutUrl;
+        // 🆕 v6.66.113 (Patrick 20.09. 15:47 Bridge): Payment-Badge in Ride-Card oben.
+        //   Fahrer sieht sofort was er beim Fahrtende drücken muss.
+        Boolean isAuftraggeberBooking;
+        String auftraggeberName;
+        String paymentResponsible;
         // 🆕 v6.63.312: Email + customerId für 1-Klick-Mail-Vorausfuellung beim 'Email-Rechnung'-Flow
         String customerEmail, email, customerId;
         Integer passengers; // v6.63.619: Personenzahl für Grab-Dialog
@@ -5328,6 +5333,14 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 r.paymentMethod = s.child("paymentMethod").getValue(String.class);
                 r.stripePaymentStatus = s.child("stripePaymentStatus").getValue(String.class);
                 r.stripeCheckoutUrl = s.child("stripeCheckoutUrl").getValue(String.class); // v6.63.671
+                // v6.66.113: Auftraggeber-Info für Payment-Badge
+                r.isAuftraggeberBooking = s.child("_isAuftraggeberBooking").getValue(Boolean.class);
+                r.auftraggeberName = firstNonEmpty(
+                    s.child("auftraggeberName").getValue(String.class),
+                    s.child("_auftraggeberName").getValue(String.class),
+                    s.child("auftraggeber").getValue(String.class)
+                );
+                r.paymentResponsible = s.child("paymentResponsible").getValue(String.class);
                 // 🆕 v6.63.312
                 r.customerEmail = s.child("customerEmail").getValue(String.class);
                 r.email = s.child("email").getValue(String.class);
@@ -5920,12 +5933,50 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 //   Fahrer sieht sofort dass Kunde schon bezahlt hat -> kein Bar/Karte mehr kassieren.
                 // 🔄 v6.63.502 (Patrick 28.06.): auch vorkasse-paymentMethod erkennen + Badge
                 //   prägnanter (größer, Dollar-Icon) — Patrick: "bezahlt müsste besser zu sehen sein"
+                // 🆕 v6.66.113 (Patrick 20.09. 15:47): Badge zeigt ALLE Zahlmethoden damit Fahrer
+                //   sofort weiß was er beim Fahrtende drücken muss. Vorher nur bei Stripe-paid /
+                //   vorkasse — jetzt auch RECHNUNG → {Hotel}, TRANSPORTSCHEIN, BAR, KARTE.
                 if (tvPaidBadge != null) {
+                    String pm = r.paymentMethod != null ? r.paymentMethod.toLowerCase() : "";
+                    String badgeText = null;
+                    int badgeColor = Color.parseColor("#10B981"); // grün default (bezahlt-Feeling)
+                    boolean gastZahltSelber = "gast".equalsIgnoreCase(r.paymentResponsible);
                     boolean _isPaid = "paid".equalsIgnoreCase(r.stripePaymentStatus)
-                        || "vorkasse".equalsIgnoreCase(r.paymentMethod);
+                        || "vorkasse".equalsIgnoreCase(pm);
+                    boolean _hasAuftraggeber = !gastZahltSelber && (
+                            (r.isAuftraggeberBooking != null && r.isAuftraggeberBooking)
+                            || (r.auftraggeberName != null && !r.auftraggeberName.trim().isEmpty())
+                    );
+
                     if (_isPaid) {
-                        tvPaidBadge.setText("💵 VORAB BEZAHLT");
-                        tvPaidBadge.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 16);
+                        badgeText = "💵 VORAB BEZAHLT";
+                        badgeColor = Color.parseColor("#059669"); // dunkelgrün
+                    } else if (_hasAuftraggeber && ("rechnung".equals(pm) || "invoice_auftraggeber".equals(pm) || "ueberweisung".equals(pm) || pm.isEmpty())) {
+                        // Auftraggeber-Rechnung — Fahrer kassiert NICHT vor Ort
+                        String hotel = (r.auftraggeberName != null && !r.auftraggeberName.trim().isEmpty())
+                            ? r.auftraggeberName.trim() : "Auftraggeber";
+                        badgeText = "🧾 RECHNUNG → " + hotel;
+                        badgeColor = Color.parseColor("#2563EB"); // blau
+                    } else if ("rechnung".equals(pm) || "ueberweisung".equals(pm)) {
+                        badgeText = "🧾 RECHNUNG";
+                        badgeColor = Color.parseColor("#2563EB");
+                    } else if (pm.startsWith("transportschein")) {
+                        badgeText = "📄 TRANSPORTSCHEIN";
+                        badgeColor = Color.parseColor("#7C3AED"); // lila
+                    } else if ("bar".equals(pm) || "cash".equals(pm)) {
+                        badgeText = "💵 BAR";
+                        badgeColor = Color.parseColor("#F59E0B"); // amber
+                    } else if ("karte".equals(pm) || "ec".equals(pm) || "stripe".equals(pm)) {
+                        badgeText = "💳 KARTE";
+                        badgeColor = Color.parseColor("#F59E0B");
+                    }
+                    // pm leer + kein Auftraggeber → kein Badge (Fahrer wählt frei beim Abschluss)
+
+                    if (badgeText != null) {
+                        tvPaidBadge.setText(badgeText);
+                        tvPaidBadge.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 15);
+                        tvPaidBadge.setBackgroundColor(badgeColor);
+                        tvPaidBadge.setTextColor(Color.WHITE);
                         tvPaidBadge.setVisibility(View.VISIBLE);
                     } else {
                         tvPaidBadge.setVisibility(View.GONE);

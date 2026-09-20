@@ -1317,7 +1317,14 @@ public class CallLogActivity extends AppCompatActivity {
     // bei Vorbestellung, nur ohne Datum/Uhrzeit (sofort = jetzt).
     private void showSofortFahrtPickerDialog(CallEntry e, CrmCustomer crm) {
         String vehicleId = getSharedPreferences("driver", MODE_PRIVATE).getString("vehicleId", null);
-        if (vehicleId == null) { Toast.makeText(this, "Kein Fahrzeug ausgewählt", Toast.LENGTH_SHORT).show(); return; }
+        // 🔧 v6.66.109 (Patrick 20.09. 12:10 Bridge 'kein Fahrzeug gewählt' im Admin-Modus):
+        //   vorher: Guard blockierte Admin-Anfragen komplett. Jetzt: Admin darf trotzdem,
+        //   der Fahrzeug-Spinner (v6.66.97) lässt ihn eines wählen. Nur echter Fahrer ohne
+        //   Fzg-Session bekommt weiterhin die Fehlermeldung.
+        if (vehicleId == null && !isAdminMode()) {
+            Toast.makeText(this, "Kein Fahrzeug ausgewählt", Toast.LENGTH_SHORT).show();
+            return;
+        }
 
         ScrollView scroll = new ScrollView(this);
         LinearLayout layout = new LinearLayout(this);
@@ -1459,9 +1466,15 @@ public class CallLogActivity extends AppCompatActivity {
         final android.widget.Spinner spVeh = new android.widget.Spinner(this);
         final java.util.List<String> vehIds = new java.util.ArrayList<>();
         final java.util.List<String> vehLabels = new java.util.ArrayList<>();
-        // Erst-Eintrag = aktuelles Fahrzeug (nichts geändert)
-        vehIds.add(vehicleId);
-        vehLabels.add("Selbst (" + vehicleId + ")");
+        // 🔧 v6.66.109: bei vehicleId=null (Admin ohne eigene Fzg-Session) kein 'Selbst'-Eintrag.
+        //   Admin wählt aus der komplett aus Firebase geladenen Fahrzeug-Liste.
+        if (vehicleId != null) {
+            vehIds.add(vehicleId);
+            vehLabels.add("Selbst (" + vehicleId + ")");
+        } else {
+            vehLabels.add("— bitte Fahrzeug wählen —");
+            vehIds.add(null);
+        }
         final android.widget.ArrayAdapter<String> vehAdapter =
             new android.widget.ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, vehLabels);
         spVeh.setAdapter(vehAdapter);
@@ -1515,7 +1528,12 @@ public class CallLogActivity extends AppCompatActivity {
                 //   Nur eigenes Fahrzeug: 'accepted' (ich fahre selbst hin).
                 int selVehIdx = spVeh.getSelectedItemPosition();
                 String selVeh = (selVehIdx >= 0 && selVehIdx < vehIds.size()) ? vehIds.get(selVehIdx) : vehicleId;
-                boolean assigningToSelf = selVeh.equals(vehicleId);
+                // 🔧 v6.66.109: Admin ohne Fzg-Session muss ein Fzg auswählen (kein Selbst-Fallback).
+                if (selVeh == null) {
+                    Toast.makeText(this, "Bitte im Fahrzeug-Spinner ein Fahrzeug auswählen", Toast.LENGTH_LONG).show();
+                    return;
+                }
+                boolean assigningToSelf = vehicleId != null && selVeh.equals(vehicleId);
                 r.put("vehicleId", selVeh);
                 r.put("assignedVehicle", selVeh);
                 r.put("status", assigningToSelf ? "accepted" : "sofort");

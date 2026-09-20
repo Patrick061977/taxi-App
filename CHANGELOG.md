@@ -6,6 +6,26 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [6.66.119] - 2026-09-20 (Layout-Cleanup + Zwischenstopp in Email)
+
+### 🧹 Payment-Badge auf eigene Zeile — endlich Platz für Alles
+
+**Patrick 20.09. 16:24 Bridge:** *„das sieht scheisse aus, das passt nicht auf den Bildschirm."* v6.66.118 hatte Zeit 14sp + Format `📍 16:25 · los 16:19 (4min)` + Badge in derselben Zeile → alles gequetscht.
+
+**Fix:** Payment-Badge komplett aus der Status-Zeile raus, jetzt auf **eigener Zeile darunter**. Zeit auf 13sp (statt 14sp) und Format vereinfacht:
+- Vorbestellung (Losfahrt noch nicht dran): `📍 16:25` — reicht, Fahrer weiss selbst wann losfahren
+- Vorbestellung (Losfahrt akut): `📍 16:25 ⚠️ los!`
+- Sofort/vergangen: `📍 16:25 🚗 4min`
+- Picked_up mit ETA: `📍 16:25 🎯 4min`
+
+### 📧 Zwischenstopps in E-Mail-Bestätigung
+
+**Patrick 20.09. 16:25 Bridge (Frau Kretschmar):** *„sie kriegt in ihrer E-Mail-Bestätigung den Zwischenstopp nicht mit angezeigt"*. Ursache: `sendBookingConfirmationEmail` schrieb nur `Von:` und `Nach:`, `waypoints`-Array wurde ignoriert.
+
+**Fix `functions/index.js:13655`:** Vor `Nach:`-Zeile wird jetzt `Zwischenstopp:` / `Zwischenstopps:` eingefügt wenn `ride.waypoints` befüllt ist. Format `Zwischenstopps: Brise → Bansin Zentrum` (join mit `→`).
+
+---
+
 ## [6.66.118] - 2026-09-20 (Pickup-Zeit prominenter, Badge kürzer)
 
 **Patrick 20.09. 16:11-16:12 Bridge:** *„jetzt kann man oben die Zeit nicht mehr so richtig erkennen ... was heißt eigentlich immer bis? ... sehe die Ankunftszeit nicht, wann der Kollege da sein muss ... die Größe ist okay, das passt alles"*.

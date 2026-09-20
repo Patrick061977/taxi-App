@@ -5940,8 +5940,9 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 //   wenn die Fahrt jetzt dran ist"): Nur bei aktiven Fahrten anzeigen. Vorbestellungen
                 //   für morgen sollen kein Zahlungs-Badge zeigen — verwirrt sonst.
                 //   'Dran' = accepted / arrived / on_way / picked_up (nach Fahrer-Annahme).
-                boolean _paymentBadgeVisible = "accepted".equals(stl) || "arrived".equals(stl)
-                    || "on_way".equals(stl) || "picked_up".equals(stl);
+                String _stlBadge = s.toLowerCase();
+                boolean _paymentBadgeVisible = "accepted".equals(_stlBadge) || "arrived".equals(_stlBadge)
+                    || "on_way".equals(_stlBadge) || "picked_up".equals(_stlBadge);
                 if (tvPaidBadge != null && !_paymentBadgeVisible) {
                     tvPaidBadge.setVisibility(View.GONE);
                 }

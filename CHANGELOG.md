@@ -6,6 +6,12 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [6.66.115] - 2026-09-20 (Payment-Badge kompakter)
+
+**Patrick 20.09. 15:57 Bridge:** *„Ja genau schon so wie ich das haben wollte aber ist ein bisschen groß, das kann ruhig ein bisschen kleiner sein. Das muss ruhig daneben dass der fahrer weiß okay das muss ich danach drücken."* Text von 15sp auf 10sp, Padding 8dp→6dp / 3dp→2dp.
+
+---
+
 ## [6.66.114] - 2026-09-20 (Payment-Badge nur bei aktiver Fahrt)
 
 **Patrick 20.09. 15:55 Bridge:** *„die Badges sollen ja nur erscheinen wenn die Fahrt jetzt dran ist"*. Vorbestellungen für morgen sollen kein Zahlungs-Badge zeigen — würde nur ablenken. Badge jetzt nur bei accepted / arrived / on_way / picked_up (nach Fahrer-Annahme).

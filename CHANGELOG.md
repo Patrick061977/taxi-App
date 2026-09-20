@@ -6,6 +6,12 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [6.66.117] - 2026-09-20 (Build-Fix: stl scope in Payment-Badge)
+
+**APK-Build v6.66.114+115 gescheitert:** `cannot find symbol variable stl` in Zeile 5943. Der v6.66.114-Check `_paymentBadgeVisible` nutzte `stl`, aber die Variable wurde erst darunter (v6.66.113-Code) deklariert. Fix: lokale `String _stlBadge = s.toLowerCase()` im Badge-Check.
+
+---
+
 ## [6.66.116] - 2026-09-20 (Kein Preis in SMS bei Transportschein)
 
 **Patrick 20.09. 15:59 Bridge:** *„sobald Krankenschein oder Transportschein angeklickt ist, braucht der Kunde keinen Fahrpreis bekommen."* Kunden-SMS/WhatsApp `booking_confirmed` und `booking_new` lassen die `💰 Preis:`-Zeile weg wenn `paymentMethod` startsWith `transportschein` oder `invoice_auftraggeber`. Krankenkasse/Sozialamt zahlt, Kunde soll den Preis nicht sehen.

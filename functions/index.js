@@ -7,7 +7,7 @@
  */
 
 // 🆕 v6.25.5: Cloud Function Version — wird in Firebase gespeichert für App-Anzeige
-const CLOUD_FUNCTIONS_VERSION = '6.66.111';
+const CLOUD_FUNCTIONS_VERSION = '6.66.112';
 const CLOUD_FUNCTIONS_BUILD = '20.09.2026 CET';
 
 const { onRequest } = require('firebase-functions/v2/https');
@@ -2753,35 +2753,56 @@ async function autoAssignRide(rideId, rideData, _excludeVehicleIds = []) {
                         // 🔧 v6.66.108 (Patrick 20.09. 10:15 Bridge Krupp-Fall +6 Min):
                         //   'eigentlich darf gar nichts automatisch verschoben werden'.
                         //   Statt eigenmächtigem Shift: nur Admin-Push mit Konflikt-Info, Ride
-                        //   bleibt unverändert. Patrick entscheidet manuell (anderes Fahrzeug
-                        //   / Zeit-Vorschlag an Kunde / Stornierung). Zuweisung wird geblockt
-                        //   damit der Konflikt sichtbar bleibt.
-                        console.log(`   ⚠️ v6.66.108: KEIN Auto-Shift (Konflikt gemeldet) — ${best.name} erst ab ${_prevEndFormatted} frei, Pickup wäre ${_oldPickupFormatted} → benötigt ${_newPickupFormatted} (+${_delayMin} Min)`);
-                        try {
-                            await addRideLog(rideId, '⚠️', `Konflikt: Auto-Shift geblockt (+${_delayMin} Min nötig)`, {
-                                nötigeZeit: _newPickupFormatted,
-                                aktuelleZeit: _oldPickupFormatted,
-                                delta: `+${_delayMin} Min`,
-                                fahrzeug: best.name,
-                                grund: `${best.name} erst ab ${_prevEndFormatted} frei (Vorfahrt)`,
-                                entscheidung: 'manuelle Umplanung nötig'
-                            });
-                        } catch (_logErr) { /* ignore */ }
-                        try {
-                            if (typeof sendToAllAdmins === 'function') {
-                                await sendToAllAdmins(
-                                    `⚠️ <b>Konflikt — bitte manuell entscheiden</b>\n\n` +
-                                    `Kunde: ${rideData.customerName || '?'}\n` +
-                                    `Pickup: ${_oldPickupFormatted}\n` +
-                                    `Fahrzeug ${best.name} erst ab ${_prevEndFormatted} frei\n` +
-                                    `Benötigt: ${_newPickupFormatted} (+${_delayMin} Min)\n\n` +
-                                    `Optionen: anderes Fahrzeug zuweisen · Zeit ändern · Kunde absagen\n` +
-                                    `🆔 <code>${rideId}</code>`
-                                );
+                        //   bleibt unverändert. Patrick entscheidet manuell.
+                        // 🆕 v6.66.112 (Patrick 20.09. 13:47 Bridge Radegast-Fall): 5-Min-Karenz.
+                        //   feedback_karenz-5min-beide-richtungen: bis 5 Min Verspätung egal welche
+                        //   Fahrt. Wenn Konflikt <=5 Min → trotzdem zuweisen ohne Zeit-Shift, Fahrer
+                        //   kommt eben 2-5 Min später an. Kein Admin-Push, kein Wartepool.
+                        //   Nur bei >5 Min Delay → v6.66.108-Verhalten (Push + Wartepool).
+                        const _KARENZ_MIN = 5;
+                        if (_delayMin <= _KARENZ_MIN) {
+                            console.log(`   ✅ v6.66.112: ${best.name} innerhalb Karenz (+${_delayMin} Min ≤ ${_KARENZ_MIN}) — trotzdem zuweisen ohne Shift`);
+                            if (vehicleScores[best.vehicleId]) {
+                                vehicleScores[best.vehicleId].karenzUsed = _delayMin;
+                                vehicleScores[best.vehicleId].karenzNote = `${_delayMin} Min knapp aber im Karenz-Bereich`;
                             }
-                        } catch (_p) { /* ignore */ }
-                        // Ride bleibt in Wartepool — nicht automatisch dem best-Fahrzeug zuweisen
-                        return null;
+                            try {
+                                await addRideLog(rideId, '✅', `Anfahrt knapp (+${_delayMin} Min), aber im 5-Min-Karenz`, {
+                                    quelle: 'v6.66.112 Karenz-Bypass',
+                                    fahrzeug: best.name,
+                                    delayMin: _delayMin,
+                                    prevRide: _prevRide.customerName
+                                });
+                            } catch (_l) { /* ignore */ }
+                            // Fall through — Zuweisung fortsetzen (pickupTime bleibt unverändert)
+                        } else {
+                            console.log(`   ⚠️ v6.66.108: KEIN Auto-Shift (Konflikt gemeldet) — ${best.name} erst ab ${_prevEndFormatted} frei, Pickup wäre ${_oldPickupFormatted} → benötigt ${_newPickupFormatted} (+${_delayMin} Min)`);
+                            try {
+                                await addRideLog(rideId, '⚠️', `Konflikt: Auto-Shift geblockt (+${_delayMin} Min nötig)`, {
+                                    nötigeZeit: _newPickupFormatted,
+                                    aktuelleZeit: _oldPickupFormatted,
+                                    delta: `+${_delayMin} Min`,
+                                    fahrzeug: best.name,
+                                    grund: `${best.name} erst ab ${_prevEndFormatted} frei (Vorfahrt)`,
+                                    entscheidung: 'manuelle Umplanung nötig'
+                                });
+                            } catch (_logErr) { /* ignore */ }
+                            try {
+                                if (typeof sendToAllAdmins === 'function') {
+                                    await sendToAllAdmins(
+                                        `⚠️ <b>Konflikt — bitte manuell entscheiden</b>\n\n` +
+                                        `Kunde: ${rideData.customerName || '?'}\n` +
+                                        `Pickup: ${_oldPickupFormatted}\n` +
+                                        `Fahrzeug ${best.name} erst ab ${_prevEndFormatted} frei\n` +
+                                        `Benötigt: ${_newPickupFormatted} (+${_delayMin} Min)\n\n` +
+                                        `Optionen: anderes Fahrzeug zuweisen · Zeit ändern · Kunde absagen\n` +
+                                        `🆔 <code>${rideId}</code>`
+                                    );
+                                }
+                            } catch (_p) { /* ignore */ }
+                            // Ride bleibt in Wartepool — nicht automatisch dem best-Fahrzeug zuweisen
+                            return null;
+                        }
                         // ↓ Alter Auto-Shift-Code deaktiviert (bewusst tot als Referenz):
                         rideData.originalPickupTimestamp = rideData.pickupTimestamp;
                         rideData.pickupTimestamp = _newPickupTs;
@@ -22979,6 +23000,9 @@ exports.autoResolveConflicts = onSchedule(
             const optimizableRides = allRides.filter(r =>
                 r.assignedVehicle &&
                 !r.assignmentLocked &&
+                // 🆕 v6.66.112 (Patrick 20.09. 13:47): 30-Min-Freeze respektieren.
+                //   Ab 30 Min vor Pickup keine Umverteilung mehr — Zuweisung steht.
+                !r._assignmentFrozen &&
                 !['accepted', 'picked_up', 'on_way', 'completed', 'deleted', 'cancelled', 'storniert'].includes(r.status) &&
                 r.pickupTimestamp > now + vorlaufMin * 60000 &&
                 r.assignedBy !== 'cloud-auto-replan' && // Phase 1 Zuweisungen NIE anfassen
@@ -23443,7 +23467,8 @@ exports.autoResolveConflicts = onSchedule(
                     ['vorbestellt', 'assigned', 'wartepool', 'new'].includes(r.status) &&
                     r.pickupLat && r.destinationLat &&
                     (r.duration || r.estimatedDuration) &&
-                    !r.assignmentLocked  // 🆕 v6.62.959: gelockte nicht reassignen (Phase 4 pusht stattdessen)
+                    !r.assignmentLocked &&  // 🆕 v6.62.959: gelockte nicht reassignen (Phase 4 pusht stattdessen)
+                    !r._assignmentFrozen    // 🆕 v6.66.112: 30-Min-Freeze respektieren
                 );
                 if (reassignableRides.length > 0) {
                     reassignableRides.sort((a, b) => a.pickupTimestamp - b.pickupTimestamp);
@@ -34052,6 +34077,54 @@ exports.scheduledDepartureReminder = onSchedule(
 // Alte unassigned Wartepool-Rides (Pickup > 12h vorbei, kein Fahrzeug) → completed.
 // Grund: sie sind eh nicht mehr fahrbar, blockieren nur Wartepool-Anzeige.
 // completed (nicht cancelled) wegen Buchhaltung (Patricks Regel 23.07.).
+// 🆕 v6.66.112 (Patrick 20.09. 13:47 Bridge): 30-Min-Freeze-Cron.
+//   "30-35 Min vor dem Termin sollte feststehen wer die Fahrt macht. Das sollte
+//   dann auch in der Dispo stehen." Setzt _assignmentFrozen=true auf allen Rides
+//   deren Pickup ≤ 30 Min entfernt ist und die assignedVehicle haben. Optimizer
+//   Phase 2 + Phase 3 respektieren den Flag → keine Umverteilung mehr in der
+//   heißen Zone. Native-Dispo kann den Flag lesen und "🔒 fest zugewiesen"-Badge
+//   anzeigen.
+exports.scheduledFreezeAssignments = onSchedule(
+    {
+        schedule: 'every 2 minutes',
+        region: 'europe-west1',
+        timeoutSeconds: 60,
+        memory: '256MiB',
+        timeZone: 'Europe/Berlin'
+    },
+    async (event) => {
+        const now = Date.now();
+        const FREEZE_MS = 30 * 60 * 1000;
+        try {
+            const snap = await db.ref('rides').orderByChild('pickupTimestamp')
+                .startAt(now - 30 * 60000) // Rückwirkend etwas mit einbeziehen (falls Cron 2 Min zu spät)
+                .endAt(now + FREEZE_MS + 60000)
+                .once('value');
+            const updates = {};
+            let count = 0;
+            snap.forEach(c => {
+                const r = c.val();
+                if (!r) return;
+                if (r._assignmentFrozen === true) return; // schon frozen
+                if (!r.assignedVehicle) return; // nur wenn ein Fzg drauf ist
+                if (r.assignmentLocked === true) return; // Locks brauchen keinen Freeze
+                if (['completed', 'cancelled', 'storniert', 'deleted'].includes(r.status)) return;
+                if (!r.pickupTimestamp || r.pickupTimestamp - now > FREEZE_MS) return;
+                updates[`rides/${c.key}/_assignmentFrozen`] = true;
+                updates[`rides/${c.key}/_frozenAt`] = now;
+                updates[`rides/${c.key}/_frozenReason`] = '30-Min-Cutoff — Zuweisung fest';
+                count++;
+            });
+            if (count > 0) {
+                await db.ref().update(updates);
+                console.log(`🔒 v6.66.112 scheduledFreezeAssignments: ${count} Rides frozen (Pickup ≤ 30 Min)`);
+            }
+        } catch (err) {
+            console.error('scheduledFreezeAssignments Fehler:', err.message);
+        }
+    }
+);
+
 // 🆕 v6.66.111 (Patrick 20.09. 13:38 Bridge Radegast-Fall): Wartepool-Retry-Cron.
 //   Patrick: "es müsste immer irgendwie theoretisch neu berechnet werden. 30-35 Min
 //   vor dem Termin sollte feststehen wer die Fahrt macht. Kann ja immer ein bisschen

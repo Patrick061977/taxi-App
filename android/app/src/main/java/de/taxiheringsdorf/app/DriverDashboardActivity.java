@@ -5983,7 +5983,9 @@ public class DriverDashboardActivity extends AppCompatActivity {
 
                     if (badgeText != null) {
                         tvPaidBadge.setText(badgeText);
-                        tvPaidBadge.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 15);
+                        // v6.66.115 (Patrick 20.09. 15:57): kleiner — "muss nicht so riesig sein,
+                        //   ruhig daneben dass der fahrer weiß, das muss ich danach drücken"
+                        tvPaidBadge.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 10);
                         tvPaidBadge.setBackgroundColor(badgeColor);
                         tvPaidBadge.setTextColor(Color.WHITE);
                         tvPaidBadge.setVisibility(View.VISIBLE);

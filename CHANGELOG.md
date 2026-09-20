@@ -6,6 +6,29 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [6.66.111] - 2026-09-20 (Wartepool-Retry-Cron — rotierend neu bewerten)
+
+### 🔁 Wartepool-Rides werden alle 5 Min neu bewertet solange Pickup > 30 Min entfernt
+
+**Vorfall 20.09. 12:49:** Patrick änderte Radegast-Ride manuell von 13:35 auf 14:45. `onRideUpdated` reagierte mit `v6.66.78` Reassign — Konflikt-Check ergab „Tesla ab 14:43 frei, Radegast 14:45 → +0 Min zu spät", v6.66.108 blockte Auto-Shift → Ride landete im Wartepool. Zwischenzeitlich (12:58) hat cloud-auto-optimize Tesla → IK für die Seeperle-Fahrt umverteilt — Tesla ist nun frei, IK ab 14:40 anschlüssig zu Radegast 14:45. Aber niemand berechnet den Wartepool neu, `vehicleScores` bleiben eingefroren mit alter 13:35-Rechnung. Patrick per Bridge: „Es müsste immer irgendwie theoretisch neu berechnet werden. Wir sind ja rotierend und das System muss auch rotierend berechnen."
+
+**Root Cause:** `scheduledAutoAssign` behandelt nur `status='vorbestellt'`. Wartepool-Rides fallen in eine Einbahnstraße — die einzige Cloud-Function die sie berührt ist `scheduledWartepoolCleanup` (nach >12h auf `completed`). Wartepool-Rides mit veralteten Scores bleiben unsichtbar hängen.
+
+**Fix `functions/index.js:34055-34121` — neuer Cron `scheduledWartepoolRetry` (alle 5 Min):**
+- Alle Rides mit `status='wartepool'` einsammeln, sortiert.
+- Ausschluss: `assignmentLocked === true`, kein `pickupTimestamp`, Pickup ≤ 30 Min entfernt (Cutoff-Freeze), Pickup > 12h entfernt.
+- Für jeden Kandidaten: `vehicleScores`, `autoAssignLastReason`, `autoAssignLastEarlyStage` auf `null` setzen (Cache invalidieren) → `autoAssignRide` neu aufrufen.
+- Erfolg → autoAssignRide setzt `status='vorbestellt'` + Fahrzeug → Ride-Log `🔁 Wartepool-Retry: jetzt {vehName} gefunden`.
+- Weiter Wartepool → Scores sind aktualisiert, Dispo zeigt frische Ausschluss-Gründe.
+
+**30-Min-Cutoff-Regel:** ab 30 Min vor Pickup KEIN Retry mehr — Zuweisung steht fest (Patrick: „30-35 Min vor dem Termin sollte feststehen wer die Fahrt macht").
+
+**Selbstlernend-Aspekt:** invalidiert `fallback-excluded`-Marker automatisch (bei jedem Retry frisch bewertet — kein hartes „Vorheriger Versuch fehlgeschlagen"-Grabmal mehr, wenn die Ursache weg ist).
+
+**Noch nicht enthalten (v6.66.112 folgt):** visuelles „🔒 fest zugewiesen"-Badge in Dispo-Live ab 30 Min Cutoff, +5-Min-Konflikt-Karenz in autoAssignRide (aktuell noch +0 Min).
+
+---
+
 ## [6.66.110] - 2026-09-20 (App-Update-Grace bei Schicht-Ende)
 
 ### ⏳ 5-Min-Grace-Buffer verhindert Reassign-Ping-Pong bei App-Update

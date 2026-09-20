@@ -7,7 +7,7 @@
  */
 
 // 🆕 v6.25.5: Cloud Function Version — wird in Firebase gespeichert für App-Anzeige
-const CLOUD_FUNCTIONS_VERSION = '6.66.110';
+const CLOUD_FUNCTIONS_VERSION = '6.66.111';
 const CLOUD_FUNCTIONS_BUILD = '20.09.2026 CET';
 
 const { onRequest } = require('firebase-functions/v2/https');
@@ -34052,6 +34052,84 @@ exports.scheduledDepartureReminder = onSchedule(
 // Alte unassigned Wartepool-Rides (Pickup > 12h vorbei, kein Fahrzeug) → completed.
 // Grund: sie sind eh nicht mehr fahrbar, blockieren nur Wartepool-Anzeige.
 // completed (nicht cancelled) wegen Buchhaltung (Patricks Regel 23.07.).
+// 🆕 v6.66.111 (Patrick 20.09. 13:38 Bridge Radegast-Fall): Wartepool-Retry-Cron.
+//   Patrick: "es müsste immer irgendwie theoretisch neu berechnet werden. 30-35 Min
+//   vor dem Termin sollte feststehen wer die Fahrt macht. Kann ja immer ein bisschen
+//   verändert werden. Aber wir sind ja rotierend und das System muss auch rotierend
+//   berechnen."
+//   Logik: alle 5 Min alle status='wartepool'-Rides prüfen. Wenn Pickup noch >30 Min
+//   entfernt → alte vehicleScores löschen, autoAssignRide neu aufrufen. Findet er
+//   ein Fzg → status='vorbestellt' + zuweisen. Findet keiner → bleibt Wartepool,
+//   aber frische Scores für Dispo-Anzeige.
+//   Ab 30 Min vor Pickup: keine Retry mehr (Patrick's Cutoff-Regel — die Zuweisung
+//   soll dann feststehen).
+exports.scheduledWartepoolRetry = onSchedule(
+    {
+        schedule: 'every 5 minutes',
+        region: 'europe-west1',
+        timeoutSeconds: 120,
+        memory: '512MiB',
+        timeZone: 'Europe/Berlin'
+    },
+    async (event) => {
+        const now = Date.now();
+        const CUTOFF_MIN = 30 * 60 * 1000; // ab hier freeze
+        const LOOKAHEAD_HR = 12 * 60 * 60 * 1000; // nicht mehr als 12h in Zukunft prüfen
+        try {
+            const snap = await db.ref('rides').orderByChild('status').equalTo('wartepool').once('value');
+            const rides = [];
+            snap.forEach(c => {
+                const r = c.val();
+                if (!r) return;
+                if (r.assignmentLocked === true) return;
+                if (!r.pickupTimestamp) return;
+                const timeToPickup = r.pickupTimestamp - now;
+                if (timeToPickup <= CUTOFF_MIN) return; // freeze-window
+                if (timeToPickup > LOOKAHEAD_HR) return; // zu weit weg
+                rides.push({ id: c.key, ride: r, timeToPickup });
+            });
+            if (rides.length === 0) {
+                console.log('🔁 v6.66.111 WartepoolRetry: keine Kandidaten (kein Wartepool oder alle <30min)');
+                return;
+            }
+            console.log(`🔁 v6.66.111 WartepoolRetry: ${rides.length} Wartepool-Rides prüfen`);
+            let recovered = 0;
+            let stillPool = 0;
+            for (const { id, ride, timeToPickup } of rides) {
+                try {
+                    // Alte vehicleScores + fallback-excluded-Marker wegwerfen — frische Berechnung
+                    await db.ref(`rides/${id}`).update({
+                        vehicleScores: null,
+                        autoAssignLastReason: null,
+                        autoAssignLastEarlyStage: null,
+                        _wartepoolRetryAt: now
+                    });
+                    // autoAssignRide neu aufrufen — findet er jetzt ein passendes Fzg?
+                    const result = await autoAssignRide(id, ride);
+                    if (result && result.vehicleId) {
+                        // Erfolg — autoAssignRide setzt status='vorbestellt' bereits selbst
+                        console.log(`  ✅ ${id} (${ride.customerName}): jetzt ${result.name}, ${Math.round(timeToPickup/60000)}min bis Pickup`);
+                        await addRideLog(id, '🔁', `Wartepool-Retry: jetzt ${result.name} gefunden`, {
+                            quelle: 'v6.66.111 scheduledWartepoolRetry',
+                            minutenBisPickup: Math.round(timeToPickup / 60000)
+                        });
+                        recovered++;
+                    } else {
+                        // Weiterhin kein Fzg — bleibt Wartepool, aber Scores sind jetzt aktuell
+                        // (autoAssignRide hat status ggf. auf 'wartepool' zurückgesetzt oder nichts geändert)
+                        stillPool++;
+                    }
+                } catch (err) {
+                    console.error(`WartepoolRetry Fehler ${id}:`, err.message);
+                }
+            }
+            console.log(`🔁 v6.66.111 WartepoolRetry Ergebnis: ${recovered} gerettet, ${stillPool} bleiben Wartepool`);
+        } catch (err) {
+            console.error('scheduledWartepoolRetry Fehler:', err.message);
+        }
+    }
+);
+
 exports.scheduledWartepoolCleanup = onSchedule(
     {
         schedule: 'every 60 minutes',

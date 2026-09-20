@@ -6,6 +6,12 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [6.66.114] - 2026-09-20 (Payment-Badge nur bei aktiver Fahrt)
+
+**Patrick 20.09. 15:55 Bridge:** *„die Badges sollen ja nur erscheinen wenn die Fahrt jetzt dran ist"*. Vorbestellungen für morgen sollen kein Zahlungs-Badge zeigen — würde nur ablenken. Badge jetzt nur bei accepted / arrived / on_way / picked_up (nach Fahrer-Annahme).
+
+---
+
 ## [6.66.113] - 2026-09-20 (Payment-Badge im Fahrer-Hauptscreen)
 
 ### 🧾 Fahrer sieht die Bezahlmethode oben auf der Ride-Card

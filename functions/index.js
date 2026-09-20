@@ -7,7 +7,7 @@
  */
 
 // 🆕 v6.25.5: Cloud Function Version — wird in Firebase gespeichert für App-Anzeige
-const CLOUD_FUNCTIONS_VERSION = '6.66.120';
+const CLOUD_FUNCTIONS_VERSION = '6.66.121';
 const CLOUD_FUNCTIONS_BUILD = '20.09.2026 CET';
 
 const { onRequest } = require('firebase-functions/v2/https');
@@ -32705,7 +32705,8 @@ exports.onRideUpdated = onValueUpdated(
                             await db.ref(`rides/${rideId}`).update({
                                 invoiceEmail: _mailTo,
                                 autoSendMail: true,
-                                autoSendMailSetBy: 'cloud-auftraggeber-v6.66.106'
+                                autoSendMailSetBy: 'cloud-auftraggeber-v6.66.106',
+                                autoSendMailSetAt: Date.now() // 🆕 v6.66.121: Retry-Cron TTL-Filter
                             });
                             after.invoiceEmail = _mailTo;
                             after.autoSendMail = true;
@@ -34177,12 +34178,20 @@ exports.scheduledPendingInvoiceMailRetry = onSchedule(
             // rides+archiveRides mit autoSendMail=true + invoiceEmail + noch nicht gesendet
             const _sources = ['rides', 'archiveRides'];
             let totalSent = 0;
+            const MAX_AGE_MS = 24 * 60 * 60 * 1000; // 24h — alte Auto-Sends NICHT nachholen
             for (const _root of _sources) {
                 const snap = await db.ref(_root).orderByChild('autoSendMail').equalTo(true).once('value');
                 for (const c of Object.keys(snap.val() || {})) {
                     const r = (snap.val() || {})[c];
                     if (!r || !r.invoiceEmail || !String(r.invoiceEmail).includes('@')) continue;
                     if (r.invoiceMailSentAt) continue; // schon gesendet
+                    // 🆕 v6.66.121 (Patrick 20.09. 17:44 Bridge Bug-Meldung "warum werden alte
+                    //   Rechnungen versendet"): der Retry-Cron hat heute Ride-Vom-05.07. nachträglich
+                    //   versendet weil autoSendMail=true damals nie zurückgesetzt wurde. Neuer Filter:
+                    //   nur wenn autoSendMailSetBy UND autoSendMailSetAt gesetzt UND < 24h alt.
+                    //   Alte Rides ohne diese Felder werden IGNORIERT (kein Nachversenden).
+                    if (!r.autoSendMailSetBy) continue;
+                    if (!r.autoSendMailSetAt || (Date.now() - r.autoSendMailSetAt) > MAX_AGE_MS) continue;
                     const invNr = r.invoiceNumber;
                     if (!invNr) continue;
                     const invSnap = await db.ref(`invoices/${invNr}`).once('value');

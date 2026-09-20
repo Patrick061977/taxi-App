@@ -6,6 +6,23 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [6.66.121] - 2026-09-20 (Hotfix: Retry-Cron sendet keine alten Rechnungen mehr)
+
+**Patrick 20.09. 17:44 Bridge:** *„Warum werden alte Rechnungen versendet?"* Rechnung 20-26-1327 (Strandhotel Ostseeblick, Ride 05.07.2026) wurde heute 16:46 vom v6.66.120-Retry-Cron nachträglich versendet — obwohl die Ride 2 Monate alt war.
+
+**Root Cause:** Der v6.66.120-Cron filterte nur `autoSendMail=true + !invoiceMailSentAt + pdfUrl vorhanden`. Alte Rides bei denen `autoSendMail=true` damals gesetzt aber nie zurückgesetzt wurde (z.B. Test-Scripts, alte Fahrer-App-Versionen), landeten alle im Retry-Sweep.
+
+**Fix `functions/index.js:34xxx`:** Neuer Filter im Retry-Cron:
+- `autoSendMailSetBy` MUSS gesetzt sein (nur explizit intendierte Auto-Mails)
+- `autoSendMailSetAt` MUSS gesetzt sein UND < 24h alt
+- Alte Rides ohne diese Felder werden **ignoriert** → nicht mehr nachversenden
+
+**Zusätzlich `v6.66.106`-Whitelist-Block:** Setzt jetzt auch `autoSendMailSetAt: Date.now()` beim Aktivieren. Damit greift der neue TTL-Filter korrekt.
+
+**Kollateral:** Der Fahrer-App-Native-Path der `autoSendMail=true` setzt muss idealerweise auch `autoSendMailSetAt` schreiben — sonst bleiben Fahrer-getriggerte Mails aus. Prüfen in v6.66.122.
+
+---
+
 ## [6.66.120] - 2026-09-20 (Rechnungs-Mail wartet auf PDF-Fertigstellung)
 
 **Patrick 20.09. 16:39 Bridge Strandhotel-Vorfall:** *„beim Ostsee-Blick war die Rechnung noch nicht fertig, was wird denn dann versendet? ... wenn keine Rechnung angehängt ist, dann sollte auch keine E-Mail-Rechnung versendet werden"*. Der v6.63.729-Auto-Mail-Block hat auch dann versendet wenn `invoices/{nr}/pdfUrl` noch nicht befüllt war — die Kundin bekam eine Mail ohne Anhang.

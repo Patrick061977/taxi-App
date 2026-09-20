@@ -5936,7 +5936,16 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 // 🆕 v6.66.113 (Patrick 20.09. 15:47): Badge zeigt ALLE Zahlmethoden damit Fahrer
                 //   sofort weiß was er beim Fahrtende drücken muss. Vorher nur bei Stripe-paid /
                 //   vorkasse — jetzt auch RECHNUNG → {Hotel}, TRANSPORTSCHEIN, BAR, KARTE.
-                if (tvPaidBadge != null) {
+                // 🔧 v6.66.114 (Patrick 20.09. 15:55 Bridge: "die Badges sollen nur erscheinen
+                //   wenn die Fahrt jetzt dran ist"): Nur bei aktiven Fahrten anzeigen. Vorbestellungen
+                //   für morgen sollen kein Zahlungs-Badge zeigen — verwirrt sonst.
+                //   'Dran' = accepted / arrived / on_way / picked_up (nach Fahrer-Annahme).
+                boolean _paymentBadgeVisible = "accepted".equals(stl) || "arrived".equals(stl)
+                    || "on_way".equals(stl) || "picked_up".equals(stl);
+                if (tvPaidBadge != null && !_paymentBadgeVisible) {
+                    tvPaidBadge.setVisibility(View.GONE);
+                }
+                if (tvPaidBadge != null && _paymentBadgeVisible) {
                     String pm = r.paymentMethod != null ? r.paymentMethod.toLowerCase() : "";
                     String badgeText = null;
                     int badgeColor = Color.parseColor("#10B981"); // grün default (bezahlt-Feeling)

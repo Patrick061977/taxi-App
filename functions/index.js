@@ -2750,21 +2750,46 @@ async function autoAssignRide(rideId, rideData, _excludeVehicleIds = []) {
                         const _newPickupFormatted = _newPickupTime.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'});
                         const _oldPickupFormatted = new Date(new Date(rideData.pickupTimestamp).toLocaleString('en-US', { timeZone: 'Europe/Berlin' })).toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'});
 
-                        console.log(`   🔄 v6.25.5: Abholzeit verschoben ${_oldPickupFormatted} → ${_newPickupFormatted} (+${_delayMin} Min) — ${best.name} erst ab ${_prevEndFormatted} frei`);
-
-                        // 🔧 v6.38.50 BUG-01 FIX: Original ZUERST speichern, dann überschreiben!
+                        // 🔧 v6.66.108 (Patrick 20.09. 10:15 Bridge Krupp-Fall +6 Min):
+                        //   'eigentlich darf gar nichts automatisch verschoben werden'.
+                        //   Statt eigenmächtigem Shift: nur Admin-Push mit Konflikt-Info, Ride
+                        //   bleibt unverändert. Patrick entscheidet manuell (anderes Fahrzeug
+                        //   / Zeit-Vorschlag an Kunde / Stornierung). Zuweisung wird geblockt
+                        //   damit der Konflikt sichtbar bleibt.
+                        console.log(`   ⚠️ v6.66.108: KEIN Auto-Shift (Konflikt gemeldet) — ${best.name} erst ab ${_prevEndFormatted} frei, Pickup wäre ${_oldPickupFormatted} → benötigt ${_newPickupFormatted} (+${_delayMin} Min)`);
+                        try {
+                            await addRideLog(rideId, '⚠️', `Konflikt: Auto-Shift geblockt (+${_delayMin} Min nötig)`, {
+                                nötigeZeit: _newPickupFormatted,
+                                aktuelleZeit: _oldPickupFormatted,
+                                delta: `+${_delayMin} Min`,
+                                fahrzeug: best.name,
+                                grund: `${best.name} erst ab ${_prevEndFormatted} frei (Vorfahrt)`,
+                                entscheidung: 'manuelle Umplanung nötig'
+                            });
+                        } catch (_logErr) { /* ignore */ }
+                        try {
+                            if (typeof sendToAllAdmins === 'function') {
+                                await sendToAllAdmins(
+                                    `⚠️ <b>Konflikt — bitte manuell entscheiden</b>\n\n` +
+                                    `Kunde: ${rideData.customerName || '?'}\n` +
+                                    `Pickup: ${_oldPickupFormatted}\n` +
+                                    `Fahrzeug ${best.name} erst ab ${_prevEndFormatted} frei\n` +
+                                    `Benötigt: ${_newPickupFormatted} (+${_delayMin} Min)\n\n` +
+                                    `Optionen: anderes Fahrzeug zuweisen · Zeit ändern · Kunde absagen\n` +
+                                    `🆔 <code>${rideId}</code>`
+                                );
+                            }
+                        } catch (_p) { /* ignore */ }
+                        // Ride bleibt in Wartepool — nicht automatisch dem best-Fahrzeug zuweisen
+                        return null;
+                        // ↓ Alter Auto-Shift-Code deaktiviert (bewusst tot als Referenz):
                         rideData.originalPickupTimestamp = rideData.pickupTimestamp;
                         rideData.pickupTimestamp = _newPickupTs;
                         rideData.pickupTimeShifted = true;
                         rideData.pickupShiftReason = `Fahrzeug ${best.name} erst ab ${_prevEndFormatted} frei (Vorfahrt)`;
                         rideData.pickupShiftMinutes = _delayMin;
-
-                        // Neuen pickupTime-String generieren
                         const _newTimeStr = String(_newPickupTime.getHours()).padStart(2,'0') + ':' + String(_newPickupTime.getMinutes()).padStart(2,'0');
                         rideData.pickupTime = _newTimeStr;
-
-                        // 🆕 v6.62.821: Lifecycle-Log fuer den Pickup-Shift selbst
-                        //   (frueher: nur pickupShiftReason-Feld in der Ride, KEIN Audit-Trail).
                         try {
                             await addRideLog(rideId, '🔄', `Abholzeit verschoben: ${_oldPickupFormatted} → ${_newPickupFormatted} (+${_delayMin} Min)`, {
                                 alt: _oldPickupFormatted,

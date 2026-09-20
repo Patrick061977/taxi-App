@@ -7,7 +7,7 @@
  */
 
 // 🆕 v6.25.5: Cloud Function Version — wird in Firebase gespeichert für App-Anzeige
-const CLOUD_FUNCTIONS_VERSION = '6.66.121';
+const CLOUD_FUNCTIONS_VERSION = '6.66.122';
 const CLOUD_FUNCTIONS_BUILD = '20.09.2026 CET';
 
 const { onRequest } = require('firebase-functions/v2/https');
@@ -32690,8 +32690,11 @@ exports.onRideUpdated = onValueUpdated(
                 //   Auftraggeber breitgezogen. Explizite Whitelist der customerId(s).
                 //   Weitere Kunden koennen spaeter dazu (in _AUTO_MAIL_WHITELIST hinzufügen).
                 try {
+                    // 🚫 v6.66.122 (Patrick 20.09. 17:50 Bridge: "Es soll überhaupt nichts
+                    //   von alleine versendet werden"): Whitelist tot. Kein autoSendMail=true
+                    //   mehr automatisch. Patrick sendet aus CRM manuell.
                     const _AUTO_MAIL_WHITELIST = new Set([
-                        'customer_1776579773525'  // Vetter Touristik (Kdnr LF000009)
+                        // (leer — Vetter customer_1776579773525 entfernt v6.66.122)
                     ]);
                     const _autoMailUndef = after.autoSendMail === undefined || after.autoSendMail === null;
                     const _custIdForMail = after.customerId;
@@ -32723,7 +32726,12 @@ exports.onRideUpdated = onValueUpdated(
                 //   Cloud-Function verarbeitet → keine Mail wurde je versendet.
                 //   Fix: nach Rechnungs- + PDF-Anlage prüfen wir die Flags und rufen
                 //   sendInvoiceEmail intern auf (mit PDF-Anhang).
-                if (after.autoSendMail === true && after.invoiceEmail && String(after.invoiceEmail).includes('@')) {
+                // 🚫 v6.66.122 (Patrick 20.09. 17:50 Bridge: "Es soll überhaupt nichts von
+                //   alleine versendet werden. Was soll das denn?"): AUTO-MAIL-KILL. Der ganze
+                //   v6.63.729-Block wird nicht mehr ausgeführt. Rechnung wird weiterhin
+                //   generiert + PDF, aber KEINE automatische Mail. Patrick sendet manuell
+                //   aus dem CRM. Alte Regel `autoSendMail=true`-Trigger ist tot.
+                if (false && after.autoSendMail === true && after.invoiceEmail && String(after.invoiceEmail).includes('@')) {
                     try {
                         // Fresh pdfUrl nachladen (v6.62.811 setzt in DB)
                         const _freshInvSnap = await db.ref(`invoices/${_belegNr}`).once('value');
@@ -34174,6 +34182,11 @@ exports.scheduledPendingInvoiceMailRetry = onSchedule(
         timeZone: 'Europe/Berlin'
     },
     async (event) => {
+        // 🚫 v6.66.122 (Patrick 20.09. 17:50 Bridge: "Es soll überhaupt nichts von
+        //   alleine versendet werden. Was soll das denn?"): Retry-Cron KILL. Kein
+        //   Nachversenden mehr, egal wie. Patrick sendet manuell aus CRM.
+        console.log('🚫 v6.66.122: scheduledPendingInvoiceMailRetry disabled — kein Auto-Send mehr');
+        return null;
         try {
             // rides+archiveRides mit autoSendMail=true + invoiceEmail + noch nicht gesendet
             const _sources = ['rides', 'archiveRides'];

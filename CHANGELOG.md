@@ -6,6 +6,29 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [6.66.112] - 2026-09-20 (30-Min-Cutoff-Freeze + 5-Min-Karenz)
+
+### 🔒 Zuweisung wird 30 Min vor Pickup fest — kein Ping-Pong mehr in der heißen Zone
+
+**Patrick 20.09. 13:47 Bridge:** *„30-35 Min vor dem Termin sollte feststehen wer die Fahrt macht. Kann ja immer ein bisschen verändert werden. Aber wir sind ja rotierend."* — kombiniert mit `feedback_karenz-5min-beide-richtungen.md` (bis 5 Min Verspätung egal).
+
+**Fix Teil 1 — Freeze-Flag Cron `scheduledFreezeAssignments` (alle 2 Min):**
+- Für alle Rides mit `assignedVehicle` und Pickup ≤ 30 Min entfernt → `_assignmentFrozen: true` + `_frozenAt` + `_frozenReason`.
+- Ausschluss: bereits frozen, kein Fahrzeug, `assignmentLocked`, `completed/cancelled/deleted`.
+- Phase 2 (cloud-auto-optimize) und Phase 3 (cloud-prio-time-resort) filtern jetzt Rides mit `_assignmentFrozen` raus → keine Umverteilung mehr.
+- Native-Dispo kann Flag lesen und "🔒 fest zugewiesen"-Badge anzeigen (Native-PR folgt).
+
+**Fix Teil 2 — 5-Min-Konflikt-Karenz in autoAssignRide (`functions/index.js:2753`):**
+- v6.66.108 blockte JEDEN Konflikt (auch +0 Min). Zu strikt.
+- v6.66.112: Wenn `_delayMin <= 5` → trotzdem zuweisen ohne Zeit-Shift (`karenzUsed`-Feld gesetzt, Ride-Log `✅ Anfahrt knapp (+X Min), aber im 5-Min-Karenz`). Fahrer kommt eben 2-5 Min später — im Karenz-Bereich, Kunde toleriert.
+- Nur bei `_delayMin > 5` → v6.66.108-Verhalten (Admin-Push + Wartepool).
+
+**Radegast-Fall 20.09. wäre unter v6.66.112 zugewiesen worden:** Tesla ab 14:43 frei + Radegast 14:45 = +2 Min → Karenz → kein Wartepool.
+
+**Noch offen (v6.66.113):** Native-App `RideAdapter.java`/Dispo-Live liest `_assignmentFrozen` und zeigt Badge. Aktuell nur Cloud-seitig gebaut.
+
+---
+
 ## [6.66.111] - 2026-09-20 (Wartepool-Retry-Cron — rotierend neu bewerten)
 
 ### 🔁 Wartepool-Rides werden alle 5 Min neu bewertet solange Pickup > 30 Min entfernt

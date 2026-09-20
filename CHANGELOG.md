@@ -6,6 +6,18 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [6.66.120] - 2026-09-20 (Rechnungs-Mail wartet auf PDF-Fertigstellung)
+
+**Patrick 20.09. 16:39 Bridge Strandhotel-Vorfall:** *„beim Ostsee-Blick war die Rechnung noch nicht fertig, was wird denn dann versendet? ... wenn keine Rechnung angehängt ist, dann sollte auch keine E-Mail-Rechnung versendet werden"*. Der v6.63.729-Auto-Mail-Block hat auch dann versendet wenn `invoices/{nr}/pdfUrl` noch nicht befüllt war — die Kundin bekam eine Mail ohne Anhang.
+
+**Fix 1 `onRideUpdated`:** Nach `db.ref(invoices/{nr}).once('value')` prüfen ob `pdfUrl` gesetzt ist. Wenn nicht → Ride-Log `⏳ Rechnungs-Mail wartet auf PDF-Generierung`, `autoSendMail=true` bleibt (nicht zurücksetzen).
+
+**Fix 2 neuer Cron `scheduledPendingInvoiceMailRetry`:** Alle 2 Min alle Rides (in `rides` und `archiveRides`) mit `autoSendMail=true` + `invoiceEmail` + noch kein `invoiceMailSentAt`. Wenn `invoices/{nr}/pdfUrl` inzwischen fertig → jetzt senden mit PDF-Anhang, Ride-Log `📧 Rechnungs-Mail nachträglich versendet (Retry-Cron)`.
+
+Damit: Keine leeren Rechnungs-Mails mehr. System wartet bis PDF wirklich fertig ist (Puppeteer braucht ~5-15s).
+
+---
+
 ## [6.66.119] - 2026-09-20 (Layout-Cleanup + Zwischenstopp in Email)
 
 ### 🧹 Payment-Badge auf eigene Zeile — endlich Platz für Alles

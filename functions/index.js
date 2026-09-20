@@ -7,7 +7,7 @@
  */
 
 // 🆕 v6.25.5: Cloud Function Version — wird in Firebase gespeichert für App-Anzeige
-const CLOUD_FUNCTIONS_VERSION = '6.66.119';
+const CLOUD_FUNCTIONS_VERSION = '6.66.120';
 const CLOUD_FUNCTIONS_BUILD = '20.09.2026 CET';
 
 const { onRequest } = require('firebase-functions/v2/https');
@@ -32727,6 +32727,18 @@ exports.onRideUpdated = onValueUpdated(
                         // Fresh pdfUrl nachladen (v6.62.811 setzt in DB)
                         const _freshInvSnap = await db.ref(`invoices/${_belegNr}`).once('value');
                         const _freshInv = _freshInvSnap.val() || {};
+                        // 🆕 v6.66.120 (Patrick 20.09. 16:39 Bridge Strandhotel-Vorfall):
+                        //   "wenn keine Rechnung angehängt ist, dann sollte auch keine E-Mail-Rechnung
+                        //   versendet werden". Kein pdfUrl → skip senden, autoSendMail bleibt true,
+                        //   scheduledPendingInvoiceMailRetry (2-Min-Cron) sendet sobald PDF fertig ist.
+                        if (!_freshInv.pdfUrl) {
+                            console.log(`⏳ v6.66.120: Rechnung ${_belegNr} noch ohne PDF — Mail-Send zurückgestellt, autoSendMail bleibt true`);
+                            await addRideLog(rideId, '⏳', `Rechnungs-Mail wartet auf PDF-Generierung`, {
+                                belegNr: _belegNr,
+                                quelle: 'v6.66.120 pdf-wait-guard'
+                            });
+                            // Auto-Mail-Block überspringen — Retry-Cron kümmert sich sobald PDF da ist
+                        } else {
                         const _mailUrl = 'https://europe-west1-taxi-heringsdorf.cloudfunctions.net/sendInvoiceEmail';
                         const _mailResp = await fetch(_mailUrl, {
                             method: 'POST',
@@ -32756,6 +32768,7 @@ exports.onRideUpdated = onValueUpdated(
                             await addRideLog(rideId, '⚠️', `Rechnungs-Mail-Versand fehlgeschlagen: ${_mailJson.error || 'unbekannter Fehler'}`, { belegNr: _belegNr });
                             console.error(`❌ v6.63.729 Mail-Fehler:`, _mailJson);
                         }
+                        } // Ende v6.66.120 else-Zweig (pdfUrl vorhanden)
                     } catch (_mailErr) {
                         console.error('❌ v6.63.729 Auto-Mail Exception:', _mailErr.message);
                         await addRideLog(rideId, '⚠️', `Rechnungs-Mail-Exception: ${_mailErr.message}`, { belegNr: _belegNr });
@@ -34143,6 +34156,78 @@ exports.scheduledFreezeAssignments = onSchedule(
             }
         } catch (err) {
             console.error('scheduledFreezeAssignments Fehler:', err.message);
+        }
+    }
+);
+
+// 🆕 v6.66.120 (Patrick 20.09. 16:39 Bridge Strandhotel-Vorfall):
+//   PendingInvoiceMailRetry-Cron. Wenn autoSendMail=true aber pdfUrl noch nicht
+//   fertig war (Fall im v6.63.729 auto-mail-Block), skippt der Trigger. Dieser
+//   Cron alle 2 Min prüft nachträglich ob PDF inzwischen da ist und sendet dann.
+exports.scheduledPendingInvoiceMailRetry = onSchedule(
+    {
+        schedule: 'every 2 minutes',
+        region: 'europe-west1',
+        timeoutSeconds: 120,
+        memory: '256MiB',
+        timeZone: 'Europe/Berlin'
+    },
+    async (event) => {
+        try {
+            // rides+archiveRides mit autoSendMail=true + invoiceEmail + noch nicht gesendet
+            const _sources = ['rides', 'archiveRides'];
+            let totalSent = 0;
+            for (const _root of _sources) {
+                const snap = await db.ref(_root).orderByChild('autoSendMail').equalTo(true).once('value');
+                for (const c of Object.keys(snap.val() || {})) {
+                    const r = (snap.val() || {})[c];
+                    if (!r || !r.invoiceEmail || !String(r.invoiceEmail).includes('@')) continue;
+                    if (r.invoiceMailSentAt) continue; // schon gesendet
+                    const invNr = r.invoiceNumber;
+                    if (!invNr) continue;
+                    const invSnap = await db.ref(`invoices/${invNr}`).once('value');
+                    const inv = invSnap.val() || {};
+                    if (!inv.pdfUrl) continue; // PDF noch nicht fertig — warte weiter
+                    console.log(`📧 v6.66.120 Retry-Send: ${_root}/${c} → ${r.invoiceEmail} (Rechnung ${invNr})`);
+                    try {
+                        const _mailUrl = 'https://europe-west1-taxi-heringsdorf.cloudfunctions.net/sendInvoiceEmail';
+                        const _resp = await fetch(_mailUrl, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                invoiceNumber: invNr,
+                                toEmail: String(r.invoiceEmail).trim(),
+                                toName: inv.customerName || r.customerName || 'Auftraggeber',
+                                subject: `Rechnung ${invNr} — Funk Taxi Heringsdorf`,
+                                htmlBody: r.invoiceMessage
+                                    ? String(r.invoiceMessage).replace(/\n/g, '<br>')
+                                    : null,
+                                pdfUrl: inv.pdfUrl,
+                                attachPdf: true
+                            })
+                        });
+                        if (_resp.ok) {
+                            await db.ref(`${_root}/${c}`).update({
+                                invoiceMailSentAt: Date.now(),
+                                invoiceMailSentTo: String(r.invoiceEmail).trim(),
+                                autoSendMail: false
+                            });
+                            await addRideLog(c, '📧', `Rechnungs-Mail nachträglich versendet (Retry-Cron)`, { belegNr: invNr });
+                            totalSent++;
+                        } else {
+                            const _errJson = await _resp.json().catch(() => ({}));
+                            console.error(`❌ Retry-Send fehlgeschlagen ${invNr}:`, _errJson);
+                        }
+                    } catch (_e) {
+                        console.error(`❌ Retry-Send Exception ${invNr}:`, _e.message);
+                    }
+                }
+            }
+            if (totalSent > 0) {
+                console.log(`✅ v6.66.120 scheduledPendingInvoiceMailRetry: ${totalSent} Mails nachversendet`);
+            }
+        } catch (err) {
+            console.error('scheduledPendingInvoiceMailRetry Fehler:', err.message);
         }
     }
 );

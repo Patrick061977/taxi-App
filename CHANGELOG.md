@@ -6,6 +6,23 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [6.66.122] - 2026-09-20 (AUTO-MAIL KILL — nichts mehr automatisch)
+
+**Patrick 20.09. 17:50 Bridge:** *„Es soll überhaupt nichts von alleine versendet werden. Was soll das denn?"*
+
+Der komplette Auto-Mail-Flow wird deaktiviert. Rechnung + PDF werden weiterhin automatisch generiert, aber KEINE Mail geht raus ohne dass Patrick sie manuell aus dem CRM verschickt.
+
+**Deaktiviert:**
+1. `v6.63.729` Auto-Mail-Trigger in `onRideUpdated` — Block auf `if (false && ...)` gesetzt, tot.
+2. `v6.66.106` Auftraggeber-Whitelist — Vetter-ID aus Set entfernt (Set ist leer).
+3. `v6.66.120/121` Retry-Cron `scheduledPendingInvoiceMailRetry` — early `return null` am Anfang.
+
+**Datenbank-Cleanup:** Alle Rides mit `autoSendMail=true` sofort auf `false` gesetzt (`autoSendMailKilledBy=v6.66.122-manual-kill`). Prüfung ergab 0 offene Einträge — keine Zeitbomben mehr.
+
+**Konsequenz:** Rechnungs-PDF wird nach Fahrer-Bezahlbutton weiterhin in Firebase gespeichert. Patrick prüft manuell im CRM (`crm.html`) und schickt Email selbst mit Freigabe.
+
+---
+
 ## [6.66.121] - 2026-09-20 (Hotfix: Retry-Cron sendet keine alten Rechnungen mehr)
 
 **Patrick 20.09. 17:44 Bridge:** *„Warum werden alte Rechnungen versendet?"* Rechnung 20-26-1327 (Strandhotel Ostseeblick, Ride 05.07.2026) wurde heute 16:46 vom v6.66.120-Retry-Cron nachträglich versendet — obwohl die Ride 2 Monate alt war.

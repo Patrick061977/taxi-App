@@ -5726,27 +5726,32 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 //   • Vorbestellung in Zukunft + Losfahrt noch NICHT faellig → 'HH:MM → 🚗 HH:MM (Nmin)'
                 //   • Vorbestellung in Zukunft + Losfahrt schon faellig     → 'HH:MM → ⚠️ JETZT (Nmin)'
                 //   • Sofort (pickupTimestamp = jetzt / Vergangenheit)      → 'Sofort → 🚗 Nmin'
+                // 🔧 v6.66.118 (Patrick 20.09. 16:11 Bridge: "sehe die Ankunftszeit nicht,
+                //   was heißt eigentlich bis?"): Pickup-Zeit prominent voraus, Anfahrt/Losfahrt
+                //   klar labeln ("los 16:19") damit Fahrer den Wert nicht als "bis" liest.
+                String _stLowT = r.status != null ? r.status.toLowerCase() : "";
                 if (r.drivingTimeToPickup != null && r.drivingTimeToPickup > 0) {
                     if (r.pickupTimestamp != null && r.pickupTimestamp > System.currentTimeMillis()) {
                         long _losfahrtMs = r.pickupTimestamp - r.drivingTimeToPickup * 60_000L;
                         if (_losfahrtMs > System.currentTimeMillis()) {
                             java.text.SimpleDateFormat _lfFmt = new java.text.SimpleDateFormat("HH:mm", Locale.GERMANY);
                             _lfFmt.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
-                            _displayTime += " → 🚗 " + _lfFmt.format(new java.util.Date(_losfahrtMs))
+                            _displayTime = "📍 " + _displayTime + "  · los " + _lfFmt.format(new java.util.Date(_losfahrtMs))
                                 + " (" + r.drivingTimeToPickup + "min)";
                         } else {
-                            _displayTime += " → ⚠️ JETZT (" + r.drivingTimeToPickup + "min)";
+                            _displayTime = "📍 " + _displayTime + "  · ⚠️ JETZT LOS (" + r.drivingTimeToPickup + "min)";
                         }
                     } else {
                         // Sofortfahrt oder pickupTimestamp in Vergangenheit — einfach Anfahrt anzeigen
-                        _displayTime += " → 🚗 " + r.drivingTimeToPickup + " min";
+                        _displayTime = "📍 " + _displayTime + "  · 🚗 " + r.drivingTimeToPickup + " min";
                     }
+                } else {
+                    _displayTime = "📍 " + _displayTime;
                 }
                 // v6.62.75: Wenn Status picked_up + Live-ETA zum Ziel verfuegbar
                 // v6.62.81: kompakter — '⏱️ X min' statt 'Ziel in X Min'
-                String _stLow = r.status != null ? r.status.toLowerCase() : "";
-                if (_stLow.equals("picked_up") && r.drivingTimeToDestination != null && r.drivingTimeToDestination > 0) {
-                    _displayTime += " → ⏱️ " + r.drivingTimeToDestination + "min";
+                if (_stLowT.equals("picked_up") && r.drivingTimeToDestination != null && r.drivingTimeToDestination > 0) {
+                    _displayTime += "  · 🎯 " + r.drivingTimeToDestination + "min";
                 }
                 tvTime.setText(_displayTime);
 
@@ -5963,9 +5968,10 @@ public class DriverDashboardActivity extends AppCompatActivity {
                         badgeColor = Color.parseColor("#059669"); // dunkelgrün
                     } else if (_hasAuftraggeber && ("rechnung".equals(pm) || "invoice_auftraggeber".equals(pm) || "ueberweisung".equals(pm) || pm.isEmpty())) {
                         // Auftraggeber-Rechnung — Fahrer kassiert NICHT vor Ort
-                        String hotel = (r.auftraggeberName != null && !r.auftraggeberName.trim().isEmpty())
-                            ? r.auftraggeberName.trim() : "Auftraggeber";
-                        badgeText = "🧾 RECHNUNG → " + hotel;
+                        // 🔧 v6.66.118 (Patrick 20.09. 16:11): Hotel-Name RAUS aus Badge —
+                        //   frisst Platz und die Zeit verschwindet rechts. Hotel steht eh
+                        //   direkt drunter als Customer-Name. Badge nur noch "🧾 RECHNUNG".
+                        badgeText = "🧾 RECHNUNG";
                         badgeColor = Color.parseColor("#2563EB"); // blau
                     } else if ("rechnung".equals(pm) || "ueberweisung".equals(pm)) {
                         badgeText = "🧾 RECHNUNG";

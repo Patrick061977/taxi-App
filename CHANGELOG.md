@@ -6,6 +6,23 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [6.66.118] - 2026-09-20 (Pickup-Zeit prominenter, Badge kürzer)
+
+**Patrick 20.09. 16:11-16:12 Bridge:** *„jetzt kann man oben die Zeit nicht mehr so richtig erkennen ... was heißt eigentlich immer bis? ... sehe die Ankunftszeit nicht, wann der Kollege da sein muss ... die Größe ist okay, das passt alles"*.
+
+**Ursache:** v6.66.113-Payment-Badge `🧾 RECHNUNG → Strandhotel Ostseeblick` frisst die Zeile — die Zeit rechts wurde abgeschnitten. Zusätzlich verwirrender Format `16:25 → 🚗 16:29 (4min)` (Fahrer las das als „bis 16:29").
+
+**Fix:**
+- Payment-Badge bei Auftraggeber-Fahrten: nur `🧾 RECHNUNG` (Hotel-Name RAUS — steht eh direkt darunter als Customer-Name)
+- Pickup-Zeit TextSize 11sp → 14sp (prominenter)
+- Format klarer: `📍 16:25  · los 16:19 (4min)` statt `16:25 → 🚗 16:19 (4min)`
+- Bei `on_way`/`arrived` weiter unten: `📍 16:25`
+- Bei `picked_up` + ETA: `📍 16:25  · 🎯 4min`
+
+Fahrer sieht sofort: Pickup ist 16:25, Losfahren 16:19. Keine „bis"-Missverständnisse mehr.
+
+---
+
 ## [6.66.117] - 2026-09-20 (Build-Fix: stl scope in Payment-Badge)
 
 **APK-Build v6.66.114+115 gescheitert:** `cannot find symbol variable stl` in Zeile 5943. Der v6.66.114-Check `_paymentBadgeVisible` nutzte `stl`, aber die Variable wurde erst darunter (v6.66.113-Code) deklariert. Fix: lokale `String _stlBadge = s.toLowerCase()` im Badge-Check.

@@ -7,8 +7,8 @@
  */
 
 // 🆕 v6.25.5: Cloud Function Version — wird in Firebase gespeichert für App-Anzeige
-const CLOUD_FUNCTIONS_VERSION = '6.63.980';
-const CLOUD_FUNCTIONS_BUILD = '27.08.2026 CET';
+const CLOUD_FUNCTIONS_VERSION = '6.66.110';
+const CLOUD_FUNCTIONS_BUILD = '20.09.2026 CET';
 
 const { onRequest } = require('firebase-functions/v2/https');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
@@ -33149,9 +33149,47 @@ exports.onShiftStatusChanged = onValueUpdated(
             const _vehName = (OFFICIAL_VEHICLES[vid] || {}).name || vid;
             const reassigned = [];
             const failed = [];
+            const deferred = [];
+            // 🆕 v6.66.110 (Patrick 20.09. 13:01 Bridge: "Ich habe doch nur ein Update
+            //   gemacht bringt das gleich wieder alles durcheinander"): 5-Min-Grace-Buffer
+            //   bei shift.ended. App-Update-Restarts triggern shift.status='ended', dann
+            //   ~30-60s später kommt die App zurück. Vorher wurde SOFORT umverteilt → Ping-
+            //   Pong (heute 20.09 IK+Tesla je zweimal). Neue Logik:
+            //   - Pickup <=15 Min entfernt: SOFORT reassign (Kunde wartet, keine Grace möglich)
+            //   - Pickup > 15 Min: PENDING-Eintrag schreiben, executeAfter = now+5min
+            //   - scheduledCheckPendingShiftEndReassign (neuer Cron alle 1 Min) prüft:
+            //       * Fzg wieder online + Heartbeat <5min alt → PENDING löschen, kein Reassign
+            //       * Sonst nach 5 Min → jetzt reassign wie bisher
+            const URGENT_MS = 15 * 60 * 1000;
+            const GRACE_MS = 5 * 60 * 1000;
             for (const { id, ride } of affected) {
                 try {
-                    // Vehicle aus der Ride entfernen + Status auf 'vorbestellt' (falls 'assigned')
+                    const timeToPickup = ride.pickupTimestamp - now;
+                    const isUrgent = timeToPickup <= URGENT_MS;
+
+                    if (!isUrgent) {
+                        // GRACE: pending-Eintrag schreiben, nichts sonst tun (Fahrzeug bleibt zugewiesen!)
+                        await db.ref(`pendingShiftEndReassign/${id}`).set({
+                            vehicleId: vid,
+                            vehicleName: _vehName,
+                            scheduledAt: now,
+                            executeAfter: now + GRACE_MS,
+                            pickupTimestamp: ride.pickupTimestamp || null,
+                            customerName: ride.customerName || null,
+                            pickupTime: ride.pickupTime || null,
+                            triggeredBy: newStatus,
+                            source: 'onShiftStatusChanged v6.66.110'
+                        });
+                        await addRideLog(id, '⏳', `Schicht-Ende ${_vehName} — 5 Min Grace (App-Update?)`, {
+                            quelle: 'v6.66.110',
+                            executeAfterMs: GRACE_MS,
+                            hinweis: 'Reassign nur wenn Fzg nach 5 Min nicht zurück'
+                        });
+                        deferred.push({ rideId: id, customerName: ride.customerName, pickupTime: ride.pickupTime });
+                        continue;
+                    }
+
+                    // URGENT-Pfad: sofort reassign (unverändert)
                     await db.ref('rides/' + id).update({
                         assignedVehicle: null,
                         vehicleId: null,
@@ -33166,8 +33204,8 @@ exports.onShiftStatusChanged = onValueUpdated(
                         reassignedAt: now,
                         updatedAt: now
                     });
-                    await addRideLog(id, '🔄', `Fahrzeug entfernt: ${_vehName} hat Schicht beendet`, {
-                        quelle: 'onShiftStatusChanged v6.62.683',
+                    await addRideLog(id, '🔄', `Fahrzeug entfernt: ${_vehName} hat Schicht beendet (URGENT <15min)`, {
+                        quelle: 'onShiftStatusChanged v6.66.110',
                         altFahrzeug: _vehName,
                         schichtStatus: newStatus
                     });
@@ -33182,6 +33220,9 @@ exports.onShiftStatusChanged = onValueUpdated(
                     failed.push({ rideId: id, customerName: ride.customerName, pickupTime: ride.pickupTime, error: err.message });
                 }
             }
+            if (deferred.length > 0) {
+                console.log(`⏳ v6.66.110: ${deferred.length} Rides in 5-Min-Grace (App-Update-Schutz)`);
+            }
             // 🐛 v6.63.033 (Patrick 30.05. 11:24): Push für Schicht-Ende-Umverteilung
             //   entfernt — Patrick will keine Schreck-Pushes mehr, Lifecycle-Log + Dispo
             //   sind ausreichend. NUR wenn FAILED-Rides existieren (Probleme) bleibt der
@@ -33194,6 +33235,108 @@ exports.onShiftStatusChanged = onValueUpdated(
             }
         } catch (err) {
             console.error('onShiftStatusChanged Fehler:', err.message);
+        }
+    }
+);
+
+// 🆕 v6.66.110 (Patrick 20.09. 13:01): Grace-Buffer-Cron.
+//   Arbeitet die pendingShiftEndReassign-Einträge ab die onShiftStatusChanged geschrieben
+//   hat. Läuft alle 1 Min. Regel:
+//   1) executeAfter noch nicht erreicht → skip (Grace läuft noch)
+//   2) Vehicle-Shift wieder 'active' + Heartbeat <5 Min alt → PENDING löschen, kein Reassign
+//      (App-Update war erfolgreich, Fahrer ist wieder da)
+//   3) Sonst nach Grace-Ablauf: Reassign wie bisher
+exports.scheduledCheckPendingShiftEndReassign = onSchedule(
+    {
+        schedule: 'every 1 minutes',
+        region: 'europe-west1',
+        memory: '256MiB',
+        timeZone: 'Europe/Berlin'
+    },
+    async (event) => {
+        const now = Date.now();
+        try {
+            const snap = await db.ref('pendingShiftEndReassign').once('value');
+            const pending = snap.val() || {};
+            const ids = Object.keys(pending);
+            if (ids.length === 0) return;
+            console.log(`⏳ v6.66.110 Grace-Cron: ${ids.length} pending Einträge`);
+            for (const rideId of ids) {
+                const entry = pending[rideId];
+                if (!entry || typeof entry !== 'object') {
+                    await db.ref(`pendingShiftEndReassign/${rideId}`).remove();
+                    continue;
+                }
+                if ((entry.executeAfter || 0) > now) continue; // Grace läuft noch
+
+                const vid = entry.vehicleId;
+                const vehName = entry.vehicleName || vid;
+
+                // Ride-Status prüfen
+                const rideSnap = await db.ref(`rides/${rideId}`).once('value');
+                const ride = rideSnap.val();
+                if (!ride || !['assigned', 'vorbestellt'].includes(ride.status) || ride.assignmentLocked === true) {
+                    await db.ref(`pendingShiftEndReassign/${rideId}`).remove();
+                    continue;
+                }
+                // Ride wurde inzwischen anderswohin zugewiesen (nicht mehr das ursprüngliche vid)
+                if (ride.assignedVehicle && ride.assignedVehicle !== vid) {
+                    console.log(`  ✅ ${rideId}: bereits neu zugewiesen an ${ride.assignedVehicle} — Pending gelöscht`);
+                    await db.ref(`pendingShiftEndReassign/${rideId}`).remove();
+                    continue;
+                }
+
+                // Vehicle wieder aktiv?
+                const shiftSnap = await db.ref(`vehicles/${vid}/shift`).once('value');
+                const shift = shiftSnap.val() || {};
+                const hbAge = shift.lastHeartbeat ? (now - shift.lastHeartbeat) : Infinity;
+                const shiftActive = shift.status === 'active' && hbAge < 5 * 60 * 1000;
+
+                if (shiftActive) {
+                    console.log(`  ✅ ${rideId}: ${vehName} wieder aktiv (HB ${Math.round(hbAge/1000)}s alt) — kein Reassign`);
+                    await addRideLog(rideId, '✅', `Grace ok: ${vehName} nach ${Math.round((now-entry.scheduledAt)/60000)} Min wieder da`, {
+                        quelle: 'v6.66.110 Grace-Cron',
+                        heartbeatAgeSec: Math.round(hbAge/1000)
+                    });
+                    await db.ref(`pendingShiftEndReassign/${rideId}`).remove();
+                    continue;
+                }
+
+                // JETZT wirklich reassign — Vehicle ist immer noch weg
+                console.log(`  🔄 ${rideId}: ${vehName} nach 5 Min immer noch weg — Reassign`);
+                try {
+                    await db.ref('rides/' + rideId).update({
+                        assignedVehicle: null,
+                        vehicleId: null,
+                        assignedTo: null,
+                        vehicle: null,
+                        vehicleLabel: null,
+                        vehiclePlate: null,
+                        assignedAt: null,
+                        assignedBy: null,
+                        status: 'vorbestellt',
+                        reassignReason: `${vehName} Schicht-Ende — Grace abgelaufen`,
+                        reassignedAt: now,
+                        updatedAt: now
+                    });
+                    await addRideLog(rideId, '🔄', `Grace abgelaufen: ${vehName} nach 5 Min immer noch weg — Reassign`, {
+                        quelle: 'v6.66.110 Grace-Cron'
+                    });
+                    const result = await autoAssignRide(rideId, { ...ride, _rejectedVehicles: [vid] });
+                    if (!result || !result.vehicleId) {
+                        await sendToAllAdmins(
+                            `⚠️ <b>${vehName} weg</b> — Fahrt braucht Hilfe:\n\n` +
+                            `❌ ${ride.customerName || '?'} ${ride.pickupTime || ''}`,
+                            'grace_reassign_failed'
+                        );
+                    }
+                } catch (err) {
+                    console.error(`Grace-Reassign-Fehler ${rideId}:`, err.message);
+                }
+                await db.ref(`pendingShiftEndReassign/${rideId}`).remove();
+            }
+        } catch (err) {
+            console.error('scheduledCheckPendingShiftEndReassign Fehler:', err.message);
         }
     }
 );

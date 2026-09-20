@@ -6,6 +6,30 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [6.66.110] - 2026-09-20 (App-Update-Grace bei Schicht-Ende)
+
+### ⏳ 5-Min-Grace-Buffer verhindert Reassign-Ping-Pong bei App-Update
+
+**Vorfall 20.09. 12:44:** Patrick installiert v6.66.109-Update auf seinem IK-222-Gerät. Beim Restart wird `shift.status='ended'` gesetzt → `onShiftStatusChanged` verteilt sofort die 14:35-Seeperle-Fahrt (Pickup 2h in Zukunft!) an Tesla MY. 14 Min später ist IK wieder online (Heartbeat 12:55) → `cloud-auto-optimize` verteilt zurück an IK. Zweiter Fall parallel: Radegast 14:45 hing ohne Fahrzeug nach identischem Ping-Pong. Patrick per Bridge: „Ich habe doch nur ein Update gemacht bringt das gleich wieder alles durcheinander."
+
+**Root Cause:** `onShiftStatusChanged` (v6.62.683) reagierte SOFORT auf `shift.ended`, ohne zu prüfen ob es ein User-initiiertes Schicht-Ende oder ein App-Kill/Update-Restart war. Die 15-Min-Heartbeat-Grace aus Phase 0 (v6.63.261) galt nur für den Konflikt-Cron, nicht für den Trigger.
+
+**Fix in `functions/index.js:33148-33220`:**
+- Neue Konstanten `URGENT_MS = 15 * 60 * 1000` und `GRACE_MS = 5 * 60 * 1000`.
+- Wenn Pickup ≤ 15 Min entfernt → sofort reassign (Kunde wartet, keine Grace möglich, Marion-Regel v6.66.73 bleibt).
+- Wenn Pickup > 15 Min entfernt → Eintrag in `pendingShiftEndReassign/{rideId}` mit `executeAfter = now + 5min`. Fahrzeug bleibt zugewiesen, Ride-Log `⏳ Schicht-Ende {vehName} — 5 Min Grace (App-Update?)`.
+
+**Neuer Cron `scheduledCheckPendingShiftEndReassign` (alle 1 Min):**
+- executeAfter noch nicht erreicht → skip
+- Vehicle-Shift wieder `active` + Heartbeat < 5 Min alt → Pending löschen, kein Reassign (App-Update war erfolgreich)
+- Sonst nach Grace-Ablauf: Reassign wie bisher
+
+Ride wird auch gecleart wenn zwischenzeitlich manuell umverteilt (`assignedVehicle !== vid`) oder gesperrt (`assignmentLocked`).
+
+**Nicht angefasst:** `cloud-auto-optimize`, `cloud-prio-time-resort` (laufen weiter, könnten in v6.66.111 auch disabled werden falls Patrick will).
+
+---
+
 ## [6.66.9] - 2026-09-04 (Lock-Fix)
 
 ### 🔒 Native-Reject respektiert jetzt assignmentLocked

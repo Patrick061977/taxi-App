@@ -6,6 +6,26 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [6.66.123] - 2026-09-21 (Cloud: Konflikt-Vorschläge in Firebase)
+
+**Patrick 20.09. 19:10 Bridge:** *„System soll nichts automatisch machen. Es soll mir aber einen Vorschlag machen, was man machen könnte."* — Prep-Arbeit für Native-Vorschlags-Karte (v6.66.124).
+
+**Fix `functions/index.js` v6.66.108-Block:** Zusätzlich zum bestehenden Konflikt-Handling schreibt Cloud jetzt einen Eintrag in `/dispoVorschlaege/{rideId}` mit:
+- `rideId`, `type: 'shift-blocker-ride'`, `status: 'open'`
+- `newRide`: Kunde/Zeit/Von/Nach der Fahrt die nicht zugeteilt werden konnte
+- `blockerRide`: Der bestehende Ride der das Fzg blockiert
+- `vehicle`: Fzg-Info + wann frei
+- `conflict`: delayMin, benötigte Pickup-Zeit
+- `proposedAction`: `shift-blocker` mit `shiftMinutes` + `newBlockerPickupTs` + SMS-Text
+
+**Beispiel Siggi 19:15 + Antje 19:30:** Vorschlag speichert `shiftMinutes: 15`, `newBlockerPickupTs = Antje.pickupTimestamp + 15min` → Native-App zeigt dann Karte mit „Antje 15 Min shiften" Button.
+
+**Kein Telegram-Push mehr für lösbare Konflikte** — Patrick: „über Telegram ist es immer doof". Nur wenn kein Vorschlag möglich (Native-Karte auch nicht) bleibt Push-Escalation.
+
+**v6.66.124 folgt:** Native-Karte im Dashboard + Umsetzen-Button.
+
+---
+
 ## [6.66.122] - 2026-09-20 (AUTO-MAIL KILL — nichts mehr automatisch)
 
 **Patrick 20.09. 17:50 Bridge:** *„Es soll überhaupt nichts von alleine versendet werden. Was soll das denn?"*

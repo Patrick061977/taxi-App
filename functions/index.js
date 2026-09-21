@@ -7,7 +7,7 @@
  */
 
 // 🆕 v6.25.5: Cloud Function Version — wird in Firebase gespeichert für App-Anzeige
-const CLOUD_FUNCTIONS_VERSION = '6.66.122';
+const CLOUD_FUNCTIONS_VERSION = '6.66.123';
 const CLOUD_FUNCTIONS_BUILD = '20.09.2026 CET';
 
 const { onRequest } = require('firebase-functions/v2/https');
@@ -2787,20 +2787,58 @@ async function autoAssignRide(rideId, rideData, _excludeVehicleIds = []) {
                                     entscheidung: 'manuelle Umplanung nötig'
                                 });
                             } catch (_logErr) { /* ignore */ }
+                            // 🆕 v6.66.123 (Patrick 20.09. 19:10 Bridge: "System soll Vorschlag
+                            //   machen was man tun könnte, ich drücke OK"): Vorschlag in
+                            //   /dispoVorschlaege/{rideId}. Native-App zeigt orange Karte,
+                            //   Patrick tippt Umsetzen → schreibt neue pickupTime auf blocker.
                             try {
-                                if (typeof sendToAllAdmins === 'function') {
-                                    await sendToAllAdmins(
-                                        `⚠️ <b>Konflikt — bitte manuell entscheiden</b>\n\n` +
-                                        `Kunde: ${rideData.customerName || '?'}\n` +
-                                        `Pickup: ${_oldPickupFormatted}\n` +
-                                        `Fahrzeug ${best.name} erst ab ${_prevEndFormatted} frei\n` +
-                                        `Benötigt: ${_newPickupFormatted} (+${_delayMin} Min)\n\n` +
-                                        `Optionen: anderes Fahrzeug zuweisen · Zeit ändern · Kunde absagen\n` +
-                                        `🆔 <code>${rideId}</code>`
-                                    );
-                                }
-                            } catch (_p) { /* ignore */ }
-                            // Ride bleibt in Wartepool — nicht automatisch dem best-Fahrzeug zuweisen
+                                const _vorschlagRef = `dispoVorschlaege/${rideId}`;
+                                await db.ref(_vorschlagRef).set({
+                                    rideId,
+                                    type: 'shift-blocker-ride',
+                                    status: 'open',
+                                    createdAt: Date.now(),
+                                    expiresAt: rideData.pickupTimestamp || (Date.now() + 3 * 60 * 60000),
+                                    newRide: {
+                                        customerName: rideData.customerName || '?',
+                                        pickupTime: _oldPickupFormatted,
+                                        pickup: rideData.pickup || '',
+                                        destination: rideData.destination || ''
+                                    },
+                                    blockerRide: {
+                                        rideId: _prevRide.firebaseId || null,
+                                        customerName: _prevRide.customerName || '?',
+                                        pickupTime: new Date(_prevRide.pickupTimestamp).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit',timeZone:'Europe/Berlin'}),
+                                        pickupTimestamp: _prevRide.pickupTimestamp,
+                                        destination: _prevRide.destination || ''
+                                    },
+                                    vehicle: {
+                                        vehicleId: best.vehicleId,
+                                        name: best.name,
+                                        freiAb: _prevEndFormatted
+                                    },
+                                    conflict: {
+                                        delayMin: _delayMin,
+                                        neededPickup: _newPickupFormatted,
+                                        currentPickup: _oldPickupFormatted
+                                    },
+                                    // Vorgeschlagene Aktion: Blocker-Ride um delayMin nach hinten shiften
+                                    // damit Fzg NACH neuer Ride noch die Blocker-Ride schafft.
+                                    // (Für den Siggi-Fall: Antje um 15 Min nach hinten)
+                                    proposedAction: {
+                                        type: 'shift-blocker',
+                                        blockerRideId: _prevRide.firebaseId || null,
+                                        shiftMinutes: _delayMin,
+                                        newBlockerPickupTs: (_prevRide.pickupTimestamp || 0) + _delayMin * 60000,
+                                        smsToCustomer: true,
+                                        smsText: `Ihre Fahrt verzögert sich um ca ${_delayMin} Min wegen vorheriger Fahrt.`
+                                    }
+                                });
+                                console.log(`💡 v6.66.123: Konflikt-Vorschlag geschrieben in ${_vorschlagRef}`);
+                            } catch (_vErr) {
+                                console.warn('v6.66.123 dispoVorschlag Fehler:', _vErr.message);
+                            }
+                            // Ride bleibt in Wartepool — Push an Admin bleibt weg (Vorschlag in App reicht)
                             return null;
                         }
                         // ↓ Alter Auto-Shift-Code deaktiviert (bewusst tot als Referenz):

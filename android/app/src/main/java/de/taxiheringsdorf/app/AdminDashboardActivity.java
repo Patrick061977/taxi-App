@@ -3261,6 +3261,9 @@ public class AdminDashboardActivity extends AppCompatActivity {
         // v6.62.193: Patrick (01.05.): "Zwischenstops nicht angezeigt im kalender nativ app".
         // Waypoints fuer Sammeltransfers (Vetter Touristik) — addr + Pax-Name pro Stop.
         java.util.List<String> waypointDisplay; // formatierte Anzeige-Strings ("Adresse — Pax-Name")
+        // 🆕 v6.66.133 (Patrick 21.09. 10:29 Bridge): waypoints als raw Objects damit
+        //   der Edit-Dialog sie via Reflection findet (Fix Hartmann-Bug).
+        java.util.List<java.util.Map<String, Object>> waypoints;
         // 🆕 v6.63.534: Rechnung-an-Auftraggeber — Email-Dialog direkt aus Native-App
         String invoiceNumber;
         String customerId;
@@ -3445,13 +3448,23 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 DataSnapshot wpSnap = s.child("waypoints");
                 if (wpSnap.exists() && wpSnap.hasChildren()) {
                     r.waypointDisplay = new java.util.ArrayList<>();
+                    r.waypoints = new java.util.ArrayList<>(); // 🆕 v6.66.133 raw für Edit-Reflection
                     for (DataSnapshot wp : wpSnap.getChildren()) {
                         String addr = wp.child("address").getValue(String.class);
                         String name = wp.child("name").getValue(String.class);
+                        Object latVal = wp.child("lat").getValue();
+                        Object lonVal = wp.child("lon").getValue();
                         if (addr != null && !addr.trim().isEmpty()) {
                             String line = addr;
                             if (name != null && !name.trim().isEmpty()) line += " — " + name;
                             r.waypointDisplay.add(line);
+                            // Raw-Objekt für Edit-Reflection
+                            java.util.Map<String, Object> raw = new java.util.HashMap<>();
+                            raw.put("address", addr);
+                            if (name != null && !name.trim().isEmpty()) raw.put("name", name);
+                            if (latVal instanceof Number) raw.put("lat", ((Number) latVal).doubleValue());
+                            if (lonVal instanceof Number) raw.put("lon", ((Number) lonVal).doubleValue());
+                            r.waypoints.add(raw);
                         }
                     }
                 }

@@ -19,6 +19,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
+import android.widget.Button;
 import android.widget.EditText;
 import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
@@ -66,6 +67,12 @@ public class DriverDashboardActivity extends AppCompatActivity {
     // 🆕 v6.66.61 (Patrick 09.09. SVG-Mockup 47280): Home-Karte im Fahrer-Dashboard
     private LinearLayout homeCard;
     private TextView tvHomeLocation, tvHomeSource;
+    // 🆕 v6.66.124 (Patrick 20.09. 19:10 Bridge): Konflikt-Vorschlags-Karte
+    private LinearLayout dispoVorschlagCard;
+    private TextView tvVorschlagBody;
+    private com.google.firebase.database.ValueEventListener dispoVorschlagListener;
+    private String currentVorschlagId; // rideId des angezeigten Vorschlags
+    private java.util.Map<String, Object> currentVorschlagData;
     // 🆕 v6.66.96: Inline-Standort im Header (ersetzt homeCard)
     private TextView tvHomeInline;
     private MaterialButton btnMenu, btnEinsteiger, btnCallLog;
@@ -244,6 +251,13 @@ public class DriverDashboardActivity extends AppCompatActivity {
         tvHomeInline = findViewById(R.id.tv_home_inline);
         tvHomeLocation = findViewById(R.id.tv_home_location);
         tvHomeSource = findViewById(R.id.tv_home_source);
+        // 🆕 v6.66.124 Vorschlags-Karte
+        dispoVorschlagCard = findViewById(R.id.dispo_vorschlag_card);
+        tvVorschlagBody = findViewById(R.id.tv_vorschlag_body);
+        Button btnVorschlagOk = findViewById(R.id.btn_vorschlag_ok);
+        Button btnVorschlagDismiss = findViewById(R.id.btn_vorschlag_dismiss);
+        if (btnVorschlagOk != null) btnVorschlagOk.setOnClickListener(v -> applyDispoVorschlag());
+        if (btnVorschlagDismiss != null) btnVorschlagDismiss.setOnClickListener(v -> dismissDispoVorschlag());
         // v6.62.26: Pause-Banner-Tap schaltet direkt Online (schneller als Hamburger-Menue)
         // 🆕 v6.62.681: Patrick (13.05. 15:20): "Banner sagt 'tippen um zu starten',
         //   passiert aber nichts — beim 2. Tap kommt Pause." Bug: onClick rief immer
@@ -5140,6 +5154,132 @@ public class DriverDashboardActivity extends AppCompatActivity {
         TaxiFCMService.setForeground(true);
         // 🆕 v6.66.61: Home-Karte aktualisieren bei jedem Resume (User kommt aus Menu zurück)
         refreshHomeCard();
+        // 🆕 v6.66.124: Konflikt-Vorschlags-Listener (nur Admin)
+        startDispoVorschlagListener();
+    }
+
+    // 🆕 v6.66.124 (Patrick 20.09. 19:10 Bridge Konflikt-Vorschlag):
+    //   Firebase-Listener auf /dispoVorschlaege — Cloud v6.66.123 schreibt hier
+    //   bei jedem Konflikt (v6.66.108-Fall) den Vorschlag rein. Karte zeigt den
+    //   ersten offenen Vorschlag. Nur Admin sieht das.
+    private void startDispoVorschlagListener() {
+        if (!isAdminModeCheck()) {
+            if (dispoVorschlagCard != null) dispoVorschlagCard.setVisibility(android.view.View.GONE);
+            return;
+        }
+        if (dispoVorschlagListener != null) return; // schon aktiv
+        com.google.firebase.database.DatabaseReference _ref =
+            com.google.firebase.database.FirebaseDatabase.getInstance().getReference("dispoVorschlaege");
+        dispoVorschlagListener = new com.google.firebase.database.ValueEventListener() {
+            @Override
+            public void onDataChange(com.google.firebase.database.DataSnapshot snap) {
+                java.util.Map<String, Object> firstOpen = null;
+                String firstId = null;
+                for (com.google.firebase.database.DataSnapshot child : snap.getChildren()) {
+                    Object statusObj = child.child("status").getValue();
+                    if (!"open".equals(String.valueOf(statusObj))) continue;
+                    firstId = child.getKey();
+                    firstOpen = (java.util.Map<String, Object>) child.getValue();
+                    break;
+                }
+                renderVorschlag(firstId, firstOpen);
+            }
+            @Override public void onCancelled(com.google.firebase.database.DatabaseError err) {
+                Log.w("Vorschlag", "listener cancelled: " + err.getMessage());
+            }
+        };
+        _ref.addValueEventListener(dispoVorschlagListener);
+    }
+
+    private boolean isAdminModeCheck() {
+        try {
+            return getSharedPreferences("admin", MODE_PRIVATE).getBoolean("isAdminMode", false)
+                || PermissionsHelper.isAdmin(this);
+        } catch (Throwable _t) { return false; }
+    }
+
+    private void renderVorschlag(String id, java.util.Map<String, Object> data) {
+        if (dispoVorschlagCard == null || tvVorschlagBody == null) return;
+        if (id == null || data == null) {
+            currentVorschlagId = null;
+            currentVorschlagData = null;
+            dispoVorschlagCard.setVisibility(android.view.View.GONE);
+            return;
+        }
+        currentVorschlagId = id;
+        currentVorschlagData = data;
+        java.util.Map<String, Object> newRide = (java.util.Map<String, Object>) data.get("newRide");
+        java.util.Map<String, Object> blockerRide = (java.util.Map<String, Object>) data.get("blockerRide");
+        java.util.Map<String, Object> proposed = (java.util.Map<String, Object>) data.get("proposedAction");
+        String newCust = newRide != null ? String.valueOf(newRide.get("customerName")) : "?";
+        String newTime = newRide != null ? String.valueOf(newRide.get("pickupTime")) : "?";
+        String blkCust = blockerRide != null ? String.valueOf(blockerRide.get("customerName")) : "?";
+        String blkTime = blockerRide != null ? String.valueOf(blockerRide.get("pickupTime")) : "?";
+        long shiftMin = 0;
+        long newBlkTs = 0;
+        if (proposed != null) {
+            Object sm = proposed.get("shiftMinutes");
+            if (sm instanceof Number) shiftMin = ((Number) sm).longValue();
+            Object nbt = proposed.get("newBlockerPickupTs");
+            if (nbt instanceof Number) newBlkTs = ((Number) nbt).longValue();
+        }
+        String newBlkTime = newBlkTs > 0
+            ? new java.text.SimpleDateFormat("HH:mm", java.util.Locale.GERMANY).format(new java.util.Date(newBlkTs))
+            : "?";
+        String body = newCust + " " + newTime + " braucht das Fzg.\n"
+            + blkCust + " (" + blkTime + ") um " + shiftMin + " Min shiften → " + newBlkTime;
+        tvVorschlagBody.setText(body);
+        dispoVorschlagCard.setVisibility(android.view.View.VISIBLE);
+    }
+
+    private void applyDispoVorschlag() {
+        if (currentVorschlagId == null || currentVorschlagData == null) return;
+        java.util.Map<String, Object> proposed = (java.util.Map<String, Object>) currentVorschlagData.get("proposedAction");
+        if (proposed == null) { Toast.makeText(this, "Kein Vorschlag-Detail", Toast.LENGTH_SHORT).show(); return; }
+        String blockerId = String.valueOf(proposed.get("blockerRideId"));
+        Object nbtObj = proposed.get("newBlockerPickupTs");
+        if (blockerId == null || "null".equals(blockerId) || !(nbtObj instanceof Number)) {
+            Toast.makeText(this, "⚠️ Vorschlag unvollständig", Toast.LENGTH_LONG).show();
+            return;
+        }
+        long newTs = ((Number) nbtObj).longValue();
+        String newTimeStr = new java.text.SimpleDateFormat("HH:mm", java.util.Locale.GERMANY).format(new java.util.Date(newTs));
+        java.util.Map<String, Object> u = new java.util.HashMap<>();
+        u.put("pickupTimestamp", newTs);
+        u.put("pickupTime", newTimeStr);
+        u.put("updatedAt", System.currentTimeMillis());
+        u.put("editedVia", "admin-vorschlag-umsetzen-v6.66.124");
+        u.put("editedByAdmin", true);
+        String vid = currentVorschlagId;
+        com.google.firebase.database.FirebaseDatabase.getInstance()
+            .getReference("rides/" + blockerId).updateChildren(u, (err, ref) -> {
+                if (err != null) {
+                    Toast.makeText(this, "❌ Fehler: " + err.getMessage(), Toast.LENGTH_LONG).show();
+                    return;
+                }
+                // Vorschlag als 'applied' markieren + nach 30s löschen
+                java.util.Map<String, Object> _s = new java.util.HashMap<>();
+                _s.put("status", "applied");
+                _s.put("appliedAt", System.currentTimeMillis());
+                com.google.firebase.database.FirebaseDatabase.getInstance()
+                    .getReference("dispoVorschlaege/" + vid).updateChildren(_s);
+                new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                    com.google.firebase.database.FirebaseDatabase.getInstance()
+                        .getReference("dispoVorschlaege/" + vid).removeValue();
+                }, 30000);
+                Toast.makeText(this, "✅ Verschoben auf " + newTimeStr + " — SMS läuft", Toast.LENGTH_LONG).show();
+            });
+    }
+
+    private void dismissDispoVorschlag() {
+        if (currentVorschlagId == null) return;
+        String vid = currentVorschlagId;
+        java.util.Map<String, Object> _s = new java.util.HashMap<>();
+        _s.put("status", "dismissed");
+        _s.put("dismissedAt", System.currentTimeMillis());
+        com.google.firebase.database.FirebaseDatabase.getInstance()
+            .getReference("dispoVorschlaege/" + vid).updateChildren(_s);
+        Toast.makeText(this, "Vorschlag verworfen", Toast.LENGTH_SHORT).show();
     }
 
     // 🆕 v6.66.61 (Patrick 09.09. SVG-Mockup msgId 47280): Home-Karte im Dashboard-Header.
@@ -5261,6 +5401,14 @@ public class DriverDashboardActivity extends AppCompatActivity {
         try { displayTickHandler.removeCallbacks(displayTick); } catch (Throwable _t) {} // v6.62.320
         if (vehicleRef != null && shiftListener != null) vehicleRef.removeEventListener(shiftListener);
         if (ridesQuery != null && ridesListener != null) ridesQuery.removeEventListener(ridesListener);
+        // 🆕 v6.66.124 Vorschlags-Listener cleanup
+        if (dispoVorschlagListener != null) {
+            try {
+                com.google.firebase.database.FirebaseDatabase.getInstance()
+                    .getReference("dispoVorschlaege")
+                    .removeEventListener(dispoVorschlagListener);
+            } catch (Throwable _t) {}
+        }
         if (todayCompletedQuery != null && todayCompletedListener != null) todayCompletedQuery.removeEventListener(todayCompletedListener);
         if (openRidesQuery != null && openRidesListener != null) openRidesQuery.removeEventListener(openRidesListener);
         // v6.63.334: Wartepool-Listener cleanup

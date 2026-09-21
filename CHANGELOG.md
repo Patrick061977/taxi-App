@@ -6,6 +6,18 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [6.66.131] - 2026-09-21 (Native: Wartepool-Banner Zeitüberlappungs-Filter)
+
+**Patrick 21.09. 09:27 Bridge:** *„wenn ich z.B. bei der Fahrt Lipa angenommen habe, wie kann es sein, dass du mir dann noch die Labahnstraße 15a anbietest zur gleichen Zeit?"*
+
+**Bug:** IK-Fahrer hatte Lipa 09:45 accepted, Müller 09:45 war Wartepool → Wartepool-Banner zeigte Müller trotzdem als "übernehmen" — Fahrer könnte zwei zeitgleiche Rides greifen.
+
+**Fix `DriverDashboardActivity.updateWartepoolBanner()`:** Nach dem Zusammenführen von `wartepoolRides` + `newUnassignedRides` wird die Liste gegen `myAssignedRides` (accepted/arrived/on_way/picked_up) gefiltert. Rides deren `pickupTimestamp` in einem ±30 Min-Fenster zu einer meiner aktiven Rides liegt, werden aus dem Banner entfernt.
+
+Damit: kein "Übernehmen"-Angebot mehr für Zeitkonflikte. Trumm-Ride heute (Tesla MY) hat gezeigt dass die AI-Vorschläge funktionieren.
+
+---
+
 ## [6.66.125] - 2026-09-21 (Cloud: resolveWartepoolAI via Claude Sonnet 4.6)
 
 **Patrick 21.09. 07:23 Bridge:** *„Wie können wir sowas umsetzen dass du solche Probleme löst"* → HTTP-Endpoint der bei Wartepool-Konflikten Claude Sonnet 4.6 mit vollem Kontext (Rides ±2h, Vehicles, Schichten) fragt und JSON-Antwort in `/dispoVorschlaege` schreibt.

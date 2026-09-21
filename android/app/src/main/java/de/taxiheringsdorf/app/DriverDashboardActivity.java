@@ -2069,6 +2069,29 @@ public class DriverDashboardActivity extends AppCompatActivity {
                     if (!dup) _upcoming.add(r);
                 }
             }
+            // 🆕 v6.66.131 (Patrick 21.09. 09:27 Bridge Lipa+Müller): Zeitüberlappungs-Filter.
+            //   Wenn Fahrer bereits eine Ride im ±30 Min-Fenster angenommen hat, sollen
+            //   parallele offene Rides NICHT mehr angeboten werden. Vorher: Wartepool-Banner
+            //   zeigt Müller 09:45 obwohl Fahrer Lipa 09:45 schon accepted hat → Bug.
+            if (myAssignedRides != null && !myAssignedRides.isEmpty()) {
+                final long CONFLICT_WINDOW_MS = 30L * 60L * 1000L;
+                java.util.Iterator<Ride> _it = _upcoming.iterator();
+                while (_it.hasNext()) {
+                    Ride open = _it.next();
+                    if (open.pickupTimestamp == null) continue;
+                    for (Ride mine : myAssignedRides) {
+                        if (mine == null || mine.pickupTimestamp == null) continue;
+                        String _s = mine.status != null ? mine.status.toLowerCase() : "";
+                        // Nur zählen wenn ich WIRKLICH aktiv drauf bin
+                        if (!"accepted".equals(_s) && !"arrived".equals(_s)
+                            && !"on_way".equals(_s) && !"picked_up".equals(_s)) continue;
+                        if (Math.abs(open.pickupTimestamp - mine.pickupTimestamp) < CONFLICT_WINDOW_MS) {
+                            _it.remove();
+                            break;
+                        }
+                    }
+                }
+            }
             // 🆕 v6.63.791 (Patrick 22.07. Bridge: "die Fahrt stand noch oben bis ich
             //   unterwegs geklickt hab"): Banner MUSS ausgeblendet werden wenn keine freien
             //   Fahrten mehr da sind. Vorher: early-return ohne visibility-Update ließ den

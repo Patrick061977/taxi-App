@@ -5725,7 +5725,17 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 }
                 _wpList.add(_wpEntry);
             }
-            upd.put("waypoints", _wpList.isEmpty() ? null : _wpList);
+            // 🐛 v6.66.132 (Patrick 21.09. 10:08 Bridge Hartmann-REWE): waypoints NIE
+            //   auf null setzen wenn UI-Liste leer ist. Der Load per Reflection oben
+            //   findet kein `waypoints`-Feld im Ride-Model (nur `waypointDisplay`),
+            //   deshalb bleibt _wpList leer und das Save überschrieb DB-waypoints mit
+            //   null → Zwischenstopps verschwanden nach jedem Preis/Zuweisung-Edit.
+            //   Fix: nur schreiben wenn UI-Liste befüllt ist. Löschen geht dann nur
+            //   noch über einen expliziten "alle Zwischenstopps entfernen"-Button
+            //   (später separat einbauen).
+            if (!_wpList.isEmpty()) {
+                upd.put("waypoints", _wpList);
+            }
             // 🐛 v6.63.029 (Patrick 30.05. 07:28 "Cloud rechnet 265 Min Anfahrt"):
             //   Sub-Objekte pickupCoords/destCoords wurden NICHT aktualisiert.
             //   Cloud-Function liest pickupCoords zuerst (Fallback pickupLat) → bei

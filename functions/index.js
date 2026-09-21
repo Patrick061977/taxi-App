@@ -7,7 +7,7 @@
  */
 
 // 🆕 v6.25.5: Cloud Function Version — wird in Firebase gespeichert für App-Anzeige
-const CLOUD_FUNCTIONS_VERSION = '6.66.129';
+const CLOUD_FUNCTIONS_VERSION = '6.66.130';
 const CLOUD_FUNCTIONS_BUILD = '20.09.2026 CET';
 
 const { onRequest } = require('firebase-functions/v2/https');
@@ -37916,6 +37916,7 @@ REGELN (Priorität von hoch nach niedrig):
 11. **MINIMAL-ÄNDERUNGS-PRINZIP** (Patrick 21.09. 07:50): So WENIG Rides wie möglich verändern. Weniger Shifts sind IMMER besser als viele. Eine Lösung mit 0 Cascade-Shifts > 1 Cascade-Shift > 2 Cascade-Shifts.
 12. **FRÜHER-STATT-SPÄTER** (Patrick 21.09. 07:50): Wenn ein Shift nötig ist, präferiere den Kunden 10-20 Min FRÜHER abzuholen statt später. Der Trumm-Fall: statt Müller +15 Min später zu shiften, lieber Trumm 15-20 Min FRÜHER anbieten. Grund: früher = mehr Puffer für alle, Kunde ist meist flexibel bei "wir kommen früher".
 13. **RÄUMLICHE-NÄHE-BEVORZUGUNG** (Patrick 21.09. 08:03): Wähle das Vehicle das nach seiner vorigen Ride AM NÄCHSTEN am neuen Pickup ist. Beispiel Trumm-Fall: Tesla MY hat Kochak 09:10 → endet in Bansin Bhf, nur 2 km von Trumm-Pickup Forsthaus Langenberg. IK hat Stamme 09:30 → endet in Heringsdorf Bhf, 7 km entfernt. Tesla MY ist die räumlich bessere Wahl trotz gleichem Konflikt-Aufwand.
+14. **BESTEHENDE RIDES DÜRFEN NICHT VERSPÄTET WERDEN** (Patrick 21.09. 08:32): HARTE REGEL. Kunden die bereits eine Zeit gebucht haben werden NIEMALS +Min shift (später gemacht). NUR die neue Wartepool-Ride darf verschoben werden — und dann bevorzugt FRÜHER (Regel 12). Wenn selbst mit maximalem Früher-Shift der neuen Ride bestehende Rides in Verspätung geraten würden → unresolvable=true, unresolvableReason="Kein Vehicle ohne Bestandskunden-Verspätung möglich, Fremd-Fahrer nötig". cascadeShifts.shiftMinutes > 0 (positive Werte = später) ist VERBOTEN. Nur shiftMinutes < 0 (früher) oder cascadeShifts=[] sind erlaubt.
 
 ‼️ STRIKTER TIMELINE-CHECK (verpflichtend, sonst ist Vorschlag ungültig):
 Nachdem du primaryAssignment.vehicleId gewählt hast:

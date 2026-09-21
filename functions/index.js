@@ -7,7 +7,7 @@
  */
 
 // 🆕 v6.25.5: Cloud Function Version — wird in Firebase gespeichert für App-Anzeige
-const CLOUD_FUNCTIONS_VERSION = '6.66.126';
+const CLOUD_FUNCTIONS_VERSION = '6.66.127';
 const CLOUD_FUNCTIONS_BUILD = '20.09.2026 CET';
 
 const { onRequest } = require('firebase-functions/v2/https');
@@ -37913,6 +37913,18 @@ REGELN (Priorität von hoch nach niedrig):
 8. Manuelle Locks (assignmentLocked=true) NIEMALS brechen
 9. Fahrer-Reject respektieren (_rejectedVehicles)
 10. Vehicle muss laut Schichtplan im Dienst sein (nicht nur online)
+
+‼️ PFLICHT-CHECK bevor du "cascadeShifts": [] setzt:
+Nachdem du primaryAssignment.vehicleId gewählt hast, prüfe JEDE bestehende
+Ride dieses Vehicles nach der neuen Pickup-Zeit. Berechne für JEDEN:
+  Vehicle-Frei-Zeit = neue Ride Ende + Anfahrt-Min zum nächsten Pickup
+Wenn Vehicle-Frei-Zeit > (nächster Pickup + 5 Min Karenz)
+  → cascadeShifts MUSS diesen Ride enthalten mit shiftMinutes = zu-spät-Min
+Nur wenn ALLE nachfolgenden Rides pünktlich/im-Karenz-Bereich sind → cascadeShifts leer.
+
+Beispiel: Vehicle hat 09:45 Ride Y. Du weist 09:40 Ride X zu (endet 09:55).
+Anfahrt X-Ende → Y-Pickup = 8 Min. Vehicle-Frei = 10:03 > 09:50 (=09:45+5)
+→ cascadeShifts=[{"rideId":"Y","shiftMinutes":13,"newPickupTs":...}]
 
 ‼️ KRITISCH: Antworte AUSSCHLIESSLICH mit einem einzigen JSON-Objekt.
 Deine gesamte Antwort MUSS mit "{" beginnen und mit "}" enden.

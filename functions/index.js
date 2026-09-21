@@ -7,7 +7,7 @@
  */
 
 // 🆕 v6.25.5: Cloud Function Version — wird in Firebase gespeichert für App-Anzeige
-const CLOUD_FUNCTIONS_VERSION = '6.66.123';
+const CLOUD_FUNCTIONS_VERSION = '6.66.125';
 const CLOUD_FUNCTIONS_BUILD = '20.09.2026 CET';
 
 const { onRequest } = require('firebase-functions/v2/https');
@@ -37892,6 +37892,234 @@ async function autoChargeRide(rideId, ride) {
         return { ok: false, reason: e.message };
     }
 }
+
+// ═══════════════════════════════════════════════════════════════
+// 🤖 v6.66.125 — RESOLVE WARTEPOOL AI (Patrick 21.09. 07:23 Bridge)
+// HTTP-Endpoint: rideId in POST-Body → Kontext sammeln → Claude Sonnet 4.6
+// → JSON-Antwort → Vorschlag in /dispoVorschlaege/{rideId} schreiben.
+// ═══════════════════════════════════════════════════════════════
+
+const RESOLVE_WARTEPOOL_SYSTEM_PROMPT = `Du bist Dispatcher für Funk Taxi Heringsdorf (Insel Usedom).
+Deine Aufgabe: bei einer WARTEPOOL-Fahrt die beste Zuweisung finden.
+
+REGELN (Priorität von hoch nach niedrig):
+1. Alle Fahrten müssen gefahren werden — keine Absage ohne Freigabe
+2. First-Come-First-Served: frühere Pickup-Zeit hat Vorrang
+3. BAHNHOF-Regel: Zug-Anschluss braucht 20 Min Puffer vor Abfahrt. Pickup 5-10 Min FRÜHER erlaubt, max 5 Min SPÄTER (nie riskant an den Zug).
+4. 5-Min-Karenz allgemein: bis 5 Min Verspätung ist kein Konflikt
+5. Ab 30 Min vor Pickup: Freeze — bestehende Zuweisung bleibt (assignmentFrozen=true)
+6. Minimale Leer-Kilometer wählen
+7. Räumliche Cluster nutzen: Bansin (west), Heringsdorf (mitte), Ahlbeck (ost)
+8. Manuelle Locks (assignmentLocked=true) NIEMALS brechen
+9. Fahrer-Reject respektieren (_rejectedVehicles)
+10. Vehicle muss laut Schichtplan im Dienst sein (nicht nur online)
+
+Antworte AUSSCHLIESSLICH mit reinem JSON:
+{
+  "primaryAssignment": {"rideId": "...", "vehicleId": "..."},
+  "cascadeShifts": [{"rideId": "...", "newPickupTs": <ms>, "shiftMinutes": <N>, "smsToCustomer": "..."}],
+  "reasoning": "kurze Erklärung wie du zur Lösung kamst (~3 Sätze)",
+  "leerkmSaved": <Zahl km ggü. Alternative>,
+  "requiresCustomerCall": ["rideId1", ...],
+  "unresolvable": false,
+  "unresolvableReason": ""
+}
+
+Kein Markdown, keine Erklärung außerhalb JSON.`;
+
+exports.resolveWartepoolAI = onRequest(
+    {
+        region: 'europe-west1',
+        invoker: 'public',
+        timeoutSeconds: 120,
+        memory: '512MiB'
+    },
+    async (req, res) => {
+        res.set('Access-Control-Allow-Origin', '*');
+        res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+        res.set('Access-Control-Allow-Headers', 'Content-Type');
+        if (req.method === 'OPTIONS') return res.status(204).send('');
+        if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
+
+        try {
+            const { rideId } = req.body || {};
+            if (!rideId) return res.status(400).json({ error: 'rideId required' });
+
+            const now = Date.now();
+            const CTX_WINDOW_MS = 2 * 60 * 60 * 1000;
+
+            const rideSnap = await db.ref(`rides/${rideId}`).once('value');
+            const ride = rideSnap.val();
+            if (!ride) return res.status(404).json({ error: 'ride not found' });
+
+            const rangeStart = (ride.pickupTimestamp || now) - CTX_WINDOW_MS;
+            const rangeEnd = (ride.pickupTimestamp || now) + CTX_WINDOW_MS;
+            const allRidesSnap = await db.ref('rides').orderByChild('pickupTimestamp').startAt(rangeStart).endAt(rangeEnd).once('value');
+            const rides = [];
+            allRidesSnap.forEach(c => {
+                const r = c.val();
+                if (!r) return;
+                if (['cancelled', 'deleted', 'storniert', 'completed'].includes(r.status)) return;
+                rides.push({
+                    rideId: c.key,
+                    customerName: r.customerName || null,
+                    pickupTime: r.pickupTime || null,
+                    pickupTimestamp: r.pickupTimestamp || null,
+                    pickup: r.pickup || null,
+                    destination: r.destination || null,
+                    pickupLat: r.pickupLat || r.pickupCoords?.lat || null,
+                    pickupLon: r.pickupLon || r.pickupCoords?.lon || null,
+                    destLat: r.destinationLat || r.destCoords?.lat || null,
+                    destLon: r.destinationLon || r.destCoords?.lon || null,
+                    durationMin: r.duration || r.estimatedDuration || null,
+                    passengers: r.passengers || 1,
+                    assignedVehicle: r.assignedVehicle || null,
+                    status: r.status || null,
+                    assignmentLocked: r.assignmentLocked === true,
+                    assignmentFrozen: r._assignmentFrozen === true,
+                    rejectedVehicles: r._rejectedVehicles || r.rejectedVehicles || []
+                });
+            });
+
+            const vehiclesSnap = await db.ref('vehicles').once('value');
+            const vehicles = [];
+            const vAll = vehiclesSnap.val() || {};
+            for (const vid of Object.keys(vAll)) {
+                const v = vAll[vid];
+                vehicles.push({
+                    vehicleId: vid,
+                    name: v.name || vid,
+                    online: v.online === true,
+                    shiftStatus: v.shift?.status || null,
+                    lastHeartbeatAgeMinutes: v.shift?.lastHeartbeat ? Math.round((now - v.shift.lastHeartbeat) / 60000) : null,
+                    currentDriverName: v.currentDriverName || null,
+                    currentLat: v.lat || v.currentLocation?.lat || null,
+                    currentLon: v.lon || v.currentLocation?.lon || null
+                });
+            }
+
+            const shiftsSnap = await db.ref('vehicleShifts').once('value');
+            const shifts = {};
+            const shAll = shiftsSnap.val() || {};
+            const todayKey = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Berlin' });
+            const _dow = new Date().toLocaleDateString('en-US', { weekday: 'short', timeZone: 'Europe/Berlin' }).toLowerCase();
+            const _dowNum = String(new Date().getDay()); // 0=So, 1=Mo, ...
+            for (const vid of Object.keys(shAll)) {
+                const s = shAll[vid] || {};
+                const todayEx = s[todayKey];
+                const def = (s.defaultTimes && (s.defaultTimes[_dowNum] || s.defaultTimes[_dow])) || null;
+                shifts[vid] = { todayException: todayEx || null, defaultToday: def };
+            }
+
+            const apiKey = await getAnthropicApiKey();
+            if (!apiKey) return res.status(500).json({ error: 'Anthropic API-Key fehlt' });
+
+            const userMessage = `AKTUELLER ZEITPUNKT: ${new Date(now).toISOString()}
+BERLIN-ZEIT: ${new Date(now).toLocaleString('de-DE', { timeZone: 'Europe/Berlin' })}
+
+WARTEPOOL-RIDE (zu lösen):
+${JSON.stringify({ rideId, ...ride }, null, 2)}
+
+ANDERE RIDES IM FENSTER +/-2h:
+${JSON.stringify(rides, null, 2)}
+
+VEHICLES (Live-Status):
+${JSON.stringify(vehicles, null, 2)}
+
+SCHICHTPLAN heute:
+${JSON.stringify(shifts, null, 2)}
+
+Finde die beste Lösung.`;
+
+            const aiResp = await callAnthropicAPI(
+                apiKey,
+                'claude-sonnet-4-6',
+                4000,
+                [
+                    { role: 'user', content: [
+                        { type: 'text', text: RESOLVE_WARTEPOOL_SYSTEM_PROMPT + '\n\n' + userMessage }
+                    ]}
+                ]
+            );
+            const rawText = aiResp?.content?.[0]?.text || '';
+            const cleaned = rawText.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim();
+            let parsed;
+            try { parsed = JSON.parse(cleaned); }
+            catch (parseErr) {
+                await db.ref('aiTraces').push({ ts: now, rideId, error: 'json-parse-fail', rawText, cleaned });
+                return res.status(500).json({ error: 'AI JSON parse fail', rawText: rawText.slice(0, 500) });
+            }
+
+            await db.ref('aiTraces').push({
+                ts: now, rideId,
+                inputTokens: aiResp?.usage?.input_tokens || 0,
+                outputTokens: aiResp?.usage?.output_tokens || 0,
+                model: aiResp?.model || 'claude-sonnet-4-6',
+                parsed
+            });
+
+            // In /dispoVorschlaege/{rideId} schreiben — Native-App v6.66.124 zeigt Karte
+            const vorschlag = {
+                rideId,
+                type: 'ai-resolved',
+                status: 'open',
+                createdAt: now,
+                expiresAt: (ride.pickupTimestamp || now + 3 * 3600000),
+                createdBy: 'resolveWartepoolAI-v6.66.125',
+                aiReasoning: parsed.reasoning || '',
+                leerkmSaved: parsed.leerkmSaved || 0,
+                requiresCustomerCall: parsed.requiresCustomerCall || [],
+                unresolvable: parsed.unresolvable === true,
+                unresolvableReason: parsed.unresolvableReason || '',
+                primaryAssignment: parsed.primaryAssignment || null,
+                cascadeShifts: parsed.cascadeShifts || [],
+                // Kurzform für Native-Karte (kompatibel zu v6.66.124-Rendering)
+                newRide: {
+                    customerName: ride.customerName || '?',
+                    pickupTime: ride.pickupTime || '?',
+                    pickup: ride.pickup || '',
+                    destination: ride.destination || ''
+                },
+                // Wenn nur EIN Shift und EIN Assignment → wie shift-blocker-ride mappen
+                blockerRide: (parsed.cascadeShifts && parsed.cascadeShifts[0]) ? (() => {
+                    const cs = parsed.cascadeShifts[0];
+                    const br = rides.find(r => r.rideId === cs.rideId);
+                    return br ? {
+                        rideId: cs.rideId,
+                        customerName: br.customerName,
+                        pickupTime: br.pickupTime,
+                        pickupTimestamp: br.pickupTimestamp,
+                        destination: br.destination
+                    } : null;
+                })() : null,
+                proposedAction: (parsed.cascadeShifts && parsed.cascadeShifts[0]) ? {
+                    type: 'shift-blocker',
+                    blockerRideId: parsed.cascadeShifts[0].rideId,
+                    shiftMinutes: parsed.cascadeShifts[0].shiftMinutes,
+                    newBlockerPickupTs: parsed.cascadeShifts[0].newPickupTs,
+                    smsToCustomer: true,
+                    smsText: parsed.cascadeShifts[0].smsToCustomer || ''
+                } : null,
+                vehicle: parsed.primaryAssignment ? {
+                    vehicleId: parsed.primaryAssignment.vehicleId,
+                    name: (vAll[parsed.primaryAssignment.vehicleId]?.name || parsed.primaryAssignment.vehicleId),
+                    freiAb: '(via AI)'
+                } : null
+            };
+            await db.ref(`dispoVorschlaege/${rideId}`).set(vorschlag);
+
+            res.json({
+                ok: true,
+                rideId,
+                vorschlag,
+                usage: aiResp?.usage
+            });
+        } catch (err) {
+            console.error('resolveWartepoolAI error:', err.message);
+            res.status(500).json({ error: err.message });
+        }
+    }
+);
 
 // 💳 STRIPE CHECKOUT — v6.21.0
 // Erstellt eine Stripe Checkout Session für eine Rechnung

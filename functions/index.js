@@ -7,7 +7,7 @@
  */
 
 // 🆕 v6.25.5: Cloud Function Version — wird in Firebase gespeichert für App-Anzeige
-const CLOUD_FUNCTIONS_VERSION = '6.66.128';
+const CLOUD_FUNCTIONS_VERSION = '6.66.129';
 const CLOUD_FUNCTIONS_BUILD = '20.09.2026 CET';
 
 const { onRequest } = require('firebase-functions/v2/https');
@@ -37915,18 +37915,46 @@ REGELN (Priorität von hoch nach niedrig):
 10. Vehicle muss laut Schichtplan im Dienst sein (nicht nur online)
 11. **MINIMAL-ÄNDERUNGS-PRINZIP** (Patrick 21.09. 07:50): So WENIG Rides wie möglich verändern. Weniger Shifts sind IMMER besser als viele. Eine Lösung mit 0 Cascade-Shifts > 1 Cascade-Shift > 2 Cascade-Shifts.
 12. **FRÜHER-STATT-SPÄTER** (Patrick 21.09. 07:50): Wenn ein Shift nötig ist, präferiere den Kunden 10-20 Min FRÜHER abzuholen statt später. Der Trumm-Fall: statt Müller +15 Min später zu shiften, lieber Trumm 15-20 Min FRÜHER anbieten. Grund: früher = mehr Puffer für alle, Kunde ist meist flexibel bei "wir kommen früher".
+13. **RÄUMLICHE-NÄHE-BEVORZUGUNG** (Patrick 21.09. 08:03): Wähle das Vehicle das nach seiner vorigen Ride AM NÄCHSTEN am neuen Pickup ist. Beispiel Trumm-Fall: Tesla MY hat Kochak 09:10 → endet in Bansin Bhf, nur 2 km von Trumm-Pickup Forsthaus Langenberg. IK hat Stamme 09:30 → endet in Heringsdorf Bhf, 7 km entfernt. Tesla MY ist die räumlich bessere Wahl trotz gleichem Konflikt-Aufwand.
 
-‼️ PFLICHT-CHECK bevor du "cascadeShifts": [] setzt:
-Nachdem du primaryAssignment.vehicleId gewählt hast, prüfe JEDE bestehende
-Ride dieses Vehicles nach der neuen Pickup-Zeit. Berechne für JEDEN:
-  Vehicle-Frei-Zeit = neue Ride Ende + Anfahrt-Min zum nächsten Pickup
-Wenn Vehicle-Frei-Zeit > (nächster Pickup + 5 Min Karenz)
-  → cascadeShifts MUSS diesen Ride enthalten mit shiftMinutes = zu-spät-Min
-Nur wenn ALLE nachfolgenden Rides pünktlich/im-Karenz-Bereich sind → cascadeShifts leer.
+‼️ STRIKTER TIMELINE-CHECK (verpflichtend, sonst ist Vorschlag ungültig):
+Nachdem du primaryAssignment.vehicleId gewählt hast:
 
-Beispiel: Vehicle hat 09:45 Ride Y. Du weist 09:40 Ride X zu (endet 09:55).
+SCHRITT 1: Erstelle chronologische Timeline ALLER Rides dieses Vehicles
+(die bereits zugewiesenen + die neue Ride mit ihrer PROPOSED Zeit).
+Sortiere nach pickupTimestamp.
+
+SCHRITT 2: Simuliere die Timeline von oben nach unten:
+  currentTime = ShiftStart
+  currentLocation = HomeBase
+  for jede Ride in Timeline:
+    anfahrtMin = geschätzte Anfahrt currentLocation → ride.pickup
+    ankunftZeit = currentTime + anfahrtMin
+    if ankunftZeit > (ride.pickupTime + 5 Min Karenz):
+      → CONFLICT! Diese Ride braucht Shift oder anderes Vehicle
+    currentTime = max(ankunftZeit, ride.pickupTime) + ride.durationMin
+    currentLocation = ride.destination
+
+SCHRITT 3: JEDER Ride mit CONFLICT muss in cascadeShifts:
+  → entweder shiftMinutes > 0 (später) mit newPickupTs = ankunftZeit
+  → oder alternative Vehicle-Wahl (dann primaryAssignment ändern)
+
+SCHRITT 4: Wenn immer noch >2 Cascade-Shifts nötig sind — versuche anderes Vehicle
+(Minimal-Änderungs-Prinzip Regel 11).
+
+WICHTIG: Rides mit früherem pickupTime als die neue Ride werden AUCH geprüft
+(nicht nur "nachfolgende"). Beispiel: neue Ride 09:20 auf Vehicle, das 09:30
+Ride hat. Neue Ride endet 09:35. Anfahrt zu 09:30 Pickup = 8 Min → 09:43 →
+09:30-Ride ist 13 Min zu spät → MUSS in cascadeShifts.
+
+Beispiel Vorwärts: Vehicle hat 09:45 Ride Y. Du weist 09:40 Ride X zu (endet 09:55).
 Anfahrt X-Ende → Y-Pickup = 8 Min. Vehicle-Frei = 10:03 > 09:50 (=09:45+5)
 → cascadeShifts=[{"rideId":"Y","shiftMinutes":13,"newPickupTs":...}]
+
+Beispiel Rückwärts: Vehicle hat 09:30 Ride A. Du weist neue Ride 09:20 vor A zu.
+Neue Ride 09:20 endet 09:35, Anfahrt zu A = 8 Min → Vehicle bei A um 09:43 =
+13 Min zu spät für A → cascadeShifts=[{"rideId":"A","shiftMinutes":13,"newPickupTs":...}]
+ODER: nimm anderes Vehicle das die neue Ride machen kann ohne A zu stören.
 
 ‼️ KRITISCH: Antworte AUSSCHLIESSLICH mit einem einzigen JSON-Objekt.
 Deine gesamte Antwort MUSS mit "{" beginnen und mit "}" enden.

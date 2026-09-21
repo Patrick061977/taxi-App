@@ -7,7 +7,7 @@
  */
 
 // 🆕 v6.25.5: Cloud Function Version — wird in Firebase gespeichert für App-Anzeige
-const CLOUD_FUNCTIONS_VERSION = '6.66.125';
+const CLOUD_FUNCTIONS_VERSION = '6.66.126';
 const CLOUD_FUNCTIONS_BUILD = '20.09.2026 CET';
 
 const { onRequest } = require('firebase-functions/v2/https');
@@ -37914,7 +37914,12 @@ REGELN (Priorität von hoch nach niedrig):
 9. Fahrer-Reject respektieren (_rejectedVehicles)
 10. Vehicle muss laut Schichtplan im Dienst sein (nicht nur online)
 
-Antworte AUSSCHLIESSLICH mit reinem JSON:
+‼️ KRITISCH: Antworte AUSSCHLIESSLICH mit einem einzigen JSON-Objekt.
+Deine gesamte Antwort MUSS mit "{" beginnen und mit "}" enden.
+KEINE Analyse davor. KEIN Markdown. KEIN "Ich analysiere...". KEIN Erklärungstext.
+NUR das JSON. Nichts anderes.
+
+Format:
 {
   "primaryAssignment": {"rideId": "...", "vehicleId": "..."},
   "cascadeShifts": [{"rideId": "...", "newPickupTs": <ms>, "shiftMinutes": <N>, "smsToCustomer": "..."}],
@@ -37923,9 +37928,7 @@ Antworte AUSSCHLIESSLICH mit reinem JSON:
   "requiresCustomerCall": ["rideId1", ...],
   "unresolvable": false,
   "unresolvableReason": ""
-}
-
-Kein Markdown, keine Erklärung außerhalb JSON.`;
+}`;
 
 exports.resolveWartepoolAI = onRequest(
     {
@@ -38042,12 +38045,26 @@ Finde die beste Lösung.`;
                 ]
             );
             const rawText = aiResp?.content?.[0]?.text || '';
-            const cleaned = rawText.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim();
+            let cleaned = rawText.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim();
             let parsed;
             try { parsed = JSON.parse(cleaned); }
             catch (parseErr) {
-                await db.ref('aiTraces').push({ ts: now, rideId, error: 'json-parse-fail', rawText, cleaned });
-                return res.status(500).json({ error: 'AI JSON parse fail', rawText: rawText.slice(0, 500) });
+                // 🆕 v6.66.126 (Patrick 21.09. 07:42 Bridge Test-Fail): robuster Fallback —
+                //   Claude will manchmal Analyse davor schreiben trotz Prompt. Wir extrahieren
+                //   das JSON-Objekt aus dem Freitext per Regex (erste { bis letzte } matching).
+                const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+                if (jsonMatch) {
+                    try {
+                        parsed = JSON.parse(jsonMatch[0]);
+                        console.log('✅ v6.66.126: JSON via Regex-Extract gerettet');
+                    } catch (_e2) {
+                        await db.ref('aiTraces').push({ ts: now, rideId, error: 'json-parse-fail-even-regex', rawText, extractAttempt: jsonMatch[0].slice(0, 500) });
+                        return res.status(500).json({ error: 'AI JSON parse fail (auch Regex-Extract)', rawText: rawText.slice(0, 500) });
+                    }
+                } else {
+                    await db.ref('aiTraces').push({ ts: now, rideId, error: 'json-parse-fail-no-braces', rawText });
+                    return res.status(500).json({ error: 'AI antwortete ohne { }', rawText: rawText.slice(0, 500) });
+                }
             }
 
             await db.ref('aiTraces').push({

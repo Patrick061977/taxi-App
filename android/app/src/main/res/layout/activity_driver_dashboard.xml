@@ -225,6 +225,72 @@
                 android:text="" />
         </LinearLayout>
 
+        <!-- 🆕 v6.66.124 (Patrick 20.09. 19:10 Bridge): Konflikt-Vorschlags-Karte.
+             Sichtbar nur wenn Admin + offener Vorschlag in /dispoVorschlaege. Ein
+             Tap auf 'Umsetzen' verschiebt die Blocker-Fahrt um X Min + triggert
+             Change-SMS. Kein Auto-Ausführen — Patrick entscheidet. -->
+        <LinearLayout
+            android:id="@+id/dispo_vorschlag_card"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="#F97316"
+            android:padding="10dp"
+            android:layout_marginStart="10dp"
+            android:layout_marginEnd="10dp"
+            android:layout_marginTop="4dp"
+            android:layout_marginBottom="4dp"
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/tv_vorschlag_title"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="💡 KONFLIKT-VORSCHLAG"
+                android:textColor="#FED7AA"
+                android:textSize="10sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tv_vorschlag_body"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:textColor="#FFFFFF"
+                android:textSize="12sp"
+                android:text="(kein Vorschlag)" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="6dp">
+
+                <Button
+                    android:id="@+id/btn_vorschlag_ok"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginEnd="4dp"
+                    android:backgroundTint="#16A34A"
+                    android:text="✓ Umsetzen"
+                    android:textColor="#FFFFFF"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
+
+                <Button
+                    android:id="@+id/btn_vorschlag_dismiss"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginStart="4dp"
+                    android:backgroundTint="#64748B"
+                    android:text="✗ Später"
+                    android:textColor="#FFFFFF"
+                    android:textSize="11sp" />
+            </LinearLayout>
+        </LinearLayout>
+
         <!-- v6.47.8: Schicht-Stats-Banner KOMPLETT WEG - Patrick will den Platz für Aufträge.
              Timer + Verdienst sind in StatsActivity (Hamburger-Menü → Statistik) zugänglich.
              Felder bleiben als unsichtbare Keepalive für die Activity (sonst NPE). -->

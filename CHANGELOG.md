@@ -6,6 +6,32 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [6.66.124] - 2026-09-21 (Native: Konflikt-Vorschlags-Karte im Dashboard)
+
+**Patrick 20.09. 19:10 Bridge:** *„über Telegram ist es immer doof. Vielleicht kann das System einen Vorschlag machen, dass ich einfach bloß auf OK drücken muss."*
+
+**Layout `activity_driver_dashboard.xml`:** Neue orange Karte `dispo_vorschlag_card` (visibility=gone) unter Home-Card. Zeigt:
+- Titel „💡 KONFLIKT-VORSCHLAG"
+- Body-Text: „{newRide} braucht das Fzg. {blockerRide} um X Min shiften → HH:MM"
+- Buttons `[ ✓ Umsetzen ]` (grün) und `[ ✗ Später ]` (grau)
+
+**Java `DriverDashboardActivity`:**
+- Neue Fields `dispoVorschlagCard`, `tvVorschlagBody`, `dispoVorschlagListener`, `currentVorschlagId/Data`
+- Neue Methode `startDispoVorschlagListener()`: attach in `onResume()`, listen auf `/dispoVorschlaege`, findet ersten `status='open'`-Eintrag → `renderVorschlag()`
+- Neue Methode `applyDispoVorschlag()`: Klick auf Umsetzen → schreibt `pickupTimestamp` + `pickupTime` + `editedVia=admin-vorschlag-umsetzen-v6.66.124` auf Blocker-Ride → Change-SMS läuft automatisch (v6.66.103-Detection). Vorschlag wird als `applied` markiert und nach 30s gelöscht.
+- Neue Methode `dismissDispoVorschlag()`: Klick auf Später → Vorschlag als `dismissed` markiert (Historie bleibt).
+- Cleanup in `onDestroy()`.
+- Nur sichtbar für Admin (`isAdminModeCheck()`).
+
+**Ende-zu-Ende-Flow:**
+1. Cloud v6.66.108 erkennt Konflikt (Siggi 19:15, Antje 19:30 blockiert)
+2. Cloud v6.66.123 schreibt `/dispoVorschlaege/{siggiId}` mit proposedAction
+3. Native v6.66.124 zeigt Karte oben mit „Antje um 15 Min shiften" + Umsetzen-Button
+4. Patrick tippt Umsetzen → Antje verschoben, Change-SMS läuft, Siggi wird nächsten Auto-Assign-Lauf zugewiesen
+5. Kein Telegram-Push mehr für diesen Konflikttyp
+
+---
+
 ## [6.66.123] - 2026-09-21 (Cloud: Konflikt-Vorschläge in Firebase)
 
 **Patrick 20.09. 19:10 Bridge:** *„System soll nichts automatisch machen. Es soll mir aber einen Vorschlag machen, was man machen könnte."* — Prep-Arbeit für Native-Vorschlags-Karte (v6.66.124).

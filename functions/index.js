@@ -7,7 +7,7 @@
  */
 
 // 🆕 v6.25.5: Cloud Function Version — wird in Firebase gespeichert für App-Anzeige
-const CLOUD_FUNCTIONS_VERSION = '6.66.130';
+const CLOUD_FUNCTIONS_VERSION = '6.66.133';
 const CLOUD_FUNCTIONS_BUILD = '20.09.2026 CET';
 
 const { onRequest } = require('firebase-functions/v2/https');
@@ -34303,6 +34303,95 @@ exports.scheduledPendingInvoiceMailRetry = onSchedule(
 //   aber frische Scores für Dispo-Anzeige.
 //   Ab 30 Min vor Pickup: keine Retry mehr (Patrick's Cutoff-Regel — die Zuweisung
 //   soll dann feststehen).
+// 🆕 v6.66.126 (Patrick 20.09. 07:30 + 21.09. 10:29 Bridge): Zug-Ankunftszeit-Sync.
+//   Cron alle 10 Min. Findet nur die Bahnhöfe die AKTUELL in offenen Rides vorkommen
+//   (dynamisch, kein Standard-Polling). Ruft transport.rest (DB HAFAS-Wrapper) für
+//   Ankünfte der nächsten 2h. Speichert in /trainSchedule/{station}/{trainId} mit
+//   {geplant, prognose, cancelled}. AI-Resolver kann später bei Bahnhof-Pickups
+//   die Live-Zug-Ankunft berücksichtigen (Kunde kommt später/gar nicht).
+const UBB_BAHNHOF_EVA = {
+    'heringsdorf':  '8003123',
+    'bansin':       '8010716',
+    'ahlbeck':      '8010158',
+    'ahlbeck-grenze':'8010157'
+};
+
+function detectStationFromAddress(addr) {
+    if (!addr) return null;
+    const s = String(addr).toLowerCase();
+    if (!s.includes('bahnhof')) return null;
+    for (const key of Object.keys(UBB_BAHNHOF_EVA)) {
+        if (s.includes(key)) return { name: key, eva: UBB_BAHNHOF_EVA[key] };
+    }
+    return null;
+}
+
+exports.scheduledTrainScheduleSync = onSchedule(
+    {
+        schedule: 'every 10 minutes',
+        region: 'europe-west1',
+        timeoutSeconds: 120,
+        memory: '256MiB',
+        timeZone: 'Europe/Berlin'
+    },
+    async (event) => {
+        const now = Date.now();
+        try {
+            // Alle offenen Rides der nächsten 3h einsammeln
+            const snap = await db.ref('rides').orderByChild('pickupTimestamp')
+                .startAt(now).endAt(now + 3 * 60 * 60000).once('value');
+            const stations = new Set();
+            snap.forEach(c => {
+                const r = c.val();
+                if (!r) return;
+                if (['completed', 'cancelled', 'deleted'].includes(r.status)) return;
+                const s1 = detectStationFromAddress(r.pickup);
+                const s2 = detectStationFromAddress(r.destination);
+                if (s1) stations.add(JSON.stringify(s1));
+                if (s2) stations.add(JSON.stringify(s2));
+            });
+            if (stations.size === 0) {
+                console.log('🚉 v6.66.126 TrainSync: keine Bahnhof-Rides — skip');
+                return;
+            }
+            console.log(`🚉 v6.66.126 TrainSync: ${stations.size} relevante Bahnhöfe`);
+            for (const stStr of stations) {
+                const st = JSON.parse(stStr);
+                try {
+                    const arrResp = await fetch(`https://v6.db.transport.rest/stops/${st.eva}/arrivals?duration=120`);
+                    if (!arrResp.ok) {
+                        console.warn(`🚉 ${st.name} arrivals: HTTP ${arrResp.status}`);
+                        continue;
+                    }
+                    const arrJson = await arrResp.json();
+                    const arr = arrJson.arrivals || arrJson || [];
+                    const updates = {};
+                    for (const t of arr) {
+                        const tripId = t.tripId || t.tripUid || `${t.line?.name || 't'}-${t.plannedWhen || t.when || Math.random()}`;
+                        updates[tripId.replace(/[.#$/[\]]/g, '_')] = {
+                            line: t.line?.name || null,
+                            origin: t.origin?.name || null,
+                            plannedWhen: t.plannedWhen || t.when || null,
+                            when: t.when || null,
+                            delayMinutes: t.delay != null ? Math.round(t.delay / 60) : null,
+                            cancelled: t.cancelled === true,
+                            updatedAt: now
+                        };
+                    }
+                    if (Object.keys(updates).length > 0) {
+                        await db.ref(`trainSchedule/${st.name}`).update(updates);
+                        console.log(`  ✅ ${st.name}: ${Object.keys(updates).length} Ankünfte cached`);
+                    }
+                } catch (fetchErr) {
+                    console.warn(`🚉 ${st.name} fetch-error:`, fetchErr.message);
+                }
+            }
+        } catch (err) {
+            console.error('scheduledTrainScheduleSync Fehler:', err.message);
+        }
+    }
+);
+
 exports.scheduledWartepoolRetry = onSchedule(
     {
         schedule: 'every 5 minutes',

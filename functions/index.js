@@ -7,7 +7,7 @@
  */
 
 // 🆕 v6.25.5: Cloud Function Version — wird in Firebase gespeichert für App-Anzeige
-const CLOUD_FUNCTIONS_VERSION = '6.66.133';
+const CLOUD_FUNCTIONS_VERSION = '6.66.135';
 const CLOUD_FUNCTIONS_BUILD = '20.09.2026 CET';
 
 const { onRequest } = require('firebase-functions/v2/https');
@@ -32291,6 +32291,7 @@ exports.onRideUpdated = onValueUpdated(
                     return s.startsWith('native_admin_')
                         || s.startsWith('native_crm_')
                         || s.startsWith('native_dispo_')
+                        || s.startsWith('native_wartepool_')  // 🆕 v6.66.135 (Patrick 21.09. 13:08 Völkner)
                         || s.startsWith('claude-manual-')
                         || s === 'admin-web-dispo';
                 };

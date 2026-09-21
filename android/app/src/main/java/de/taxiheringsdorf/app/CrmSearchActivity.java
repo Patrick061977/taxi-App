@@ -3259,6 +3259,79 @@ public class CrmSearchActivity extends AppCompatActivity {
         });
         layout.addView(btnAddWp);
 
+        // 🆕 v6.66.133 (Patrick 21.09. 10:08 Bridge): Schnellauswahl-Chips für häufige
+        //   Zwischenstopps. Ein Tap = Waypoint mit Adresse+Koordinaten fertig eingefügt.
+        //   Adressen kommen aus settings/waypointShortcuts falls konfiguriert, sonst
+        //   Default-Liste (REWE, Sparkasse, Ärztehaus, Apotheke).
+        try {
+            android.widget.HorizontalScrollView _chipScroll = new android.widget.HorizontalScrollView(this);
+            LinearLayout _chipRow = new LinearLayout(this);
+            _chipRow.setOrientation(LinearLayout.HORIZONTAL);
+            _chipRow.setPadding(0, 0, 0, padHalf);
+
+            final java.util.List<java.util.Map<String,Object>> _shortcuts = new java.util.ArrayList<>();
+            // Defaults
+            String[][] _defaults = {
+                {"REWE Bansin",      "Strandpromenade 15, 17429 Bansin",  "53.9722", "14.1470"},
+                {"REWE Heringsdorf", "Bergstraße 5, 17424 Heringsdorf",   "53.9494", "14.1720"},
+                {"Sparkasse H'dorf", "Delbrückstraße, 17424 Heringsdorf", "53.9463", "14.1749"},
+                {"Ärztehaus Ahlbeck","Dünenstraße 47, 17419 Ahlbeck",     "53.9331", "14.2109"},
+                {"Apotheke H'dorf",  "Kulmstraße 1, 17424 Heringsdorf",   "53.9483", "14.1741"}
+            };
+            for (String[] d : _defaults) {
+                java.util.Map<String,Object> m = new java.util.HashMap<>();
+                m.put("label", d[0]); m.put("address", d[1]);
+                m.put("lat", Double.parseDouble(d[2])); m.put("lon", Double.parseDouble(d[3]));
+                _shortcuts.add(m);
+            }
+
+            for (java.util.Map<String,Object> _sc : _shortcuts) {
+                TextView _chip = new TextView(this);
+                _chip.setText("+ " + _sc.get("label"));
+                _chip.setTextSize(11);
+                _chip.setTextColor(0xFF1E40AF);
+                _chip.setBackgroundColor(0xFFDBEAFE);
+                _chip.setPadding(padHalf, padHalf/2, padHalf, padHalf/2);
+                LinearLayout.LayoutParams _clp = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+                _clp.setMargins(0, 0, padHalf/2, 0);
+                _chip.setLayoutParams(_clp);
+                _chip.setOnClickListener(_cv -> {
+                    // Waypoint fertig einfügen ohne launchPlaces
+                    final double[] wpC = new double[]{
+                        ((Number) _sc.get("lat")).doubleValue(),
+                        ((Number) _sc.get("lon")).doubleValue()
+                    };
+                    waypointCoords.add(wpC);
+                    LinearLayout wpRow = new LinearLayout(this);
+                    wpRow.setOrientation(LinearLayout.HORIZONTAL);
+                    TextView tvWp = new TextView(this);
+                    tvWp.setText("🔶 " + _sc.get("address"));
+                    tvWp.setPadding(pad / 2, pad, pad / 2, pad);
+                    LinearLayout.LayoutParams _wpLp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+                    tvWp.setLayoutParams(_wpLp);
+                    tvWp.setOnClickListener(__v -> launchPlaces(tvWp, wpC));
+                    wpRow.addView(tvWp);
+                    waypointFields.add(tvWp);
+                    TextView btnRemove = new TextView(this);
+                    btnRemove.setText("✕");
+                    btnRemove.setTextSize(18);
+                    btnRemove.setTextColor(0xFFDC2626);
+                    btnRemove.setPadding(pad, pad, pad, pad);
+                    btnRemove.setOnClickListener(__v -> {
+                        int pos = waypointFields.indexOf(tvWp);
+                        if (pos >= 0) { waypointFields.remove(pos); waypointCoords.remove(pos); }
+                        wpContainer.removeView(wpRow);
+                    });
+                    wpRow.addView(btnRemove);
+                    wpContainer.addView(wpRow);
+                });
+                _chipRow.addView(_chip);
+            }
+            _chipScroll.addView(_chipRow);
+            layout.addView(_chipScroll);
+        } catch (Throwable _tt) { /* defensive */ }
+
         // v6.62.483/.503: Bei Edit/Template existierende Waypoints hinzufügen.
         if (hasTemplate && editRide.get("waypoints") != null) {
             try {

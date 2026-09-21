@@ -6,6 +6,33 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [6.66.125] - 2026-09-21 (Cloud: resolveWartepoolAI via Claude Sonnet 4.6)
+
+**Patrick 21.09. 07:23 Bridge:** *„Wie können wir sowas umsetzen dass du solche Probleme löst"* → HTTP-Endpoint der bei Wartepool-Konflikten Claude Sonnet 4.6 mit vollem Kontext (Rides ±2h, Vehicles, Schichten) fragt und JSON-Antwort in `/dispoVorschlaege` schreibt.
+
+**Neuer Endpoint `functions/index.js resolveWartepoolAI`:**
+- POST `{ rideId }` → sammelt Kontext (allRides ±2h, Vehicles-Live-Status inkl. GPS/HB, Schichtplan heute)
+- System-Prompt mit 10 priorisierten Regeln:
+  - First-Come-First-Served (Vorrang frühere Pickup-Zeit)
+  - Bahnhof: 5-10 Min FRÜHER OK, max 5 Min später, min 20 Min Puffer vor Zug-Abfahrt (Patrick 07:27+07:28)
+  - 5-Min-Karenz allgemein
+  - 30-Min-Cutoff-Freeze
+  - Locks + Fahrer-Reject respektieren
+  - Räumliche Cluster (Bansin/Heringsdorf/Ahlbeck)
+  - min Leer-km
+- Model `claude-sonnet-4-6`, max_tokens 4000
+- Antwort-JSON: `primaryAssignment`, `cascadeShifts`, `reasoning`, `leerkmSaved`, `requiresCustomerCall`, `unresolvable`
+- Schreibt in `/dispoVorschlaege/{rideId}` im v6.66.124-kompatiblen Format → Native-Karte zeigt Umsetzen-Button
+- Trace in `/aiTraces/{ts}` für Debug/Learning + Token-Usage
+
+**Kosten:** ~$0.10/Tag bei 20 Wartepool-Events (Sonnet 4.6 Input+Output).
+
+**API-Key:** liest aus `settings/anthropic/apiKey` (bereits konfiguriert für v6.62.112 KI-Analyse).
+
+**Native-Trigger (v6.66.126 folgt):** Button "🤖 Claude fragen" in Wartepool-Ride-Details.
+
+---
+
 ## [6.66.124] - 2026-09-21 (Native: Konflikt-Vorschlags-Karte im Dashboard)
 
 **Patrick 20.09. 19:10 Bridge:** *„über Telegram ist es immer doof. Vielleicht kann das System einen Vorschlag machen, dass ich einfach bloß auf OK drücken muss."*

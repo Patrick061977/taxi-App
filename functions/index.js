@@ -7,7 +7,7 @@
  */
 
 // 🆕 v6.25.5: Cloud Function Version — wird in Firebase gespeichert für App-Anzeige
-const CLOUD_FUNCTIONS_VERSION = '6.66.127';
+const CLOUD_FUNCTIONS_VERSION = '6.66.128';
 const CLOUD_FUNCTIONS_BUILD = '20.09.2026 CET';
 
 const { onRequest } = require('firebase-functions/v2/https');
@@ -37913,6 +37913,8 @@ REGELN (Priorität von hoch nach niedrig):
 8. Manuelle Locks (assignmentLocked=true) NIEMALS brechen
 9. Fahrer-Reject respektieren (_rejectedVehicles)
 10. Vehicle muss laut Schichtplan im Dienst sein (nicht nur online)
+11. **MINIMAL-ÄNDERUNGS-PRINZIP** (Patrick 21.09. 07:50): So WENIG Rides wie möglich verändern. Weniger Shifts sind IMMER besser als viele. Eine Lösung mit 0 Cascade-Shifts > 1 Cascade-Shift > 2 Cascade-Shifts.
+12. **FRÜHER-STATT-SPÄTER** (Patrick 21.09. 07:50): Wenn ein Shift nötig ist, präferiere den Kunden 10-20 Min FRÜHER abzuholen statt später. Der Trumm-Fall: statt Müller +15 Min später zu shiften, lieber Trumm 15-20 Min FRÜHER anbieten. Grund: früher = mehr Puffer für alle, Kunde ist meist flexibel bei "wir kommen früher".
 
 ‼️ PFLICHT-CHECK bevor du "cascadeShifts": [] setzt:
 Nachdem du primaryAssignment.vehicleId gewählt hast, prüfe JEDE bestehende

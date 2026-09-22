@@ -2235,20 +2235,46 @@ public class DriverDashboardActivity extends AppCompatActivity {
 
         // Bei überfälligen Fahrten: zusätzlich '✔ Erledigt' (offline abgewickelt)
         if (_isOverdue) {
-            _labels.add("✔ Als erledigt markieren");
+            _labels.add("💰 Als erledigt + Preis eintragen");
             _actions.add(() -> {
-                Map<String, Object> u = new HashMap<>();
-                u.put("status", "completed");
-                u.put("completedAt", System.currentTimeMillis());
-                u.put("completedBy", "native_wartepool_banner_erledigt");
-                u.put("updatedAt", System.currentTimeMillis());
-                u.put("wartepoolReason", null);
-                u.put("wartepoolAt", null);
-                u.put("_erledigtOhneFahrer", true);
-                u.put("_allDriversTried", null);
-                db.getReference("rides/" + ride.id).updateChildren(u);
-                logLifecycleTap(ride.id, "✔", "Wartepool-Banner: als erledigt markiert", "completed");
-                android.widget.Toast.makeText(this, "✔ Fahrt als erledigt markiert.", android.widget.Toast.LENGTH_LONG).show();
+                // 🆕 v6.66.139 (Patrick 22.09. 10:12 Bridge): Preis-Eingabe beim Erledigen.
+                //   Vorher wurde status=completed ohne Preis gesetzt → Rechnung unbrauchbar.
+                //   Neu: Preis-Dialog vor Complete. Vorbelegt mit ride.price falls vorhanden.
+                android.widget.EditText priceInput = new android.widget.EditText(this);
+                priceInput.setInputType(android.text.InputType.TYPE_CLASS_NUMBER | android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL);
+                priceInput.setHint("z.B. 12.50");
+                if (ride.price != null) priceInput.setText(String.valueOf(ride.price));
+                int _padP = (int) (16 * getResources().getDisplayMetrics().density);
+                priceInput.setPadding(_padP, _padP, _padP, _padP);
+                new android.app.AlertDialog.Builder(this)
+                    .setTitle("💰 Preis eintragen (Fahrt bereits abgewickelt)")
+                    .setMessage("Kunde: " + (ride.customerName != null ? ride.customerName : "?") + "\n\nWas hat der Fahrgast bezahlt?")
+                    .setView(priceInput)
+                    .setPositiveButton("Erledigt", (_dp, _wp) -> {
+                        double _finalPrice = 0.0;
+                        try { _finalPrice = Double.parseDouble(priceInput.getText().toString().replace(',', '.')); }
+                        catch (Throwable _pe) { /* leer → 0 */ }
+                        Map<String, Object> u = new HashMap<>();
+                        u.put("status", "completed");
+                        u.put("completedAt", System.currentTimeMillis());
+                        u.put("completedBy", "native_wartepool_banner_erledigt");
+                        u.put("updatedAt", System.currentTimeMillis());
+                        u.put("wartepoolReason", null);
+                        u.put("wartepoolAt", null);
+                        u.put("_erledigtOhneFahrer", true);
+                        u.put("_allDriversTried", null);
+                        if (_finalPrice > 0) {
+                            u.put("price", _finalPrice);
+                            u.put("actualPrice", _finalPrice);
+                            u.put("priceUpdatedAt", System.currentTimeMillis());
+                            u.put("priceUpdatedBy", "native_wartepool_erledigt");
+                        }
+                        db.getReference("rides/" + ride.id).updateChildren(u);
+                        logLifecycleTap(ride.id, "✔", "Wartepool-Banner: erledigt mit Preis " + _finalPrice + "€", "completed");
+                        android.widget.Toast.makeText(this, "✔ Erledigt · " + _finalPrice + " €", android.widget.Toast.LENGTH_LONG).show();
+                    })
+                    .setNegativeButton("Abbrechen", null)
+                    .show();
             });
         }
 

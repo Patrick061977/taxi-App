@@ -7,7 +7,7 @@
  */
 
 // 🆕 v6.25.5: Cloud Function Version — wird in Firebase gespeichert für App-Anzeige
-const CLOUD_FUNCTIONS_VERSION = '6.66.135';
+const CLOUD_FUNCTIONS_VERSION = '6.66.140';
 const CLOUD_FUNCTIONS_BUILD = '20.09.2026 CET';
 
 const { onRequest } = require('firebase-functions/v2/https');
@@ -34470,7 +34470,9 @@ exports.scheduledWartepoolCleanup = onSchedule(
     async (event) => {
         try {
             const now = Date.now();
-            const CUTOFF = 12 * 60 * 60 * 1000;
+            // 🔧 v6.66.140 (Patrick 22.09. 10:14): Wartepool-Auto-Complete von 12h → 1h.
+            //   Nach 1h Überfälligkeit im Wartepool ohne Zuweisung → keiner fasst mehr an.
+            const CUTOFF = 1 * 60 * 60 * 1000;
             const ridesSnap = await db.ref('rides')
                 .orderByChild('pickupTimestamp')
                 .startAt(now - 30 * 24 * 60 * 60 * 1000)  // Nur letzten 30 Tage anschauen (Kosten)

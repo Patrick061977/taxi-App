@@ -2062,13 +2062,18 @@ public class DriverDashboardActivity extends AppCompatActivity {
                     if (r.pickupTimestamp == null || r.pickupTimestamp >= _now - 30 * 60_000L) _upcoming.add(r);
                 }
             }
-            if (newUnassignedRides != null) {
-                for (Ride r : newUnassignedRides) {
-                    boolean dup = false;
-                    for (Ride e : _upcoming) if (e.id != null && e.id.equals(r.id)) { dup = true; break; }
-                    if (!dup) _upcoming.add(r);
-                }
-            }
+            // 🔧 v6.66.138 (Patrick 22.09. 10:07 Bridge): newUnassignedRides RAUS.
+            //   Banner soll nur echte Wartepool-Rides zeigen — die nach Fahrer-Rejects
+            //   in den Wartepool gefallen sind. Frische status='new'-Rides (noch nicht
+            //   zugeteilt) gehören NICHT ins Banner. Prozess: Auto-Assign → Reject →
+            //   Auto-Assign → Reject → Auto-Assign → Reject → BUMMS → Wartepool → Banner.
+            // if (newUnassignedRides != null) {
+            //     for (Ride r : newUnassignedRides) {
+            //         boolean dup = false;
+            //         for (Ride e : _upcoming) if (e.id != null && e.id.equals(r.id)) { dup = true; break; }
+            //         if (!dup) _upcoming.add(r);
+            //     }
+            // }
             // 🔧 v6.66.137 (Patrick 22.09. 07:56 Bridge): Filter KOMPLETT RAUS.
             //   "es sollen alle fahrten angezeigt werden die nicht zugewiesen werden konnten"
             //   → Fahrer sieht IMMER alle Wartepool-Rides, entscheidet selbst was er greift.

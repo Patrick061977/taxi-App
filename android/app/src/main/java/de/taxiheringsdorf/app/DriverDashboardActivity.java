@@ -2071,10 +2071,15 @@ public class DriverDashboardActivity extends AppCompatActivity {
             }
             // 🆕 v6.66.131 (Patrick 21.09. 09:27 Bridge Lipa+Müller): Zeitüberlappungs-Filter.
             //   Wenn Fahrer bereits eine Ride im ±30 Min-Fenster angenommen hat, sollen
-            //   parallele offene Rides NICHT mehr angeboten werden. Vorher: Wartepool-Banner
-            //   zeigt Müller 09:45 obwohl Fahrer Lipa 09:45 schon accepted hat → Bug.
+            //   parallele offene Rides NICHT mehr angeboten werden.
+            // 🔧 v6.66.136 (Patrick 22.09. 07:03 Bridge Werner+Koch): Filter WAR zu aggressiv.
+            //   Werner 06:50 accepted + Koch 07:00 im Wartepool (10 Min Abstand, gleiche Route)
+            //   → Koch verschwand aus Banner obwohl Patrick sie hätte greifen können (Sammelfahrt-
+            //   Chance). Neu: Filter greift nur bei ECHTER Zeitüberlappung (< 5 Min Abstand),
+            //   nicht bei bloßer Nähe. Bei knappen 10-30 Min Abstand → SICHTBAR lassen,
+            //   Fahrer entscheidet selbst.
             if (myAssignedRides != null && !myAssignedRides.isEmpty()) {
-                final long CONFLICT_WINDOW_MS = 30L * 60L * 1000L;
+                final long OVERLAP_WINDOW_MS = 5L * 60L * 1000L; // war 30, jetzt 5
                 java.util.Iterator<Ride> _it = _upcoming.iterator();
                 while (_it.hasNext()) {
                     Ride open = _it.next();
@@ -2082,10 +2087,9 @@ public class DriverDashboardActivity extends AppCompatActivity {
                     for (Ride mine : myAssignedRides) {
                         if (mine == null || mine.pickupTimestamp == null) continue;
                         String _s = mine.status != null ? mine.status.toLowerCase() : "";
-                        // Nur zählen wenn ich WIRKLICH aktiv drauf bin
                         if (!"accepted".equals(_s) && !"arrived".equals(_s)
                             && !"on_way".equals(_s) && !"picked_up".equals(_s)) continue;
-                        if (Math.abs(open.pickupTimestamp - mine.pickupTimestamp) < CONFLICT_WINDOW_MS) {
+                        if (Math.abs(open.pickupTimestamp - mine.pickupTimestamp) < OVERLAP_WINDOW_MS) {
                             _it.remove();
                             break;
                         }

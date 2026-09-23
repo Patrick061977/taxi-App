@@ -7,7 +7,7 @@
  */
 
 // 🆕 v6.25.5: Cloud Function Version — wird in Firebase gespeichert für App-Anzeige
-const CLOUD_FUNCTIONS_VERSION = '6.66.140';
+const CLOUD_FUNCTIONS_VERSION = '6.66.141';
 const CLOUD_FUNCTIONS_BUILD = '20.09.2026 CET';
 
 const { onRequest } = require('firebase-functions/v2/https');
@@ -32469,7 +32469,39 @@ exports.onRideUpdated = onValueUpdated(
             }
             const _blockStripeWait = _isStripePayment && !_stripeIsPaid && _hasNoInvoiceYet;
             if ((_justCompleted || _retroInvoiceFlip || _stripeJustPaid) && _invoiceWanted && _hasNoInvoiceYet && _hasPriceData && _completedRecently && !_isTransportschein && !_blockStripeWait) {
-                console.log(`🧾 ${_retroInvoiceFlip ? 'v6.62.598 RETRO' : 'v6.62.312'} Auto-Rechnung trigger ${rideId}: completed + invoiceRequested + price`);
+                // 🆕 v6.66.141 (Patrick 23.09. 09:47 Bridge Doppel-Rechnungs-Bug):
+                //   ATOMARE Reservierung um Race-Condition zu verhindern. Vorher schrieben
+                //   zwei parallele onRideUpdated-Trigger beide Rechnungen weil beide
+                //   _hasNoInvoiceYet=true sahen bevor die erste ihre invoiceNumber persistiert
+                //   hatte. Fix: Transaction auf rides/{id}/_invoiceReserving — nur wer den
+                //   Marker setzt darf weiter machen. Der zweite Trigger findet den Marker und
+                //   skippt sofort.
+                const _reservationId = `${rideId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+                let _reserved = false;
+                try {
+                    const _resTx = await db.ref(`rides/${rideId}/_invoiceReserving`).transaction(cur => {
+                        if (cur && cur.expiresAt > Date.now()) return; // andere Instanz aktiv
+                        return { by: _reservationId, at: Date.now(), expiresAt: Date.now() + 60000 };
+                    });
+                    _reserved = _resTx.committed && _resTx.snapshot.val()?.by === _reservationId;
+                } catch (_reErr) {
+                    console.warn(`⚠️ v6.66.141 Reservation-Tx-Fehler ${rideId}:`, _reErr.message);
+                }
+                if (!_reserved) {
+                    console.log(`🔒 v6.66.141: ${rideId} bereits von anderer Instanz reserviert — skip Auto-Rechnung`);
+                    return;
+                }
+                // Zusätzlich frische Ride-Lesung: falls zwischen Trigger-Start und jetzt schon
+                // eine Rechnung angelegt wurde (Web/Native), skippen wir ebenfalls.
+                try {
+                    const _freshRide = (await db.ref(`rides/${rideId}/invoiceNumber`).once('value')).val();
+                    if (_freshRide) {
+                        console.log(`🔒 v6.66.141: ${rideId} hat bereits invoiceNumber=${_freshRide} — skip`);
+                        await db.ref(`rides/${rideId}/_invoiceReserving`).remove();
+                        return;
+                    }
+                } catch (_frErr) {}
+                console.log(`🧾 ${_retroInvoiceFlip ? 'v6.62.598 RETRO' : 'v6.62.312'} Auto-Rechnung trigger ${rideId}: completed + invoiceRequested + price [reserviert=${_reservationId}]`);
                 // 🆕 v6.62.731 (Patrick 15.05. 10:57 'a'): Auto-Rechnung nutzt nun den
                 //   gleichen invoiceCounter/{Jahr} wie das manuelle UI — Format '20-YY-NNN'
                 //   (z.B. 20-26-183). Vorher AUSR-Counter (2026-05-AUSR-0001) parallel zum
@@ -32671,7 +32703,9 @@ exports.onRideUpdated = onValueUpdated(
                     invoiceCreatedAt: Date.now(),
                     invoiceCreatedBy: 'cloud-auto-v6.62.312',
                     // 🆕 v6.63.612: invoiceAmount zurückschreiben damit ride-Record mit Invoice sync bleibt
-                    invoiceAmount: _gross
+                    invoiceAmount: _gross,
+                    // 🆕 v6.66.141: Reservierung freigeben
+                    _invoiceReserving: null
                 });
                 await addRideLog(rideId, '🧾', `Rechnung automatisch erstellt: ${_belegNr}`, {
                     belegNr: _belegNr, gross: _gross, paymentMethod: after.paymentMethod

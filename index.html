@@ -103154,17 +103154,37 @@ Funk Taxi Team`;
                         invoiceDate = _rData.invoiceCreatedAt ? new Date(_rData.invoiceCreatedAt) : new Date();
                         console.log('🔄 v6.66.82: generateInvoicePDF - Verwende bestehende Nummer:', invoiceNumber);
                     } else {
-                        invoiceNumber = await getNextInvoiceNumber();
-                        invoiceDate = new Date();
-                        try {
-                            await db.ref('rides/' + _rideId).update({
-                                invoiceNumber: invoiceNumber,
-                                invoiceCreatedAt: invoiceDate.getTime()
-                            });
-                            console.log('✅ v6.66.82: Rechnungsnummer in Fahrt gespeichert (generateInvoicePDF):', invoiceNumber);
-                            const _invF = document.getElementById('invoice-number');
-                            if (_invF) _invF.value = invoiceNumber;
-                        } catch (_e) { console.error('⚠️ Fehler beim Speichern:', _e); }
+                        // 🆕 v6.66.141: Race-Schutz — vor Counter-Erhöhung reservieren.
+                        //   Verhindert Doppel-Rechnung wenn Cloud-Auto parallel läuft.
+                        const _resTxW = await db.ref('rides/' + _rideId + '/_invoiceReserving').transaction(cur => {
+                            if (cur && cur.expiresAt > Date.now()) return; // Cloud oder anderer Web reserviert
+                            return { by: 'web-manual', at: Date.now(), expiresAt: Date.now() + 60000 };
+                        });
+                        if (!_resTxW.committed || _resTxW.snapshot.val()?.by !== 'web-manual') {
+                            // Nochmal Ride lesen — vermutlich hat Cloud eben die Nummer geschrieben
+                            const _againSnap = await db.ref('rides/' + _rideId + '/invoiceNumber').once('value');
+                            if (_againSnap.val()) {
+                                invoiceNumber = _againSnap.val();
+                                invoiceDate = new Date();
+                                console.log('🔒 v6.66.141 Web: Cloud war schneller, nutze Nummer:', invoiceNumber);
+                            } else {
+                                alert('⚠️ Rechnung wird gerade automatisch erstellt — kurz warten und erneut versuchen.');
+                                return;
+                            }
+                        } else {
+                            invoiceNumber = await getNextInvoiceNumber();
+                            invoiceDate = new Date();
+                            try {
+                                await db.ref('rides/' + _rideId).update({
+                                    invoiceNumber: invoiceNumber,
+                                    invoiceCreatedAt: invoiceDate.getTime(),
+                                    _invoiceReserving: null
+                                });
+                                console.log('✅ v6.66.82: Rechnungsnummer in Fahrt gespeichert (generateInvoicePDF):', invoiceNumber);
+                                const _invF = document.getElementById('invoice-number');
+                                if (_invF) _invF.value = invoiceNumber;
+                            } catch (_e) { console.error('⚠️ Fehler beim Speichern:', _e); }
+                        }
                     }
                 } else {
                     invoiceNumber = await getNextInvoiceNumber();

@@ -28,7 +28,10 @@ def extract_direction(text):
         p = t.find(kw)
         if p >= 0 and (hotel_pos == -1 or p < hotel_pos): hotel_pos = p
     dest_pos = -1
-    for kw in ('bhf', 'bahnhof', 'flughafen', 'airport', 'flg'):
+    # Patrick 23.09.2026 (Firle-Fall): "Flughfen" statt "Flughafen" im Kalender
+    # → direction='unknown' → kein Merge → Doppelberechnung.
+    # Toleranter Substring-Set inkl. gängiger Tippfehler.
+    for kw in ('bhf', 'bahnhof', 'flughafen', 'flughfen', 'flughaven', 'airport', 'flg', 'flughf'):
         p = t.find(kw)
         if p >= 0 and (dest_pos == -1 or p < dest_pos): dest_pos = p
     if hotel_pos == -1 or dest_pos == -1: return 'unknown'
@@ -90,7 +93,13 @@ def classify_ride(title, descr):
     Ausser: der Titel enthaelt 'SZ' oder 'Selbstzahler' → dann bleibt es SZ (0€) durch
     die separate is_sz-Detection im main()."""
     t = (title + ' ' + descr).lower()
-    if re.search(r'\b(flughafen|flug|airport|flgh?)\b', t):
+    # v6.66.88 (Patrick 17.09.): tolerante Flughafen-Erkennung — auch bei Tippfehlern
+    # ("Flughfen"), sowie Kontext-Marker Landung/Abflug/Airways/LX-Flightcode.
+    if re.search(r'\b(flughafen|flughfen|flughaven|flug|airport|flgh?|hbz)\b', t):
+        return 'flughafen'
+    if re.search(r'\b(landung|abflug|ankunftszeit|abflugszeit|airways|helvetic|lufthansa|eurowings|condor)\b', t):
+        return 'flughafen'
+    if re.search(r'\blx\s*\d{3,4}\b|\beja?\s*\d{3,4}\b|\bfr\s*\d{3,4}\b', t):
         return 'flughafen'
     # Alles was nicht Flughafen ist → bahnhof (Standard fuer die Hotels)
     return 'bahnhof'
@@ -171,17 +180,38 @@ def parse_ics(path):
     return events
 
 def parse_dt(s):
-    """DTSTART kann '20260701T093000' oder '20260701' (all-day) sein."""
+    """DTSTART kann '20260701T093000Z' (UTC) oder '20260701T093000' (lokal)
+    oder '20260701' (all-day) sein.
+
+    Fix Patrick 18.09.2026 Bridge 'Zeiten 2 Stunden verschoben' — Google
+    Kalender exportiert Zeiten mit Z-Suffix als UTC. Vorher stripte parse_dt
+    das Z und behandelte die Zeit als lokal → alle Ausgaben 2h daneben
+    (Berlin-Sommerzeit = UTC+2). Jetzt: bei Z-Suffix nach Berlin konvertieren.
+    """
     if not s: return None
-    s = s.strip('Z')  # UTC-suffix ignorieren fuer Zeit-Zwecke
+    is_utc = s.endswith('Z')
+    s = s.rstrip('Z')
     if 'T' in s:
-        try: return datetime.strptime(s[:15], '%Y%m%dT%H%M%S')
+        try: dt = datetime.strptime(s[:15], '%Y%m%dT%H%M%S')
         except:
-            try: return datetime.strptime(s[:13], '%Y%m%dT%H%M')
+            try: dt = datetime.strptime(s[:13], '%Y%m%dT%H%M')
             except: return None
     else:
         try: return datetime.strptime(s[:8], '%Y%m%d')
         except: return None
+    if is_utc:
+        try:
+            from zoneinfo import ZoneInfo  # Python 3.9+
+            dt = dt.replace(tzinfo=ZoneInfo('UTC')).astimezone(ZoneInfo('Europe/Berlin')).replace(tzinfo=None)
+        except (ImportError, Exception):
+            # Fallback (Windows ohne tzdata): naiver +2h/+1h Offset nach Monat.
+            # März-Oktober ~Sommerzeit +2h, Nov-Feb Winterzeit +1h.
+            # Nicht exakt an DST-Umstell-Wochenenden, aber Rechnung-Zeitfenster
+            # liegt praktisch nie am DST-Switch, deshalb tolerabel.
+            offset_h = 2 if 3 <= dt.month <= 10 else 1
+            from datetime import timedelta as _td
+            dt = dt + _td(hours=offset_h)
+    return dt
 
 def main():
     if len(sys.argv) < 3:
@@ -253,13 +283,22 @@ def main():
         })
 
     # Patrick 03.08. 12:38 "doppelt": Duplikat-Erkennung vor Merge.
-    # 2 Zeilen mit gleichem Tag + Zeit-Differenz <= 10 Min + gleiche Kategorie + gleicher Pax
-    # + gleicher extrahierter Name → als Duplikat markieren (2. Zeile Preis 0, Merge-Note).
+    # Patrick 23.09.2026: Firle-Fall — 2× 15.08. 19:20 Firle (2 Pax vs "2 Erw+2 Kinder"),
+    # 2× berechnet weil pax und Name-Extraktion abwichen. Regel gelockert:
+    #   - Name-Extraktion zusätzlich: Wort nach Komma (", Firle, 2, Pax"), Wort vor Ankunfts-Zeit.
+    #   - Pax-Vergleich für Flughafen/Bahnhof entfällt (Pauschale bis 8 Pax = 1 Preis).
     def _short_name_early(t):
         m = re.search(r"['\"]([A-ZÄÖÜ][a-zäöüßA-ZÄÖÜ\.\-\s]{2,25})['\"]", t)
         if m: return m.group(1).strip(' .').lower()
-        m = re.search(r'\b(?:Fr\.|Frau|Hr\.|Herr)\s+([A-ZÄÖÜ][a-zäöüß\-]+)', t)
+        m = re.search(r'\b(?:Fr\.|Frau|Hr\.|Herr|Fam\.?|Familie)\s+([A-ZÄÖÜ][a-zäöüß\-]+)', t)
         if m: return m.group(1).lower()
+        # Neu 23.09.2026: Nachname isoliert nach Komma, z.B. "Transfer …, Firle, 2 Pax"
+        # oder "Transfer …, Firle 2Pax" oder "…Hotel, Firle,"
+        m = re.search(r',\s*([A-ZÄÖÜ][a-zäöüß\-]{3,20})\s*[,\s]+\d', t)
+        if m:
+            w = m.group(1).lower()
+            if w not in ('darek', 'danilo', 'patrick', 'christian', 'karl', 'ankunft', 'landung', 'abflug', 'transfer'):
+                return w
         return ''
     by_day = {}
     for r in rows:
@@ -271,7 +310,10 @@ def main():
             for b in drs[i+1:]:
                 if b.get('_duplicate'): continue
                 if a['kind'] != b['kind']: continue
-                if a['pax'] != b['pax']: continue
+                # Pax-Gleichheit nur außerhalb Pauschalpreis-Kategorien fordern.
+                # Bahnhof/Flughafen = Pauschale bis 8 Pax → Pax-Unterschied irrelevant.
+                if a['kind'] not in ('bahnhof', 'flughafen') and a['pax'] != b['pax']:
+                    continue
                 # Patrick 03.08. 12:44: Duplikat bis 30 Min Zeitdifferenz (bei gleichem Namen +
                 # gleicher Kategorie + gleicher Pax-Anzahl). Ab 30 Min = extra Fahrt (nicht abgesagt).
                 th1 = int(a['stime'].split(':')[0]) * 60 + int(a['stime'].split(':')[1])

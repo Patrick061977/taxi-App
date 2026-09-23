@@ -7,7 +7,7 @@
  */
 
 // 🆕 v6.25.5: Cloud Function Version — wird in Firebase gespeichert für App-Anzeige
-const CLOUD_FUNCTIONS_VERSION = '6.66.141';
+const CLOUD_FUNCTIONS_VERSION = '6.66.142';
 const CLOUD_FUNCTIONS_BUILD = '20.09.2026 CET';
 
 const { onRequest } = require('firebase-functions/v2/https');
@@ -3018,8 +3018,19 @@ async function autoAssignRide(rideId, rideData, _excludeVehicleIds = []) {
             const _msUntilPickup = rideData.pickupTimestamp ? (rideData.pickupTimestamp - Date.now()) : 0;
             const _hasBeenPuffered = !!rideData._originalPickupTimestamp;
             const _pickupFarInFuture = _msUntilPickup > 20 * 60 * 1000;
+            // 🐛 v6.66.142 (Patrick 23.09.2026 Antje-Fall): Puffer NIEMALS anwenden wenn
+            //   pickedUpAt bereits gesetzt ist (Ride wurde schon gefahren, Status-Reset
+            //   auf 'new' war ein anderer Bug) ODER wenn pickupTimestamp bereits in der
+            //   Vergangenheit liegt (überfällige Ride vom Vortag, gehört an autoComplete,
+            //   nicht an Auto-Assign). Ohne dieses Guard rollt der Puffer den Timestamp
+            //   der alten Ride auf now+5min und lässt pickupTime-String unangetastet →
+            //   Widerspruch (Timestamp=13:10, String=15:20) im Kalender.
+            const _pickupAlreadyPickedUp = !!rideData.pickedUpAt;
+            const _pickupInPast = rideData.pickupTimestamp && _msUntilPickup < 0;
             const _isVorbestellung = !_isSofortSource || rideData.status === 'vorbestellt' || _hasBeenPuffered || _pickupFarInFuture;
-            if (!_isVorbestellung) {
+            if (_pickupAlreadyPickedUp || _pickupInPast) {
+                console.log(`🛡️ v6.66.142 Auto-Puffer SKIP für ${rideId} — pickedUpAt=${rideData.pickedUpAt || 'null'}, msUntilPickup=${Math.round(_msUntilPickup / 60000)}min. Vermutlich Status-Reset einer gefahrenen Ride oder Ride vom Vortag.`);
+            } else if (!_isVorbestellung) {
                 try {
                     const _pufferMin = Math.max(_effectiveDrivingMin || 0, 5);
                     const _newPickupTs = Date.now() + (_pufferMin * 60000);

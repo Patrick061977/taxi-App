@@ -13255,8 +13255,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '6.66.87';
-        const APP_BUILD = '17.09.2026 10:00';
+        const APP_VERSION = '6.66.144';
+        const APP_BUILD = '26.09.2026 06:55';
         const APP_CHANGE = 'v6.66.87: autoAssignRide Settings-Cache 5min → 15sek (Malus/Override greifen sofort).';
 
         // 🔧 FIX: Mache APP_VERSION global verfügbar
@@ -35239,15 +35239,21 @@ Aktuell: ${currentNum}`;
         
         // 🆕 v5.31.5: Update Benachrichtigungs-Bar
         function updateNotificationBar() {
-            const newRides = rides.filter(r => 
-                (r.status === 'new' || r.status === 'vorbestellt') && 
-                !acknowledgedRides.has(r.id) &&
-                !r.vehicleId  // Noch kein Fahrer zugewiesen
+            // 🆕 v6.66.144 (Patrick 26.09. 08:15 Binner-Bug): acknowledgedRides RAUS aus dem
+            //   Filter — wer die Notification wegklickt sollte nur den Alarm-Sound stumm
+            //   schalten, NICHT die Fahrt aus dem Banner verschwinden lassen. Solange kein
+            //   Fahrzeug zugewiesen ist, MUSS die Fahrt sichtbar bleiben. Zusätzlich prüfen
+            //   wir jetzt beide Felder (vehicleId + assignedVehicle), weil die native App
+            //   und die Cloud unterschiedliche Namen setzen.
+            const newRides = rides.filter(r =>
+                (r.status === 'new' || r.status === 'vorbestellt') &&
+                !r.vehicleId &&
+                !r.assignedVehicle
             );
-            
+
             const bar = document.getElementById('admin-notification-bar');
             const count = document.getElementById('notification-ride-count');
-            
+
             if (newRides.length > 0) {
                 bar.style.display = 'block';
                 count.textContent = newRides.length;

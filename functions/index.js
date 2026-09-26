@@ -7,7 +7,7 @@
  */
 
 // 🆕 v6.25.5: Cloud Function Version — wird in Firebase gespeichert für App-Anzeige
-const CLOUD_FUNCTIONS_VERSION = '6.66.142';
+const CLOUD_FUNCTIONS_VERSION = '6.66.145';
 const CLOUD_FUNCTIONS_BUILD = '20.09.2026 CET';
 
 const { onRequest } = require('firebase-functions/v2/https');
@@ -32423,7 +32423,11 @@ exports.onRideUpdated = onValueUpdated(
             //   erstellt wird. Das kostet ja nicht die Welt." Ausschluss: Hotel-
             //   Sammelrechnungen (_isAuftraggeberBooking=true) → Hotel bekommt monatliche
             //   Sammelrechnung extra.
-            const _isCollectiveBilling = after._isAuftraggeberBooking === true;
+            // 🆕 v6.66.145 (Patrick 26.09. 08:35 Bridge): Vetter-Touristik-Bulk-Import
+            //   (createdBy='auftrag-import-pdf-bulk') soll DOCH pro Fahrt eine Rechnung
+            //   bekommen — nicht mehr Monats-Sammel. Hotels behalten die Sammel-Logik.
+            const _isVetterBulk = after.createdBy === 'auftrag-import-pdf-bulk';
+            const _isCollectiveBilling = after._isAuftraggeberBooking === true && !_isVetterBulk;
             // v6.62.314: Auch needsInvoice-Feld erkennen (Web-Driver-Flow nutzt das, Native
             //   v6.62.312+ schreibt beide Felder fuer Backwards-Kompatibilitaet).
             const _invoiceFlagSet = after.invoiceRequested === true || after.needsInvoice === true;

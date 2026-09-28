@@ -7,7 +7,7 @@
  */
 
 // 🆕 v6.25.5: Cloud Function Version — wird in Firebase gespeichert für App-Anzeige
-const CLOUD_FUNCTIONS_VERSION = '6.66.145';
+const CLOUD_FUNCTIONS_VERSION = '6.66.146';
 const CLOUD_FUNCTIONS_BUILD = '20.09.2026 CET';
 
 const { onRequest } = require('firebase-functions/v2/https');
@@ -30259,6 +30259,71 @@ exports.onRideUpdated = onValueUpdated(
             }
         } catch (_capErr) {
             console.error('v6.63.829 Kapazitäts-Guard Fehler:', _capErr.message);
+        }
+
+        // 🔶 v6.66.146 (Patrick 28.09. 19:15 Bridge: Waypoint ohne Koordinaten → OSRM-route-fail):
+        //   Wenn Waypoints als reiner String ohne lat/lon in DB landen (native_admin_dispo_edit
+        //   ohne Autocomplete), auto-geocoden via Nominatim. Sonst scheitert der Auto-Assigner
+        //   an "OSRM/Google liefert keine Route".
+        try {
+            const _wpsRaw = after.waypoints;
+            if (Array.isArray(_wpsRaw) && _wpsRaw.length > 0) {
+                const _needsGeo = _wpsRaw.some(w => w && typeof w === 'object'
+                    && w.address && (typeof w.lat !== 'number' || typeof w.lon !== 'number'));
+                const _beforeWps = JSON.stringify(before.waypoints || null);
+                const _afterWps = JSON.stringify(_wpsRaw);
+                const _changedNow = _beforeWps !== _afterWps;
+                if (_needsGeo && _changedNow) {
+                    console.log(`🔶 v6.66.146 waypoint auto-geocode ${rideId}: ${_wpsRaw.length} waypoints, prüfe fehlende Coords`);
+                    const _newWps = [];
+                    let _anyUpdated = false;
+                    for (const w of _wpsRaw) {
+                        if (!w || typeof w !== 'object' || !w.address) { _newWps.push(w); continue; }
+                        if (typeof w.lat === 'number' && typeof w.lon === 'number') {
+                            _newWps.push(w); continue;
+                        }
+                        try {
+                            const _q = String(w.address).replace(/,\s*/g, ', ').trim();
+                            const _url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=de&addressdetails=1&q=${encodeURIComponent(_q)}`;
+                            const _r = await fetch(_url, {
+                                headers: { 'User-Agent': 'FunkTaxiHeringsdorf/v6.66.146 waypoint-geocode' },
+                                signal: AbortSignal.timeout(6000)
+                            });
+                            if (_r.ok) {
+                                const _arr = await _r.json();
+                                if (Array.isArray(_arr) && _arr.length > 0) {
+                                    const _lat = parseFloat(_arr[0].lat), _lon = parseFloat(_arr[0].lon);
+                                    if (isFinite(_lat) && isFinite(_lon) && _lat > 53.5 && _lat < 54.5 && _lon > 13.5 && _lon < 14.7) {
+                                        _newWps.push({ ...w, lat: _lat, lon: _lon });
+                                        _anyUpdated = true;
+                                        console.log(`🔶 v6.66.146 waypoint geocoded: "${_q}" → ${_lat}/${_lon}`);
+                                        continue;
+                                    }
+                                }
+                            }
+                        } catch (_wgErr) {
+                            console.warn(`🔶 v6.66.146 waypoint geocode fail "${w.address}": ${_wgErr.message}`);
+                        }
+                        _newWps.push(w);
+                    }
+                    if (_anyUpdated) {
+                        const _resetAt = Date.now();
+                        await db.ref(`rides/${rideId}`).update({
+                            waypoints: _newWps,
+                            autoAssignAttempts: 0,
+                            autoAssignLastReason: null,
+                            autoAssignLastEarlyStage: null,
+                            resetForAssignAt: _resetAt,
+                            resetBy: 'cloud_waypoint_geocode_v6.66.146',
+                            updatedAt: _resetAt
+                        });
+                        await addRideLog(rideId, '🔶', `v6.66.146 Waypoint auto-geocodiert (${_newWps.filter(w=>typeof w.lat==='number').length}/${_newWps.length} mit Coords) — Auto-Assign zurückgesetzt`);
+                        return; // Update triggert onRideUpdated erneut, dann Auto-Assign
+                    }
+                }
+            }
+        } catch (_wpGeoErr) {
+            console.error('v6.66.146 Waypoint-Auto-Geocode Fehler:', _wpGeoErr.message);
         }
 
         // 🕐 v6.63.900 (Patrick 18.08. 15:35 Bridge: "IK hat ja keinen Dienst mehr,

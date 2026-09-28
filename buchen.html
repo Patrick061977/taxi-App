@@ -1272,7 +1272,7 @@
         //   Tesla-Browser hatte gecachte alte Version, obwohl Strato die neue ausspielte.
         //   Periodischer Build-Check: alle 60s das Server-buchen.html abklopfen, wenn
         //   neuere Build-Zeit als die gerade geladene → window.location.reload(true).
-        const _CLIENT_BUILD = 'v6.63.617-2026-07-05T12:30Z';
+        const _CLIENT_BUILD = 'v6.66.146-2026-09-28T09:15Z';
         (function setupAutoReloadOnNewBuild() {
             let _serverBuildMarker = null;
             async function _check() {
@@ -4951,6 +4951,19 @@
                     if (data.length === 0) {
                         resp = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&addressdetails=1&namedetails=1&viewbox=13.60,54.20,14.45,53.75&bounded=1`, { headers: { 'User-Agent': 'TaxiUsedom/1.0' } });
                         data = await resp.json();
+                    }
+                    // 🆕 v6.66.146 (Patrick 27.09. Bridge Amselring-Neuhof-Fall): dritter Fallback —
+                    //   Bei Query mit mehreren Komma-getrennten Teilen (z.B. "Amselring 10, 17424 Neuhof")
+                    //   verwirft Nominatim manchmal wegen zu präziser Ortsteil-Angabe ("Neuhof") den Treffer,
+                    //   obwohl die Adresse existiert. Fix: schneide iterativ das letzte Komma-Segment weg
+                    //   und probiere erneut — sobald 1+ Treffer, brich ab.
+                    if (data.length === 0 && query.includes(',')) {
+                        const parts = query.split(',').map(s => s.trim()).filter(Boolean);
+                        for (let cut = parts.length - 1; cut >= 1 && data.length === 0; cut--) {
+                            const shorter = parts.slice(0, cut).join(', ');
+                            resp = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(shorter)}&limit=5&addressdetails=1&namedetails=1&viewbox=13.60,54.20,14.45,53.75&bounded=1`, { headers: { 'User-Agent': 'TaxiUsedom/1.0' } });
+                            data = await resp.json();
+                        }
                     }
                     data.forEach(item => {
                         const a = item.address || {};

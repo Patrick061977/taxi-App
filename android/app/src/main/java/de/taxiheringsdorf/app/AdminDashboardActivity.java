@@ -395,10 +395,35 @@ public class AdminDashboardActivity extends AppCompatActivity {
         //   Wartepool-Rides aus der Tag-Timeline rausziehen, am Ende als eigene Sektion.
         //   Plus Banner-Tap soll dorthin scrollen.
         List<Ride> wartepoolRides = new ArrayList<>();
+        // v6.66.148 (Patrick 30.09. 07:26-07:34 Bridge: "Frau Ackermann wurde jetzt
+        //   abgelehnt von mir und von keinem weiteren angenommen ... warum erscheint
+        //   die Fahrt dann jetzt nicht oben im Banner?" + "Solange kein zweiter Fahrer
+        //   versucht wird, muss die Fahrt auch oben im Banner sein" + "diese Wartepool-
+        //   Geschichten. Nicht, dass es oben zu unübersichtlich wird"):
+        //   Banner-Kriterien erweitert — bisher nur status='wartepool'. Ackermann-Fahrt
+        //   war im Zwischenzustand (rejected → autoAssignAttempts hochgezählt → aber
+        //   noch nicht offiziell wartepool). Neue Kriterien:
+        //     A) status='wartepool' (offiziell im Wartepool)
+        //     B) wartepoolAt gesetzt (Cloud hat schon rein, status evtl. noch anders)
+        //     C) autoAssignAttempts>0 UND kein Fahrzeug UND Pickup <2h weg
+        //        (frisch abgelehnt, Cloud versucht neu, aber Zeit läuft ab)
+        long _nowMs = System.currentTimeMillis();
+        long _handlungsbedarfWindow = _nowMs + 2 * 60 * 60 * 1000L;
         for (Ride r : list) {
-            if (r.isUnclaimedWebBooking()) webRequests.add(r);
-            else if (r.status != null && "wartepool".equalsIgnoreCase(r.status)) wartepoolRides.add(r);
-            else rest.add(r);
+            if (r.isUnclaimedWebBooking()) { webRequests.add(r); continue; }
+            boolean isWartepool = r.status != null && "wartepool".equalsIgnoreCase(r.status);
+            boolean hasWartepoolAt = r.wartepoolAt != null && r.wartepoolAt > 0;
+            boolean noVehicle = r.assignedVehicle == null || r.assignedVehicle.isEmpty();
+            boolean autoAssignFailedSoon = r.autoAssignAttempts != null
+                    && r.autoAssignAttempts > 0
+                    && noVehicle
+                    && r.pickupTimestamp != null
+                    && r.pickupTimestamp < _handlungsbedarfWindow;
+            if (isWartepool || hasWartepoolAt || autoAssignFailedSoon) {
+                wartepoolRides.add(r);
+            } else {
+                rest.add(r);
+            }
         }
         // v6.62.161: Tag-Header zwischen Fahrten einfuegen (HEUTE / MORGEN / Datum)
         // Patrick: 'Disposition wie normaler Kalender, sortiert nach Tagen'.
@@ -458,9 +483,11 @@ public class AdminDashboardActivity extends AppCompatActivity {
                     // v6.62.958: erste Wartepool-Ride in sectioned finden (inline jetzt)
                     _wpBanner.setOnClickListener(_v -> {
                         try {
+                            // v6.66.148: Scroll auf erste Ride die im wartepoolRides-Set steckt
+                            //   (nicht mehr nur status='wartepool' — auch failed-auto-assign etc.)
                             for (int i = 0; i < sectioned.size(); i++) {
                                 Object o = sectioned.get(i);
-                                if (o instanceof Ride && "wartepool".equalsIgnoreCase(((Ride)o).status)) {
+                                if (o instanceof Ride && wartepoolRides.contains(o)) {
                                     if (rv != null) rv.smoothScrollToPosition(i);
                                     break;
                                 }

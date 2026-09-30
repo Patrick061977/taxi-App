@@ -395,31 +395,35 @@ public class AdminDashboardActivity extends AppCompatActivity {
         //   Wartepool-Rides aus der Tag-Timeline rausziehen, am Ende als eigene Sektion.
         //   Plus Banner-Tap soll dorthin scrollen.
         List<Ride> wartepoolRides = new ArrayList<>();
-        // v6.66.148 (Patrick 30.09. 07:26-07:34 Bridge: "Frau Ackermann wurde jetzt
-        //   abgelehnt von mir und von keinem weiteren angenommen ... warum erscheint
-        //   die Fahrt dann jetzt nicht oben im Banner?" + "Solange kein zweiter Fahrer
-        //   versucht wird, muss die Fahrt auch oben im Banner sein" + "diese Wartepool-
-        //   Geschichten. Nicht, dass es oben zu unübersichtlich wird"):
-        //   Banner-Kriterien erweitert — bisher nur status='wartepool'. Ackermann-Fahrt
-        //   war im Zwischenzustand (rejected → autoAssignAttempts hochgezählt → aber
-        //   noch nicht offiziell wartepool). Neue Kriterien:
-        //     A) status='wartepool' (offiziell im Wartepool)
-        //     B) wartepoolAt gesetzt (Cloud hat schon rein, status evtl. noch anders)
-        //     C) autoAssignAttempts>0 UND kein Fahrzeug UND Pickup <2h weg
-        //        (frisch abgelehnt, Cloud versucht neu, aber Zeit läuft ab)
+        // v6.66.148 (Patrick 30.09. 07:26-07:34): Ackermann-Fahrt tauchte nicht im Banner
+        //   auf weil status='new' geblieben ist statt 'wartepool'. Neue Kriterien.
+        // v6.66.149 (Patrick 30.09. 07:48 Bridge: "lieber ein bisschen mehr oben im Banner
+        //   ... lieber habe ich einmal mehr was oben als einmal zu wenig"): Fenster von
+        //   2h auf 24h erweitert + Sofortfahrten ohne Fahrer immer sichtbar.
+        //
+        //   Kriterien im Banner (ODER-verknuepft):
+        //     A) status='wartepool'
+        //     B) wartepoolAt gesetzt
+        //     C) autoAssignAttempts>0 UND kein Fahrzeug UND Pickup in nächsten 24h
+        //     D) status='new'/'sofort' UND kein Fahrzeug UND (Pickup <60min ODER kein Timestamp)
         long _nowMs = System.currentTimeMillis();
-        long _handlungsbedarfWindow = _nowMs + 2 * 60 * 60 * 1000L;
+        long _hbTagesende = _nowMs + 24L * 60 * 60 * 1000L;
+        long _hbSofort = _nowMs + 60L * 60 * 1000L;
         for (Ride r : list) {
             if (r.isUnclaimedWebBooking()) { webRequests.add(r); continue; }
             boolean isWartepool = r.status != null && "wartepool".equalsIgnoreCase(r.status);
             boolean hasWartepoolAt = r.wartepoolAt != null && r.wartepoolAt > 0;
             boolean noVehicle = r.assignedVehicle == null || r.assignedVehicle.isEmpty();
-            boolean autoAssignFailedSoon = r.autoAssignAttempts != null
+            boolean autoAssignFailedInWindow = r.autoAssignAttempts != null
                     && r.autoAssignAttempts > 0
                     && noVehicle
                     && r.pickupTimestamp != null
-                    && r.pickupTimestamp < _handlungsbedarfWindow;
-            if (isWartepool || hasWartepoolAt || autoAssignFailedSoon) {
+                    && r.pickupTimestamp < _hbTagesende;
+            boolean sofortOhneFahrer = noVehicle
+                    && r.status != null
+                    && ("new".equalsIgnoreCase(r.status) || "sofort".equalsIgnoreCase(r.status))
+                    && (r.pickupTimestamp == null || r.pickupTimestamp < _hbSofort);
+            if (isWartepool || hasWartepoolAt || autoAssignFailedInWindow || sofortOhneFahrer) {
                 wartepoolRides.add(r);
             } else {
                 rest.add(r);

@@ -13255,8 +13255,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '6.66.147';
-        const APP_BUILD = '30.09.2026 07:35';
+        const APP_VERSION = '6.66.148';
+        const APP_BUILD = '30.09.2026 07:40';
         const APP_CHANGE = 'v6.66.87: autoAssignRide Settings-Cache 5min → 15sek (Malus/Override greifen sofort).';
 
         // 🔧 FIX: Mache APP_VERSION global verfügbar
@@ -35245,21 +35245,33 @@ Aktuell: ${currentNum}`;
             //   Fahrzeug zugewiesen ist, MUSS die Fahrt sichtbar bleiben. Zusätzlich prüfen
             //   wir jetzt beide Felder (vehicleId + assignedVehicle), weil die native App
             //   und die Cloud unterschiedliche Namen setzen.
-            // 🆕 v6.66.147 (Patrick 30.09. 07:31 Bridge, Ackermann-Fall): status='wartepool'
-            //   mit einbeziehen + Zwischenzustand mit wartepoolAt gesetzt aber status='new'.
-            //   Ziel: JEDE haengende Fahrt (kein Fahrzeug) muss im Banner sichtbar sein,
-            //   damit der Admin den Ueberblick behaelt. Nicht zugewiesen = im Banner, egal
-            //   was der Status genau ist.
+            // 🆕 v6.66.148 (Patrick 30.09. 07:34 Bridge, Ackermann-Fall Follow-Up):
+            //   v6.66.147 war zu breit — zeigte ALLE Vorbestellungen ohne Fahrzeug fuer die
+            //   naechsten 24h. Patrick will nur ECHTEN Handlungsbedarf sehen. Also nur:
+            //     - Wartepool-Zustaende (status='wartepool' oder wartepoolAt gesetzt)
+            //     - Ablehnungen (rejectedBy gesetzt) — Fahrzeug hat abgelehnt
+            //     - Auto-Assign-Versuche gemacht (autoAssignAttempts > 0)
+            //     - Sofortfahrten (status='new') mit Pickup < 60 Min voraus
+            //   NICHT sichtbar: normale Vorbestellungen fuer morgen die noch nicht versucht
+            //   wurden.
             const _nowTs = Date.now();
-            const _cutoffFuture = _nowTs + 24*3600_000; // maximal 24h in die Zukunft
-            const _cutoffPast = _nowTs - 15*60_000; // maximal 15 Min in der Vergangenheit (fuer verpasste Sofortfahrten)
+            const _cutoffFuture = _nowTs + 24*3600_000;
+            const _cutoffPast = _nowTs - 15*60_000;
+            const _sofortWindow = _nowTs + 60*60_000; // 60 Min ab jetzt
             const newRides = rides.filter(r => {
                 if (r.vehicleId || r.assignedVehicle) return false;
                 const st = r.status;
                 if (st !== 'new' && st !== 'vorbestellt' && st !== 'wartepool') return false;
                 const pts = r.pickupTimestamp || 0;
-                // Wenn pickupTimestamp gesetzt: nur zeigen, wenn im sinnvollen Fenster
                 if (pts > 0 && (pts < _cutoffPast || pts > _cutoffFuture)) return false;
+                // Handlungsbedarf-Kriterien
+                const isWartepool = st === 'wartepool' || !!r.wartepoolAt;
+                const isRejected = !!r.rejectedBy;
+                const hasAttempts = (r.autoAssignAttempts || 0) > 0;
+                const isSofortSoon = st === 'new' && pts > 0 && pts < _sofortWindow;
+                // Ohne Zeitstempel (Sofortfahrten ohne pickupTimestamp) sind meist neu — zeigen
+                const isSofortNoTs = st === 'new' && pts === 0;
+                if (!isWartepool && !isRejected && !hasAttempts && !isSofortSoon && !isSofortNoTs) return false;
                 return true;
             });
 

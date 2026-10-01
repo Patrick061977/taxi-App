@@ -83,7 +83,7 @@
             <!-- 🚧 v6.66.151 (Patrick 01.10.2026): SEV UBB 05.-15.10. — Hinweis-Banner bei Anfrage. -->
             <div id="sev-ubb-banner" style="display:none;background:linear-gradient(135deg,#fef3c7,#fde68a);border:2px solid #f59e0b;border-radius:12px;padding:12px 14px;margin-bottom:14px;font-size:13px;color:#78350f;line-height:1.5;">
                 <div style="font-weight:800;margin-bottom:4px;">🚧 Schienenersatzverkehr UBB 05.–15.10.2026</div>
-                <div>Zwischen <b>Heringsdorf</b> und <b>Schmollensee</b> fährt der Zug nicht — es gibt einen <b>Schienenersatzverkehr</b>. Zug endet/startet in Schmollensee.</div>
+                <div>Zwischen <b>Seebad Heringsdorf</b> und <b>Schmollensee</b> besteht <b>Schienenersatzverkehr</b> — auf diesem Abschnitt fährt der Zug nicht, es verkehrt ein Busersatz.</div>
                 <div style="margin-top:8px;">
                     <a href="https://www.ubb-online.com/ubb/teilbetrieb-bahn/bahnreisende-fahrplanaendeungen" target="_blank" rel="noopener" style="background:#92400e;color:#fff;padding:8px 14px;border-radius:8px;text-decoration:none;font-weight:700;font-size:13px;display:inline-block;">🔗 Fahrplan & Details bei UBB</a>
                 </div>
@@ -1218,7 +1218,7 @@ function getAnfrageText() {
         var _now = new Date();
         var _sevEnd = new Date(2026, 9, 15, 23, 59);
         if (_now <= _sevEnd) {
-            _sevHinweis = '\n\n\u26a0\ufe0f Hinweis: Vom 05.\u201315.10.2026 Schienenersatzverkehr UBB zwischen Heringsdorf und Schmollensee. Zug endet/startet in Schmollensee. Details: ubb-online.com';
+            _sevHinweis = '\n\n\u26a0\ufe0f Hinweis: Vom 05.\u201315.10.2026 besteht zwischen Seebad Heringsdorf und Schmollensee Schienenersatzverkehr (Busersatz) der UBB. Details: ubb-online.com';
         }
     } catch(_) {}
     return 'Taxi-Anfrage:\n\ud83d\udccd Von: ' + pickup + (festpreisAddr ? '\n\ud83c\udfe0 Abholadresse: ' + festpreisAddr : '') + (stopp ? '\n\ud83d\udccd Zwischenstopp: ' + stopp : '') + '\n\ud83c\udfaf Nach: ' + dest + '\n\ud83d\udcc5 ' + date + ' um ' + time + ' Uhr\n\ud83d\udc65 ' + anfPax + ' Person(en)\n\ud83d\udc64 ' + nameMitAnrede + '\n\ud83d\udcf1 ' + phone + (email ? '\n\ud83d\udce7 ' + email : '') + '\n\ud83d\udcb0 ca. ' + price + (notes ? '\n\ud83d\udcac Bemerkung: ' + notes : '') + _invText + _sevHinweis;

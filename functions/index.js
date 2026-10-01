@@ -30261,6 +30261,58 @@ exports.onRideUpdated = onValueUpdated(
             console.error('v6.63.829 Kapazitäts-Guard Fehler:', _capErr.message);
         }
 
+        // 🏊 v6.66.156 (Patrick 01.10.: "irgendwann muss es ja mal von alleine funktionieren"):
+        //   Universal-Reject-Fallback. v6.66.155 hat den wartepool-Fallback nur im HTTP-rideAction-
+        //   Reject-Handler gepatcht. Die Fahrer-App schreibt rejectedVehicles aber TEILS direkt per
+        //   RTDB-Update statt via HTTP → L1 greift dann nicht. Hier im onRideUpdated-Trigger
+        //   fangen wir ALLE Reject-Transitions ab (egal welcher Pfad):
+        //
+        //   Trigger-Bedingung:
+        //     - before hatte assignedVehicle, after hat keins
+        //     - after.status ist 'new' oder 'vorbestellt' (nicht schon wartepool)
+        //     - rejectedVehicles ist gewachsen (also war's wirklich ein Reject, kein Admin-Clear)
+        //     - Pickup noch in der Zukunft (nicht schon vorbei)
+        //     - after.wartepoolAt nicht gesetzt (nicht schon vorhin durchgelaufen)
+        //
+        //   Dann:
+        //     - autoAssignRide aufrufen (findet ggf. ein weiteres Fahrzeug)
+        //     - wenn null zurück: status='wartepool' setzen → Dashboard-Listener greift fuer alle
+        try {
+            const _beforeVid = before.assignedVehicle || before.vehicleId;
+            const _afterVid = after.assignedVehicle || after.vehicleId;
+            const _nowReleased = _beforeVid && !_afterVid;
+            const _statusEligible = ['new', 'vorbestellt'].includes(after.status);
+            const _beforeRej = Array.isArray(before.rejectedVehicles) ? before.rejectedVehicles.length : 0;
+            const _afterRej = Array.isArray(after.rejectedVehicles) ? after.rejectedVehicles.length : 0;
+            const _rejectGrew = _afterRej > _beforeRej;
+            const _pickupFuture = after.pickupTimestamp && after.pickupTimestamp > Date.now() - 5 * 60000;
+            const _notYetPooled = !after.wartepoolAt;
+            if (_nowReleased && _statusEligible && _rejectGrew && _pickupFuture && _notYetPooled) {
+                console.log(`🏊 v6.66.156 Reject-Transition erkannt für ${rideId}: vehicle ${_beforeVid} → null, rejectedVehicles ${_beforeRej}→${_afterRej}. Versuche Re-Assign…`);
+                try {
+                    const _ride = { ...after, _rejectedVehicles: after.rejectedVehicles || [], vehicleId: null, assignedVehicle: null };
+                    const _result = await autoAssignRide(rideId, _ride);
+                    if (_result && _result.vehicleId) {
+                        console.log(`🏊 v6.66.156 Reject-Transition → Re-Assign erfolgreich: ${_result.name || _result.vehicleId}`);
+                        try { await addRideLog(rideId, '🔄', `v6.66.156 universal-reject-fallback → Re-Assign: ${_result.name || _result.vehicleId}`, { quelle: 'onRideUpdated v6.66.156' }); } catch(_) {}
+                    } else {
+                        console.log(`🏊 v6.66.156 Reject-Transition → kein Fahrzeug verfügbar → status=wartepool`);
+                        const _wpNow = Date.now();
+                        await db.ref(`rides/${rideId}`).update({
+                            status: 'wartepool',
+                            statusBeforeWartepool: after.status || 'vorbestellt',
+                            wartepoolAt: _wpNow,
+                            wartepoolReason: `v6.66.156 universal-reject-fallback (${_afterRej} Fahrzeuge rejected, kein Re-Assign möglich)`,
+                            updatedAt: _wpNow
+                        });
+                        try { await addRideLog(rideId, '🏊', `v6.66.156 Reject-Rotation erschöpft → wartepool (${_afterRej} rejected)`, { quelle: 'onRideUpdated v6.66.156' }); } catch(_) {}
+                        try { await sendToAllAdmins(`🏊 <b>Wartepool-Fallback</b>\n\n${after.customerName || '?'} · ${after.pickup || '?'}\nAlle ${_afterRej} verfügbaren Fahrzeuge haben abgelehnt — Fahrt steht im Wartepool-Banner aller Online-Fahrer.`, 'unassigned'); } catch(_) {}
+                        return; // nachgelagerte Trigger-Logik überspringen, Wartepool-Trigger übernimmt
+                    }
+                } catch (_raErr) { console.error('v6.66.156 universal-reject-fallback autoAssign Fehler:', _raErr.message); }
+            }
+        } catch (_urfErr) { console.error('v6.66.156 universal-reject-fallback Fehler:', _urfErr.message); }
+
         // 🔶 v6.66.146 (Patrick 28.09. 19:15 Bridge: Waypoint ohne Koordinaten → OSRM-route-fail):
         //   Wenn Waypoints als reiner String ohne lat/lon in DB landen (native_admin_dispo_edit
         //   ohne Autocomplete), auto-geocoden via Nominatim. Sonst scheitert der Auto-Assigner

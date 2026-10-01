@@ -499,14 +499,53 @@ public class CallLogActivity extends AppCompatActivity {
             @Override public void afterTextChanged(android.text.Editable e) {
                 if (pending[0] != null) h.removeCallbacks(pending[0]);
                 String q = e.toString().replaceFirst("^[📍🎯]\\s*", "").trim();
-                if (q.length() < 3 || q.endsWith("wählen…")) {
+                // 🆕 v6.66.157 (Patrick 01.10. 'bau das wie es am besten ist'):
+                //   Min-Zeichen 3→2 + Debounce 400→300 ms wie anfrage.html Z. 767+792.
+                if (q.length() < 2 || q.endsWith("wählen…")) {
                     suggBox.removeAllViews();
                     return;
                 }
                 pending[0] = () -> nominatimSuggestForField(q, suggBox, edit, coordsOut, icon);
-                h.postDelayed(pending[0], 400);
+                h.postDelayed(pending[0], 300);
             }
         });
+    }
+
+    // 🆕 v6.66.157 (Patrick 01.10. 'bau das wie es am besten ist'):
+    //   Lokale Bahnhof-POIs analog anfrage.html Z. 784-788. Nominatim mit namedetails
+    //   liefert fuer 'Bahnhof Heringsdorf' manchmal den Ahlbecker — darum kuratierte
+    //   Liste zuerst. Match ueber keywords (substring+Multi-Token).
+    private static final String[][] STATION_POIS = {
+        // keywords | name | address | lat | lon
+        {"bahnhof heringsdorf|heringsdorf bahnhof|bahnhof seebad heringsdorf", "Bahnhof Heringsdorf", "Bülowstraße, 17424 Heringsdorf", "53.949456456543906", "14.16965961456299"},
+        {"bahnhof bansin|bansin bahnhof",                                      "Bahnhof Bansin",      "Bahnhofstraße 3, 17429 Bansin",  "53.964456899999995", "14.1297471"},
+        {"bahnhof ahlbeck|ahlbeck bahnhof",                                    "Bahnhof Ahlbeck",     "Bahnhofstraße, 17419 Ahlbeck",   "53.935974",          "14.1885889"}
+    };
+
+    // 🆕 v6.66.157: Heringsdorf-Ortsteil-Normalisierung + PLZ-Erzwingung analog
+    //   anfrage.html Z. 862-890. Nominatim liefert 'Heringsdorf-Ahlbeck' oder
+    //   'Ostseebad Heringsdorf' — Fahrer suchen aber nach einfachem Ortsname.
+    private static String v157Normalize(String s) {
+        if (s == null) return "";
+        // Schritt 1: 'Heringsdorf-<Ortsteil>' auf reinen Ortsteil kollabieren
+        s = s.replaceAll("(?i)Heringsdorf-(Ostseebad|Seebad(?:\\s+Heringsdorf)?|Kaiserbäder|Ahlbeck|Bansin)",
+            "__ORTREPL__$1");
+        s = s.replaceAll("__ORTREPL__(?i)[Aa]hlbeck", "Ahlbeck");
+        s = s.replaceAll("__ORTREPL__(?i)[Bb]ansin",  "Bansin");
+        s = s.replaceAll("__ORTREPL__.*",             "Heringsdorf");
+        s = s.replaceAll("(?i)Ostseebad\\s+Heringsdorf", "Heringsdorf");
+        s = s.replaceAll("(?i)Seebad\\s+Heringsdorf",    "Heringsdorf");
+        s = s.replaceAll("(?i)Kaiserbäder",              "Heringsdorf");
+        // Schritt 2: bei bekannter PLZ den Ort nachscharfen
+        if (s.contains("17419")) s = s.replaceAll("(?i)\\bHeringsdorf\\b", "Ahlbeck");
+        else if (s.contains("17429")) s = s.replaceAll("(?i)\\bHeringsdorf\\b", "Bansin");
+        // Schritt 3: PLZ erzwingen wenn Ort erkannt aber keine PLZ im String
+        if (!s.matches(".*\\b1[0-9]{4}\\b.*")) {
+            if (s.matches("(?i).*\\bBansin\\b.*"))      s = s.replaceAll("(?i)\\bBansin\\b",      "17429 Bansin");
+            else if (s.matches("(?i).*\\bAhlbeck\\b.*")) s = s.replaceAll("(?i)\\bAhlbeck\\b",     "17419 Ahlbeck");
+            else if (s.matches("(?i).*\\bHeringsdorf\\b.*")) s = s.replaceAll("(?i)\\bHeringsdorf\\b", "17424 Heringsdorf");
+        }
+        return s;
     }
 
     private void nominatimSuggestForField(final String query, final LinearLayout suggBox,
@@ -514,24 +553,55 @@ public class CallLogActivity extends AppCompatActivity {
                                            final double[] coordsOut, final String icon) {
         new Thread(() -> {
             try {
-                String url = "https://nominatim.openstreetmap.org/search?format=json&limit=6&addressdetails=1&countrycodes=de&q="
-                    + java.net.URLEncoder.encode(query, "UTF-8");
+                final java.util.List<double[]> coords = new java.util.ArrayList<>();
+                final java.util.List<String> labels = new java.util.ArrayList<>();
+
+                // 🚉 v6.66.157: lokale Bahnhof-POIs zuerst — Multi-Token-Match
+                final String qLower = query.toLowerCase().trim();
+                final String[] qTokensRaw = qLower.split("\\s+");
+                final java.util.List<String> qTokens = new java.util.ArrayList<>();
+                for (String t : qTokensRaw) if (t.length() >= 3) qTokens.add(t);
+                for (String[] poi : STATION_POIS) {
+                    boolean matched = false;
+                    for (String kw : poi[0].split("\\|")) {
+                        if (qTokens.size() <= 1) {
+                            if (kw.contains(qLower) || qLower.contains(kw)) { matched = true; break; }
+                        } else {
+                            boolean allIn = true;
+                            for (String t : qTokens) if (!kw.contains(t)) { allIn = false; break; }
+                            if (allIn) { matched = true; break; }
+                        }
+                    }
+                    if (matched) {
+                        coords.add(new double[]{Double.parseDouble(poi[3]), Double.parseDouble(poi[4])});
+                        labels.add(poi[1] + ", " + poi[2]);
+                    }
+                }
+
+                // 🔍 v6.66.157: Nominatim mit namedetails + viewbox Usedom + ', Usedom' Suffix
+                //   analog anfrage.html Z. 820 — findet Hotels/POIs als namedetails.name
+                //   (z.B. 'Weißes Schloss' bei Rudolf-Breitscheid-Str) und priorisiert Usedom-Treffer.
+                String url = "https://nominatim.openstreetmap.org/search?format=json&limit=6&namedetails=1&addressdetails=1"
+                    + "&viewbox=13.60,54.20,14.45,53.75&bounded=0"
+                    + "&q=" + java.net.URLEncoder.encode(query + ", Usedom", "UTF-8");
                 java.net.HttpURLConnection conn = (java.net.HttpURLConnection) new java.net.URL(url).openConnection();
-                conn.setRequestProperty("User-Agent", "TaxiApp/v6.66.97 patrick@funktaxi-heringsdorf.de");
+                conn.setRequestProperty("User-Agent", "TaxiApp/v6.66.157 patrick@funktaxi-heringsdorf.de");
                 conn.setConnectTimeout(6000); conn.setReadTimeout(6000);
                 java.io.BufferedReader br = new java.io.BufferedReader(new java.io.InputStreamReader(conn.getInputStream(), "UTF-8"));
                 StringBuilder sb = new StringBuilder(); String line;
                 while ((line = br.readLine()) != null) sb.append(line);
                 br.close();
                 org.json.JSONArray arr = new org.json.JSONArray(sb.toString());
-                final java.util.List<double[]> coords = new java.util.ArrayList<>();
-                final java.util.List<String> labels = new java.util.ArrayList<>();
-                for (int i = 0; i < arr.length() && i < 6; i++) {
+                for (int i = 0; i < arr.length() && labels.size() < 8; i++) {
                     org.json.JSONObject o = arr.getJSONObject(i);
                     double lat = Double.parseDouble(o.getString("lat"));
                     double lon = Double.parseDouble(o.getString("lon"));
                     String disp = o.optString("display_name", "");
                     org.json.JSONObject ad = o.optJSONObject("address");
+                    org.json.JSONObject nd = o.optJSONObject("namedetails");
+                    // 🆕 v6.66.157: namedetails.name zuerst nutzen (POI-Name wie 'Weißes Schloss')
+                    String poiName = nd != null ? nd.optString("name", "") : "";
+                    if (poiName.isEmpty()) poiName = o.optString("name", "");
                     String shortLabel = disp;
                     if (ad != null) {
                         String road = ad.optString("road", "");
@@ -541,13 +611,15 @@ public class CallLogActivity extends AppCompatActivity {
                         if (ort.isEmpty()) ort = ad.optString("town", "");
                         if (ort.isEmpty()) ort = ad.optString("village", "");
                         if (ort.isEmpty()) ort = ad.optString("suburb", "");
-                        String name = ad.optString("amenity", "");
-                        if (name.isEmpty()) name = ad.optString("shop", "");
-                        if (name.isEmpty()) name = ad.optString("tourism", "");
-                        if (name.isEmpty()) name = ad.optString("building", "");
-                        if (name.isEmpty()) name = ad.optString("railway", "");
+                        if (poiName.isEmpty()) {
+                            poiName = ad.optString("amenity", "");
+                            if (poiName.isEmpty()) poiName = ad.optString("shop", "");
+                            if (poiName.isEmpty()) poiName = ad.optString("tourism", "");
+                            if (poiName.isEmpty()) poiName = ad.optString("building", "");
+                            if (poiName.isEmpty()) poiName = ad.optString("railway", "");
+                        }
                         StringBuilder sb2 = new StringBuilder();
-                        if (!name.isEmpty() && !name.equalsIgnoreCase("yes")) sb2.append(name).append(", ");
+                        if (!poiName.isEmpty() && !poiName.equalsIgnoreCase("yes") && !poiName.equalsIgnoreCase(road)) sb2.append(poiName).append(", ");
                         if (!road.isEmpty()) {
                             sb2.append(road);
                             if (!hn.isEmpty()) sb2.append(" ").append(hn);
@@ -561,10 +633,24 @@ public class CallLogActivity extends AppCompatActivity {
                     shortLabel = shortLabel
                         .replaceAll(",?\\s*Vorpommern-Greifswald", "")
                         .replaceAll(",?\\s*Mecklenburg-Vorpommern", "")
-                        .replaceAll(",?\\s*Kaiserbäder", "")
                         .replaceAll(",?\\s*Deutschland", "")
                         .replaceAll("\\s{2,}", " ")
                         .trim();
+                    // 🆕 v6.66.157: Heringsdorf-Normalisierung + PLZ-Erzwingung
+                    shortLabel = v157Normalize(shortLabel);
+                    // 🆕 v6.66.157: Multi-Token-Relevanz-Filter — bei ≥2 Tokens müssen alle in Label
+                    if (qTokens.size() >= 2) {
+                        String blob = shortLabel.toLowerCase();
+                        boolean allHit = true;
+                        for (String t : qTokens) if (!blob.contains(t)) { allHit = false; break; }
+                        if (!allHit) continue;
+                    }
+                    // 🆕 v6.66.157: Dedup gegen bestehende Treffer (Local-POIs + bisherige Nominatim)
+                    boolean isDup = false;
+                    for (String existing : labels) {
+                        if (existing.equalsIgnoreCase(shortLabel)) { isDup = true; break; }
+                    }
+                    if (isDup) continue;
                     coords.add(new double[]{lat, lon});
                     labels.add(shortLabel);
                 }

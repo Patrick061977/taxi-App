@@ -80,6 +80,18 @@
                     <span style="background:#f1f5f9;padding:2px 6px;border-radius:4px;">Bar</span>
                 </div>
             </div>
+            <!-- 🚧 v6.66.151 (Patrick 01.10.2026): SEV UBB 05.-15.10. — Hinweis-Banner bei Anfrage. -->
+            <div id="sev-ubb-banner" style="display:none;background:linear-gradient(135deg,#fef3c7,#fde68a);border:2px solid #f59e0b;border-radius:12px;padding:12px 14px;margin-bottom:14px;font-size:13px;color:#78350f;line-height:1.5;">
+                <div style="font-weight:800;margin-bottom:4px;">🚧 Schienenersatzverkehr UBB 05.–15.10.2026</div>
+                <div>Zwischen <b>Heringsdorf</b> und <b>Schmollensee</b> fährt der Zug nicht — es gibt einen <b>Schienenersatzverkehr</b>. Zug endet/startet in Schmollensee. <a href="https://www.ubb-online.de" target="_blank" rel="noopener" style="color:#78350f;text-decoration:underline;font-weight:700;">Details auf ubb-online.de</a></div>
+            </div>
+            <script>
+                (function(){
+                    var now = new Date();
+                    var end = new Date(2026, 9, 15, 23, 59); // 15. Okt 2026, 23:59
+                    if (now <= end) { var el = document.getElementById('sev-ubb-banner'); if (el) el.style.display = 'block'; }
+                })();
+            </script>
             <div style="margin-bottom:12px;">
                 <label style="display:block;font-size:12px;color:#64748b;font-weight:600;margin-bottom:4px;">📍 Abholort</label>
                 <!-- 🆕 v6.62.695: Patrick (13.05. 20:17): "Leute muessen Abholort und Zielort
@@ -1197,7 +1209,16 @@ function getAnfrageText() {
     var notes = document.getElementById('anf-notes').value || '';
     var email = (document.getElementById('anf-email').value || '').trim();
     var _invText = formatAnfInvoiceText(getAnfInvoiceData());
-    return 'Taxi-Anfrage:\n\ud83d\udccd Von: ' + pickup + (festpreisAddr ? '\n\ud83c\udfe0 Abholadresse: ' + festpreisAddr : '') + (stopp ? '\n\ud83d\udccd Zwischenstopp: ' + stopp : '') + '\n\ud83c\udfaf Nach: ' + dest + '\n\ud83d\udcc5 ' + date + ' um ' + time + ' Uhr\n\ud83d\udc65 ' + anfPax + ' Person(en)\n\ud83d\udc64 ' + nameMitAnrede + '\n\ud83d\udcf1 ' + phone + (email ? '\n\ud83d\udce7 ' + email : '') + '\n\ud83d\udcb0 ca. ' + price + (notes ? '\n\ud83d\udcac Bemerkung: ' + notes : '') + _invText;
+    // v6.66.151: SEV UBB 05.-15.10.2026 \u2014 Hinweis in Anfrage-Text
+    var _sevHinweis = '';
+    try {
+        var _now = new Date();
+        var _sevEnd = new Date(2026, 9, 15, 23, 59);
+        if (_now <= _sevEnd) {
+            _sevHinweis = '\n\n\u26a0\ufe0f Hinweis: Vom 05.\u201315.10.2026 Schienenersatzverkehr UBB zwischen Heringsdorf und Schmollensee. Zug endet/startet in Schmollensee. Details: ubb-online.de';
+        }
+    } catch(_) {}
+    return 'Taxi-Anfrage:\n\ud83d\udccd Von: ' + pickup + (festpreisAddr ? '\n\ud83c\udfe0 Abholadresse: ' + festpreisAddr : '') + (stopp ? '\n\ud83d\udccd Zwischenstopp: ' + stopp : '') + '\n\ud83c\udfaf Nach: ' + dest + '\n\ud83d\udcc5 ' + date + ' um ' + time + ' Uhr\n\ud83d\udc65 ' + anfPax + ' Person(en)\n\ud83d\udc64 ' + nameMitAnrede + '\n\ud83d\udcf1 ' + phone + (email ? '\n\ud83d\udce7 ' + email : '') + '\n\ud83d\udcb0 ca. ' + price + (notes ? '\n\ud83d\udcac Bemerkung: ' + notes : '') + _invText + _sevHinweis;
 }
 
 // Anfrage in Firebase speichern (Tracking)

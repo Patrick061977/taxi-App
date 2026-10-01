@@ -34951,6 +34951,40 @@ exports.scheduledOpenRideCheck = onSchedule(
                 await sendToAllAdmins(message, 'unassigned');
                 await sendToSystemChannel(message, 'unassigned');
 
+                // 🚨 v6.66.155 (Patrick 01.10. 'ich kriege davon gar nichts mit, es ist ein stiller Alarm'):
+                //   Vorher ging die 10-Min-Warnung NUR als Admin-Telegram raus. Fahrer bekamen keinen
+                //   hörbaren FCM-Push obwohl die Fahrt in <10 Min losgeht. Jetzt zusätzlich: an alle
+                //   online-Fahrzeuge einen type='new_ride'-FCM — triggert Vollbild-RideAlertActivity
+                //   + 60s AlertSoundService (= gleicher Alarm wie bei normaler Zuweisung). L2 aus
+                //   Audit 01.10. Status muss wartepool|new|warteschlange sein + kein Vehicle zugewiesen.
+                try {
+                    const _vehSnap = await db.ref('vehicles').once('value');
+                    const _vehicles = _vehSnap.val() || {};
+                    const _rejected = Array.isArray(ride.rejectedVehicles) ? ride.rejectedVehicles : [];
+                    const _broadcastTargets = [];
+                    for (const [_vid, _v] of Object.entries(_vehicles)) {
+                        if (_v && _v.online === true && _v.shift && _v.shift.status === 'active') {
+                            _broadcastTargets.push(_vid);
+                        }
+                    }
+                    for (const _vid of _broadcastTargets) {
+                        sendFCMToVehicle(_vid, {
+                            type: 'new_ride',
+                            rideId,
+                            reason: 'wartepool-rescue-10min-cutoff',
+                            customerName: ride.customerName || 'Kunde',
+                            pickup: ride.pickup || '',
+                            destination: ride.destination || '',
+                            pickupTime: ride.pickupTime || '',
+                            minsToPickup: String(Math.max(0, Math.round(minutesUntilPickup))),
+                            isRescue: 'true',
+                            previouslyRejected: _rejected.includes(_vid) ? 'true' : 'false'
+                        }).catch(_e => console.warn(`v155 openRide-rescue FCM an ${_vid} fehlgeschlagen: ${_e.message}`));
+                    }
+                    console.log(`🚨 v6.66.155 openRide-rescue FCM an ${_broadcastTargets.length} online Fahrzeuge (${_broadcastTargets.join(', ')})`);
+                    try { await addRideLog(rideId, '📡', `openRide-rescue FCM an ${_broadcastTargets.length} Fahrer`, { quelle: 'v6.66.155-openride-fcm', targets: _broadcastTargets }); } catch(_) {}
+                } catch (_bcErr) { console.warn('v155 openRide-rescue broadcast Fehler:', _bcErr.message); }
+
                 // Flag setzen damit nicht nochmal gewarnt wird
                 try {
                     await db.ref('rides/' + rideId + '/openRideWarned').set(true);
@@ -42974,8 +43008,24 @@ exports.rideAction = onRequest(
                         console.log(`✅ Reject-Re-Assign: ${rideId} → ${_name}`);
                         try { await addRideLog(rideId, '🔄', `Reject-Re-Assign: ${_name}`, { quelle: 'rideAction-reject v6.62.248', rejectedVehicles: newRejected }); } catch(_) {}
                     } else {
-                        console.log(`⚠️ Reject-Re-Assign: kein anderes Fahrzeug verfügbar für ${rideId}`);
-                        try { await sendToAllAdmins(`⚠️ <b>Re-Assign fehlgeschlagen</b>\n\nFahrt von ${_curRide.customerName || '?'} (${_curRide.pickup || '?'}) wurde abgelehnt — kein anderes Fahrzeug verfügbar.\n\n→ <b>Manuell zuweisen erforderlich!</b>`, 'unassigned'); } catch(_) {}
+                        console.log(`⚠️ Reject-Re-Assign: kein anderes Fahrzeug verfügbar für ${rideId} → status=wartepool`);
+                        // v6.66.155 (Patrick 01.10. 'wenn keiner akzeptiert, warum steht die Fahrt oben nicht im Banner'):
+                        //   Nach Reject-Rotation ohne verfügbares Fahrzeug darf der Ride NICHT auf
+                        //   'vorbestellt'/'new' ohne Vehicle hängen bleiben — Dashboard-Listener in der
+                        //   Fahrer-App filtern nur 'wartepool'+unassigned (+ 'new'), sonst ist die Fahrt
+                        //   unsichtbar für alle Fahrer. L1 aus Audit 01.10.
+                        const _wartepoolNow = Date.now();
+                        try {
+                            await db.ref(`rides/${rideId}`).update({
+                                status: 'wartepool',
+                                statusBeforeWartepool: _curRide.status || 'vorbestellt',
+                                wartepoolAt: _wartepoolNow,
+                                wartepoolReason: `v6.66.155 Reject-Rotation erschöpft (${newRejected.length} Fahrzeuge abgelehnt)`,
+                                updatedAt: _wartepoolNow
+                            });
+                            await addRideLog(rideId, '🏊', `Reject-Rotation erschöpft → wartepool`, { quelle: 'v6.66.155-reject-wartepool', rejectedVehicles: newRejected });
+                        } catch(_wpErr) { console.error('v155 wartepool-update Fehler:', _wpErr.message); }
+                        try { await sendToAllAdmins(`⚠️ <b>Re-Assign fehlgeschlagen → WARTEPOOL</b>\n\nFahrt von ${_curRide.customerName || '?'} (${_curRide.pickup || '?'}) wurde abgelehnt — kein anderes Fahrzeug verfügbar.\n\n→ Fahrt steht jetzt im <b>Wartepool-Banner</b> aller Online-Fahrer.`, 'unassigned'); } catch(_) {}
                     }
                 } catch (reassignErr) {
                     console.error('❌ Reject-Re-Assign Fehler:', reassignErr.message);

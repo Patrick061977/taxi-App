@@ -781,10 +781,31 @@ document.addEventListener('click', function(e) {
 //   Kuratiertes Bahnhof-POI-Mapping analog buchen.html — Google Places liefert für
 //   'Bahnhof Heringsdorf' oft den Ahlbecker Bahnhof zuerst oder labelt ihn als
 //   'Heringsdorf-Ahlbeck' (offizieller Gemeindename). Lokale POIs zuerst = eindeutig.
+// 🚉 v6.66.158 (Patrick 02.10.: 'warum kann ich nicht ubb haltestelle schmollensee eingeben'):
+//   Komplette UBB-Haltestellen-Liste als lokale POIs. Nominatim findet 'Schmollensee'
+//   zuerst als See-Objekt, nicht als Haltestelle — kuratierte Liste priorisiert.
+//   Reihenfolge: Hauptlinie Peenemuende → Ahlbeck Grenze + Wolgast-Zweig.
 var _ANF_STATION_POIS = [
+    // Baederlinie-Hauptstrecke Peenemuende → Ahlbeck Grenze (west → ost)
+    { keywords: ['bahnhof peenemuende', 'peenemuende bahnhof', 'bahnhof peenemünde'],   name: 'Bahnhof Peenemünde',  addr: 'Bahnhofstraße, 17449 Peenemünde', lat: 54.1398, lon: 13.7707, icon: '🚉' },
+    { keywords: ['bahnhof karlshagen', 'karlshagen bahnhof'],                            name: 'Bahnhof Karlshagen',  addr: 'Bahnhofstraße, 17449 Karlshagen', lat: 54.1130, lon: 13.8290, icon: '🚉' },
+    { keywords: ['bahnhof trassenheide', 'trassenheide bahnhof'],                        name: 'Bahnhof Trassenheide',addr: 'Bahnhofstraße, 17449 Trassenheide', lat: 54.0783, lon: 13.8886, icon: '🚉' },
+    { keywords: ['bahnhof zinnowitz', 'zinnowitz bahnhof'],                              name: 'Bahnhof Zinnowitz',   addr: 'Dünenstraße, 17454 Zinnowitz',   lat: 54.0735, lon: 13.9080, icon: '🚉' },
+    { keywords: ['bahnhof zempin', 'zempin bahnhof'],                                    name: 'Bahnhof Zempin',      addr: 'Bahnhofstraße, 17459 Zempin',    lat: 54.0502, lon: 13.9583, icon: '🚉' },
+    { keywords: ['bahnhof koserow', 'koserow bahnhof', 'seebad koserow'],                name: 'Bahnhof Koserow',     addr: 'Bahnhofstraße, 17459 Koserow',   lat: 54.0477, lon: 14.0070, icon: '🚉' },
+    { keywords: ['bahnhof kölpinsee', 'bahnhof koelpinsee', 'kölpinsee bahnhof'],        name: 'Bahnhof Kölpinsee',   addr: 'Hauptstraße, 17459 Kölpinsee',   lat: 54.0389, lon: 14.0310, icon: '🚉' },
+    { keywords: ['bahnhof ückeritz', 'bahnhof ueckeritz', 'ückeritz bahnhof'],           name: 'Bahnhof Ückeritz',    addr: 'Bahnhofstraße, 17459 Ückeritz',  lat: 54.0191, lon: 14.0664, icon: '🚉' },
+    { keywords: ['bahnhof neu pudagla', 'neu pudagla'],                                  name: 'Bahnhof Neu Pudagla', addr: '17459 Ückeritz-Neu Pudagla',     lat: 53.9995, lon: 14.0953, icon: '🚉' },
+    { keywords: ['bahnhof bansin', 'bansin bahnhof'],                                    name: 'Bahnhof Bansin',      addr: 'Bahnhofstraße 3, 17429 Bansin',  lat: 53.964456899999995, lon: 14.1297471, icon: '🚉' },
+    { keywords: ['bahnhof schmollensee', 'schmollensee bahnhof', 'haltestelle schmollensee', 'ubb schmollensee'], name: 'Bahnhof Schmollensee', addr: 'Schmollensee, 17424 Heringsdorf', lat: 53.9606, lon: 14.1495, icon: '🚉' },
     { keywords: ['bahnhof heringsdorf', 'heringsdorf bahnhof', 'bahnhof seebad heringsdorf'], name: 'Bahnhof Heringsdorf', addr: 'Bülowstraße, 17424 Heringsdorf', lat: 53.949456456543906, lon: 14.16965961456299, icon: '🚉' },
-    { keywords: ['bahnhof bansin', 'bansin bahnhof'],             name: 'Bahnhof Bansin',      addr: 'Bahnhofstraße 3, 17429 Bansin', lat: 53.964456899999995, lon: 14.1297471, icon: '🚉' },
-    { keywords: ['bahnhof ahlbeck', 'ahlbeck bahnhof'],           name: 'Bahnhof Ahlbeck',     addr: 'Bahnhofstraße, 17419 Ahlbeck',  lat: 53.935974,          lon: 14.1885889, icon: '🚉' }
+    { keywords: ['bahnhof ahlbeck', 'ahlbeck bahnhof'],                                  name: 'Bahnhof Ahlbeck',     addr: 'Bahnhofstraße, 17419 Ahlbeck',   lat: 53.935974, lon: 14.1885889, icon: '🚉' },
+    { keywords: ['bahnhof ahlbeck grenze', 'ahlbeck grenze'],                            name: 'Bahnhof Ahlbeck Grenze', addr: 'Grenzstraße, 17419 Ahlbeck',  lat: 53.9323, lon: 14.2025, icon: '🚉' },
+    // Wolgast-Zweig
+    { keywords: ['bahnhof züssow', 'bahnhof zuessow', 'züssow bahnhof'],                 name: 'Bahnhof Züssow',      addr: 'Bahnhofstraße, 17495 Züssow',    lat: 53.9230, lon: 13.6935, icon: '🚉' },
+    { keywords: ['bahnhof wolgast hafen', 'wolgast hafen'],                              name: 'Bahnhof Wolgast Hafen', addr: 'Am Hafen, 17438 Wolgast',      lat: 54.0434, lon: 13.7715, icon: '🚉' },
+    { keywords: ['bahnhof wolgast', 'wolgast bahnhof'],                                  name: 'Bahnhof Wolgast',     addr: 'Chausseestraße, 17438 Wolgast',  lat: 54.0515, lon: 13.7735, icon: '🚉' },
+    { keywords: ['bahnhof ducherow', 'ducherow bahnhof'],                                name: 'Bahnhof Ducherow',    addr: 'Bahnhofstraße, 17398 Ducherow',  lat: 53.7560, lon: 13.7330, icon: '🚉' }
 ];
 
 async function anfSearch(query, inputId) {

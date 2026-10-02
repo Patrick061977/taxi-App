@@ -183,6 +183,85 @@
                     <input type="time" id="anf-time" class="anf-time-input" step="600" onchange="updateAnfTimeLabel();calcAnfPrice()">
                 </div>
             </div>
+            <!-- 🔁 v6.66.161 (Patrick 02.10. 10:11): Rueckfahrt-Toggle.
+                 Beim Aktivieren klappt zweite Datum/Zeit-Zeile auf. Bei Submit werden
+                 2 Fahrten als EIN Anfrage-Paket gesendet (hin + zurueck, Pickup/Ziel getauscht). -->
+            <div onclick="toggleAnfRueckfahrt()" id="anf-rueckfahrt-toggle" style="margin-bottom:12px;padding:14px;background:#ecfdf5;border:2px solid #10b981;border-radius:12px;cursor:pointer;display:flex;align-items:center;gap:12px;">
+                <div id="anf-rueckfahrt-checkbox" style="width:24px;height:24px;border:2px solid #10b981;border-radius:6px;background:white;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                    <span id="anf-rueckfahrt-tick" style="display:none;font-size:16px;color:#10b981;font-weight:800;">✓</span>
+                </div>
+                <div>
+                    <div style="font-size:15px;font-weight:700;color:#065f46;">🔁 Rueckfahrt mitbuchen</div>
+                    <div style="font-size:11px;color:#047857;">Spart Zeit — eine Anfrage, zwei Fahrten (hin + zurueck)</div>
+                </div>
+            </div>
+            <div id="anf-rueckfahrt-box" style="display:none;margin-bottom:12px;padding:14px;background:#f1f5f9;border-radius:12px;">
+                <div style="font-size:13px;font-weight:800;color:#0f172a;margin-bottom:4px;">🔙 Rueckfahrt</div>
+                <div id="anf-rueckfahrt-info" style="font-size:11px;color:#64748b;margin-bottom:10px;">Von Ziel zurueck zum Abholort (automatisch getauscht)</div>
+                <div style="display:flex;gap:8px;">
+                    <div class="anf-date-wrap" onclick="(function(){try{document.getElementById('anf-rueck-date').showPicker();}catch(_){document.getElementById('anf-rueck-date').focus();}})()">
+                        <div class="anf-date-card">
+                            <span style="font-size:22px;pointer-events:none;">📅</span>
+                            <div style="flex:1;min-width:0;pointer-events:none;">
+                                <div style="font-size:11px;color:#64748b;font-weight:600;margin-bottom:2px;">Datum</div>
+                                <div id="anf-rueck-date-label" style="font-size:14px;color:#0f172a;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">— Tippen —</div>
+                            </div>
+                        </div>
+                        <input type="date" id="anf-rueck-date" class="anf-date-input" onchange="updateAnfRueckDateLabel();calcAnfPrice()">
+                    </div>
+                    <div class="anf-time-wrap" onclick="(function(){try{document.getElementById('anf-rueck-time').showPicker();}catch(_){document.getElementById('anf-rueck-time').focus();}})()">
+                        <div class="anf-time-card">
+                            <span style="font-size:22px;pointer-events:none;">🕐</span>
+                            <div style="flex:1;min-width:0;pointer-events:none;">
+                                <div style="font-size:11px;color:#64748b;font-weight:600;margin-bottom:2px;">Uhrzeit</div>
+                                <div id="anf-rueck-time-label" style="font-size:14px;color:#0f172a;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">— Tippen —</div>
+                            </div>
+                        </div>
+                        <input type="time" id="anf-rueck-time" class="anf-time-input" step="600" onchange="updateAnfRueckTimeLabel();calcAnfPrice()">
+                    </div>
+                </div>
+            </div>
+            <script>
+            window.anfRueckfahrtAktiv = false;
+            window.toggleAnfRueckfahrt = function() {
+                window.anfRueckfahrtAktiv = !window.anfRueckfahrtAktiv;
+                document.getElementById('anf-rueckfahrt-tick').style.display = window.anfRueckfahrtAktiv ? 'inline' : 'none';
+                document.getElementById('anf-rueckfahrt-box').style.display = window.anfRueckfahrtAktiv ? 'block' : 'none';
+                if (window.anfRueckfahrtAktiv) {
+                    // Default: gleiches Datum wie Hinfahrt, Zeit +6h
+                    var hinDate = document.getElementById('anf-date').value;
+                    var hinTime = document.getElementById('anf-time').value;
+                    var rDate = document.getElementById('anf-rueck-date');
+                    var rTime = document.getElementById('anf-rueck-time');
+                    if (hinDate && !rDate.value) { rDate.value = hinDate; updateAnfRueckDateLabel(); }
+                    if (hinTime && !rTime.value) {
+                        var h = parseInt(hinTime.split(':')[0]) + 6;
+                        if (h > 23) h = 23;
+                        rTime.value = String(h).padStart(2,'0') + ':' + hinTime.split(':')[1];
+                        updateAnfRueckTimeLabel();
+                    }
+                    // Info-Label mit Pickup/Ziel aktuell
+                    var pick = document.getElementById('anf-pickup').value || '?';
+                    var dest = document.getElementById('anf-dest').value || '?';
+                    document.getElementById('anf-rueckfahrt-info').textContent = '↩ Von ' + dest + ' → ' + pick;
+                }
+                try { calcAnfPrice(); } catch(_) {}
+            };
+            window.updateAnfRueckDateLabel = function() {
+                var inp = document.getElementById('anf-rueck-date');
+                var lbl = document.getElementById('anf-rueck-date-label');
+                if (!inp || !lbl) return;
+                if (!inp.value) { lbl.textContent = '— Tippen —'; return; }
+                try { var d = new Date(inp.value + 'T00:00:00'); lbl.textContent = d.toLocaleDateString('de-DE', { weekday:'short', day:'2-digit', month:'2-digit', year:'numeric' }); }
+                catch(_) { lbl.textContent = inp.value; }
+            };
+            window.updateAnfRueckTimeLabel = function() {
+                var inp = document.getElementById('anf-rueck-time');
+                var lbl = document.getElementById('anf-rueck-time-label');
+                if (!inp || !lbl) return;
+                lbl.textContent = inp.value ? (inp.value + ' Uhr') : '— Tippen —';
+            };
+            </script>
             <script>
             // 🆕 v6.62.692: Label-Update fuer Datum/Uhrzeit-Wrapper-Cards
             window.updateAnfDateLabel = function() {
@@ -1283,43 +1362,72 @@ function getAnfrageText() {
             _sevHinweis = '\n\n\u26a0\ufe0f Hinweis: Vom 05.\u201315.10.2026 besteht zwischen Seebad Heringsdorf und Schmollensee Schienenersatzverkehr (Busersatz) der UBB. Details: ubb-online.com';
         }
     } catch(_) {}
-    return 'Taxi-Anfrage:\n\ud83d\udccd Von: ' + pickup + (festpreisAddr ? '\n\ud83c\udfe0 Abholadresse: ' + festpreisAddr : '') + (stopp ? '\n\ud83d\udccd Zwischenstopp: ' + stopp : '') + '\n\ud83c\udfaf Nach: ' + dest + '\n\ud83d\udcc5 ' + date + ' um ' + time + ' Uhr\n\ud83d\udc65 ' + anfPax + ' Person(en)\n\ud83d\udc64 ' + nameMitAnrede + '\n\ud83d\udcf1 ' + phone + (email ? '\n\ud83d\udce7 ' + email : '') + '\n\ud83d\udcb0 ca. ' + price + (notes ? '\n\ud83d\udcac Bemerkung: ' + notes : '') + _invText + _sevHinweis;
+    // \ud83d\udd01 v6.66.161: Rueckfahrt-Zeile im Text
+    var _rueckLine = '';
+    if (window.anfRueckfahrtAktiv) {
+        var _rd = document.getElementById('anf-rueck-date')?.value || '';
+        var _rt = document.getElementById('anf-rueck-time')?.value || '';
+        if (_rd && _rt) _rueckLine = '\n\ud83d\udd01 Rueckfahrt: ' + _rd + ' um ' + _rt + ' Uhr (' + dest + ' \u2192 ' + pickup + ')';
+    }
+    return 'Taxi-Anfrage:\n\ud83d\udccd Von: ' + pickup + (festpreisAddr ? '\n\ud83c\udfe0 Abholadresse: ' + festpreisAddr : '') + (stopp ? '\n\ud83d\udccd Zwischenstopp: ' + stopp : '') + '\n\ud83c\udfaf Nach: ' + dest + '\n\ud83d\udcc5 ' + date + ' um ' + time + ' Uhr' + _rueckLine + '\n\ud83d\udc65 ' + anfPax + ' Person(en)\n\ud83d\udc64 ' + nameMitAnrede + '\n\ud83d\udcf1 ' + phone + (email ? '\n\ud83d\udce7 ' + email : '') + '\n\ud83d\udcb0 ca. ' + price + (notes ? '\n\ud83d\udcac Bemerkung: ' + notes : '') + _invText + _sevHinweis;
 }
 
 // Anfrage in Firebase speichern (Tracking)
 function saveAnfrageToFirebase(channel) {
     try {
-        var data = {
-            pickup: document.getElementById('anf-pickup').value || '',
-            destination: document.getElementById('anf-dest').value || '',
-            date: document.getElementById('anf-date').value || '',
-            time: document.getElementById('anf-time').value || '',
+        var _phone = (function(){ var p = document.getElementById('anf-phone').value.replace(/[\s\-\/]/g, ''); var c = document.getElementById('anf-phone-country').value || '+49'; return p.startsWith('+') ? p : (p.startsWith('0') ? c + p.slice(1) : c + p); })();
+        // 🔁 v6.66.161: Rueckfahrt-Daten mit auslesen
+        var _rueckAktiv = !!window.anfRueckfahrtAktiv;
+        var _rueckDate = _rueckAktiv ? (document.getElementById('anf-rueck-date')?.value || '') : '';
+        var _rueckTime = _rueckAktiv ? (document.getElementById('anf-rueck-time')?.value || '') : '';
+        // Common fields
+        var _common = {
             passengers: anfPax,
             anrede: document.getElementById('anf-anrede')?.value || '',
             name: document.getElementById('anf-name').value || '',
-            phone: (function(){ var p = document.getElementById('anf-phone').value.replace(/[\s\-\/]/g, ''); var c = document.getElementById('anf-phone-country').value || '+49'; return p.startsWith('+') ? p : (p.startsWith('0') ? c + p.slice(1) : c + p); })(),
-            price: document.getElementById('anf-price').textContent || '',
+            phone: _phone,
             notes: document.getElementById('anf-notes').value || '',
             email: (document.getElementById('anf-email').value || '').trim(),
-            stopp: document.getElementById('anf-stopp')?.value || '',
-            ...(anfStoppCoords ? { stoppLat: anfStoppCoords.lat, stoppLon: anfStoppCoords.lon } : {}),
-            festpreisAdresse: document.getElementById('anf-festpreis-addr-input')?.value || '',
             channel: channel,
             type: 'taxi',
             status: 'offen',
-            createdAt: Date.now(),
-            // v6.64.3: optionale Rechnungsadresse fuer Rechnungsversand
             invoice: getAnfInvoiceData() || null
         };
-        fetch('https://taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.app/anfragen.json', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
-        }).then(function(r) {
-            console.log('Anfrage gespeichert:', r.status);
-        }).catch(function(e) {
-            console.error('Anfrage speichern Fehler:', e);
+        var _pickup = document.getElementById('anf-pickup').value || '';
+        var _dest = document.getElementById('anf-dest').value || '';
+        var _pkgId = _rueckAktiv ? ('pkg-' + Date.now()) : null; // Paket-ID verknuepft beide Fahrten
+        // HINFAHRT
+        var data = Object.assign({}, _common, {
+            pickup: _pickup,
+            destination: _dest,
+            date: document.getElementById('anf-date').value || '',
+            time: document.getElementById('anf-time').value || '',
+            price: document.getElementById('anf-price').textContent || '',
+            stopp: document.getElementById('anf-stopp')?.value || '',
+            ...(anfStoppCoords ? { stoppLat: anfStoppCoords.lat, stoppLon: anfStoppCoords.lon } : {}),
+            festpreisAdresse: document.getElementById('anf-festpreis-addr-input')?.value || '',
+            createdAt: Date.now(),
+            ...(_pkgId ? { packageId: _pkgId, leg: 'hin' } : {})
         });
+        fetch('https://taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.app/anfragen.json', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data)
+        }).then(function(r) { console.log('Anfrage (hin) gespeichert:', r.status); }).catch(function(e) { console.error('Anfrage speichern Fehler:', e); });
+        // 🔁 RUECKFAHRT (nur wenn Toggle aktiv und Datum/Zeit da)
+        if (_rueckAktiv && _rueckDate && _rueckTime) {
+            var rueckData = Object.assign({}, _common, {
+                pickup: _dest,             // Rueckfahrt: Pickup = urspruengliches Ziel
+                destination: _pickup,      // Ziel = urspruenglicher Pickup
+                date: _rueckDate,
+                time: _rueckTime,
+                price: document.getElementById('anf-price').textContent || '',
+                festpreisAdresse: document.getElementById('anf-festpreis-addr-input')?.value || '',
+                createdAt: Date.now() + 1, // leicht spaeter damit DB-Order sauber ist
+                packageId: _pkgId, leg: 'rueck'
+            });
+            fetch('https://taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.app/anfragen.json', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rueckData)
+            }).then(function(r) { console.log('Anfrage (rueck) gespeichert:', r.status); }).catch(function(e) { console.error('Anfrage rueck Fehler:', e); });
+        }
     } catch(e) {}
 }
 

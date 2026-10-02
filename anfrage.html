@@ -922,22 +922,61 @@ async function anfSearch(query, inputId) {
                 //   Bsp: Query 'bansin bahnhof' → Baumwipfelpfad (main='Baumwipfelpfad Usedom'
                 //   sec='Am Bahnhof, Heringsdorf-Seebad') enthaelt 'bahnhof' im sec, aber
                 //   'bansin' NIRGENDS → raus. Bansin Bahnhof enthaelt beide → drin.
+                // 🚗 v6.66.160 (Patrick 02.10. 'mach das genauso wie Uber'):
+                //   Multi-Token-Filter GELOCKERT. Vorher: alle Tokens mussten im Treffer sein
+                //   → Hausnummern wie '37' die Google-mainText nicht enthaelt fuehrten zu
+                //   leerer Dropdown. Uber zeigt immer die naheliegenden Vorschlaege, selbst
+                //   wenn der User-Query (Hausnummer) im Vorschlag fehlt.
+                //   Neu: wenn Query 2 Tokens hat UND der Haupt-Begriff (ohne Hausnr) matched,
+                //   Vorschlag TROTZDEM zeigen. Nur gefiltert wenn NICHTS matched.
                 if (qTokens.length >= 2) {
                     var _blob = (main + ' ' + sec).toLowerCase();
-                    var _allHit = qTokens.every(function(t) { return _blob.indexOf(t) !== -1; });
-                    if (!_allHit) continue;
+                    // Hausnummer-Token (reine Zahlen) nicht zwingend verlangen
+                    var _wordTokens = qTokens.filter(function(t) { return !/^\d+$/.test(t); });
+                    var _mustHit = _wordTokens.length > 0 ? _wordTokens : qTokens;
+                    var _anyHit = _mustHit.some(function(t) { return _blob.indexOf(t) !== -1; });
+                    if (!_anyHit) continue;
                 }
                 results.push({ main: main, sec: sec, placeId: p.placeId, source: 'google' });
             }
         }
     } catch(e) { /* Google-Fehler → nur lokale POIs anzeigen */ }
-    if (results.length === 0) { dd.style.display='none'; return; }
-    dd.innerHTML = results.slice(0, 8).map(function(r) {
+    // 🚗 v6.66.160 Uber-Style: wenn User eine Hausnummer getippt hat und Google
+    //   nur Strasse ohne Hausnr liefert, haenge die Hausnummer an den mainText an —
+    //   dann sieht der Nutzer 'Maxim-Gorki-Straße 37, 17424 Heringsdorf' im Dropdown.
+    var _userHausnr = (query.match(/\b(\d{1,4}[a-zA-Z]?)\b/) || [])[1] || '';
+    if (_userHausnr) {
+        results.forEach(function(r) {
+            // Nur wenn mainText die Hausnummer NICHT enthaelt + sec sie auch nicht hat
+            if (r.main && !new RegExp('\\b' + _userHausnr + '\\b').test(r.main) && !new RegExp('\\b' + _userHausnr + '\\b').test(r.sec || '')) {
+                r.main = r.main + ' ' + _userHausnr;
+                r._userAppendedHausnr = _userHausnr;
+            }
+        });
+    }
+    // 🚗 v6.66.160 Freitext-Fallback: wenn gar keine Vorschlaege oder nur unpassende —
+    //   immer ein '🖊 Diese Eingabe uebernehmen'-Item als letztes Element.
+    dd.innerHTML = results.slice(0, 7).map(function(r) {
         var pid = r.placeId || '';
         return '<div style="padding:10px 12px;cursor:pointer;border-bottom:1px solid #f1f5f9;font-size:14px;" onmouseover="this.style.background=\'#ecfdf5\'" onmouseout="this.style.background=\'white\'" onclick="anfSelectLocal(\'' + inputId + '\',\'' + pid + '\',\'' + r.main.replace(/'/g,"\\'") + '\',\'' + r.sec.replace(/'/g,"\\'") + '\',' + (r.lat || 'null') + ',' + (r.lon || 'null') + ')"><div style="font-weight:600;color:#0f172a;">' + r.main + '</div><div style="font-size:12px;color:#334155;margin-top:2px;">' + r.sec + '</div></div>';
     }).join('');
+    // Freitext-Item immer anhaengen wenn Query >=3 Zeichen
+    if (query.length >= 3) {
+        var _escQ = query.replace(/'/g, "\\'");
+        dd.innerHTML += '<div style="padding:10px 12px;cursor:pointer;font-size:14px;background:#fef3c7;border-top:2px dashed #f59e0b;" onclick="anfSelectFreitext(\'' + inputId + '\',\'' + _escQ + '\')"><div style="font-weight:600;color:#78350f;">🖊 "' + query + '" uebernehmen</div><div style="font-size:11px;color:#92400e;margin-top:2px;">Ohne Verifizierung — nur verwenden wenn die Adresse stimmt.</div></div>';
+    }
+    if (results.length === 0 && query.length < 3) { dd.style.display='none'; return; }
     dd.style.display='block';
 }
+
+// 🚗 v6.66.160: Freitext-Uebernahme ohne Verifizierung — User-Query bleibt wie getippt.
+window.anfSelectFreitext = function(inputId, query) {
+    document.getElementById(inputId).value = query;
+    document.getElementById(inputId + '-dropdown').style.display = 'none';
+    // Koordinaten bleiben leer → calcAnfPrice wird nichts zeigen bis User per Karte korrigiert
+    if (inputId === 'anf-pickup') anfPickupCoords = null;
+    else if (inputId === 'anf-dest') anfDestCoords = null;
+};
 
 // 🆕 v6.63.940: Wrapper — leitet Local-POIs (lat/lon vorhanden) direkt weiter,
 //   Google-Ergebnisse an bisheriges anfSelect (das den fetchFields-Call macht).

@@ -6,6 +6,23 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [6.66.162] - 2026-10-02 (Rückfahrt-Swap-Sync + WhatsApp-Bestätigung Datum)
+
+**Patrick 02.10. 15:08 Bridge:** *„Wenn die Orte getauscht werden, dann müsste die Rückfahrt auch getauscht werden. Also immer genau das Gegenteil von dem, was oben steht, muss dann unten auch stehen. Kriegst du das simultan hin, also synchron?"*
+
+**Fix 1 — `anfrage.html` Rückfahrt-Info-Label synchron bei Orte-Tausch:**
+`anfSwapOrte()` tauscht Pickup/Ziel in der Hinfahrt. Rückfahrt übernimmt die getauschten Werte zwar schon beim Submit (sie nutzt immer dest/pickup gespiegelt), aber die Vorschau-Anzeige `anf-rueckfahrt-info` wurde nicht aktualisiert. Jetzt synchron.
+
+**Patrick 02.10. 15:36 Bridge:** *„Warum steht in der WhatsApp Bestätigung kein Datum"*
+
+**Fix 2 — WhatsApp-Buchungsbestätigung in `AdminDashboardActivity.java` zeigt Datum:**
+- Template Zeile 4848 (Fahrten-Dialog): nutzte nur `r.pickupTime` (= "HH:MM"), kein Datum. Jetzt `r.pickupTimestamp` → "📅 Sa., 03.10.2026" + separate Zeile "🕐 08:55 Uhr".
+- Template Zeile 2205 (Anfrage-Übernahme): hatte Datum und Zeit in einer verketteten String-Variable, bei fehlendem Datum entstand "🕐  um 08:55 Uhr" (doppeltes Leerzeichen). Jetzt zwei saubere Zeilen `📅` + `🕐`.
+
+**Version:** 6.66.157 → 6.66.162 (Native-APK muss hochgezogen werden, sonst sieht Patrick das Update-Banner nicht).
+
+---
+
 ## [6.66.131] - 2026-09-21 (Native: Wartepool-Banner Zeitüberlappungs-Filter)
 
 **Patrick 21.09. 09:27 Bridge:** *„wenn ich z.B. bei der Fahrt Lipa angenommen habe, wie kann es sein, dass du mir dann noch die Labahnstraße 15a anbietest zur gleichen Zeit?"*

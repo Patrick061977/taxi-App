@@ -121,6 +121,8 @@
             </div>
             <div id="anf-stopp-btn-box" style="text-align:center;margin-bottom:12px;">
                 <button onclick="showZwischenstopp()" style="padding:6px 14px;background:white;color:#f59e0b;border:2px solid #f59e0b;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">+ Zwischenstopp hinzuf&uuml;gen</button>
+                <!-- 🔄 v6.66.159 (Patrick 02.10. 09:40): Pickup/Ziel tauschen -->
+                <button onclick="anfSwapOrte()" title="Abholort und Zielort tauschen" style="padding:6px 14px;background:white;color:#0284c7;border:2px solid #0284c7;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;margin-left:6px;">⇅ Orte tauschen</button>
             </div>
             <div style="margin-bottom:12px;">
                 <label style="display:block;font-size:12px;color:#64748b;font-weight:600;margin-bottom:4px;">🎯 Zielort</label>
@@ -795,9 +797,9 @@ var _ANF_STATION_POIS = [
     { keywords: ['bahnhof koserow', 'koserow bahnhof', 'seebad koserow'],                name: 'Bahnhof Koserow',     addr: 'Bahnhofstraße, 17459 Koserow',   lat: 54.0477, lon: 14.0070, icon: '🚉' },
     { keywords: ['bahnhof kölpinsee', 'bahnhof koelpinsee', 'kölpinsee bahnhof'],        name: 'Bahnhof Kölpinsee',   addr: 'Hauptstraße, 17459 Kölpinsee',   lat: 54.0389, lon: 14.0310, icon: '🚉' },
     { keywords: ['bahnhof ückeritz', 'bahnhof ueckeritz', 'ückeritz bahnhof'],           name: 'Bahnhof Ückeritz',    addr: 'Bahnhofstraße, 17459 Ückeritz',  lat: 54.0191, lon: 14.0664, icon: '🚉' },
+    { keywords: ['bahnhof schmollensee', 'schmollensee bahnhof', 'haltestelle schmollensee', 'haltepunkt schmollensee', 'ubb schmollensee'], name: 'Bahnhof Schmollensee', addr: 'B 111, 17459 Ückeritz', lat: 53.9834892, lon: 14.0762543, icon: '🚉' },
     { keywords: ['bahnhof neu pudagla', 'neu pudagla'],                                  name: 'Bahnhof Neu Pudagla', addr: '17459 Ückeritz-Neu Pudagla',     lat: 53.9995, lon: 14.0953, icon: '🚉' },
     { keywords: ['bahnhof bansin', 'bansin bahnhof'],                                    name: 'Bahnhof Bansin',      addr: 'Bahnhofstraße 3, 17429 Bansin',  lat: 53.964456899999995, lon: 14.1297471, icon: '🚉' },
-    { keywords: ['bahnhof schmollensee', 'schmollensee bahnhof', 'haltestelle schmollensee', 'ubb schmollensee'], name: 'Bahnhof Schmollensee', addr: 'Schmollensee, 17424 Heringsdorf', lat: 53.9606, lon: 14.1495, icon: '🚉' },
     { keywords: ['bahnhof heringsdorf', 'heringsdorf bahnhof', 'bahnhof seebad heringsdorf'], name: 'Bahnhof Heringsdorf', addr: 'Bülowstraße, 17424 Heringsdorf', lat: 53.949456456543906, lon: 14.16965961456299, icon: '🚉' },
     { keywords: ['bahnhof ahlbeck', 'ahlbeck bahnhof'],                                  name: 'Bahnhof Ahlbeck',     addr: 'Bahnhofstraße, 17419 Ahlbeck',   lat: 53.935974, lon: 14.1885889, icon: '🚉' },
     { keywords: ['bahnhof ahlbeck grenze', 'ahlbeck grenze'],                            name: 'Bahnhof Ahlbeck Grenze', addr: 'Grenzstraße, 17419 Ahlbeck',  lat: 53.9323, lon: 14.2025, icon: '🚉' },
@@ -1494,11 +1496,36 @@ function anfMapReverseGeocode(lat, lon) {
         });
 }
 function anfMapConfirm(targetField) {
-    if (!window._anfMapPicked || !window._anfMapAddr) return;
-    document.getElementById(targetField).value = window._anfMapAddr;
+    if (!window._anfMapPicked) return;
+    // 🔄 v6.66.159 (Patrick 02.10. 09:40): wenn Reverse-Geocode noch laeuft/fehlt,
+    //   NICHT nur Koordinaten setzen — nochmal synchron versuchen + Fallback-Hinweis.
+    var addr = window._anfMapAddr;
+    if (!addr) {
+        var lat = window._anfMapPicked.lat, lon = window._anfMapPicked.lon;
+        addr = 'Standort ' + lat.toFixed(5) + ', ' + lon.toFixed(5);
+        document.getElementById('anf-map-addr').innerHTML = '⚠️ Adresse nicht automatisch gefunden — Koordinaten uebernommen';
+    }
+    document.getElementById(targetField).value = addr;
     if (targetField === 'anf-pickup') anfPickupCoords = window._anfMapPicked;
     else if (targetField === 'anf-dest') anfDestCoords = window._anfMapPicked;
     document.getElementById('anf-map-overlay').remove();
+    try { calcAnfPrice(); } catch(_) {}
+}
+
+// 🔄 v6.66.159 (Patrick 02.10. 09:40): Pickup/Ziel-Tausch.
+//   Tauscht Werte + Koordinaten + Dropdowns + Preis-Vorschau.
+function anfSwapOrte() {
+    var pickEl = document.getElementById('anf-pickup');
+    var destEl = document.getElementById('anf-dest');
+    if (!pickEl || !destEl) return;
+    // Werte tauschen
+    var tmpVal = pickEl.value; pickEl.value = destEl.value; destEl.value = tmpVal;
+    // Koordinaten tauschen
+    var tmpCoord = anfPickupCoords; anfPickupCoords = anfDestCoords; anfDestCoords = tmpCoord;
+    // Dropdowns schliessen
+    var pd = document.getElementById('anf-pickup-dropdown'); if (pd) pd.style.display = 'none';
+    var dd = document.getElementById('anf-dest-dropdown');   if (dd) dd.style.display = 'none';
+    // Preis + Route neu berechnen
     try { calcAnfPrice(); } catch(_) {}
 }
 

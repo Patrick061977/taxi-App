@@ -2194,7 +2194,10 @@ public class AdminDashboardActivity extends AppCompatActivity {
     private void _openWhatsAppBestaetigung(Anfrage a, String stripeUrl) {
         try {
             String _name = a.name != null ? a.name : "Kunde";
-            String _date = (a.date != null ? a.date : "") + (a.time != null ? " um " + a.time + " Uhr" : "");
+            // 📅 v6.66.162 (Patrick 02.10. 15:36): Datum + Uhrzeit sauber getrennt,
+            // damit das Datum nie unter den Tisch faellt wenn nur eins der Felder gesetzt ist.
+            String _dateStr = a.date != null ? a.date : "";
+            String _timeStr = a.time != null ? a.time : "";
             String _priceStr = "";
             try {
                 if (a.price != null && !a.price.isEmpty() && !"—".equals(a.price)) {
@@ -2203,7 +2206,8 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 }
             } catch (Throwable _pe) {}
             String _msg = "Hallo " + _name + ",\n\nIhre Fahrt ist bestätigt ✅\n\n" +
-                (_date.isEmpty() ? "" : "🕐 " + _date + "\n") +
+                (_dateStr.isEmpty() ? "" : "📅 " + _dateStr + "\n") +
+                (_timeStr.isEmpty() ? "" : "🕐 " + _timeStr + " Uhr\n") +
                 "📍 " + (a.pickup != null ? a.pickup : "?") + "\n" +
                 "🎯 " + (a.destination != null ? a.destination : "?") + "\n" +
                 "👥 " + (a.passengers != null ? a.passengers + " Person(en)" : "1 Person") + "\n" +
@@ -4840,13 +4844,21 @@ public class AdminDashboardActivity extends AppCompatActivity {
             btnWaConfirm.setLayoutParams(_waParams);
             btnWaConfirm.setOnClickListener(_v -> {
                 String _name = r.customerName != null ? r.customerName : "Kunde";
-                String _date = r.pickupTime != null ? r.pickupTime : "";
+                // 📅 v6.66.162 (Patrick 02.10. 15:36): Datum fehlte in WhatsApp-Bestaetigung
+                String _dateStr = "";
+                if (r.pickupTimestamp != null && r.pickupTimestamp > 0) {
+                    java.text.SimpleDateFormat _sdfD = new java.text.SimpleDateFormat("EE, dd.MM.yyyy", java.util.Locale.GERMANY);
+                    _sdfD.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
+                    _dateStr = _sdfD.format(new java.util.Date(r.pickupTimestamp));
+                }
+                String _time = r.pickupTime != null ? r.pickupTime : "";
                 String _pickup = r.pickup != null ? r.pickup : "?";
                 String _dest = r.destination != null ? r.destination : "?";
                 String _pax = r.passengers != null ? r.passengers + " Person(en)" : "1 Person";
                 String _price = (r.price != null && r.price > 0) ? String.format(java.util.Locale.GERMANY, "%.2f", r.price) + " €" : "";
                 String _msg = "Hallo " + _name + ",\n\nIhre Fahrt ist bestätigt:\n" +
-                    (_date.isEmpty() ? "" : "🕐 " + _date + "\n") +
+                    (_dateStr.isEmpty() ? "" : "📅 " + _dateStr + "\n") +
+                    (_time.isEmpty() ? "" : "🕐 " + _time + " Uhr\n") +
                     "📍 " + _pickup + "\n🎯 " + _dest + "\n" +
                     "👥 " + _pax + "\n" +
                     (_price.isEmpty() ? "" : "💰 " + _price + "\n") +

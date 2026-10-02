@@ -1661,6 +1661,8 @@ function anfMapConfirm(targetField) {
 
 // 🔄 v6.66.159 (Patrick 02.10. 09:40): Pickup/Ziel-Tausch.
 //   Tauscht Werte + Koordinaten + Dropdowns + Preis-Vorschau.
+// 🔁 v6.66.162 (Patrick 02.10. 15:08): Rueckfahrt-Info-Label synchron mit updaten,
+//   sonst zeigt die Rueckfahrt-Vorschau nach dem Tausch die alte Richtung.
 function anfSwapOrte() {
     var pickEl = document.getElementById('anf-pickup');
     var destEl = document.getElementById('anf-dest');
@@ -1672,6 +1674,15 @@ function anfSwapOrte() {
     // Dropdowns schliessen
     var pd = document.getElementById('anf-pickup-dropdown'); if (pd) pd.style.display = 'none';
     var dd = document.getElementById('anf-dest-dropdown');   if (dd) dd.style.display = 'none';
+    // Rueckfahrt-Info-Label synchron updaten (falls Rueckfahrt-Toggle aktiv)
+    if (window.anfRueckfahrtAktiv) {
+        var infoEl = document.getElementById('anf-rueckfahrt-info');
+        if (infoEl) {
+            var pick = pickEl.value || '?';
+            var dest = destEl.value || '?';
+            infoEl.textContent = '↩ Von ' + dest + ' → ' + pick;
+        }
+    }
     // Preis + Route neu berechnen
     try { calcAnfPrice(); } catch(_) {}
 }

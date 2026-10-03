@@ -34,6 +34,7 @@ on:
       - 'anfrage.html'
       - 'kontakt.html'
       - 'impressum.html'
+      - 'datenschutz.html'
       - 'ausflugsziele.html'
       - 'track.html'
       - 'gps-track.html'

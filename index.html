@@ -13309,8 +13309,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '6.66.202';
-        const APP_BUILD = '03.10.2026 17:55';
+        const APP_VERSION = '6.66.204';
+        const APP_BUILD = '03.10.2026 18:56';
         const APP_CHANGE = 'v6.66.87: autoAssignRide Settings-Cache 5min → 15sek (Malus/Override greifen sofort).';
 
         // 🔧 FIX: Mache APP_VERSION global verfügbar
@@ -150170,6 +150170,13 @@ if (document.readyState === 'loading') {
                         ${ageLabel?`<span>${ageLabel}${stale?' stale':''}</span>`:''}
                     </div>`;
                 }
+                // v6.66.204 (Patrick 03.10. 18:54 "ich sehe nicht ob der Fahrer einen Push
+                //   bekommt"): FCM-Token-Health direkt im Fahrzeug-Panel. Zeigt ob der Fahrer
+                //   ueberhaupt pushbar ist.
+                const hasFcm = !!(v.fcmToken || v.fcmTokens);
+                const fcmLabel = hasFcm ? '📡 Push-bereit' : '📵 KEIN FCM-TOKEN';
+                const fcmCol = hasFcm ? '#059669' : '#dc2626';
+                act += `<div style="margin-top:2px;font-size:10px;color:${fcmCol};font-weight:600;">${fcmLabel}</div>`;
                 return `<div style="padding:6px;margin-bottom:5px;background:white;border:1px solid #e2e8f0;border-left:3px solid ${col};border-radius:5px;">
                     <div style="display:flex;justify-content:space-between;align-items:center;">
                         <div style="font-weight:700;color:#0f172a;font-size:12px;">${v.name||vid}</div>
@@ -150302,25 +150309,102 @@ if (document.readyState === 'loading') {
                 </div>`;
             }).join('');
         }
+        // v6.66.204 (Patrick 03.10. 18:53 "Vermittlung besser gestalten"):
+        //   Live-Vermittlung mit Push-Status pro Ride + Action-Buttons.
+        //   Push-Status leitet sich aus /rides/{id}/pushHistory + pushReceivedHistory ab.
+        //   Buttons: Reassign (zurueck in Wartepool fuer anderes Fahrzeug) + Lock-Toggle.
+        function dcLatestFromMap(obj) {
+            if (!obj || typeof obj !== 'object') return null;
+            let latest = null;
+            for (const k in obj) {
+                const v = obj[k]; if (!v || !v.ts) continue;
+                if (!latest || v.ts > latest.ts) latest = v;
+            }
+            return latest;
+        }
+        window.dcReassignRide = async function(rid) {
+            if (!confirm('Fahrt in Wartepool zurueck und Fahrzeug freigeben?')) return;
+            try {
+                await window.db.ref(`rides/${rid}`).update({
+                    status: 'wartepool',
+                    assignedVehicle: null,
+                    vehicleId: null,
+                    assignmentLocked: false,
+                    assignmentExpiresAt: null,
+                    wartepoolReason: 'admin-manual-dispo-v6.66.204',
+                    wartepoolSetAt: Date.now(),
+                    updatedAt: Date.now()
+                });
+                alert('✓ Fahrt im Wartepool');
+            } catch(e) { alert('Fehler: ' + e.message); }
+        };
+        window.dcToggleLock = async function(rid, nowLocked) {
+            try {
+                await window.db.ref(`rides/${rid}`).update({
+                    assignmentLocked: !nowLocked,
+                    updatedAt: Date.now()
+                });
+            } catch(e) { alert('Fehler: ' + e.message); }
+        };
         function dcRenderActive() {
             const el = document.getElementById('dc-active'); if (!el) return;
             const now = Date.now();
             const items = [];
+            // v6.66.204: Weiter gefasste Logik — alle Rides die ZUGEWIESEN aber nicht ANGENOMMEN sind.
+            //   Zusaetzlich zu assignmentExpiresAt (laufendes Angebot) auch Vorbestellungen die
+            //   bald anstehen und noch nicht akzeptiert sind.
             for (const rid in dcRidesCache) {
                 const r = dcRidesCache[rid]; if (!r||typeof r!=='object') continue;
+                if (['completed','cancelled','storniert','deleted'].includes(r.status)) continue;
                 if (r.acceptedAt) continue;
-                if (!r.assignedVehicle || !r.assignmentExpiresAt) continue;
-                if (r.assignmentExpiresAt < now - 10000) continue;
+                if (!r.assignedVehicle) continue;
+                const pt = r.pickupTimestamp || 0;
+                const minsToPickup = (pt - now) / 60000;
+                // Zeige nur Rides deren Pickup weniger als 60 Min entfernt oder <= 30 Min ueberfaellig
+                if (pt && (minsToPickup > 60 || minsToPickup < -30)) continue;
                 items.push({ rid, r });
             }
-            items.sort((a,b)=>a.r.assignmentExpiresAt-b.r.assignmentExpiresAt);
-            if (items.length === 0) { el.innerHTML = '<div style="padding:10px;text-align:center;color:#64748b;font-size:11px;">Keine aktive Vermittlung</div>'; return; }
+            items.sort((a,b)=>(a.r.pickupTimestamp||0)-(b.r.pickupTimestamp||0));
+            if (items.length === 0) { el.innerHTML = '<div style="padding:10px;text-align:center;color:#64748b;font-size:11px;">✓ Keine aktive Vermittlung</div>'; return; }
             el.innerHTML = items.map(({rid, r}) => {
                 const pt = r.pickupTime || fmtTs(r.pickupTimestamp);
-                const remaining = Math.max(0, Math.round((r.assignmentExpiresAt-now)/1000));
-                return `<div style="padding:6px;margin-bottom:4px;background:white;border-left:3px solid #0ea5e9;border-radius:4px;font-size:11px;">
-                    <div style="font-weight:700;color:#0f172a;">${pt} ${r.customerName||'?'}</div>
-                    <div style="color:#475569;margin-top:1px;">⏱ ${r.assignedVehicleName||r.assignedVehicle} · ${remaining}s</div>
+                const vehLabel = r.assignedVehicleName || vehName(r.assignedVehicle);
+                const minsToPickup = r.pickupTimestamp ? Math.round((r.pickupTimestamp - now) / 60000) : null;
+                const minsText = minsToPickup === null ? '' : (minsToPickup >= 0 ? `in ${minsToPickup} Min` : `vor ${Math.abs(minsToPickup)} Min`);
+                // Push-Status
+                const lastPush = dcLatestFromMap(r.pushHistory);
+                const lastRecv = dcLatestFromMap(r.pushReceivedHistory);
+                let pushBadge = '';
+                if (!lastPush) {
+                    pushBadge = `<span style="background:#94a3b8;color:white;padding:2px 7px;border-radius:9999px;font-size:10px;font-weight:700;">kein Push</span>`;
+                } else if (lastPush.success === false) {
+                    const errLabel = (lastPush.error||'').includes('NotRegistered') ? 'FCM-Token kaputt' : 'fehl';
+                    pushBadge = `<span style="background:#dc2626;color:white;padding:2px 7px;border-radius:9999px;font-size:10px;font-weight:700;">📵 ${errLabel}</span>`;
+                } else if (lastRecv && lastRecv.ts >= lastPush.ts) {
+                    const fg = lastRecv.foreground === true ? ' App offen' : '';
+                    pushBadge = `<span style="background:#059669;color:white;padding:2px 7px;border-radius:9999px;font-size:10px;font-weight:700;">📬 empfangen${fg}</span>`;
+                } else {
+                    const sec = Math.round((now - lastPush.ts) / 1000);
+                    pushBadge = `<span style="background:#8b5cf6;color:white;padding:2px 7px;border-radius:9999px;font-size:10px;font-weight:700;">📤 Push ${sec<60?sec+'s':Math.round(sec/60)+'m'}</span>`;
+                }
+                // Countdown wenn Angebot laeuft
+                const remaining = r.assignmentExpiresAt ? Math.max(0, Math.round((r.assignmentExpiresAt-now)/1000)) : null;
+                const countdown = remaining !== null && remaining > 0 ? `<span style="background:#0ea5e9;color:white;padding:2px 7px;border-radius:9999px;font-size:10px;font-weight:700;">⏱ ${remaining}s</span>` : '';
+                const lockBadge = r.assignmentLocked ? `<span style="background:#f59e0b;color:white;padding:2px 7px;border-radius:9999px;font-size:10px;font-weight:700;">🔒 LOCK</span>` : '';
+                const overdueBadge = minsToPickup !== null && minsToPickup < -5 ? `<span style="background:#dc2626;color:white;padding:2px 7px;border-radius:9999px;font-size:10px;font-weight:700;">⚠ ueberfaellig</span>` : '';
+                return `<div style="padding:8px;margin-bottom:6px;background:white;border-left:3px solid #0ea5e9;border-radius:5px;font-size:11px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;">
+                        <div style="font-weight:700;color:#0f172a;font-size:12px;cursor:pointer;" onclick="try{showRideDetails('${rid}')}catch(_){}">${pt} · ${r.customerName||'?'} ${minsText?`<span style="font-weight:500;color:#64748b;">· ${minsText}</span>`:''}</div>
+                        <div style="font-size:11px;color:#475569;">${vehLabel||'?'}</div>
+                    </div>
+                    <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:5px;">
+                        ${pushBadge} ${countdown} ${lockBadge} ${overdueBadge}
+                    </div>
+                    <div style="display:flex;gap:4px;margin-top:6px;">
+                        <button onclick="dcReassignRide('${rid}')" style="padding:4px 10px;background:#dc2626;color:white;border:none;border-radius:4px;font-size:11px;cursor:pointer;font-weight:600;">🔄 Wartepool</button>
+                        <button onclick="dcToggleLock('${rid}', ${!!r.assignmentLocked})" style="padding:4px 10px;background:${r.assignmentLocked?'#f59e0b':'#10b981'};color:white;border:none;border-radius:4px;font-size:11px;cursor:pointer;font-weight:600;">${r.assignmentLocked?'🔓 Lock aus':'🔒 Lock an'}</button>
+                        <button onclick="try{showRideDetails('${rid}')}catch(_){}" style="padding:4px 10px;background:#6366f1;color:white;border:none;border-radius:4px;font-size:11px;cursor:pointer;font-weight:600;">📜 Chronik</button>
+                    </div>
                 </div>`;
             }).join('');
         }

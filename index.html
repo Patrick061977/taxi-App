@@ -13256,7 +13256,7 @@
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
         const APP_VERSION = '6.66.147';
-        const APP_BUILD = '03.10.2026 09:24';
+        const APP_BUILD = '03.10.2026 09:29';
         const APP_CHANGE = 'v6.66.87: autoAssignRide Settings-Cache 5min → 15sek (Malus/Override greifen sofort).';
 
         // 🔧 FIX: Mache APP_VERSION global verfügbar
@@ -32528,6 +32528,75 @@ Aktuell: ${currentNum}`;
                             </div>
                         </div>
                         ` : ''}
+
+                        <!-- v6.66.178 (Patrick 03.10. 11:26): Vermittlungs-Historie -->
+                        ${(() => {
+                            const vs = ride.vehicleScores || {};
+                            const rej = Array.isArray(ride.rejectedVehicles) ? ride.rejectedVehicles : [];
+                            const lastReason = ride.autoAssignLastReason || '';
+                            const rejectedBy = ride.rejectedBy;
+                            const rejectedAt = ride.rejectedAt;
+                            const assignedBy = ride.assignedBy;
+                            const assignedAt = ride.assignedAt;
+                            const acceptedByVehicle = ride.acceptedByVehicle;
+                            const acceptedAt = ride.acceptedAt;
+                            const scoreEntries = Object.entries(vs);
+                            if (scoreEntries.length === 0 && !lastReason && rej.length === 0 && !acceptedAt && !assignedAt) return '';
+                            const vehNameOf = (vid) => {
+                                const v = (window.VEHICLES || {})[vid];
+                                return v ? (v.name || vid) : vid;
+                            };
+                            const fmtTs = (ts) => ts ? new Date(ts).toLocaleTimeString('de-DE', { hour:'2-digit', minute:'2-digit', second:'2-digit', timeZone:'Europe/Berlin' }) : '';
+                            const quelleDE = (window.lvQuelleDeutsch) ? window.lvQuelleDeutsch : (x => x);
+                            let html = `<div style="margin-top:20px;padding:14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;">`;
+                            html += `<div style="font-weight:800;color:#0f172a;font-size:13px;margin-bottom:10px;">📜 Vermittlungs-Historie</div>`;
+                            // Chronologische Events
+                            const events = [];
+                            if (ride.createdAt) events.push({ ts: ride.createdAt, icon:'🆕', label:'NEUE BUCHUNG', detail: 'Quelle: '+quelleDE(ride.source||'?') });
+                            if (assignedAt) events.push({ ts: assignedAt, icon:'🚗', label:'ZUGEWIESEN', detail: vehNameOf(ride.assignedVehicle||ride.assignedTo) + ' · '+quelleDE(assignedBy||'?') });
+                            if (acceptedAt) events.push({ ts: acceptedAt, icon:'✓', label:'ANGENOMMEN', detail: vehNameOf(acceptedByVehicle||ride.assignedVehicle) + ' · '+quelleDE(ride.acceptedVia||'?') });
+                            if (rejectedAt) events.push({ ts: rejectedAt, icon:'✗', label:'LETZTER REJECT', detail: vehNameOf(rejectedBy||'?') + ' · '+quelleDE(ride.rejectedVia||'?') });
+                            if (ride.completedAt) events.push({ ts: ride.completedAt, icon:'🏁', label:'ERLEDIGT', detail: '' });
+                            if (ride.cancelledAt) events.push({ ts: ride.cancelledAt, icon:'🚫', label:'STORNIERT', detail: ride.cancelledReason||'' });
+                            events.sort((a,b)=>a.ts-b.ts);
+                            if (events.length > 0) {
+                                html += `<div style="margin-bottom:12px;">`;
+                                for (const e of events) {
+                                    html += `<div style="display:flex;gap:8px;padding:6px 8px;margin-bottom:4px;background:white;border-radius:6px;font-size:12px;">
+                                        <div style="color:#64748b;min-width:70px;">${fmtTs(e.ts)}</div>
+                                        <div style="font-weight:700;min-width:110px;">${e.icon} ${e.label}</div>
+                                        <div style="color:#475569;flex:1;">${e.detail}</div>
+                                    </div>`;
+                                }
+                                html += `</div>`;
+                            }
+                            // Pro-Fahrzeug Score-Breakdown
+                            if (scoreEntries.length > 0) {
+                                html += `<div style="font-weight:700;color:#475569;font-size:11px;text-transform:uppercase;margin-top:10px;margin-bottom:6px;">Pro Fahrzeug</div>`;
+                                for (const [vid, sv] of scoreEntries) {
+                                    if (!sv || typeof sv !== 'object') continue;
+                                    const st = sv.status || '?';
+                                    const stColor = st === 'chosen' ? '#10b981' : st === 'rejected' ? '#ef4444' : st === 'overlap-hard' ? '#f59e0b' : '#64748b';
+                                    const score = (typeof sv.totalScore === 'number') ? sv.totalScore : null;
+                                    const anfahrt = (typeof sv.drivingTimeMin === 'number') ? sv.drivingTimeMin : (typeof sv.leerfahrtMin === 'number' ? sv.leerfahrtMin : null);
+                                    const penalty = (typeof sv.priorityPenalty === 'number') ? sv.priorityPenalty : null;
+                                    const reason = sv.reason || '';
+                                    html += `<div style="padding:6px 8px;margin-bottom:3px;background:white;border-left:3px solid ${stColor};border-radius:4px;font-size:11px;">
+                                        <div style="display:flex;justify-content:space-between;">
+                                            <div style="font-weight:700;">${vehNameOf(vid)}</div>
+                                            <div style="color:${stColor};font-weight:700;text-transform:uppercase;font-size:10px;">${st}</div>
+                                        </div>
+                                        ${score !== null ? `<div style="color:#64748b;margin-top:2px;">Score ${score}${anfahrt!==null?` · ${anfahrt} Min Anfahrt`:''}${penalty?` · +${penalty} Malus`:''}</div>` : ''}
+                                        ${reason ? `<div style="color:#94a3b8;margin-top:2px;font-size:10px;">${reason}</div>` : ''}
+                                    </div>`;
+                                }
+                            }
+                            if (lastReason) {
+                                html += `<div style="margin-top:8px;padding:6px 8px;background:#fff7ed;border-radius:6px;font-size:11px;color:#9a3412;"><b>Letzter Grund:</b> ${lastReason}</div>`;
+                            }
+                            html += `</div>`;
+                            return html;
+                        })()}
 
                         <!-- Buttons -->
                         ${(() => {
@@ -149585,6 +149654,7 @@ if (document.readyState === 'loading') {
         const lvChronik = [];
         const lvLastSeen = {}; // rid -> { acceptedAt, rejectedBy, rejectedCount, assignedVehicle }
         // v6.66.172: technische Herkunfts-Codes auf lesbares Deutsch mappen
+        // v6.66.178: window-exposure fuer showRideDetailsModal
         function lvQuelleDeutsch(raw) {
             if (!raw) return '';
             const map = {
@@ -149607,6 +149677,7 @@ if (document.readyState === 'loading') {
             };
             return map[raw] || raw;
         }
+        window.lvQuelleDeutsch = lvQuelleDeutsch;
         function lvAddChronik(event) {
             lvChronik.unshift({ ts: Date.now(), ...event });
             if (lvChronik.length > 20) lvChronik.length = 20;

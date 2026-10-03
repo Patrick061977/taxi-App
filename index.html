@@ -13305,7 +13305,7 @@
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
         const APP_VERSION = '6.66.147';
-        const APP_BUILD = '03.10.2026 10:21';
+        const APP_BUILD = '03.10.2026 10:33';
         const APP_CHANGE = 'v6.66.87: autoAssignRide Settings-Cache 5min → 15sek (Malus/Override greifen sofort).';
 
         // 🔧 FIX: Mache APP_VERSION global verfügbar
@@ -32638,7 +32638,17 @@ Aktuell: ${currentNum}`;
                                     const typeMap = { new_ride:'Neue Fahrt', new_ride_immediate:'Sofortfahrt', losfahren_reminder:'Losfahr-Reminder', new_ride_reminder:'Erinnerung', replan_notification:'Umplanung', cancel_notification:'Push-Cancel' };
                                     const typeLabel = typeMap[ph.type] || ph.type || 'Push';
                                     const sucLabel = ph.success === false ? ' (fehlgeschlagen)' : '';
-                                    events.push({ ts: ph.ts, icon:'📲', label:'PUSH', status: ph.success === false ? 'push-fail' : 'push-sent', statusColor: ph.success === false ? '#ef4444' : '#8b5cf6', detail: vehNameOf(ph.vehicleId||'?') + ' · ' + typeLabel + sucLabel });
+                                    events.push({ ts: ph.ts, icon:'📲', label:'PUSH SENT', status: ph.success === false ? 'push-fail' : 'push-sent', statusColor: ph.success === false ? '#ef4444' : '#8b5cf6', detail: vehNameOf(ph.vehicleId||'?') + ' · ' + typeLabel + sucLabel });
+                                });
+                            }
+                            // v6.66.189 (Patrick 03.10. 12:22+12:30 "ich sehe nicht was der Fahrer sieht"):
+                            //   pushReceivedHistory zeigt wann Fahrer-Handy den Push wirklich bekommen hat
+                            const prHist = ride.pushReceivedHistory || {};
+                            if (prHist && typeof prHist === 'object') {
+                                Object.values(prHist).forEach(pr => {
+                                    if (!pr || !pr.ts) return;
+                                    const fg = pr.foreground === true ? ' · App offen' : (pr.foreground === false ? ' · Hintergrund' : '');
+                                    events.push({ ts: pr.ts, icon:'📬', label:'PUSH RECV', status:'push-recv', statusColor:'#059669', detail: vehNameOf(pr.vehicleId||'?') + fg });
                                 });
                             }
                             // v6.66.186 (Patrick 03.10. "Buchhaltungs-Flow gleich noch mit dran"):
@@ -150204,7 +150214,10 @@ if (document.readyState === 'loading') {
                         const toHist = r.timeoutHistory || {};
                         Object.values(toHist).forEach(th => { if (th&&th.ts) chr.push({ ts:th.ts, icon:'⏰', col:'#d97706', title:'Timeout '+(th.vehicleName||th.vehicleId||'?') }); });
                         const puHist = r.pushHistory || {};
-                        Object.values(puHist).forEach(ph => { if (ph&&ph.ts) chr.push({ ts:ph.ts, icon:'📲', col: ph.success===false?'#ef4444':'#8b5cf6', title:'Push '+vehName(ph.vehicleId||'?') }); });
+                        Object.values(puHist).forEach(ph => { if (ph&&ph.ts) chr.push({ ts:ph.ts, icon:'📲', col: ph.success===false?'#ef4444':'#8b5cf6', title:'Push gesendet '+vehName(ph.vehicleId||'?') }); });
+                        // v6.66.189: push-received-events
+                        const prHistCK = r.pushReceivedHistory || {};
+                        Object.values(prHistCK).forEach(pr => { if (pr&&pr.ts) chr.push({ ts:pr.ts, icon:'📬', col:'#059669', title:'Push empfangen '+vehName(pr.vehicleId||'?') }); });
                         if (r.priceUpdatedAt) chr.push({ ts:r.priceUpdatedAt, icon:'💰', col:'#059669', title:'Preis '+(r.paymentAmount||'?')+' € · '+(payMethodMap[r.paymentMethod]||r.paymentMethod||'?') });
                         if (r.invoiceCreatedAt) chr.push({ ts:r.invoiceCreatedAt, icon:'📄', col:'#0891b2', title:'Rechnung '+(r.invoiceNumber||'?') });
                         if (r.hotelEmailUpdatedAt && r.hotelEmailStatus==='sent') chr.push({ ts:r.hotelEmailUpdatedAt, icon:'📧', col:'#2563eb', title:'Email an '+(r.hotelEmailTo||'?') });

@@ -8540,6 +8540,11 @@
             ⚡ Schnellbuchung für Kunde
         </button>
         
+        <!-- v6.66.202 (Patrick 03.10.26 17:51 Wernit-Vorfall): Banner oben
+             fuer ueberfaellige Fahrten die NICHT vom Fahrer angenommen wurden.
+             Darf nirgends durchs Raster fallen. -->
+        <div id="unaccepted-overdue-banner" style="display:none;background:linear-gradient(135deg,#dc2626 0%,#991b1b 100%);color:white;padding:16px 20px;margin:10px 0;border-radius:12px;box-shadow:0 6px 16px rgba(220,38,38,0.5);animation:shake 0.5s;cursor:pointer;" onclick="(function(){const e=document.getElementById('expired-content');if(e&&e.style.display==='none'){const t=document.getElementById('expired-toggle');e.style.display='block';if(t)t.textContent='▲';}document.getElementById('expired-rides-admin')?.scrollIntoView({behavior:'smooth',block:'start'});})()"></div>
+
         <!-- COLLAPSIBLE: Online-Fahrer -->
         <div onclick="toggleAdminSection('drivers')" style="background:#f3f4f6;padding:12px;border-radius:8px;cursor:pointer;margin:20px 0 10px 0;display:flex;justify-content:space-between;align-items:center;">
             <span style="font-weight:600;font-size:15px;">🚗 Online-Fahrer</span>
@@ -13304,8 +13309,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '6.66.147';
-        const APP_BUILD = '03.10.2026 11:08';
+        const APP_VERSION = '6.66.202';
+        const APP_BUILD = '03.10.2026 17:55';
         const APP_CHANGE = 'v6.66.87: autoAssignRide Settings-Cache 5min → 15sek (Malus/Override greifen sofort).';
 
         // 🔧 FIX: Mache APP_VERSION global verfügbar
@@ -30322,6 +30327,33 @@ Aktuell: ${currentNum}`;
                 document.getElementById('upcoming-rides-admin').innerHTML = html;
             }
             
+            // 🆕 v6.66.202 (Patrick 03.10.26 Wernit-Vorfall):
+            //   Banner oben signalisiert UEBERFAELLIGE Fahrten die ZUGEWIESEN aber
+            //   NIE AKZEPTIERT wurden. „Niemand weiss ob die Fahrt genommen werden muss"
+            //   ist der Grund — jetzt direkt oben sichtbar.
+            try {
+                const _bannerDiv = document.getElementById('unaccepted-overdue-banner');
+                if (_bannerDiv) {
+                    const _unaccepted = expiredRides.filter(r => {
+                        if (r.status === 'completed' || r.status === 'cancelled') return false;
+                        if (r.acceptedAt) return false; // schon akzeptiert
+                        return !!(r.assignedVehicle || r.vehicleId); // zugewiesen aber nicht akzeptiert
+                    });
+                    if (_unaccepted.length > 0) {
+                        const _list = _unaccepted.slice(0, 3).map(r => {
+                            const _ts = new Date(r.pickupTimestamp || 0).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                            const _v = r.assignedVehicleName || r.assignedVehicle || '?';
+                            const _c = r.customerName || 'Unbekannt';
+                            return `${_ts} · ${_c} · ${_v}`;
+                        }).join(' | ');
+                        _bannerDiv.innerHTML = `<div style="display:flex;align-items:center;gap:12px;"><span style="font-size:28px;">🚨</span><div style="flex:1;"><div style="font-weight:700;font-size:16px;margin-bottom:4px;">${_unaccepted.length} ueberfaellige Fahrt${_unaccepted.length === 1 ? '' : 'en'} nicht akzeptiert!</div><div style="font-size:13px;opacity:0.95;">${_list}${_unaccepted.length > 3 ? ' · ...' : ''}</div></div><span style="font-size:12px;background:rgba(255,255,255,0.2);padding:4px 10px;border-radius:12px;">anklicken ↓</span></div>`;
+                        _bannerDiv.style.display = 'block';
+                    } else {
+                        _bannerDiv.style.display = 'none';
+                    }
+                }
+            } catch (_bErr) { console.warn('unaccepted-overdue-banner:', _bErr.message); }
+
             // 🆕 v5.49.0: ⏰ ABGELAUFENE FAHRTEN anzeigen
             if (expiredRides.length === 0) {
                 document.getElementById('expired-rides-admin').innerHTML = '<div style="padding:15px;text-align:center;color:#999;background:white;border-radius:8px;">✅ Keine abgelaufenen Fahrten</div>';

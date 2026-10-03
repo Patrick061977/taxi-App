@@ -13305,7 +13305,7 @@
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
         const APP_VERSION = '6.66.147';
-        const APP_BUILD = '03.10.2026 10:18';
+        const APP_BUILD = '03.10.2026 10:21';
         const APP_CHANGE = 'v6.66.87: autoAssignRide Settings-Cache 5min → 15sek (Malus/Override greifen sofort).';
 
         // 🔧 FIX: Mache APP_VERSION global verfügbar
@@ -32317,11 +32317,23 @@ Aktuell: ${currentNum}`;
         
         // 🆕 v5.90.270: WRAPPER für showRideDetailsModal (mit ID)
         function showRideDetails(rideId) {
-            const ride = rides.find(r => r.firebaseId === rideId || r.id === rideId);
-            if (!ride) {
-                alert('💾 Fahrt nicht gefunden!');
+            let ride = rides.find(r => r.firebaseId === rideId || r.id === rideId);
+            // v6.66.188 (Patrick 03.10. 12:20 Bridge "da steht Fahrt nicht gefunden"):
+            //   rides-Array hat nur aktive Fahrten — erledigte liegen in dcRidesCache
+            //   (Dispo-Cockpit) oder muessen aus Firebase geladen werden.
+            if (!ride && typeof dcRidesCache !== 'undefined' && dcRidesCache && dcRidesCache[rideId]) {
+                ride = { ...dcRidesCache[rideId], firebaseId: rideId };
+            }
+            if (!ride && window.db) {
+                // Fallback: direkt aus Firebase ziehen
+                window.db.ref('rides/' + rideId).once('value').then(snap => {
+                    const r = snap.val();
+                    if (!r) { alert('💾 Fahrt nicht gefunden!'); return; }
+                    showRideDetailsModal({ ...r, firebaseId: rideId });
+                }).catch(() => alert('💾 Fahrt nicht gefunden!'));
                 return;
             }
+            if (!ride) { alert('💾 Fahrt nicht gefunden!'); return; }
             showRideDetailsModal(ride);
         }
         
@@ -150095,6 +150107,20 @@ if (document.readyState === 'loading') {
                 if (nextRide && !current) {
                     const pt = nextRide.pickupTime || fmtTs(nextRide.pickupTimestamp);
                     act += `<div style="margin-top:2px;font-size:10px;color:#64748b;">Nächste: ${pt} ${(nextRide.customerName||'?')}</div>`;
+                }
+                // v6.66.188 (Patrick 03.10. 12:19 "aktuellen Standort bei den Fahrzeugen
+                //   mit einbauen"): GPS-Position + Maps-Link + Alter (stale wenn >3 Min).
+                if (v.lat && v.lon && v.hasGPS !== false) {
+                    const lat = parseFloat(v.lat), lon = parseFloat(v.lon);
+                    const age = v.lastUpdate || v.timestamp || 0;
+                    const ageSec = age ? Math.round((Date.now() - age)/1000) : null;
+                    const ageLabel = ageSec === null ? '' : (ageSec < 60 ? ageSec+'s' : (ageSec<3600 ? Math.round(ageSec/60)+'m' : Math.round(ageSec/3600)+'h'));
+                    const stale = ageSec !== null && ageSec > 180;
+                    const col2 = stale ? '#f59e0b' : '#64748b';
+                    act += `<div style="margin-top:2px;display:flex;align-items:center;justify-content:space-between;font-size:10px;color:${col2};">
+                        <a href="https://maps.google.com/?q=${lat},${lon}" target="_blank" style="color:${col2};text-decoration:none;" onclick="event.stopPropagation()">📍 ${lat.toFixed(4)}, ${lon.toFixed(4)}</a>
+                        ${ageLabel?`<span>${ageLabel}${stale?' stale':''}</span>`:''}
+                    </div>`;
                 }
                 return `<div style="padding:6px;margin-bottom:5px;background:white;border:1px solid #e2e8f0;border-left:3px solid ${col};border-radius:5px;">
                     <div style="display:flex;justify-content:space-between;align-items:center;">

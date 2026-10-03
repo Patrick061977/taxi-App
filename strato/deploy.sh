@@ -67,6 +67,7 @@ APP_FILES=(
     "taxi-preise.html"
     "kontakt.html"
     "impressum.html"
+    "datenschutz.html"
     "ausflugsziele.html"
     "track.html"
     "gps-track.html"

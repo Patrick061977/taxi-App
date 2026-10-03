@@ -477,11 +477,35 @@ public class AdminDashboardActivity extends AppCompatActivity {
             android.widget.TextView _wpText = findViewById(R.id.admin_wartepool_banner_text);
             if (_wpBanner != null && _wpText != null) {
                 if (wartepoolCount > 0) {
-                    _wpText.setText("⚠️ WARTEPOOL: " + wartepoolCount + " Fahrt" + (wartepoolCount == 1 ? "" : "en") + " warten — manuelle Disposition!");
-                    // 🆕 v6.63.566: Wartepool-Banner ausblenden wenn Anfragen-Banner sichtbar
-                    //   (Anfragen haben höhere Priorität — beide gleichzeitig = visuelles Chaos)
+                    // v6.66.167 (Patrick 03.10. 09:52 Bridge "ich bekomme keinen
+                    //   Wartepool mehr angezeigt"): Dringlichkeit schlaegt Chaos-Furcht.
+                    //   Wenn mindestens eine Wartepool-Ride in <30 Min startet, muss
+                    //   der Banner sichtbar bleiben, auch wenn Anfragen-Banner da ist.
+                    //   Vorher v6.63.566: Anfragen hat Vorrang → Wartepool komplett
+                    //   versteckt → Irene 10:00 beim 09:52-Check unsichtbar obwohl alle
+                    //   3 online Fahrer abgelehnt hatten.
+                    long _now166 = System.currentTimeMillis();
+                    long _dringlichMs = 30L * 60_000L;
+                    boolean _dringend = false;
+                    int _dringendCount = 0;
+                    for (Ride _wr : wartepoolRides) {
+                        if (_wr.pickupTimestamp != null && _wr.pickupTimestamp > 0
+                                && _wr.pickupTimestamp - _now166 <= _dringlichMs) {
+                            _dringend = true;
+                            _dringendCount++;
+                        }
+                    }
+                    String _label = _dringend
+                        ? "⚠️ OHNE FAHRZEUG: " + wartepoolCount + " Fahrt" + (wartepoolCount == 1 ? "" : "en")
+                            + (_dringendCount > 0 ? " (" + _dringendCount + " dringend <30 Min!)" : "")
+                            + " — manuelle Disposition!"
+                        : "⚠️ WARTEPOOL: " + wartepoolCount + " Fahrt" + (wartepoolCount == 1 ? "" : "en") + " warten — manuelle Disposition!";
+                    _wpText.setText(_label);
+                    // v6.63.566 + v6.66.167: Wartepool-Banner nur ausblenden wenn
+                    //   Anfragen-Banner sichtbar UND keine dringende Fahrt.
                     android.widget.LinearLayout _anfBannerCheck = findViewById(R.id.admin_anfragen_banner);
-                    if (_anfBannerCheck != null && _anfBannerCheck.getVisibility() == android.view.View.VISIBLE) {
+                    boolean _anfVisible = _anfBannerCheck != null && _anfBannerCheck.getVisibility() == android.view.View.VISIBLE;
+                    if (_anfVisible && !_dringend) {
                         _wpBanner.setVisibility(android.view.View.GONE);
                     } else {
                         _wpBanner.setVisibility(android.view.View.VISIBLE);

@@ -13305,7 +13305,7 @@
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
         const APP_VERSION = '6.66.147';
-        const APP_BUILD = '03.10.2026 10:16';
+        const APP_BUILD = '03.10.2026 10:18';
         const APP_CHANGE = 'v6.66.87: autoAssignRide Settings-Cache 5min → 15sek (Malus/Override greifen sofort).';
 
         // 🔧 FIX: Mache APP_VERSION global verfügbar
@@ -150060,11 +150060,19 @@ if (document.readyState === 'loading') {
         function dcRenderVehicles() {
             const el = document.getElementById('dc-vehicles'); if (!el) return;
             const order = ['pw-ik-222','pw-my-222-e','pw-ki-222','pw-sk-222','vg-lk-111','pw-ym-222-e'];
-            el.innerHTML = order.filter(vid=>dcVehCache[vid]).map(vid => {
+            // v6.66.187 (Patrick 03.10. 12:16: "nur Fahrzeuge die online sind sollten
+            //   hier drinne stehen"): offline/ended/auto-ended Fahrzeuge rausfiltern.
+            //   Paused bleibt sichtbar (Fahrer macht nur Pause).
+            const liveVids = order.filter(vid => {
+                const v = dcVehCache[vid]; if (!v) return false;
+                const shift = v.shift || {};
+                return (v.online && shift.status === 'active') || shift.status === 'paused';
+            });
+            el.innerHTML = liveVids.map(vid => {
                 const v = dcVehCache[vid];
                 const shift = v.shift || {};
-                const status = v.online && shift.status==='active' ? 'ONLINE' : (shift.status==='paused'?'PAUSE':(shift.status==='auto-ended'?'AUTO-ENDE':(shift.status==='ended'?'ENDE':'OFFLINE')));
-                const col = v.online && shift.status==='active' ? '#10b981' : (shift.status==='paused'?'#f59e0b':'#64748b');
+                const status = v.online && shift.status==='active' ? 'ONLINE' : 'PAUSE';
+                const col = v.online && shift.status==='active' ? '#10b981' : '#f59e0b';
                 const driver = shift.driverName || v.currentDriverName || '';
                 // aktuelle Fahrt
                 let current = null, nextRide = null;

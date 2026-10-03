@@ -976,6 +976,64 @@ async function sendFCMToVehicle(vehicleId, payload) {
         // Wenn Token ungültig (UNREGISTERED/INVALID_ARGUMENT) → entfernen
         if (e.code === 'messaging/registration-token-not-registered' || e.code === 'messaging/invalid-registration-token') {
             try { await db.ref(`vehicles/${vehicleId}/fcmToken`).remove(); } catch (_) {}
+            // v6.66.203 (Patrick 03.10.26 Wernit-Vorfall):
+            //   Wenn der fehlgeschlagene Push eine Ride-Zuweisung war, Fahrt
+            //   SOFORT in Wartepool zurueck + Admin-Alert. Vorher: Push failt,
+            //   Admin sieht „zugewiesen", Fahrer sieht nichts. 90 Min bis zum
+            //   SBO-Alert.
+            //   Jetzt: binnen Sekunden Wartepool + roter Push an alle Admins.
+            try {
+                const _isAssignmentPush = payload && payload.rideId && (
+                    payload.type === 'ride_offer' ||
+                    payload.type === 'ride_assigned' ||
+                    payload.type === 'ride_changed' ||
+                    payload.type === 'ride_reassigned'
+                );
+                if (_isAssignmentPush) {
+                    const _vSnap = await db.ref(`vehicles/${vehicleId}`).once('value');
+                    const _vName = _vSnap.val()?.name || vehicleId;
+                    const _rSnap = await db.ref(`rides/${payload.rideId}`).once('value');
+                    const _r = _rSnap.val() || {};
+                    const _cName = _r.customerName || 'Unbekannt';
+                    const _pickTs = _r.pickupTimestamp
+                        ? new Date(_r.pickupTimestamp).toLocaleTimeString('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit' })
+                        : '?';
+                    const _wasLocked = _r.assignmentLocked === true;
+                    const _prevStatus = _r.status;
+                    await db.ref(`rides/${payload.rideId}`).update({
+                        status: 'wartepool',
+                        assignedVehicle: null,
+                        vehicleId: null,
+                        assignmentLocked: false,
+                        statusBeforeWartepool: _prevStatus,
+                        wartepoolReason: 'fcm-token-ungueltig-v6.66.203',
+                        wartepoolSetAt: Date.now(),
+                        v6_66_203_fcmTokenInvalid: {
+                            vehicleId,
+                            vehicleName: _vName,
+                            wasLocked: _wasLocked,
+                            prevStatus: _prevStatus,
+                            ts: Date.now()
+                        }
+                    });
+                    try { await addRideLog(payload.rideId, '📵', `Push an ${_vName} nicht zustellbar (FCM-Token ungueltig) → Fahrt in Wartepool, Lock geloest`, { quelle: 'sendFCMToVehicle v6.66.203', vehicleId, errorCode: e.code }); } catch(_) {}
+                    // Admin-Alert
+                    try {
+                        if (typeof sendToAllAdmins === 'function') {
+                            const _msg = `📵 <b>Push nicht zustellbar</b>\n\n` +
+                                         `${_vName} — FCM-Token ungueltig (NotRegistered)\n\n` +
+                                         `Fahrt zurueck im Wartepool:\n` +
+                                         `👤 ${_cName}\n` +
+                                         `⏰ Pickup ${_pickTs}\n\n` +
+                                         `Bitte Fahrer anrufen → App schliessen + neu einloggen damit sich der Token neu registriert.`;
+                            await sendToAllAdmins(_msg);
+                        }
+                    } catch(_adminErr) { console.warn('v6.66.203 admin-alert:', _adminErr.message); }
+                    console.log(`📵 v6.66.203 FCM-NotRegistered: ${vehicleId} / ride ${payload.rideId} → wartepool + admin-alert`);
+                }
+            } catch (_cleanErr) {
+                console.warn('v6.66.203 cleanup fehlgeschlagen:', _cleanErr.message);
+            }
         }
         return false;
     }

@@ -297,12 +297,18 @@ function buildInvoiceHtml({ invoiceNumber, ride, customer, settings, invoice }) 
     //   im Fahrtdetails-Block rendern (vorher ignoriert).
     const _waypoints = Array.isArray(r.waypoints) ? r.waypoints : [];
     const _guests = Array.isArray(r.guests) ? r.guests : [];
+    // v6.66.197 (Patrick 03.10. 13:37 Bridge "Zwischenstopp ist schlecht formatiert"):
+    //   Gaeste-Namen in separate eingerueckte Zeile unter der Adresse (nicht mehr in
+    //   runden Klammern an die Zeile mit der Adresse angehaengt). Lesbarer bei vielen
+    //   Namen wie "Fiedler Helmut Rolf, Fieder Lilo, Richter Rosemarie, Blau Doris".
     const _waypointsHtml = _waypoints.length > 0 ? _waypoints.map(w => {
         if (!w) return '';
         const _addr = (typeof w === 'object') ? (w.address || '') : String(w);
         const _name = (typeof w === 'object') ? (w.name || '') : '';
         if (!_addr && !_name) return '';
-        return `<div>Zwischenstopp${_name ? ' (' + esc(_name) + ')' : ''}: ${esc(_addr)}</div>`;
+        let html = `<div>Zwischenstopp: ${esc(_addr)}</div>`;
+        if (_name) html += `<div style="padding-left:8mm;color:#404040;font-size:8.5pt;">↳ ${esc(_name)}</div>`;
+        return html;
     }).filter(Boolean).join('') : '';
     const _guestsHtml = _guests.length > 0 ? `<div style="margin-top:1mm;">Fahrgäste: ${_guests.map(g => {
         if (!g || typeof g !== 'object') return '';

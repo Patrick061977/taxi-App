@@ -36,6 +36,32 @@ function fmtTimeDE(ts) {
     return d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' });
 }
 
+// v6.66.200: Parse "DD.MM.YYYY" + "HH:MM" aus Invoice-Feldern zu Timestamp.
+//   Fuer rueckwirkende Rechnungen ohne Ride (fahrtTs-Fallback).
+function parseGermanDateTime(rideDate, rideTime) {
+    if (!rideDate) return null;
+    const dm = /^(\d{2})\.(\d{2})\.(\d{4})$/.exec(String(rideDate).trim());
+    if (!dm) return null;
+    const [, dd, mm, yyyy] = dm;
+    const tm = /^(\d{2}):(\d{2})$/.exec(String(rideTime || '').trim());
+    const [hh, mi] = tm ? [tm[1], tm[2]] : ['12', '00'];
+    // Berlin-Timezone-Offset: Apr-Oct (vor letzter Sonntag Okt) = +02:00, sonst +01:00
+    const month = parseInt(mm);
+    const isDST = (month > 3 && month < 10) || (month === 10 && parseInt(dd) < 25) || (month === 3 && parseInt(dd) >= 25);
+    const tz = isDST ? '+02:00' : '+01:00';
+    const ms = new Date(`${yyyy}-${mm}-${dd}T${hh}:${mi}:00${tz}`).getTime();
+    return isNaN(ms) ? null : ms;
+}
+
+// v6.66.200: Pax-Zahl aus Positions-Description extrahieren
+//   zB "Taxifahrt (6 Personen)" → 6
+function _firstPosPaxFromDesc(positions) {
+    if (!Array.isArray(positions) || positions.length === 0) return 0;
+    const desc = String(positions[0].description || '');
+    const m = /\((\d+)\s*Pers/.exec(desc);
+    return m ? parseInt(m[1]) : 0;
+}
+
 function paymentLabel(method) {
     const m = (method || '').toLowerCase();
     // v6.63.093 (Patrick 03.06. 05:26 "Mütter Gesundheit braucht überweisung wie Vetter"):
@@ -177,13 +203,17 @@ function buildInvoiceHtml({ invoiceNumber, ride, customer, settings, invoice }) 
     const kundennummer = c.kundennummer || c.lieferantennummer || '';
 
     // Fahrtdetails
-    const fahrtTs = r.completedAt || r.acceptedAt || r.pickupTimestamp || Date.now();
+    // v6.66.200: Fallback auf Invoice-Felder wenn kein Ride existiert
+    //   (rueckwirkende Vetter-Rechnungen ohne Ride, Patrick 03.10.26 Backlog)
+    const fahrtTs = r.completedAt || r.acceptedAt || r.pickupTimestamp
+        || inv.pickupTimestamp || parseGermanDateTime(inv.rideDate, inv.rideTime)
+        || Date.now();
     const fahrtDatum = fmtDateDE(fahrtTs);
     const fahrtZeit = fmtTimeDE(fahrtTs);
-    const guestName = (r.guestName || '').trim();
-    const pickup = r.pickup || '';
-    const destination = r.destination || '';
-    const distance = r.distance ? parseFloat(r.distance) : 0;
+    const guestName = (r.guestName || inv.guestName || '').trim();
+    const pickup = r.pickup || inv.pickup || '';
+    const destination = r.destination || inv.destination || '';
+    const distance = r.distance ? parseFloat(r.distance) : (inv.distance ? parseFloat(inv.distance) : 0);
 
     // Positionen
     const positions = Array.isArray(inv.positions) && inv.positions.length > 0
@@ -290,13 +320,17 @@ function buildInvoiceHtml({ invoiceNumber, ride, customer, settings, invoice }) 
     // Fahrtdetails-Box (nur wenn Route/Daten vorhanden)
     // 🆕 Patrick 19.09. 09:44 Bridge 'wegen Übersicht + Großraumzuschlag ab 5 Personen':
     //   Personenzahl direkt in Fahrtdetails-Kopf statt nur in Positions-Bezeichnung.
-    const passengers = parseInt(r.passengers || r.paxCount || 0) || 0;
+    // v6.66.200: Fallback auf Invoice-Felder wenn kein Ride existiert
+    const passengers = parseInt(r.passengers || r.paxCount || inv.passengers || _firstPosPaxFromDesc(positions) || 0) || 0;
+    const _pickupNameLocal = r.pickupName || inv.pickupName || '';
+    const _destinationNameLocal = r.destinationName || inv.destinationName || '';
     const showRouteBox = pickup || destination || guestName || fahrtDatum;
     // v6.66.196 (Patrick 03.10. 13:18 Bridge: "Zwischenstops fehlen, muss mit dabei
     //   sein damit Kunde weiss was in der Rechnung drin steht"): waypoints + guests
     //   im Fahrtdetails-Block rendern (vorher ignoriert).
-    const _waypoints = Array.isArray(r.waypoints) ? r.waypoints : [];
-    const _guests = Array.isArray(r.guests) ? r.guests : [];
+    // v6.66.200: Fallback auf inv.waypoints / inv.guests
+    const _waypoints = Array.isArray(r.waypoints) ? r.waypoints : (Array.isArray(inv.waypoints) ? inv.waypoints : []);
+    const _guests = Array.isArray(r.guests) ? r.guests : (Array.isArray(inv.guests) ? inv.guests : []);
     // v6.66.197 (Patrick 03.10. 13:37 Bridge "Zwischenstopp ist schlecht formatiert"):
     //   Gaeste-Namen in separate eingerueckte Zeile unter der Adresse (nicht mehr in
     //   runden Klammern an die Zeile mit der Adresse angehaengt). Lesbarer bei vielen
@@ -320,9 +354,9 @@ function buildInvoiceHtml({ invoiceNumber, ride, customer, settings, invoice }) 
             ${guestName ? `<div>Fahrgast: ${esc(guestName)}</div>` : ''}
             ${passengers > 0 ? `<div>Personen: ${passengers}</div>` : ''}
             ${fahrtDatum ? `<div>Datum: ${esc(fahrtDatum)}${fahrtZeit ? '  |  Uhrzeit: ' + esc(fahrtZeit) + ' Uhr' : ''}</div>` : ''}
-            ${pickup ? `<div>Von: ${esc(pickup)}</div>${r.pickupName && r.pickupName !== guestName ? `<div style="padding-left:8mm;color:#404040;font-size:8.5pt;">↳ ${esc(r.pickupName)}</div>` : ''}` : ''}
+            ${pickup ? `<div>Von: ${esc(pickup)}</div>${_pickupNameLocal && _pickupNameLocal !== guestName ? `<div style="padding-left:8mm;color:#404040;font-size:8.5pt;">↳ ${esc(_pickupNameLocal)}</div>` : ''}` : ''}
             ${_waypointsHtml}
-            ${destination ? `<div>Nach: ${esc(destination)}</div>${r.destinationName ? `<div style="padding-left:8mm;color:#404040;font-size:8.5pt;">↳ ${esc(r.destinationName)}</div>` : ''}` : ''}
+            ${destination ? `<div>Nach: ${esc(destination)}</div>${_destinationNameLocal ? `<div style="padding-left:8mm;color:#404040;font-size:8.5pt;">↳ ${esc(_destinationNameLocal)}</div>` : ''}` : ''}
             ${distance > 0 ? `<div>Strecke: ${distance.toFixed(2).replace('.', ',')} km</div>` : ''}
             ${_guestsHtml}
         </div>` : '';

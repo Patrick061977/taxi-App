@@ -1240,7 +1240,27 @@ const _AAR_CACHE_TTL = 30 * 1000;
 // 15 Sek Cache ist Kompromiss: Malus-Einstellungen sind sehr klein (~1kB) und
 // werden pro Fahrt genau einmal gelesen — der Cache spart wenig bei enger TTL,
 // aber der schnelle Sichtbarkeitseffekt fuer Overrides ist Patrick wichtiger.
+// v6.66.164 (Patrick 03.10. 08:53 „Override Malus greift nicht sofort"):
+// Zusaetzlich zum TTL registrieren wir Firebase-Listener auf die Malus-Settings.
+// Jede Function-Instance abonniert einmalig beim Boot. Bei jedem Settings-Write
+// (vehiclePrioMalus/optimizationByDay) wird _aarCache.settingsTs=0 gesetzt →
+// naechste autoAssignRide liest IMMER frisch, Delay effektiv <1 Sek.
+// Kosten: 2 persistente Listener pro Instance, Settings <1KB — vernachlaessigbar.
 const _AAR_SETTINGS_TTL = 15 * 1000;
+try {
+    db.ref('settings/vehiclePrioMalus').on('value', () => {
+        _aarCache.settingsTs = 0;
+        console.log('🔄 v6.66.164: settings/vehiclePrioMalus geaendert → _aarCache invalidated');
+    });
+    db.ref('settings/optimizationByDay').on('value', () => {
+        _aarCache.settingsTs = 0;
+        console.log('🔄 v6.66.164: settings/optimizationByDay geaendert → _aarCache invalidated');
+    });
+    db.ref('settings/vehiclePriorities').on('value', () => {
+        _aarCache.settingsTs = 0;
+        console.log('🔄 v6.66.164: settings/vehiclePriorities geaendert → _aarCache invalidated');
+    });
+} catch (_e) { /* defensive: Listener nicht kritisch */ }
 async function autoAssignRide(rideId, rideData, _excludeVehicleIds = []) {
     console.log(`🎯 v6.25.4: Cloud-AutoAssign für Fahrt: ${rideId}${_excludeVehicleIds.length ? ' (exclude: ' + _excludeVehicleIds.join(',') + ')' : ''}`);
 

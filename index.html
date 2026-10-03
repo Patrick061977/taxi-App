@@ -13305,7 +13305,7 @@
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
         const APP_VERSION = '6.66.147';
-        const APP_BUILD = '03.10.2026 10:33';
+        const APP_BUILD = '03.10.2026 11:08';
         const APP_CHANGE = 'v6.66.87: autoAssignRide Settings-Cache 5min → 15sek (Malus/Override greifen sofort).';
 
         // 🔧 FIX: Mache APP_VERSION global verfügbar
@@ -110645,6 +110645,11 @@ Funk Taxi Team`;
                                     ➖ Keine
                                 </label>
                             </div>
+                            <!-- v6.66.194 (Patrick 03.10. 13:05 Bridge): Zahlart-Lock -->
+                            <label style="display:flex;align-items:center;gap:8px;margin-top:8px;padding:8px 10px;background:#fef3c7;border:1px solid #f59e0b;border-radius:6px;cursor:pointer;font-size:12px;color:#78350f;">
+                                <input type="checkbox" id="edit-customer-paymentLocked" ${customer.paymentMethodLocked === true ? 'checked' : ''} style="width:16px;height:16px;cursor:pointer;accent-color:#f59e0b;">
+                                🔒 <b>Zahlart erzwingen</b> — Fahrer kann im Native-App-Abschliessen-Dialog nur die bevorzugte Zahlart klicken (andere ausgegraut)
+                            </label>
                         </div>
 
                         <textarea id="edit-customer-notes" placeholder="Notizen" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;min-height:60px;">${customer.notes || ''}</textarea>
@@ -114107,6 +114112,7 @@ Taxi Wydra`;
                 type: document.querySelector('input[name="customer-type"]:checked')?.value || 'customer', // 🆕 v5.94.5: Typ (Kunde/Lieferant/POI)!
                 customerKind: document.querySelector('input[name="customer-kind"]:checked')?.value || 'stammkunde', // 🆕 v6.11.5: Kundenart (Stammkunde/Gelegenheitskunde)
                 preferredPayment: document.querySelector('input[name="preferred-payment"]:checked')?.value || '', // 🆕 v6.26.0: Bevorzugte Zahlungsart
+                paymentMethodLocked: document.getElementById('edit-customer-paymentLocked')?.checked === true, // v6.66.194 Lock-Flag
                 additionalPhones: getAdditionalPhones(), // 🆕 v6.11.6: Weitere Telefonnummern
                 // 🆕 v5.96.6: Ohne Kategorie → immer AUS (Sicherheit)
                 showInAutocomplete: !!(document.getElementById('edit-customer-category')?.value) && document.getElementById('edit-customer-show-in-autocomplete')?.checked === true,

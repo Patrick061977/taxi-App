@@ -13309,8 +13309,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '6.66.204';
-        const APP_BUILD = '03.10.2026 18:56';
+        const APP_VERSION = '6.66.205';
+        const APP_BUILD = '03.10.2026 19:02';
         const APP_CHANGE = 'v6.66.87: autoAssignRide Settings-Cache 5min → 15sek (Malus/Override greifen sofort).';
 
         // 🔧 FIX: Mache APP_VERSION global verfügbar
@@ -32724,6 +32724,70 @@ Aktuell: ${currentNum}`;
                                 }
                                 html += `</div>`;
                             }
+                            // v6.66.205 (Patrick 03.10. 18:59): Angebots-Verlauf — pro Fahrzeug
+                            //   gruppiert. "Vito → nicht angenommen, SK → Timeout, Prius → akzept"
+                            //   Macht die Vermittlungs-Reihenfolge auf einen Blick lesbar.
+                            try {
+                                const vehEvents = {};
+                                const addVehEv = (vid, ev) => {
+                                    if (!vid) return;
+                                    if (!vehEvents[vid]) vehEvents[vid] = { events: [] };
+                                    vehEvents[vid].events.push(ev);
+                                };
+                                for (const ph of Object.values(ride.pushHistory||{})) {
+                                    if (ph && ph.ts) addVehEv(ph.vehicleId, { ts: ph.ts, kind: ph.success === false ? 'push-fail' : 'push-sent', detail: ph.success === false ? (ph.error||'').slice(0,40) : (ph.type||'ride_offer') });
+                                }
+                                for (const pr of Object.values(ride.pushReceivedHistory||{})) {
+                                    if (pr && pr.ts) addVehEv(pr.vehicleId, { ts: pr.ts, kind: 'push-recv', detail: pr.foreground === true ? 'App offen' : (pr.foreground === false ? 'Hintergrund' : '') });
+                                }
+                                for (const th of Object.values(ride.timeoutHistory||{})) {
+                                    if (th && th.ts) addVehEv(th.vehicleId, { ts: th.ts, kind: 'timeout', detail: '60s abgelaufen' });
+                                }
+                                for (const rh of Object.values(ride.rejectHistory||{})) {
+                                    if (rh && rh.ts) addVehEv(rh.vehicleId, { ts: rh.ts, kind: 'reject', detail: rh.reason || '' });
+                                }
+                                if (ride.rejectedAt && ride.rejectedBy) addVehEv(ride.rejectedBy, { ts: ride.rejectedAt, kind: 'reject', detail: ride.rejectReason || '' });
+                                if (ride.acceptedAt && ride.acceptedByVehicle) addVehEv(ride.acceptedByVehicle, { ts: ride.acceptedAt, kind: 'accept', detail: ride.acceptedVia || '' });
+                                const vids = Object.keys(vehEvents);
+                                if (vids.length > 0) {
+                                    // Sortiere Fahrzeuge nach ihrem fruehesten Event
+                                    const vidsSorted = vids.map(vid => {
+                                        const earliest = Math.min(...vehEvents[vid].events.map(e => e.ts));
+                                        return { vid, earliest };
+                                    }).sort((a,b) => a.earliest - b.earliest).map(x => x.vid);
+                                    const vermitteltCount = vidsSorted.length;
+                                    const accepted = ride.acceptedAt;
+                                    const headerCol = accepted ? '#10b981' : (ride.status === 'wartepool' ? '#f59e0b' : '#64748b');
+                                    const headerIcon = accepted ? '✓' : (ride.status === 'wartepool' ? '⚠' : '…');
+                                    const headerLabel = accepted ? `${vermitteltCount} Fahrzeug${vermitteltCount===1?'':'e'} versucht → angenommen` : (ride.status === 'wartepool' ? `${vermitteltCount} Fahrzeug${vermitteltCount===1?'':'e'} versucht → im WARTEPOOL` : `${vermitteltCount} Fahrzeug${vermitteltCount===1?'':'e'} versucht (laeuft noch)`);
+                                    html += `<div style="margin-top:14px;padding:10px;background:white;border:2px solid ${headerCol};border-radius:8px;">
+                                        <div style="font-weight:800;color:${headerCol};font-size:12px;margin-bottom:8px;">${headerIcon} ANGEBOTS-VERLAUF · ${headerLabel}</div>`;
+                                    for (let idx = 0; idx < vidsSorted.length; idx++) {
+                                        const vid = vidsSorted[idx];
+                                        const evs = vehEvents[vid].events.sort((a,b) => a.ts - b.ts);
+                                        const finalEv = evs[evs.length-1];
+                                        const kindCol = { 'push-sent':'#8b5cf6', 'push-recv':'#059669', 'push-fail':'#dc2626', 'timeout':'#f59e0b', 'reject':'#ef4444', 'accept':'#10b981' };
+                                        const kindIcon = { 'push-sent':'📤', 'push-recv':'📬', 'push-fail':'📵', 'timeout':'⏰', 'reject':'✗', 'accept':'✓' };
+                                        const kindLabel = { 'push-sent':'Push gesendet', 'push-recv':'Push empfangen', 'push-fail':'Push NICHT ZUSTELLBAR', 'timeout':'Timeout (nicht reagiert)', 'reject':'ABGELEHNT', 'accept':'ANGENOMMEN' };
+                                        const finalCol = kindCol[finalEv.kind] || '#64748b';
+                                        html += `<div style="padding:7px 9px;margin-bottom:6px;background:#f8fafc;border-left:3px solid ${finalCol};border-radius:5px;font-size:12px;">
+                                            <div style="font-weight:700;color:#0f172a;">${idx+1}. 🚗 ${vehNameOf(vid)}</div>`;
+                                        for (const ev of evs) {
+                                            html += `<div style="margin-top:3px;color:#475569;padding-left:12px;font-size:11px;">
+                                                <span style="color:#94a3b8;">${fmtTs(ev.ts)}</span>
+                                                <span style="margin-left:6px;color:${kindCol[ev.kind]||'#64748b'};font-weight:600;">${kindIcon[ev.kind]||'•'} ${kindLabel[ev.kind]||ev.kind}</span>
+                                                ${ev.detail ? `<span style="color:#94a3b8;margin-left:6px;">· ${ev.detail}</span>` : ''}
+                                            </div>`;
+                                        }
+                                        html += `</div>`;
+                                    }
+                                    if (ride.status === 'wartepool' && !accepted) {
+                                        html += `<div style="margin-top:6px;padding:8px 10px;background:#fef3c7;border-left:3px solid #f59e0b;border-radius:5px;font-size:12px;font-weight:700;color:#92400e;">⚠ Alle Fahrzeuge haben nicht angenommen → Fahrt im Wartepool</div>`;
+                                    }
+                                    html += `</div>`;
+                                }
+                            } catch(_angErr) { console.warn('v6.66.205 angebots-verlauf:', _angErr.message); }
+
                             // Pro-Fahrzeug Score-Breakdown
                             if (scoreEntries.length > 0) {
                                 html += `<div style="font-weight:700;color:#475569;font-size:11px;text-transform:uppercase;margin-top:10px;margin-bottom:6px;">Pro Fahrzeug</div>`;

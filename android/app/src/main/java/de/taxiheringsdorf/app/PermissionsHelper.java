@@ -40,13 +40,21 @@ public final class PermissionsHelper {
     private PermissionsHelper() {}
 
     public static boolean isAdmin(Context ctx) {
-        // 1. Cached Firebase-Rolle (Single Source of Truth wenn vorhanden)
+        // v6.66.163 (Patrick 03.10. 08:40 — MY222 Picker-Bug):
+        // Legacy-Email/Phone-Whitelist IMMER zuerst pruefen. Vorher las isAdmin
+        // nur den SharedPrefs-Cache, der aber beim User-Wechsel (p.w.my222e@ →
+        // taxiwydra@) noch die alte Rolle "fahrer" enthielt. loadRoleAsync()
+        // laedt zwar die neue Rolle async aus Firebase, kommt aber zu spaet
+        // fuer VehiclePickerActivity.onCreate(), die isAdmin() direkt im
+        // Firebase-Snapshot-Callback aufruft. Konsequenz: Admin wurde als
+        // Fahrer behandelt, Ghost-Filter blockte MY222 unsichtbar.
+        // Admin-Whitelist ist hardcoded auf Patricks eigene Logins — safe.
+        if (isLegacyAdmin()) return true;
         String role = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("role", null);
         if (role != null) {
             return "admin".equalsIgnoreCase(role);
         }
-        // 2. Legacy-Fallback bei nicht-gesetzter Rolle (z.B. neue User vor erstem Sync)
-        return isLegacyAdmin();
+        return false;
     }
 
     public static boolean isLegacyAdmin() {

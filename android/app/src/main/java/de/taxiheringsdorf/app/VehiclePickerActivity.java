@@ -106,6 +106,8 @@ public class VehiclePickerActivity extends AppCompatActivity {
                     long now = System.currentTimeMillis();
                     String myDeviceId = DeviceIdHelper.getOrCreate(VehiclePickerActivity.this);
                     boolean isAdmin = PermissionsHelper.isAdmin(VehiclePickerActivity.this);
+                    FirebaseUser curUser = FirebaseAuth.getInstance().getCurrentUser();
+                    String myUid = curUser != null ? curUser.getUid() : null;
                     List<Vehicle> vs = new ArrayList<>();
                     int hiddenCount = 0;
                     for (DataSnapshot c : snapshot.getChildren()) {
@@ -114,10 +116,17 @@ public class VehiclePickerActivity extends AppCompatActivity {
                         if (v.deactivated) continue;
                         boolean lockStale = v.lockHeartbeat == null || (now - v.lockHeartbeat) > STALE_LOCK_MS;
                         boolean ownDevice = v.lockedByDeviceId != null && v.lockedByDeviceId.equals(myDeviceId);
-                        boolean lockedByOther = v.lockedByUid != null && !lockStale && !ownDevice;
+                        // v6.66.163 (Patrick 03.10. — MY222 Picker-Bug): ownUid
+                        // laesst den rechtmaessigen Besitzer-User reclaimen,
+                        // auch nach App-Reinstall (deviceId weg). Fremde Fahrer
+                        // bleiben weiter geblockt.
+                        boolean ownUid = v.lockedByUid != null && myUid != null && v.lockedByUid.equals(myUid);
+                        boolean lockedByOther = v.lockedByUid != null && !lockStale && !ownDevice && !ownUid;
                         // 🆕 v6.66.60 Ghost-Driver-Sperre: Schicht auto-ended aber GPS läuft
                         //   → Fahrzeug für Fahrer AUSBLENDEN (Admin sieht mit Warn-Badge im Tap-Dialog)
-                        boolean ghostDriver = isGhostDriverActive(v, now);
+                        // v6.66.163: ownDevice/ownUid umgeht Ghost — rechtmaessiger Fahrer
+                        //   darf wieder einloggen, nur FREMDE Fahrer bleiben geblockt bis GPS stillsteht.
+                        boolean ghostDriver = isGhostDriverActive(v, now) && !ownDevice && !ownUid;
                         if ((lockedByOther || ghostDriver) && !isAdmin) { hiddenCount++; continue; }
                         vs.add(v);
                     }

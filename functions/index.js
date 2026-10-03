@@ -2358,13 +2358,14 @@ async function autoAssignRide(rideId, rideData, _excludeVehicleIds = []) {
                 // Sofortfahrt + GPS AUS → Prio-Aufschlag (Heimatadresse ist Schätzung, Priorität gleicht aus)
                 // Vorbestellung → Priorität zählt IMMER (siehe else-Zweig unten)
                 const hasRealGPS = cand.posSource === 'GPS';
-                // 🆕 v6.62.518/520: Override beachten (Tag-Override > globaler Override > Formel)
-                // 🐛 v6.62.536: Patrick (09.05.): "nein gps ist immer gleich". Vorher wurde
-                // bei aktivem GPS der Prio-Malus auf 0 gesetzt (alte v6.38.45-Logik:
-                // 'echte Position zaehlt'). Jetzt: Override greift IMMER, auch bei
-                // Sofortfahrten mit GPS. Damit kann Tesla mit Override 999 wirklich
-                // niemals gewaehlt werden, auch nicht wenn er gerade neben dem Kunden steht.
-                const prioPenalty = getEffectivePrioMalus(cand.vehicleId, rideData.pickupTimestamp);
+                // v6.66.165 (Patrick 03.10. 09:05 Bridge): "Malus gilt NUR fuer
+                // Vorbestellungen. Sofortfahrt hat damit ueberhaupt nichts zu tun."
+                // → prioPenalty im Sofort-Pfad hart auf 0. Reiner GPS-Scoring:
+                // naechstes Fahrzeug gewinnt, unabhaengig von Prio-Rang oder Malus-
+                // Override. Setzt die v6.62.536-Entscheidung bewusst zurueck.
+                // Fuer Hard-Block eines Fahrzeugs → Fahrzeug aus Picker/Shift raus,
+                // nicht ueber Malus steuern.
+                const prioPenalty = 0;
                 const estDrivingMin = cand.distance >= 999 ? 10 : Math.max(3, Math.round((cand.distance / 40) * 60));
                 // 🆕 v6.63.021: Großraum-Reserve-Bias bei Sofortfahrten
                 const _candCap = (OFFICIAL_VEHICLES[cand.vehicleId] || {}).capacity || 4;

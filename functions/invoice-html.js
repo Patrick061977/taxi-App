@@ -348,10 +348,17 @@ function buildInvoiceHtml({ invoiceNumber, ride, customer, settings, invoice }) 
         if (!g || typeof g !== 'object') return '';
         return esc(g.name || '') + (g.mobile ? ' (' + esc(g.mobile) + ')' : '');
     }).filter(Boolean).join(', ')}</div>` : '';
+    // v6.66.206 (Patrick 03.10.26 19:04): Fahrgast-Zeile unterdruecken bei
+    //   Multi-Stop. Dort stehen 'Fahrgast: Mosig; Petzold' (= 2 am Endziel),
+    //   aber 'Personen: 6' — verwirrend. Namen stehen besser bei den jeweiligen
+    //   Stops. Also: bei waypoints > 0 ODER wenn Pax groesser als Namen-Anzahl
+    //   die flache Fahrgast-Zeile weglassen.
+    const _guestNameCount = guestName ? guestName.split(/[,;]/).filter(x => x.trim()).length : 0;
+    const _showFahrgastRow = guestName && _waypoints.length === 0 && (passengers <= 1 || passengers <= _guestNameCount);
     const fahrtBox = showRouteBox ? `
         <div class="fahrt-box">
             <div class="fahrt-title">Fahrtdetails:</div>
-            ${guestName ? `<div>Fahrgast: ${esc(guestName)}</div>` : ''}
+            ${_showFahrgastRow ? `<div>Fahrgast: ${esc(guestName)}</div>` : ''}
             ${passengers > 0 ? `<div>Personen: ${passengers}</div>` : ''}
             ${fahrtDatum ? `<div>Datum: ${esc(fahrtDatum)}${fahrtZeit ? '  |  Uhrzeit: ' + esc(fahrtZeit) + ' Uhr' : ''}</div>` : ''}
             ${pickup ? `<div>Von: ${esc(pickup)}</div>${_pickupNameLocal && _pickupNameLocal !== guestName ? `<div style="padding-left:8mm;color:#404040;font-size:8.5pt;">↳ ${esc(_pickupNameLocal)}</div>` : ''}` : ''}

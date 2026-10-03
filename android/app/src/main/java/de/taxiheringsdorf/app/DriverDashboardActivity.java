@@ -4744,6 +4744,20 @@ public class DriverDashboardActivity extends AppCompatActivity {
         u.put("status", "completed");
         u.put("completedAt", System.currentTimeMillis());
         u.put("updatedAt", System.currentTimeMillis());
+        // v6.66.184 (Patrick 03.10. 12:05 Bridge: "ich will volle Transparenz"):
+        //   completedBy mit Fahrer-Kontext damit die Chronik nicht nur "ERLEDIGT"
+        //   anzeigt, sondern "ERLEDIGT · von Darek Kulpa (Renault 8 Pax)".
+        try {
+            android.content.SharedPreferences _sp = getSharedPreferences("driver", MODE_PRIVATE);
+            String _vid = _sp.getString("vehicleId", null);
+            String _vname = _sp.getString("vehicleName", null);
+            com.google.firebase.auth.FirebaseUser _u = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
+            String _label = _u != null ? (_u.getEmail() != null ? _u.getEmail() : _u.getPhoneNumber()) : null;
+            u.put("completedBy", "native-driver" + (_vid != null ? ":" + _vid : "") + (_label != null ? ":" + _label : ""));
+            if (_vid != null) u.put("completedByVehicle", _vid);
+            if (_vname != null) u.put("completedByVehicleName", _vname);
+            if (_label != null) u.put("completedByLabel", _label);
+        } catch (Throwable _ignored) {}
         u.put("paymentMethod", paymentMethod);
         u.put("paymentAmount", amount);
         if (note != null) u.put("paymentNote", note);
@@ -5049,6 +5063,18 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 u.put("status", "completed");
                 u.put("completedAt", System.currentTimeMillis());
                 u.put("updatedAt", System.currentTimeMillis());
+                // v6.66.184: completedBy mit Fahrer-Kontext fuer Transparenz
+                try {
+                    android.content.SharedPreferences _sp = getSharedPreferences("driver", MODE_PRIVATE);
+                    String _vid = _sp.getString("vehicleId", null);
+                    String _vname = _sp.getString("vehicleName", null);
+                    com.google.firebase.auth.FirebaseUser _au = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
+                    String _label = _au != null ? (_au.getEmail() != null ? _au.getEmail() : _au.getPhoneNumber()) : null;
+                    u.put("completedBy", "native-driver-invoice" + (_vid != null ? ":" + _vid : ""));
+                    if (_vid != null) u.put("completedByVehicle", _vid);
+                    if (_vname != null) u.put("completedByVehicleName", _vname);
+                    if (_label != null) u.put("completedByLabel", _label);
+                } catch (Throwable _ignored) {}
                 u.put("paymentMethod", "invoice_email");
                 u.put("paymentAmount", amount);
                 u.put("invoiceEmail", email);

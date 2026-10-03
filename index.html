@@ -13256,7 +13256,7 @@
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
         const APP_VERSION = '6.66.147';
-        const APP_BUILD = '03.10.2026 08:46';
+        const APP_BUILD = '03.10.2026 08:47';
         const APP_CHANGE = 'v6.66.87: autoAssignRide Settings-Cache 5min → 15sek (Malus/Override greifen sofort).';
 
         // 🔧 FIX: Mache APP_VERSION global verfügbar
@@ -149296,6 +149296,133 @@ if (document.readyState === 'loading') {
         <span id="pz-widget-btn-icon">⚠️</span>
         <span id="pz-widget-btn-badge" style="position:absolute;top:-4px;right:-4px;background:#fde68a;color:#78350f;border:2px solid white;border-radius:999px;font-size:10px;font-weight:700;padding:1px 5px;display:none;">0</span>
     </button>
+
+    <!-- v6.66.175 (Patrick 03.10.): Cockpit Baustein 2 — Fahrzeug-Status-Widget -->
+    <div id="fs-widget" style="position:fixed;top:70px;right:128px;width:340px;height:460px;background:#fff;border:2px solid #10b981;border-radius:12px;box-shadow:0 4px 16px rgba(0,0,0,0.15);z-index:9996;display:none;font-family:-apple-system,sans-serif;overflow:hidden;resize:both;min-width:260px;min-height:220px;max-width:900px;max-height:90vh;">
+        <div style="padding:8px 12px;background:linear-gradient(90deg,#059669,#10b981);color:white;font-weight:700;font-size:13px;display:flex;justify-content:space-between;align-items:center;">
+            <span>🚕 Fahrzeug-Status · Ecke ziehen</span>
+            <button onclick="fsWidgetToggle(false)" style="background:transparent;border:none;color:white;font-size:16px;cursor:pointer;padding:0 4px;">×</button>
+        </div>
+        <div id="fs-widget-body" style="padding:8px;height:calc(100% - 40px);overflow-y:auto;box-sizing:border-box;">
+            <div id="fs-widget-list"></div>
+        </div>
+    </div>
+    <button id="fs-widget-toggle-btn" onclick="fsWidgetToggle(true)" style="position:fixed;top:70px;right:128px;background:#10b981;color:white;border:none;border-radius:50%;width:44px;height:44px;font-size:20px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.2);z-index:9998;display:block;" title="Fahrzeug-Status ein-/ausschalten">🚕</button>
+    <script>
+    (function() {
+        let fsVehListener = null, fsRidesListener = null;
+        let fsVehCache = {}, fsRidesCache = {};
+        const FS_STORAGE_KEY = 'fahrzeug_status_widget_enabled';
+        window.fsWidgetToggle = function(forceOn) {
+            const panel = document.getElementById('fs-widget');
+            const btn = document.getElementById('fs-widget-toggle-btn');
+            if (!panel || !btn) return;
+            const target = (typeof forceOn === 'boolean') ? forceOn : (panel.style.display === 'none');
+            if (target) {
+                panel.style.display = 'block'; btn.style.display = 'none';
+                try { localStorage.setItem(FS_STORAGE_KEY, '1'); } catch(_){}
+                fsStart();
+            } else {
+                panel.style.display = 'none'; btn.style.display = 'block';
+                try { localStorage.setItem(FS_STORAGE_KEY, '0'); } catch(_){}
+                fsStop();
+            }
+        };
+        function fsStart() {
+            if (!window.db || fsVehListener) return;
+            fsVehListener = window.db.ref('vehicles').on('value', (snap) => {
+                fsVehCache = snap.val() || {};
+                try { fsRender(); } catch(e){ console.warn('FS render error', e); }
+            });
+            fsRidesListener = window.db.ref('rides').on('value', (snap) => {
+                fsRidesCache = snap.val() || {};
+                try { fsRender(); } catch(e){ console.warn('FS render error', e); }
+            });
+        }
+        function fsStop() {
+            if (fsVehListener && window.db) { try { window.db.ref('vehicles').off('value', fsVehListener); } catch(_){} fsVehListener = null; }
+            if (fsRidesListener && window.db) { try { window.db.ref('rides').off('value', fsRidesListener); } catch(_){} fsRidesListener = null; }
+        }
+        function fsRender() {
+            const list = document.getElementById('fs-widget-list');
+            if (!list) return;
+            const now = Date.now();
+            const order = ['pw-ik-222','pw-my-222-e','pw-ki-222','pw-sk-222','vg-lk-111','pw-ym-222-e'];
+            const items = order.filter(vid => fsVehCache[vid]).map(vid => {
+                const v = fsVehCache[vid];
+                const name = v.name || vid;
+                const plate = v.plate || '';
+                const shift = v.shift || {};
+                const shiftStatus = shift.status || null;
+                const driverName = shift.driverName || v.currentDriverName || '';
+                const online = !!v.online;
+                const lastUpdate = v.lastUpdate || v.timestamp || 0;
+                const stale = lastUpdate && (now - lastUpdate) > 2 * 60 * 1000;
+                // aktuelle Fahrt finden
+                let currentRide = null, nextRide = null;
+                const vehRides = Object.entries(fsRidesCache)
+                    .filter(([rid, r]) => r && typeof r === 'object' && r.assignedVehicle === vid && !['completed','cancelled','storniert','deleted'].includes(r.status))
+                    .map(([rid, r]) => ({ rid, r }));
+                for (const {rid, r} of vehRides) {
+                    if (['on_way','picked_up','arrived','accepted'].includes(r.status)) {
+                        if (!currentRide || (r.pickupTimestamp||0) < (currentRide.r.pickupTimestamp||0)) currentRide = {rid, r};
+                    }
+                }
+                for (const {rid, r} of vehRides) {
+                    if (['assigned','vorbestellt','new'].includes(r.status) && r.pickupTimestamp && r.pickupTimestamp > now) {
+                        if (!nextRide || r.pickupTimestamp < nextRide.r.pickupTimestamp) nextRide = {rid, r};
+                    }
+                }
+                return { vid, name, plate, driverName, online, shiftStatus, stale, currentRide, nextRide };
+            });
+            // sortieren: online+active zuerst, dann offline
+            items.sort((a,b) => {
+                const aScore = (a.online?0:1) + (a.shiftStatus==='active'?0:1);
+                const bScore = (b.online?0:1) + (b.shiftStatus==='active'?0:1);
+                return aScore - bScore;
+            });
+            list.innerHTML = items.map(it => {
+                const statusColor = it.online && it.shiftStatus === 'active' ? '#10b981' :
+                                   it.shiftStatus === 'paused' ? '#f59e0b' :
+                                   it.shiftStatus === 'auto-ended' || it.shiftStatus === 'ended' ? '#64748b' : '#94a3b8';
+                const statusLabel = it.online && it.shiftStatus === 'active' ? 'ONLINE' :
+                                   it.shiftStatus === 'paused' ? 'PAUSE' :
+                                   it.shiftStatus === 'auto-ended' ? 'AUTO-ENDE' :
+                                   it.shiftStatus === 'ended' ? 'DIENSTENDE' : 'OFFLINE';
+                let detail = '';
+                if (it.currentRide) {
+                    const r = it.currentRide.r;
+                    const stMap = { on_way:'➜ Anfahrt', picked_up:'🏁 Fahrt läuft', arrived:'📍 vor Ort', accepted:'✓ angenommen' };
+                    detail = `<div style="margin-top:4px;padding:4px 6px;background:#f0fdf4;border-radius:4px;font-size:11px;color:#166534;">
+                        ${stMap[r.status]||r.status} · ${(r.customerName||'?')} → ${(r.destination||'?').slice(0,25)}
+                    </div>`;
+                } else if (it.online && it.shiftStatus === 'active') {
+                    detail = `<div style="margin-top:4px;padding:4px 6px;background:#eff6ff;border-radius:4px;font-size:11px;color:#1e40af;">FREI</div>`;
+                }
+                if (it.nextRide && !it.currentRide) {
+                    const r = it.nextRide.r;
+                    const pt = r.pickupTime || new Date(r.pickupTimestamp).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
+                    detail += `<div style="margin-top:3px;font-size:10px;color:#64748b;">Nächste: ${pt} ${(r.customerName||'?')}</div>`;
+                }
+                const staleWarn = it.stale ? ' <span style="color:#f59e0b;font-size:10px;">GPS stale</span>' : '';
+                return `<div style="padding:8px;margin-bottom:6px;background:#fff;border:1px solid #e2e8f0;border-left:4px solid ${statusColor};border-radius:6px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                        <div style="font-weight:700;color:#0f172a;font-size:12px;">${it.name}${staleWarn}</div>
+                        <div style="font-size:10px;color:white;background:${statusColor};padding:2px 6px;border-radius:999px;font-weight:700;">${statusLabel}</div>
+                    </div>
+                    ${it.driverName?`<div style="font-size:11px;color:#475569;margin-top:1px;">${it.driverName}</div>`:''}
+                    ${detail}
+                </div>`;
+            }).join('');
+        }
+        document.addEventListener('DOMContentLoaded', () => {
+            try {
+                const saved = localStorage.getItem(FS_STORAGE_KEY);
+                if (saved === '1') window.fsWidgetToggle(true);
+            } catch(_){}
+        });
+    })();
+    </script>
     <script>
     (function() {
         let pzListener = null;

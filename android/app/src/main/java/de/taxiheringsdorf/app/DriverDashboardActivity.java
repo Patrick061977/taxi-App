@@ -4271,6 +4271,40 @@ public class DriverDashboardActivity extends AppCompatActivity {
 
     private void showPaymentDialog(Ride r) {
         if (db == null || r.id == null) return;
+        // v6.66.194 (Patrick 03.10. 13:05+13:06 Bridge: "bei Vetter nur eine Moeglichkeit
+        //   Rechnung, egal was der Fahrer klickt. Bei Fahrt-fertig sollte gar nicht erst
+        //   gefragt werden"): Wenn der CRM-Kunde paymentMethodLocked=true + preferredPayment
+        //   gesetzt hat, uebersgringen wir den Payment-Dialog komplett. Fahrt wird sofort
+        //   mit der erzwungenen Zahlart abgeschlossen.
+        try {
+            final String _customerId = r.customerId;
+            if (_customerId != null && !_customerId.isEmpty()) {
+                db.getReference("customers/" + _customerId).addListenerForSingleValueEvent(new ValueEventListener() {
+                    @Override public void onDataChange(@NonNull DataSnapshot cs) {
+                        Boolean _locked = cs.child("paymentMethodLocked").getValue(Boolean.class);
+                        String _pref = cs.child("preferredPayment").getValue(String.class);
+                        if (Boolean.TRUE.equals(_locked) && _pref != null && !_pref.isEmpty()) {
+                            // Zahlart erzwungen → direkt abschliessen
+                            double _amt = r.price != null ? r.price : (r.actualPrice != null ? r.actualPrice : 0.0);
+                            String _mapped = _pref;
+                            if ("ueberweisung".equalsIgnoreCase(_pref) || "rechnung".equalsIgnoreCase(_pref)) _mapped = "ueberweisung";
+                            else if ("bar".equalsIgnoreCase(_pref)) _mapped = "cash";
+                            markCompleted(r.id, _mapped, _amt, "CRM-Lock: " + _pref);
+                            Toast.makeText(DriverDashboardActivity.this,
+                                "✅ Abgeschlossen · " + _pref + " (CRM-Lock)", Toast.LENGTH_LONG).show();
+                        } else {
+                            _showPaymentDialogInner(r);
+                        }
+                    }
+                    @Override public void onCancelled(@NonNull DatabaseError error) { _showPaymentDialogInner(r); }
+                });
+                return;
+            }
+        } catch (Throwable _ignored) { /* fall through to normal dialog */ }
+        _showPaymentDialogInner(r);
+    }
+    private void _showPaymentDialogInner(Ride r) {
+        if (db == null || r.id == null) return;
         // Hotel-Auftraggeber-Check — wenn Hotel/Firma als Auftraggeber gesetzt → eigener Button
         DatabaseReference rideRef = db.getReference("rides/" + r.id);
         rideRef.addListenerForSingleValueEvent(new ValueEventListener() {

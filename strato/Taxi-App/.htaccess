@@ -7,7 +7,18 @@ RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 # Die App (index.html) ist weiterhin direkt erreichbar via /index.html
 DirectoryIndex landing.html index.html
 
-# SPA Routing - alle Anfragen auf index.html
+# v6.66.163 (Patrick 03.10. — Google Search Console Coverage-Fix):
+# Fehlende .html-Dateien MUESSEN echten 404 liefern, sonst serviert der
+# SPA-Fallback die 8,77 MB index.html mit noindex,nofollow fuer JEDE
+# Phantom-URL (alte Backlinks, Tippfehler, geloeschte Landingpages).
+# Google indexierte dadurch nur 38 von 544 bekannten Seiten (7 %), weil
+# ~201 Phantom-URLs identischen Blob-Content lieferten → Duplikat / Soft 404 /
+# "Gefunden, nicht gecrawlt". Separate Regel VOR dem SPA-Fallback.
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule \.html?$ - [R=404,L]
+
+# SPA Routing - alle anderen Anfragen (clean URLs ohne .html) auf index.html
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule . index.html [L]

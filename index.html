@@ -2338,6 +2338,21 @@
             ">
                 🚕 Taxi buchen
             </button>
+            <!-- v6.66.182 (Patrick 03.10. 11:50): Dispo-Cockpit als eigener Admin-Tab -->
+            <button onclick="switchView('dispo-cockpit')" class="admin-tab-btn admin-only tab-toggleable" data-view="dispo-cockpit" data-tab-id="dispo-cockpit" style="
+                padding: 10px 16px;
+                border: 2px solid #0ea5e9;
+                background: white;
+                color: #0ea5e9;
+                border-radius: 8px;
+                font-weight: 700;
+                font-size: 13px;
+                cursor: pointer;
+                white-space: nowrap;
+                transition: all 0.2s;
+            ">
+                📊 Dispo-Cockpit
+            </button>
             <button onclick="switchView('schedule')" class="admin-tab-btn admin-only tab-toggleable" data-view="schedule" data-tab-id="schedule" style="
                 padding: 10px 16px;
                 border: 2px solid #667eea;
@@ -4303,6 +4318,40 @@
 
             </div>
 
+        </div>
+    </div>
+
+    <!-- 📊 v6.66.182 (Patrick 03.10. 11:50): Dispo-Cockpit — alle Infos auf einem Tab -->
+    <div id="dispo-cockpit-view" class="view admin-only">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:8px;flex-wrap:wrap;">
+            <h3 style="margin:0;color:#0f172a;">📊 Dispo-Cockpit</h3>
+            <div id="dc-meta" style="font-size:12px;color:#64748b;"></div>
+        </div>
+        <div style="display:grid;grid-template-columns:280px 1fr 320px;gap:12px;align-items:start;">
+            <!-- Linke Spalte: Fahrzeug-Status -->
+            <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px;">
+                <div style="font-weight:700;color:#059669;font-size:13px;margin-bottom:8px;">🚕 FAHRZEUGE</div>
+                <div id="dc-vehicles"></div>
+            </div>
+            <!-- Mitte: Fahrten-Kalender mit horizontaler Chronik -->
+            <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px;min-height:400px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                    <div style="font-weight:700;color:#0f172a;font-size:13px;">📅 FAHRTEN (heute)</div>
+                    <div style="font-size:11px;color:#64748b;" id="dc-rides-count"></div>
+                </div>
+                <div id="dc-rides"></div>
+            </div>
+            <!-- Rechte Spalte: Live-Vermittlung + Problem-Zone -->
+            <div style="display:flex;flex-direction:column;gap:12px;">
+                <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:10px;">
+                    <div style="font-weight:700;color:#dc2626;font-size:13px;margin-bottom:8px;">🚨 PROBLEM-ZONE</div>
+                    <div id="dc-problems"></div>
+                </div>
+                <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:10px;padding:10px;">
+                    <div style="font-weight:700;color:#0369a1;font-size:13px;margin-bottom:8px;">🔔 JETZT in Vermittlung</div>
+                    <div id="dc-active"></div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -13256,7 +13305,7 @@
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
         const APP_VERSION = '6.66.147';
-        const APP_BUILD = '03.10.2026 09:46';
+        const APP_BUILD = '03.10.2026 09:53';
         const APP_CHANGE = 'v6.66.87: autoAssignRide Settings-Cache 5min → 15sek (Malus/Override greifen sofort).';
 
         // 🔧 FIX: Mache APP_VERSION global verfügbar
@@ -149913,6 +149962,208 @@ if (document.readyState === 'loading') {
                 const saved = localStorage.getItem(LV_STORAGE_KEY);
                 if (saved === '1') window.lvWidgetToggle(true);
             } catch(_){}
+        });
+    })();
+    </script>
+
+    <!-- v6.66.182 (Patrick 03.10. 11:50 Bridge): Dispo-Cockpit-Tab Rendering -->
+    <script>
+    (function() {
+        let dcVehListener = null, dcRidesListener = null;
+        let dcVehCache = {}, dcRidesCache = {};
+        function dcIsActive() {
+            const view = document.getElementById('dispo-cockpit-view');
+            return view && getComputedStyle(view).display !== 'none';
+        }
+        function dcStart() {
+            if (!window.db) return;
+            if (dcVehListener) return;
+            dcVehListener = window.db.ref('vehicles').on('value', (snap) => {
+                dcVehCache = snap.val() || {};
+                try { dcRender(); } catch(e){ console.warn('DC error', e); }
+            });
+            dcRidesListener = window.db.ref('rides').on('value', (snap) => {
+                dcRidesCache = snap.val() || {};
+                try { dcRender(); } catch(e){ console.warn('DC error', e); }
+            });
+        }
+        function dcStop() {
+            if (dcVehListener && window.db) { try { window.db.ref('vehicles').off('value', dcVehListener); } catch(_){} dcVehListener = null; }
+            if (dcRidesListener && window.db) { try { window.db.ref('rides').off('value', dcRidesListener); } catch(_){} dcRidesListener = null; }
+        }
+        window.dcOpen = function() { dcStart(); dcRender(); };
+        window.dcClose = function() { dcStop(); };
+        function fmtTs(ts) { return ts ? new Date(ts).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}) : ''; }
+        function vehName(vid) { const v = (window.VEHICLES||{})[vid]; return v ? v.name : vid; }
+        const quelleDE = (raw) => (window.lvQuelleDeutsch ? window.lvQuelleDeutsch(raw) : (raw||''));
+        function dcRender() {
+            if (!dcIsActive()) return;
+            dcRenderMeta();
+            dcRenderVehicles();
+            dcRenderRides();
+            dcRenderProblems();
+            dcRenderActive();
+        }
+        function dcRenderMeta() {
+            const meta = document.getElementById('dc-meta');
+            if (!meta) return;
+            const nowStr = new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+            let online = 0, probleme = 0, aktiv = 0;
+            const now = Date.now();
+            for (const vid in dcVehCache) { const v = dcVehCache[vid]; if (v && v.online && (v.shift||{}).status==='active') online++; }
+            for (const rid in dcRidesCache) {
+                const r = dcRidesCache[rid]; if (!r||typeof r!=='object') continue;
+                if (['completed','cancelled','storniert','deleted'].includes(r.status)) continue;
+                if (r.assignedVehicle && r.assignmentExpiresAt && r.assignmentExpiresAt > now && !r.acceptedAt) aktiv++;
+                if (r.status==='wartepool' || (!r.assignedVehicle && r.pickupTimestamp && (r.pickupTimestamp-now)<=30*60000 && (r.pickupTimestamp-now) > -5*60000)) probleme++;
+            }
+            meta.textContent = `${nowStr} · ${online} online · ${aktiv} in Vermittlung · ${probleme} offen`;
+        }
+        function dcRenderVehicles() {
+            const el = document.getElementById('dc-vehicles'); if (!el) return;
+            const order = ['pw-ik-222','pw-my-222-e','pw-ki-222','pw-sk-222','vg-lk-111','pw-ym-222-e'];
+            el.innerHTML = order.filter(vid=>dcVehCache[vid]).map(vid => {
+                const v = dcVehCache[vid];
+                const shift = v.shift || {};
+                const status = v.online && shift.status==='active' ? 'ONLINE' : (shift.status==='paused'?'PAUSE':(shift.status==='auto-ended'?'AUTO-ENDE':(shift.status==='ended'?'ENDE':'OFFLINE')));
+                const col = v.online && shift.status==='active' ? '#10b981' : (shift.status==='paused'?'#f59e0b':'#64748b');
+                const driver = shift.driverName || v.currentDriverName || '';
+                // aktuelle Fahrt
+                let current = null, nextRide = null;
+                for (const rid in dcRidesCache) {
+                    const r = dcRidesCache[rid]; if (!r||typeof r!=='object') continue;
+                    if (r.assignedVehicle !== vid) continue;
+                    if (['on_way','picked_up','arrived','accepted'].includes(r.status)) {
+                        if (!current || (r.pickupTimestamp||0) < (current.pickupTimestamp||0)) current = r;
+                    } else if (['assigned','vorbestellt','new'].includes(r.status) && r.pickupTimestamp > Date.now()) {
+                        if (!nextRide || r.pickupTimestamp < nextRide.pickupTimestamp) nextRide = r;
+                    }
+                }
+                let act = '';
+                if (current) {
+                    const stMap = { on_way:'➜ Anfahrt', picked_up:'🏁 fährt', arrived:'📍 vor Ort', accepted:'✓ angenommen' };
+                    act = `<div style="margin-top:3px;padding:3px 6px;background:#f0fdf4;border-radius:4px;font-size:11px;color:#166534;">${stMap[current.status]||current.status} · ${(current.customerName||'?')}</div>`;
+                } else if (v.online && shift.status==='active') {
+                    act = `<div style="margin-top:3px;padding:3px 6px;background:#eff6ff;border-radius:4px;font-size:11px;color:#1e40af;">FREI</div>`;
+                }
+                if (nextRide && !current) {
+                    const pt = nextRide.pickupTime || fmtTs(nextRide.pickupTimestamp);
+                    act += `<div style="margin-top:2px;font-size:10px;color:#64748b;">Nächste: ${pt} ${(nextRide.customerName||'?')}</div>`;
+                }
+                return `<div style="padding:6px;margin-bottom:5px;background:white;border:1px solid #e2e8f0;border-left:3px solid ${col};border-radius:5px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                        <div style="font-weight:700;color:#0f172a;font-size:12px;">${v.name||vid}</div>
+                        <div style="font-size:9px;color:white;background:${col};padding:1px 5px;border-radius:9999px;font-weight:700;">${status}</div>
+                    </div>
+                    ${driver?`<div style="font-size:10px;color:#475569;margin-top:1px;">${driver}</div>`:''}
+                    ${act}
+                </div>`;
+            }).join('');
+        }
+        function dcRenderRides() {
+            const el = document.getElementById('dc-rides'); if (!el) return;
+            const now = Date.now();
+            const today = new Date(); today.setHours(0,0,0,0);
+            const tomorrow = today.getTime() + 24*3600*1000;
+            const items = [];
+            for (const rid in dcRidesCache) {
+                const r = dcRidesCache[rid]; if (!r||typeof r!=='object') continue;
+                if (!r.pickupTimestamp) continue;
+                if (r.pickupTimestamp < today.getTime()-2*3600*1000) continue; // vor >2h ignorieren
+                if (r.pickupTimestamp > tomorrow) continue;
+                items.push({ rid, r });
+            }
+            items.sort((a,b)=>a.r.pickupTimestamp-b.r.pickupTimestamp);
+            document.getElementById('dc-rides-count').textContent = items.length + ' Fahrten';
+            if (items.length === 0) { el.innerHTML = '<div style="padding:20px;text-align:center;color:#94a3b8;">Keine Fahrten im Fenster</div>'; return; }
+            el.innerHTML = items.map(({rid, r}) => {
+                const pt = r.pickupTime || fmtTs(r.pickupTimestamp);
+                const cust = r.customerName || '?';
+                const veh = r.assignedVehicleName || (r.assignedVehicle ? vehName(r.assignedVehicle) : null);
+                const stMap = { new:['NEU','#3b82f6'], vorbestellt:['VORBEST.','#f59e0b'], assigned:['ZUGEWIESEN','#f59e0b'], accepted:['ANGENOMMEN','#10b981'], on_way:['UNTERWEGS','#8b5cf6'], picked_up:['FÄHRT','#8b5cf6'], arrived:['VOR ORT','#eab308'], wartepool:['WARTEPOOL','#dc2626'], completed:['ERLEDIGT','#6366f1'], cancelled:['STORNIERT','#64748b'], storniert:['STORNIERT','#64748b'] };
+                const [stLabel, stCol] = stMap[r.status] || [r.status, '#64748b'];
+                // Horizontale Chronik
+                const chronik = [];
+                if (r.createdAt) chronik.push({ ts:r.createdAt, icon:'🆕', col:'#3b82f6', title:'Buchung · '+quelleDE(r.source||'?') });
+                if (r.assignedAt) chronik.push({ ts:r.assignedAt, icon:'🚗', col:'#f59e0b', title:'Zugewiesen '+veh+' · '+quelleDE(r.assignedBy||'?') });
+                if (r.acceptedAt) chronik.push({ ts:r.acceptedAt, icon:'✓', col:'#10b981', title:'Angenommen · '+quelleDE(r.acceptedVia||'?') });
+                if (r.rejectedAt) chronik.push({ ts:r.rejectedAt, icon:'✗', col:'#ef4444', title:'Abgelehnt '+vehName(r.rejectedBy||'?')+' · '+quelleDE(r.rejectedVia||'?') });
+                const toHist = r.timeoutHistory || {};
+                Object.values(toHist).forEach(th => { if (th&&th.ts) chronik.push({ ts:th.ts, icon:'⏰', col:'#d97706', title:'Timeout '+(th.vehicleName||th.vehicleId||'?') }); });
+                if (r.completedAt) chronik.push({ ts:r.completedAt, icon:'🏁', col:'#6366f1', title:'Erledigt' });
+                if (r.cancelledAt) chronik.push({ ts:r.cancelledAt, icon:'🚫', col:'#64748b', title:'Storniert' });
+                chronik.sort((a,b)=>a.ts-b.ts);
+                const chronikHtml = chronik.map(c => `<span title="${c.title} · ${fmtTs(c.ts)}" style="display:inline-flex;align-items:center;gap:2px;padding:2px 6px;background:${c.col};color:white;border-radius:9999px;font-size:10px;font-weight:700;">${c.icon} ${fmtTs(c.ts)}</span>`).join(' ');
+                return `<div onclick="try{showRideDetails('${rid}')}catch(_){}" style="padding:8px;margin-bottom:6px;background:white;border:1px solid #e2e8f0;border-left:4px solid ${stCol};border-radius:6px;cursor:pointer;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+                        <div style="font-weight:700;color:#0f172a;font-size:13px;">${pt} · ${cust}</div>
+                        <div style="display:flex;gap:5px;align-items:center;">
+                            ${veh?`<span style="font-size:11px;color:#475569;">${veh}</span>`:'<span style="font-size:11px;color:#dc2626;font-weight:700;">OHNE FZG</span>'}
+                            <span style="font-size:10px;color:white;background:${stCol};padding:2px 7px;border-radius:9999px;font-weight:700;">${stLabel}</span>
+                        </div>
+                    </div>
+                    <div style="font-size:11px;color:#64748b;margin-top:2px;">${(r.pickup||'').slice(0,40)} → ${(r.destination||'').slice(0,40)}</div>
+                    ${chronikHtml?`<div style="margin-top:5px;display:flex;flex-wrap:wrap;gap:3px;">${chronikHtml}</div>`:''}
+                </div>`;
+            }).join('');
+        }
+        function dcRenderProblems() {
+            const el = document.getElementById('dc-problems'); if (!el) return;
+            const now = Date.now();
+            const items = [];
+            for (const rid in dcRidesCache) {
+                const r = dcRidesCache[rid]; if (!r||typeof r!=='object') continue;
+                if (['completed','cancelled','storniert','deleted'].includes(r.status)) continue;
+                const pt = r.pickupTimestamp || 0;
+                const noVeh = !r.assignedVehicle;
+                if (r.status === 'wartepool') items.push({ rid, r, grund:'WARTEPOOL' });
+                else if (noVeh && pt && (pt-now) <= 30*60000) items.push({ rid, r, grund: (pt<now?'ÜBERFÄLLIG':'OHNE FAHRZEUG') });
+                else if (pt && pt < now - 5*60000 && ['new','assigned','vorbestellt','accepted','sofort'].includes(r.status)) items.push({ rid, r, grund:'PICKUP ÜBERFÄLLIG' });
+            }
+            items.sort((a,b)=>(a.r.pickupTimestamp||0)-(b.r.pickupTimestamp||0));
+            if (items.length === 0) { el.innerHTML = '<div style="padding:12px;text-align:center;color:#15803d;background:#f0fdf4;border-radius:6px;font-size:12px;">✓ Alle Fahrten versorgt</div>'; return; }
+            el.innerHTML = items.map(({rid, r, grund}) => {
+                const pt = r.pickupTime || fmtTs(r.pickupTimestamp);
+                return `<div onclick="try{showRideDetails('${rid}')}catch(_){}" style="padding:6px;margin-bottom:4px;background:white;border-left:3px solid #dc2626;border-radius:4px;font-size:11px;cursor:pointer;">
+                    <div style="font-weight:800;color:#dc2626;font-size:10px;">⚠ ${grund}</div>
+                    <div style="font-weight:700;color:#0f172a;">${pt} ${r.customerName||'?'}</div>
+                </div>`;
+            }).join('');
+        }
+        function dcRenderActive() {
+            const el = document.getElementById('dc-active'); if (!el) return;
+            const now = Date.now();
+            const items = [];
+            for (const rid in dcRidesCache) {
+                const r = dcRidesCache[rid]; if (!r||typeof r!=='object') continue;
+                if (r.acceptedAt) continue;
+                if (!r.assignedVehicle || !r.assignmentExpiresAt) continue;
+                if (r.assignmentExpiresAt < now - 10000) continue;
+                items.push({ rid, r });
+            }
+            items.sort((a,b)=>a.r.assignmentExpiresAt-b.r.assignmentExpiresAt);
+            if (items.length === 0) { el.innerHTML = '<div style="padding:10px;text-align:center;color:#64748b;font-size:11px;">Keine aktive Vermittlung</div>'; return; }
+            el.innerHTML = items.map(({rid, r}) => {
+                const pt = r.pickupTime || fmtTs(r.pickupTimestamp);
+                const remaining = Math.max(0, Math.round((r.assignmentExpiresAt-now)/1000));
+                return `<div style="padding:6px;margin-bottom:4px;background:white;border-left:3px solid #0ea5e9;border-radius:4px;font-size:11px;">
+                    <div style="font-weight:700;color:#0f172a;">${pt} ${r.customerName||'?'}</div>
+                    <div style="color:#475569;margin-top:1px;">⏱ ${r.assignedVehicleName||r.assignedVehicle} · ${remaining}s</div>
+                </div>`;
+            }).join('');
+        }
+        // Tick für Live-Updates (Countdown aktualisieren)
+        setInterval(() => { try { if (dcIsActive()) dcRender(); } catch(_){} }, 2000);
+        // Hook in switchView — da switchView bereits definiert ist, überwachen wir Änderungen
+        const observer = new MutationObserver(() => {
+            const view = document.getElementById('dispo-cockpit-view');
+            if (!view) return;
+            if (getComputedStyle(view).display !== 'none') dcStart();
+            else dcStop();
+        });
+        document.addEventListener('DOMContentLoaded', () => {
+            const view = document.getElementById('dispo-cockpit-view');
+            if (view) observer.observe(view, { attributes:true, attributeFilter:['style','class'] });
         });
     })();
     </script>

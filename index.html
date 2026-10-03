@@ -13256,7 +13256,7 @@
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
         const APP_VERSION = '6.66.147';
-        const APP_BUILD = '03.10.2026 09:35';
+        const APP_BUILD = '03.10.2026 09:46';
         const APP_CHANGE = 'v6.66.87: autoAssignRide Settings-Cache 5min → 15sek (Malus/Override greifen sofort).';
 
         // 🔧 FIX: Mache APP_VERSION global verfügbar
@@ -32552,18 +32552,20 @@ Aktuell: ${currentNum}`;
                             html += `<div style="font-weight:800;color:#0f172a;font-size:13px;margin-bottom:10px;">📜 Vermittlungs-Historie</div>`;
                             // Chronologische Events
                             const events = [];
-                            if (ride.createdAt) events.push({ ts: ride.createdAt, icon:'🆕', label:'NEUE BUCHUNG', detail: 'Quelle: '+quelleDE(ride.source||'?') });
-                            if (assignedAt) events.push({ ts: assignedAt, icon:'🚗', label:'ZUGEWIESEN', detail: vehNameOf(ride.assignedVehicle||ride.assignedTo) + ' · '+quelleDE(assignedBy||'?') });
-                            if (acceptedAt) events.push({ ts: acceptedAt, icon:'✓', label:'ANGENOMMEN', detail: vehNameOf(acceptedByVehicle||ride.assignedVehicle) + ' · '+quelleDE(ride.acceptedVia||'?') });
-                            if (rejectedAt) events.push({ ts: rejectedAt, icon:'✗', label:'LETZTER REJECT', detail: vehNameOf(rejectedBy||'?') + ' · '+quelleDE(ride.rejectedVia||'?') });
-                            if (ride.completedAt) events.push({ ts: ride.completedAt, icon:'🏁', label:'ERLEDIGT', detail: '' });
-                            if (ride.cancelledAt) events.push({ ts: ride.cancelledAt, icon:'🚫', label:'STORNIERT', detail: ride.cancelledReason||'' });
+                            // v6.66.181 (Patrick 03.10. 11:44 "a"): Pro Event-Zeile den resultierenden
+                            //   Status-Badge dazu — Timeline wird visuell lesbarer.
+                            if (ride.createdAt) events.push({ ts: ride.createdAt, icon:'🆕', label:'NEUE BUCHUNG', status:'neu', statusColor:'#3b82f6', detail: 'Quelle: '+quelleDE(ride.source||'?') });
+                            if (assignedAt) events.push({ ts: assignedAt, icon:'🚗', label:'ZUGEWIESEN', status:'zugewiesen', statusColor:'#f59e0b', detail: vehNameOf(ride.assignedVehicle||ride.assignedTo) + ' · '+quelleDE(assignedBy||'?') });
+                            if (acceptedAt) events.push({ ts: acceptedAt, icon:'✓', label:'ANGENOMMEN', status:'angenommen', statusColor:'#10b981', detail: vehNameOf(acceptedByVehicle||ride.assignedVehicle) + ' · '+quelleDE(ride.acceptedVia||'?') });
+                            if (rejectedAt) events.push({ ts: rejectedAt, icon:'✗', label:'LETZTER REJECT', status:'abgelehnt', statusColor:'#ef4444', detail: vehNameOf(rejectedBy||'?') + ' · '+quelleDE(ride.rejectedVia||'?') });
+                            if (ride.completedAt) events.push({ ts: ride.completedAt, icon:'🏁', label:'ERLEDIGT', status:'erledigt', statusColor:'#6366f1', detail: '' });
+                            if (ride.cancelledAt) events.push({ ts: ride.cancelledAt, icon:'🚫', label:'STORNIERT', status:'storniert', statusColor:'#64748b', detail: ride.cancelledReason||'' });
                             // v6.66.180: Timeout-History aus /rides/{id}/timeoutHistory
                             const toHist = ride.timeoutHistory || {};
                             if (toHist && typeof toHist === 'object') {
                                 Object.values(toHist).forEach(th => {
                                     if (th && th.ts) {
-                                        events.push({ ts: th.ts, icon:'⏰', label:'TIMEOUT', detail: vehNameOf(th.vehicleId||'?') + ' · 60s abgelaufen' });
+                                        events.push({ ts: th.ts, icon:'⏰', label:'TIMEOUT', status:'timeout', statusColor:'#f59e0b', detail: vehNameOf(th.vehicleId||'?') + ' · 60s abgelaufen' });
                                     }
                                 });
                             }
@@ -32571,10 +32573,12 @@ Aktuell: ${currentNum}`;
                             if (events.length > 0) {
                                 html += `<div style="margin-bottom:12px;">`;
                                 for (const e of events) {
-                                    html += `<div style="display:flex;gap:8px;padding:6px 8px;margin-bottom:4px;background:white;border-radius:6px;font-size:12px;">
+                                    const statusBadge = e.status ? `<span style="background:${e.statusColor};color:white;padding:1px 7px;border-radius:999px;font-size:10px;font-weight:700;text-transform:uppercase;">${e.status}</span>` : '';
+                                    html += `<div style="display:flex;gap:8px;padding:6px 8px;margin-bottom:4px;background:white;border-radius:6px;font-size:12px;align-items:center;">
                                         <div style="color:#64748b;min-width:70px;">${fmtTs(e.ts)}</div>
                                         <div style="font-weight:700;min-width:110px;">${e.icon} ${e.label}</div>
                                         <div style="color:#475569;flex:1;">${e.detail}</div>
+                                        ${statusBadge}
                                     </div>`;
                                 }
                                 html += `</div>`;

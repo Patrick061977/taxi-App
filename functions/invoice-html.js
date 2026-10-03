@@ -320,9 +320,9 @@ function buildInvoiceHtml({ invoiceNumber, ride, customer, settings, invoice }) 
             ${guestName ? `<div>Fahrgast: ${esc(guestName)}</div>` : ''}
             ${passengers > 0 ? `<div>Personen: ${passengers}</div>` : ''}
             ${fahrtDatum ? `<div>Datum: ${esc(fahrtDatum)}${fahrtZeit ? '  |  Uhrzeit: ' + esc(fahrtZeit) + ' Uhr' : ''}</div>` : ''}
-            ${pickup ? `<div>Von: ${esc(pickup)}</div>` : ''}
+            ${pickup ? `<div>Von: ${esc(pickup)}</div>${r.pickupName && r.pickupName !== guestName ? `<div style="padding-left:8mm;color:#404040;font-size:8.5pt;">↳ ${esc(r.pickupName)}</div>` : ''}` : ''}
             ${_waypointsHtml}
-            ${destination ? `<div>Nach: ${esc(destination)}</div>` : ''}
+            ${destination ? `<div>Nach: ${esc(destination)}</div>${r.destinationName ? `<div style="padding-left:8mm;color:#404040;font-size:8.5pt;">↳ ${esc(r.destinationName)}</div>` : ''}` : ''}
             ${distance > 0 ? `<div>Strecke: ${distance.toFixed(2).replace('.', ',')} km</div>` : ''}
             ${_guestsHtml}
         </div>` : '';

@@ -34817,6 +34817,20 @@ exports.scheduledOpenRideCheck = onSchedule(
                 const rejectedVehicles = ride.rejectedVehicles || [];
                 if (expiredVehicle) rejectedVehicles.push(expiredVehicle);
 
+                // v6.66.180 (Patrick 03.10. 11:32 Bridge: "da steht nicht die Guta-Fahrt
+                //   dass der Renault ein Time-Out bekommen hat"): Timeout-Events explizit
+                //   in /rides/{id}/timeoutHistory[] loggen (mit ts, vehicleId). Damit zeigt
+                //   das Fahrt-Details-Modal + Live-Vermittlungs-Chronik die Timeouts klar
+                //   neben Rejects/Zuweisungen.
+                if (expiredVehicle) {
+                    db.ref('rides/' + rideId + '/timeoutHistory').push({
+                        ts: Date.now(),
+                        vehicleId: expiredVehicle,
+                        vehicleName: ride.assignedVehicleName || expiredVehicle,
+                        reason: 'akzeptanz_fenster_abgelaufen'
+                    }).catch(_e => console.warn('timeoutHistory-push fehlgeschlagen:', _e.message));
+                }
+
                 // v6.63.057 (Patrick 31.05. 11:13): Stuck-Push-Fix S20-FE.
                 // Wenn das Akzeptanz-Fenster ablief OHNE dass eine cancel_notification
                 // an das Fahrzeug ging, blieb der "new_ride"-FCM-Push auf dem Handy

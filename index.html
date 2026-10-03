@@ -13256,7 +13256,7 @@
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
         const APP_VERSION = '6.66.147';
-        const APP_BUILD = '03.10.2026 08:47';
+        const APP_BUILD = '03.10.2026 09:00';
         const APP_CHANGE = 'v6.66.87: autoAssignRide Settings-Cache 5min → 15sek (Malus/Override greifen sofort).';
 
         // 🔧 FIX: Mache APP_VERSION global verfügbar
@@ -100084,12 +100084,26 @@ Funk Taxi Team`;
                         waypoints: _wpRaw.map(w => ({
                             address: w.address,
                             name: w.name || '',
+                            ...(w.mobile ? { mobile: w.mobile } : {}),
                             ...(w.lat ? { lat: w.lat } : {}),
                             ...(w.lon ? { lon: w.lon } : {}),
                             ...(w.arrivalTime ? { arrivalTime: w.arrivalTime } : {})
                         })),
+                        // v6.66.176 (Patrick 03.10. 10:58): Fahrgast-Mobilnummern
+                        //   aus PDF-Import mitnehmen damit Google-Calendar-Description
+                        //   pro Gast die Handy-Nummer anzeigen kann.
+                        ...(Array.isArray(t.guests) && t.guests.length > 0 ? {
+                            guests: t.guests.filter(g => g && (g.name || g.mobile)).map(g => ({
+                                name: g.name || '',
+                                ...(g.mobile ? { mobile: g.mobile } : {}),
+                                ...(g.hint ? { hint: g.hint } : {})
+                            }))
+                        } : {}),
                         notes: 'KI-Import: ' + (t.hint || '') +
-                               (t.customer?.name ? ' | Auftraggeber: ' + t.customer.name : '')
+                               (t.customer?.name ? ' | Auftraggeber: ' + t.customer.name : '') +
+                               (Array.isArray(t.guests) && t.guests.length > 0
+                                   ? ' | Gäste: ' + t.guests.filter(g=>g&&g.name).map(g => g.name + (g.mobile?' '+g.mobile:'')).join(', ')
+                                   : '')
                     };
                     if (_completedAt) {
                         ride.completedAt = _completedAt;

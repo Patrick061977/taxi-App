@@ -40628,7 +40628,10 @@ Format:
       "destination": "End-Ziel-Adresse (z.B. 'Interferie Medical Spa, Swinemuende')",
       "destinationName": "Name am Ziel-Drop-off (z.B. 'Frau Bohner') — falls erkennbar, sonst null",
       "waypoints": [
-        { "address": "Zwischenstopp-Adresse", "name": "Gast/Hotel/Klinik der dort aus-/einsteigt (wenn im Auftrag)" }
+        { "address": "Zwischenstopp-Adresse", "name": "Gast/Hotel/Klinik der dort aus-/einsteigt", "mobile": "Mobilnummer des Gastes an diesem Stopp (0151-xxx, 0173-xxx, +49174-xxx etc.) — null wenn nicht erkennbar" }
+      ],
+      "guests": [
+        { "name": "Name des Fahrgastes (Nachname, Vorname)", "mobile": "Mobilnummer (0151-xxx, 0173-xxx, +49174-xxx) — null wenn nur Festnetz im PDF", "hint": "SP mittig / Haustuerabholung / etc." }
       ],
       "passengers": 1,
       "datetime": "YYYY-MM-DDTHH:MM:SS+02:00 (Pickup-Zeit). Bei 'morgen'/'Donnerstag' beziehe auf heute (${_today})",
@@ -40645,6 +40648,19 @@ Beispiele:
 - Federpoint-PDF Seite 1 = Hinfahrt zum Flughafen, Seite 2 = Rueckfahrt → 2 Trips.
 - Vetter Touristik mit Sammeltransfer (Pickup im Hotel, 3 Drop-offs) → 1 Trip mit 2 waypoints + destination (mit destinationName).
 - Hotel-Anweisung ohne Rueckfahrt → 1 Trip.
+
+v6.66.176 WICHTIG — nur Mobilnummern extrahieren:
+Patrick (03.10. 10:58): "Handynummer, Festnetznummer brauchen wir nicht".
+Viele Hotel/Touristik-PDFs (zB Vetter Touristik Kurpendel) listen pro Gast
+ZWEI Nummern in einer Zelle (Festnetz + Mobil, untereinander).
+Erkennungs-Pattern:
+  - Festnetz (IGNORIEREN): 0340-xxx, 03494-xxx, 03445-xxx, 03475-xxx,
+    038378-xxx, +49-30-xxx usw. (3-5 Ziffern Vorwahl ohne 15/16/17)
+  - Mobilfunk (ÜBERNEHMEN): 015x / 016x / 017x / 0150-0179,
+    +49150-+49179 / +49 174 xxx
+Pro Gast in guests[i].mobile die MOBILNUMMER schreiben, Festnetz ignorieren.
+Wenn nur Festnetz: mobile = null.
+Guests-Array = jede namentlich genannte Person im PDF.
 
 Gib NUR JSON zurueck, kein Markdown, kein Pre-/Post-Text. Wenn nur EINE Fahrt: trips-Array mit genau 1 Eintrag. Fehlende Felder: null. Bei mehreren Personen mit unterschiedlichen Adressen jede als waypoint mit name (oder destination mit destinationName fuer den letzten Drop-off).`;
 

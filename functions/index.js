@@ -28835,23 +28835,69 @@ exports.onRideCreated = onValueCreated(
         //   Native-CRM-Suche schreibt das Feld nicht beim Anlegen.
         //   → Cloud-Backfill via OSRM: bei pickupLat+destinationLat aber
         //     drivingTimeToDestination=null Route berechnen + write-back.
+        // v6.66.199 (Patrick 03.10. Vetter 2933: 8,6 statt 10,5 km):
+        //   Waypoints wurden ignoriert → chain pickup→wp→dest nicht berechnet.
+        //   Jetzt: fehlende waypoint-Coords per geocode nachladen und als
+        //   waypointCoords in calculateRoute reinreichen. Chain-Summe landet
+        //   in drivingDistanceToDestKm UND in ride.distance (fuer Rechnungs-PDF).
         try {
             const _hasCoords = ride.pickupLat && ride.pickupLon && ride.destinationLat && ride.destinationLon;
             const _hasDuration = ride.drivingTimeToDestination && ride.drivingTimeToDestination > 0;
-            if (_hasCoords && !_hasDuration) {
+            const _wpArr = Array.isArray(ride.waypoints) ? ride.waypoints : [];
+            const _needsWpChain = _wpArr.length > 0;
+            if (_hasCoords && (!_hasDuration || _needsWpChain)) {
+                // v6.66.199: Waypoint-Coords nachgeocoden wenn fehlend
+                let _wpGeocoded = false;
+                const _wpResolved = [];
+                for (const wp of _wpArr) {
+                    if (wp && typeof wp.lat === 'number' && typeof wp.lon === 'number') {
+                        _wpResolved.push(wp);
+                        continue;
+                    }
+                    if (wp && wp.address) {
+                        try {
+                            const _gc = await geocode(wp.address);
+                            if (_gc && _gc.lat && _gc.lon) {
+                                _wpResolved.push({ ...wp, lat: _gc.lat, lon: _gc.lon });
+                                _wpGeocoded = true;
+                                continue;
+                            }
+                        } catch (_gcErr) {
+                            console.warn(`v6.66.199 Waypoint-Geocode fehlgeschlagen: ${wp.address} — ${_gcErr.message}`);
+                        }
+                    }
+                    _wpResolved.push(wp); // ohne coords → calculateRoute skippt dann die ungueltigen
+                }
+                const _wpCoords = _wpResolved
+                    .filter(w => w && typeof w.lat === 'number' && typeof w.lon === 'number')
+                    .map(w => ({ lat: w.lat, lon: w.lon }));
                 const _route = await calculateRoute(
                     { lat: ride.pickupLat, lon: ride.pickupLon },
-                    { lat: ride.destinationLat, lon: ride.destinationLon }
+                    { lat: ride.destinationLat, lon: ride.destinationLon },
+                    _wpCoords
                 );
                 if (_route && _route.duration && _route.duration > 0) {
                     const _upd = {
                         drivingTimeToDestination: _route.duration,
                         backfilledDestAt: Date.now(),
-                        backfilledDestBy: 'cloud-onRideCreated-v6.63.350'
+                        backfilledDestBy: 'cloud-onRideCreated-v6.66.199'
                     };
-                    if (_route.distance) _upd.drivingDistanceToDestKm = +Number(_route.distance).toFixed(2);
+                    if (_route.distance) {
+                        const _chainKm = +Number(_route.distance).toFixed(2);
+                        _upd.drivingDistanceToDestKm = _chainKm;
+                        // v6.66.199: ride.distance nur ueberschreiben wenn Chain groesser
+                        //   oder bisher nicht gesetzt. So fressen wir eine evtl. korrekt
+                        //   gesetzte Distanz nicht auf.
+                        const _curDist = parseFloat(ride.distance) || 0;
+                        if (_wpCoords.length > 0 && _chainKm > _curDist + 0.1) {
+                            _upd.distance = _chainKm;
+                        } else if (!_curDist) {
+                            _upd.distance = _chainKm;
+                        }
+                    }
+                    if (_wpGeocoded) _upd.waypoints = _wpResolved;
                     await db.ref('rides/' + rideId).update(_upd);
-                    console.log(`📐 v6.63.350 onRideCreated Route-Backfill: ${ride.customerName || '?'} → ${_route.duration} Min, ${_route.distance?.toFixed?.(1)} km`);
+                    console.log(`📐 v6.66.199 Route-Backfill: ${ride.customerName || '?'} → ${_route.duration} Min, ${_route.distance?.toFixed?.(2)} km (chain-wp=${_wpCoords.length}${_wpGeocoded ? ', geocoded' : ''})`);
                 }
             }
         } catch (_durErr) {

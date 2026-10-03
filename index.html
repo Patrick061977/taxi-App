@@ -13305,7 +13305,7 @@
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
         const APP_VERSION = '6.66.147';
-        const APP_BUILD = '03.10.2026 09:53';
+        const APP_BUILD = '03.10.2026 10:00';
         const APP_CHANGE = 'v6.66.87: autoAssignRide Settings-Cache 5min → 15sek (Malus/Override greifen sofort).';
 
         // 🔧 FIX: Mache APP_VERSION global verfügbar
@@ -150063,19 +150063,23 @@ if (document.readyState === 'loading') {
         function dcRenderRides() {
             const el = document.getElementById('dc-rides'); if (!el) return;
             const now = Date.now();
-            const today = new Date(); today.setHours(0,0,0,0);
-            const tomorrow = today.getTime() + 24*3600*1000;
-            const items = [];
+            const tomorrow = new Date(); tomorrow.setHours(0,0,0,0); const tomorrowMs = tomorrow.getTime() + 24*3600*1000;
+            // v6.66.183: aktive + erledigte in zwei Buckets trennen
+            const active = [];
+            const done = [];
             for (const rid in dcRidesCache) {
                 const r = dcRidesCache[rid]; if (!r||typeof r!=='object') continue;
                 if (!r.pickupTimestamp) continue;
-                if (r.pickupTimestamp < today.getTime()-2*3600*1000) continue; // vor >2h ignorieren
-                if (r.pickupTimestamp > tomorrow) continue;
-                items.push({ rid, r });
+                if (r.pickupTimestamp > tomorrowMs) continue;
+                if (r.pickupTimestamp < Date.now()-6*3600*1000) continue; // nicht ewig zurueck
+                if (['completed','cancelled','storniert','deleted'].includes(r.status)) done.push({ rid, r });
+                else active.push({ rid, r });
             }
-            items.sort((a,b)=>a.r.pickupTimestamp-b.r.pickupTimestamp);
-            document.getElementById('dc-rides-count').textContent = items.length + ' Fahrten';
-            if (items.length === 0) { el.innerHTML = '<div style="padding:20px;text-align:center;color:#94a3b8;">Keine Fahrten im Fenster</div>'; return; }
+            active.sort((a,b)=>a.r.pickupTimestamp-b.r.pickupTimestamp);
+            done.sort((a,b)=>b.r.pickupTimestamp-a.r.pickupTimestamp); // juengste zuerst
+            document.getElementById('dc-rides-count').textContent = `${active.length} aktiv · ${done.length} erledigt`;
+            const items = active;
+            if (items.length === 0 && done.length === 0) { el.innerHTML = '<div style="padding:20px;text-align:center;color:#94a3b8;">Keine Fahrten im Fenster</div>'; return; }
             el.innerHTML = items.map(({rid, r}) => {
                 const pt = r.pickupTime || fmtTs(r.pickupTimestamp);
                 const cust = r.customerName || '?';
@@ -150106,6 +150110,22 @@ if (document.readyState === 'loading') {
                     ${chronikHtml?`<div style="margin-top:5px;display:flex;flex-wrap:wrap;gap:3px;">${chronikHtml}</div>`:''}
                 </div>`;
             }).join('');
+            // v6.66.183: Erledigt-Section kompakt am Ende, einklappbar
+            if (done.length > 0) {
+                el.innerHTML += `<details style="margin-top:12px;background:#f1f5f9;border-radius:6px;padding:6px;">
+                    <summary style="cursor:pointer;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;">✓ ${done.length} Erledigt / Storniert</summary>
+                    <div style="margin-top:8px;">${done.slice(0,15).map(({rid, r}) => {
+                        const pt = r.pickupTime || fmtTs(r.pickupTimestamp);
+                        const vn = r.assignedVehicleName || '';
+                        const stCol = r.status === 'completed' ? '#6366f1' : '#64748b';
+                        const stLab = r.status === 'completed' ? 'ERLEDIGT' : 'STORNIERT';
+                        return `<div onclick="try{showRideDetails('${rid}')}catch(_){}" style="padding:4px 6px;margin-bottom:2px;background:white;border-radius:3px;font-size:11px;cursor:pointer;display:flex;justify-content:space-between;">
+                            <span>${pt} · ${r.customerName||'?'} ${vn?' · '+vn:''}</span>
+                            <span style="color:${stCol};font-weight:700;font-size:9px;">${stLab}</span>
+                        </div>`;
+                    }).join('')}</div>
+                </details>`;
+            }
         }
         function dcRenderProblems() {
             const el = document.getElementById('dc-problems'); if (!el) return;

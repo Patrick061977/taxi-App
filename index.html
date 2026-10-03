@@ -13256,7 +13256,7 @@
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
         const APP_VERSION = '6.66.147';
-        const APP_BUILD = '03.10.2026 08:36';
+        const APP_BUILD = '03.10.2026 08:37';
         const APP_CHANGE = 'v6.66.87: autoAssignRide Settings-Cache 5min → 15sek (Malus/Override greifen sofort).';
 
         // 🔧 FIX: Mache APP_VERSION global verfügbar
@@ -149345,9 +149345,9 @@ if (document.readyState === 'loading') {
             if (empty) empty.style.display = 'none';
             list.innerHTML = lvChronik.map(e => {
                 const t = new Date(e.ts).toLocaleTimeString('de-DE', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
-                const icons = { assign:'🚗', accept:'✓', reject:'✗', timeout:'⏰', complete:'🏁', cancel:'🚫' };
-                const labels = { assign:'ZUGEWIESEN', accept:'ANGENOMMEN', reject:'ABGELEHNT', timeout:'TIMEOUT', complete:'ERLEDIGT', cancel:'STORNIERT' };
-                const colors = { assign:'#0ea5e9', accept:'#10b981', reject:'#ef4444', timeout:'#f59e0b', complete:'#6366f1', cancel:'#64748b' };
+                const icons = { assign:'🚗', accept:'✓', reject:'✗', timeout:'⏰', complete:'🏁', cancel:'🚫', booking:'🆕' };
+                const labels = { assign:'ZUGEWIESEN', accept:'ANGENOMMEN', reject:'ABGELEHNT', timeout:'TIMEOUT', complete:'ERLEDIGT', cancel:'STORNIERT', booking:'NEUE BUCHUNG' };
+                const colors = { assign:'#0ea5e9', accept:'#10b981', reject:'#ef4444', timeout:'#f59e0b', complete:'#6366f1', cancel:'#64748b', booking:'#a855f7' };
                 return `<div style="padding:5px 7px;margin-bottom:3px;background:#f8fafc;border-left:3px solid ${colors[e.type]||'#64748b'};border-radius:4px;font-size:11px;">
                     <div style="color:#64748b;font-size:10px;">${t} · <span style="color:${colors[e.type]||'#475569'};font-weight:700;">${labels[e.type]||'?'}</span></div>
                     <div style="color:#0f172a;">${icons[e.type]||'•'} <b>${e.cust||'?'}</b> → ${e.vehicle||'?'}</div>
@@ -149363,6 +149363,12 @@ if (document.readyState === 'loading') {
                 const prev = lvLastSeen[rid] || {};
                 const cust = r.customerName || '?';
                 const vname = r.assignedVehicleName || r.assignedVehicle || '?';
+                // v6.66.173: Neue Buchung — Ride-ID war noch nicht in lvLastSeen
+                if (!(rid in lvLastSeen) && r.createdAt && r.createdAt > Date.now() - 10 * 60 * 1000) {
+                    const pt = r.pickupTime || (r.pickupTimestamp ? new Date(r.pickupTimestamp).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}) : '?');
+                    const quelle = lvQuelleDeutsch(r.source || r.assignedBy || 'neu');
+                    lvAddChronik({ type:'booking', cust, vehicle:pt + ' · ' + (r.pickup||'').slice(0,30), detail: 'Quelle: ' + quelle });
+                }
                 // Neu zugewiesen
                 if (r.assignedVehicle && r.assignedVehicle !== prev.assignedVehicle) {
                     if (prev.assignedVehicle !== undefined) { // nur bei echtem Wechsel, nicht initial
@@ -149412,6 +149418,12 @@ if (document.readyState === 'loading') {
                 if (!r || typeof r !== 'object') continue;
                 const cust = r.customerName || '?';
                 const vname = r.assignedVehicleName || r.assignedVehicle || '?';
+                // v6.66.173: neue Buchung (createdAt)
+                if (r.createdAt && r.createdAt >= cutoff) {
+                    const pt = r.pickupTime || (r.pickupTimestamp ? new Date(r.pickupTimestamp).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}) : '?');
+                    const quelle = lvQuelleDeutsch(r.source || 'neu');
+                    events.push({ ts: r.createdAt, type:'booking', cust, vehicle: pt + ' · ' + (r.pickup||'').slice(0,30), detail:'Quelle: '+quelle });
+                }
                 // Jedes Feld mit Timestamp kann ein Event werden
                 if (r.assignedAt && r.assignedAt >= cutoff) {
                     events.push({ ts: r.assignedAt, type:'assign', cust, vehicle:vname, detail:'per '+lvQuelleDeutsch(r.assignedBy||'?') });

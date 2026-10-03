@@ -10748,7 +10748,7 @@
                     <div style="display:flex;align-items:center;gap:4px;background:#f0f9ff;border:1px solid #0ea5e9;border-radius:8px;padding:4px 8px;">
                         <span style="font-size:11px;color:#0369a1;font-weight:600;">🔍 Zoom</span>
                         <button onclick="changeTimelineZoom(-1)" style="border:none;background:none;cursor:pointer;font-size:16px;color:#0369a1;padding:0 2px;line-height:1;">−</button>
-                        <span id="fleet-timeline-zoom-label" style="font-size:11px;color:#0369a1;font-weight:700;min-width:28px;text-align:center;">1x</span>
+                        <span id="fleet-timeline-zoom-label" style="font-size:11px;color:#0369a1;font-weight:700;min-width:28px;text-align:center;">3x</span>
                         <button onclick="changeTimelineZoom(1)" style="border:none;background:none;cursor:pointer;font-size:16px;color:#0369a1;padding:0 2px;line-height:1;">+</button>
                     </div>
                 </div>
@@ -13256,7 +13256,7 @@
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
         const APP_VERSION = '6.66.147';
-        const APP_BUILD = '02.10.2026 08:22';
+        const APP_BUILD = '03.10.2026 08:06';
         const APP_CHANGE = 'v6.66.87: autoAssignRide Settings-Cache 5min → 15sek (Malus/Override greifen sofort).';
 
         // 🔧 FIX: Mache APP_VERSION global verfügbar
@@ -45623,11 +45623,19 @@ Aktuell: ${currentNum}`;
                 const payLinkBadge = _wantsPayLink
                     ? '<span style="background:#7c3aed;color:white;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;" title="Kunde hat Bezahllink im Anfragetext erwähnt">💳 Stripe gewünscht</span>'
                     : '';
+                // 🆕 v6.66.163 (Patrick 02.10. 16:00): Festpreis/Vorkasse-Badges aus den
+                //   expliziten Flags der Web-Anfrage. Bisher ging die Info komplett unter.
+                const prepayBadge = a.prepayActive
+                    ? '<span style="background:#059669;color:white;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:700;" title="Kunde hat Vorkasse-Festpreis gewaehlt — Stripe-Link senden">💳 Vorkasse-Festpreis</span>'
+                    : '';
+                const festpreisBadge = (a.isFestpreis && !a.prepayActive)
+                    ? '<span style="background:#f59e0b;color:white;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:700;" title="Kunde hat Pauschalpreis-Festpreis gewaehlt (Bezahlung bei Fahrt)">⚡ Festpreis bar</span>'
+                    : '';
 
                 return `<div style="background:${bgColor};border:2px solid ${borderColor};border-radius:12px;padding:14px;">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
                         <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-                            ${badge} ${statusBadge} ${channelBadge} ${payLinkBadge}
+                            ${badge} ${statusBadge} ${channelBadge} ${payLinkBadge} ${prepayBadge} ${festpreisBadge}
                         </div>
                         <div style="font-size:11px;color:#6b7280;">${created}</div>
                     </div>
@@ -46130,7 +46138,11 @@ Aktuell: ${currentNum}`;
                     updatedAt: Date.now(),
                     pickupTimestamp: pickupTs,
                     pickupTime: pickupTime,
-                    paymentMethod: 'bar',
+                    // 💳 v6.66.163 (Patrick 02.10. 16:00): Festpreis/Vorkasse-Flags
+                    //   aus der Web-Anfrage uebernehmen, nicht hart 'bar' setzen.
+                    paymentMethod: a.prepayActive ? 'vorkasse-stripe' : (a.isFestpreis ? 'festpreis-bar' : 'bar'),
+                    ...(a.isFestpreis && { isFestpreis: true }),
+                    ...(a.prepayActive && { prepayActive: true }),
                     anfrageId: anfrageId,
                     ...(pickupLat && { pickupLat, pickupLon, pickupCoords: { lat: pickupLat, lon: pickupLon } }),
                     ...(destLat && { destinationLat: destLat, destinationLon: destLon, destCoords: { lat: destLat, lon: destLon } }),
@@ -80876,7 +80888,12 @@ Funk Taxi Team`;
         // 🆕 v5.93.9: TAGES-TIMELINE PRO FAHRZEUG (GANTT)
         // Zeigt den kompletten Tag mit allen Fahrten, Dauer und Lücken pro Fahrzeug
         let fleetTimelineDate = null; // aktuell gewähltes Datum (null = heute)
-        let fleetTimelineZoom = 2; // px pro Minute (Standard=2, Zoom: 1-6)
+        // v6.66.168 (Patrick 03.10. 10:04 Bridge "Zoom mal 3 sollte der normale Zoom in
+        // der Ansicht erstmal sein"): Default 2 px/min war visuell zu eng (ganze 19 Stunden
+        // auf eine Breite -> Fahrtenblocks unlesbar). 6 px/min = Label "3x" entspricht
+        // Patricks aktueller Wahl. Zoom runter geht weiter wenn er die ganze Tagessicht
+        // braucht; der Zoom-State ueberlebt kein Reload (bewusst — Default ist 3x).
+        let fleetTimelineZoom = 6; // px pro Minute (default jetzt 3x statt 1x)
 
         function changeTimelineZoom(delta) {
             const steps = [1, 1.5, 2, 3, 4, 6];

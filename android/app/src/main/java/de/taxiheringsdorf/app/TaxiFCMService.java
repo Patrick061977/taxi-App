@@ -60,6 +60,30 @@ public class TaxiFCMService extends FirebaseMessagingService {
         Map<String, String> data = remoteMessage.getData();
         String type = data.getOrDefault("type", "unknown");
 
+        // v6.66.189 (Patrick 03.10. 12:22 Bridge "ich sehe nicht was in der App
+        //   abläuft, der Fahrer sieht die Fahrt oder nicht"): FCM-Receive sofort
+        //   in /rides/{rideId}/pushReceivedHistory loggen. Patrick sieht in der
+        //   Chronik dann:
+        //     📲 11:25:03 PUSH gesendet an Renault
+        //     📬 11:25:04 PUSH empfangen von Renault
+        //   Fehlt der 📬-Eintrag → Fahrer-Handy hat den Push NIE bekommen
+        //   (Netz tot, App gekilled, FCM-Token stale).
+        try {
+            String _rid = data.get("rideId");
+            if (_rid != null && !_rid.isEmpty()) {
+                String _vid = getSharedPreferences("driver", MODE_PRIVATE).getString("vehicleId", null);
+                java.util.Map<String, Object> _rec = new java.util.HashMap<>();
+                _rec.put("ts", System.currentTimeMillis());
+                _rec.put("type", type);
+                if (_vid != null) _rec.put("vehicleId", _vid);
+                _rec.put("messageId", remoteMessage.getMessageId());
+                _rec.put("foreground", isAppForeground);
+                com.google.firebase.database.FirebaseDatabase.getInstance()
+                    .getReference("rides/" + _rid + "/pushReceivedHistory")
+                    .push().setValue(_rec);
+            }
+        } catch (Throwable _ignored) { /* non-critical */ }
+
         // v6.62.49: Native SMS-Gateway. Cloud-Function pusht FCM type=send_sms wenn ein
         // smsQueue-Eintrag verarbeitet werden soll. Wir rufen SmsManager.sendTextMessage
         // (SEND_SMS-Permission ist im Manifest, einmal granted) und schreiben Status zurueck.

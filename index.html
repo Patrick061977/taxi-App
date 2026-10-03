@@ -13305,7 +13305,7 @@
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
         const APP_VERSION = '6.66.147';
-        const APP_BUILD = '03.10.2026 10:09';
+        const APP_BUILD = '03.10.2026 10:16';
         const APP_CHANGE = 'v6.66.87: autoAssignRide Settings-Cache 5min → 15sek (Malus/Override greifen sofort).';
 
         // 🔧 FIX: Mache APP_VERSION global verfügbar
@@ -32628,6 +32628,24 @@ Aktuell: ${currentNum}`;
                                     const sucLabel = ph.success === false ? ' (fehlgeschlagen)' : '';
                                     events.push({ ts: ph.ts, icon:'📲', label:'PUSH', status: ph.success === false ? 'push-fail' : 'push-sent', statusColor: ph.success === false ? '#ef4444' : '#8b5cf6', detail: vehNameOf(ph.vehicleId||'?') + ' · ' + typeLabel + sucLabel });
                                 });
+                            }
+                            // v6.66.186 (Patrick 03.10. "Buchhaltungs-Flow gleich noch mit dran"):
+                            //   Buchhaltungs-relevante Events in Chronik aufnehmen.
+                            const payMethodMap = {cash:'Bar',card:'Karte',invoice:'Rechnung',bank_transfer:'Überweisung',invoice_email:'Rechnung per Email',zettle:'Zettle'};
+                            if (ride.priceUpdatedAt) {
+                                events.push({ ts: ride.priceUpdatedAt, icon:'💰', label:'PREIS', status:'preis', statusColor:'#059669', detail: (ride.paymentAmount||ride.price||'?') + ' € · ' + (payMethodMap[ride.paymentMethod]||ride.paymentMethod||'?') });
+                            }
+                            if (ride.invoiceCreatedAt) {
+                                events.push({ ts: ride.invoiceCreatedAt, icon:'📄', label:'RECHNUNG', status:'rechnung', statusColor:'#0891b2', detail: 'Nr. '+(ride.invoiceNumber||'?')+(ride.invoiceAmount?' · '+ride.invoiceAmount+' €':'') });
+                            }
+                            if (ride.invoicePdfGeneratedAt && ride.invoicePdfGeneratedAt !== ride.invoiceCreatedAt) {
+                                events.push({ ts: ride.invoicePdfGeneratedAt, icon:'📑', label:'PDF', status:'pdf', statusColor:'#0891b2', detail: 'PDF generiert' });
+                            }
+                            if (ride.hotelEmailUpdatedAt && ride.hotelEmailStatus === 'sent') {
+                                events.push({ ts: ride.hotelEmailUpdatedAt, icon:'📧', label:'EMAIL', status:'email', statusColor:'#2563eb', detail: 'an '+(ride.hotelEmailTo||ride.customerEmail||'?') });
+                            }
+                            if ((ride.completionSmsWithInvoiceSent === true || ride.completionSmsWithInvoiceSent === 'sent') && ride.completedAt) {
+                                events.push({ ts: ride.completedAt+1, icon:'📨', label:'SMS', status:'sms', statusColor:'#2563eb', detail: 'Kunden-SMS mit Rechnung' });
                             }
                             // v6.66.184: completedBy-Details ans ERLEDIGT-Event anhängen
                             if (ride.completedByLabel || ride.completedByVehicleName) {
@@ -150130,18 +150148,47 @@ if (document.readyState === 'loading') {
                     ${chronikHtml?`<div style="margin-top:5px;display:flex;flex-wrap:wrap;gap:3px;">${chronikHtml}</div>`:''}
                 </div>`;
             }).join('');
-            // v6.66.183: Erledigt-Section kompakt am Ende, einklappbar
+            // v6.66.186 (Patrick: "es geht immer weg und ich wuerde es dann auch so gerne
+            //   sehen wie es oben steht mit Rechnung gedrueckt zB — alles was gemacht wurde,
+            //   Buchhaltungsflow gleich noch mit dran"): Erledigt-Section standardmaessig
+            //   OPEN + gleiche Darstellung wie aktive (voller Chronik-Flow inkl. Buchhaltung).
             if (done.length > 0) {
-                el.innerHTML += `<details style="margin-top:12px;background:#f1f5f9;border-radius:6px;padding:6px;">
+                const payMethodMap = {cash:'Bar',card:'Karte',invoice:'Rechnung',bank_transfer:'Überweisung',invoice_email:'Rechnung per Email',zettle:'Zettle'};
+                el.innerHTML += `<details open style="margin-top:12px;background:#f1f5f9;border-radius:6px;padding:6px;">
                     <summary style="cursor:pointer;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;">✓ ${done.length} Erledigt / Storniert</summary>
-                    <div style="margin-top:8px;">${done.slice(0,15).map(({rid, r}) => {
+                    <div style="margin-top:8px;">${done.slice(0,30).map(({rid, r}) => {
                         const pt = r.pickupTime || fmtTs(r.pickupTimestamp);
-                        const vn = r.assignedVehicleName || '';
+                        const veh = r.assignedVehicleName || (r.assignedVehicle ? vehName(r.assignedVehicle) : null);
                         const stCol = r.status === 'completed' ? '#6366f1' : '#64748b';
                         const stLab = r.status === 'completed' ? 'ERLEDIGT' : 'STORNIERT';
-                        return `<div onclick="try{showRideDetails('${rid}')}catch(_){}" style="padding:4px 6px;margin-bottom:2px;background:white;border-radius:3px;font-size:11px;cursor:pointer;display:flex;justify-content:space-between;">
-                            <span>${pt} · ${r.customerName||'?'} ${vn?' · '+vn:''}</span>
-                            <span style="color:${stCol};font-weight:700;font-size:9px;">${stLab}</span>
+                        // Chronik inkl Buchhaltung
+                        const chr = [];
+                        if (r.createdAt) chr.push({ ts:r.createdAt, icon:'🆕', col:'#3b82f6', title:'Buchung · '+quelleDE(r.source||'?') });
+                        if (r.assignedAt) chr.push({ ts:r.assignedAt, icon:'🚗', col:'#f59e0b', title:'Zugewiesen '+veh+' · '+quelleDE(r.assignedBy||'?') });
+                        if (r.acceptedAt) chr.push({ ts:r.acceptedAt, icon:'✓', col:'#10b981', title:'Angenommen · '+quelleDE(r.acceptedVia||'?') });
+                        if (r.rejectedAt) chr.push({ ts:r.rejectedAt, icon:'✗', col:'#ef4444', title:'Abgelehnt '+vehName(r.rejectedBy||'?') });
+                        const toHist = r.timeoutHistory || {};
+                        Object.values(toHist).forEach(th => { if (th&&th.ts) chr.push({ ts:th.ts, icon:'⏰', col:'#d97706', title:'Timeout '+(th.vehicleName||th.vehicleId||'?') }); });
+                        const puHist = r.pushHistory || {};
+                        Object.values(puHist).forEach(ph => { if (ph&&ph.ts) chr.push({ ts:ph.ts, icon:'📲', col: ph.success===false?'#ef4444':'#8b5cf6', title:'Push '+vehName(ph.vehicleId||'?') }); });
+                        if (r.priceUpdatedAt) chr.push({ ts:r.priceUpdatedAt, icon:'💰', col:'#059669', title:'Preis '+(r.paymentAmount||'?')+' € · '+(payMethodMap[r.paymentMethod]||r.paymentMethod||'?') });
+                        if (r.invoiceCreatedAt) chr.push({ ts:r.invoiceCreatedAt, icon:'📄', col:'#0891b2', title:'Rechnung '+(r.invoiceNumber||'?') });
+                        if (r.hotelEmailUpdatedAt && r.hotelEmailStatus==='sent') chr.push({ ts:r.hotelEmailUpdatedAt, icon:'📧', col:'#2563eb', title:'Email an '+(r.hotelEmailTo||'?') });
+                        if ((r.completionSmsWithInvoiceSent===true||r.completionSmsWithInvoiceSent==='sent') && r.completedAt) chr.push({ ts:r.completedAt+1, icon:'📨', col:'#2563eb', title:'SMS mit Rechnung' });
+                        if (r.completedAt) chr.push({ ts:r.completedAt, icon:'🏁', col:'#6366f1', title:'Erledigt'+(r.completedByVehicleName?' · '+r.completedByVehicleName:'')+(r.completedByLabel?' · '+r.completedByLabel:'') });
+                        if (r.cancelledAt) chr.push({ ts:r.cancelledAt, icon:'🚫', col:'#64748b', title:'Storniert' });
+                        chr.sort((a,b)=>a.ts-b.ts);
+                        const chrHtml = chr.map(c => `<span title="${c.title} · ${fmtTs(c.ts)}" style="display:inline-flex;align-items:center;gap:2px;padding:2px 6px;background:${c.col};color:white;border-radius:9999px;font-size:10px;font-weight:700;">${c.icon} ${fmtTs(c.ts)}</span>`).join(' ');
+                        return `<div onclick="try{showRideDetails('${rid}')}catch(_){}" style="padding:7px 8px;margin-bottom:5px;background:white;border:1px solid #e2e8f0;border-left:4px solid ${stCol};border-radius:5px;cursor:pointer;">
+                            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+                                <div style="font-weight:700;color:#0f172a;font-size:12px;">${pt} · ${r.customerName||'?'}</div>
+                                <div style="display:flex;gap:5px;align-items:center;">
+                                    ${veh?`<span style="font-size:11px;color:#475569;">${veh}</span>`:''}
+                                    <span style="font-size:9px;color:white;background:${stCol};padding:1px 6px;border-radius:9999px;font-weight:700;">${stLab}</span>
+                                </div>
+                            </div>
+                            <div style="font-size:10px;color:#64748b;margin-top:1px;">${(r.pickup||'').slice(0,40)} → ${(r.destination||'').slice(0,40)}</div>
+                            ${chrHtml?`<div style="margin-top:4px;display:flex;flex-wrap:wrap;gap:3px;">${chrHtml}</div>`:''}
                         </div>`;
                     }).join('')}</div>
                 </details>`;

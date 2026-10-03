@@ -13256,7 +13256,7 @@
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
         const APP_VERSION = '6.66.147';
-        const APP_BUILD = '03.10.2026 08:27';
+        const APP_BUILD = '03.10.2026 08:31';
         const APP_CHANGE = 'v6.66.87: autoAssignRide Settings-Cache 5min → 15sek (Malus/Override greifen sofort).';
 
         // 🔧 FIX: Mache APP_VERSION global verfügbar
@@ -149263,13 +149263,13 @@ if (document.readyState === 'loading') {
     })();
     </script>
 
-    <!-- v6.66.169+170 (Patrick 03.10. 10:11+10:25 Bridge): Live-Vermittlungs-Widget mit Chronik -->
-    <div id="lv-widget" style="position:fixed;top:70px;right:16px;width:300px;max-height:520px;background:#fff;border:2px solid #0ea5e9;border-radius:12px;box-shadow:0 4px 16px rgba(0,0,0,0.15);z-index:9998;display:none;font-family:-apple-system,sans-serif;overflow:hidden;">
-        <div style="padding:8px 12px;background:linear-gradient(90deg,#0ea5e9,#0284c7);color:white;font-weight:700;font-size:13px;display:flex;justify-content:space-between;align-items:center;cursor:move;" id="lv-widget-header">
-            <span>🔔 Live-Vermittlung</span>
+    <!-- v6.66.169+170+171 (Patrick 03.10.): Live-Vermittlungs-Widget mit Chronik, resizable + initial load -->
+    <div id="lv-widget" style="position:fixed;top:70px;right:16px;width:320px;height:560px;background:#fff;border:2px solid #0ea5e9;border-radius:12px;box-shadow:0 4px 16px rgba(0,0,0,0.15);z-index:9998;display:none;font-family:-apple-system,sans-serif;overflow:hidden;resize:both;min-width:240px;min-height:220px;max-width:900px;max-height:90vh;">
+        <div style="padding:8px 12px;background:linear-gradient(90deg,#0ea5e9,#0284c7);color:white;font-weight:700;font-size:13px;display:flex;justify-content:space-between;align-items:center;" id="lv-widget-header">
+            <span>🔔 Live-Vermittlung · Ecke ziehen zum vergroessern</span>
             <button onclick="lvWidgetToggle(false)" style="background:transparent;border:none;color:white;font-size:16px;cursor:pointer;padding:0 4px;">×</button>
         </div>
-        <div id="lv-widget-body" style="padding:8px;max-height:460px;overflow-y:auto;">
+        <div id="lv-widget-body" style="padding:8px;height:calc(100% - 40px);overflow-y:auto;box-sizing:border-box;">
             <div style="font-size:11px;font-weight:700;color:#0369a1;text-transform:uppercase;margin-bottom:4px;">⏱ JETZT aktiv</div>
             <div id="lv-widget-empty" style="font-size:12px;color:#64748b;text-align:center;padding:8px;background:#f1f5f9;border-radius:6px;">Keine aktiven Vermittlungen</div>
             <div id="lv-widget-list"></div>
@@ -149377,13 +149377,64 @@ if (document.readyState === 'loading') {
                 };
             }
         }
+        // v6.66.171: Beim Start Chronik mit letzten 20 Events aus /rides-Historie
+        //   vorbefuellen (Patrick 03.10. 10:28: "letzten 20 events muessten ja angezeigt werden").
+        function lvInitialChronikLoad(ridesData) {
+            const events = [];
+            const now = Date.now();
+            const cutoff = now - 2 * 60 * 60 * 1000; // letzte 2h
+            for (const rid in ridesData) {
+                const r = ridesData[rid];
+                if (!r || typeof r !== 'object') continue;
+                const cust = r.customerName || '?';
+                const vname = r.assignedVehicleName || r.assignedVehicle || '?';
+                // Jedes Feld mit Timestamp kann ein Event werden
+                if (r.assignedAt && r.assignedAt >= cutoff) {
+                    events.push({ ts: r.assignedAt, type:'assign', cust, vehicle:vname, detail:'per '+(r.assignedBy||'?') });
+                }
+                if (r.acceptedAt && r.acceptedAt >= cutoff) {
+                    events.push({ ts: r.acceptedAt, type:'accept', cust, vehicle:r.acceptedByVehicle||vname, detail:'via '+(r.acceptedVia||'?') });
+                }
+                if (r.rejectedAt && r.rejectedAt >= cutoff) {
+                    events.push({ ts: r.rejectedAt, type:'reject', cust, vehicle:r.rejectedBy||'?', detail:'via '+(r.rejectedVia||'?') });
+                }
+                if (r.completedAt && r.completedAt >= cutoff) {
+                    events.push({ ts: r.completedAt, type:'complete', cust, vehicle:vname });
+                }
+                if (r.cancelledAt && r.cancelledAt >= cutoff) {
+                    events.push({ ts: r.cancelledAt, type:'cancel', cust, vehicle:vname });
+                }
+            }
+            events.sort((a,b) => b.ts - a.ts);
+            lvChronik.length = 0;
+            events.slice(0, 20).forEach(e => lvChronik.push(e));
+            lvRenderChronik();
+        }
         function lvStart() {
             if (!window.db) return;
             if (lvListener) return;
+            let initialDone = false;
             lvListener = window.db.ref('rides').on('value', (snap) => {
                 try {
                     const data = snap.val() || {};
-                    lvDetectEvents(data);
+                    if (!initialDone) {
+                        lvInitialChronikLoad(data);
+                        // Snapshot befuellen damit lvDetectEvents keine Doubles produziert
+                        for (const rid in data) {
+                            const r = data[rid]; if (!r || typeof r !== 'object') continue;
+                            lvLastSeen[rid] = {
+                                assignedVehicle: r.assignedVehicle,
+                                acceptedAt: r.acceptedAt,
+                                rejectedBy: r.rejectedBy,
+                                rejectedAt: r.rejectedAt,
+                                assignmentExpiresAt: r.assignmentExpiresAt,
+                                status: r.status
+                            };
+                        }
+                        initialDone = true;
+                    } else {
+                        lvDetectEvents(data);
+                    }
                     lvRender(data);
                 } catch (e) { console.warn('LV render error', e); }
             });

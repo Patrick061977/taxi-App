@@ -13256,7 +13256,7 @@
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
         const APP_VERSION = '6.66.147';
-        const APP_BUILD = '03.10.2026 08:14';
+        const APP_BUILD = '03.10.2026 08:27';
         const APP_CHANGE = 'v6.66.87: autoAssignRide Settings-Cache 5min → 15sek (Malus/Override greifen sofort).';
 
         // 🔧 FIX: Mache APP_VERSION global verfügbar
@@ -149263,15 +149263,20 @@ if (document.readyState === 'loading') {
     })();
     </script>
 
-    <!-- v6.66.169 (Patrick 03.10. 10:11 Bridge): Live-Vermittlungs-Widget -->
-    <div id="lv-widget" style="position:fixed;top:70px;right:16px;width:280px;max-height:400px;background:#fff;border:2px solid #0ea5e9;border-radius:12px;box-shadow:0 4px 16px rgba(0,0,0,0.15);z-index:9998;display:none;font-family:-apple-system,sans-serif;overflow:hidden;">
+    <!-- v6.66.169+170 (Patrick 03.10. 10:11+10:25 Bridge): Live-Vermittlungs-Widget mit Chronik -->
+    <div id="lv-widget" style="position:fixed;top:70px;right:16px;width:300px;max-height:520px;background:#fff;border:2px solid #0ea5e9;border-radius:12px;box-shadow:0 4px 16px rgba(0,0,0,0.15);z-index:9998;display:none;font-family:-apple-system,sans-serif;overflow:hidden;">
         <div style="padding:8px 12px;background:linear-gradient(90deg,#0ea5e9,#0284c7);color:white;font-weight:700;font-size:13px;display:flex;justify-content:space-between;align-items:center;cursor:move;" id="lv-widget-header">
             <span>🔔 Live-Vermittlung</span>
             <button onclick="lvWidgetToggle(false)" style="background:transparent;border:none;color:white;font-size:16px;cursor:pointer;padding:0 4px;">×</button>
         </div>
-        <div id="lv-widget-body" style="padding:8px;max-height:340px;overflow-y:auto;">
-            <div id="lv-widget-empty" style="font-size:12px;color:#64748b;text-align:center;padding:12px;">Keine aktiven Vermittlungen gerade</div>
+        <div id="lv-widget-body" style="padding:8px;max-height:460px;overflow-y:auto;">
+            <div style="font-size:11px;font-weight:700;color:#0369a1;text-transform:uppercase;margin-bottom:4px;">⏱ JETZT aktiv</div>
+            <div id="lv-widget-empty" style="font-size:12px;color:#64748b;text-align:center;padding:8px;background:#f1f5f9;border-radius:6px;">Keine aktiven Vermittlungen</div>
             <div id="lv-widget-list"></div>
+            <!-- v6.66.170: Chronik letzter Events -->
+            <div style="font-size:11px;font-weight:700;color:#0369a1;text-transform:uppercase;margin-top:12px;margin-bottom:4px;">📜 Chronik (letzte 20)</div>
+            <div id="lv-chronik-empty" style="font-size:12px;color:#64748b;text-align:center;padding:8px;background:#f1f5f9;border-radius:6px;">Noch keine Events</div>
+            <div id="lv-chronik-list"></div>
         </div>
     </div>
     <button id="lv-widget-toggle-btn" onclick="lvWidgetToggle(true)" style="position:fixed;top:70px;right:16px;background:#0ea5e9;color:white;border:none;border-radius:50%;width:44px;height:44px;font-size:20px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.2);z-index:9998;display:block;" title="Live-Vermittlung ein-/ausschalten">🔔</button>
@@ -149297,11 +149302,90 @@ if (document.readyState === 'loading') {
                 lvStop();
             }
         };
+        // v6.66.170: Chronik der letzten 20 Vermittlungs-Events
+        const lvChronik = [];
+        const lvLastSeen = {}; // rid -> { acceptedAt, rejectedBy, rejectedCount, assignedVehicle }
+        function lvAddChronik(event) {
+            lvChronik.unshift({ ts: Date.now(), ...event });
+            if (lvChronik.length > 20) lvChronik.length = 20;
+            lvRenderChronik();
+        }
+        function lvRenderChronik() {
+            const list = document.getElementById('lv-chronik-list');
+            const empty = document.getElementById('lv-chronik-empty');
+            if (!list) return;
+            if (lvChronik.length === 0) {
+                if (empty) empty.style.display = 'block';
+                list.innerHTML = '';
+                return;
+            }
+            if (empty) empty.style.display = 'none';
+            list.innerHTML = lvChronik.map(e => {
+                const t = new Date(e.ts).toLocaleTimeString('de-DE', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+                const icons = { assign:'🚗', accept:'✓', reject:'✗', timeout:'⏰', complete:'🏁', cancel:'🚫' };
+                const colors = { assign:'#0ea5e9', accept:'#10b981', reject:'#ef4444', timeout:'#f59e0b', complete:'#6366f1', cancel:'#64748b' };
+                return `<div style="padding:5px 7px;margin-bottom:3px;background:#f8fafc;border-left:3px solid ${colors[e.type]||'#64748b'};border-radius:4px;font-size:11px;">
+                    <div style="color:#64748b;font-size:10px;">${t}</div>
+                    <div style="color:#0f172a;">${icons[e.type]||'•'} <b>${e.cust||'?'}</b> → ${e.vehicle||'?'}</div>
+                    ${e.detail?`<div style="color:#64748b;font-size:10px;">${e.detail}</div>`:''}
+                </div>`;
+            }).join('');
+        }
+        function lvDetectEvents(ridesData) {
+            // Vergleicht aktuellen Snapshot mit lvLastSeen, erzeugt Events bei Änderungen
+            for (const rid in ridesData) {
+                const r = ridesData[rid];
+                if (!r || typeof r !== 'object') continue;
+                const prev = lvLastSeen[rid] || {};
+                const cust = r.customerName || '?';
+                const vname = r.assignedVehicleName || r.assignedVehicle || '?';
+                // Neu zugewiesen
+                if (r.assignedVehicle && r.assignedVehicle !== prev.assignedVehicle) {
+                    if (prev.assignedVehicle !== undefined) { // nur bei echtem Wechsel, nicht initial
+                        lvAddChronik({ type:'assign', cust, vehicle:vname, detail:'per '+(r.assignedBy||'?') });
+                    }
+                }
+                // Akzeptiert
+                if (r.acceptedAt && r.acceptedAt !== prev.acceptedAt && prev.acceptedAt !== undefined) {
+                    lvAddChronik({ type:'accept', cust, vehicle:r.acceptedByVehicle||vname, detail:'via '+(r.acceptedVia||'?') });
+                }
+                // Abgelehnt (rejectedBy frisch gesetzt)
+                if (r.rejectedBy && r.rejectedAt && r.rejectedAt !== prev.rejectedAt && prev.rejectedAt !== undefined) {
+                    lvAddChronik({ type:'reject', cust, vehicle:r.rejectedBy, detail:'via '+(r.rejectedVia||'?') });
+                }
+                // Timeout (assignmentExpiresAt vorbei und noch nicht accepted)
+                if (prev.assignmentExpiresAt && prev.assignmentExpiresAt < Date.now() && !r.acceptedAt && (!r.assignmentExpiresAt || r.assignmentExpiresAt !== prev.assignmentExpiresAt)) {
+                    if (prev.assignedVehicle && !lvLastSeen[rid+'_timeoutSent']) {
+                        lvAddChronik({ type:'timeout', cust, vehicle:prev.assignedVehicle, detail:'60s abgelaufen' });
+                        lvLastSeen[rid+'_timeoutSent'] = true;
+                    }
+                }
+                if (r.status === 'completed' && prev.status !== 'completed' && prev.status !== undefined) {
+                    lvAddChronik({ type:'complete', cust, vehicle:vname });
+                }
+                if ((r.status === 'cancelled' || r.status === 'storniert') && prev.status !== r.status && prev.status !== undefined) {
+                    lvAddChronik({ type:'cancel', cust, vehicle:vname });
+                }
+                // Snapshot aktualisieren
+                lvLastSeen[rid] = {
+                    assignedVehicle: r.assignedVehicle,
+                    acceptedAt: r.acceptedAt,
+                    rejectedBy: r.rejectedBy,
+                    rejectedAt: r.rejectedAt,
+                    assignmentExpiresAt: r.assignmentExpiresAt,
+                    status: r.status
+                };
+            }
+        }
         function lvStart() {
             if (!window.db) return;
             if (lvListener) return;
             lvListener = window.db.ref('rides').on('value', (snap) => {
-                try { lvRender(snap.val() || {}); } catch (e) { console.warn('LV render error', e); }
+                try {
+                    const data = snap.val() || {};
+                    lvDetectEvents(data);
+                    lvRender(data);
+                } catch (e) { console.warn('LV render error', e); }
             });
             if (lvTickTimer) clearInterval(lvTickTimer);
             lvTickTimer = setInterval(lvTickCountdowns, 1000);

@@ -611,21 +611,29 @@ public class DispoActivity extends AppCompatActivity {
             if (r.vehicleScoreSummary != null && !r.vehicleScoreSummary.isEmpty()) {
                 java.util.regex.Pattern _scoreP = java.util.regex.Pattern.compile("score=(-?\\d+)");
                 java.util.regex.Pattern _anfP = java.util.regex.Pattern.compile("anfahrt=([\\d.]+)\\s*min", java.util.regex.Pattern.CASE_INSENSITIVE);
+                // v6.66.166 (Patrick 03.10. 09:08 Bridge: "Malus muesste doch auf die Zeit
+                // addiert werden ... habe ich im Dispo-Live nicht gesehen"): penalty-Zahl
+                // aus dem Summary-String extrahieren und als "+30 Mal" hinter dem Score
+                // zeigen, damit Patrick visuell sieht ob + wie viel Malus im Score steckt.
+                java.util.regex.Pattern _penP = java.util.regex.Pattern.compile("penalty\\s+(-?\\d+)", java.util.regex.Pattern.CASE_INSENSITIVE);
                 java.util.List<Object[]> _ranked = new java.util.ArrayList<>();
                 for (java.util.Map.Entry<String, String> e : r.vehicleScoreSummary.entrySet()) {
-                    java.util.regex.Matcher m = _scoreP.matcher(e.getValue() == null ? "" : e.getValue());
+                    String _val = e.getValue() == null ? "" : e.getValue();
+                    java.util.regex.Matcher m = _scoreP.matcher(_val);
                     int score = m.find() ? Integer.parseInt(m.group(1)) : 99999;
                     // 🆕 v6.63.861 (Patrick 02.08. 08:42 Bridge "99999 anzeigen ist Quatsch"):
                     //   Wenn kein Score im Text (rejected vehicles) → Reason extrahieren
                     //   damit Dispo nicht die sinnlose Zahl 99999 zeigt.
                     String rejectReason = null;
                     if (score == 99999) {
-                        java.util.regex.Matcher mr = java.util.regex.Pattern.compile("reason=([^,;\\|]+)", java.util.regex.Pattern.CASE_INSENSITIVE).matcher(e.getValue() == null ? "" : e.getValue());
+                        java.util.regex.Matcher mr = java.util.regex.Pattern.compile("reason=([^,;\\|]+)", java.util.regex.Pattern.CASE_INSENSITIVE).matcher(_val);
                         if (mr.find()) rejectReason = mr.group(1).trim();
                     }
-                    java.util.regex.Matcher ma = _anfP.matcher(e.getValue() == null ? "" : e.getValue());
+                    java.util.regex.Matcher ma = _anfP.matcher(_val);
                     String anf = ma.find() ? ma.group(1) : null;
-                    _ranked.add(new Object[]{ e.getKey(), score, anf, rejectReason });
+                    java.util.regex.Matcher mp = _penP.matcher(_val);
+                    Integer penalty = mp.find() ? Integer.parseInt(mp.group(1)) : null;
+                    _ranked.add(new Object[]{ e.getKey(), score, anf, rejectReason, penalty });
                 }
                 _ranked.sort((a, b) -> Integer.compare((Integer)a[1], (Integer)b[1]));
                 StringBuilder ss = new StringBuilder("🎯 ");
@@ -639,6 +647,7 @@ public class DispoActivity extends AppCompatActivity {
                     int score = (Integer) row[1];
                     String anf = (String) row[2];
                     String rejectReason = (row.length > 3) ? (String) row[3] : null;
+                    Integer penalty = (row.length > 4) ? (Integer) row[4] : null;
                     ss.append(vname).append(" (");
                     if (score == 99999 && rejectReason != null) {
                         // v6.63.861: rejected — statt sinnloser 99999 die Reason zeigen
@@ -648,6 +657,10 @@ public class DispoActivity extends AppCompatActivity {
                     } else {
                         ss.append(score);
                         if (anf != null) ss.append(", ").append(anf).append("min");
+                        // v6.66.166: Malus visuell hinter dem Score anzeigen wenn >0
+                        if (penalty != null && penalty > 0) {
+                            ss.append(", +").append(penalty).append(" Mal");
+                        }
                     }
                     ss.append(")");
                     n++;

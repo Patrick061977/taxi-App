@@ -77,7 +77,7 @@ public class TaxiFCMService extends FirebaseMessagingService {
                 _rec.put("type", type);
                 if (_vid != null) _rec.put("vehicleId", _vid);
                 _rec.put("messageId", remoteMessage.getMessageId());
-                _rec.put("foreground", isAppForeground);
+                _rec.put("foreground", isForeground);
                 com.google.firebase.database.FirebaseDatabase.getInstance()
                     .getReference("rides/" + _rid + "/pushReceivedHistory")
                     .push().setValue(_rec);

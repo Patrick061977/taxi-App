@@ -6138,7 +6138,15 @@ public class AdminDashboardActivity extends AppCompatActivity {
         java.util.Map<String, Object> upd = new java.util.HashMap<>();
         upd.put("status", "completed");
         upd.put("completedAt", System.currentTimeMillis());
-        upd.put("completedBy", "native_admin_dispo_v711");
+        // v6.66.184 (Patrick 03.10. 12:05): completedBy mit Admin-Kontext
+        try {
+            com.google.firebase.auth.FirebaseUser _au = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
+            String _label = _au != null ? (_au.getEmail() != null ? _au.getEmail() : _au.getPhoneNumber()) : null;
+            upd.put("completedBy", "native-admin" + (_label != null ? ":" + _label : ":anon"));
+            if (_label != null) upd.put("completedByLabel", _label);
+        } catch (Throwable _ignored) {
+            upd.put("completedBy", "native_admin_dispo_v711");
+        }
         upd.put("updatedAt", System.currentTimeMillis());
         FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("rides/" + r.id)
             .updateChildren(upd)

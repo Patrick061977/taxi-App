@@ -926,6 +926,22 @@ async function sendFCMToVehicle(vehicleId, payload) {
                 success: true,
                 quelle: 'sendFCMToVehicle v6.63.162'
             });
+            // v6.66.185 (Patrick 03.10. 12:05 "ich will volle Transparenz"):
+            //   Pro-Fahrt pushHistory direkt an der Ride ablegen damit Fahrt-
+            //   Details-Modal + Dispo-Cockpit die PUSH-Events in der Chronik
+            //   zeigen koennen ("📲 PUSH an Renault 11:25:03"). Ergaenzt den
+            //   existierenden /pushAudit/{vehicleId}/{ts}-Trail.
+            if (payload?.rideId) {
+                try {
+                    await db.ref(`rides/${payload.rideId}/pushHistory`).push({
+                        ts: _ts,
+                        vehicleId,
+                        type: _t,
+                        severity: _severity,
+                        success: true
+                    });
+                } catch(_) { /* non-critical */ }
+            }
         } catch (_auditErr) { /* non-critical */ }
         return true;
     } catch (e) {
@@ -933,6 +949,16 @@ async function sendFCMToVehicle(vehicleId, payload) {
         // v6.62.69: Auch Fehlschlaege loggen
         if (payload && payload.rideId) {
             try { await addRideLog(payload.rideId, '⚠️', `FCM-Push FEHLGESCHLAGEN an ${vehicleId}`, { vehicleId, fehler: e.message }); } catch(_) {}
+            // v6.66.185: Fail-Push auch in Ride-pushHistory loggen
+            try {
+                await db.ref(`rides/${payload.rideId}/pushHistory`).push({
+                    ts: Date.now(),
+                    vehicleId,
+                    type: payload?.type || 'unknown',
+                    success: false,
+                    error: (e.message||'').slice(0,100)
+                });
+            } catch(_) {}
         }
         // 🆕 v6.63.159: Audit-Trail auch bei Fail (zeigt Connection-Probleme)
         try {

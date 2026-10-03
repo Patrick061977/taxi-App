@@ -30263,6 +30263,37 @@ exports.onRideUpdated = onValueUpdated(
         const after = event.data.after.val();
         if (!before || !after) return;
 
+        // v6.66.192 (Patrick 03.10. 12:58 Bridge: "wenn Fahrt erledigt, dann kann doch
+        //   die naechste freie Fahrt schon berechnet werden fuer den Mercedes, in Echtzeit"):
+        //   Wenn ein Fahrzeug gerade frei wird (completed-Trigger) → sofort autoAssign fuer
+        //   alle unassigned/wartepool/vorbestellt-Rides innerhalb der naechsten 2h anstoßen.
+        //   Vorher musste der Fahrer warten bis scheduledAutoAssign (alle 10 Min) lief.
+        try {
+            const _justCompleted = after.status === 'completed' && before.status !== 'completed';
+            const _freedVehicle = before.assignedVehicle;
+            if (_justCompleted && _freedVehicle) {
+                const _now = Date.now();
+                const _twoHoursAhead = _now + 2 * 60 * 60 * 1000;
+                const _candidatesSnap = await db.ref('rides').orderByChild('pickupTimestamp')
+                    .startAt(_now - 10 * 60000).endAt(_twoHoursAhead).once('value');
+                const _pending = [];
+                _candidatesSnap.forEach(c => {
+                    const r = c.val(); if (!r) return;
+                    if (['completed','cancelled','storniert','deleted'].includes(r.status)) return;
+                    if (r.assignedVehicle) return; // schon zugewiesen
+                    if (c.key === rideId) return; // nicht die gerade erledigte
+                    _pending.push({ id: c.key, ride: r });
+                });
+                if (_pending.length > 0) {
+                    console.log(`🔄 v6.66.192: Fahrzeug ${_freedVehicle} frei nach completion ${rideId} — ${_pending.length} unassigned Rides pruefen`);
+                    // Parallel ausfuehren, Logging aber nicht blockieren bei Fehler
+                    for (const { id, ride } of _pending.slice(0, 10)) { // cap bei 10 pro Trigger
+                        autoAssignRide(id, ride).catch(e => console.warn(`v6.66.192 autoAssign ${id}:`, e.message));
+                    }
+                }
+            }
+        } catch (_e) { console.warn('v6.66.192 realtime-reassign err:', _e.message); }
+
         // v6.66.191 (Patrick 03.10. 12:49 Bridge: "paymentMethod ist Ueberweisung auf
         //   allen Rechnungen" + 12:50 "Betrag per Ueberweisung erhalten ist Quatsch"):
         //   Auftraggeber-Buchungen die auf completed gesetzt werden mit paymentMethod=

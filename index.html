@@ -13256,7 +13256,7 @@
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
         const APP_VERSION = '6.66.147';
-        const APP_BUILD = '03.10.2026 09:00';
+        const APP_BUILD = '03.10.2026 09:24';
         const APP_CHANGE = 'v6.66.87: autoAssignRide Settings-Cache 5min → 15sek (Malus/Override greifen sofort).';
 
         // 🔧 FIX: Mache APP_VERSION global verfügbar
@@ -80943,12 +80943,21 @@ Funk Taxi Team`;
             }
 
             // Tag-Fenster
-            const DAY_START_H = 5;
+            // v6.66.177 (Patrick 03.10. 11:22 Bridge: "was gewesen ist brauche ich nicht
+            //   mehr, die Uhrzeit sollte fortlaufend sein"): Bei "Heute" startet die
+            //   Timeline bei der vollen aktuellen Stunde statt bei 05:00. Vergangene
+            //   Fahrten dieses Tages werden ausgefiltert. Bei zurueckdatiertem Datum
+            //   bleibt 05:00 als Start.
+            let DAY_START_H = 5;
             const DAY_END_H = 24;
-            const TIMELINE_MINS = (DAY_END_H - DAY_START_H) * 60; // 1140 min
+            if (isToday) {
+                const _nowH = new Date().getHours();
+                DAY_START_H = Math.max(5, _nowH); // nicht vor 5:00 starten (Nachtfahrten)
+            }
+            const TIMELINE_MINS = (DAY_END_H - DAY_START_H) * 60;
             const SCALE = fleetTimelineZoom; // px pro Minute (zoom-abhängig)
             const TIMELINE_W = TIMELINE_MINS * SCALE;
-            const LABEL_W = 115; // px für Fahrzeug-Beschriftung
+            const LABEL_W = 140; // v6.66.177: breiter fuer bessere Lesbarkeit + sticky
 
             // Stop-Zeiten aus Settings
             const st = (typeof getStopTimes === 'function') ? getStopTimes() : { boarding: 2, alighting: 2, buffer: 5 };

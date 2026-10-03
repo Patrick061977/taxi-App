@@ -13256,7 +13256,7 @@
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
         const APP_VERSION = '6.66.147';
-        const APP_BUILD = '03.10.2026 08:31';
+        const APP_BUILD = '03.10.2026 08:36';
         const APP_CHANGE = 'v6.66.87: autoAssignRide Settings-Cache 5min → 15sek (Malus/Override greifen sofort).';
 
         // 🔧 FIX: Mache APP_VERSION global verfügbar
@@ -149305,6 +149305,29 @@ if (document.readyState === 'loading') {
         // v6.66.170: Chronik der letzten 20 Vermittlungs-Events
         const lvChronik = [];
         const lvLastSeen = {}; // rid -> { acceptedAt, rejectedBy, rejectedCount, assignedVehicle }
+        // v6.66.172: technische Herkunfts-Codes auf lesbares Deutsch mappen
+        function lvQuelleDeutsch(raw) {
+            if (!raw) return '';
+            const map = {
+                'cloud-auto-assign': 'Automatik (Cloud)',
+                'cloud-scheduled-auto-assign': 'Automatik (Cron)',
+                'cloud-auto-replan': 'Umplanung (Cloud)',
+                'native_dashboard_grab': 'Manuell gegrabbt (Native)',
+                'native_dashboard': 'Native Dispo',
+                'native_dashboard_assign': 'Zugewiesen (Native)',
+                'native_vorbestellung_crmsearch': 'Vorbestellung (Native)',
+                'anfrage-uebernahme-native': 'Anfrage uebernommen (Native)',
+                'web_dispo': 'Web-Dispo',
+                'web_dispo_assign': 'Zugewiesen (Web)',
+                'fcm-notification-action': 'Push bestaetigt',
+                'fcm-notification': 'Push bestaetigt',
+                'native-push': 'Native-Push',
+                'manual-admin': 'Admin manuell',
+                'claude-manual-restore-stale-v6.63.832': 'Claude Restore',
+                'all-drivers-tried': 'Alle Fahrer durchprobiert'
+            };
+            return map[raw] || raw;
+        }
         function lvAddChronik(event) {
             lvChronik.unshift({ ts: Date.now(), ...event });
             if (lvChronik.length > 20) lvChronik.length = 20;
@@ -149323,9 +149346,10 @@ if (document.readyState === 'loading') {
             list.innerHTML = lvChronik.map(e => {
                 const t = new Date(e.ts).toLocaleTimeString('de-DE', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
                 const icons = { assign:'🚗', accept:'✓', reject:'✗', timeout:'⏰', complete:'🏁', cancel:'🚫' };
+                const labels = { assign:'ZUGEWIESEN', accept:'ANGENOMMEN', reject:'ABGELEHNT', timeout:'TIMEOUT', complete:'ERLEDIGT', cancel:'STORNIERT' };
                 const colors = { assign:'#0ea5e9', accept:'#10b981', reject:'#ef4444', timeout:'#f59e0b', complete:'#6366f1', cancel:'#64748b' };
                 return `<div style="padding:5px 7px;margin-bottom:3px;background:#f8fafc;border-left:3px solid ${colors[e.type]||'#64748b'};border-radius:4px;font-size:11px;">
-                    <div style="color:#64748b;font-size:10px;">${t}</div>
+                    <div style="color:#64748b;font-size:10px;">${t} · <span style="color:${colors[e.type]||'#475569'};font-weight:700;">${labels[e.type]||'?'}</span></div>
                     <div style="color:#0f172a;">${icons[e.type]||'•'} <b>${e.cust||'?'}</b> → ${e.vehicle||'?'}</div>
                     ${e.detail?`<div style="color:#64748b;font-size:10px;">${e.detail}</div>`:''}
                 </div>`;
@@ -149342,16 +149366,16 @@ if (document.readyState === 'loading') {
                 // Neu zugewiesen
                 if (r.assignedVehicle && r.assignedVehicle !== prev.assignedVehicle) {
                     if (prev.assignedVehicle !== undefined) { // nur bei echtem Wechsel, nicht initial
-                        lvAddChronik({ type:'assign', cust, vehicle:vname, detail:'per '+(r.assignedBy||'?') });
+                        lvAddChronik({ type:'assign', cust, vehicle:vname, detail:'per '+lvQuelleDeutsch(r.assignedBy||'?') });
                     }
                 }
                 // Akzeptiert
                 if (r.acceptedAt && r.acceptedAt !== prev.acceptedAt && prev.acceptedAt !== undefined) {
-                    lvAddChronik({ type:'accept', cust, vehicle:r.acceptedByVehicle||vname, detail:'via '+(r.acceptedVia||'?') });
+                    lvAddChronik({ type:'accept', cust, vehicle:r.acceptedByVehicle||vname, detail:'via '+lvQuelleDeutsch(r.acceptedVia||'?') });
                 }
                 // Abgelehnt (rejectedBy frisch gesetzt)
                 if (r.rejectedBy && r.rejectedAt && r.rejectedAt !== prev.rejectedAt && prev.rejectedAt !== undefined) {
-                    lvAddChronik({ type:'reject', cust, vehicle:r.rejectedBy, detail:'via '+(r.rejectedVia||'?') });
+                    lvAddChronik({ type:'reject', cust, vehicle:r.rejectedBy, detail:'via '+lvQuelleDeutsch(r.rejectedVia||'?') });
                 }
                 // Timeout (assignmentExpiresAt vorbei und noch nicht accepted)
                 if (prev.assignmentExpiresAt && prev.assignmentExpiresAt < Date.now() && !r.acceptedAt && (!r.assignmentExpiresAt || r.assignmentExpiresAt !== prev.assignmentExpiresAt)) {
@@ -149390,13 +149414,13 @@ if (document.readyState === 'loading') {
                 const vname = r.assignedVehicleName || r.assignedVehicle || '?';
                 // Jedes Feld mit Timestamp kann ein Event werden
                 if (r.assignedAt && r.assignedAt >= cutoff) {
-                    events.push({ ts: r.assignedAt, type:'assign', cust, vehicle:vname, detail:'per '+(r.assignedBy||'?') });
+                    events.push({ ts: r.assignedAt, type:'assign', cust, vehicle:vname, detail:'per '+lvQuelleDeutsch(r.assignedBy||'?') });
                 }
                 if (r.acceptedAt && r.acceptedAt >= cutoff) {
-                    events.push({ ts: r.acceptedAt, type:'accept', cust, vehicle:r.acceptedByVehicle||vname, detail:'via '+(r.acceptedVia||'?') });
+                    events.push({ ts: r.acceptedAt, type:'accept', cust, vehicle:r.acceptedByVehicle||vname, detail:'via '+lvQuelleDeutsch(r.acceptedVia||'?') });
                 }
                 if (r.rejectedAt && r.rejectedAt >= cutoff) {
-                    events.push({ ts: r.rejectedAt, type:'reject', cust, vehicle:r.rejectedBy||'?', detail:'via '+(r.rejectedVia||'?') });
+                    events.push({ ts: r.rejectedAt, type:'reject', cust, vehicle:r.rejectedBy||'?', detail:'via '+lvQuelleDeutsch(r.rejectedVia||'?') });
                 }
                 if (r.completedAt && r.completedAt >= cutoff) {
                     events.push({ ts: r.completedAt, type:'complete', cust, vehicle:vname });

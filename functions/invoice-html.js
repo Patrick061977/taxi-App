@@ -292,6 +292,22 @@ function buildInvoiceHtml({ invoiceNumber, ride, customer, settings, invoice }) 
     //   Personenzahl direkt in Fahrtdetails-Kopf statt nur in Positions-Bezeichnung.
     const passengers = parseInt(r.passengers || r.paxCount || 0) || 0;
     const showRouteBox = pickup || destination || guestName || fahrtDatum;
+    // v6.66.196 (Patrick 03.10. 13:18 Bridge: "Zwischenstops fehlen, muss mit dabei
+    //   sein damit Kunde weiss was in der Rechnung drin steht"): waypoints + guests
+    //   im Fahrtdetails-Block rendern (vorher ignoriert).
+    const _waypoints = Array.isArray(r.waypoints) ? r.waypoints : [];
+    const _guests = Array.isArray(r.guests) ? r.guests : [];
+    const _waypointsHtml = _waypoints.length > 0 ? _waypoints.map(w => {
+        if (!w) return '';
+        const _addr = (typeof w === 'object') ? (w.address || '') : String(w);
+        const _name = (typeof w === 'object') ? (w.name || '') : '';
+        if (!_addr && !_name) return '';
+        return `<div>Zwischenstopp${_name ? ' (' + esc(_name) + ')' : ''}: ${esc(_addr)}</div>`;
+    }).filter(Boolean).join('') : '';
+    const _guestsHtml = _guests.length > 0 ? `<div style="margin-top:1mm;">Fahrgäste: ${_guests.map(g => {
+        if (!g || typeof g !== 'object') return '';
+        return esc(g.name || '') + (g.mobile ? ' (' + esc(g.mobile) + ')' : '');
+    }).filter(Boolean).join(', ')}</div>` : '';
     const fahrtBox = showRouteBox ? `
         <div class="fahrt-box">
             <div class="fahrt-title">Fahrtdetails:</div>
@@ -299,8 +315,10 @@ function buildInvoiceHtml({ invoiceNumber, ride, customer, settings, invoice }) 
             ${passengers > 0 ? `<div>Personen: ${passengers}</div>` : ''}
             ${fahrtDatum ? `<div>Datum: ${esc(fahrtDatum)}${fahrtZeit ? '  |  Uhrzeit: ' + esc(fahrtZeit) + ' Uhr' : ''}</div>` : ''}
             ${pickup ? `<div>Von: ${esc(pickup)}</div>` : ''}
+            ${_waypointsHtml}
             ${destination ? `<div>Nach: ${esc(destination)}</div>` : ''}
             ${distance > 0 ? `<div>Strecke: ${distance.toFixed(2).replace('.', ',')} km</div>` : ''}
+            ${_guestsHtml}
         </div>` : '';
 
     return `<!DOCTYPE html>

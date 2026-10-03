@@ -30315,6 +30315,23 @@ exports.onRideUpdated = onValueUpdated(
                         paymentMethodAutoChangedReason: 'Auftraggeber-Buchung — Bar nicht moeglich (v6.66.191)',
                         updatedAt: Date.now()
                     });
+                    // v6.66.193 (Patrick 03.10. 13:01: "Native-App steht immer noch bar erhalten"):
+                    //   Mein v6.66.191 updatet nur /rides. Die /invoices-Records werden von
+                    //   onRideUpdated-Auto-Invoice (v6.62.811) OFT bereits generiert BEVOR mein
+                    //   payment-override greift. Deshalb muessen wir /invoices JETZT auch
+                    //   nachziehen und ein needsPdfRegeneration-Flag setzen.
+                    if (after.invoiceNumber) {
+                        try {
+                            await db.ref('invoices/' + after.invoiceNumber).update({
+                                paymentMethod: 'rechnung',
+                                paymentTerms: null, // Default-Mapping "Zahlbar innerhalb 14 Tagen" greift
+                                paymentStatus: 'offen',
+                                needsPdfRegeneration: true,
+                                updatedAt: Date.now(),
+                                updatedBy: 'cloud-v6.66.193-auftraggeber-fix'
+                            });
+                        } catch(_e) { console.warn('v6.66.193 invoice-update err:', _e.message); }
+                    }
                     try {
                         await sendToAllAdmins(`💶 Payment-Methode korrigiert\n\nFahrt ${after.customerName || rideId.slice(0,8)} war als "Bar" markiert, Auftraggeber-Flow → automatisch auf "Rechnung" umgestellt.\n\nRechnung wird mit "Zahlbar innerhalb 14 Tagen" neu generiert.`);
                     } catch(_) {}

@@ -13309,8 +13309,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '6.66.205';
-        const APP_BUILD = '03.10.2026 19:02';
+        const APP_VERSION = '6.66.207';
+        const APP_BUILD = '03.10.2026 21:20';
         const APP_CHANGE = 'v6.66.87: autoAssignRide Settings-Cache 5min → 15sek (Malus/Override greifen sofort).';
 
         // 🔧 FIX: Mache APP_VERSION global verfügbar
@@ -30288,7 +30288,12 @@ Aktuell: ${currentNum}`;
                                     ${sourceBadge}
                                     ${_lockBadge}
                                     ${r.adminConfirmed || acknowledgedRides.has(r.id) ? '<span style="background:#10b981;color:white;padding:4px 8px;border-radius:12px;font-size:11px;font-weight:600;">✅ Bestätigt</span>' : ''}
-                                    <button onclick="exportSingleRideToICS('${r.firebaseId || r.id}')" 
+                                    <button onclick="try{showRideDetails('${r.firebaseId || r.id}')}catch(_){}"
+                                        style="background:#6366f1;color:white;padding:4px 8px;border:none;border-radius:12px;font-size:11px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:4px;"
+                                        title="Vermittlungs-Chronik: wer bekam Push, Timeout, angenommen, Status-Verlauf">
+                                        📜 Chronik
+                                    </button>
+                                    <button onclick="exportSingleRideToICS('${r.firebaseId || r.id}')"
                                         style="background:#8b5cf6;color:white;padding:4px 8px;border:none;border-radius:12px;font-size:11px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:4px;"
                                         title="Als Kalender-Termin exportieren">
                                         📥 ICS
@@ -30403,6 +30408,11 @@ Aktuell: ${currentNum}`;
                             <div style="display:flex;gap:6px;align-items:center;">
                                 <span style="background:#6b7280;color:white;padding:4px 8px;border-radius:12px;font-size:11px;font-weight:600;">⏰ ABGELAUFEN</span>
                                 ${sourceBadge}
+                                <button onclick="try{showRideDetails('${r.firebaseId || r.id}')}catch(_){}"
+                                    style="background:#6366f1;color:white;padding:4px 8px;border:none;border-radius:12px;font-size:11px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:4px;"
+                                    title="Vermittlungs-Chronik: wer bekam Push, Timeout, angenommen">
+                                    📜 Chronik
+                                </button>
                             </div>
                         </div>
                         <div style="margin-top:10px;font-size:14px;color:#4b5563;">
@@ -30448,7 +30458,14 @@ Aktuell: ${currentNum}`;
                                         ${rejectedTime}
                                     </div>
                                 </div>
-                                <div style="font-size:24px;font-weight:bold;color:#ef4444;">${r.price}€</div>
+                                <div style="display:flex;gap:8px;align-items:center;">
+                                    <button onclick="try{showRideDetails('${r.firebaseId || r.id}')}catch(_){}"
+                                        style="background:#6366f1;color:white;padding:4px 8px;border:none;border-radius:12px;font-size:11px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:4px;"
+                                        title="Vermittlungs-Chronik: wer bekam Push, Timeout, angenommen">
+                                        📜 Chronik
+                                    </button>
+                                    <div style="font-size:24px;font-weight:bold;color:#ef4444;">${r.price}€</div>
+                                </div>
                             </div>
                             ${r.customerName ? `<div style="font-weight:600;margin-bottom:8px;">💾 ${r.customerName}</div>` : ''}
                             <div style="font-size:14px;margin-bottom:5px;">
@@ -40113,7 +40130,8 @@ Aktuell: ${currentNum}`;
                                                         <span style="font-weight:700;font-size:14px;color:#dc2626;">${wpDate}${wpTime}</span>
                                                         <span style="font-size:13px;color:#7f1d1d;">${ride.customerName || ride.name || '?'}</span>
                                                         <span style="background:#ef4444;color:white;padding:1px 8px;border-radius:4px;font-size:10px;font-weight:700;">WARTEPOOL</span>
-                                                        <button onclick="event.stopPropagation();openEditRideModal&&openEditRideModal('${wpRid}')||editRide('${wpRid}')" style="margin-left:auto;padding:3px 9px;background:#dc2626;color:white;border:none;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;">✏️ Bearbeiten</button>
+                                                        <button onclick="event.stopPropagation();try{showRideDetails('${wpRid}')}catch(_){}" style="margin-left:auto;padding:3px 9px;background:#6366f1;color:white;border:none;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;" title="Vermittlungs-Chronik">📜 Chronik</button>
+                                                        <button onclick="event.stopPropagation();openEditRideModal&&openEditRideModal('${wpRid}')||editRide('${wpRid}')" style="padding:3px 9px;background:#dc2626;color:white;border:none;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;">✏️ Bearbeiten</button>
                                                     </div>
                                                     <div style="font-size:12px;color:#b91c1c;margin-top:2px;">
                                                         📍 ${(ride.pickup||'?').substring(0,50)} → ${(ride.destination||'?').substring(0,50)}
@@ -40212,7 +40230,8 @@ Aktuell: ${currentNum}`;
                                                         : `<span style="font-size:13px;color:#374151;">${ride.customerName || ride.name || '?'}</span>`}
                                                     ${!inShift ? '<span style="background:#ef4444;color:white;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700;">KEIN DIENST!</span>' : ''}
                                                     <span style="font-size:10px;background:#f3f4f6;color:#6b7280;padding:1px 6px;border-radius:4px;">${assignLabel}</span>
-                                                    <button onclick="event.stopPropagation();editRide('${ride.firebaseId || ride.id}')" style="margin-left:auto;padding:3px 9px;background:#7c3aed;color:white;border:none;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;">✏️ Bearbeiten</button>
+                                                    <button onclick="event.stopPropagation();try{showRideDetails('${ride.firebaseId || ride.id}')}catch(_){}" style="margin-left:auto;padding:3px 9px;background:#6366f1;color:white;border:none;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;" title="Vermittlungs-Chronik">📜 Chronik</button>
+                                                    <button onclick="event.stopPropagation();editRide('${ride.firebaseId || ride.id}')" style="padding:3px 9px;background:#7c3aed;color:white;border:none;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;">✏️ Bearbeiten</button>
                                                 </div>
                                                 <div style="font-size:12px;color:#6b7280;margin-top:2px;">
                                                     📍 ${(ride.pickup || '?').substring(0, 50)} → ${(ride.destination || '?').substring(0, 50)}

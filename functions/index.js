@@ -30263,33 +30263,33 @@ exports.onRideUpdated = onValueUpdated(
         const after = event.data.after.val();
         if (!before || !after) return;
 
-        // v6.66.190 (Patrick 03.10. 12:34 Bridge: "Vetter — Payment-Methode ist
-        //   Ueberweisung auf allen Rechnungen. Bar darf gar nicht angezeigt werden"):
+        // v6.66.191 (Patrick 03.10. 12:49 Bridge: "paymentMethod ist Ueberweisung auf
+        //   allen Rechnungen" + 12:50 "Betrag per Ueberweisung erhalten ist Quatsch"):
         //   Auftraggeber-Buchungen die auf completed gesetzt werden mit paymentMethod=
-        //   cash → auto-override auf bank_transfer. Fahrer kann sich beim Dialog
-        //   nicht aus Versehen vertippen; Firma-Kunden bekommen immer Rechnung/UEB.
+        //   cash → auto-override auf 'rechnung' (NICHT 'bank_transfer'! Der Wert
+        //   'rechnung' triggert in der PDF-Erzeugung den Text "Zahlbar innerhalb 14
+        //   Tagen ohne Abzug" — bank_transfer waere leer gewesen).
         try {
             const _justCompleted = after.status === 'completed' && before.status !== 'completed';
             if (_justCompleted) {
                 const _isAG = after._isAuftraggeberBooking === true || after._isHotelBooking === true;
                 const _cash = (after.paymentMethod || '').toLowerCase() === 'cash' || (after.paymentMethod || '').toLowerCase() === 'bar';
                 if (_isAG && _cash) {
-                    console.log(`💶 v6.66.190: Vetter/Auftraggeber-Ride ${rideId} → paymentMethod auto-override cash → bank_transfer`);
+                    console.log(`💶 v6.66.191: Auftraggeber-Ride ${rideId} → paymentMethod auto-override cash → rechnung`);
                     await db.ref('rides/' + rideId).update({
-                        paymentMethod: 'bank_transfer',
+                        paymentMethod: 'rechnung',
                         paymentMethodAutoChanged: true,
                         paymentMethodAutoChangedFrom: 'cash',
                         paymentMethodAutoChangedAt: Date.now(),
-                        paymentMethodAutoChangedReason: 'Auftraggeber-Buchung — Bar nicht moeglich (v6.66.190)',
+                        paymentMethodAutoChangedReason: 'Auftraggeber-Buchung — Bar nicht moeglich (v6.66.191)',
                         updatedAt: Date.now()
                     });
-                    // Admin-Notice
                     try {
-                        await sendToAllAdmins(`💶 Payment-Methode korrigiert\n\nFahrt ${after.customerName || rideId.slice(0,8)} war als "Bar" markiert, Auftraggeber-Flow → automatisch auf "Ueberweisung" umgestellt.\n\nRechnung wird mit "Ueberweisung" neu generiert.`);
+                        await sendToAllAdmins(`💶 Payment-Methode korrigiert\n\nFahrt ${after.customerName || rideId.slice(0,8)} war als "Bar" markiert, Auftraggeber-Flow → automatisch auf "Rechnung" umgestellt.\n\nRechnung wird mit "Zahlbar innerhalb 14 Tagen" neu generiert.`);
                     } catch(_) {}
                 }
             }
-        } catch (_e) { console.warn('v6.66.190 payment-auto-override err:', _e.message); }
+        } catch (_e) { console.warn('v6.66.191 payment-auto-override err:', _e.message); }
 
         // 🚨 v6.63.829 (Patrick 25.07. Bridge "5 Personen darf nie auf 4-Personen-Fahrzeug"):
         //   Kapazitäts-Guard bei JEDER Zuweisung. Auch manuelle native_admin_dispo_assign

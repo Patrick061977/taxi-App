@@ -13256,7 +13256,7 @@
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
         const APP_VERSION = '6.66.147';
-        const APP_BUILD = '03.10.2026 09:29';
+        const APP_BUILD = '03.10.2026 09:30';
         const APP_CHANGE = 'v6.66.87: autoAssignRide Settings-Cache 5min → 15sek (Malus/Override greifen sofort).';
 
         // 🔧 FIX: Mache APP_VERSION global verfügbar
@@ -149891,6 +149891,64 @@ if (document.readyState === 'loading') {
                 const saved = localStorage.getItem(LV_STORAGE_KEY);
                 if (saved === '1') window.lvWidgetToggle(true);
             } catch(_){}
+        });
+    })();
+    </script>
+
+    <!-- v6.66.179 (Patrick 03.10. 11:29 Bridge): Drag für die 3 floating Widgets -->
+    <script>
+    (function() {
+        const WIDGETS = ['lv-widget', 'pz-widget', 'fs-widget'];
+        WIDGETS.forEach(wid => {
+            const panel = document.getElementById(wid);
+            if (!panel) return;
+            // Header ist das erste direkte div-Kind
+            const header = panel.querySelector('div');
+            if (!header) return;
+            header.style.cursor = 'move';
+            header.style.userSelect = 'none';
+            // Gespeicherte Position laden
+            const storageKey = 'widget_pos_' + wid;
+            try {
+                const saved = JSON.parse(localStorage.getItem(storageKey) || 'null');
+                if (saved && typeof saved.left === 'number' && typeof saved.top === 'number') {
+                    panel.style.left = saved.left + 'px';
+                    panel.style.top = saved.top + 'px';
+                    panel.style.right = 'auto';
+                }
+            } catch(_) {}
+            let dragStartX = 0, dragStartY = 0, startLeft = 0, startTop = 0, dragging = false;
+            header.addEventListener('mousedown', (e) => {
+                // Klick auf den Schließen-Button nicht als Drag werten
+                if (e.target.tagName === 'BUTTON') return;
+                dragging = true;
+                dragStartX = e.clientX;
+                dragStartY = e.clientY;
+                const rect = panel.getBoundingClientRect();
+                startLeft = rect.left;
+                startTop = rect.top;
+                panel.style.left = startLeft + 'px';
+                panel.style.top = startTop + 'px';
+                panel.style.right = 'auto';
+                e.preventDefault();
+            });
+            window.addEventListener('mousemove', (e) => {
+                if (!dragging) return;
+                const nl = Math.max(0, Math.min(window.innerWidth - 100, startLeft + (e.clientX - dragStartX)));
+                const nt = Math.max(0, Math.min(window.innerHeight - 50, startTop + (e.clientY - dragStartY)));
+                panel.style.left = nl + 'px';
+                panel.style.top = nt + 'px';
+            });
+            window.addEventListener('mouseup', () => {
+                if (!dragging) return;
+                dragging = false;
+                try {
+                    localStorage.setItem(storageKey, JSON.stringify({
+                        left: parseInt(panel.style.left) || 0,
+                        top: parseInt(panel.style.top) || 0
+                    }));
+                } catch(_) {}
+            });
         });
     })();
     </script>

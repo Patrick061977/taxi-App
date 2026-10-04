@@ -4602,10 +4602,19 @@ public class DriverDashboardActivity extends AppCompatActivity {
                             Object custO = ride.child("customerName").getValue();
                             String cust = custO != null ? String.valueOf(custO) : "Kunde";
                             String firstName = cust.split(" ")[0];
+                            // 🆕 v6.66.228 (Patrick 04.10. 11:52 "Danilo faehrt zu Martinez 12:15"):
+                            //   Pickup-Zeit mitzeigen damit klar ist um wann die Fahrt ist.
+                            String pickupStr = "";
+                            if (ptO instanceof Number) {
+                                long pt = ((Number) ptO).longValue();
+                                java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("HH:mm", java.util.Locale.GERMAN);
+                                sdf.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
+                                pickupStr = " " + sdf.format(new java.util.Date(pt));
+                            }
                             String desc;
                             if ("picked_up".equals(status)) desc = "mit " + firstName + " unterwegs";
                             else if ("angekommen".equals(status)) desc = "am Ziel";
-                            else desc = "faehrt zu " + firstName;
+                            else desc = "faehrt zu " + firstName + pickupStr;
                             next.put(vid, desc);
                         }
                         _colleagueCurrentRide.clear();

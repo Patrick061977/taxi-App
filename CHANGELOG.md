@@ -6,6 +6,20 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [6.66.243] - 2026-10-04 (Call-Vorschlag: Fallback bei fehlender Pickup-Zeit)
+
+**Patrick 04.10. 19:58 Bridge:** *„Wenn ich auf Bearbeiten klicke, kann ich nichts machen — 'Keine Pick-Up-Zeit, bitte bearbeiten'."*
+
+**Ursache:** Transkript "so schnell wie möglich" → `extractAudioBookingData` gab kein konkretes `pickupTimestamp` zurück → `handleAnlegen` brach ab, `handleEdit` rief `handleAnlegen` auf → Zirkel.
+
+**Fix in `CallVorschlagHandler.java`:**
+- Wenn `pickupTimestamp == null`: Fallback auf `now + 10 Min` damit die Fahrt angelegt wird und Patrick sie im Admin-Dashboard regulär nachjustieren kann.
+- (`pickupTimeReadable` wird für zukünftige "in 30 Minuten"-Parsing herangezogen; derzeit immer `+10 Min` als sicherer Default.)
+
+**Version:** 6.66.242 → 6.66.243.
+
+---
+
 ## [6.66.242] - 2026-10-04 (ACR-Upload-Service Crash-Fix: kein Initial-Scan + Serial-Upload)
 
 **Patrick 04.10. 18:58 Bridge:** *„Jetzt stürzt die App ein bisschen oft ab. Also er lädt das hoch und lädt das wieder runter."*

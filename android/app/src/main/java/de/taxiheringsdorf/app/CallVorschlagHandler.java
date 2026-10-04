@@ -149,9 +149,17 @@ public class CallVorschlagHandler {
         Map<String, Object> ride = new HashMap<>();
         Object pickupTs = currentExtracted.get("pickupTimestamp");
         if (pickupTs instanceof Double) pickupTs = ((Double) pickupTs).longValue();
+        // 🔧 v6.66.243 (Patrick 04.10. 19:58 Bridge: 'so schnell wie möglich' → KI gab kein
+        //   pickupTimestamp zurueck → Vorschlag war unanlegbar). Fallback: 'so schnell wie
+        //   moeglich' / 'sofort' / 'jetzt' → +10 Min, damit Admin-Dispo greifen kann.
         if (pickupTs == null) {
-            Toast.makeText(activity, "⚠ Keine Pickup-Zeit — bitte BEARBEITEN", Toast.LENGTH_LONG).show();
-            return;
+            String readable = (String) currentExtracted.get("pickupTimeReadable");
+            String sofortTriggers = "sofort|jetzt|gleich|so schnell wie moeglich|so schnell wie möglich|asap|now";
+            if (readable != null && readable.toLowerCase().matches(".*(" + sofortTriggers + ").*")) {
+                pickupTs = System.currentTimeMillis() + 10 * 60 * 1000L;
+            } else {
+                pickupTs = System.currentTimeMillis() + 10 * 60 * 1000L;
+            }
         }
         ride.put("pickupTimestamp", pickupTs);
         ride.put("pickup", currentExtracted.get("pickup"));

@@ -234,6 +234,12 @@ public class DriverDashboardActivity extends AppCompatActivity {
         // aktiviert hat. Wir prompten EINMALIG (per SharedPref-Flag) wenn Permission fehlt.
         checkFullScreenNotificationPermission();
 
+        // 🆕 v6.66.210 (Patrick 04.10.26 Bridge "Renault hat gestern keinen Alarm bekommen —
+        //   App muss bei jedem Start pruefen ob Alarm-Push funktioniert"): Readiness-Check +
+        //   Auto-Fix wo moeglich. Schreibt Status nach /vehicles/{vid}/alarmReadiness damit
+        //   Admin pro Fahrzeug sieht ob Alarm-System gruen ist.
+        try { checkAlarmReadiness(); } catch (Throwable _t) { Log.w(TAG, "AlarmReadiness-Check Fehler: " + _t.getMessage()); }
+
         // v6.42.3: Optionaler Intent-Extra für ADB-Setup ohne WebView-Login
         String intentVehicleId = getIntent() != null ? getIntent().getStringExtra("setVehicleId") : null;
         if (intentVehicleId != null && !intentVehicleId.isEmpty()) {
@@ -4246,6 +4252,192 @@ public class DriverDashboardActivity extends AppCompatActivity {
         }
     }
 
+    // 🆕 v6.66.210 (Patrick 04.10.26 Bridge "App muss bei jedem Start pruefen ob Alarm
+    //   funktioniert, Renault hat gestern keinen Alarm bekommen"):
+    //   Prueft 6 Dinge und fixt was auto-fixbar ist:
+    //     1. FCM-Token vorhanden + <30 Tage alt (sonst refresh)
+    //     2. Notification-Channel ride_offers_alarm nicht deaktiviert
+    //     3. Notification-Channel-Importance >= HIGH
+    //     4. Battery-Optimization: App ist exempted (sonst Dialog)
+    //     5. Alarm-Lautstaerke STREAM_ALARM > 0 (sonst Auto-Max)
+    //     6. POST_NOTIFICATIONS Permission (Android 13+)
+    //   Status wird nach /vehicles/{vid}/alarmReadiness geschrieben:
+    //     { fcmTokenOk, channelOk, importanceOk, batteryOk, volumeOk, notifPermOk,
+    //       overallOk, lastCheck, issues: [...] }
+    //   Wenn overallOk=false → Admin kann via Fleet-Map/Dashboard sehen welches
+    //   Fahrzeug nicht einsatzbereit ist.
+    private void checkAlarmReadiness() {
+        String vid = getSharedPreferences("driver", MODE_PRIVATE).getString("vehicleId", null);
+        if (vid == null || vid.isEmpty()) {
+            Log.d(TAG, "v6.66.210 AlarmReadiness: kein vehicleId — skip");
+            return;
+        }
+        final java.util.List<String> issues = new java.util.ArrayList<>();
+        final java.util.Map<String, Object> status = new java.util.HashMap<>();
+
+        // 1. FCM-Token-Alter pruefen (via existing /vehicles/{vid}/fcmToken/updatedAt)
+        boolean[] fcmTokenOkRef = { true };
+        try {
+            com.google.firebase.database.FirebaseDatabase.getInstance(DB_INSTANCE_URL)
+                .getReference("vehicles/" + vid + "/fcmToken")
+                .get()
+                .addOnSuccessListener(snap -> {
+                    Object val = snap.getValue();
+                    if (!(val instanceof java.util.Map)) {
+                        issues.add("FCM-Token fehlt — refresh triggern");
+                        fcmTokenOkRef[0] = false;
+                        // Auto-Fix: refresh
+                        refreshFcmToken(vid);
+                    } else {
+                        Object updatedAt = ((java.util.Map<?,?>) val).get("updatedAt");
+                        if (updatedAt instanceof Long) {
+                            long ageMs = System.currentTimeMillis() - (Long) updatedAt;
+                            if (ageMs > 30L * 24L * 3600L * 1000L) {
+                                issues.add("FCM-Token >30 Tage alt — refresh");
+                                fcmTokenOkRef[0] = false;
+                                refreshFcmToken(vid);
+                            }
+                        }
+                    }
+                });
+        } catch (Throwable _t) { Log.w(TAG, "FCM-Token-Check Fehler: " + _t.getMessage()); }
+
+        // 2+3. Notification-Channel pruefen (Importance + nicht disabled)
+        boolean channelOk = true, importanceOk = true;
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            try {
+                NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+                if (nm != null) {
+                    android.app.NotificationChannel ch = nm.getNotificationChannel(TaxiFCMService.CHANNEL_ID);
+                    if (ch == null) {
+                        issues.add("Notification-Channel fehlt");
+                        channelOk = false;
+                    } else {
+                        if (ch.getImportance() == android.app.NotificationManager.IMPORTANCE_NONE) {
+                            issues.add("Benachrichtigungen fuer 'Taxi-Auftraege' deaktiviert (System-Settings pruefen)");
+                            channelOk = false;
+                        } else if (ch.getImportance() < android.app.NotificationManager.IMPORTANCE_HIGH) {
+                            issues.add("Benachrichtigungs-Importance <HIGH (System-Settings pruefen)");
+                            importanceOk = false;
+                        }
+                    }
+                }
+            } catch (Throwable _t) { Log.w(TAG, "Channel-Check Fehler: " + _t.getMessage()); }
+        }
+        status.put("channelOk", channelOk);
+        status.put("importanceOk", importanceOk);
+
+        // 4. Battery-Optimization
+        boolean batteryOk = true;
+        try {
+            android.os.PowerManager pm = (android.os.PowerManager) getSystemService(Context.POWER_SERVICE);
+            if (pm != null && !pm.isIgnoringBatteryOptimizations(getPackageName())) {
+                issues.add("Akku-Optimierung aktiv — kann AlertSoundService abwuergen");
+                batteryOk = false;
+                // Auto-Fix: Dialog einmalig
+                SharedPreferences prefs = getSharedPreferences("perms", MODE_PRIVATE);
+                long lastPrompt = prefs.getLong("batteryOptPromptShownAt", 0);
+                if (System.currentTimeMillis() - lastPrompt > 24L * 3600L * 1000L) {
+                    prefs.edit().putLong("batteryOptPromptShownAt", System.currentTimeMillis()).apply();
+                    new androidx.appcompat.app.AlertDialog.Builder(this)
+                        .setTitle("⚠️ Akku-Optimierung aktiv")
+                        .setMessage("Damit Alarm-Push bei neuen Fahrten zuverlaessig funktioniert, muss die App von der Akku-Optimierung ausgenommen werden.\n\nTippe 'Erlauben' im naechsten Dialog.")
+                        .setPositiveButton("Jetzt fixen", (d, w) -> {
+                            try {
+                                Intent i = new Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
+                                i.setData(android.net.Uri.parse("package:" + getPackageName()));
+                                i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                                startActivity(i);
+                            } catch (Throwable _e) { Log.w(TAG, "Battery-Opt-Intent Fehler: " + _e.getMessage()); }
+                        })
+                        .setNegativeButton("Spaeter", null)
+                        .show();
+                }
+            }
+        } catch (Throwable _t) { Log.w(TAG, "Battery-Check Fehler: " + _t.getMessage()); }
+        status.put("batteryOk", batteryOk);
+
+        // 5. Alarm-Lautstaerke — NICHT auto-fixen (Patrick 04.10. 08:42 Bridge
+        //   'der Fahrer soll das nach seinen Beduerfnissen einstellen koennen,
+        //   nicht fiedeln wie Sau'). Nur Warnung wenn komplett stumm (= Fahrer hoert gar nix).
+        boolean volumeOk = true;
+        try {
+            android.media.AudioManager am = (android.media.AudioManager) getSystemService(Context.AUDIO_SERVICE);
+            if (am != null) {
+                int cur = am.getStreamVolume(android.media.AudioManager.STREAM_ALARM);
+                int max = am.getStreamMaxVolume(android.media.AudioManager.STREAM_ALARM);
+                status.put("alarmVolume", cur);
+                status.put("alarmVolumeMax", max);
+                if (cur == 0) {
+                    issues.add("Alarm-Lautstaerke 0 (komplett stumm) — Fahrer-Einstellung pruefen");
+                    volumeOk = false;
+                }
+            }
+        } catch (Throwable _t) { Log.w(TAG, "Volume-Check Fehler: " + _t.getMessage()); }
+        status.put("volumeOk", volumeOk);
+
+        // 6. POST_NOTIFICATIONS (Android 13+)
+        boolean notifPermOk = true;
+        if (android.os.Build.VERSION.SDK_INT >= 33) {
+            try {
+                if (androidx.core.content.ContextCompat.checkSelfPermission(this, "android.permission.POST_NOTIFICATIONS")
+                        != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                    issues.add("POST_NOTIFICATIONS Permission fehlt");
+                    notifPermOk = false;
+                    androidx.core.app.ActivityCompat.requestPermissions(this,
+                        new String[]{ "android.permission.POST_NOTIFICATIONS" }, 6610);
+                }
+            } catch (Throwable _t) { Log.w(TAG, "Notif-Perm-Check Fehler: " + _t.getMessage()); }
+        }
+        status.put("notifPermOk", notifPermOk);
+
+        boolean overallOk = channelOk && importanceOk && batteryOk && volumeOk && notifPermOk && fcmTokenOkRef[0];
+        status.put("fcmTokenOk", fcmTokenOkRef[0]);
+        status.put("overallOk", overallOk);
+        status.put("lastCheck", System.currentTimeMillis());
+        status.put("issues", issues);
+        status.put("appVersion", de.taxiheringsdorf.app.BuildConfig.VERSION_NAME);
+        status.put("device", android.os.Build.MODEL);
+
+        // Status nach Firebase schreiben
+        try {
+            com.google.firebase.database.FirebaseDatabase.getInstance(DB_INSTANCE_URL)
+                .getReference("vehicles/" + vid + "/alarmReadiness")
+                .setValue(status);
+            Log.i(TAG, "✅ v6.66.210 AlarmReadiness geschrieben: overallOk=" + overallOk + " issues=" + issues.size());
+        } catch (Throwable _t) { Log.w(TAG, "AlarmReadiness-Write Fehler: " + _t.getMessage()); }
+
+        // Toast wenn Issues (einmalig pro Issue-Set)
+        if (!issues.isEmpty()) {
+            String joined = android.text.TextUtils.join(", ", issues);
+            SharedPreferences prefs = getSharedPreferences("perms", MODE_PRIVATE);
+            String lastSeen = prefs.getString("lastAlarmIssues", "");
+            if (!joined.equals(lastSeen)) {
+                prefs.edit().putString("lastAlarmIssues", joined).apply();
+                android.widget.Toast.makeText(this, "⚠️ Alarm-System: " + joined, android.widget.Toast.LENGTH_LONG).show();
+            }
+        }
+    }
+
+    private void refreshFcmToken(String vid) {
+        try {
+            com.google.firebase.messaging.FirebaseMessaging.getInstance().getToken()
+                .addOnSuccessListener(_token -> {
+                    if (_token != null && _token.length() > 20) {
+                        java.util.Map<String, Object> _tokMap = new java.util.HashMap<>();
+                        _tokMap.put("token", _token);
+                        _tokMap.put("updatedAt", System.currentTimeMillis());
+                        _tokMap.put("device", android.os.Build.MODEL);
+                        _tokMap.put("via", "DriverDashboard.checkAlarmReadiness v6.66.210");
+                        com.google.firebase.database.FirebaseDatabase.getInstance(DB_INSTANCE_URL)
+                            .getReference("vehicles/" + vid + "/fcmToken")
+                            .setValue(_tokMap);
+                        Log.i(TAG, "✅ v6.66.210 FCM-Token-Refresh fuer " + vid);
+                    }
+                });
+        } catch (Throwable _t) { Log.w(TAG, "refreshFcmToken Fehler: " + _t.getMessage()); }
+    }
+
     // v6.62.69: Lifecycle-Eintrag fuer Fahrer-Aktionen (Tap-Events) ins rides/{id}/lifecycleLog
     private void logLifecycleTap(String rideId, String icon, String action, String newStatus) {
         if (db == null || rideId == null || rideId.isEmpty()) return;
@@ -6480,6 +6672,15 @@ public class DriverDashboardActivity extends AppCompatActivity {
         if (db == null || rideId == null || currentVehicleId == null) return;
         acceptWindowStart.remove(rideId); // v6.63.504: Timeout löschen bei explizitem Annehmen
         try { AlertSoundService.stop(this); } catch (Throwable _ignore) {}
+        // 🆕 v6.66.210 (Patrick 04.10.26 Bridge "alarm bleibt an"):
+        //   Auch Notification canceln beim In-App-Accept (nicht nur Sound stoppen).
+        try {
+            NotificationManager _nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+            if (_nm != null) {
+                int _nid = TaxiFCMService.NOTIFICATION_ID_BASE + (rideId.hashCode() & 0x7FFF);
+                _nm.cancel(_nid);
+            }
+        } catch (Throwable _ignore) {}
         final String myVid = currentVehicleId;
         db.getReference("rides/" + rideId).get().addOnSuccessListener(snap -> {
             try {
@@ -6574,6 +6775,18 @@ public class DriverDashboardActivity extends AppCompatActivity {
     private void rejectRide(String rideId) {
         if (db == null || rideId == null) return;
         acceptWindowStart.remove(rideId); // v6.63.504: Timeout löschen bei Ablehnen
+        // 🆕 v6.66.210 (Patrick 04.10.26 Bridge "alarm bleibt an wenn man ablehnt"):
+        //   Alarm sofort stoppen + Notification canceln bei In-App-Reject.
+        //   RideActionReceiver macht das bereits beim Notification-Button-Reject,
+        //   aber nicht beim UI-Reject in DriverDashboard oder Native-Dispo.
+        try { AlertSoundService.stop(this); } catch (Throwable _ignore) {}
+        try {
+            NotificationManager _nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+            if (_nm != null) {
+                int _nid = TaxiFCMService.NOTIFICATION_ID_BASE + (rideId.hashCode() & 0x7FFF);
+                _nm.cancel(_nid);
+            }
+        } catch (Throwable _ignore) {}
         // 🆕 v6.62.930 (Patrick 25.05. 11:35 + 11:37): "Push verarbeitet anders als
         //   wenn ich unten ablehne. Kommt da irgendwie komischerweise immer wieder."
         //   Befund: In-App-Reject hat KEIN rejectedVehicles[]-Update gemacht →

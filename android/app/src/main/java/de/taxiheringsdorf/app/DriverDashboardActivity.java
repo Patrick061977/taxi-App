@@ -1350,6 +1350,8 @@ public class DriverDashboardActivity extends AppCompatActivity {
             if (id == R.id.menu_preauth_link)   { showPreAuthLinkDialog(); return true; }
             // 🆕 v6.66.211: Alarm-Settings + Push-Historie
             if (id == R.id.menu_alarm_settings) { startActivity(new Intent(this, AlarmSettingsActivity.class)); return true; }
+            // 🆕 v6.66.232: Alternative Dashboard-Ansichten
+            if (id == R.id.menu_alt_dashboard) { startActivity(new Intent(this, AlternativeDashboardActivity.class)); return true; }
             if (id == R.id.menu_change_vehicle) {
                 getSharedPreferences("driver", MODE_PRIVATE).edit().remove("vehicleId").remove("vehicleName").apply();
                 startActivity(new Intent(this, VehiclePickerActivity.class));

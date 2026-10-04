@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#F1F5F9">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:background="#1E293B"
+        android:padding="8dp">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="🚕 Alternative Ansichten"
+            android:textColor="#FFFFFF"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:gravity="center_vertical"/>
+
+        <Button
+            android:id="@+id/btn_alt_close"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="✕"
+            android:textColor="#FFFFFF"
+            android:background="@android:color/transparent"
+            android:textSize="18sp"
+            android:padding="4dp"/>
+    </LinearLayout>
+
+    <!-- Tab-Switcher -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:background="#FFFFFF">
+
+        <Button
+            android:id="@+id/tab_hero"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="🚀 HERO"
+            android:background="#DBEAFE"
+            android:textColor="#1E40AF"
+            android:textStyle="bold"
+            android:textSize="13sp"/>
+
+        <Button
+            android:id="@+id/tab_timeline"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="📋 TIMELINE"
+            android:background="#F3F4F6"
+            android:textColor="#374151"
+            android:textSize="13sp"/>
+
+        <Button
+            android:id="@+id/tab_gantt"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="📅 GANTT"
+            android:background="#F3F4F6"
+            android:textColor="#374151"
+            android:textSize="13sp"/>
+    </LinearLayout>
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <LinearLayout
+            android:id="@+id/alt_content"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="12dp"/>
+    </ScrollView>
+</LinearLayout>

@@ -1326,6 +1326,8 @@ public class DriverDashboardActivity extends AppCompatActivity {
             }
             // v6.63.182 (Patrick 05.06. 17:49 Bridge): Vorkasse-Stripe-Link aus Native
             if (id == R.id.menu_preauth_link)   { showPreAuthLinkDialog(); return true; }
+            // 🆕 v6.66.211: Alarm-Settings + Push-Historie
+            if (id == R.id.menu_alarm_settings) { startActivity(new Intent(this, AlarmSettingsActivity.class)); return true; }
             if (id == R.id.menu_change_vehicle) {
                 getSharedPreferences("driver", MODE_PRIVATE).edit().remove("vehicleId").remove("vehicleName").apply();
                 startActivity(new Intent(this, VehiclePickerActivity.class));

@@ -79,21 +79,52 @@ public class AcrUploadService extends Service {
         startForeground(NOTIF_ID, buildNotification("ACR-Upload aktiv"));
         Log.i(TAG, "Service gestartet");
 
-        // 1) Initial-Scan: alle vorhandenen Dateien pruefen die noch nicht hochgeladen sind
-        scanHandler.postDelayed(this::initialScan, 2000);
-        // 2) Rescans alle 60s als Safety-Net falls FileObserver was verpasst
-        scanHandler.postDelayed(periodicRescan, 60_000);
+        // 🔧 v6.66.242 (Patrick 04.10. 18:58 Bridge "App stürzt ab"): KEIN Initial-Scan mehr.
+        //   Der v6.66.240-Service hat beim ersten Start über 100e alte m4a aus 2026 gescannt,
+        //   parallel hochgeladen, Memory/Firebase-Rate-Limit → App-Crash. Jetzt nur noch
+        //   FileObserver für NEUE Dateien ab Service-Start. Alte Dateien koennen manuell
+        //   via CallRecordingsActivity-Sync-Button nachgezogen werden (TODO v243).
 
-        // 3) FileObserver auf alle Root-Dirs einrichten
+        // Rescans alle 5 Min als Safety-Net falls FileObserver was verpasst (seltener als
+        // v240 → 60s weil die Scan-Last reduziert werden muss)
+        scanHandler.postDelayed(periodicRescan, 300_000);
+
+        // FileObserver auf alle Root-Dirs einrichten
         setupObservers();
     }
 
     private final Runnable periodicRescan = new Runnable() {
         @Override public void run() {
-            try { initialScan(); } catch (Throwable t) { Log.w(TAG, "rescan: " + t.getMessage()); }
-            scanHandler.postDelayed(this, 60_000);
+            try { recentOnlyScan(); } catch (Throwable t) { Log.w(TAG, "rescan: " + t.getMessage()); }
+            scanHandler.postDelayed(this, 300_000);
         }
     };
+
+    // 🔧 v6.66.242: nur Dateien juenger als 15 Min scannen (Safety-Net fuer FileObserver-Misses)
+    private void recentOnlyScan() {
+        long cutoff = System.currentTimeMillis() - 15 * 60 * 1000L;
+        File[] roots = { ACR_ROOT, ACR_ROOT_ALT1, ACR_ROOT_ALT2, FUNKTAXI_ROOT };
+        int c = 0;
+        for (File root : roots) {
+            if (!root.exists()) continue;
+            c += scanDirRecent(root, cutoff);
+        }
+        if (c > 0) Log.i(TAG, "recentOnlyScan: " + c + " frische Kandidaten");
+    }
+
+    private int scanDirRecent(File dir, long cutoff) {
+        int c = 0;
+        File[] list = dir.listFiles();
+        if (list == null) return 0;
+        for (File f : list) {
+            if (f.isDirectory()) c += scanDirRecent(f, cutoff);
+            else if (f.getName().toLowerCase().endsWith(".m4a") && f.lastModified() >= cutoff) {
+                uploadIfNew(f);
+                c++;
+            }
+        }
+        return c;
+    }
 
     private void setupObservers() {
         File[] roots = { ACR_ROOT, ACR_ROOT_ALT1, ACR_ROOT_ALT2, FUNKTAXI_ROOT };
@@ -155,6 +186,12 @@ public class AcrUploadService extends Service {
         if (!f.exists() || f.length() < 1000) return;
         String abs = f.getAbsolutePath();
         synchronized (inFlight) {
+            // 🔧 v6.66.242: nur EIN Upload parallel — Patrick's App stuerzte ab weil
+            //   der v6.66.240-Service Hunderte Dateien parallel hochladen wollte.
+            if (!inFlight.isEmpty()) {
+                Log.d(TAG, "skip (inFlight=" + inFlight.size() + "): " + f.getName());
+                return;
+            }
             if (inFlight.contains(abs)) return;
         }
         SharedPreferences sp = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);

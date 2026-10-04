@@ -75,6 +75,7 @@ public class DriverDashboardActivity extends AppCompatActivity {
     private java.util.Map<String, Object> currentVorschlagData;
     // 🆕 v6.66.96: Inline-Standort im Header (ersetzt homeCard)
     private TextView tvHomeInline;
+    private TextView tvOnlineColleagues; // v6.66.212
     private MaterialButton btnMenu, btnEinsteiger, btnCallLog;
     // v6.63.895: Pin-Direktbuttons (Aufnahmen + Karte) — Patrick 18.08. 12:00
     private MaterialButton btnPinRecordings, btnPinMap, btnColleagues;
@@ -255,6 +256,8 @@ public class DriverDashboardActivity extends AppCompatActivity {
         // 🆕 v6.66.61 Home-Karte
         homeCard = findViewById(R.id.home_card);
         tvHomeInline = findViewById(R.id.tv_home_inline);
+        tvOnlineColleagues = findViewById(R.id.tv_online_colleagues); // v6.66.212
+        try { refreshOnlineColleagues(); } catch (Throwable _t) { Log.w(TAG, "online-colleagues init: " + _t.getMessage()); }
         tvHomeLocation = findViewById(R.id.tv_home_location);
         tvHomeSource = findViewById(R.id.tv_home_source);
         // 🆕 v6.66.124 Vorschlags-Karte
@@ -4419,6 +4422,77 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 android.widget.Toast.makeText(this, "⚠️ Alarm-System: " + joined, android.widget.Toast.LENGTH_LONG).show();
             }
         }
+    }
+
+    // 🆕 v6.66.212 (Patrick 04.10.26 Bridge "wie viele Fahrer online sind,
+    //   irgendwo auf dem Hauptscreen"): Live-Count der online-Fahrzeuge mit Namen.
+    //   Listener auf /vehicles → zaehlt Fahrzeuge mit shift.status=active +
+    //   lastHeartbeat <5 Min + eigenes Fahrzeug ausnehmen (= 'Kollegen').
+    private com.google.firebase.database.ValueEventListener onlineColleaguesListener;
+    private void refreshOnlineColleagues() {
+        if (tvOnlineColleagues == null) return;
+        if (db == null) {
+            try { db = FirebaseDatabase.getInstance(DB_INSTANCE_URL); } catch (Throwable _t) {}
+        }
+        if (db == null) return;
+        try {
+            // alten Listener abhaengen falls vorhanden
+            if (onlineColleaguesListener != null) {
+                try { db.getReference("vehicles").removeEventListener(onlineColleaguesListener); } catch (Throwable _ignore) {}
+            }
+            final String myVid = getSharedPreferences("driver", MODE_PRIVATE).getString("vehicleId", null);
+            onlineColleaguesListener = new com.google.firebase.database.ValueEventListener() {
+                @Override public void onDataChange(com.google.firebase.database.DataSnapshot snap) {
+                    try {
+                        long now = System.currentTimeMillis();
+                        long heartbeatCutoff = now - 5L * 60L * 1000L;
+                        java.util.List<String> names = new java.util.ArrayList<>();
+                        int countOther = 0;
+                        boolean selfOnline = false;
+                        for (com.google.firebase.database.DataSnapshot vSnap : snap.getChildren()) {
+                            String vid = vSnap.getKey();
+                            Object shiftObj = vSnap.child("shift").getValue();
+                            if (!(shiftObj instanceof java.util.Map)) continue;
+                            java.util.Map<?,?> shift = (java.util.Map<?,?>) shiftObj;
+                            Object stO = shift.get("status");
+                            String status = stO != null ? String.valueOf(stO) : "";
+                            Object hbO = shift.get("lastHeartbeat");
+                            long hb = (hbO instanceof Long) ? (Long) hbO : 0L;
+                            if (!"active".equals(status) || hb < heartbeatCutoff) continue;
+                            Object nameO = vSnap.child("name").getValue();
+                            String vName = nameO != null ? String.valueOf(nameO) : vid;
+                            Object plateO = vSnap.child("plate").getValue();
+                            String plate = plateO != null ? String.valueOf(plateO) : "";
+                            if (vid != null && vid.equals(myVid)) {
+                                selfOnline = true;
+                            } else {
+                                countOther++;
+                                // shift.driverName als Fallback, sonst vehicle.name
+                                Object drvO = shift.get("driverName");
+                                String drvName = drvO != null ? String.valueOf(drvO) : vName;
+                                // Vorname extrahieren
+                                String firstName = drvName.split(" ")[0];
+                                names.add(firstName + (plate.isEmpty() ? "" : " (" + plate + ")"));
+                            }
+                        }
+                        final String label;
+                        if (countOther == 0) {
+                            label = selfOnline ? "👤 Du bist allein online — keine Kollegen" : "⚫ Niemand online";
+                        } else {
+                            String joined = android.text.TextUtils.join(", ", names);
+                            label = "👥 " + countOther + " Kollege" + (countOther == 1 ? "" : "n") + " online: " + joined;
+                        }
+                        runOnUiThread(() -> {
+                            if (tvOnlineColleagues != null) tvOnlineColleagues.setText(label);
+                        });
+                    } catch (Throwable _t) { Log.w(TAG, "online-colleagues render: " + _t.getMessage()); }
+                }
+                @Override public void onCancelled(com.google.firebase.database.DatabaseError e) {
+                    Log.w(TAG, "online-colleagues cancelled: " + e.getMessage());
+                }
+            };
+            db.getReference("vehicles").addValueEventListener(onlineColleaguesListener);
+        } catch (Throwable _t) { Log.w(TAG, "refreshOnlineColleagues: " + _t.getMessage()); }
     }
 
     private void refreshFcmToken(String vid) {

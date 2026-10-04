@@ -32242,7 +32242,14 @@ exports.onRideUpdated = onValueUpdated(
             const _anfahrtMin209 = Math.round(after.drivingTimeToPickup || 10) || 10;
             const _schwelleMin209 = 30 + _anfahrtMin209;
             const _isVorbestPlan = (after.status === 'vorbestellt') && _minutesUntilPickup > _schwelleMin209;
-            if (_isVorbestPlan) {
+            // 🆕 v6.66.214 Fix (Patrick 04.10. 09:23 "Boettcher 05.10. 09:00 kommt gerade an?"):
+            //   Push NUR beim VEHICLE-Wechsel senden, nicht bei jedem Update (ETA-Refresh,
+            //   priceCalculation etc.). Sonst bekommt der Fahrer Pings fuer Vorbestellungen
+            //   die schon vor Tagen zugewiesen wurden.
+            const _vehicleChanged209 = (oldVehicle || null) !== (newVehicle || null);
+            if (_isVorbestPlan && !_vehicleChanged209) {
+                console.log(`📅 v6.66.214 Vorbestellung-Ping SKIP — kein Vehicle-Wechsel (ride ${rideId})`);
+            } else if (_isVorbestPlan) {
                 // 🆕 v6.66.209 (Patrick 04.10.26 Bridge "podulski angeboten bekommen ohne Alarm"):
                 //   v6.63.190 hatte Push ganz blockiert bei >30 Min — Fahrer bekam KEIN
                 //   akustisches Signal dass eine Vorbestellung zugewiesen wurde. Patrick

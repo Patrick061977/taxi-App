@@ -1,6 +1,7 @@
 package de.taxiheringsdorf.app;
 
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.media.AudioManager;
 import android.media.RingtoneManager;

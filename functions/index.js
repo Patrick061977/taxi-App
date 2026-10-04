@@ -46021,3 +46021,132 @@ exports.askDispatcherKI = onRequest(
     }
 );
 
+// ═══════════════════════════════════════════════════════════════
+// 🆕 v6.66.240 (Patrick 04.10.2026 18:29): Call-zu-Fahrt-Autoflow Baustein 2
+// Trigger: neue /callRecordings/{id} aus AcrUploadService (Native).
+// Pipeline: Audio herunterladen → Whisper transkribieren →
+//           extractAudioBookingData → Dispo-Vorschlag schreiben.
+// ═══════════════════════════════════════════════════════════════
+async function transcribeAudioFromStorage(storagePath, contextHint = '') {
+    try {
+        const openaiKey = await getOpenAiApiKey();
+        if (!openaiKey) { console.error('transcribeAudioFromStorage: kein OpenAI-Key'); return null; }
+        const bucket = admin.storage().bucket();
+        const [audioBuffer] = await bucket.file(storagePath).download();
+        if (!audioBuffer || audioBuffer.length < 1000) {
+            console.warn(`transcribeAudioFromStorage: ${storagePath} zu klein (${audioBuffer?.length || 0}B)`);
+            return null;
+        }
+        const boundary = '----WhisperBoundary' + Date.now();
+        const formParts = [];
+        formParts.push(`--${boundary}\r\nContent-Disposition: form-data; name="model"\r\n\r\nwhisper-1`);
+        formParts.push(`--${boundary}\r\nContent-Disposition: form-data; name="language"\r\n\r\nde`);
+        const fullPrompt = (contextHint ? contextHint + '. ' : '') + (typeof HERINGSDORF_VOCAB !== 'undefined' ? HERINGSDORF_VOCAB : '');
+        formParts.push(`--${boundary}\r\nContent-Disposition: form-data; name="prompt"\r\n\r\n${fullPrompt}`);
+        const fileHeader = `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="call.m4a"\r\nContent-Type: audio/m4a\r\n\r\n`;
+        const fileFooter = `\r\n--${boundary}--\r\n`;
+        const textParts = formParts.join('\r\n') + '\r\n';
+        const textBefore = Buffer.from(textParts + fileHeader);
+        const textAfter = Buffer.from(fileFooter);
+        const bodyBuffer = Buffer.concat([textBefore, audioBuffer, textAfter]);
+        const resp = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${openaiKey}`, 'Content-Type': `multipart/form-data; boundary=${boundary}` },
+            body: bodyBuffer
+        });
+        if (!resp.ok) {
+            const err = await resp.json().catch(() => ({}));
+            console.error(`transcribeAudioFromStorage Whisper-Fehler ${resp.status}:`, err.error?.message || '');
+            return null;
+        }
+        const result = await resp.json();
+        const raw = (result.text || '').trim();
+        if (!raw) return null;
+        const fixed = typeof applyWhisperFixes === 'function' ? applyWhisperFixes(raw) : raw;
+        return fixed;
+    } catch (e) {
+        console.error('transcribeAudioFromStorage Exception:', e.message);
+        return null;
+    }
+}
+
+exports.onCallRecordingCreated = onValueCreated(
+    {
+        ref: '/callRecordings/{recId}',
+        region: 'europe-west1',
+        instance: 'taxi-heringsdorf-default-rtdb',
+        timeoutSeconds: 540,
+        memory: '512MiB'
+    },
+    async (event) => {
+        const recId = event.params.recId;
+        const rec = event.data.val();
+        if (!rec || !rec.storagePath) return;
+        // Nur fuer v6.66.240-Native-Uploads laufen — ältere Datensätze (acr-phone-sync Mai 2026) ignorieren
+        if (rec.source !== 'acr-native-auto-v6.66.240') {
+            console.log(`onCallRecordingCreated: Skip ${recId} source=${rec.source || '?'}`);
+            return;
+        }
+        // Richtung: nur eingehende Anrufe als Buchungs-Vorschlag auswerten
+        if (rec.direction && rec.direction !== 'incoming' && rec.direction !== '0') {
+            console.log(`onCallRecordingCreated: Skip ${recId} outgoing`);
+            return;
+        }
+        console.log(`📞 onCallRecordingCreated ${recId} phone=${rec.phone} path=${rec.storagePath}`);
+        try {
+            const transcript = await transcribeAudioFromStorage(rec.storagePath, `Taxi-Anruf von ${rec.phone || 'unbekannt'}`);
+            if (!transcript) {
+                console.warn(`onCallRecordingCreated ${recId}: kein Transkript`);
+                return;
+            }
+            await db.ref(`callRecordings/${recId}/transcript`).set(transcript);
+            // KI-Extraktion
+            const extracted = await extractAudioBookingData(transcript, rec.phone || null, rec.storagePath);
+            if (!extracted) {
+                console.log(`onCallRecordingCreated ${recId}: keine Buchungsdaten extrahiert`);
+                return;
+            }
+            await db.ref(`callRecordings/${recId}/extracted`).set(extracted);
+            // CRM-Lookup fuer Name
+            let crmName = null, crmId = null;
+            if (rec.phone) {
+                try {
+                    const custAll = await db.ref('customers').once('value');
+                    const cv = custAll.val() || {};
+                    const pNorm = String(rec.phone).replace(/[\s\-\/\(\)]/g, '');
+                    for (const [cid, c] of Object.entries(cv)) {
+                        if (!c) continue;
+                        const phones = [c.phone, c.mobilePhone, ...(c.additionalPhones || []).map(p => p.number)].filter(Boolean);
+                        if (phones.some(p => String(p).replace(/[\s\-\/\(\)]/g, '').endsWith(pNorm.slice(-8)))) {
+                            crmId = cid; crmName = c.name || `${c.firstName||''} ${c.lastName||''}`.trim();
+                            break;
+                        }
+                    }
+                } catch (_e) {}
+            }
+            // In /dispoVorschlaege schreiben — Native-App v6.66.240 rendert eine Card
+            const vorschlagId = recId;
+            const vorschlag = {
+                type: 'call-vorschlag',
+                status: 'open',
+                createdAt: Date.now(),
+                expiresAt: Date.now() + 24 * 3600000,
+                createdBy: 'onCallRecordingCreated-v6.66.240',
+                recId,
+                callerPhone: rec.phone || null,
+                crmCustomerId: crmId,
+                crmCustomerName: crmName,
+                transcript: transcript.slice(0, 2000),
+                audioUrl: rec.audioUrl || null,
+                extracted,
+                confidence: extracted.confidence || 'medium'
+            };
+            await db.ref(`dispoVorschlaege/${vorschlagId}`).set(vorschlag);
+            console.log(`✅ onCallRecordingCreated ${recId}: Vorschlag geschrieben (confidence=${extracted.confidence})`);
+        } catch (e) {
+            console.error(`onCallRecordingCreated ${recId} Fehler:`, e.message, e.stack);
+            try { await db.ref(`callRecordings/${recId}/transcriptError`).set(e.message); } catch (_ignore) {}
+        }
+    }
+);
+

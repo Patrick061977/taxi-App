@@ -174,6 +174,9 @@ public class AdminDashboardActivity extends AppCompatActivity {
         //   laufen kann und Native-App Admin-Dashboard eine Call-Vorschlag-Card zeigt.
         try { AcrUploadService.startIfEnabled(this); } catch (Throwable _ignore) {}
 
+        // 🆕 v6.66.241: Call-Vorschlag-Card — Listener auf /dispoVorschlaege type='call-vorschlag'
+        try { new CallVorschlagHandler(this); } catch (Throwable _ignore) {}
+
         // v6.62.197: Update-Banner aktivieren — vorher kamen Updates auf Admin-Geraeten
         // nicht durch weil dieser Activity keinen UpdateChecker-Aufruf hatte. Patrick:
         // 'warum werden die updates der apk nicht auf das handy runtergeladen?'.

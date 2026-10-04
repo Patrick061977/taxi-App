@@ -6,6 +6,35 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [6.66.241] - 2026-10-04 (Call-zu-Fahrt-Autoflow Baustein 2+3)
+
+**Patrick 04.10. 18:29 Bridge:** *„Ich will, dass das alles automatisch funktioniert."*
+
+Baustein 2 + 3 aufbauend auf v6.66.240:
+
+**Cloud Function `onCallRecordingCreated` (functions/index.js):**
+- Trigger: neue `/callRecordings/{id}` von AcrUploadService.
+- Filtert `source='acr-native-auto-v6.66.240'` + nur eingehende Anrufe.
+- Lädt m4a aus Firebase Storage, schickt an Whisper (OpenAI) → Transkript.
+- `extractAudioBookingData` parsed Transkript via Claude Sonnet 4.6 → Name/Zeit/Pickup/Ziel/Pax/Preis.
+- CRM-Lookup der Telefonnummer.
+- Schreibt Vorschlag nach `/dispoVorschlaege/{recId}` mit `type='call-vorschlag'`.
+
+**Native-App AdminDashboardActivity + CallVorschlagHandler.java:**
+- Neue blaue Card `admin_call_vorschlag_card` im Admin-Dashboard-Header.
+- Listener auf `/dispoVorschlaege`, filtert `type='call-vorschlag' + status='open'`.
+- Zeigt Name/Phone/Pickup/Ziel/Pax/Preis + Transkript-Auszug + Confidence.
+- Drei Buttons:
+  - `✓ ANLEGEN` → schreibt `/rides/{pushId}` direkt mit extrahierten Werten, `status=vorbestellt` (bzw. `new` wenn Pickup <5 Min), cloud-auto-assign übernimmt.
+  - `✎ BEARBEITEN` → v6.66.241 minimal (anlegen); Prefilled-Edit-Dialog folgt in v6.66.242.
+  - `✗ WEG` → `status=dismissed`.
+
+Patrick kann so direkt nach einem Anruf (ACR-m4a → Firebase → KI → Card) mit einem Tap eine Fahrt anlegen. Für diesen Flow ist weiterhin ein gültiger OpenAI-Key in `settings/openai/apiKey` nötig; der Anthropic-Key wird für `extractAudioBookingData` genutzt.
+
+**Version:** 6.66.240 → 6.66.241.
+
+---
+
 ## [6.66.240] - 2026-10-04 (Auto-Upload ACR-Call-Recordings → Firebase)
 
 **Patrick 04.10. 18:29 Bridge:** *„Ich will dass das alles automatisch funktioniert. Irgendwie. Die Daten sind doch auf dem Handy bei Anruf-Aufnahme."*

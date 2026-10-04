@@ -36595,6 +36595,19 @@ exports.scheduledLateCheck = onSchedule(
                     continue;
                 }
 
+                // 🔒 v6.66.239 (Patrick 04.10. 16:14 Bridge Wolf-Vorfall): "akzeptiert
+                //   ist akzeptiert" (CLAUDE md, Patrick 09.09.). Prius IK hatte Wolf
+                //   um 16:11:53 via Banner-Tap akzeptiert; scheduledLateCheck zog ihm
+                //   die Fahrt 70 Sek spaeter weg und gab sie Tesla MY222 (angeblich 21 Min
+                //   schneller). Danilo rejected 9 Sek spaeter → Chaos. Fix: wenn Status
+                //   bereits 'accepted' ist, NIE umziehen. Der Fahrer hat sich committed —
+                //   lieber 5-10 Min Verspaetung in Kauf nehmen als Dispo-Ping-Pong.
+                if (ride.status === 'accepted' || ride.acceptedAt) {
+                    console.log(`✅ LATE-RESCUE: ${ride.customerName || '?'} SKIP — status=accepted (akzeptiert ist akzeptiert v6.66.239)`);
+                    try { await addRideLog(ride.firebaseId, '✅', `LATE-RESCUE skip — akzeptiert ist akzeptiert (${(OFFICIAL_VEHICLES[currentVid]||{}).name||currentVid})`, { quelle: 'scheduledLateCheck v6.66.239', regel: 'CLAUDE md 09.09.' }); } catch (_) {}
+                    continue;
+                }
+
                 // Bounce-Schutz
                 if (ride.lastLateRescueAt && (now - ride.lastLateRescueAt < cooldownMs)) continue;
 

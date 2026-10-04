@@ -35,7 +35,7 @@ public class TaxiFCMService extends FirebaseMessagingService {
     public static final String DEPARTURE_CHANNEL_ID = "taxi_heringsdorf_departure";
     public static final String DEPARTURE_CHANNEL_NAME = "Losfahr-Reminder";
     private static final String CHANNEL_ID_LEGACY = "taxi_heringsdorf_rides";
-    private static final int NOTIFICATION_ID_BASE = 2000;
+    public static final int NOTIFICATION_ID_BASE = 2000; // v6.66.210 public fuer rejectRide-Cancel
 
     // 🆕 v6.62.665: Patrick (13.05. 09:56): "Wenn die App auf ist und dann kommt kein Push
     //   oder wie, dass man annehmen drueckt — der Fahrer uebersieht das sehr schnell."

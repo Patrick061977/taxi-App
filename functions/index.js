@@ -35088,9 +35088,13 @@ exports.scheduledLateAssignAlarm = onSchedule(
                         isVorbestellung: 'false',
                         reason: 'late-assign-alarm'
                     });
+                    // 🆕 v6.66.235 (Patrick 04.10. 14:39 "nach 1 Min soll naechster Fahrer
+                    //   dran kommen"): assignmentExpiresAt setzen damit bestehender 60s-
+                    //   Timeout-Watchdog greift und bei Nicht-Annehmen reassignt.
                     await db.ref(`rides/${t.rideId}`).update({
                         lateAssignAlarmSent: true,
-                        lateAssignAlarmAt: now
+                        lateAssignAlarmAt: now,
+                        assignmentExpiresAt: now + 60000
                     });
                     try { await addRideLog(t.rideId, '🔔', `v6.66.223 Late-Assign-Alarm an ${t.vehId} (Pickup in ${Math.round(t.minsToPickup)} Min, Schwelle ${t.schwelle})`, { quelle: 'scheduledLateAssignAlarm v6.66.223' }); } catch(_) {}
                     console.log(`✅ v6.66.223 Alarm an ${t.vehId} fuer ${t.rideId} (Pickup in ${Math.round(t.minsToPickup)} Min)`);

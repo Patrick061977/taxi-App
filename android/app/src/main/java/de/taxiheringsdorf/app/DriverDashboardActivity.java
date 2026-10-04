@@ -4589,13 +4589,19 @@ public class DriverDashboardActivity extends AppCompatActivity {
                     android.location.Address a = addrs.get(0);
                     String street = a.getThoroughfare();
                     String locality = a.getLocality();
+                    String plz = a.getPostalCode(); // 🆕 v6.66.219 (Patrick 10:00 'kannst du auch die PLZ einfuegen')
                     if (street == null) street = a.getFeatureName();
                     if (locality == null) locality = a.getSubLocality();
                     StringBuilder sb = new StringBuilder();
                     if (street != null) sb.append(street);
-                    if (locality != null) {
+                    // v6.66.219: PLZ vor den Ortsnamen (DIN-5008-Stil: '17424 Heringsdorf')
+                    if (plz != null || locality != null) {
                         if (sb.length() > 0) sb.append(", ");
-                        sb.append(locality);
+                        if (plz != null && !plz.isEmpty()) {
+                            sb.append(plz);
+                            if (locality != null) sb.append(" ");
+                        }
+                        if (locality != null) sb.append(locality);
                     }
                     if (sb.length() == 0 && a.getAddressLine(0) != null) sb.append(a.getAddressLine(0));
                     formatted = sb.toString();

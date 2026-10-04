@@ -8545,6 +8545,17 @@
              Darf nirgends durchs Raster fallen. -->
         <div id="unaccepted-overdue-banner" style="display:none;background:linear-gradient(135deg,#dc2626 0%,#991b1b 100%);color:white;padding:16px 20px;margin:10px 0;border-radius:12px;box-shadow:0 6px 16px rgba(220,38,38,0.5);animation:shake 0.5s;cursor:pointer;" onclick="(function(){const e=document.getElementById('expired-content');if(e&&e.style.display==='none'){const t=document.getElementById('expired-toggle');e.style.display='block';if(t)t.textContent='▲';}document.getElementById('expired-rides-admin')?.scrollIntoView({behavior:'smooth',block:'start'});})()"></div>
 
+        <!-- v6.66.208 (Patrick 03.10.26 20:00 Bridge): Wartepool-Fahrten separat
+             im Admin sichtbar. Fruher waren sie bei den Offenen Fahrten dabei;
+             seit wartepool-Status eingefuehrt wurde fallen sie durchs Raster. -->
+        <div id="wartepool-admin-section" style="display:none;margin:10px 0;">
+            <div style="background:linear-gradient(135deg,#f59e0b 0%,#d97706 100%);color:white;padding:12px 16px;border-radius:12px 12px 0 0;font-weight:700;font-size:15px;display:flex;align-items:center;gap:8px;">
+                <span style="font-size:22px;">⚠️</span>
+                <span id="wartepool-admin-title">Wartepool-Fahrten</span>
+            </div>
+            <div id="wartepool-admin-list" style="background:#fffbeb;border:2px solid #f59e0b;border-top:none;border-radius:0 0 12px 12px;padding:12px;"></div>
+        </div>
+
         <!-- COLLAPSIBLE: Online-Fahrer -->
         <div onclick="toggleAdminSection('drivers')" style="background:#f3f4f6;padding:12px;border-radius:8px;cursor:pointer;margin:20px 0 10px 0;display:flex;justify-content:space-between;align-items:center;">
             <span style="font-weight:600;font-size:15px;">🚗 Online-Fahrer</span>
@@ -13309,8 +13320,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '6.66.207';
-        const APP_BUILD = '03.10.2026 21:20';
+        const APP_VERSION = '6.66.208';
+        const APP_BUILD = '04.10.2026 07:20';
         const APP_CHANGE = 'v6.66.87: autoAssignRide Settings-Cache 5min → 15sek (Malus/Override greifen sofort).';
 
         // 🔧 FIX: Mache APP_VERSION global verfügbar
@@ -30084,7 +30095,76 @@ Aktuell: ${currentNum}`;
             
             // 🆕 v5.31.5: Update Benachrichtigungs-Bar
             updateNotificationBar();
-            
+
+            // 🆕 v6.66.208 (Patrick 03.10.26 Bridge): Wartepool-Fahrten separat
+            //   im Admin sichtbar — Status 'wartepool' faellt sonst durch alle
+            //   Filter (openStatuses enthaelt es nicht). Dazu auch Rides die
+            //   formal 'new'/'sofort' sind aber kein Fahrzeug + schon faellig.
+            try {
+                const _wpSection = document.getElementById('wartepool-admin-section');
+                const _wpListEl = document.getElementById('wartepool-admin-list');
+                const _wpTitleEl = document.getElementById('wartepool-admin-title');
+                const _nowWp = Date.now();
+                const _wpRides = allRides.filter(r => {
+                    if (!r) return false;
+                    if (r.status === 'wartepool') return true;
+                    // auch 'new'/'sofort' ohne Fahrzeug und Pickup <=60 Min oder ueberfaellig
+                    const noVeh = !r.assignedVehicle && !r.vehicleId;
+                    const pickupSoon = r.pickupTimestamp && (r.pickupTimestamp - _nowWp) < 60 * 60000;
+                    return noVeh && (r.status === 'new' || r.status === 'sofort') && pickupSoon;
+                }).sort((a, b) => (a.pickupTimestamp || 0) - (b.pickupTimestamp || 0));
+
+                if (_wpSection && _wpListEl) {
+                    if (_wpRides.length === 0) {
+                        _wpSection.style.display = 'none';
+                    } else {
+                        _wpSection.style.display = 'block';
+                        const _dringCount = _wpRides.filter(r => r.pickupTimestamp && (r.pickupTimestamp - _nowWp) <= 30 * 60000).length;
+                        if (_wpTitleEl) {
+                            _wpTitleEl.textContent = _dringCount > 0
+                                ? `OHNE FAHRZEUG: ${_wpRides.length} Fahrt${_wpRides.length === 1 ? '' : 'en'} (${_dringCount} dringend <30 Min)`
+                                : `Wartepool: ${_wpRides.length} Fahrt${_wpRides.length === 1 ? '' : 'en'} warten auf Zuweisung`;
+                        }
+                        _wpListEl.innerHTML = _wpRides.map(r => {
+                            const _rid = r.firebaseId || r.id || '';
+                            const _pt = r.pickupTimestamp || r.createdAt || 0;
+                            const _t = _pt ? new Date(_pt).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) : '?';
+                            const _d = _pt ? new Date(_pt).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' }) : '';
+                            const _overdue = _pt && _pt < _nowWp;
+                            const _mins = _pt ? Math.round((_pt - _nowWp) / 60000) : null;
+                            const _urg = _mins !== null && _mins > 0 && _mins <= 30;
+                            const _countLabel = _overdue
+                                ? `<span style="background:#dc2626;color:white;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;">⚠ ${Math.abs(_mins)} Min ueberfaellig</span>`
+                                : _urg
+                                ? `<span style="background:#f97316;color:white;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;">in ${_mins} Min</span>`
+                                : _mins !== null && _mins > 0
+                                ? `<span style="background:#fbbf24;color:#78350f;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;">in ${_mins} Min</span>`
+                                : '';
+                            const _reason = r.wartepoolReason || (r.status === 'wartepool' ? 'alle Fahrzeuge nicht angenommen' : 'kein Fahrzeug zugewiesen');
+                            return `<div style="background:white;border-left:4px solid #f59e0b;border-radius:8px;padding:10px 12px;margin-bottom:8px;${_overdue ? 'box-shadow:0 0 0 2px #dc2626;' : ''}">
+                                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                                    <span style="font-weight:700;color:#92400e;">${_d} ${_t}</span>
+                                    ${_countLabel}
+                                    <span style="color:#78350f;font-weight:600;">${r.customerName || r.name || '?'}</span>
+                                    ${r.guestName ? `<span style="color:#a16207;">🧳 ${r.guestName}</span>` : ''}
+                                    <span style="margin-left:auto;background:#f59e0b;color:white;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;">${r.status === 'wartepool' ? 'WARTEPOOL' : (r.status || '?').toUpperCase()}</span>
+                                </div>
+                                <div style="font-size:13px;color:#78350f;margin-top:4px;">
+                                    📍 ${(r.pickup || '?').substring(0, 60)} → ${(r.destination || '?').substring(0, 60)}
+                                </div>
+                                <div style="font-size:11px;color:#a16207;margin-top:2px;font-style:italic;">⚠️ ${_reason}</div>
+                                <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
+                                    <button onclick="assignVehicleToRide('${_rid}')" style="padding:6px 12px;background:#667eea;color:white;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;">🚗 Fahrer zuweisen</button>
+                                    <button onclick="try{showRideDetails('${_rid}')}catch(_){}" style="padding:6px 12px;background:#6366f1;color:white;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;">📜 Chronik</button>
+                                    <button onclick="editRide('${_rid}')" style="padding:6px 12px;background:#3b82f6;color:white;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;">✏️ Bearbeiten</button>
+                                    <button onclick="deleteRide('${_rid}')" style="padding:6px 12px;background:#ef4444;color:white;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;">🗑️ Loeschen</button>
+                                </div>
+                            </div>`;
+                        }).join('');
+                    }
+                }
+            } catch (_wpErr) { console.warn('v6.66.208 wartepool-admin:', _wpErr.message); }
+
             // 📋 OFFENE FAHRTEN = vorbestellt, new, akzeptiert, unterwegs, angekommen
             // 🆕 v5.49.0: ABER NUR WENN NICHT ABGELAUFEN!
             const now = Date.now();

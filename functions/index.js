@@ -23561,6 +23561,27 @@ exports.autoResolveConflicts = onSchedule(
                     ...(ride.status === 'accepted' ? { status: 'vorbestellt', acceptedAt: null, acceptedByVehicle: null } : {})
                 });
 
+                // 🆕 v6.66.209 (Patrick 04.10.26 Bridge "wie haette ich die fahrt mitkriegen sollen"):
+                //   cloud-auto-optimize schrieb bisher KEIN rideLog-Entry — stille Umplanung,
+                //   Chronik verheimlichte den Fahrzeug-Wechsel. Jetzt sichtbar.
+                //   Patrick 08:31: 'zugewiesen ist nur das mit 30 min plus anfahrt vor einer fahrt'
+                //   → Schwelle = 30 Min + drivingTimeToPickup (nicht fix 60 Min).
+                try {
+                    const _minsToPickup = (ride.pickupTimestamp - Date.now()) / 60000;
+                    const _anfahrt = Math.round(bestMin >= 999 ? 10 : bestMin) || 10;
+                    const _schwelleMin = 30 + _anfahrt;
+                    const _isVorbestellung = _minsToPickup > _schwelleMin;
+                    const _label = _isVorbestellung ? 'VORBESTELLT' : 'ZUGEWIESEN';
+                    const _icon = _isVorbestellung ? '📅' : '🚗';
+                    await addRideLog(ride.firebaseId, _icon,
+                        `Fahrzeug: ${currInfo.name || currentVehicle} → ${altInfo.name || bestAlt} (Smart-Routing, ${vorteilMin} Min kuerzer) · ${_label}`,
+                        { quelle: 'cloud-auto-optimize v6.66.209',
+                          altesVehicle: currentVehicle, neuesVehicle: bestAlt,
+                          minutenBisPickup: Math.round(_minsToPickup),
+                          schwelleMin: _schwelleMin,
+                          typ: _isVorbestellung ? 'vorbestellung' : 'zuweisung' });
+                } catch (_rlErr) { /* non-critical */ }
+
                 // Lokales Array aktualisieren
                 ride.assignedVehicle = bestAlt;
                 totalOptimized++;
@@ -32215,9 +32236,39 @@ exports.onRideUpdated = onValueUpdated(
             //   gingen Re-Assignments fuer Pickup in 35-60 Min sofort als "neue Fahrt"-Push
             //   raus — nervt, der regulaere Losfahr-Alarm kommt eh in pickup-17 Min.
             //   Mit 30 Min: zwischen 30-60 Min Vorlauf kein sofortiger Push.
-            const _isVorbestPlan = (after.status === 'vorbestellt') && _minutesUntilPickup > 30;
+            // v6.66.209 (Patrick 04.10.26 'zugewiesen ist nur mit 30 min plus anfahrt vor einer fahrt'):
+            //   Schwelle = 30 Min + drivingTimeToPickup (nicht fix 30). Ueber dieser Schwelle
+            //   = VORBESTELLT (silent-reminder-ping), unter = ZUGEWIESEN (voller Alarm-Push).
+            const _anfahrtMin209 = Math.round(after.drivingTimeToPickup || 10) || 10;
+            const _schwelleMin209 = 30 + _anfahrtMin209;
+            const _isVorbestPlan = (after.status === 'vorbestellt') && _minutesUntilPickup > _schwelleMin209;
             if (_isVorbestPlan) {
-                console.log(`📋 Vorbestellungs-Tagesplanung — kein sofortiger FCM-Push (Pickup in ${Math.round(_minutesUntilPickup)} Min). PUSH-REMINDER greift spaeter.`);
+                // 🆕 v6.66.209 (Patrick 04.10.26 Bridge "podulski angeboten bekommen ohne Alarm"):
+                //   v6.63.190 hatte Push ganz blockiert bei >30 Min — Fahrer bekam KEIN
+                //   akustisches Signal dass eine Vorbestellung zugewiesen wurde. Patrick
+                //   sah es nur zufaellig in der App.
+                //   Jetzt: silent-reminder-Push (type='vorbestellung_assigned', TaxiFCMService
+                //   kennt das als reminder-Channel, kein Alarm, aber ein Ping). Der echte
+                //   Alarm kommt nach wie vor 15-17 Min vor Pickup via scheduledLosfahrCheck.
+                try {
+                    const _pickupLabel = after.pickupTime || (after.pickupTimestamp ? new Date(after.pickupTimestamp).toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit',timeZone:'Europe/Berlin'}) : '?');
+                    await sendFCMToVehicle(newVehicle, {
+                        type: 'vorbestellung_assigned',
+                        rideId,
+                        vehicleId: newVehicle,
+                        pickup: after.pickup || '',
+                        destination: after.destination || '',
+                        pickupTime: _pickupLabel,
+                        customerName: after.customerName || 'Kunde',
+                        isReminder: 'true',
+                        reason: 'vorbestellung-ping',
+                        minutesUntilPickup: String(Math.round(_minutesUntilPickup))
+                    });
+                    console.log(`📅 v6.66.209 Vorbestellung-Ping an ${newVehicle} (Pickup in ${Math.round(_minutesUntilPickup)} Min)`);
+                    try { await addRideLog(rideId, '📅', `Vorbestellung-Ping an ${newVehicle} (Pickup in ${Math.round(_minutesUntilPickup)} Min)`, { quelle: 'onRideUpdated v6.66.209', type: 'vorbestellung_assigned' }); } catch(_) {}
+                } catch (_vpErr) {
+                    console.warn('vorbestellung-ping FCM-Fehler:', _vpErr.message);
+                }
             } else if (after.silentReassign === true) {
                 // 🆕 v6.63.189 (Patrick 06.06. 09:32): silentReassign=true → KEIN Akzeptanz-
                 //   Push am neuen Fahrer.

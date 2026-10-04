@@ -4600,27 +4600,63 @@ public class DriverDashboardActivity extends AppCompatActivity {
                                 long pt = ((Number) ptO).longValue();
                                 if (pt > now + 24L * 3600_000L) continue;
                             }
+                            // 🆕 v6.66.230 (Patrick 04.10. 12:11 "Martinez ist nur Besteller,
+                            //   Gastname ist Kalahari, Ankunft in 5 Min, frei ab HH:MM"):
+                            //   Guest-Name bevorzugen, zeitliche Einteilung mitgeben.
+                            Object guestO = ride.child("guestName").getValue();
                             Object custO = ride.child("customerName").getValue();
-                            String cust = custO != null ? String.valueOf(custO) : "Kunde";
-                            String firstName = cust.split(" ")[0];
-                            // 🆕 v6.66.228 (Patrick 04.10. 11:52 "Danilo faehrt zu Martinez 12:15"):
-                            //   Pickup-Zeit mitzeigen damit klar ist um wann die Fahrt ist.
+                            String nameRaw;
+                            if (guestO != null && !String.valueOf(guestO).isEmpty()) {
+                                nameRaw = String.valueOf(guestO);
+                            } else if (custO != null) {
+                                nameRaw = String.valueOf(custO);
+                            } else {
+                                nameRaw = "Kunde";
+                            }
+                            // Mehrere Namen (zB 'Mosig; Petzold') → nur ersten nehmen
+                            String firstGuestChunk = nameRaw.split("[;,]")[0].trim();
+                            String firstName = firstGuestChunk.split(" ")[0];
+                            long pt = (ptO instanceof Number) ? ((Number) ptO).longValue() : 0;
                             String pickupStr = "";
-                            if (ptO instanceof Number) {
-                                long pt = ((Number) ptO).longValue();
+                            if (pt > 0) {
                                 java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("HH:mm", java.util.Locale.GERMAN);
                                 sdf.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
                                 pickupStr = " " + sdf.format(new java.util.Date(pt));
                             }
-                            // 🆕 v6.66.229 (Patrick 04.10. 12:04 "beim Kunden angekommen"):
-                            //   'arrived' = beim Pickup angekommen (wartet auf Fahrgast)
-                            //   'picked_up' = Fahrgast an Bord, faehrt zum Ziel
-                            //   'angekommen' = am Ziel (selten)
+                            // 'Ankunft in X Min' aus estimatedArrivalAt oder drivingTimeToPickup
+                            Object etaO = ride.child("estimatedArrivalAt").getValue();
+                            long nowMs = System.currentTimeMillis();
+                            Integer ankunftMin = null;
+                            if (etaO instanceof Number) {
+                                long eta = ((Number) etaO).longValue();
+                                int mins = (int) Math.round((eta - nowMs) / 60000.0);
+                                if (mins >= 0 && mins < 120) ankunftMin = mins;
+                            }
+                            if (ankunftMin == null) {
+                                Object dttO = ride.child("drivingTimeToPickup").getValue();
+                                if (dttO instanceof Number) ankunftMin = ((Number) dttO).intValue();
+                            }
+                            // 'frei ab' = Pickup + duration + boarding/alighting (default 4 Min Puffer)
+                            Object durO = ride.child("duration").getValue();
+                            if (!(durO instanceof Number)) durO = ride.child("estimatedDuration").getValue();
+                            String freiAb = "";
+                            if (pt > 0 && durO instanceof Number) {
+                                long endMs = pt + (((Number) durO).longValue() + 4) * 60000L;
+                                java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("HH:mm", java.util.Locale.GERMAN);
+                                sdf.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
+                                freiAb = " · frei ab " + sdf.format(new java.util.Date(endMs));
+                            }
                             String desc;
-                            if ("picked_up".equals(status)) desc = "mit " + firstName + " unterwegs";
-                            else if ("arrived".equals(status)) desc = "bei " + firstName + " angekommen";
-                            else if ("angekommen".equals(status)) desc = "am Ziel";
-                            else desc = "faehrt zu " + firstName + pickupStr;
+                            if ("picked_up".equals(status)) {
+                                desc = "mit " + firstName + " unterwegs" + freiAb;
+                            } else if ("arrived".equals(status)) {
+                                desc = "bei " + firstName + " angekommen";
+                            } else if ("angekommen".equals(status)) {
+                                desc = "am Ziel" + freiAb;
+                            } else {
+                                String ankStr = (ankunftMin != null) ? " · Ankunft in " + ankunftMin + " Min" : "";
+                                desc = "faehrt zu " + firstName + pickupStr + ankStr;
+                            }
                             next.put(vid, desc);
                         }
                         _colleagueCurrentRide.clear();

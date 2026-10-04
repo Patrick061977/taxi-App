@@ -4588,7 +4588,8 @@ public class DriverDashboardActivity extends AppCompatActivity {
                             Object statusO = ride.child("status").getValue();
                             String status = statusO != null ? String.valueOf(statusO) : "";
                             if (!"accepted".equals(status) && !"on_way".equals(status) && !"picked_up".equals(status)
-                                    && !"akzeptiert".equals(status) && !"unterwegs".equals(status) && !"angekommen".equals(status)) continue;
+                                    && !"akzeptiert".equals(status) && !"unterwegs".equals(status) && !"angekommen".equals(status)
+                                    && !"arrived".equals(status)) continue;
                             Object vehO = ride.child("assignedVehicle").getValue();
                             if (vehO == null) vehO = ride.child("vehicleId").getValue();
                             if (vehO == null) continue;
@@ -4611,8 +4612,13 @@ public class DriverDashboardActivity extends AppCompatActivity {
                                 sdf.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
                                 pickupStr = " " + sdf.format(new java.util.Date(pt));
                             }
+                            // 🆕 v6.66.229 (Patrick 04.10. 12:04 "beim Kunden angekommen"):
+                            //   'arrived' = beim Pickup angekommen (wartet auf Fahrgast)
+                            //   'picked_up' = Fahrgast an Bord, faehrt zum Ziel
+                            //   'angekommen' = am Ziel (selten)
                             String desc;
                             if ("picked_up".equals(status)) desc = "mit " + firstName + " unterwegs";
+                            else if ("arrived".equals(status)) desc = "bei " + firstName + " angekommen";
                             else if ("angekommen".equals(status)) desc = "am Ziel";
                             else desc = "faehrt zu " + firstName + pickupStr;
                             next.put(vid, desc);

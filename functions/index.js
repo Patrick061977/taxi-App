@@ -30537,6 +30537,39 @@ exports.onRideUpdated = onValueUpdated(
             const _notYetPooled = !after.wartepoolAt;
             if (_nowReleased && _statusEligible && _rejectGrew && _pickupFuture && _notYetPooled) {
                 console.log(`🏊 v6.66.156 Reject-Transition erkannt für ${rideId}: vehicle ${_beforeVid} → null, rejectedVehicles ${_beforeRej}→${_afterRej}. Versuche Re-Assign…`);
+                // 🆕 v6.66.221 (Patrick 04.10. 10:26 Bridge "Chronik zeigt nicht dass die Fahrt mir zugewiesen war"):
+                //   Backfill-Chronik: falls kein 'Fahrzeug zugewiesen'-Entry fuer _beforeVid existiert
+                //   (zB weil Zuweisung VOR v6.66.209-Deploy via cloud-auto-optimize geschah), schreibe
+                //   nachtraeglich einen Entry damit Patrick sieht WANN das Fahrzeug zugewiesen war.
+                try {
+                    const _logsSnap = await db.ref('rideLogs/' + rideId).once('value');
+                    const _logs = _logsSnap.val() || {};
+                    const _hasAssignLog = Object.values(_logs).some(e =>
+                        e && typeof e === 'object' && e.action &&
+                        (String(e.action).includes(_beforeVid) ||
+                         String(e.action).includes(before.assignedVehicleName || '___nope___')) &&
+                        (String(e.action).toLowerCase().includes('zugewiesen') ||
+                         String(e.action).toLowerCase().includes('fahrzeug:')));
+                    if (!_hasAssignLog) {
+                        const _asgTs = before.assignedAt || before.lastOptimizedAt || before.updatedAt || Date.now() - 60000;
+                        const _vName = before.assignedVehicleName || _beforeVid;
+                        await db.ref('rideLogs/' + rideId).push({
+                            t: _asgTs,
+                            icon: '🚗',
+                            action: `Fahrzeug zugewiesen (Chronik-Backfill): ${_vName}`,
+                            source: `☁️ Cloud v${CLOUD_FUNCTIONS_VERSION} (v6.66.221 Backfill)`,
+                            device: 'cloud',
+                            version: CLOUD_FUNCTIONS_VERSION,
+                            details: JSON.stringify({
+                                quelle: 'v6.66.221 Reject-Backfill',
+                                vehicleId: _beforeVid,
+                                zuweisungZeitpunkt: _asgTs,
+                                assignedBy: before.assignedBy || 'unbekannt'
+                            })
+                        });
+                        console.log(`📝 v6.66.221 Chronik-Backfill fuer ${rideId}: Zuweisung an ${_vName} nachgetragen (ts=${_asgTs})`);
+                    }
+                } catch (_bfErr) { console.warn('v6.66.221 Backfill-Fehler:', _bfErr.message); }
                 try {
                     const _ride = { ...after, _rejectedVehicles: after.rejectedVehicles || [], vehicleId: null, assignedVehicle: null };
                     const _result = await autoAssignRide(rideId, _ride);

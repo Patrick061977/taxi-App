@@ -4412,6 +4412,22 @@ public class DriverDashboardActivity extends AppCompatActivity {
             Log.i(TAG, "✅ v6.66.210 AlarmReadiness geschrieben: overallOk=" + overallOk + " issues=" + issues.size());
         } catch (Throwable _t) { Log.w(TAG, "AlarmReadiness-Write Fehler: " + _t.getMessage()); }
 
+        // 🆕 v6.66.214: Fahrer sieht roten Banner bei kaputtem Alarm-Setup
+        try {
+            TextView warnBanner = findViewById(R.id.tv_alarm_warning);
+            if (warnBanner != null) {
+                if (overallOk || issues.isEmpty()) {
+                    warnBanner.setVisibility(View.GONE);
+                } else {
+                    warnBanner.setVisibility(View.VISIBLE);
+                    String firstIssue = issues.get(0);
+                    String extra = issues.size() > 1 ? " (+" + (issues.size() - 1) + " weitere)" : "";
+                    warnBanner.setText("⚠️ ALARM-SYSTEM NICHT EINSATZBEREIT: " + firstIssue + extra + "\n→ Hamburger-Menu > 🔔 Alarm-Einstellungen oeffnen");
+                    warnBanner.setOnClickListener(v -> startActivity(new Intent(this, AlarmSettingsActivity.class)));
+                }
+            }
+        } catch (Throwable _t) { Log.w(TAG, "Alarm-Warn-Banner Fehler: " + _t.getMessage()); }
+
         // Toast wenn Issues (einmalig pro Issue-Set)
         if (!issues.isEmpty()) {
             String joined = android.text.TextUtils.join(", ", issues);

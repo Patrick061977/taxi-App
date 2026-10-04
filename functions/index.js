@@ -37039,6 +37039,52 @@ exports.regenerateInvoicePdf = onRequest(
 //   geschrieben wird (vorher gar nicht existierte). Plus: updateChildren auf
 //   Parent setzt mehrere Felder atomisch — Sub-Field-Trigger erwischt das
 //   manchmal nicht. Switch auf onValueWritten + auch wenn before undefined ist.
+// 🆕 v6.66.214 (Patrick 04.10.26 Bridge "fuer mich als Admin waere es gut dass ich das
+//   mitkriege oder eine Mitteilung bekomme per Telegram"): wenn ein Fahrzeug
+//   alarmReadiness.overallOk auf false setzt → Admin-Push mit Issue-Liste.
+//   Trigger auf das overallOk-Feld (statt den ganzen alarmReadiness-Node) um Spam
+//   bei jedem Minor-Update zu vermeiden.
+exports.onAlarmReadinessChanged = onValueWritten(
+    {
+        ref: '/vehicles/{vehicleId}/alarmReadiness/overallOk',
+        region: 'europe-west1',
+        memory: '256MiB',
+        timeoutSeconds: 30
+    },
+    async (event) => {
+        try {
+            const after = event.data.after.val();
+            const before = event.data.before.val();
+            // Nur reagieren wenn von true/undef auf false wechselt
+            if (after !== false) return;
+            if (before === false) return; // schon rot, kein Re-Trigger
+            const vehicleId = event.params.vehicleId;
+
+            // Alarm-Details holen
+            const arSnap = await db.ref(`vehicles/${vehicleId}/alarmReadiness`).once('value');
+            const ar = arSnap.val() || {};
+            const vSnap = await db.ref(`vehicles/${vehicleId}`).once('value');
+            const v = vSnap.val() || {};
+            const vName = v.name || vehicleId;
+            const plate = v.plate || '';
+            const driverName = (v.shift && v.shift.driverName) || v.currentDriverName || 'unbekannt';
+            const issues = Array.isArray(ar.issues) ? ar.issues : [];
+            const issuesTxt = issues.length ? issues.map(i => '• ' + i).join('\n') : '(keine Details)';
+
+            const msg = `⚠️ <b>ALARM-SETUP KAPUTT</b>\n\n` +
+                `🚗 ${vName}${plate ? ' (' + plate + ')' : ''}\n` +
+                `👤 ${driverName}\n` +
+                `📱 ${ar.device || '?'}  ·  v${ar.appVersion || '?'}\n\n` +
+                `Probleme:\n${issuesTxt}\n\n` +
+                `→ Fahrer-App → Hamburger-Menu → 🔔 Alarm-Einstellungen`;
+            await sendToAllAdmins(msg);
+            console.log(`⚠️ v6.66.214 Alarm-Readiness-Alert fuer ${vehicleId}: ${issues.length} issues`);
+        } catch (e) {
+            console.error('❌ v6.66.214 onAlarmReadinessChanged-Fehler:', e.message);
+        }
+    }
+);
+
 exports.onInvoicePdfRegenRequested = onValueWritten(
     {
         // 🆕 v6.63.612: needsPdfRegeneration (nicht pdfNeedsRegeneration) — das ist was

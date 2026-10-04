@@ -4362,9 +4362,12 @@ public class DriverDashboardActivity extends AppCompatActivity {
         } catch (Throwable _t) { Log.w(TAG, "Battery-Check Fehler: " + _t.getMessage()); }
         status.put("batteryOk", batteryOk);
 
-        // 5. Alarm-Lautstaerke — NICHT auto-fixen (Patrick 04.10. 08:42 Bridge
-        //   'der Fahrer soll das nach seinen Beduerfnissen einstellen koennen,
-        //   nicht fiedeln wie Sau'). Nur Warnung wenn komplett stumm (= Fahrer hoert gar nix).
+        // 5. Alarm-Lautstaerke — v6.66.216 (Patrick 04.10. 09:22 "beim App-Open muss
+        //   automatisch alles auf Alarm gesetzt werden, kein silent"): Wenn STREAM_ALARM=0
+        //   beim App-Open → auto auf 50% hochdrehen damit Fahrer nicht komplett ohne Ton
+        //   dasteht. Patrick kann via Hardware-Lautstaerke runter wenn zu laut.
+        //   Vorher v6.66.210: Patrick wollte dass Fahrer selbst einstellt — ok aber '0' ist
+        //   kein 'Einstellung', sondern definitiv Fehler.
         boolean volumeOk = true;
         try {
             android.media.AudioManager am = (android.media.AudioManager) getSystemService(Context.AUDIO_SERVICE);
@@ -4374,8 +4377,16 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 status.put("alarmVolume", cur);
                 status.put("alarmVolumeMax", max);
                 if (cur == 0) {
-                    issues.add("Alarm-Lautstaerke 0 (komplett stumm) — Fahrer-Einstellung pruefen");
-                    volumeOk = false;
+                    // v6.66.216 Auto-Fix: auf 50% hochziehen (nicht Max, damit nicht fiedeln wie Sau)
+                    int targetVol = Math.max(1, max / 2);
+                    try {
+                        am.setStreamVolume(android.media.AudioManager.STREAM_ALARM, targetVol, 0);
+                        status.put("alarmVolume", targetVol);
+                        Log.i(TAG, "v6.66.216 STREAM_ALARM auto-angehoben: 0 → " + targetVol + "/" + max);
+                    } catch (Throwable _vfe) {
+                        issues.add("Alarm-Lautstaerke 0 — Auto-Fix fehlgeschlagen: " + _vfe.getMessage());
+                        volumeOk = false;
+                    }
                 }
             }
         } catch (Throwable _t) { Log.w(TAG, "Volume-Check Fehler: " + _t.getMessage()); }
@@ -4462,7 +4473,9 @@ public class DriverDashboardActivity extends AppCompatActivity {
                     try {
                         long now = System.currentTimeMillis();
                         long heartbeatCutoff = now - 5L * 60L * 1000L;
-                        java.util.List<String> names = new java.util.ArrayList<>();
+                        // v6.66.216 (Patrick 04.10. 09:27 "Danilo online + fortlaufend Adresse"):
+                        //   Pro Kollege eine Zeile mit Name + Position. Keine Plate-Noise.
+                        java.util.List<String> lines = new java.util.ArrayList<>();
                         int countOther = 0;
                         boolean selfOnline = false;
                         for (com.google.firebase.database.DataSnapshot vSnap : snap.getChildren()) {
@@ -4475,28 +4488,35 @@ public class DriverDashboardActivity extends AppCompatActivity {
                             Object hbO = shift.get("lastHeartbeat");
                             long hb = (hbO instanceof Long) ? (Long) hbO : 0L;
                             if (!"active".equals(status) || hb < heartbeatCutoff) continue;
+                            if (vid != null && vid.equals(myVid)) { selfOnline = true; continue; }
+                            countOther++;
+                            Object drvO = shift.get("driverName");
                             Object nameO = vSnap.child("name").getValue();
                             String vName = nameO != null ? String.valueOf(nameO) : vid;
-                            Object plateO = vSnap.child("plate").getValue();
-                            String plate = plateO != null ? String.valueOf(plateO) : "";
-                            if (vid != null && vid.equals(myVid)) {
-                                selfOnline = true;
+                            String drvName = drvO != null ? String.valueOf(drvO) : vName;
+                            String firstName = drvName.split(" ")[0];
+                            // v6.66.216: aktueller Standort (als Koordinaten — Reverse-Geocode kommt in v6.66.217)
+                            Object addrO = vSnap.child("currentAddress").getValue();
+                            String loc;
+                            if (addrO instanceof String && !((String) addrO).isEmpty()) {
+                                loc = (String) addrO;
                             } else {
-                                countOther++;
-                                // shift.driverName als Fallback, sonst vehicle.name
-                                Object drvO = shift.get("driverName");
-                                String drvName = drvO != null ? String.valueOf(drvO) : vName;
-                                // Vorname extrahieren
-                                String firstName = drvName.split(" ")[0];
-                                names.add(firstName + (plate.isEmpty() ? "" : " (" + plate + ")"));
+                                Object latO = vSnap.child("lat").getValue();
+                                Object lonO = vSnap.child("lon").getValue();
+                                if (latO instanceof Number && lonO instanceof Number) {
+                                    loc = String.format(java.util.Locale.GERMAN, "📍 %.4f, %.4f",
+                                        ((Number) latO).doubleValue(), ((Number) lonO).doubleValue());
+                                } else {
+                                    loc = "📍 kein GPS";
+                                }
                             }
+                            lines.add("👤 " + firstName + " online\n" + loc);
                         }
                         final String label;
                         if (countOther == 0) {
-                            label = selfOnline ? "👤 Du bist allein online — keine Kollegen" : "⚫ Niemand online";
+                            label = selfOnline ? "👤 Du allein online" : "⚫ Niemand online";
                         } else {
-                            String joined = android.text.TextUtils.join(", ", names);
-                            label = "👥 " + countOther + " Kollege" + (countOther == 1 ? "" : "n") + " online: " + joined;
+                            label = android.text.TextUtils.join("\n", lines);
                         }
                         runOnUiThread(() -> {
                             if (tvOnlineColleagues != null) tvOnlineColleagues.setText(label);

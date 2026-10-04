@@ -135,20 +135,16 @@ public class AlertSoundService extends Service {
             Log.w(TAG, "screenOff receiver register fail: " + t.getMessage());
         }
 
-        // 🆕 v6.63.127 (Patrick 04.06. 05:58 "kam jetzt gar kein Alarm. Oh, und hat Licht"):
-        //   USAGE_NOTIFICATION_RINGTONE statt USAGE_NOTIFICATION. Ringtone-Variante ist die
-        //   "eingehender Anruf"-Lautstaerke — verlaesslicher hoerbar bei normalem
-        //   Handy-Volume, ohne die Wecker-Peinlichkeit von USAGE_ALARM. Heads-Up-Banner
-        //   ("Licht") bleibt gleich. Wenn Patrick komplett stumm hat, bleibt es weiterhin
-        //   stumm — kein force-loud, kein STREAM-Override.
-        // 🆕 v6.66.19 (Patrick 05.09. 11:39 Bridge): Losfahr-Alarm anderer Ton als Pickup.
-        //   Losfahr → TYPE_ALARM (Wecker-Ton, deutlich dringlicher — signalisiert "jetzt starten")
-        //   Standard/Pickup → TYPE_RINGTONE (Ringtone-Style — "neue Fahrt verfuegbar")
+        // 🔧 v6.66.234 (Patrick 04.10. 14:37 Bridge "kein Alarm, nur stille Nachricht,
+        //   keine Minute, kein Vollalarm"): Zurueck zu TYPE_ALARM + USAGE_ALARM fuer
+        //   new_ride. Die v6.63.127-Abschwaechung (RINGTONE wegen 'Wecker-Peinlichkeit')
+        //   fuehrt dazu dass Patrick Angebote verpasst. Patrick hat heute mehrfach klar
+        //   gesagt er WILL den Vollalarm. Lautlos-Durchbrechung durch USAGE_ALARM ist
+        //   zwingend damit er sofort mitbekommt wenn eine Fahrt kommt.
         final boolean _isLosfahr = ACTION_PLAY_LOSFAHR.equals(action);
         try {
-            Uri sound = _isLosfahr
-                ? RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
-                : RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE);
+            Uri sound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM);
+            if (sound == null) sound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE);
             if (sound == null) sound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
             if (sound == null) {
                 Log.w(TAG, "Keine System-Sound-URI gefunden");
@@ -158,7 +154,7 @@ public class AlertSoundService extends Service {
 
             player = new MediaPlayer();
             AudioAttributes attrs = new AudioAttributes.Builder()
-                .setUsage(_isLosfahr ? AudioAttributes.USAGE_ALARM : AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
+                .setUsage(AudioAttributes.USAGE_ALARM)
                 .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                 .build();
             player.setAudioAttributes(attrs);

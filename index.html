@@ -13320,8 +13320,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '6.66.225';
-        const APP_BUILD = '04.10.2026 11:12';
+        const APP_VERSION = '6.66.226';
+        const APP_BUILD = '04.10.2026 11:33';
         const APP_CHANGE = 'v6.66.87: autoAssignRide Settings-Cache 5min → 15sek (Malus/Override greifen sofort).';
 
         // 🔧 FIX: Mache APP_VERSION global verfügbar
@@ -32900,8 +32900,18 @@ Aktuell: ${currentNum}`;
                                     const headerCol = accepted ? '#10b981' : (ride.status === 'wartepool' ? '#f59e0b' : '#64748b');
                                     const headerIcon = accepted ? '✓' : (ride.status === 'wartepool' ? '⚠' : '…');
                                     const headerLabel = accepted ? `${vermitteltCount} Fahrzeug${vermitteltCount===1?'':'e'} versucht → angenommen` : (ride.status === 'wartepool' ? `${vermitteltCount} Fahrzeug${vermitteltCount===1?'':'e'} versucht → im WARTEPOOL` : `${vermitteltCount} Fahrzeug${vermitteltCount===1?'':'e'} versucht (laeuft noch)`);
+                                    // 🆕 v6.66.226 (Patrick 04.10. 11:30 Bridge "kann man auch den Angebotsverlauf
+                                    //   kopieren oder in die Zwischenablage packen"): Kopier-Button baut Plain-Text
+                                    //   Snapshot damit Patrick den Verlauf teilen kann (zB Bridge).
+                                    const _copyBtnId = 'copyAV_' + Math.random().toString(36).slice(2,8);
+                                    const _copyLines = [];
+                                    _copyLines.push(`ANGEBOTS-VERLAUF · ${ride.customerName || '?'} · ${headerLabel}`);
+                                    _copyLines.push('Pickup: ' + (ride.pickup || '?') + '  Ziel: ' + (ride.destination || '?'));
                                     html += `<div style="margin-top:14px;padding:10px;background:white;border:2px solid ${headerCol};border-radius:8px;">
-                                        <div style="font-weight:800;color:${headerCol};font-size:12px;margin-bottom:8px;">${headerIcon} ANGEBOTS-VERLAUF · ${headerLabel}</div>`;
+                                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:8px;">
+                                            <div style="font-weight:800;color:${headerCol};font-size:12px;">${headerIcon} ANGEBOTS-VERLAUF · ${headerLabel}</div>
+                                            <button id="${_copyBtnId}" onclick="(function(btn){const t=btn.getAttribute('data-copy'); navigator.clipboard.writeText(t).then(()=>{const o=btn.textContent;btn.textContent='✓ Kopiert';setTimeout(()=>btn.textContent=o,1500);}).catch(e=>{const ta=document.createElement('textarea');ta.value=t;document.body.appendChild(ta);ta.select();document.execCommand('copy');ta.remove();btn.textContent='✓ Kopiert';setTimeout(()=>btn.textContent='📋 Kopieren',1500);})})(this)" style="padding:4px 10px;background:#6366f1;color:white;border:none;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">📋 Kopieren</button>
+                                        </div>`;
                                     for (let idx = 0; idx < vidsSorted.length; idx++) {
                                         const vid = vidsSorted[idx];
                                         const evs = vehEvents[vid].events.sort((a,b) => a.ts - b.ts);
@@ -32912,19 +32922,24 @@ Aktuell: ${currentNum}`;
                                         const finalCol = kindCol[finalEv.kind] || '#64748b';
                                         html += `<div style="padding:7px 9px;margin-bottom:6px;background:#f8fafc;border-left:3px solid ${finalCol};border-radius:5px;font-size:12px;">
                                             <div style="font-weight:700;color:#0f172a;">${idx+1}. 🚗 ${vehNameOf(vid)}</div>`;
+                                        _copyLines.push(`${idx+1}. ${vehNameOf(vid)}`);
                                         for (const ev of evs) {
                                             html += `<div style="margin-top:3px;color:#475569;padding-left:12px;font-size:11px;">
                                                 <span style="color:#94a3b8;">${fmtTs(ev.ts)}</span>
                                                 <span style="margin-left:6px;color:${kindCol[ev.kind]||'#64748b'};font-weight:600;">${kindIcon[ev.kind]||'•'} ${kindLabel[ev.kind]||ev.kind}</span>
                                                 ${ev.detail ? `<span style="color:#94a3b8;margin-left:6px;">· ${ev.detail}</span>` : ''}
                                             </div>`;
+                                            _copyLines.push(`  ${fmtTs(ev.ts)} ${kindIcon[ev.kind]||'•'} ${kindLabel[ev.kind]||ev.kind}${ev.detail ? ' · ' + ev.detail : ''}`);
                                         }
                                         html += `</div>`;
                                     }
                                     if (ride.status === 'wartepool' && !accepted) {
                                         html += `<div style="margin-top:6px;padding:8px 10px;background:#fef3c7;border-left:3px solid #f59e0b;border-radius:5px;font-size:12px;font-weight:700;color:#92400e;">⚠ Alle Fahrzeuge haben nicht angenommen → Fahrt im Wartepool</div>`;
+                                        _copyLines.push('⚠ Alle Fahrzeuge haben nicht angenommen → im Wartepool');
                                     }
                                     html += `</div>`;
+                                    // Copy-Text an Button-Attribut haengen (nachtraeglich via Script)
+                                    html += `<script>(function(){var b=document.getElementById('${_copyBtnId}');if(b)b.setAttribute('data-copy',${JSON.stringify(_copyLines.join('\n'))});})();<\/script>`;
                                 }
                             } catch(_angErr) { console.warn('v6.66.205 angebots-verlauf:', _angErr.message); }
 

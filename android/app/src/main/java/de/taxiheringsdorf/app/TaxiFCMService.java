@@ -199,6 +199,21 @@ public class TaxiFCMService extends FirebaseMessagingService {
             body = pickupTime + " · " + customerName + "\n📍 " + pickup;
             if (!destination.isEmpty()) body += "\n🎯 " + destination;
             body += "\n💡 Tippen zum Übernehmen";
+        } else if ("vorbestellung_assigned".equals(type)) {
+            // 🆕 v6.66.209 (Patrick 04.10.26 Bridge "podulski angeboten bekommen ohne Alarm"):
+            //   Fahrzeug wurde einer Vorbestellung zugewiesen die mehr als 30+Anfahrt Min
+            //   entfernt ist. Patrick soll ein dezentes Ping bekommen (kein Full-Screen,
+            //   kein Vollalarm) damit er mitbekommt dass eine Fahrt in seinem Plan ist.
+            //   Der echte Losfahr-Alarm kommt spaeter via scheduledDepartureAlert.
+            String minsStr = data.getOrDefault("minutesUntilPickup", "");
+            title = "📅 VORBESTELLT: " + customerName + " · " + pickupTime;
+            String shortPickup = pickup.length() > 50 ? pickup.substring(0, 47) + '…' : pickup;
+            body = "📍 " + shortPickup;
+            if (!destination.isEmpty()) {
+                String shortDest = destination.length() > 50 ? destination.substring(0, 47) + '…' : destination;
+                body += "\n🎯 " + shortDest;
+            }
+            if (!minsStr.isEmpty()) body += "\nIn " + minsStr + " Min — Losfahr-Alarm kommt rechtzeitig";
         } else if ("ride_cancelled".equals(type)) {
             title = "❌ Fahrt storniert";
             body = customerName + " · " + pickupTime;

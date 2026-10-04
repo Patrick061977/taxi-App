@@ -232,6 +232,15 @@
             android:launchMode="singleTask"
             android:exported="false" />
 
+        <!-- v6.66.211: Alarm-Settings-Activity — Fahrer kann Alarmton/Vibration/Dauer
+             einstellen und testen + Push-Statistik letzte 20 Pushes sehen. -->
+        <activity
+            android:name=".AlarmSettingsActivity"
+            android:label="@string/title_activity_main"
+            android:theme="@style/AppTheme.Driver"
+            android:launchMode="singleTask"
+            android:exported="false" />
+
         <!-- v6.40.0: Foreground-Service für laufende Schicht (GPS, Dispatch, etc.) -->
         <service
             android:name=".ShiftForegroundService"

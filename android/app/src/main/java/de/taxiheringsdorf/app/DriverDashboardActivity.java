@@ -4646,6 +4646,9 @@ public class DriverDashboardActivity extends AppCompatActivity {
                                 sdf.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
                                 freiAb = " · frei ab " + sdf.format(new java.util.Date(endMs));
                             }
+                            // 🆕 v6.66.231 (Patrick 04.10. 12:40 "er faehrt doch noch gar nicht, steht
+                            //   am Bahnhof. Erst wenn er losfaehrt sollte 'faehrt zu' erscheinen"):
+                            //   Unterscheide 'accepted' (steht noch) von 'on_way' (laeuft).
                             String desc;
                             if ("picked_up".equals(status)) {
                                 desc = "mit " + firstName + " unterwegs" + freiAb;
@@ -4653,9 +4656,12 @@ public class DriverDashboardActivity extends AppCompatActivity {
                                 desc = "bei " + firstName + " angekommen";
                             } else if ("angekommen".equals(status)) {
                                 desc = "am Ziel" + freiAb;
-                            } else {
+                            } else if ("on_way".equals(status) || "unterwegs".equals(status)) {
                                 String ankStr = (ankunftMin != null) ? " · Ankunft in " + ankunftMin + " Min" : "";
                                 desc = "faehrt zu " + firstName + pickupStr + ankStr;
+                            } else {
+                                // accepted/akzeptiert: Fahrer hat angenommen, steht noch
+                                desc = "naechste: " + firstName + pickupStr;
                             }
                             next.put(vid, desc);
                         }

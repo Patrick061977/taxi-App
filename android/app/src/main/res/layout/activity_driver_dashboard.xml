@@ -178,6 +178,24 @@
                 android:textStyle="bold" />
         </LinearLayout>
 
+        <!-- 🆕 v6.66.214 (Patrick 04.10.26 Bridge "fuer den Angestellten muss sichtbar
+             sein wenn Alarm auf 0 oder nicht funktioniert"): Roter Warn-Banner. -->
+        <TextView
+            android:id="@+id/tv_alarm_warning"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="#DC2626"
+            android:text=""
+            android:textColor="#FFFFFF"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            android:padding="12dp"
+            android:layout_marginStart="10dp"
+            android:layout_marginEnd="10dp"
+            android:layout_marginTop="4dp"
+            android:layout_marginBottom="4dp"
+            android:visibility="gone"/>
+
         <!-- 🆕 v6.66.212 (Patrick 04.10.26 Bridge "wie viele Fahrer online sind,
              irgendwo auf dem Hauptscreen"): Online-Fahrer-Count sichtbar oben.
              Zeigt wie viele Kollegen + welche. -->

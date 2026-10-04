@@ -357,7 +357,15 @@ public class AlarmSettingsActivity extends AppCompatActivity {
             Object tsO = item.get("ts");
             long ts = (tsO instanceof Long) ? (Long) tsO : 0L;
             String type = String.valueOf(item.getOrDefault("type", "?"));
-            String severity = String.valueOf(item.getOrDefault("severity", "?"));
+            String severityRaw = String.valueOf(item.getOrDefault("severity", "?"));
+            // v6.66.214 (Patrick 04.10. 09:09 "warum steht da Silent"): klarer labeln
+            String severity;
+            switch (severityRaw) {
+                case "alarm":    severity = "🔔 Vollalarm";  break;
+                case "reminder": severity = "🔉 Erinnerung"; break;
+                case "silent":   severity = "📵 Still (nur Daten)"; break;
+                default:         severity = severityRaw; break;
+            }
             String rideId = String.valueOf(item.getOrDefault("rideId", ""));
             String pickup = String.valueOf(item.getOrDefault("pickup", ""));
             Object succO = item.get("success");

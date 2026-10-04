@@ -6,6 +6,28 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [6.66.240] - 2026-10-04 (Auto-Upload ACR-Call-Recordings → Firebase)
+
+**Patrick 04.10. 18:29 Bridge:** *„Ich will dass das alles automatisch funktioniert. Irgendwie. Die Daten sind doch auf dem Handy bei Anruf-Aufnahme."*
+
+**Baustein 1 von 3** für den Call-zu-Fahrt-Autoflow:
+
+- Neu `android/.../AcrUploadService.java`: Foreground-Service mit FileObserver auf allen ACR-Pfaden (`/sdcard/ACRCalls/ACRPhone`, `/sdcard/Acr/ACRPhone`, `/sdcard/Recordings/ACRPhone`, `/sdcard/FunktaxiCalls`).
+- Neue m4a-Dateien werden automatisch nach Firebase Storage (`callRecordings/YYYY/MM/DD/{filename}`) hochgeladen und ein Metadata-Eintrag in `/callRecordings` (phone, direction, timestamp, storagePath, audioUrl, fileSize) angelegt.
+- Dedupe über SharedPreferences-Set der bereits hochgeladenen Pfade.
+- Safety-Rescan alle 60 Sek + Initial-Scan beim Service-Start damit nichts vergessen wird.
+- Service startet automatisch wenn Patrick ins Admin-Dashboard geht.
+- Neue Permission `FOREGROUND_SERVICE_DATA_SYNC` + Service-Deklaration im Manifest.
+- Dependency `firebase-storage` ergänzt.
+
+**Patrick 22.05. 14:48** hatte zunächst „KEIN Upload" gesagt — am 04.10. explizit zurückgenommen weil der Full-Call-zu-Fahrt-Autoflow nur mit Audio in der Cloud machbar ist.
+
+**Bausteine 2+3 folgen morgen:** Cloud-Function Trigger (Whisper + extractAudioBookingData) + Native-Admin-Dashboard-Card mit [ANLEGEN] / [BEARBEITEN] / [IGNORIEREN].
+
+**Version:** 6.66.239 → 6.66.240 (Native-APK muss hochgezogen werden damit der Service auf Patrick's Handy läuft).
+
+---
+
 ## [6.66.239] - 2026-10-04 (LATE-RESCUE respektiert "akzeptiert ist akzeptiert")
 
 **Patrick 04.10. 16:14 Bridge Wolf-Vorfall:** *„Warum wurde die Wolf Fahrt jetzt danilo wieder weggenommen obwohl er die Fahrt angenommen hatte"*

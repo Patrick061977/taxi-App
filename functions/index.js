@@ -32280,8 +32280,16 @@ exports.onRideUpdated = onValueUpdated(
             //   priceCalculation etc.). Sonst bekommt der Fahrer Pings fuer Vorbestellungen
             //   die schon vor Tagen zugewiesen wurden.
             const _vehicleChanged209 = (oldVehicle || null) !== (newVehicle || null);
+            // 🆕 v6.66.222 (Patrick 04.10. 10:28 "wozu Alarm fuer 12:15 Fahrt was soll der Quatsch"):
+            //   Zusaetzlich: Push nur noch wenn Pickup <60 Min entfernt. Weit entfernte
+            //   Umplanungen (zB 2h vorher) ergeben keinen Sinn fuer den Fahrer → komplett still.
+            //   Chronik-Eintrag bleibt, nur kein akustisches Signal.
+            const _withinPingWindow222 = _minutesUntilPickup <= 60;
             if (_isVorbestPlan && !_vehicleChanged209) {
                 console.log(`📅 v6.66.214 Vorbestellung-Ping SKIP — kein Vehicle-Wechsel (ride ${rideId})`);
+            } else if (_isVorbestPlan && !_withinPingWindow222) {
+                console.log(`📅 v6.66.222 Vorbestellung-Ping SKIP — Pickup ${Math.round(_minutesUntilPickup)} Min entfernt (>60 Min window)`);
+                try { await addRideLog(rideId, '📅', `Vorbestellung zugewiesen (${Math.round(_minutesUntilPickup)} Min bis Pickup — kein Push, zu frueh)`, { quelle: 'onRideUpdated v6.66.222', vehicle: newVehicle }); } catch(_) {}
             } else if (_isVorbestPlan) {
                 // 🆕 v6.66.209 (Patrick 04.10.26 Bridge "podulski angeboten bekommen ohne Alarm"):
                 //   v6.63.190 hatte Push ganz blockiert bei >30 Min — Fahrer bekam KEIN

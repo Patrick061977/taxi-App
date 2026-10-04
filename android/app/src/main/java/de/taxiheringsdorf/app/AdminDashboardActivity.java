@@ -113,9 +113,12 @@ public class AdminDashboardActivity extends AppCompatActivity {
     // v6.63.741 (Patrick 19.07. Bridge): 'assigned' und 'sofort' fehlten — Speckmann-Fahrt
     //   nach Late-Rescue hatte status='assigned' und war deshalb im Kalender komplett
     //   unsichtbar. Beide Status ergaenzt.
+    // v6.66.236 (Patrick 04.10. 14:59 Bridge "Warum steht Lilly Diekmann nicht mehr
+    //   drinne, obwohl ich die Fahrt angenommen habe"): 'arrived' + 'angekommen'
+    //   fehlten in Active-Liste → Fahrten verschwanden sobald Fahrer am Pickup war.
     private static final List<String> ACTIVE_STATUSES = Arrays.asList(
         "warteschlange", "wartepool", "vorbestellt", "new", "sofort", "assigned",
-        "accepted", "on_way", "picked_up");
+        "accepted", "akzeptiert", "on_way", "unterwegs", "arrived", "angekommen", "picked_up");
 
     // v6.62.353: Patrick (06.05. 11:50): "Abholort kann ich nicht bearbeiten, ist nur ein
     // Name kein Geopoint" — Edit-Dialog hat fuer pickup/destination nur EditText. Fix:

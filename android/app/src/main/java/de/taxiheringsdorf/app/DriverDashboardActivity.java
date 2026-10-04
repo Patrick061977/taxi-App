@@ -4549,7 +4549,11 @@ public class DriverDashboardActivity extends AppCompatActivity {
                             // 🆕 v6.66.224: aktueller Status aus _colleagueCurrentRide
                             String rideStatus = _colleagueCurrentRide.get(vid);
                             String statusSuffix = (rideStatus != null && !rideStatus.isEmpty()) ? " · " + rideStatus : "";
-                            lines.add("👤 " + firstName + " online" + statusSuffix + "\n" + loc);
+                            // 🆕 v6.66.238 (Patrick 15:24 "auf der Hauptseite sollte es stehen"):
+                            //   zusaetzlich 'danach: X HH:MM' wenn naechste Fahrt gleich kommt.
+                            String nextLabel = _colleagueNextRide.get(vid);
+                            String nextSuffix = (nextLabel != null && !nextLabel.isEmpty()) ? "\n" + nextLabel : "";
+                            lines.add("👤 " + firstName + " online" + statusSuffix + "\n" + loc + nextSuffix);
                         }
                         final String label;
                         if (countOther == 0) {
@@ -4570,6 +4574,10 @@ public class DriverDashboardActivity extends AppCompatActivity {
         } catch (Throwable _t) { Log.w(TAG, "refreshOnlineColleagues: " + _t.getMessage()); }
     }
 
+    // 🆕 v6.66.238 (Patrick 04.10. 15:24 "auf der Hauptseite sollte es stehen"):
+    //   zusaetzliche Map fuer die NAECHSTE geplante Fahrt pro Fahrzeug.
+    private final java.util.Map<String, String> _colleagueNextRide = new java.util.HashMap<>();
+
     // 🆕 v6.66.224: Listener auf /rides filtert aktive (accepted/on_way/picked_up) und
     //   speichert pro assignedVehicle den Status fuer Kollegen-Zeile.
     private void startActiveRidesListener() {
@@ -4585,6 +4593,9 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 @Override public void onDataChange(com.google.firebase.database.DataSnapshot snap) {
                     try {
                         java.util.Map<String, String> next = new java.util.HashMap<>();
+                        // 🆕 v6.66.238: Sammle naechste Fahrten pro Vehicle
+                        java.util.Map<String, long[]> nextRideData = new java.util.HashMap<>(); // vid -> [pickupTs, rideId-ref]
+                        java.util.Map<String, String> nextRideLabel = new java.util.HashMap<>();
                         long now = System.currentTimeMillis();
                         for (com.google.firebase.database.DataSnapshot ride : snap.getChildren()) {
                             Object statusO = ride.child("status").getValue();
@@ -4666,7 +4677,41 @@ public class DriverDashboardActivity extends AppCompatActivity {
                                 desc = "naechste: " + firstName + pickupStr;
                             }
                             next.put(vid, desc);
+                            // 🆕 v6.66.238: Sammle naechste vorbestellte/assigned Fahrt pro Vehicle
                         }
+                        // Zweiter Pass: naechste vorbestellte/assigned/accepted Fahrt pro Vehicle (nicht die aktuelle)
+                        for (com.google.firebase.database.DataSnapshot ride : snap.getChildren()) {
+                            Object stO = ride.child("status").getValue();
+                            String st = stO != null ? String.valueOf(stO) : "";
+                            if (!"accepted".equals(st) && !"akzeptiert".equals(st) && !"vorbestellt".equals(st) && !"assigned".equals(st)) continue;
+                            Object vO = ride.child("assignedVehicle").getValue();
+                            if (vO == null) vO = ride.child("vehicleId").getValue();
+                            if (vO == null) continue;
+                            String vid2 = String.valueOf(vO);
+                            Object ptNxO = ride.child("pickupTimestamp").getValue();
+                            if (!(ptNxO instanceof Number)) continue;
+                            long ptNx = ((Number) ptNxO).longValue();
+                            if (ptNx < now - 5*60000L) continue;
+                            // Wenn Vehicle gerade aktive Fahrt hat (picked_up/arrived/on_way) → "danach"
+                            // Sonst: naechste accepted/vorbestellt Fahrt
+                            String curStat = next.get(vid2);
+                            if (curStat != null) {
+                                // Hat aktive Fahrt — zeige die naechste Vorbestellung danach
+                                long[] cur = nextRideData.get(vid2);
+                                if (cur == null || ptNx < cur[0]) {
+                                    nextRideData.put(vid2, new long[]{ptNx, 0});
+                                    Object cnO = ride.child("customerName").getValue();
+                                    Object gnO = ride.child("guestName").getValue();
+                                    String nm = (gnO != null && !String.valueOf(gnO).isEmpty()) ? String.valueOf(gnO) : (cnO != null ? String.valueOf(cnO) : "?");
+                                    String fn = nm.split("[;,]")[0].trim().split(" ")[0];
+                                    java.text.SimpleDateFormat sdf2 = new java.text.SimpleDateFormat("HH:mm", java.util.Locale.GERMAN);
+                                    sdf2.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
+                                    nextRideLabel.put(vid2, "➜ danach: " + fn + " " + sdf2.format(new java.util.Date(ptNx)));
+                                }
+                            }
+                        }
+                        _colleagueNextRide.clear();
+                        _colleagueNextRide.putAll(nextRideLabel);
                         _colleagueCurrentRide.clear();
                         _colleagueCurrentRide.putAll(next);
                         runOnUiThread(() -> { try { refreshOnlineColleagues(); } catch (Throwable _ignore) {} });

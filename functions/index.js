@@ -34995,6 +34995,55 @@ exports.scheduledWartepoolCleanup = onSchedule(
 //   30+drivingTimeToPickup Min → sendet VOLLER ALARM (type='new_ride' sev=alarm) an das
 //   Fahrzeug. Verhindert dass Fahrer zugewiesene Vorbestellungen uebersehen weil die
 //   Zuweisung lange her ist. Nur 1x pro Ride via lateAssignAlarmSent-Flag.
+// 🆕 v6.66.225 (Patrick 04.10. 11:06 Bridge "wieso bin ich auf der Karte blau, bin frei"):
+//   Garbage-Collection: findet Fahrzeuge mit stale activeRideStatus (zB 'accepted' obwohl
+//   zugehoerige Ride schon completed/cancelled oder gar nicht mehr existiert) und clearet
+//   das Feld. Patrick's Tesla war seit Juli so hangen geblieben.
+exports.scheduledActiveRideStatusCleanup = onSchedule(
+    { schedule: 'every 10 minutes', region: 'europe-west1', timeoutSeconds: 60, memory: '256MiB' },
+    async (event) => {
+        try {
+            const vSnap = await db.ref('vehicles').once('value');
+            if (!vSnap.exists()) return;
+            let cleared = 0;
+            const _ACTIVE_STATUSES = new Set(['accepted', 'on_way', 'arrived', 'picked_up']);
+            const _tasks = [];
+            vSnap.forEach(child => {
+                const vid = child.key;
+                const v = child.val();
+                if (!v || !v.activeRideStatus) return;
+                _tasks.push({ vid, activeRideId: v.activeRideId });
+            });
+            for (const t of _tasks) {
+                let shouldClear = false;
+                if (!t.activeRideId) {
+                    shouldClear = true; // kein activeRideId → stale
+                } else {
+                    try {
+                        const rSnap = await db.ref(`rides/${t.activeRideId}`).once('value');
+                        const r = rSnap.val();
+                        if (!r || !_ACTIVE_STATUSES.has(r.status)) shouldClear = true;
+                    } catch (_e) { shouldClear = true; }
+                }
+                if (shouldClear) {
+                    try {
+                        await db.ref(`vehicles/${t.vid}`).update({
+                            activeRideStatus: null,
+                            activeRideId: null,
+                            activeRideStatusUpdatedAt: Date.now()
+                        });
+                        cleared++;
+                        console.log(`🧹 v6.66.225 stale activeRideStatus cleared fuer ${t.vid} (ride=${t.activeRideId})`);
+                    } catch (_e) { /* non-critical */ }
+                }
+            }
+            if (cleared > 0) console.log(`🧹 v6.66.225 Cleanup: ${cleared} stale activeRideStatus cleared`);
+        } catch (e) {
+            console.error('❌ v6.66.225 scheduledActiveRideStatusCleanup Fehler:', e.message);
+        }
+    }
+);
+
 exports.scheduledLateAssignAlarm = onSchedule(
     { schedule: 'every 5 minutes', region: 'europe-west1', timeoutSeconds: 60, memory: '256MiB' },
     async (event) => {

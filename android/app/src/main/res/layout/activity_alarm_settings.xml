@@ -42,6 +42,26 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:background="@android:drawable/btn_dropdown"
+            android:paddingBottom="8dp"/>
+
+        <!-- v6.66.213: Eigenen Ton waehlen (System-Picker) -->
+        <Button
+            android:id="@+id/btn_pick_custom_sound"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:text="🎵 EIGENEN SIGNALTON WAEHLEN"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            android:textColor="#1E40AF"
+            android:background="#DBEAFE"
+            android:layout_marginBottom="4dp"/>
+        <TextView
+            android:id="@+id/tv_custom_sound_name"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:textSize="12sp"
+            android:textColor="#374151"
             android:paddingBottom="12dp"/>
 
         <!-- Vibration -->

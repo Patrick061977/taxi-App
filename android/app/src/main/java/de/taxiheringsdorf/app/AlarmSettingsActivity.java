@@ -59,12 +59,16 @@ public class AlarmSettingsActivity extends AppCompatActivity {
     private Spinner spSound;
     private SwitchCompat swVibrate;
     private RadioGroup rgDuration;
-    private Button btnTest;
-    private TextView tvAlarmHint, tvVolumeInfo, tvPushEmpty;
+    private Button btnTest, btnPickCustom;
+    private TextView tvAlarmHint, tvVolumeInfo, tvPushEmpty, tvCustomSoundName;
     private LinearLayout pushContainer;
     private String vehicleId;
-    private final String[] soundLabels = { "Standard-Wecker (laut)", "Standard-Klingelton", "Standard-Benachrichtigung" };
-    private final String[] soundKeys = { "alarm", "ringtone", "notification" };
+    private final String[] soundLabels = { "Standard-Wecker (laut)", "Standard-Klingelton", "Standard-Benachrichtigung", "Eigener Ton (unten waehlen)" };
+    private final String[] soundKeys = { "alarm", "ringtone", "notification", "custom" };
+    private static final int REQ_PICK_RINGTONE = 7788;
+    private String customSoundUri = null;
+    private String customSoundName = null;
+    private android.media.MediaPlayer testPlayer = null; // v6.66.213 fuer custom-Ton-Test
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -78,10 +82,13 @@ public class AlarmSettingsActivity extends AppCompatActivity {
         swVibrate = findViewById(R.id.sw_vibrate);
         rgDuration = findViewById(R.id.rg_duration);
         btnTest = findViewById(R.id.btn_test_alarm);
+        btnPickCustom = findViewById(R.id.btn_pick_custom_sound);
         tvAlarmHint = findViewById(R.id.tv_alarm_hint);
         tvVolumeInfo = findViewById(R.id.tv_volume_info);
+        tvCustomSoundName = findViewById(R.id.tv_custom_sound_name);
         pushContainer = findViewById(R.id.push_history_container);
         tvPushEmpty = findViewById(R.id.tv_push_empty);
+        btnPickCustom.setOnClickListener(v -> pickCustomSound());
 
         // Spinner fuellen
         ArrayAdapter<String> adp = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, soundLabels);
@@ -93,6 +100,13 @@ public class AlarmSettingsActivity extends AppCompatActivity {
         String savedSound = prefs.getString("sound", "alarm");
         for (int i = 0; i < soundKeys.length; i++) {
             if (soundKeys[i].equals(savedSound)) { spSound.setSelection(i); break; }
+        }
+        customSoundUri = prefs.getString("customSoundUri", null);
+        customSoundName = prefs.getString("customSoundName", null);
+        if (customSoundUri != null && customSoundName != null) {
+            tvCustomSoundName.setText("✓ Eigener Ton: " + customSoundName);
+        } else {
+            tvCustomSoundName.setText("Noch kein eigener Ton gewaehlt — tippe oben um zu waehlen.");
         }
         swVibrate.setChecked(prefs.getBoolean("vibrate", true));
         int savedDur = prefs.getInt("durationSec", 30);
@@ -127,14 +141,67 @@ public class AlarmSettingsActivity extends AppCompatActivity {
         try {
             AudioManager am = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
             if (am == null) return;
-            int cur = am.getStreamVolume(AudioManager.STREAM_ALARM);
-            int max = am.getStreamMaxVolume(AudioManager.STREAM_ALARM);
-            String msg;
-            if (cur == 0) msg = "⚠️ Alarm-Lautstärke ist 0 — du hoerst gar nix! Lauter drehen mit Lautstärke-Taste bei laufendem Test.";
-            else if (cur < max / 3) msg = "ℹ️ Alarm-Lautstärke " + cur + "/" + max + " — relativ leise. Mit Lautstärke-Taste anpassen während Alarm läuft.";
-            else msg = "✓ Alarm-Lautstärke " + cur + "/" + max + " — OK.";
-            tvVolumeInfo.setText(msg);
+            // v6.66.213 (Patrick 04.10. 09:06 "Warum steht da immer noch 0 obwohl normal eingestellt ist"):
+            //   Problem: STREAM_ALARM ist SEPARAT von der Hardware-Lautstaerke-Taste.
+            //   Nutzer dreht die normale Taste hoch → STREAM_RING und STREAM_MUSIC gehen hoch,
+            //   STREAM_ALARM bleibt stehen wo es war. Zeige alle 3 damit Patrick die
+            //   Diskrepanz versteht.
+            int alarmV = am.getStreamVolume(AudioManager.STREAM_ALARM);
+            int alarmM = am.getStreamMaxVolume(AudioManager.STREAM_ALARM);
+            int ringV = am.getStreamVolume(AudioManager.STREAM_RING);
+            int ringM = am.getStreamMaxVolume(AudioManager.STREAM_RING);
+            int musicV = am.getStreamVolume(AudioManager.STREAM_MUSIC);
+            int musicM = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
+            StringBuilder sb = new StringBuilder();
+            if (alarmV == 0) {
+                sb.append("⚠️ Alarm-Lautstaerke = 0 (STREAM_ALARM separat!). Du hoerst nichts.\n");
+                sb.append("ℹ️ Beim Alarm-Test druecke die Hardware-Taste wenn der Alarm bimmelt — dann wird STREAM_ALARM angehoben.\n");
+            } else if (alarmV < alarmM / 3) {
+                sb.append("ℹ️ Alarm leise (").append(alarmV).append("/").append(alarmM).append(").\n");
+            } else {
+                sb.append("✓ Alarm (").append(alarmV).append("/").append(alarmM).append(") OK.\n");
+            }
+            sb.append("Ring: ").append(ringV).append("/").append(ringM);
+            sb.append("  ·  Musik: ").append(musicV).append("/").append(musicM);
+            tvVolumeInfo.setText(sb.toString());
         } catch (Throwable _t) { Log.w(TAG, "Volume-Info Fehler: " + _t.getMessage()); }
+    }
+
+    private void pickCustomSound() {
+        try {
+            Intent i = new Intent(RingtoneManager.ACTION_RINGTONE_PICKER);
+            i.putExtra(RingtoneManager.EXTRA_RINGTONE_TITLE, "Signalton waehlen");
+            i.putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE,
+                RingtoneManager.TYPE_RINGTONE | RingtoneManager.TYPE_ALARM | RingtoneManager.TYPE_NOTIFICATION);
+            i.putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, true);
+            i.putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, false);
+            if (customSoundUri != null) {
+                try { i.putExtra(RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, Uri.parse(customSoundUri)); } catch (Throwable _e) {}
+            }
+            startActivityForResult(i, REQ_PICK_RINGTONE);
+        } catch (Throwable _t) {
+            Toast.makeText(this, "Picker nicht verfuegbar: " + _t.getMessage(), Toast.LENGTH_LONG).show();
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQ_PICK_RINGTONE && resultCode == RESULT_OK && data != null) {
+            Uri uri = data.getParcelableExtra(RingtoneManager.EXTRA_RINGTONE_PICKED_URI);
+            if (uri != null) {
+                customSoundUri = uri.toString();
+                try {
+                    android.media.Ringtone rt = RingtoneManager.getRingtone(this, uri);
+                    customSoundName = rt != null ? rt.getTitle(this) : "ausgewaehlter Ton";
+                } catch (Throwable _t) { customSoundName = "ausgewaehlter Ton"; }
+                tvCustomSoundName.setText("✓ Eigener Ton: " + customSoundName);
+                // Selektion auf 'Eigener Ton' umstellen (letzter Eintrag)
+                spSound.setSelection(soundKeys.length - 1);
+                saveSettings();
+                Toast.makeText(this, "✓ Signalton gesetzt: " + customSoundName, Toast.LENGTH_SHORT).show();
+            }
+        }
     }
 
     private int getSelectedDuration() {
@@ -154,17 +221,20 @@ public class AlarmSettingsActivity extends AppCompatActivity {
         String soundKey = getSelectedSoundKey();
         boolean vibrate = swVibrate.isChecked();
         int dur = getSelectedDuration();
-        getSharedPreferences(PREFS, MODE_PRIVATE).edit()
+        SharedPreferences.Editor ed = getSharedPreferences(PREFS, MODE_PRIVATE).edit()
             .putString("sound", soundKey)
             .putBoolean("vibrate", vibrate)
-            .putInt("durationSec", dur)
-            .apply();
+            .putInt("durationSec", dur);
+        if (customSoundUri != null) ed.putString("customSoundUri", customSoundUri);
+        if (customSoundName != null) ed.putString("customSoundName", customSoundName);
+        ed.apply();
         if (vehicleId != null && !vehicleId.isEmpty()) {
             try {
                 Map<String, Object> m = new HashMap<>();
                 m.put("sound", soundKey);
                 m.put("vibrate", vibrate);
                 m.put("durationSec", dur);
+                m.put("customSoundName", customSoundName);
                 m.put("updatedAt", System.currentTimeMillis());
                 m.put("device", android.os.Build.MODEL);
                 FirebaseDatabase.getInstance(DB_URL)
@@ -181,8 +251,30 @@ public class AlarmSettingsActivity extends AppCompatActivity {
         tvAlarmHint.setText("🔔 Test läuft " + dur + " Sek… tippe 'Stop' um abzubrechen.");
         btnTest.setText("⏹ STOP");
 
-        // AlertSoundService als Service starten mit der gewünschten Dauer
-        try { AlertSoundService.start(this); } catch (Throwable t) { Log.w(TAG, "Alarm-Start fail: " + t.getMessage()); }
+        // v6.66.213: Bei 'custom' den eigenen Ton via MediaPlayer, sonst AlertSoundService (TYPE_ALARM)
+        if ("custom".equals(soundKey) && customSoundUri != null) {
+            try {
+                if (testPlayer != null) { try { testPlayer.release(); } catch (Throwable _e) {} }
+                testPlayer = new android.media.MediaPlayer();
+                testPlayer.setAudioAttributes(new android.media.AudioAttributes.Builder()
+                    .setUsage(android.media.AudioAttributes.USAGE_ALARM)
+                    .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .build());
+                testPlayer.setDataSource(this, Uri.parse(customSoundUri));
+                testPlayer.setLooping(true);
+                testPlayer.prepare();
+                // Lautstaerke anheben wenn STREAM_ALARM=0 → STREAM_RING statt
+                AudioManager am = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+                int alarmV = am != null ? am.getStreamVolume(AudioManager.STREAM_ALARM) : 0;
+                if (alarmV == 0 && am != null) {
+                    int ringMax = am.getStreamMaxVolume(AudioManager.STREAM_RING);
+                    try { am.setStreamVolume(AudioManager.STREAM_ALARM, ringMax, 0); } catch (Throwable _e) {}
+                }
+                testPlayer.start();
+            } catch (Throwable t) { Log.w(TAG, "custom-sound test fail: " + t.getMessage()); Toast.makeText(this, "Ton konnte nicht abgespielt werden: " + t.getMessage(), Toast.LENGTH_LONG).show(); }
+        } else {
+            try { AlertSoundService.start(this); } catch (Throwable t) { Log.w(TAG, "Alarm-Start fail: " + t.getMessage()); }
+        }
 
         // Vibration
         if (vibrate) {
@@ -199,6 +291,11 @@ public class AlarmSettingsActivity extends AppCompatActivity {
         android.os.Handler h = new android.os.Handler(android.os.Looper.getMainLooper());
         Runnable stopR = () -> {
             try { AlertSoundService.stop(this); } catch (Throwable _ignore) {}
+            if (testPlayer != null) {
+                try { testPlayer.stop(); } catch (Throwable _e) {}
+                try { testPlayer.release(); } catch (Throwable _e) {}
+                testPlayer = null;
+            }
             try { ((android.os.Vibrator) getSystemService(Context.VIBRATOR_SERVICE)).cancel(); } catch (Throwable _ignore) {}
             btnTest.setText("JETZT ALARM TESTEN");
             tvAlarmHint.setText("✓ Test beendet.");

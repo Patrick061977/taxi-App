@@ -257,6 +257,7 @@ public class DriverDashboardActivity extends AppCompatActivity {
         homeCard = findViewById(R.id.home_card);
         tvHomeInline = findViewById(R.id.tv_home_inline);
         tvOnlineColleagues = findViewById(R.id.tv_online_colleagues); // v6.66.212
+        try { startActiveRidesListener(); } catch (Throwable _t) { Log.w(TAG, "active-rides listener: " + _t.getMessage()); }
         // 🆕 v6.66.218 (Patrick 04.10. 09:57 'Wenn man auf Danielo klickt sollte sich die Karte oeffnen'):
         //   Kollegen-Zeile klickbar → Fleet-Map oeffnen (zeigt alle Kollegen inkl. deren Standorte).
         if (tvOnlineColleagues != null) {
@@ -4474,6 +4475,9 @@ public class DriverDashboardActivity extends AppCompatActivity {
     //   Listener auf /vehicles → zaehlt Fahrzeuge mit shift.status=active +
     //   lastHeartbeat <5 Min + eigenes Fahrzeug ausnehmen (= 'Kollegen').
     private com.google.firebase.database.ValueEventListener onlineColleaguesListener;
+    // 🆕 v6.66.224 (Patrick 04.10.26 11:06 "wer macht gerade was"): aktive Rides pro Vehicle
+    private com.google.firebase.database.ValueEventListener activeRidesListener;
+    private final java.util.Map<String, String> _colleagueCurrentRide = new java.util.HashMap<>();
     private void refreshOnlineColleagues() {
         if (tvOnlineColleagues == null) return;
         if (db == null) {
@@ -4540,7 +4544,10 @@ public class DriverDashboardActivity extends AppCompatActivity {
                                     loc = "📍 kein GPS";
                                 }
                             }
-                            lines.add("👤 " + firstName + " online\n" + loc);
+                            // 🆕 v6.66.224: aktueller Status aus _colleagueCurrentRide
+                            String status = _colleagueCurrentRide.get(vid);
+                            String statusSuffix = (status != null && !status.isEmpty()) ? " · " + status : "";
+                            lines.add("👤 " + firstName + " online" + statusSuffix + "\n" + loc);
                         }
                         final String label;
                         if (countOther == 0) {
@@ -4559,6 +4566,59 @@ public class DriverDashboardActivity extends AppCompatActivity {
             };
             db.getReference("vehicles").addValueEventListener(onlineColleaguesListener);
         } catch (Throwable _t) { Log.w(TAG, "refreshOnlineColleagues: " + _t.getMessage()); }
+    }
+
+    // 🆕 v6.66.224: Listener auf /rides filtert aktive (accepted/on_way/picked_up) und
+    //   speichert pro assignedVehicle den Status fuer Kollegen-Zeile.
+    private void startActiveRidesListener() {
+        if (db == null) {
+            try { db = FirebaseDatabase.getInstance(DB_INSTANCE_URL); } catch (Throwable _t) {}
+        }
+        if (db == null) return;
+        try {
+            if (activeRidesListener != null) {
+                try { db.getReference("rides").removeEventListener(activeRidesListener); } catch (Throwable _ignore) {}
+            }
+            activeRidesListener = new com.google.firebase.database.ValueEventListener() {
+                @Override public void onDataChange(com.google.firebase.database.DataSnapshot snap) {
+                    try {
+                        java.util.Map<String, String> next = new java.util.HashMap<>();
+                        long now = System.currentTimeMillis();
+                        for (com.google.firebase.database.DataSnapshot ride : snap.getChildren()) {
+                            Object statusO = ride.child("status").getValue();
+                            String status = statusO != null ? String.valueOf(statusO) : "";
+                            if (!"accepted".equals(status) && !"on_way".equals(status) && !"picked_up".equals(status)
+                                    && !"akzeptiert".equals(status) && !"unterwegs".equals(status) && !"angekommen".equals(status)) continue;
+                            Object vehO = ride.child("assignedVehicle").getValue();
+                            if (vehO == null) vehO = ride.child("vehicleId").getValue();
+                            if (vehO == null) continue;
+                            String vid = String.valueOf(vehO);
+                            // Nur Fahrten mit Pickup innerhalb 24h relevanten Zeitraum
+                            Object ptO = ride.child("pickupTimestamp").getValue();
+                            if (ptO instanceof Number) {
+                                long pt = ((Number) ptO).longValue();
+                                if (pt > now + 24L * 3600_000L) continue;
+                            }
+                            Object custO = ride.child("customerName").getValue();
+                            String cust = custO != null ? String.valueOf(custO) : "Kunde";
+                            String firstName = cust.split(" ")[0];
+                            String desc;
+                            if ("picked_up".equals(status)) desc = "mit " + firstName + " unterwegs";
+                            else if ("angekommen".equals(status)) desc = "am Ziel";
+                            else desc = "faehrt zu " + firstName;
+                            next.put(vid, desc);
+                        }
+                        _colleagueCurrentRide.clear();
+                        _colleagueCurrentRide.putAll(next);
+                        runOnUiThread(() -> { try { refreshOnlineColleagues(); } catch (Throwable _ignore) {} });
+                    } catch (Throwable _t) { Log.w(TAG, "active-rides parse: " + _t.getMessage()); }
+                }
+                @Override public void onCancelled(com.google.firebase.database.DatabaseError e) {
+                    Log.w(TAG, "active-rides cancelled: " + e.getMessage());
+                }
+            };
+            db.getReference("rides").orderByChild("status").addValueEventListener(activeRidesListener);
+        } catch (Throwable _t) { Log.w(TAG, "startActiveRidesListener: " + _t.getMessage()); }
     }
 
     // 🆕 v6.66.217 Reverse-Geocode-Cache fuer Kollegen-Adressen

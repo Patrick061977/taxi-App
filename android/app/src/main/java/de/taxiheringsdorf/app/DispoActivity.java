@@ -377,6 +377,10 @@ public class DispoActivity extends AppCompatActivity {
 
         // 🆕 v6.66.55 (Patrick 09.09. Bridge 11:14): HomeCoords + Schichtzeit heute
         //   sichtbar+editierbar in Native Dispo-Live. Vorher nur im Web-Live-Monitor.
+        // 🔧 v6.66.233 (Patrick 04.10. 13:49 "Schichtzeit woanders hin weil die da
+        //   nicht hinpasst oder mit accept der Fahrt zu tun hat"): Schichtzeit raus
+        //   aus dem Home-Row (wo sie wie Fahrtzeit aussah) in eigene Zeile DANACH
+        //   mit explizitem '📅 Schicht:' Prefix. Prominenz reduziert.
         LinearLayout homeRow = new LinearLayout(this);
         homeRow.setOrientation(LinearLayout.HORIZONTAL);
         homeRow.setGravity(Gravity.CENTER_VERTICAL);
@@ -384,14 +388,6 @@ public class DispoActivity extends AppCompatActivity {
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         hlp.topMargin = dp(6);
         homeRow.setLayoutParams(hlp);
-        // Schichtzeit heute
-        String _shiftLbl = getTodayShiftLabelForVehicle(v.id);
-        TextView tvShift = new TextView(this);
-        tvShift.setText(_shiftLbl);
-        tvShift.setTextColor(Color.parseColor(_shiftLbl.contains("Dienst") ? "#94A3B8" : "#22C55E"));
-        tvShift.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
-        tvShift.setPadding(0, 0, dp(8), 0);
-        homeRow.addView(tvShift);
         // 🆕 v6.66.57 (Patrick 09.09. Bridge 11:34): Effektiven Home lesen —
         //   Kaskade Tages-Override → Wochen-Standard → Global-Fallback.
         //   Vorher: nur /vehicles/homeLocation → verpasste Standorte die im
@@ -435,6 +431,17 @@ public class DispoActivity extends AppCompatActivity {
         btnEdit.setOnClickListener(_v -> showHomeEditDialog(vidFinal, vNameFinal, oldHomeFinal));
         homeRow.addView(btnEdit);
         card.addView(homeRow);
+
+        // 🆕 v6.66.233: Schichtzeit als eigene dezente Zeile UNTER dem Home-Row
+        //   (nicht mehr zwischen Fahrzeugname und Fahrt-Details wo sie wie
+        //   Fahrtzeit aussah).
+        String _shiftLblLine = getTodayShiftLabelForVehicle(v.id);
+        TextView tvShiftLine = new TextView(this);
+        tvShiftLine.setText("📅 Schicht: " + _shiftLblLine);
+        tvShiftLine.setTextColor(Color.parseColor(_shiftLblLine.contains("Dienst") ? "#64748B" : "#22C55E"));
+        tvShiftLine.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10);
+        tvShiftLine.setPadding(0, dp(2), 0, 0);
+        card.addView(tvShiftLine);
 
         if (ride != null) {
             TextView line1 = new TextView(this);

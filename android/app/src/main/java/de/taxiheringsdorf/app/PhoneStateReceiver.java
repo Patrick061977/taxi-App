@@ -178,6 +178,18 @@ public class PhoneStateReceiver extends BroadcastReceiver {
                 svc.setAction(CallRecorderService.ACTION_STOP);
                 try { ctx.startService(svc); }
                 catch (Throwable t) { Log.w(TAG, "stop-Intent fehlgeschlagen: " + t.getMessage()); }
+
+                // 🆕 v6.66.244 (Patrick 04.10. 20:42 Bridge): nach Call-Ende AcrUploadService
+                //   mit 15 Sek Delay triggern. ACR braucht 5-10 Sek bis die m4a fertig
+                //   geschrieben ist, danach lädt der Service hoch + beendet sich selbst nach
+                //   90 Sek Inaktivität. Nur bei eingehendem Call (wasRinging) — ausgehende
+                //   werden eh nicht transkribiert.
+                if (wasRinging) {
+                    new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                        try { AcrUploadService.startIfEnabled(ctx); }
+                        catch (Throwable t) { Log.w(TAG, "AcrUploadService-Start fehlgeschlagen: " + t.getMessage()); }
+                    }, 15_000);
+                }
             }
             wasRinging = false;
             lastIncomingNumber = null;

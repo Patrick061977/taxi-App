@@ -6,6 +6,23 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [6.66.244] - 2026-10-04 (ACR-Upload On-Demand statt dauerhaft)
+
+**Patrick 04.10. 20:42 Bridge:** *„Kann man das auch nur starten, wenn ein Anruf angekommen ist, oder muss das permanent laufen?"*
+
+Variante A gewählt (On-Demand):
+
+- `AcrUploadService.onCreate()`: Einmalig `recentOnlyScan` (letzte 15 Min), dann **Auto-Stop nach 90 s Inaktivität**. Kein FileObserver mehr, kein 5-Min-Rescan.
+- `PhoneStateReceiver`: Nach `IDLE`-Transition und wenn der Call eingehend war (`wasRinging == true`): 15 s warten (ACR-Schreibzeit), dann `AcrUploadService.startIfEnabled()`.
+- `AdminDashboardActivity`: Startet den Service weiterhin als Fallback (für den Fall dass die App komplett zu war und keiner Dateien gesehen hat).
+- Notification: `PRIORITY_MIN` statt `PRIORITY_LOW`, `setTimeoutAfter(90_000)` — verschwindet automatisch nach Auto-Stop.
+
+Keine Hintergrund-Last mehr, kein verwirrendes "Call-Upload aktiv"-Icon dauerhaft.
+
+**Version:** 6.66.243 → 6.66.244.
+
+---
+
 ## [6.66.243] - 2026-10-04 (Call-Vorschlag: Fallback bei fehlender Pickup-Zeit)
 
 **Patrick 04.10. 19:58 Bridge:** *„Wenn ich auf Bearbeiten klicke, kann ich nichts machen — 'Keine Pick-Up-Zeit, bitte bearbeiten'."*

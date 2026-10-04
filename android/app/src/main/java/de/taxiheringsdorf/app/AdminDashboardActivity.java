@@ -169,6 +169,11 @@ public class AdminDashboardActivity extends AppCompatActivity {
             }
         }
 
+        // 🆕 v6.66.240 (Patrick 04.10. 18:29 Bridge): Auto-Upload ACR-Call-Recordings
+        //   nach Firebase Storage, damit Cloud-Function Whisper + extractAudioBookingData
+        //   laufen kann und Native-App Admin-Dashboard eine Call-Vorschlag-Card zeigt.
+        try { AcrUploadService.startIfEnabled(this); } catch (Throwable _ignore) {}
+
         // v6.62.197: Update-Banner aktivieren — vorher kamen Updates auf Admin-Geraeten
         // nicht durch weil dieser Activity keinen UpdateChecker-Aufruf hatte. Patrick:
         // 'warum werden die updates der apk nicht auf das handy runtergeladen?'.

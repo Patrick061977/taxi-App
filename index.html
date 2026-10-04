@@ -13320,8 +13320,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '6.66.211';
-        const APP_BUILD = '04.10.2026 09:00';
+        const APP_VERSION = '6.66.212';
+        const APP_BUILD = '04.10.2026 09:08';
         const APP_CHANGE = 'v6.66.87: autoAssignRide Settings-Cache 5min → 15sek (Malus/Override greifen sofort).';
 
         // 🔧 FIX: Mache APP_VERSION global verfügbar
@@ -30738,10 +30738,34 @@ Aktuell: ${currentNum}`;
         }
         
         // 🚗 ONLINE-FAHRER ANZEIGEN
+        // 🆕 v6.66.212: Alarm-Readiness-Cache (60s TTL) damit updateOnlineDriversList nicht
+        //   bei jedem Call ein /vehicles-Read macht.
+        window._alarmReadinessCache = window._alarmReadinessCache || { ts: 0, data: {} };
+        async function ensureAlarmReadinessCache() {
+            const AGE_MS = Date.now() - window._alarmReadinessCache.ts;
+            if (AGE_MS < 60000 && Object.keys(window._alarmReadinessCache.data).length > 0) return;
+            try {
+                const snap = await db.ref('vehicles').once('value');
+                const result = {};
+                snap.forEach(v => {
+                    const ar = v.child('alarmReadiness').val();
+                    if (ar) result[v.key] = ar;
+                });
+                window._alarmReadinessCache = { ts: Date.now(), data: result };
+                window.vehicles = window.vehicles || {};
+                Object.keys(result).forEach(vid => {
+                    window.vehicles[vid] = window.vehicles[vid] || {};
+                    window.vehicles[vid].alarmReadiness = result[vid];
+                });
+            } catch (_arErr) { console.warn('v6.66.212 alarmReadiness-Cache:', _arErr.message); }
+        }
+
         function updateOnlineDriversList() {
             const driversList = document.getElementById('online-drivers-list');
             if (!driversList) return;
-            
+            // Fire-and-forget: Cache aufbauen, naechste Darstellung profitiert davon
+            try { ensureAlarmReadinessCache(); } catch (_e) {}
+
             const now = Date.now();
             const onlineDrivers = [];
             
@@ -30789,7 +30813,25 @@ Aktuell: ${currentNum}`;
                 const gpsStatus = d.hasGPS ? '✅ GPS aktiv' : '💾 Kein GPS';
                 const gpsColor = d.hasGPS ? '#10b981' : '#ef4444';
                 const updateText = d.minutesSinceUpdate === 0 ? 'Gerade eben' : `vor ${d.minutesSinceUpdate} Min`;
-                
+
+                // 🆕 v6.66.212 (Patrick 04.10.26 Bridge "kann ich sehen ob der Fahrer einen
+                //   Push bekommen hat"): Alarm-Readiness-Badge pro Fahrer. Daten aus
+                //   /vehicles/{vid}/alarmReadiness (seit v6.66.210 geschrieben von Native).
+                let alarmBadge = '';
+                try {
+                    const _ar = (window._alarmReadinessCache?.data || {})[d.vehicleId]
+                             || (window.vehicles || {})[d.vehicleId]?.alarmReadiness;
+                    if (!_ar || typeof _ar !== 'object') {
+                        alarmBadge = '<span title="Alte App-Version — Readiness nicht verfuegbar" style="background:#9ca3af;color:white;padding:3px 8px;border-radius:10px;font-size:11px;font-weight:600;">📱 Alte App</span>';
+                    } else if (_ar.overallOk === true) {
+                        const _tested = _ar.lastCheck ? Math.round((Date.now() - _ar.lastCheck) / 60000) : null;
+                        alarmBadge = `<span title="Alarm-Readiness OK (Check vor ${_tested||'?'} Min)" style="background:#10b981;color:white;padding:3px 8px;border-radius:10px;font-size:11px;font-weight:600;">🟢 Alarm OK</span>`;
+                    } else {
+                        const _issues = Array.isArray(_ar.issues) ? _ar.issues.slice(0, 3).join(', ') : 'unbekannt';
+                        alarmBadge = `<span title="${_issues}" style="background:#f97316;color:white;padding:3px 8px;border-radius:10px;font-size:11px;font-weight:600;">🟠 Alarm ISSUE</span>`;
+                    }
+                } catch (_arErr) { /* non-critical */ }
+
                 return `
                     <div style="background:white;padding:15px;border-radius:8px;margin-bottom:10px;border-left:4px solid ${gpsColor};">
                         <div style="display:flex;justify-content:space-between;align-items:center;">
@@ -30800,6 +30842,7 @@ Aktuell: ${currentNum}`;
                                 <div style="font-size:12px;color:#666;margin-top:4px;">
                                     ${d.vehicle.plate}
                                 </div>
+                                <div style="margin-top:6px;">${alarmBadge}</div>
                             </div>
                             <div style="text-align:right;">
                                 <div style="color:${gpsColor};font-weight:600;font-size:13px;">

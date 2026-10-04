@@ -178,6 +178,24 @@
                 android:textStyle="bold" />
         </LinearLayout>
 
+        <!-- 🆕 v6.66.212 (Patrick 04.10.26 Bridge "wie viele Fahrer online sind,
+             irgendwo auf dem Hauptscreen"): Online-Fahrer-Count sichtbar oben.
+             Zeigt wie viele Kollegen + welche. -->
+        <TextView
+            android:id="@+id/tv_online_colleagues"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="#064E3B"
+            android:text="👥 Lade online-Fahrer…"
+            android:textColor="#A7F3D0"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            android:padding="10dp"
+            android:layout_marginStart="10dp"
+            android:layout_marginEnd="10dp"
+            android:layout_marginTop="4dp"
+            android:layout_marginBottom="4dp"/>
+
         <!-- 🆕 v6.66.61 (Patrick 09.09. SVG-Mockup msgId 47280 "Ja"):
              Home-Karte im Header — Fahrer sieht permanent wo sein Standort heute ist.
              Kaskade: Tages-Ausnahme -> Wochen-Standard(dow) -> Global-Fallback. -->

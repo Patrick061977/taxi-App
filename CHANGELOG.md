@@ -6,6 +6,35 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [6.66.239] - 2026-10-04 (LATE-RESCUE respektiert "akzeptiert ist akzeptiert")
+
+**Patrick 04.10. 16:14 Bridge Wolf-Vorfall:** *„Warum wurde die Wolf Fahrt jetzt danilo wieder weggenommen obwohl er die Fahrt angenommen hatte"*
+
+**Vorfall:**
+- 16:11:53: Prius IK (pw-ik-222) nimmt Wolf 16:40 via Banner-Tap an → `status=accepted`.
+- 16:13:03 (70 Sek später): `scheduledLateCheck v6.62.548` triggert LATE-RESCUE und zieht Prius IK die Fahrt weg, gibt sie Danilo (Tesla MY222) — Begründung „21 Min schneller am Pickup".
+- 16:13:12 (9 Sek später): Reject-Rotation erschöpft → wartepool.
+- 16:14:01: `scheduledAutoAssign` weist wieder Prius IK zu.
+- Kunde erhielt in diesem Chaos eine „Fahrzeug-Wechsel"-SMS obwohl der Fahrer unverändert blieb.
+
+**Regelverletzung:** CLAUDE.md ([memory/feedback_akzeptiert-ist-akzeptiert.md](memory/feedback_akzeptiert-ist-akzeptiert.md), Patrick 09.09.): *„akzeptierte Fahrten NIE auto-entziehen."* `scheduledLosfahrCheck` wurde ab v6.66.62 no-op — `scheduledLateCheck` hingegen nicht, obwohl der Spirit identisch ist.
+
+**Fix in `functions/index.js` (`scheduledLateCheck`, Z36598):**
+Direkt nach `assignmentLocked`-Skip ein zweiter Skip:
+```js
+if (ride.status === 'accepted' || ride.acceptedAt) {
+    console.log(`✅ LATE-RESCUE: ${ride.customerName || '?'} SKIP — akzeptiert ist akzeptiert`);
+    await addRideLog(ride.firebaseId, '✅', `LATE-RESCUE skip — akzeptiert ist akzeptiert (${oldName})`, { quelle: 'scheduledLateCheck v6.66.239', regel: 'CLAUDE md 09.09.' });
+    continue;
+}
+```
+
+Wenn der Fahrer committed hat, lieber 5-10 Min Verspätung in Kauf nehmen als Dispo-Ping-Pong und falsche Kunden-SMS.
+
+**Version:** 6.66.238 → 6.66.239 (functions-Deploy nötig; Android-APK trotzdem hochgezogen, kein Native-Code-Change).
+
+---
+
 ## [6.66.162] - 2026-10-02 (Rückfahrt-Swap-Sync + WhatsApp-Bestätigung Datum)
 
 **Patrick 02.10. 15:08 Bridge:** *„Wenn die Orte getauscht werden, dann müsste die Rückfahrt auch getauscht werden. Also immer genau das Gegenteil von dem, was oben steht, muss dann unten auch stehen. Kriegst du das simultan hin, also synchron?"*

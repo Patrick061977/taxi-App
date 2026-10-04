@@ -4545,8 +4545,8 @@ public class DriverDashboardActivity extends AppCompatActivity {
                                 }
                             }
                             // 🆕 v6.66.224: aktueller Status aus _colleagueCurrentRide
-                            String status = _colleagueCurrentRide.get(vid);
-                            String statusSuffix = (status != null && !status.isEmpty()) ? " · " + status : "";
+                            String rideStatus = _colleagueCurrentRide.get(vid);
+                            String statusSuffix = (rideStatus != null && !rideStatus.isEmpty()) ? " · " + rideStatus : "";
                             lines.add("👤 " + firstName + " online" + statusSuffix + "\n" + loc);
                         }
                         final String label;

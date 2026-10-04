@@ -4495,17 +4495,29 @@ public class DriverDashboardActivity extends AppCompatActivity {
                             String vName = nameO != null ? String.valueOf(nameO) : vid;
                             String drvName = drvO != null ? String.valueOf(drvO) : vName;
                             String firstName = drvName.split(" ")[0];
-                            // v6.66.216: aktueller Standort (als Koordinaten — Reverse-Geocode kommt in v6.66.217)
+                            // v6.66.217 (Patrick 04.10. 09:27+09:40 'Danilo sehe ich noch nicht wo er ist'):
+                            //   Reverse-Geocode via android.location.Geocoder (built-in, kostenlos).
+                            //   Cache pro vid in colleagueAddressCache (TTL 60s) damit nicht permanent
+                            //   nachgeschaut wird.
                             Object addrO = vSnap.child("currentAddress").getValue();
                             String loc;
                             if (addrO instanceof String && !((String) addrO).isEmpty()) {
-                                loc = (String) addrO;
+                                loc = "📍 " + (String) addrO;
                             } else {
                                 Object latO = vSnap.child("lat").getValue();
                                 Object lonO = vSnap.child("lon").getValue();
                                 if (latO instanceof Number && lonO instanceof Number) {
-                                    loc = String.format(java.util.Locale.GERMAN, "📍 %.4f, %.4f",
-                                        ((Number) latO).doubleValue(), ((Number) lonO).doubleValue());
+                                    double lat = ((Number) latO).doubleValue();
+                                    double lon = ((Number) lonO).doubleValue();
+                                    // Cache-Hit?
+                                    String cached = getCachedColleagueAddress(vid, lat, lon);
+                                    if (cached != null) {
+                                        loc = "📍 " + cached;
+                                    } else {
+                                        loc = String.format(java.util.Locale.GERMAN, "📍 lade Adresse… (%.4f, %.4f)", lat, lon);
+                                        // async reverse-geocode fuer naechstes Refresh
+                                        resolveColleagueAddress(vid, lat, lon);
+                                    }
                                 } else {
                                     loc = "📍 kein GPS";
                                 }
@@ -4529,6 +4541,61 @@ public class DriverDashboardActivity extends AppCompatActivity {
             };
             db.getReference("vehicles").addValueEventListener(onlineColleaguesListener);
         } catch (Throwable _t) { Log.w(TAG, "refreshOnlineColleagues: " + _t.getMessage()); }
+    }
+
+    // 🆕 v6.66.217 Reverse-Geocode-Cache fuer Kollegen-Adressen
+    private final java.util.Map<String, String> _colleagueAddrCache = new java.util.HashMap<>();
+    private final java.util.Map<String, Long> _colleagueAddrCacheTs = new java.util.HashMap<>();
+    private final java.util.Set<String> _colleagueAddrInFlight = new java.util.HashSet<>();
+
+    private String getCachedColleagueAddress(String vid, double lat, double lon) {
+        // Cache-Key: vid + grob-gerundete Koordinaten (3 Nachkommastellen ≈ 100m)
+        String key = vid + "@" + Math.round(lat * 1000) + "_" + Math.round(lon * 1000);
+        Long ts = _colleagueAddrCacheTs.get(key);
+        if (ts != null && (System.currentTimeMillis() - ts) < 60_000) {
+            return _colleagueAddrCache.get(key);
+        }
+        return null;
+    }
+
+    private void resolveColleagueAddress(String vid, double lat, double lon) {
+        final String key = vid + "@" + Math.round(lat * 1000) + "_" + Math.round(lon * 1000);
+        if (_colleagueAddrInFlight.contains(key)) return;
+        _colleagueAddrInFlight.add(key);
+        new Thread(() -> {
+            try {
+                android.location.Geocoder gc = new android.location.Geocoder(this, java.util.Locale.GERMAN);
+                java.util.List<android.location.Address> addrs = gc.getFromLocation(lat, lon, 1);
+                String formatted = null;
+                if (addrs != null && !addrs.isEmpty()) {
+                    android.location.Address a = addrs.get(0);
+                    String street = a.getThoroughfare();
+                    String locality = a.getLocality();
+                    if (street == null) street = a.getFeatureName();
+                    if (locality == null) locality = a.getSubLocality();
+                    StringBuilder sb = new StringBuilder();
+                    if (street != null) sb.append(street);
+                    if (locality != null) {
+                        if (sb.length() > 0) sb.append(", ");
+                        sb.append(locality);
+                    }
+                    if (sb.length() == 0 && a.getAddressLine(0) != null) sb.append(a.getAddressLine(0));
+                    formatted = sb.toString();
+                }
+                if (formatted != null && !formatted.isEmpty()) {
+                    _colleagueAddrCache.put(key, formatted);
+                    _colleagueAddrCacheTs.put(key, System.currentTimeMillis());
+                    // Falls Daten da sind, UI refreshen damit die neue Adresse angezeigt wird.
+                    runOnUiThread(() -> {
+                        try { refreshOnlineColleagues(); } catch (Throwable _ignore) {}
+                    });
+                }
+            } catch (Throwable t) {
+                Log.w(TAG, "Geocode-Fehler fuer " + vid + ": " + t.getMessage());
+            } finally {
+                _colleagueAddrInFlight.remove(key);
+            }
+        }, "colleague-geocode-" + vid).start();
     }
 
     private void refreshFcmToken(String vid) {

@@ -257,6 +257,24 @@ public class DriverDashboardActivity extends AppCompatActivity {
         homeCard = findViewById(R.id.home_card);
         tvHomeInline = findViewById(R.id.tv_home_inline);
         tvOnlineColleagues = findViewById(R.id.tv_online_colleagues); // v6.66.212
+        // 🆕 v6.66.218 (Patrick 04.10. 09:57 'Wenn man auf Danielo klickt sollte sich die Karte oeffnen'):
+        //   Kollegen-Zeile klickbar → Fleet-Map oeffnen (zeigt alle Kollegen inkl. deren Standorte).
+        if (tvOnlineColleagues != null) {
+            tvOnlineColleagues.setOnClickListener(v -> {
+                try {
+                    String myVid = getSharedPreferences("driver", MODE_PRIVATE).getString("vehicleId", "");
+                    String url = "https://umwelt-taxi-insel-usedom.de/fahrer-map.html?myVehicle="
+                        + java.net.URLEncoder.encode(myVid) + "&nc=" + System.currentTimeMillis();
+                    androidx.browser.customtabs.CustomTabsIntent intent =
+                        new androidx.browser.customtabs.CustomTabsIntent.Builder()
+                            .setShowTitle(true)
+                            .build();
+                    intent.launchUrl(this, android.net.Uri.parse(url));
+                } catch (Throwable t) {
+                    Log.w(TAG, "colleagues-click Karte-oeffnen Fehler: " + t.getMessage());
+                }
+            });
+        }
         try { refreshOnlineColleagues(); } catch (Throwable _t) { Log.w(TAG, "online-colleagues init: " + _t.getMessage()); }
         tvHomeLocation = findViewById(R.id.tv_home_location);
         tvHomeSource = findViewById(R.id.tv_home_source);

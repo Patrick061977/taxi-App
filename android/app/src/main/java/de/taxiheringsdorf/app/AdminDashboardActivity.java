@@ -428,7 +428,13 @@ public class AdminDashboardActivity extends AppCompatActivity {
             boolean sofortOhneFahrer = noVehicle
                     && r.status != null
                     && ("new".equalsIgnoreCase(r.status) || "sofort".equalsIgnoreCase(r.status));
-            if (isWartepool || hasWartepoolAt || autoAssignFailedNoVehicle || sofortOhneFahrer) {
+            // v6.66.237 (Patrick 04.10. 15:01 Bridge "Fahrten die nicht vermittelt werden
+            //   muessen oben im Banner bleiben, dass jeder sie sieht"): auch Vorbestellungen
+            //   OHNE Vehicle in den Banner — nicht nur status=new/sofort/wartepool.
+            boolean vorbestOhneFahrer = noVehicle
+                    && r.status != null
+                    && "vorbestellt".equalsIgnoreCase(r.status);
+            if (isWartepool || hasWartepoolAt || autoAssignFailedNoVehicle || sofortOhneFahrer || vorbestOhneFahrer) {
                 wartepoolRides.add(r);
             } else {
                 rest.add(r);

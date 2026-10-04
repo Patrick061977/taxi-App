@@ -76,22 +76,33 @@ public class AcrUploadService extends Service {
     public void onCreate() {
         super.onCreate();
         createNotifChannel();
-        startForeground(NOTIF_ID, buildNotification("ACR-Upload aktiv"));
-        Log.i(TAG, "Service gestartet");
+        startForeground(NOTIF_ID, buildNotification("Call-Upload sucht neue Dateien..."));
+        Log.i(TAG, "Service gestartet (v6.66.244 On-Demand)");
 
-        // 🔧 v6.66.242 (Patrick 04.10. 18:58 Bridge "App stürzt ab"): KEIN Initial-Scan mehr.
-        //   Der v6.66.240-Service hat beim ersten Start über 100e alte m4a aus 2026 gescannt,
-        //   parallel hochgeladen, Memory/Firebase-Rate-Limit → App-Crash. Jetzt nur noch
-        //   FileObserver für NEUE Dateien ab Service-Start. Alte Dateien koennen manuell
-        //   via CallRecordingsActivity-Sync-Button nachgezogen werden (TODO v243).
+        // 🔧 v6.66.244 (Patrick 04.10. 20:42 Bridge "kann man das auch nur starten wenn ein
+        //   Anruf angekommen ist?"): Service läuft NICHT mehr dauerhaft. Wird nur noch von
+        //   PhoneStateReceiver nach IDLE+wasRinging getriggert bzw. aus AdminDashboardActivity
+        //   als Backup. KEIN FileObserver mehr — der verlangt Dauerbetrieb. Stattdessen:
+        //   Ein einzelner recentOnlyScan (letzte 15 Min), danach Auto-Stop nach 90 Sek
+        //   Inaktivität.
 
-        // Rescans alle 5 Min als Safety-Net falls FileObserver was verpasst (seltener als
-        // v240 → 60s weil die Scan-Last reduziert werden muss)
-        scanHandler.postDelayed(periodicRescan, 300_000);
-
-        // FileObserver auf alle Root-Dirs einrichten
-        setupObservers();
+        // Ein-malig scannen
+        scanHandler.postDelayed(this::recentOnlyScan, 2000);
+        // Auto-Stop nach 90s Inaktivitaet (reicht fuer Upload + Puffer)
+        scanHandler.postDelayed(autoStopRunnable, 90_000);
     }
+
+    private final Runnable autoStopRunnable = () -> {
+        synchronized (inFlight) {
+            if (!inFlight.isEmpty()) {
+                // Noch Upload laufend → nochmal 30s warten
+                scanHandler.postDelayed(this.autoStopRunnable, 30_000);
+                return;
+            }
+        }
+        Log.i(TAG, "Auto-Stop nach Inaktivitaet");
+        stopSelf();
+    };
 
     private final Runnable periodicRescan = new Runnable() {
         @Override public void run() {
@@ -282,11 +293,12 @@ public class AcrUploadService extends Service {
 
     private Notification buildNotification(String text) {
         return new NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Call-Upload")
+            .setContentTitle("Call-Upload (einmalig)")
             .setContentText(text)
             .setSmallIcon(android.R.drawable.stat_sys_upload)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setPriority(NotificationCompat.PRIORITY_MIN)
             .setOngoing(false)
+            .setTimeoutAfter(90_000)
             .build();
     }
 

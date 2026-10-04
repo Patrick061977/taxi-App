@@ -6,6 +6,22 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [6.66.242] - 2026-10-04 (ACR-Upload-Service Crash-Fix: kein Initial-Scan + Serial-Upload)
+
+**Patrick 04.10. 18:58 Bridge:** *„Jetzt stürzt die App ein bisschen oft ab. Also er lädt das hoch und lädt das wieder runter."*
+
+**Ursache v6.66.240:** Initial-Scan iterierte über alle `.m4a` in `/sdcard/ACRCalls/ACRPhone/*` (teilweise hunderte alte Aufnahmen aus 2026) und startete alle parallel. Firebase-Rate-Limit + Memory-Pressure → Service-Crash.
+
+**Fix:**
+- Kein Initial-Scan mehr beim Service-Start. Nur FileObserver bekommt neue Dateien.
+- Rescan alle **5 Min** (statt 60 s) und nur Dateien **jünger als 15 Min** als Safety-Net für verpasste FileObserver-Events.
+- Serial-Upload: wenn bereits ein Upload läuft, werden weitere Dateien zunächst geskippt. FileObserver bzw. periodischer Rescan picken sie beim nächsten Durchlauf auf.
+- Historische m4a-Dateien syncen → folgt in v6.66.243 (Button in CallRecordingsActivity).
+
+**Version:** 6.66.241 → 6.66.242.
+
+---
+
 ## [6.66.241] - 2026-10-04 (Call-zu-Fahrt-Autoflow Baustein 2+3)
 
 **Patrick 04.10. 18:29 Bridge:** *„Ich will, dass das alles automatisch funktioniert."*

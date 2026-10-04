@@ -32275,22 +32275,16 @@ exports.onRideUpdated = onValueUpdated(
             const _anfahrtMin209 = Math.round(after.drivingTimeToPickup || 10) || 10;
             const _schwelleMin209 = 30 + _anfahrtMin209;
             const _isVorbestPlan = (after.status === 'vorbestellt') && _minutesUntilPickup > _schwelleMin209;
-            // 🆕 v6.66.214 Fix (Patrick 04.10. 09:23 "Boettcher 05.10. 09:00 kommt gerade an?"):
-            //   Push NUR beim VEHICLE-Wechsel senden, nicht bei jedem Update (ETA-Refresh,
-            //   priceCalculation etc.). Sonst bekommt der Fahrer Pings fuer Vorbestellungen
-            //   die schon vor Tagen zugewiesen wurden.
-            const _vehicleChanged209 = (oldVehicle || null) !== (newVehicle || null);
-            // 🆕 v6.66.222 (Patrick 04.10. 10:28 "wozu Alarm fuer 12:15 Fahrt was soll der Quatsch"):
-            //   Zusaetzlich: Push nur noch wenn Pickup <60 Min entfernt. Weit entfernte
-            //   Umplanungen (zB 2h vorher) ergeben keinen Sinn fuer den Fahrer → komplett still.
-            //   Chronik-Eintrag bleibt, nur kein akustisches Signal.
-            const _withinPingWindow222 = _minutesUntilPickup <= 60;
-            if (_isVorbestPlan && !_vehicleChanged209) {
-                console.log(`📅 v6.66.214 Vorbestellung-Ping SKIP — kein Vehicle-Wechsel (ride ${rideId})`);
-            } else if (_isVorbestPlan && !_withinPingWindow222) {
-                console.log(`📅 v6.66.222 Vorbestellung-Ping SKIP — Pickup ${Math.round(_minutesUntilPickup)} Min entfernt (>60 Min window)`);
-                try { await addRideLog(rideId, '📅', `Vorbestellung zugewiesen (${Math.round(_minutesUntilPickup)} Min bis Pickup — kein Push, zu frueh)`, { quelle: 'onRideUpdated v6.66.222', vehicle: newVehicle }); } catch(_) {}
-            } else if (_isVorbestPlan) {
+            // 🆕 v6.66.223 (Patrick 04.10. 10:31 Bridge "haben wir noch nie besprochen,
+            //   steht ueberhaupt nicht zur Debatte, bei jeder Umverteilung ein Bimmelimme-Limm"):
+            //   Vorbestellung-Ping bei Umverteilungen komplett ENTFERNT. Patrick will
+            //   Alarm NUR wenn Fahrt anliegt (Pickup <=30+Anfahrt Min). Dafuer gibts jetzt
+            //   scheduledLateAssignAlarm. onRideUpdated-Ping fuer Vorbestellungen ist raus.
+            //   Nur Chronik-Entry bleibt.
+            if (_isVorbestPlan) {
+                console.log(`📅 v6.66.223 Vorbestellung-Push ENTFERNT — nur Chronik (${Math.round(_minutesUntilPickup)} Min bis Pickup)`);
+                try { await addRideLog(rideId, '📅', `Vorbestellung zugewiesen an ${newVehicle} (${Math.round(_minutesUntilPickup)} Min bis Pickup — Alarm folgt bei <${Math.round(_schwelleMin209)} Min)`, { quelle: 'onRideUpdated v6.66.223', vehicle: newVehicle }); } catch(_) {}
+            } else if (false && _isVorbestPlan) { // DEAD CODE — v6.66.223 Push-Pfad entfernt
                 // 🆕 v6.66.209 (Patrick 04.10.26 Bridge "podulski angeboten bekommen ohne Alarm"):
                 //   v6.63.190 hatte Push ganz blockiert bei >30 Min — Fahrer bekam KEIN
                 //   akustisches Signal dass eine Vorbestellung zugewiesen wurde. Patrick
@@ -34992,6 +34986,71 @@ exports.scheduledWartepoolCleanup = onSchedule(
             }
         } catch (err) {
             console.error('scheduledWartepoolCleanup Fehler:', err.message);
+        }
+    }
+);
+
+// 🆕 v6.66.223 (Patrick 04.10. 10:30 Bridge "ich habe keinen Alarm bekommen fuer Thielsch"):
+//   Cron 5 Min — findet Rides mit assignedVehicle + kein acceptedAt + Pickup innerhalb
+//   30+drivingTimeToPickup Min → sendet VOLLER ALARM (type='new_ride' sev=alarm) an das
+//   Fahrzeug. Verhindert dass Fahrer zugewiesene Vorbestellungen uebersehen weil die
+//   Zuweisung lange her ist. Nur 1x pro Ride via lateAssignAlarmSent-Flag.
+exports.scheduledLateAssignAlarm = onSchedule(
+    { schedule: 'every 5 minutes', region: 'europe-west1', timeoutSeconds: 60, memory: '256MiB' },
+    async (event) => {
+        try {
+            const now = Date.now();
+            const horizon = now + 60 * 60 * 1000; // naechste 60 Min
+            const snap = await db.ref('rides')
+                .orderByChild('pickupTimestamp')
+                .startAt(now - 5 * 60 * 1000)
+                .endAt(horizon)
+                .once('value');
+            if (!snap.exists()) return;
+            const _tasks = [];
+            snap.forEach(child => {
+                const ride = child.val();
+                const rideId = child.key;
+                if (!ride || ride.lateAssignAlarmSent === true) return;
+                if (!['vorbestellt', 'assigned'].includes(ride.status)) return;
+                const vehId = ride.assignedVehicle || ride.vehicleId;
+                if (!vehId) return;
+                if (ride.acceptedAt) return;
+                if (!ride.pickupTimestamp) return;
+                const minsToPickup = (ride.pickupTimestamp - now) / 60000;
+                const anfahrt = Math.round(ride.drivingTimeToPickup || 10) || 10;
+                const schwelle = 30 + anfahrt;
+                if (minsToPickup > schwelle || minsToPickup < -5) return;
+                _tasks.push({ rideId, ride, vehId, minsToPickup, schwelle });
+            });
+            if (_tasks.length === 0) return;
+            console.log(`🔔 v6.66.223 scheduledLateAssignAlarm — ${_tasks.length} Fahrten innerhalb Schwelle, nicht akzeptiert`);
+            for (const t of _tasks) {
+                try {
+                    const _pickupLabel = t.ride.pickupTime || (t.ride.pickupTimestamp ? new Date(t.ride.pickupTimestamp).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' }) : '?');
+                    await sendFCMToVehicle(t.vehId, {
+                        type: 'new_ride',
+                        rideId: t.rideId,
+                        vehicleId: t.vehId,
+                        pickup: t.ride.pickup || '',
+                        destination: t.ride.destination || '',
+                        pickupTime: _pickupLabel,
+                        customerName: t.ride.customerName || 'Kunde',
+                        isVorbestellung: 'false',
+                        reason: 'late-assign-alarm'
+                    });
+                    await db.ref(`rides/${t.rideId}`).update({
+                        lateAssignAlarmSent: true,
+                        lateAssignAlarmAt: now
+                    });
+                    try { await addRideLog(t.rideId, '🔔', `v6.66.223 Late-Assign-Alarm an ${t.vehId} (Pickup in ${Math.round(t.minsToPickup)} Min, Schwelle ${t.schwelle})`, { quelle: 'scheduledLateAssignAlarm v6.66.223' }); } catch(_) {}
+                    console.log(`✅ v6.66.223 Alarm an ${t.vehId} fuer ${t.rideId} (Pickup in ${Math.round(t.minsToPickup)} Min)`);
+                } catch (_err) {
+                    console.warn(`⚠️ v6.66.223 Alarm-Fehler fuer ${t.rideId}: ${_err.message}`);
+                }
+            }
+        } catch (e) {
+            console.error('❌ v6.66.223 scheduledLateAssignAlarm Fehler:', e.message);
         }
     }
 );

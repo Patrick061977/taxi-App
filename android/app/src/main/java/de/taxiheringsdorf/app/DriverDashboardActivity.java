@@ -4589,12 +4589,20 @@ public class DriverDashboardActivity extends AppCompatActivity {
                     android.location.Address a = addrs.get(0);
                     String street = a.getThoroughfare();
                     String locality = a.getLocality();
-                    String plz = a.getPostalCode(); // 🆕 v6.66.219 (Patrick 10:00 'kannst du auch die PLZ einfuegen')
-                    if (street == null) street = a.getFeatureName();
+                    String plz = a.getPostalCode();
+                    // v6.66.220 (Patrick 10:10 'W5CC+5F was ist das'): Plus-Codes rausfiltern.
+                    //   Android gibt den als FeatureName/AddressLine zurueck wenn Thoroughfare
+                    //   null ist. Pattern: 4 Zeichen + + 2 Zeichen oder laenger.
+                    java.util.regex.Pattern plusCodeRe = java.util.regex.Pattern.compile("^[A-Z0-9]{2,6}\\+[A-Z0-9]{2,6}");
+                    if (street != null && plusCodeRe.matcher(street.trim()).find()) street = null;
+                    if (street == null) {
+                        String fn = a.getFeatureName();
+                        if (fn != null && !plusCodeRe.matcher(fn.trim()).find()) street = fn;
+                    }
                     if (locality == null) locality = a.getSubLocality();
                     StringBuilder sb = new StringBuilder();
                     if (street != null) sb.append(street);
-                    // v6.66.219: PLZ vor den Ortsnamen (DIN-5008-Stil: '17424 Heringsdorf')
+                    // PLZ vor den Ortsnamen (DIN-5008-Stil: '17424 Heringsdorf')
                     if (plz != null || locality != null) {
                         if (sb.length() > 0) sb.append(", ");
                         if (plz != null && !plz.isEmpty()) {
@@ -4603,7 +4611,15 @@ public class DriverDashboardActivity extends AppCompatActivity {
                         }
                         if (locality != null) sb.append(locality);
                     }
-                    if (sb.length() == 0 && a.getAddressLine(0) != null) sb.append(a.getAddressLine(0));
+                    // Fallback getAddressLine nur wenn er KEIN Plus-Code ist
+                    if (sb.length() == 0) {
+                        String line0 = a.getAddressLine(0);
+                        if (line0 != null && !plusCodeRe.matcher(line0.trim()).find()) {
+                            sb.append(line0);
+                        } else {
+                            sb.append("unbekannter Standort");
+                        }
+                    }
                     formatted = sb.toString();
                 }
                 if (formatted != null && !formatted.isEmpty()) {

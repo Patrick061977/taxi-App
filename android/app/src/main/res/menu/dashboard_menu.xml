@@ -23,6 +23,8 @@
     <item android:id="@+id/menu_preauth_link" android:title="💳 Vorkasse-Link (Stripe)" />
     <!-- v6.66.211: Alarm-Einstellungen + Push-Historie -->
     <item android:id="@+id/menu_alarm_settings" android:title="🔔 Alarm-Einstellungen" />
+    <!-- v6.66.232: Alternative Dashboard-Ansichten -->
+    <item android:id="@+id/menu_alt_dashboard" android:title="🎨 Alternative Ansichten" />
     <item android:id="@+id/menu_change_vehicle" android:title="🚗 Fahrzeug wechseln" />
     <item android:id="@+id/menu_logout" android:title="🚪 Abmelden" />
 </menu>

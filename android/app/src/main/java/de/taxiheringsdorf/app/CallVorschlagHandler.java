@@ -140,27 +140,61 @@ public class CallVorschlagHandler {
         card.setVisibility(View.VISIBLE);
     }
 
-    @SuppressWarnings("unchecked")
     private void handleAnlegen() {
         if (currentVorschlagId == null || currentExtracted == null) {
             Toast.makeText(activity, "Keine Daten", Toast.LENGTH_SHORT).show();
             return;
         }
+        createRideThen(true, newRideId -> {
+            Toast.makeText(activity, "✓ Fahrt angelegt", Toast.LENGTH_SHORT).show();
+        });
+    }
+
+    private void handleEdit() {
+        if (currentVorschlagId == null || currentExtracted == null) {
+            Toast.makeText(activity, "Keine Daten", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        // 🆕 v6.66.245 (Patrick 05.10. 07:34 Bridge: "Bearbeiten-Button führt mich nicht zur
+        //   Fahrt bearbeiten"): Fahrt mit extracted anlegen UND direkt Admin-Dashboard mit
+        //   Edit-Trigger oeffnen. Patrick kann dann im bekannten Edit-Dialog Felder
+        //   korrigieren. Wenn er abbricht, bleibt die Fahrt bestehen und kann regulaer
+        //   geloescht werden. v6.66.246 traegt einen echten Prefilled-Edit-Dialog nach.
+        createRideThen(/*applied=*/true, newRideId -> {
+            try {
+                android.content.Intent i = new android.content.Intent(activity, AdminDashboardActivity.class);
+                i.putExtra("auto_edit_ride_id", newRideId);
+                i.addFlags(android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP | android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP);
+                activity.startActivity(i);
+            } catch (Throwable t) {
+                Log.w(TAG, "Edit-Intent fehlgeschlagen: " + t.getMessage());
+            }
+        });
+    }
+
+    @SuppressWarnings("unchecked")
+    private void createRideThen(boolean markApplied, java.util.function.Consumer<String> onDone) {
+        if (currentExtracted == null) return;
+        Map<String, Object> ride = buildRideFromExtracted();
+        if (ride == null) return;
+        com.google.firebase.database.DatabaseReference ref = FirebaseDatabase.getInstance(DB_URL).getReference("rides").push();
+        final String newId = ref.getKey();
+        ref.setValue(ride, (err, r) -> {
+            if (err != null) {
+                Toast.makeText(activity, "Fehler: " + err.getMessage(), Toast.LENGTH_LONG).show();
+                return;
+            }
+            if (markApplied) markVorschlagStatus("applied");
+            if (onDone != null && newId != null) onDone.accept(newId);
+        });
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> buildRideFromExtracted() {
         Map<String, Object> ride = new HashMap<>();
         Object pickupTs = currentExtracted.get("pickupTimestamp");
         if (pickupTs instanceof Double) pickupTs = ((Double) pickupTs).longValue();
-        // 🔧 v6.66.243 (Patrick 04.10. 19:58 Bridge: 'so schnell wie möglich' → KI gab kein
-        //   pickupTimestamp zurueck → Vorschlag war unanlegbar). Fallback: 'so schnell wie
-        //   moeglich' / 'sofort' / 'jetzt' → +10 Min, damit Admin-Dispo greifen kann.
-        if (pickupTs == null) {
-            String readable = (String) currentExtracted.get("pickupTimeReadable");
-            String sofortTriggers = "sofort|jetzt|gleich|so schnell wie moeglich|so schnell wie möglich|asap|now";
-            if (readable != null && readable.toLowerCase().matches(".*(" + sofortTriggers + ").*")) {
-                pickupTs = System.currentTimeMillis() + 10 * 60 * 1000L;
-            } else {
-                pickupTs = System.currentTimeMillis() + 10 * 60 * 1000L;
-            }
-        }
+        if (pickupTs == null) pickupTs = System.currentTimeMillis() + 10 * 60 * 1000L;
         ride.put("pickupTimestamp", pickupTs);
         ride.put("pickup", currentExtracted.get("pickup"));
         ride.put("destination", currentExtracted.get("destination"));
@@ -181,33 +215,16 @@ public class CallVorschlagHandler {
             ride.put("price", String.valueOf(preis));
             ride.put("fixedPrice", true);
         }
-        // Vorbestellung vs Sofortfahrt: wenn Pickup <5 Min in Zukunft → sofort
         long now = System.currentTimeMillis();
         long tsLong = pickupTs instanceof Long ? (Long) pickupTs : ((Double) pickupTs).longValue();
         boolean sofort = tsLong - now < 5 * 60 * 1000L;
         ride.put("status", sofort ? "new" : "vorbestellt");
         ride.put("createdAt", now);
-        ride.put("source", "call-vorschlag-v6.66.241");
+        ride.put("source", "call-vorschlag-v6.66.245");
         ride.put("vorschlagId", currentVorschlagId);
         String notes = (String) currentExtracted.get("notes");
         if (notes != null) ride.put("notes", notes);
-
-        FirebaseDatabase.getInstance(DB_URL).getReference("rides")
-            .push().setValue(ride, (err, ref) -> {
-                if (err != null) {
-                    Toast.makeText(activity, "Fehler: " + err.getMessage(), Toast.LENGTH_LONG).show();
-                    return;
-                }
-                Toast.makeText(activity, "✓ Fahrt angelegt", Toast.LENGTH_SHORT).show();
-                markVorschlagStatus("applied");
-            });
-    }
-
-    private void handleEdit() {
-        if (currentVorschlagId == null) return;
-        // v6.66.241: Minimal — anlegen, dann DispoActivity oeffnen die Fahrt zum Edit markieren.
-        //           Vollstaendige Prefilled-Edit-Dialog folgt in v6.66.242.
-        handleAnlegen();
+        return ride;
     }
 
     private void handleDismiss() {

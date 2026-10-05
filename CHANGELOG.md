@@ -6,6 +6,20 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [6.66.245] - 2026-10-05 (Call-Vorschlag BEARBEITEN öffnet echten Edit-Dialog)
+
+**Patrick 05.10. 07:34 Bridge:** *„Der Bearbeiten-Button führt mich immer nicht zur Fahrt bearbeiten. Da liegt dann auch gleich eine Fahrt an. Das muss noch gefixt werden."*
+
+Fix in `CallVorschlagHandler.java`:
+- `handleEdit()` legt die Fahrt direkt an UND öffnet dann die `AdminDashboardActivity` mit `auto_edit_ride_id` → der bestehende Edit-Dialog öffnet sich mit allen Feldern vorbefüllt.
+- Beide Buttons (`ANLEGEN` + `BEARBEITEN`) nutzen jetzt die gemeinsame Helper `createRideThen(markApplied, onDone)`.
+
+Prefilled-Edit-Dialog ohne Vorab-Anlage (echtes Draft-Workflow mit Cancel) folgt in v6.66.246.
+
+**Version:** 6.66.244 → 6.66.245.
+
+---
+
 ## [6.66.244] - 2026-10-04 (ACR-Upload On-Demand statt dauerhaft)
 
 **Patrick 04.10. 20:42 Bridge:** *„Kann man das auch nur starten, wenn ein Anruf angekommen ist, oder muss das permanent laufen?"*

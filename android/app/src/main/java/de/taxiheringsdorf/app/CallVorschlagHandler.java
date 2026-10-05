@@ -155,10 +155,44 @@ public class CallVorschlagHandler {
             Toast.makeText(activity, "Keine Daten", Toast.LENGTH_SHORT).show();
             return;
         }
-        // 🆕 v6.66.246 (Patrick 05.10. 08:44 Bridge: "erstmal muss der Edit-Dialog sich oeffnen,
-        //   damit ich DANACH die Fahrt anlegen kann"): Prefilled-Edit-Dialog OHNE Vorab-Anlage.
-        //   Patrick kann korrigieren + Speichern (legt Fahrt an) oder Abbrechen (nichts).
-        showPrefilledEditDialog();
+        // 🆕 v6.66.248 (Patrick 05.10. 09:36 Bridge: "Warum kommt denn im Bearbeiten-Modus
+        //   nicht dieses schöne Vorbestellungsmenü?"): Statt eigenem 0815-AlertDialog die
+        //   bestehende Vorbestellungs-Maske in CrmSearchActivity oeffnen — mit Phone-Match-Lookup
+        //   und prefilled Pickup/Ziel/Zeit/Pax/Preis via Intent-Extras.
+        try {
+            String phone = (String) currentVorschlag.get("callerPhone");
+            String crmName = (String) currentVorschlag.get("crmCustomerName");
+            String extractedName = (String) currentExtracted.get("name");
+            String displayName = crmName != null ? crmName : extractedName;
+
+            android.content.Intent intent = new android.content.Intent(activity, CrmSearchActivity.class);
+            intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK | android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            if (phone != null) intent.putExtra("auto_vorbestellung_phone", phone);
+            if (displayName != null) intent.putExtra("auto_vorbestellung_name", displayName);
+
+            // Prefill-Extras — Call-Vorschlag v6.66.248. CrmSearchActivity liest diese
+            // in showVorbestellungMaske und befuellt die Felder.
+            String pickup = (String) currentExtracted.get("pickup");
+            String dest = (String) currentExtracted.get("destination");
+            Object pickupTs = currentExtracted.get("pickupTimestamp");
+            if (pickupTs instanceof Double) pickupTs = ((Double) pickupTs).longValue();
+            Object pax = currentExtracted.get("passengers");
+            Object preis = currentExtracted.get("festpreisEUR");
+            String notes = (String) currentExtracted.get("notes");
+
+            if (pickup != null) intent.putExtra("prefill_pickup", pickup);
+            if (dest != null) intent.putExtra("prefill_destination", dest);
+            if (pickupTs instanceof Long) intent.putExtra("prefill_pickup_timestamp", (Long) pickupTs);
+            if (pax instanceof Number) intent.putExtra("prefill_passengers", ((Number) pax).intValue());
+            if (preis instanceof Number) intent.putExtra("prefill_price", String.valueOf(preis));
+            if (notes != null) intent.putExtra("prefill_notes", notes);
+            intent.putExtra("prefill_from_call_vorschlag", currentVorschlagId);
+            activity.startActivity(intent);
+        } catch (Throwable t) {
+            Log.w(TAG, "handleEdit → CrmSearchActivity-Start fehlgeschlagen: " + t.getMessage());
+            // Fallback: altes AlertDialog
+            showPrefilledEditDialog();
+        }
     }
 
     @SuppressWarnings("unchecked")

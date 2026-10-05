@@ -155,21 +155,125 @@ public class CallVorschlagHandler {
             Toast.makeText(activity, "Keine Daten", Toast.LENGTH_SHORT).show();
             return;
         }
-        // 🆕 v6.66.245 (Patrick 05.10. 07:34 Bridge: "Bearbeiten-Button führt mich nicht zur
-        //   Fahrt bearbeiten"): Fahrt mit extracted anlegen UND direkt Admin-Dashboard mit
-        //   Edit-Trigger oeffnen. Patrick kann dann im bekannten Edit-Dialog Felder
-        //   korrigieren. Wenn er abbricht, bleibt die Fahrt bestehen und kann regulaer
-        //   geloescht werden. v6.66.246 traegt einen echten Prefilled-Edit-Dialog nach.
-        createRideThen(/*applied=*/true, newRideId -> {
-            try {
-                android.content.Intent i = new android.content.Intent(activity, AdminDashboardActivity.class);
-                i.putExtra("auto_edit_ride_id", newRideId);
-                i.addFlags(android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP | android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP);
-                activity.startActivity(i);
-            } catch (Throwable t) {
-                Log.w(TAG, "Edit-Intent fehlgeschlagen: " + t.getMessage());
-            }
-        });
+        // 🆕 v6.66.246 (Patrick 05.10. 08:44 Bridge: "erstmal muss der Edit-Dialog sich oeffnen,
+        //   damit ich DANACH die Fahrt anlegen kann"): Prefilled-Edit-Dialog OHNE Vorab-Anlage.
+        //   Patrick kann korrigieren + Speichern (legt Fahrt an) oder Abbrechen (nichts).
+        showPrefilledEditDialog();
+    }
+
+    @SuppressWarnings("unchecked")
+    private void showPrefilledEditDialog() {
+        android.content.Context ctx = activity;
+        android.widget.LinearLayout root = new android.widget.LinearLayout(ctx);
+        root.setOrientation(android.widget.LinearLayout.VERTICAL);
+        int pad = (int) (ctx.getResources().getDisplayMetrics().density * 16);
+        root.setPadding(pad, pad, pad, pad);
+
+        // Felder bauen
+        String phone = (String) currentVorschlag.get("callerPhone");
+        String crmName = (String) currentVorschlag.get("crmCustomerName");
+        String extractedName = (String) currentExtracted.get("name");
+        String displayName = crmName != null ? crmName : (extractedName != null ? extractedName : "");
+
+        android.widget.EditText etName = addEditText(root, "👤 Name", displayName);
+        android.widget.EditText etPhone = addEditText(root, "📱 Telefon", phone != null ? phone : "");
+        android.widget.EditText etPickup = addEditText(root, "📍 Abholort", (String) currentExtracted.get("pickup"));
+        android.widget.EditText etDest = addEditText(root, "🎯 Zielort", (String) currentExtracted.get("destination"));
+
+        // Pickup-Timestamp als Date-Zeit-String
+        Object pickupTs = currentExtracted.get("pickupTimestamp");
+        if (pickupTs instanceof Double) pickupTs = ((Double) pickupTs).longValue();
+        if (pickupTs == null) pickupTs = System.currentTimeMillis() + 10 * 60 * 1000L;
+        java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("dd.MM.yyyy HH:mm", java.util.Locale.GERMAN);
+        sdf.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
+        android.widget.EditText etTime = addEditText(root, "🕐 Pickup-Zeit (TT.MM.JJJJ HH:MM)", sdf.format(new java.util.Date((Long) pickupTs)));
+
+        Object pax = currentExtracted.get("passengers");
+        android.widget.EditText etPax = addEditText(root, "👥 Personen", pax != null ? String.valueOf(pax) : "1");
+        Object preis = currentExtracted.get("festpreisEUR");
+        android.widget.EditText etPreis = addEditText(root, "💰 Preis € (leer = Taxameter)", preis != null ? String.valueOf(preis) : "");
+        android.widget.EditText etNotes = addEditText(root, "📝 Notiz", (String) currentExtracted.get("notes"));
+
+        android.widget.ScrollView sv = new android.widget.ScrollView(ctx);
+        sv.addView(root);
+
+        new androidx.appcompat.app.AlertDialog.Builder(ctx)
+            .setTitle("📞 Call-Vorschlag bearbeiten")
+            .setView(sv)
+            .setPositiveButton("✓ Fahrt anlegen", (d, w) -> {
+                Map<String, Object> ride = new HashMap<>();
+                String nameVal = etName.getText().toString().trim();
+                String phoneVal = etPhone.getText().toString().trim();
+                String pickupVal = etPickup.getText().toString().trim();
+                String destVal = etDest.getText().toString().trim();
+                String timeVal = etTime.getText().toString().trim();
+                String paxVal = etPax.getText().toString().trim();
+                String preisVal = etPreis.getText().toString().trim();
+                String notesVal = etNotes.getText().toString().trim();
+
+                long ts;
+                try {
+                    ts = sdf.parse(timeVal).getTime();
+                } catch (Throwable t) {
+                    Toast.makeText(activity, "⚠ Zeit-Format: TT.MM.JJJJ HH:MM", Toast.LENGTH_LONG).show();
+                    return;
+                }
+
+                ride.put("pickupTimestamp", ts);
+                ride.put("pickup", pickupVal);
+                ride.put("destination", destVal);
+                int paxInt = 1;
+                try { paxInt = Integer.parseInt(paxVal); } catch (Throwable _ignore) {}
+                ride.put("passengers", paxInt);
+                if (!phoneVal.isEmpty()) {
+                    ride.put("customerPhone", phoneVal);
+                    ride.put("customerMobile", phoneVal);
+                }
+                ride.put("customerName", nameVal.isEmpty() ? "Call-Anrufer" : nameVal);
+                String crmId = (String) currentVorschlag.get("crmCustomerId");
+                if (crmId != null) ride.put("customerId", crmId);
+                if (!preisVal.isEmpty()) {
+                    ride.put("price", preisVal.replace(',', '.'));
+                    ride.put("fixedPrice", true);
+                }
+                long now = System.currentTimeMillis();
+                boolean sofort = ts - now < 5 * 60 * 1000L;
+                ride.put("status", sofort ? "new" : "vorbestellt");
+                ride.put("createdAt", now);
+                ride.put("source", "call-vorschlag-v6.66.246");
+                ride.put("vorschlagId", currentVorschlagId);
+                if (!notesVal.isEmpty()) ride.put("notes", notesVal);
+
+                FirebaseDatabase.getInstance(DB_URL).getReference("rides")
+                    .push().setValue(ride, (err, ref) -> {
+                        if (err != null) {
+                            Toast.makeText(activity, "Fehler: " + err.getMessage(), Toast.LENGTH_LONG).show();
+                            return;
+                        }
+                        Toast.makeText(activity, "✓ Fahrt angelegt", Toast.LENGTH_SHORT).show();
+                        markVorschlagStatus("applied");
+                    });
+            })
+            .setNegativeButton("Abbrechen", null)
+            .show();
+    }
+
+    private android.widget.EditText addEditText(android.widget.LinearLayout root, String hint, String value) {
+        android.widget.TextView lbl = new android.widget.TextView(root.getContext());
+        lbl.setText(hint);
+        lbl.setTextColor(0xFFcbd5e1);
+        lbl.setTextSize(13);
+        int topMargin = (int)(root.getContext().getResources().getDisplayMetrics().density * 8);
+        android.widget.LinearLayout.LayoutParams lp = new android.widget.LinearLayout.LayoutParams(
+            android.widget.LinearLayout.LayoutParams.MATCH_PARENT, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
+        lp.topMargin = topMargin;
+        lbl.setLayoutParams(lp);
+        root.addView(lbl);
+        android.widget.EditText et = new android.widget.EditText(root.getContext());
+        et.setText(value != null ? value : "");
+        et.setSingleLine(true);
+        root.addView(et);
+        return et;
     }
 
     @SuppressWarnings("unchecked")

@@ -6,6 +6,30 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [6.66.249] - 2026-10-05 (Wartepool bleibt im Banner — kein Reassign-Zirkus)
+
+**Patrick 05.10. 11:12-13 Bridge Kolbo-Vorfall:** *„Dann war sie plötzlich im Banner und dann wurde sie auf einmal wieder verteilt. Was soll das? … Die soll oben im Banner bleiben und jeder, der da ist, kann sich die rausnehmen. … Es sei denn, es meldet sich ein Fahrer online neu an."*
+
+**Vorfall:** Kolbo-Fahrt 11:10 wurde zwischen 09:58-11:03 15+ Mal zwischen Prius IK und Tesla MY222 umverteilt (Watchdog + scheduledAutoAssign + 90s-Reassign + Corridor-Push + openRide-rescue triggerten unabhängig).
+
+**Patrick's Regel:**
+1. Einmal verteilen → Fahrer A akzeptiert oder lehnt ab.
+2. Lehnt ab → nächster Fahrer B einmal.
+3. B akzeptiert oder lehnt ab → bei Ablehnung ins Wartepool-Banner, Feierabend.
+4. KEIN andauernder Reassign-Zirkus.
+5. Ausnahme: Wenn ein neuer Fahrer online kommt, bekommt der die Wartepool-Fahrt einmal angedient (`v6.66.250` onVehicleOnline).
+
+**Fixes v6.66.249:**
+- `sofortfahrt-watchdog`: Skip wenn `status === 'wartepool'` (Patrick's Fahrzeug wurde immer wieder zugeteilt).
+- `scheduledAutoAssign`: Wartepool-Rides werden NICHT mehr in `unassignedRides` aufgenommen (Phase -1 Re-Assign übersprungen).
+- Corridor-Push + openRide-rescue bleiben — sind nur Benachrichtigungen, kein Reassign (Fahrer muss selbst 'Grab'en).
+
+**Nächster Schritt (v6.66.250):** onVehicleOnline-Trigger — bei offline→online eines Fahrzeugs werden wartepool-Rides diesem Fahrzeug einmalig gepingt.
+
+**Version:** 6.66.248 → 6.66.249.
+
+---
+
 ## [6.66.248] - 2026-10-05 (Call-Vorschlag BEARBEITEN → echte Vorbestellungs-Maske)
 
 **Patrick 05.10. 09:36 Bridge:** *„Warum kommt denn im Bearbeiten-Modus nicht dieses schöne Vorbestellungsmenü, wo ich alles eintragen kann? Das ist doch viel besser als wenn dieses 0815-Formular da kommt."*

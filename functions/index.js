@@ -21779,7 +21779,18 @@ exports.autoResolveConflicts = onSchedule(
                 const _isWartepool = r.status === 'wartepool';
                 const _isInVorlauf = r.pickupTimestamp > now + vorlaufMin * 60000;
                 const _isPickupNotPast = r.pickupTimestamp > now - 5 * 60000;
-                if (_isInVorlauf || (_isWartepool && _isPickupNotPast)) {
+                // 🔧 v6.66.249 (Patrick 05.10. 11:12/13 Bridge Kolbo-Vorfall):
+                //   wartepool-Rides werden NICHT mehr vom periodischen Cron re-assigned.
+                //   Patrick's Regel: einmal verteilen → abgelehnt → BLEIBT im Banner →
+                //   nur onVehicleOnline (neuer Fahrer online) triggert einmaligen Push.
+                //   Sonst: Reassign-Zirkus (Fahrzeug A rejectet → B kriegt → B rejectet → A
+                //   kriegt wieder → ...). CLAUDE md Regel 'einmal verteilen'.
+                if (_isWartepool) {
+                    // Nur in allRides fuer Konflikt-Erkennung — nicht in unassignedRides fuer Re-Assign.
+                    if (r.assignedVehicle) allRides.push(r);
+                    return;
+                }
+                if (_isInVorlauf) {
                     if (r.assignedVehicle) {
                         allRides.push(r);
                     } else {
@@ -35341,6 +35352,15 @@ exports.scheduledOpenRideCheck = onSchedule(
                         }
                         if (['accepted', 'on_way', 'arrived', 'picked_up', 'completed'].includes(_fresh.status)) {
                             console.log(`🛡️ Watchdog skip ${rideId}: Status '${_fresh.status}' — kein Reassign`);
+                            return;
+                        }
+                        // 🆕 v6.66.249 (Patrick 05.10. 11:12/13 Bridge Kolbo-Vorfall): wartepool
+                        //   bleibt wartepool. Verteilung passiert nur noch wenn ein offline-Fahrer
+                        //   online geht (via neuen onVehicleOnline-Trigger in v6.66.250).
+                        //   Diese Watchdog-Logik hat Danilo immer wieder zugeteilt obwohl Patrick
+                        //   die Fahrt zuvor ablehnte → Reassign-Zirkus.
+                        if (_fresh.status === 'wartepool') {
+                            console.log(`🛡️ Watchdog skip ${rideId}: Status 'wartepool' — bleibt im Banner (v6.66.249)`);
                             return;
                         }
                         console.log(`🐕 Watchdog: Sofortfahrt ${rideId} ohne Fahrzeug (${_fresh.customerName || '?'}, ${Math.round(msUntil/60000)}min bis Pickup) → autoAssignRide`);

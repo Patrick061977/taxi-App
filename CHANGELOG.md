@@ -6,6 +6,25 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [6.66.246] - 2026-10-05 (Call-Vorschlag: echter Prefilled-Edit-Dialog mit Cancel)
+
+**Patrick 05.10. 08:44 Bridge:** *„Erstmal muss der Edit-Dialog sich öffnen, damit ich DANACH die Fahrt anlegen kann."*
+
+v6.66.245 hatte die Fahrt beim BEARBEITEN direkt angelegt — jetzt umgedreht:
+
+`CallVorschlagHandler.showPrefilledEditDialog()` zeigt einen scrollbaren AlertDialog mit vorbefüllten Feldern:
+- 👤 Name, 📱 Telefon, 📍 Abholort, 🎯 Zielort
+- 🕐 Pickup-Zeit (TT.MM.JJJJ HH:MM — editierbar)
+- 👥 Personen, 💰 Preis (leer = Taxameter), 📝 Notiz
+
+Nach dem Dialog:
+- **✓ Fahrt anlegen** → validiert Zeit-Format, schreibt `/rides` mit korrigierten Werten, Vorschlag → `applied`.
+- **Abbrechen** → nichts passiert, Vorschlag bleibt open für erneute Bearbeitung.
+
+**Version:** 6.66.245 → 6.66.246.
+
+---
+
 ## [6.66.245] - 2026-10-05 (Call-Vorschlag BEARBEITEN öffnet echten Edit-Dialog)
 
 **Patrick 05.10. 07:34 Bridge:** *„Der Bearbeiten-Button führt mich immer nicht zur Fahrt bearbeiten. Da liegt dann auch gleich eine Fahrt an. Das muss noch gefixt werden."*

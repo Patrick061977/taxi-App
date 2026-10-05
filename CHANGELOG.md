@@ -6,6 +6,22 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [6.66.250] - 2026-10-05 (Call-Vorschlag: Übernehmen aus Maske + sichtbarer Weg-Button)
+
+**Patrick 05.10. 15:19-20 Bridge:** *„Wenn ich das angelegt habe, wird's nicht gleich abgeschlossen" + „Also ich seh kein Weg-Button, ganz ehrlich."*
+
+Fixes:
+- **`CrmSearchActivity`**: Neuer Intent-Extra `prefill_from_call_vorschlag` wird gelesen und als `_pendingCallVorschlagId` zwischengespeichert. Nach erfolgreichem `rides.push()` wird `dispoVorschlaege/{id}/status='applied'` gesetzt → die blaue Call-Vorschlag-Card verschwindet automatisch.
+- **`activity_admin_dashboard.xml`**: Call-Vorschlag-Buttons umgebaut:
+  - `✓ Übernehmen` (vorher „ANLEGEN"), weight=2
+  - `✎ Bearbeiten`, weight=2
+  - `🗑️ Weg` (vorher „WEG", jetzt rot statt grau + Mülltonne-Icon), weight=1
+  - Höhe 40 → 44dp, Padding reduziert damit alle drei Buttons auf schmalen Screens sichtbar bleiben (Patrick sah den WEG-Button nicht).
+
+**Version:** 6.66.249 → 6.66.250.
+
+---
+
 ## [6.66.249] - 2026-10-05 (Wartepool bleibt im Banner — kein Reassign-Zirkus)
 
 **Patrick 05.10. 11:12-13 Bridge Kolbo-Vorfall:** *„Dann war sie plötzlich im Banner und dann wurde sie auf einmal wieder verteilt. Was soll das? … Die soll oben im Banner bleiben und jeder, der da ist, kann sich die rausnehmen. … Es sei denn, es meldet sich ein Fahrer online neu an."*

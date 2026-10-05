@@ -880,6 +880,11 @@ public class CrmSearchActivity extends AppCompatActivity {
     private String _pendingRecordingPath = null;
     private android.media.MediaPlayer _audioPlayer = null;
 
+    // 🆕 v6.66.250 (Patrick 05.10. 15:19 Bridge "wenn ich das angelegt habe, wird's nicht
+    //   gleich abgeschlossen"): Vorschlag-ID aus Call-Vorschlag-Flow merken, nach Save
+    //   automatisch dispoVorschlaege/{id}/status='applied' setzen → blaue Karte verschwindet.
+    private String _pendingCallVorschlagId = null;
+
     private void _maybeAutoOpenVorbestellung() {
         if (getIntent() == null) return;
         String _cid = getIntent().getStringExtra("auto_vorbestellung_customer_id");
@@ -890,10 +895,13 @@ public class CrmSearchActivity extends AppCompatActivity {
         _pendingVorbestellungName = getIntent().getStringExtra("auto_vorbestellung_name");
         // 🆕 v6.63.011: ACR-Audio-Pfad zwischenspeichern (wird im Booking-Dialog genutzt)
         _pendingRecordingPath = getIntent().getStringExtra("auto_vorbestellung_recording_path");
+        // 🆕 v6.66.250: Call-Vorschlag-Flow: Vorschlag-ID merken fuer Auto-Dismiss nach Save
+        _pendingCallVorschlagId = getIntent().getStringExtra("prefill_from_call_vorschlag");
         getIntent().removeExtra("auto_vorbestellung_customer_id");
         getIntent().removeExtra("auto_vorbestellung_phone");
         getIntent().removeExtra("auto_vorbestellung_name");
         getIntent().removeExtra("auto_vorbestellung_recording_path");
+        getIntent().removeExtra("prefill_from_call_vorschlag");
     }
 
     private void _runPendingVorbestellungIfReady() {
@@ -4582,6 +4590,15 @@ public class CrmSearchActivity extends AppCompatActivity {
                         FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("rides").push().setValue(r)
                             .addOnSuccessListener(_v -> {
                                 dlg.dismiss();
+                                // 🆕 v6.66.250 (Patrick 05.10. 15:19 Bridge): Nach erfolgreichem Save aus
+                                //   Call-Vorschlag-Flow den Vorschlag auto-dismissen → blaue Karte verschwindet.
+                                if (_pendingCallVorschlagId != null && !_pendingCallVorschlagId.isEmpty()) {
+                                    try {
+                                        FirebaseDatabase.getInstance(DB_INSTANCE_URL)
+                                            .getReference("dispoVorschlaege/" + _pendingCallVorschlagId + "/status").setValue("applied");
+                                    } catch (Throwable _ignore) {}
+                                    _pendingCallVorschlagId = null;
+                                }
                                 showBookingConfirmation(false, _customerNameFinal, _pickupFinal, _destFinal, _pickupTsFinal, _paxFinal2, _notesFinal2, _isHotelFinal ? _hotelNameFinal : null);
                             })
                             .addOnFailureListener(ex -> {

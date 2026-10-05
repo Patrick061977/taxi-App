@@ -39304,7 +39304,24 @@ exports.stripeWebhook = onRequest(
                         }
                     } catch (_anfrErr) { console.warn('v6.63.295 Anfrage-Webhook Fehler:', _anfrErr.message); }
 
-                    const _rideIdFromMeta = session.metadata?.rideId;
+                    // 🔧 v6.66.247 (Patrick 05.10. 09:01 Bridge Heinschker-Vorfall): Quick-Pay-Links
+                    //   erzeugen invoiceNumber 'RIDE-xxxxxxxx' (letzte 8 Zeichen der ride-ID) ohne
+                    //   metadata.rideId. Session.metadata.rideId war daher null → ride.stripe-Felder
+                    //   wurden nicht gesetzt → onRideUpdated konnte Rechnung nicht generieren →
+                    //   kein PDF/SMS. Fix: wenn invoiceNumber mit 'RIDE-' startet, suche in
+                    //   /rides nach einer ID die auf das Suffix endet.
+                    let _rideIdFromMeta = session.metadata?.rideId;
+                    if (!_rideIdFromMeta && invoiceNumber && invoiceNumber.startsWith('RIDE-')) {
+                        const _suffix = invoiceNumber.substring(5);
+                        try {
+                            const _ridesSnap = await db.ref('rides').once('value');
+                            _ridesSnap.forEach(c => {
+                                if (_rideIdFromMeta) return;
+                                if (c.key && c.key.endsWith(_suffix)) _rideIdFromMeta = c.key;
+                            });
+                            if (_rideIdFromMeta) console.log(`✅ v6.66.247 Quick-Pay ride-id via Suffix gefunden: ${_rideIdFromMeta}`);
+                        } catch (_e) { console.warn('v6.66.247 Quick-Pay-Suffix-Suche fehlgeschlagen:', _e.message); }
+                    }
                     if (_rideIdFromMeta) {
                         try {
                             // 🔧 v6.63.493 (Patrick 24.06. 08:52: "Fahrer sieht es nicht

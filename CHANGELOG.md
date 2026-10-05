@@ -6,6 +6,21 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [6.66.247] - 2026-10-05 (Stripe-Webhook: Quick-Pay-Link findet Ride via RIDE-Suffix)
+
+**Patrick 05.10. 09:01 Bridge Heinschker-Vorfall:** *„Warum hat der Heinschker keine Rechnung bekommen, nachdem er mit Stripe bezahlt hatte?"*
+
+**Ursache:** Quick-Pay-Links (`/invoices/RIDE-{suffix}`) haben `metadata.invoiceNumber=RIDE-xxxxxxxx` aber **kein `metadata.rideId`**. Der Webhook-Handler `checkout.session.completed` prüfte nur `session.metadata.rideId` → fand nichts → `rides/{id}` wurde nicht upgedatet → `onRideUpdated` konnte die Rechnung nicht generieren → keine PDF, keine SMS.
+
+**Fix in `functions/index.js`:**
+Wenn `metadata.rideId` fehlt und `invoiceNumber` mit `RIDE-` beginnt: `/rides` nach Keys durchsuchen die auf das 8-stellige Suffix enden → Ride-Update ausführen.
+
+**Soforthilfe für Heinschker-Ride:** `stripePaymentStatus=paid` manuell geschrieben → `onRideUpdated` triggerte die Rechnung + SMS nach.
+
+**Version:** 6.66.246 → 6.66.247.
+
+---
+
 ## [6.66.246] - 2026-10-05 (Call-Vorschlag: echter Prefilled-Edit-Dialog mit Cancel)
 
 **Patrick 05.10. 08:44 Bridge:** *„Erstmal muss der Edit-Dialog sich öffnen, damit ich DANACH die Fahrt anlegen kann."*

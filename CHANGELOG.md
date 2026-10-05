@@ -6,6 +6,21 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [6.66.248] - 2026-10-05 (Call-Vorschlag BEARBEITEN → echte Vorbestellungs-Maske)
+
+**Patrick 05.10. 09:36 Bridge:** *„Warum kommt denn im Bearbeiten-Modus nicht dieses schöne Vorbestellungsmenü, wo ich alles eintragen kann? Das ist doch viel besser als wenn dieses 0815-Formular da kommt."*
+
+Verletzt [feedback_vorhandene-komponenten-nutzen.md] — ich hatte in v6.66.246 einen eigenen AlertDialog gebaut.
+
+Fix in `CallVorschlagHandler.handleEdit()`:
+- Startet `CrmSearchActivity` mit `auto_vorbestellung_phone` + `auto_vorbestellung_name` → CRM-Match + bestehendes `showVorbestellungMaske` wird aufgerufen (das „schöne Vorbestellungsmenü").
+- Zusätzliche Prefill-Extras (`prefill_pickup`, `prefill_destination`, `prefill_pickup_timestamp`, `prefill_passengers`, `prefill_price`, `prefill_notes`, `prefill_from_call_vorschlag`) werden mitgeschickt — werden in v6.66.249 in die Maske-Felder gelesen.
+- Fallback auf alten AlertDialog nur bei Startup-Exception.
+
+**Version:** 6.66.247 → 6.66.248.
+
+---
+
 ## [6.66.247] - 2026-10-05 (Stripe-Webhook: Quick-Pay-Link findet Ride via RIDE-Suffix)
 
 **Patrick 05.10. 09:01 Bridge Heinschker-Vorfall:** *„Warum hat der Heinschker keine Rechnung bekommen, nachdem er mit Stripe bezahlt hatte?"*

@@ -6,6 +6,25 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [6.66.256] - 2026-10-06 (Karenz-Bypass auch in autoResolveConflicts — kein Zeit-Shift bei ≤5 Min)
+
+**Patrick 06.10. 12:52 Bridge Nicole-Vorfall:** *„Warum Karenz-Bypass? Wenn das mit der Zeit passt, muss doch nichts umgeplant werden. Danilo wusste nicht mal, was die richtige Zeit jetzt war. Bringt nur die Leute durcheinander. Haben wir nicht gesagt, wir machen das nicht mehr."*
+
+**Ursache:** `v6.66.112` Karenz-Bypass (≤5 Min = kein Shift) war nur im `onRideCreated`-Pfad aktiv (Z2867). Der `autoResolveConflicts`-Cron (Z26916) kannte die Karenz nicht und hat Nicole bei +0 Min automatisch von 12:40 auf 12:42 verschoben.
+
+**Fix:** `_sDelayMin <= 5` → Karenz-Bypass auch in `autoResolveConflicts` (Z26928):
+- Fahrzeug trotzdem zuweisen
+- Pickup-Zeit bleibt unverändert
+- Kein Admin-Push "Auto-Verschiebung"
+- Keine irritierende Änderungs-SMS an Kunde
+- Fahrer sieht die ursprüngliche Pickup-Zeit
+
+Resultat: Fahrer kommt eben 2-5 Min später, aber System tut so als wäre nichts.
+
+**Version:** 6.66.255 → 6.66.256.
+
+---
+
 ## [6.66.255] - 2026-10-06 (Fahrgast-Anrede präzisiert — Fahrer bleiben Vorname)
 
 **Patrick 06.10. 12:40 Bridge Korrektur zu v6.66.254:** *„Ich meinte nicht den Fahrer mit Herrn ansprechen, sondern die Fahrgäste. Also Danilo und Darek, nicht Herr Reinke und Herr Kulpa. Das bleibt gleich. Aber die Fahrgäste sollen vernünftig angesprochen werden mit Anrede und Nachnamen."*

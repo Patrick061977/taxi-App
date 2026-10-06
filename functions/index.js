@@ -26925,8 +26925,26 @@ exports.scheduledAutoAssign = onSchedule(
                                 await db.ref('rides/' + rideId + '/vehicleScores').set(vehicleScores);
                                 failedCount++;
                                 continue;
+                            } else if (_sDelayMin <= 5) {
+                                // 🔧 v6.66.256 (Patrick 06.10. 12:52 Bridge Nicole-Vorfall):
+                                //   analog v6.66.112 (onRideCreated): bei <=5 Min Delay KEIN
+                                //   Zeit-Shift mehr — nur Fahrzeug zuweisen. Fahrer kommt eben
+                                //   2-5 Min später, Kunde kriegt keine irritierende Aenderungs-SMS,
+                                //   Fahrer sieht die urspruengliche Pickup-Zeit. Patrick 06.10.:
+                                //   'bringt nur die Leute durcheinander, haben wir nicht gesagt,
+                                //   wir machen das nicht mehr'.
+                                console.log(`   ✅ v6.66.256: ${bestCandidate.name} +${_sDelayMin} Min ≤ 5 — Karenz, KEIN Zeit-Shift`);
+                                try {
+                                    await addRideLog(rideId, '✅', `Anfahrt knapp (+${_sDelayMin} Min), aber im 5-Min-Karenz`, {
+                                        quelle: 'v6.66.256 Karenz-autoResolveConflicts',
+                                        fahrzeug: bestCandidate.name,
+                                        delayMin: _sDelayMin,
+                                        prevRide: _sPrev.customerName
+                                    });
+                                } catch (_l) { /* ignore */ }
+                                // fall through: _shiftInfo bleibt leer, pickupTime unveraendert
                             } else {
-                                // Kleiner Konflikt → Abholzeit verschieben
+                                // Kleiner Konflikt — Abholzeit verschieben (nur noch bei 6-maxShiftMin Min)
                                 _shiftedPickupTs = _sEarliestMs + 2 * 60000;
                                 const _sNewTime = new Date(new Date(_shiftedPickupTs).toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
                                 const _sNewFormatted = _sNewTime.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'});

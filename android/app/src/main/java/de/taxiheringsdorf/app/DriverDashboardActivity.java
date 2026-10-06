@@ -4518,19 +4518,10 @@ public class DriverDashboardActivity extends AppCompatActivity {
                             Object nameO = vSnap.child("name").getValue();
                             String vName = nameO != null ? String.valueOf(nameO) : vid;
                             String drvName = drvO != null ? String.valueOf(drvO) : vName;
-                            // 🔧 v6.66.254 (Patrick 06.10. 12:08 Bridge: "wir nehmen immer Nachnamen,
-                            //   Herr Lehmann, Frau Giese, Höflichkeit wahren" — statt Vornamen).
-                            //   Nachname = letztes Wort von driverName. Anrede: Default Herr,
-                            //   fuer bekannte weibliche Vornamen (Anja, Marion, Katja etc) Frau.
-                            String[] _nameParts = drvName.split("\\s+");
-                            String _firstName = _nameParts[0];
-                            String _lastName = _nameParts.length > 1 ? _nameParts[_nameParts.length - 1] : _firstName;
-                            String _fnLower = _firstName.toLowerCase();
-                            java.util.Set<String> _femNames = new java.util.HashSet<>(java.util.Arrays.asList(
-                                "anja","marion","katja","sandra","lisa","simone","petra","karin","christine",
-                                "monika","sabine","gabi","heike","susanne","claudia","andrea","barbara","nicole"));
-                            String _anrede = _femNames.contains(_fnLower) ? "Frau" : "Herr";
-                            String firstName = _anrede + " " + _lastName;
+                            // 🔧 v6.66.255 (Patrick 06.10. 12:40 Bridge Korrektur: Fahrer wie
+                            //   immer mit Vornamen — Danilo, Darek. Nur FAHRGÄSTE mit Anrede +
+                            //   Nachname. v6.66.254-Rollback.)
+                            String firstName = drvName.split(" ")[0];
                             // v6.66.217 (Patrick 04.10. 09:27+09:40 'Danilo sehe ich noch nicht wo er ist'):
                             //   Reverse-Geocode via android.location.Geocoder (built-in, kostenlos).
                             //   Cache pro vid in colleagueAddressCache (TTL 60s) damit nicht permanent
@@ -4642,7 +4633,30 @@ public class DriverDashboardActivity extends AppCompatActivity {
                             }
                             // Mehrere Namen (zB 'Mosig; Petzold') → nur ersten nehmen
                             String firstGuestChunk = nameRaw.split("[;,]")[0].trim();
-                            String firstName = firstGuestChunk.split(" ")[0];
+                            // 🔧 v6.66.255 (Patrick 06.10. 12:40 Bridge: "Fahrgäste vernünftig
+                            //   ansprechen mit Anrede + Nachname"): Herr/Frau + letztes Wort.
+                            //   Fahrer bleiben Vorname (v6.66.254-Rollback oben).
+                            //   Anrede aus ride.customerAnrede, sonst Default 'Herr'.
+                            String firstName;
+                            String[] _gParts = firstGuestChunk.split("\\s+");
+                            if (_gParts.length < 2) {
+                                firstName = firstGuestChunk;
+                            } else {
+                                String _lastName = _gParts[_gParts.length - 1];
+                                Object _anrO = ride.child("customerAnrede").getValue();
+                                String _anr = _anrO != null ? String.valueOf(_anrO).trim() : "";
+                                if (!"Herr".equalsIgnoreCase(_anr) && !"Frau".equalsIgnoreCase(_anr)) {
+                                    String _fnLower = _gParts[0].toLowerCase();
+                                    java.util.Set<String> _femNames = new java.util.HashSet<>(java.util.Arrays.asList(
+                                        "anja","marion","katja","sandra","lisa","simone","petra","karin","christine",
+                                        "monika","sabine","gabi","heike","susanne","claudia","andrea","barbara","nicole",
+                                        "jutta","irene","angelika","ilona","renate","ulrike","elke","beate","christa",
+                                        "ursula","inge","brigitte","gisela","margret","rosemarie","hilde","eva","hanna",
+                                        "elisabeth","julia","nina","anna","sarah","laura","sophie","emma","mia","hannah"));
+                                    _anr = _femNames.contains(_fnLower) ? "Frau" : "Herr";
+                                }
+                                firstName = _anr + " " + _lastName;
+                            }
                             long pt = (ptO instanceof Number) ? ((Number) ptO).longValue() : 0;
                             String pickupStr = "";
                             if (pt > 0) {
@@ -4717,7 +4731,27 @@ public class DriverDashboardActivity extends AppCompatActivity {
                                     Object cnO = ride.child("customerName").getValue();
                                     Object gnO = ride.child("guestName").getValue();
                                     String nm = (gnO != null && !String.valueOf(gnO).isEmpty()) ? String.valueOf(gnO) : (cnO != null ? String.valueOf(cnO) : "?");
-                                    String fn = nm.split("[;,]")[0].trim().split(" ")[0];
+                                    String _nmFirst = nm.split("[;,]")[0].trim();
+                                    // v6.66.255: Fahrgast mit Anrede + Nachname
+                                    String fn;
+                                    String[] _p2 = _nmFirst.split("\\s+");
+                                    if (_p2.length < 2) {
+                                        fn = _nmFirst;
+                                    } else {
+                                        String _ln = _p2[_p2.length - 1];
+                                        Object _arO = ride.child("customerAnrede").getValue();
+                                        String _ar = _arO != null ? String.valueOf(_arO).trim() : "";
+                                        if (!"Herr".equalsIgnoreCase(_ar) && !"Frau".equalsIgnoreCase(_ar)) {
+                                            java.util.Set<String> _fem = new java.util.HashSet<>(java.util.Arrays.asList(
+                                                "anja","marion","katja","sandra","lisa","simone","petra","karin","christine",
+                                                "monika","sabine","gabi","heike","susanne","claudia","andrea","barbara","nicole",
+                                                "jutta","irene","angelika","ilona","renate","ulrike","elke","beate","christa",
+                                                "ursula","inge","brigitte","gisela","margret","rosemarie","hilde","eva","hanna",
+                                                "elisabeth","julia","nina","anna","sarah","laura","sophie","emma","mia","hannah"));
+                                            _ar = _fem.contains(_p2[0].toLowerCase()) ? "Frau" : "Herr";
+                                        }
+                                        fn = _ar + " " + _ln;
+                                    }
                                     java.text.SimpleDateFormat sdf2 = new java.text.SimpleDateFormat("HH:mm", java.util.Locale.GERMAN);
                                     sdf2.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
                                     nextRideLabel.put(vid2, "➜ danach: " + fn + " " + sdf2.format(new java.util.Date(ptNx)));

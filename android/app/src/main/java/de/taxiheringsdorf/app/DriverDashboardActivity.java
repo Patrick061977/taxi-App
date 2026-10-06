@@ -4553,7 +4553,9 @@ public class DriverDashboardActivity extends AppCompatActivity {
                             //   zusaetzlich 'danach: X HH:MM' wenn naechste Fahrt gleich kommt.
                             String nextLabel = _colleagueNextRide.get(vid);
                             String nextSuffix = (nextLabel != null && !nextLabel.isEmpty()) ? "\n" + nextLabel : "";
-                            lines.add("👤 " + firstName + " online" + statusSuffix + "\n" + loc + nextSuffix);
+                            // 🆕 v6.66.253 (Patrick 06.10. 11:47 Bridge: "ich sehe Danilo online aber
+                            //   nicht welches Fahrzeug"): Fahrzeugname in Kollegen-Zeile einbauen.
+                            lines.add("👤 " + firstName + " · 🚗 " + vName + statusSuffix + "\n" + loc + nextSuffix);
                         }
                         final String label;
                         if (countOther == 0) {

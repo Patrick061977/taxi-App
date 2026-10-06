@@ -6,6 +6,18 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [6.66.253] - 2026-10-06 (Kollegen-Zeile: Fahrzeugname sichtbar)
+
+**Patrick 06.10. 11:47 Bridge:** *„Ich sehe Danilo online, aber ich sehe nicht mit welchem Fahrzeug Danilo online ist."*
+
+Fix in `DriverDashboardActivity.java` (Online-Kollegen-Render Z4556):
+- Statt nur `👤 Danilo online · bei X unterwegs` jetzt `👤 Danilo · 🚗 Tesla MY222 · bei X unterwegs`.
+- `vName` war bereits lokal (Z4519 aus `vehicles/{vid}/name`) — nur noch in den Text aufgenommen.
+
+**Version:** 6.66.252 → 6.66.253.
+
+---
+
 ## [6.66.252] - 2026-10-06 (Rechnungsadresse aus Web-Anfrage ins PDF übernehmen)
 
 **Patrick 06.10. 10:03 Bridge Schmeisser-Vorfall:** *„Frau Schmeißer wollte eine Rechnung haben, mit richtiger Rechnungsadresse, wurde auch nicht übernommen."*

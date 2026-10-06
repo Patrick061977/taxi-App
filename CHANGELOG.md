@@ -6,6 +6,25 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [6.66.255] - 2026-10-06 (Fahrgast-Anrede präzisiert — Fahrer bleiben Vorname)
+
+**Patrick 06.10. 12:40 Bridge Korrektur zu v6.66.254:** *„Ich meinte nicht den Fahrer mit Herrn ansprechen, sondern die Fahrgäste. Also Danilo und Darek, nicht Herr Reinke und Herr Kulpa. Das bleibt gleich. Aber die Fahrgäste sollen vernünftig angesprochen werden mit Anrede und Nachnamen."*
+
+**v6.66.254 Rollback + Neu-Fix:**
+- Fahrer-Rendering (Z4521): zurück auf `drvName.split(" ")[0]` (Vorname wie Danilo, Darek).
+- Fahrgast-Rendering (Z4636 + Z4710): aus `firstGuestChunk` wird jetzt `"Herr/Frau " + lastName` gebaut.
+  - Anrede primär aus `ride.customerAnrede` (bereits in Buchung erfasst).
+  - Fallback: weibliche Vornamen (Anja/Marion/Katja/Sandra/… inkl. Jutta/Irene/Angelika/Elisabeth/Julia/Anna/Sarah etc) → "Frau", sonst "Herr".
+  - Nur-ein-Wort-Namen (Hotels/Firmen) bleiben unverändert.
+
+Resultat jetzt:
+- Fahrer-Zeile: `👤 Danilo · 🚗 Tesla MY222 · fährt zu Frau Thürling 11:10 · Ankunft in 5 Min`
+- „danach"-Zeile: `➜ danach: Herr Bachem 13:30`
+
+**Version:** 6.66.254 → 6.66.255.
+
+---
+
 ## [6.66.254] - 2026-10-06 (Kollegen-Zeile: Herr/Frau + Nachname statt Vorname)
 
 **Patrick 06.10. 12:08 Bridge:** *„Warum schreibst du Vornamen? Wir nehmen immer Nachnamen. Herr Lehmann, Frau Giese — Höflichkeit wahren."*

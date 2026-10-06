@@ -36292,21 +36292,33 @@ exports.onVehicleOnline = onValueUpdated(
                 try {
                     // 🆕 v6.63.989 (Patrick 28.08. 13:40 "es wird vom system nicht mehr
                     //   versucht ausser es meldet sich ein fahrer neu an"):
-                    //   Bei Wartepool-Rides mit _allDriversTried: entferne den frisch
-                    //   online Fahrer aus rejectedVehicles + reset _allDriversTried,
-                    //   damit autoAssignRide ihn als Kandidat sieht.
+                    //   Bei Wartepool-Rides mit _allDriversTried: reset _allDriversTried,
+                    //   damit autoAssignRide erneut sucht. Der neu-online-Fahrer wird nur
+                    //   dann Kandidat sein, wenn er nicht bereits in rejectedVehicles ist.
+                    // 🔧 v6.66.257 (Patrick 06.10. 13:33 Bridge Kaiserhof-Vorfall): rejectedVehicles
+                    //   NIE leeren. Wer rejected hat, bleibt rejected. Nur echte NEUE Fahrer
+                    //   (die noch nicht in der Liste sind) kommen in Betracht — das ist der
+                    //   natuerliche Flow von autoAssignRide ohne Zutun hier.
                     let rideForAssign = ride;
                     if (isWartepool && ride._allDriversTried === true) {
-                        const _rej = Array.isArray(ride.rejectedVehicles) ? ride.rejectedVehicles.filter(v => v !== vehicleId) : [];
+                        const _rejVehicles = Array.isArray(ride.rejectedVehicles) ? ride.rejectedVehicles : [];
+                        if (_rejVehicles.includes(vehicleId)) {
+                            // v6.66.257: Fahrer hat vorher abgelehnt → bleibt abgelehnt, kein Reset
+                            console.log(`   ⏭️ ${id}: ${vehicleId} hat vorher abgelehnt — Reject-Respekt (v6.66.257)`);
+                            await addRideLog(id, '⏭️', `Online-Trigger SKIP: ${vehicleId} hatte abgelehnt (Reject-Respekt v6.66.257)`, {
+                                neuerFahrer: vehicleId,
+                                triedVorher: _rejVehicles
+                            }).catch(() => {});
+                            continue;
+                        }
                         await db.ref(`rides/${id}`).update({
                             _allDriversTried: false,
-                            rejectedVehicles: _rej,
                             updatedAt: Date.now()
                         });
-                        rideForAssign = { ...ride, _allDriversTried: false, rejectedVehicles: _rej, _rejectedVehicles: _rej };
-                        await addRideLog(id, '🚕', `v989 Frisch-Online: ${vehicleId} raus aus rejectedVehicles, probiere neu`, {
+                        rideForAssign = { ...ride, _allDriversTried: false };
+                        await addRideLog(id, '🚕', `v989 Frisch-Online: ${vehicleId} probiert (nicht in rejectedVehicles)`, {
                             neuerFahrer: vehicleId,
-                            triedVorher: ride.rejectedVehicles || []
+                            triedVorher: _rejVehicles
                         }).catch(() => {});
                     }
                     const result = await autoAssignRide(id, rideForAssign);

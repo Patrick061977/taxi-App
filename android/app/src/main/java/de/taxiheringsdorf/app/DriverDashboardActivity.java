@@ -4550,8 +4550,9 @@ public class DriverDashboardActivity extends AppCompatActivity {
                                 }
                             }
                             // 🆕 v6.66.224: aktueller Status aus _colleagueCurrentRide
+                            // 🔧 v6.66.257 (Patrick 06.10. 13:36 Bridge): wenn keine aktive Fahrt → 'ist frei'.
                             String rideStatus = _colleagueCurrentRide.get(vid);
-                            String statusSuffix = (rideStatus != null && !rideStatus.isEmpty()) ? " · " + rideStatus : "";
+                            String statusSuffix = (rideStatus != null && !rideStatus.isEmpty()) ? " · " + rideStatus : " · ist frei";
                             // 🆕 v6.66.238 (Patrick 15:24 "auf der Hauptseite sollte es stehen"):
                             //   zusaetzlich 'danach: X HH:MM' wenn naechste Fahrt gleich kommt.
                             String nextLabel = _colleagueNextRide.get(vid);
@@ -4633,29 +4634,35 @@ public class DriverDashboardActivity extends AppCompatActivity {
                             }
                             // Mehrere Namen (zB 'Mosig; Petzold') → nur ersten nehmen
                             String firstGuestChunk = nameRaw.split("[;,]")[0].trim();
-                            // 🔧 v6.66.255 (Patrick 06.10. 12:40 Bridge: "Fahrgäste vernünftig
-                            //   ansprechen mit Anrede + Nachname"): Herr/Frau + letztes Wort.
-                            //   Fahrer bleiben Vorname (v6.66.254-Rollback oben).
-                            //   Anrede aus ride.customerAnrede, sonst Default 'Herr'.
+                            // 🔧 v6.66.257 (Patrick 06.10. 13:33 Bridge "Frau Giese zeigt Herr Giese"):
+                            //   wenn customerName mit 'Frau '/'Herr '/'Fam ' startet → Anrede direkt
+                            //   entnehmen, Rest ist Nachname. Vorher wurde 'Frau' als Vorname
+                            //   interpretiert → nicht in Namensliste → Default 'Herr'.
                             String firstName;
-                            String[] _gParts = firstGuestChunk.split("\\s+");
-                            if (_gParts.length < 2) {
-                                firstName = firstGuestChunk;
+                            String _lowerChunk = firstGuestChunk.toLowerCase();
+                            if (_lowerChunk.startsWith("frau ") || _lowerChunk.startsWith("herr ") || _lowerChunk.startsWith("fam. ") || _lowerChunk.startsWith("familie ")) {
+                                // Anrede bereits im Namen enthalten → direkt uebernehmen (ersten Buchstabe gross)
+                                firstName = firstGuestChunk.substring(0, 1).toUpperCase() + firstGuestChunk.substring(1);
                             } else {
-                                String _lastName = _gParts[_gParts.length - 1];
-                                Object _anrO = ride.child("customerAnrede").getValue();
-                                String _anr = _anrO != null ? String.valueOf(_anrO).trim() : "";
-                                if (!"Herr".equalsIgnoreCase(_anr) && !"Frau".equalsIgnoreCase(_anr)) {
-                                    String _fnLower = _gParts[0].toLowerCase();
-                                    java.util.Set<String> _femNames = new java.util.HashSet<>(java.util.Arrays.asList(
-                                        "anja","marion","katja","sandra","lisa","simone","petra","karin","christine",
-                                        "monika","sabine","gabi","heike","susanne","claudia","andrea","barbara","nicole",
-                                        "jutta","irene","angelika","ilona","renate","ulrike","elke","beate","christa",
-                                        "ursula","inge","brigitte","gisela","margret","rosemarie","hilde","eva","hanna",
-                                        "elisabeth","julia","nina","anna","sarah","laura","sophie","emma","mia","hannah"));
-                                    _anr = _femNames.contains(_fnLower) ? "Frau" : "Herr";
+                                String[] _gParts = firstGuestChunk.split("\\s+");
+                                if (_gParts.length < 2) {
+                                    firstName = firstGuestChunk;
+                                } else {
+                                    String _lastName = _gParts[_gParts.length - 1];
+                                    Object _anrO = ride.child("customerAnrede").getValue();
+                                    String _anr = _anrO != null ? String.valueOf(_anrO).trim() : "";
+                                    if (!"Herr".equalsIgnoreCase(_anr) && !"Frau".equalsIgnoreCase(_anr)) {
+                                        String _fnLower = _gParts[0].toLowerCase();
+                                        java.util.Set<String> _femNames = new java.util.HashSet<>(java.util.Arrays.asList(
+                                            "anja","marion","katja","sandra","lisa","simone","petra","karin","christine",
+                                            "monika","sabine","gabi","heike","susanne","claudia","andrea","barbara","nicole",
+                                            "jutta","irene","angelika","ilona","renate","ulrike","elke","beate","christa",
+                                            "ursula","inge","brigitte","gisela","margret","rosemarie","hilde","eva","hanna",
+                                            "elisabeth","julia","nina","anna","sarah","laura","sophie","emma","mia","hannah"));
+                                        _anr = _femNames.contains(_fnLower) ? "Frau" : "Herr";
+                                    }
+                                    firstName = _anr + " " + _lastName;
                                 }
-                                firstName = _anr + " " + _lastName;
                             }
                             long pt = (ptO instanceof Number) ? ((Number) ptO).longValue() : 0;
                             String pickupStr = "";
@@ -4690,19 +4697,21 @@ public class DriverDashboardActivity extends AppCompatActivity {
                             // 🆕 v6.66.231 (Patrick 04.10. 12:40 "er faehrt doch noch gar nicht, steht
                             //   am Bahnhof. Erst wenn er losfaehrt sollte 'faehrt zu' erscheinen"):
                             //   Unterscheide 'accepted' (steht noch) von 'on_way' (laeuft).
+                            // 🔧 v6.66.257 (Patrick 06.10. 13:36 Bridge): Status-Texte sauber abbilden —
+                            //   'fährt zu X' / 'bei X angekommen' / 'fährt zum Ziel mit X' / 'frei'.
                             String desc;
                             if ("picked_up".equals(status)) {
-                                desc = "mit " + firstName + " unterwegs" + freiAb;
+                                desc = "fährt mit " + firstName + " zum Ziel" + freiAb;
                             } else if ("arrived".equals(status)) {
                                 desc = "bei " + firstName + " angekommen";
                             } else if ("angekommen".equals(status)) {
                                 desc = "am Ziel" + freiAb;
                             } else if ("on_way".equals(status) || "unterwegs".equals(status)) {
                                 String ankStr = (ankunftMin != null) ? " · Ankunft in " + ankunftMin + " Min" : "";
-                                desc = "faehrt zu " + firstName + pickupStr + ankStr;
+                                desc = "fährt zu " + firstName + pickupStr + ankStr;
                             } else {
                                 // accepted/akzeptiert: Fahrer hat angenommen, steht noch
-                                desc = "naechste: " + firstName + pickupStr;
+                                desc = "nächste: " + firstName + pickupStr;
                             }
                             next.put(vid, desc);
                             // 🆕 v6.66.238: Sammle naechste vorbestellte/assigned Fahrt pro Vehicle

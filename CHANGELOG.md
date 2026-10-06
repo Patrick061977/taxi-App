@@ -6,6 +6,29 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [6.66.257] - 2026-10-06 (Frau/Herr-Prefix in customerName + Reject-Respekt bei Frisch-Online + Status-Texte)
+
+**Patrick 06.10. 13:33 Bridge:** *„Frau Giese wird als Herr Giese angezeigt. … Warum kriege ich jetzt die Kaiserhof-Fahrt wieder zugewiesen, obwohl ich die abgelehnt habe?"*
+**Patrick 06.10. 13:36 Bridge:** *„Und dann wäre es natürlich auch cool wenn der Status immer genauso ist — fährt zu Giese, bei Giese, fährt zum Ziel, ist frei."*
+
+**Drei Fixes in einem:**
+
+1. **`DriverDashboardActivity`** — customerName-Prefix erkennen (Z4636):
+   - Wenn `customerName` mit `Frau `/`Herr `/`Fam. `/`Familie ` beginnt → Anrede direkt übernehmen (vorher wurde `Frau` als Vorname interpretiert → nicht in Namensliste → Default `Herr`).
+
+2. **`DriverDashboardActivity`** — Status-Texte angepasst (Z4668+):
+   - `picked_up` → `"fährt mit X zum Ziel"` (vorher `"mit X unterwegs"`).
+   - Fallback `rideStatus == null` → `" · ist frei"` (vorher leer).
+
+3. **`functions/index.js` onVehicleOnline** (Z36300) — Reject-Respekt:
+   - Wenn frisch-online-Fahrer bereits in `rejectedVehicles` ist → SKIP + Log `Online-Trigger SKIP: ${vid} hatte abgelehnt`.
+   - Sonst: nur `_allDriversTried` auf false, aber `rejectedVehicles` wird NICHT mehr geleert.
+   - Verhindert dass Patrick (vg-lk-111) nach eigener Ablehnung die Fahrt bei nächstem Online-Trigger wieder zugewiesen bekommt.
+
+**Version:** 6.66.256 → 6.66.257.
+
+---
+
 ## [6.66.256] - 2026-10-06 (Karenz-Bypass auch in autoResolveConflicts — kein Zeit-Shift bei ≤5 Min)
 
 **Patrick 06.10. 12:52 Bridge Nicole-Vorfall:** *„Warum Karenz-Bypass? Wenn das mit der Zeit passt, muss doch nichts umgeplant werden. Danilo wusste nicht mal, was die richtige Zeit jetzt war. Bringt nur die Leute durcheinander. Haben wir nicht gesagt, wir machen das nicht mehr."*

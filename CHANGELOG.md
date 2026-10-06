@@ -6,6 +6,23 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [6.66.251] - 2026-10-06 (Email-Storno-Automatik — zusätzlich zur SMS)
+
+**Patrick 06.10. 09:49/51 Bridge Kreuer-Vorfall:** *„Wenn wir jetzt eine Stornierung per SMS verschicken und wir haben eine E-Mail-Adresse, dann möchte ich, dass die Storno-Stornierung auch per E-Mail rausgeht."*
+
+Neue Cloud-Function-Helper `sendCancellationEmail(ride, rideId)` in `functions/index.js`:
+- Nutzt dieselbe SMTP-Konfiguration wie `sendBookingConfirmationEmail` (`settings/smtp`).
+- Anrede aus Customer-Record (Herr/Frau + Nachname), sonst „Guten Tag".
+- Betreff: „Stornierung bestätigt — Taxi am {Datum} um {Zeit} Uhr".
+- Idempotenz: `ride.cancelEmailSentAt` verhindert doppelten Versand.
+- Ghost-Sweep-Guard analog zu Storno-SMS.
+
+Aufruf in `onRideUpdated` direkt nach dem Storno-SMS-Block, wenn `customerEmail` vorhanden.
+
+**Version:** 6.66.250 → 6.66.251.
+
+---
+
 ## [6.66.250] - 2026-10-05 (Call-Vorschlag: Übernehmen aus Maske + sichtbarer Weg-Button)
 
 **Patrick 05.10. 15:19-20 Bridge:** *„Wenn ich das angelegt habe, wird's nicht gleich abgeschlossen" + „Also ich seh kein Weg-Button, ganz ehrlich."*

@@ -6,6 +6,24 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [6.66.252] - 2026-10-06 (Rechnungsadresse aus Web-Anfrage ins PDF übernehmen)
+
+**Patrick 06.10. 10:03 Bridge Schmeisser-Vorfall:** *„Frau Schmeißer wollte eine Rechnung haben, mit richtiger Rechnungsadresse, wurde auch nicht übernommen."*
+
+**Bugs im `onRideUpdated`-Invoice-Generator:**
+1. `Array.isArray(_custData.billingAddresses)` schlug fehl, weil web-anfrage-Autokunden eine **Object-Map** (`{timestamp: {...}}`) statt Array geschrieben hatten → Code sprang über, Rechnungsadresse blieb leer.
+2. Field-Mismatch: web-anfrage schreibt `empfName`/`adrZusatz`, Rechnungs-Generator las aber `empfaengerName`/`adresszusatz` → selbst wenn die Map erkannt wäre, hätten die Felder leer geblieben.
+
+**Fix in `functions/index.js` (Rechnungs-Generator, Z33113+):**
+- Array ODER Object-Map akzeptieren (`Object.values(...)`).
+- Beide Field-Namen akzeptieren: `empfaengerName || empfName`, `adresszusatz || adrZusatz`.
+
+Betrifft rückwirkend: Rechnung `20-26-2971` (Schmeisser) ohne Adresse — PDF kann via Admin-Button neu generiert werden.
+
+**Version:** 6.66.251 → 6.66.252.
+
+---
+
 ## [6.66.251] - 2026-10-06 (Email-Storno-Automatik — zusätzlich zur SMS)
 
 **Patrick 06.10. 09:49/51 Bridge Kreuer-Vorfall:** *„Wenn wir jetzt eine Stornierung per SMS verschicken und wir haben eine E-Mail-Adresse, dann möchte ich, dass die Storno-Stornierung auch per E-Mail rausgeht."*

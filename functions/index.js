@@ -33112,9 +33112,18 @@ exports.onRideUpdated = onValueUpdated(
                 //   gelesen wurde. Jetzt: Default-Eintrag resolven → name + address aufbauen.
                 let _billingName = '';
                 let _billingAddrStr = '';
+                // 🔧 v6.66.252 (Patrick 06.10. 10:03 Bridge Schmeisser-Vorfall): billingAddresses
+                //   kann sowohl Array (Native-CRM) als auch Object/Map (web-anfrage, v6.64.3+) sein.
+                //   Vorher wurde Array.isArray() → bei Map=false → _billingAddrStr blieb leer →
+                //   PDF ohne Rechnungsadresse obwohl Kundin im Formular eingegeben hatte.
+                let _baList = null;
                 if (Array.isArray(_custData.billingAddresses) && _custData.billingAddresses.length > 0) {
-                    const _ba = _custData.billingAddresses.find(b => b && b.isDefault)
-                        || _custData.billingAddresses[0];
+                    _baList = _custData.billingAddresses;
+                } else if (_custData.billingAddresses && typeof _custData.billingAddresses === 'object') {
+                    _baList = Object.values(_custData.billingAddresses).filter(x => x && typeof x === 'object');
+                }
+                if (_baList && _baList.length > 0) {
+                    const _ba = _baList.find(b => b && b.isDefault) || _baList[0];
                     if (_ba) {
                         // 🐛 v6.63.971 (Patrick 27.08. Rechnung 20-26-2096 Hasbargen):
                         //   `label` ist die interne Adress-KATEGORISIERUNG (Standard/Buero/Ferienhaus/Privat),
@@ -33125,7 +33134,9 @@ exports.onRideUpdated = onValueUpdated(
                         //   Empfaenger-Name verwendet — das bleibt weiterhin lauffaehig).
                         //   Sonst Fallback auf Kunden-Namen aus CRM-Root.
                         const _reservedLabels = ['standard', 'privat', 'buero', 'büro', 'firma', 'ferienhaus', 'sonstige', 'zusatz', 'zweitwohnsitz', 'urlaub', 'default', 'main'];
-                        _billingName = (_ba.empfaengerName || '').trim();
+                        // 🔧 v6.66.252: beide Field-Namen akzeptieren — Native-CRM nutzt empfaengerName/adresszusatz,
+                        //   web-anfrage schreibt empfName/adrZusatz. Vorher wurde nur empfaengerName gelesen → leer.
+                        _billingName = (_ba.empfaengerName || _ba.empfName || '').trim();
                         if (!_billingName && _ba.label) {
                             const _labelLower = _ba.label.toLowerCase().trim();
                             if (!_reservedLabels.includes(_labelLower)) {
@@ -33137,7 +33148,8 @@ exports.onRideUpdated = onValueUpdated(
                             _billingName = (_custData.name || [_custData.firstName, _custData.lastName].filter(Boolean).join(' ')).trim();
                         }
                         const _parts = [];
-                        if (_ba.strasse) _parts.push(_ba.strasse + (_ba.adresszusatz ? ', ' + _ba.adresszusatz : ''));
+                        const _adrZus = _ba.adresszusatz || _ba.adrZusatz || '';
+                        if (_ba.strasse) _parts.push(_ba.strasse + (_adrZus ? ', ' + _adrZus : ''));
                         const _plzOrt = [_ba.plz, _ba.ort].filter(Boolean).join(' ').trim();
                         if (_plzOrt) _parts.push(_plzOrt);
                         if (_ba.land && _ba.land.toLowerCase() !== 'deutschland') _parts.push(_ba.land);

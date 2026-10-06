@@ -13849,6 +13849,82 @@ async function sendBookingConfirmationEmail(ride, rideId) {
     console.log(`   📧 Buchungsbestätigung Email gesendet an ${toEmail}`);
 }
 
+// 🆕 v6.66.251 (Patrick 06.10. 09:49/51 Bridge Kreuer-Vorfall): Storno-Bestaetigung
+//   per Email zusaetzlich zu SMS wenn Kunde eine Email-Adresse hat. Analog zu
+//   sendBookingConfirmationEmail. Idempotenz-Flag: ride.cancelEmailSentAt.
+async function sendCancellationEmail(ride, rideId) {
+    const toEmail = ride.customerEmail;
+    if (!toEmail || !toEmail.includes('@')) {
+        console.log(`   📧 sendCancellationEmail: keine valide customerEmail`);
+        return false;
+    }
+    if (ride.cancelEmailSentAt) {
+        console.log(`   📧 sendCancellationEmail: bereits gesendet um ${new Date(ride.cancelEmailSentAt).toISOString()}`);
+        return false;
+    }
+    const _confSnap = await db.ref('settings/smtp').once('value');
+    const conf = _confSnap.val();
+    if (!conf || !conf.user || !conf.pass) {
+        console.warn(`   📧 sendCancellationEmail: SMTP-Config fehlt — skip`);
+        return false;
+    }
+    const nodemailer = require('nodemailer');
+    const transporter = nodemailer.createTransport({
+        host: conf.host || 'smtp.gmail.com',
+        port: conf.port || 587,
+        secure: conf.secure === true,
+        auth: { user: conf.user, pass: conf.pass },
+    });
+    const pickupTs = ride.pickupTimestamp || Date.now();
+    const weekday = new Date(pickupTs).toLocaleDateString('de-DE', { weekday: 'long', timeZone: 'Europe/Berlin' });
+    const dateStr = new Date(pickupTs).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Europe/Berlin' });
+    const timeStr = new Date(pickupTs).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' });
+    const fullName = (ride.guestName || ride.customerName || '').trim();
+    const lastName = fullName ? fullName.split(/\s+/).pop() : '';
+    let anrede = 'Guten Tag';
+    try {
+        if (ride.customerId) {
+            const _custSnap = await db.ref(`customers/${ride.customerId}`).once('value');
+            const _cust = _custSnap.val();
+            if (_cust && _cust.anrede) {
+                const a = String(_cust.anrede).trim();
+                if (/^herr$/i.test(a) && lastName) anrede = `Sehr geehrter Herr ${lastName}`;
+                else if (/^frau$/i.test(a) && lastName) anrede = `Sehr geehrte Frau ${lastName}`;
+            }
+        }
+    } catch (_) {}
+    const subject = `Stornierung bestätigt — Taxi am ${dateStr} um ${timeStr} Uhr`;
+    const text =
+        anrede + ',\n\n' +
+        'hiermit bestaetigen wir die Stornierung Ihrer Taxi-Buchung:\n\n' +
+        `Datum: ${weekday}, ${dateStr}\n` +
+        `Abholzeit: ${timeStr} Uhr\n` +
+        `Von: ${ride.pickup || '-'}\n` +
+        `Nach: ${ride.destination || '-'}\n\n` +
+        'Es entstehen keine Kosten.\n\n' +
+        'Bei Fragen erreichen Sie uns unter:\n' +
+        'Telefon: 038378 / 22022\n\n' +
+        'Mit freundlichen Gruessen\n' +
+        'Funk Taxi Heringsdorf\n' +
+        'www.umwelt-taxi-insel-usedom.de';
+    try {
+        await transporter.sendMail({
+            from: '"Funk Taxi Heringsdorf" <' + conf.user + '>',
+            to: toEmail,
+            subject,
+            text
+        });
+        await db.ref(`rides/${rideId}/cancelEmailSentAt`).set(Date.now());
+        try { await addRideLog(rideId, '📧', `Storno-Email an Kunde: ${toEmail}`, { quelle: 'sendCancellationEmail v6.66.251' }); } catch (_) {}
+        console.log(`   📧 Storno-Email gesendet an ${toEmail}`);
+        return true;
+    } catch (e) {
+        console.error(`   📧 sendCancellationEmail Fehler:`, e.message);
+        try { await addRideLog(rideId, '⚠️', `Storno-Email FEHLER: ${e.message}`, { toEmail, quelle: 'sendCancellationEmail v6.66.251' }); } catch (_) {}
+        return false;
+    }
+}
+
 async function sendStripeLinkEmail(toEmail, customerName, amount, stripeUrl, date, pickup, destination) {
     // 🔧 v6.63.619: Falsch: settings/email/smtp — korrekter Pfad: settings/smtp
     const _confSnap = await db.ref('settings/smtp').once('value');
@@ -31834,6 +31910,22 @@ exports.onRideUpdated = onValueUpdated(
                     }
                 } catch (_smsCancelErr) {
                     console.warn('Storno-SMS-Queue Fehler:', _smsCancelErr.message);
+                }
+
+                // 🆕 v6.66.251 (Patrick 06.10. 09:49/51 Bridge Kreuer-Vorfall): Zusaetzlich
+                //   zu SMS die Storno-Mail wenn Kunde eine Email-Adresse hat. Idempotenz
+                //   ueber ride.cancelEmailSentAt.
+                try {
+                    if (_isGhostSweep) {
+                        console.log(`👻 v6.63.695 Storno-Email UNTERDRUECKT (Ghost-Sweep) fuer ${rideId}`);
+                    } else {
+                        const _emailCancel = after.customerEmail;
+                        if (_emailCancel && _emailCancel.includes('@')) {
+                            await sendCancellationEmail(after, rideId);
+                        }
+                    }
+                } catch (_mailCancelErr) {
+                    console.warn('Storno-Email Fehler:', _mailCancelErr.message);
                 }
 
             } else if (newStatus === 'picked_up') {

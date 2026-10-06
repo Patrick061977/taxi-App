@@ -6,6 +6,21 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [6.66.254] - 2026-10-06 (Kollegen-Zeile: Herr/Frau + Nachname statt Vorname)
+
+**Patrick 06.10. 12:08 Bridge:** *„Warum schreibst du Vornamen? Wir nehmen immer Nachnamen. Herr Lehmann, Frau Giese — Höflichkeit wahren."*
+
+Fix in `DriverDashboardActivity.java` (Z4521):
+- `firstName = drvName.split(" ")[0]` → `"Herr/Frau " + lastName` (letztes Wort von `shift.driverName`).
+- Anrede-Default `Herr`; `Frau` nur bei bekannten weiblichen Vornamen (anja/marion/katja/sandra/lisa/simone/petra/karin/christine/monika/sabine/gabi/heike/susanne/claudia/andrea/barbara/nicole).
+- Resultat: `👤 Herr Reinke · 🚗 Tesla MY222 · bei X unterwegs`.
+
+TODO v6.66.255: anrede-Property in `/staff/{id}` pflegen, dann sauber aus DB lesen (statt Namensliste).
+
+**Version:** 6.66.253 → 6.66.254.
+
+---
+
 ## [6.66.253] - 2026-10-06 (Kollegen-Zeile: Fahrzeugname sichtbar)
 
 **Patrick 06.10. 11:47 Bridge:** *„Ich sehe Danilo online, aber ich sehe nicht mit welchem Fahrzeug Danilo online ist."*

@@ -4518,7 +4518,19 @@ public class DriverDashboardActivity extends AppCompatActivity {
                             Object nameO = vSnap.child("name").getValue();
                             String vName = nameO != null ? String.valueOf(nameO) : vid;
                             String drvName = drvO != null ? String.valueOf(drvO) : vName;
-                            String firstName = drvName.split(" ")[0];
+                            // 🔧 v6.66.254 (Patrick 06.10. 12:08 Bridge: "wir nehmen immer Nachnamen,
+                            //   Herr Lehmann, Frau Giese, Höflichkeit wahren" — statt Vornamen).
+                            //   Nachname = letztes Wort von driverName. Anrede: Default Herr,
+                            //   fuer bekannte weibliche Vornamen (Anja, Marion, Katja etc) Frau.
+                            String[] _nameParts = drvName.split("\\s+");
+                            String _firstName = _nameParts[0];
+                            String _lastName = _nameParts.length > 1 ? _nameParts[_nameParts.length - 1] : _firstName;
+                            String _fnLower = _firstName.toLowerCase();
+                            java.util.Set<String> _femNames = new java.util.HashSet<>(java.util.Arrays.asList(
+                                "anja","marion","katja","sandra","lisa","simone","petra","karin","christine",
+                                "monika","sabine","gabi","heike","susanne","claudia","andrea","barbara","nicole"));
+                            String _anrede = _femNames.contains(_fnLower) ? "Frau" : "Herr";
+                            String firstName = _anrede + " " + _lastName;
                             // v6.66.217 (Patrick 04.10. 09:27+09:40 'Danilo sehe ich noch nicht wo er ist'):
                             //   Reverse-Geocode via android.location.Geocoder (built-in, kostenlos).
                             //   Cache pro vid in colleagueAddressCache (TTL 60s) damit nicht permanent

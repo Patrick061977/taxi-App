@@ -13320,8 +13320,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '6.66.258';
-        const APP_BUILD = '09.10.2026 12:40';
+        const APP_VERSION = '6.66.260';
+        const APP_BUILD = '09.10.2026 14:34';
         const APP_CHANGE = 'v6.66.87: autoAssignRide Settings-Cache 5min → 15sek (Malus/Override greifen sofort).';
 
         // 🔧 FIX: Mache APP_VERSION global verfügbar
@@ -22785,7 +22785,13 @@ Aktuell: ${currentNum}`;
                         // 🔧 v6.62.423: nur AKTIVE Fahrten ins lokale Array. Storno-Notifications
                         // (cancelledStatuses-Check unten) laufen aber fuer ALLE — sonst verpassen Fahrer
                         // ihre eigene Storno-Notification.
-                        const ACTIVE_STATUSES = new Set(['new', 'vorbestellt', 'assigned', 'accepted', 'on_way', 'picked_up', 'arrived']);
+                        // 🔧 v6.66.260 (Patrick 09.10.2026 16:32 Bridge "Wartepool im Admin-Modus
+                        // anzeigen, wie Vorbestellt"): wartepool/warteschlange/sofort/akzeptiert/
+                        // unterwegs/angekommen fehlten → unsichtbar im Admin-Dashboard.
+                        const ACTIVE_STATUSES = new Set(['new', 'vorbestellt', 'sofort',
+                            'warteschlange', 'wartepool',
+                            'assigned', 'accepted', 'akzeptiert',
+                            'on_way', 'unterwegs', 'arrived', 'angekommen', 'picked_up']);
                         s.forEach(c => {
                             const r = c.val();
                             r.firebaseId = c.key;

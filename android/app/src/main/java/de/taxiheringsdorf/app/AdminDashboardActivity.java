@@ -127,6 +127,13 @@ public class AdminDashboardActivity extends AppCompatActivity {
     private final double[] editPickupCoords = new double[]{Double.NaN, Double.NaN};
     private final double[] editDestCoords = new double[]{Double.NaN, Double.NaN};
     private boolean pickerForPickup = false;
+    // v6.66.259 (Patrick 09.10.2026 14:59 Bridge "da hat sich nichts geändert in der native app"):
+    // Zwischenziel-Picker im Edit-Dialog. Edit-Dialog hat beliebig viele Waypoint-EditTexts,
+    // Picker-Button pro Row setzt editWpTargetField + editWpTargetCoords, Launcher-Callback
+    // schreibt dann dort rein.
+    private EditText editWpTargetField = null;
+    private double[] editWpTargetCoords = null;
+    private boolean pickerForWaypoint = false;
     private final androidx.activity.result.ActivityResultLauncher<Intent> mapPickerLauncherDispo =
         registerForActivityResult(new androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult(),
             result -> {
@@ -138,7 +145,12 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 if (addr == null || Double.isNaN(lat) || Double.isNaN(lon)) return;
                 // v6.62.364: Patrick (06.05. 14:42): Kaiserbaeder auch in MapPickerActivity-Result strippen
                 addr = CrmSearchActivity.stripTouristAndRegion(addr);
-                if (pickerForPickup) {
+                if (pickerForWaypoint) {
+                    // v6.66.259: Waypoint-Picker-Result
+                    if (editWpTargetField != null) editWpTargetField.setText(addr);
+                    if (editWpTargetCoords != null) { editWpTargetCoords[0] = lat; editWpTargetCoords[1] = lon; }
+                    pickerForWaypoint = false;  // Reset
+                } else if (pickerForPickup) {
                     if (editPickupTextRef != null) editPickupTextRef.setText(addr);
                     editPickupCoords[0] = lat; editPickupCoords[1] = lon;
                 } else {
@@ -5511,6 +5523,22 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 _wpRow.addView(_etWp);
                 editWpFields.add(_etWp);
                 editWpCoords.add(_wpC);
+                // v6.66.259: 🗺️-Button fuer Zwischenziel-Picker
+                TextView _btnMap = new TextView(this);
+                _btnMap.setText("🗺️");
+                _btnMap.setTextSize(18);
+                _btnMap.setPadding(pad, pad, pad, pad);
+                _btnMap.setBackgroundColor(0xFFD1FAE5);
+                _btnMap.setOnClickListener(__v -> {
+                    editWpTargetField = _etWp;
+                    editWpTargetCoords = _wpC;
+                    pickerForWaypoint = true;
+                    Intent _pi = new Intent(this, MapPickerActivity.class);
+                    String _pre = _etWp.getText() != null ? _etWp.getText().toString().trim() : "";
+                    if (!_pre.isEmpty()) _pi.putExtra(MapPickerActivity.EXTRA_INITIAL_QUERY, _pre);
+                    mapPickerLauncherDispo.launch(_pi);
+                });
+                _wpRow.addView(_btnMap);
                 TextView _btnRm = new TextView(this);
                 _btnRm.setText("✕");
                 _btnRm.setTextSize(18);
@@ -5548,6 +5576,22 @@ public class AdminDashboardActivity extends AppCompatActivity {
             _wpRow.addView(_etWp);
             editWpFields.add(_etWp);
             editWpCoords.add(_wpC);
+            // v6.66.259: 🗺️-Button fuer Zwischenziel-Picker (neu angelegter Waypoint)
+            TextView _btnMap = new TextView(this);
+            _btnMap.setText("🗺️");
+            _btnMap.setTextSize(18);
+            _btnMap.setPadding(pad, pad, pad, pad);
+            _btnMap.setBackgroundColor(0xFFD1FAE5);
+            _btnMap.setOnClickListener(__v -> {
+                editWpTargetField = _etWp;
+                editWpTargetCoords = _wpC;
+                pickerForWaypoint = true;
+                Intent _pi = new Intent(this, MapPickerActivity.class);
+                String _pre = _etWp.getText() != null ? _etWp.getText().toString().trim() : "";
+                if (!_pre.isEmpty()) _pi.putExtra(MapPickerActivity.EXTRA_INITIAL_QUERY, _pre);
+                mapPickerLauncherDispo.launch(_pi);
+            });
+            _wpRow.addView(_btnMap);
             TextView _btnRm = new TextView(this);
             _btnRm.setText("✕");
             _btnRm.setTextSize(18);

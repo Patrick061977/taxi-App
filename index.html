@@ -13320,8 +13320,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '6.66.257';
-        const APP_BUILD = '06.10.2026 13:40';
+        const APP_VERSION = '6.66.258';
+        const APP_BUILD = '09.10.2026 12:40';
         const APP_CHANGE = 'v6.66.87: autoAssignRide Settings-Cache 5min → 15sek (Malus/Override greifen sofort).';
 
         // 🔧 FIX: Mache APP_VERSION global verfügbar
@@ -60253,6 +60253,7 @@ Falls kein Datum erkennbar: {"error":"Kein Datum erkannt"}`;
                         <label style="display:block;font-weight:600;margin-bottom:8px;color:#1f2937;font-size:14px;">🛑 Zwischenstopp ${index + 1}</label>
                         <div style="display:flex;gap:6px;align-items:center;">
                             <input type="text" id="${wp.autocompleteId}" placeholder="z.B. Sparkasse Seestraße" value="${_addrVal}" style="flex:1;padding:10px;border:2px solid #e5e7eb;border-radius:8px;font-size:13px;">
+                            <button onclick="openEditWaypointMapPicker(${wp.id})" style="padding:10px 12px;border:2px solid #10b981;background:#d1fae5;color:#065f46;border-radius:8px;font-weight:600;cursor:pointer;font-size:16px;" title="Auf Karte wählen">🗺️</button>
                             <button onclick="removeEditWaypoint(${wp.id})" style="padding:10px 12px;border:2px solid #ef4444;background:#fee2e2;color:#991b1b;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;" title="Zwischenstopp entfernen">❌</button>
                         </div>
                         <input type="text" id="${wp.nameInputId}" placeholder="Name (optional, z.B. Familie Müller)" value="${_nameVal}" oninput="(function(id,v){const w=editWaypoints.find(x=>x.id===id);if(w)w.name=v;})(${wp.id}, this.value)" style="margin-top:6px;width:100%;padding:8px 10px;border:1px dashed #cbd5e1;border-radius:6px;font-size:12px;color:#475569;background:#f8fafc;">
@@ -60263,6 +60264,23 @@ Falls kein Datum erkennbar: {"error":"Kein Datum erkannt"}`;
             container.innerHTML = html;
             editWaypoints.forEach(wp => {
                 initializeEditWaypointAutocomplete(wp);
+            });
+        }
+
+        // 🗺️ v6.66.258 (Patrick 09.10.2026 14:38): Karten-Picker für Edit-Zwischenstopp.
+        // Vorher nur String-Autocomplete im Edit-Dialog — jetzt wie bei Pickup/Ziel.
+        function openEditWaypointMapPicker(waypointId) {
+            const wp = editWaypoints.find(x => x.id === waypointId);
+            if (!wp) return;
+            openUniversalMapPicker(wp.autocompleteId, `🛑 Zwischenstopp ${editWaypoints.indexOf(wp) + 1} auf Karte wählen`, (result) => {
+                wp.address = result.address;
+                wp.coords = { lat: result.lat, lon: result.lon };
+                if (result.poiName) wp.name = result.poiName;
+                const input = document.getElementById(wp.autocompleteId);
+                if (input) input.value = result.address;
+                const nameInput = document.getElementById(wp.nameInputId);
+                if (nameInput && result.poiName) nameInput.value = result.poiName;
+                console.log('🛑 Edit-Waypoint via Karte gesetzt:', wp.id, result);
             });
         }
 

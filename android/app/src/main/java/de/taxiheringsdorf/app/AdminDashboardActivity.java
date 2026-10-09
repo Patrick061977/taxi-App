@@ -498,6 +498,12 @@ public class AdminDashboardActivity extends AppCompatActivity {
         //   MIT expanded Diagnose per Default (v6.63.678 Fix Z3297).
         //   Wir wollen NICHT eine separate obere Sektion die die Rides dupliziert.
         rest.addAll(wartepoolRides);
+        // 🆕 v6.66.262 (Patrick 09.10.2026 19:56 Bridge "Die Fahrten werden nirgendwo
+        //   angezeigt" + Strandhotel-Fahrt): rest.addAll hängt Wartepool-Rides UNSORTIERT
+        //   ans Ende. HEUTE-Fahrten landen dann NACH Fahrten der nächsten Woche → im
+        //   Day-Header-Loop wird 🟡 HEUTE am Ende eingefügt → Patrick sieht 22.10. zuerst
+        //   und übersieht HEUTE komplett. Fix: rest nochmal chronologisch sortieren.
+        rest.sort(Comparator.comparingLong(r -> r.pickupTimestamp != null ? r.pickupTimestamp : Long.MAX_VALUE));
 
         // 🆕 v6.62.932 (Patrick 25.05. 12:29-12:30 'e' + 'dispo'): Wartepool +
         //   offene Anfragen als prominente Top-Banner — geht in der Dispo-Liste sonst unter.

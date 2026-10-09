@@ -46321,3 +46321,105 @@ exports.onCallRecordingCreated = onValueCreated(
     }
 );
 
+
+// ========================================================================
+// scheduledDriverAlarmHealthCheck — Patrick 09.10.2026 09:48 Bridge:
+// Darek bekommt keinen Alarm weil sein User-Record LEER ist (telegramChatId
+// + fcmToken). Alle 10 Min scannen welche Fahrer-im-Dienst keine Push-Kanäle
+// haben → Admin-Alert damit Patrick manuell nachpflegen oder Re-Login
+// anstossen kann.
+// ========================================================================
+exports.scheduledDriverAlarmHealthCheck = onSchedule(
+    {
+        schedule: 'every 10 minutes',
+        region: 'europe-west1',
+        timeoutSeconds: 60,
+        memory: '256MiB'
+    },
+    async () => {
+        try {
+            const now = Date.now();
+            const [vehiclesSnap, usersSnap, alertStateSnap] = await Promise.all([
+                db.ref('vehicles').once('value'),
+                db.ref('users').once('value'),
+                db.ref('monitoring/driverAlarmAlerts').once('value')
+            ]);
+            const vehicles = vehiclesSnap.val() || {};
+            const users = usersSnap.val() || {};
+            const alertState = alertStateSnap.val() || {};
+
+            const problems = [];
+            for (const [vid, v] of Object.entries(vehicles)) {
+                if (!v || !v.shift) continue;
+                if (v.shift.status !== 'active') continue;
+                const heartbeatAgeMin = v.shift.lastHeartbeat ? (now - v.shift.lastHeartbeat) / 60000 : 999;
+                if (heartbeatAgeMin > 20) continue; // Vehicle ist faktisch offline, ignorieren
+                const uid = v.shift.userId;
+                const driverName = v.shift.driverName || 'Unbekannt';
+                const user = uid ? users[uid] : null;
+
+                const vehFcm = v.fcmToken && (typeof v.fcmToken === 'object' ? v.fcmToken.token : v.fcmToken);
+                const vehChat = v.telegramChatId;
+                const userChat = user && user.telegramChatId;
+                const userFcm = user && user.fcmToken;
+
+                const hasPush = !!(vehFcm || userFcm);
+                const hasTelegram = !!(vehChat || userChat);
+
+                if (hasPush && hasTelegram) continue; // alles ok
+
+                problems.push({
+                    vid,
+                    driverName,
+                    uid: uid || null,
+                    hasPush,
+                    hasTelegram,
+                    missing: [!hasPush && 'FCM-Push', !hasTelegram && 'Telegram-Alarm'].filter(Boolean).join(' + ')
+                });
+            }
+
+            if (!problems.length) {
+                await db.ref('monitoring/driverAlarmHealth').set({ lastCheck: now, allHealthy: true });
+                return;
+            }
+
+            // Dedupe: pro vid+missing nur alle 6h erneut alarmieren
+            const SIX_HOURS = 6 * 3600 * 1000;
+            const toAlert = problems.filter(p => {
+                const key = `${p.vid}__${p.missing.replace(/\W/g, '_')}`;
+                const lastAlert = alertState[key] || 0;
+                return (now - lastAlert) > SIX_HOURS;
+            });
+
+            if (toAlert.length) {
+                let msg = `🔔 <b>Fahrer-Alarm-Health-Check</b>\n\n`;
+                msg += `${toAlert.length} aktive Fahrer OHNE Push-Kanal:\n\n`;
+                for (const p of toAlert) {
+                    msg += `• <b>${p.driverName}</b> (${p.vid})\n  fehlt: ${p.missing}\n`;
+                    msg += `  → bekommt KEINEN Alarm bei neuer Zuweisung\n\n`;
+                }
+                msg += `<i>Fix: Fahrer App neu-öffnen (schreibt FCM-Token) oder telegramChatId manuell in /users/${toAlert[0].uid || '{uid}'}/telegramChatId eintragen.</i>`;
+
+                if (typeof sendToAllAdmins === 'function') {
+                    await sendToAllAdmins(msg);
+                }
+
+                const updates = {};
+                for (const p of toAlert) {
+                    const key = `${p.vid}__${p.missing.replace(/\W/g, '_')}`;
+                    updates[`monitoring/driverAlarmAlerts/${key}`] = now;
+                }
+                await db.ref().update(updates);
+            }
+
+            await db.ref('monitoring/driverAlarmHealth').set({
+                lastCheck: now,
+                allHealthy: false,
+                problemsCount: problems.length,
+                problems
+            });
+        } catch (e) {
+            console.error('scheduledDriverAlarmHealthCheck Fehler:', e.message, e.stack);
+        }
+    }
+);

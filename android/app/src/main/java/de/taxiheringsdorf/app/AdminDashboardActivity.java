@@ -692,6 +692,28 @@ public class AdminDashboardActivity extends AppCompatActivity {
         //   Wartepool wird jetzt OBEN direkt nach VORGESEHEN gezeigt (siehe oben).
         //   Untere Sektion entfernt — sonst tauchen die Rides doppelt auf.
         adapter.set(sectioned);
+        // 🆕 v6.66.261 (Patrick 09.10.2026 16:32 Bridge "Kalender beginnt bei 8.10. statt
+        //   heute — wieso springt er nicht zur aktuellen Uhrzeit"): Auto-Scroll zum HEUTE-
+        //   Header beim Rendering. Gestrige noch-nicht-abgeschlossene Fahrten bleiben
+        //   sichtbar (Scroll nach oben), aber Startposition ist HEUTE.
+        try {
+            int _todayIdx = -1;
+            for (int _i = 0; _i < sectioned.size(); _i++) {
+                Object _item = sectioned.get(_i);
+                if (_item instanceof String && ((String) _item).startsWith("🟡 HEUTE")) {
+                    _todayIdx = _i; break;
+                }
+            }
+            if (_todayIdx > 0) {
+                final int _scrollTo = _todayIdx;
+                rv.post(() -> {
+                    androidx.recyclerview.widget.RecyclerView.LayoutManager _lm = rv.getLayoutManager();
+                    if (_lm instanceof androidx.recyclerview.widget.LinearLayoutManager) {
+                        ((androidx.recyclerview.widget.LinearLayoutManager) _lm).scrollToPositionWithOffset(_scrollTo, 0);
+                    }
+                });
+            }
+        } catch (Throwable _scrollErr) { Log.w(TAG, "Auto-Scroll HEUTE: " + _scrollErr.getMessage()); }
         // 🆕 v6.62.673: Queue-Count zaehlt jetzt auch offene Anfragen
         int totalCount = list.size() + _currentOffeneAnfragen.size();
         tvQueueCount.setText(String.valueOf(totalCount));

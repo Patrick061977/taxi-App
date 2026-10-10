@@ -1655,6 +1655,29 @@ function showAnfrageSuccess() {
     </button>
 </div>
 
+<!-- 🎪 v6.66.272 (Patrick 10.10. 20:02 Bridge: 'WhatsApp auch ausblenden bis morgen früh'):
+     Oktoberfest-Fenster 10.10. 19:30 - 11.10. 06:00: alle WhatsApp-Links verstecken -->
+<script>
+(function(){
+    var now = new Date();
+    var oktoStart = new Date(2026, 9, 10, 19, 30);
+    var oktoEnd = new Date(2026, 9, 11, 6, 0);
+    if (now >= oktoStart && now <= oktoEnd) {
+        document.addEventListener('DOMContentLoaded', function() {
+            try {
+                // Alle WhatsApp-Links ausblenden
+                document.querySelectorAll('a[href*="wa.me"]').forEach(function(a) {
+                    a.style.display = 'none';
+                });
+                // Angebots-Banner (Mitfahrt Berlin→Usedom) ausblenden falls WhatsApp
+                var angBanner = document.getElementById('angebot-banner');
+                if (angBanner) angBanner.style.display = 'none';
+            } catch(e) { console.warn('Oktoberfest-WA-Hide-Fehler:', e); }
+        });
+    }
+})();
+</script>
+
 <!-- 🆕 v6.62.175: Live-ETA-Banner — Firebase + Smart-ETA-Logik. Adaptive Anzeige
      je nach Taxi-Verfuegbarkeit. Bei verfuegbar: grosser Buchen-CTA. Bei nicht:
      dezenter Anrufen-Streifen. ?src=qr Param wandert weiter zu buchen.html. -->

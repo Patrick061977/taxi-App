@@ -4602,6 +4602,12 @@ public class DriverDashboardActivity extends AppCompatActivity {
                         // 🆕 v6.66.238: Sammle naechste Fahrten pro Vehicle
                         java.util.Map<String, long[]> nextRideData = new java.util.HashMap<>(); // vid -> [pickupTs, rideId-ref]
                         java.util.Map<String, String> nextRideLabel = new java.util.HashMap<>();
+                        // 🆕 v6.66.281 (Patrick 10.10. 13:46 Bridge Danilo-Doppel-Fahrt):
+                        //   Im 1. Pass gesammelte ride-IDs merken, damit 2. Pass sie nicht
+                        //   nochmal als "➜ danach" einträgt. Vorher: Danilo mit nur 1
+                        //   accepted-Fahrt sah 'nächste: Klein 09:00' + 'danach: Klein 09:00'
+                        //   (= dieselbe Fahrt zweifach).
+                        java.util.Set<String> _firstPassRideKeys = new java.util.HashSet<>();
                         long now = System.currentTimeMillis();
                         for (com.google.firebase.database.DataSnapshot ride : snap.getChildren()) {
                             Object statusO = ride.child("status").getValue();
@@ -4714,10 +4720,14 @@ public class DriverDashboardActivity extends AppCompatActivity {
                                 desc = "nächste: " + firstName + pickupStr;
                             }
                             next.put(vid, desc);
+                            // v6.66.281: ride-key für 2. Pass merken
+                            _firstPassRideKeys.add(ride.getKey());
                             // 🆕 v6.66.238: Sammle naechste vorbestellte/assigned Fahrt pro Vehicle
                         }
                         // Zweiter Pass: naechste vorbestellte/assigned/accepted Fahrt pro Vehicle (nicht die aktuelle)
                         for (com.google.firebase.database.DataSnapshot ride : snap.getChildren()) {
+                            // v6.66.281: Ride die schon im 1. Pass war überspringen (Danilo-Doppel-Fix)
+                            if (_firstPassRideKeys.contains(ride.getKey())) continue;
                             Object stO = ride.child("status").getValue();
                             String st = stO != null ? String.valueOf(stO) : "";
                             if (!"accepted".equals(st) && !"akzeptiert".equals(st) && !"vorbestellt".equals(st) && !"assigned".equals(st)) continue;

@@ -6560,6 +6560,11 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 card.setBackgroundColor(0xFFDC2626);
                 title.setText("🚨 ALARM-PROBLEM — " + problems.size() + " Fehler, tippen für Details+Fix");
                 title.setTextColor(0xFFFFFFFF);
+                // v6.66.267 (Patrick 10.10. 09:42 Bridge "Fehler-Log"): Health-Problems via
+                //   DriverLogger in /driverLogs/{vid} speichern — Admin kann historisch pruefen.
+                for (String p : problems) {
+                    DriverLogger.warn(this, "health_check", p);
+                }
             }
         });
     }

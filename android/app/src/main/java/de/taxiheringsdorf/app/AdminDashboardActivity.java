@@ -1719,18 +1719,16 @@ public class AdminDashboardActivity extends AppCompatActivity {
     //   Felder als Read-Preview, "Übernehmen" → wandelt nach /rides um (status='vorbestellt'
     //   wenn future, sonst 'sofort'), markiert die Anfrage als bestaetigt.
     private void showAnfrageUebernehmenDialog(Anfrage a) {
+        // v6.66.277 (Patrick 10.10. 12:53 Bridge): Anfrage voll editierbar vor Übernahme.
+        //   'Kann die Adresse ja gar nicht ändern. Müsste ich das ja vorher auch
+        //   bearbeiten können.' → statt StringBuilder details jetzt EditText-Felder
+        //   für Pickup/Destination/Pax/Datum/Notiz. Email/Phone bleiben read-only
+        //   (Kundenkontaktdaten sollten nicht via Admin editiert werden).
         StringBuilder details = new StringBuilder();
         details.append("Kanal: ").append(a.channel != null ? a.channel : "?").append("\n");
         if (a.name != null) details.append("Name: ").append(a.name).append("\n");
         if (a.phone != null) details.append("Tel: ").append(a.phone).append("\n");
         if (a.email != null) details.append("Email: ").append(a.email).append("\n");
-        if (a.passengers != null) details.append("Personen: ").append(a.passengers).append("\n");
-        if (a.date != null) details.append("Datum: ").append(a.date).append("\n");
-        if (a.time != null) details.append("Uhrzeit: ").append(a.time).append("\n");
-        if (a.pickup != null) details.append("Abholort: ").append(a.pickup).append("\n");
-        if (a.stopp != null && !a.stopp.isEmpty()) details.append("Zwischenstopp: ").append(a.stopp).append("\n");
-        if (a.destination != null) details.append("Zielort: ").append(a.destination).append("\n");
-        if (a.notes != null && !a.notes.isEmpty()) details.append("Notiz: ").append(a.notes).append("\n");
 
         // v6.63.069 (Patrick 01.06. 11:52 Bridge): WhatsApp-Anfragen sollen die
         //   Bestätigung auch per WhatsApp zurückkriegen. Cloud Function
@@ -1895,14 +1893,115 @@ public class AdminDashboardActivity extends AppCompatActivity {
         }
 
         btnLayout.addView(tvDetails);
+
+        // v6.66.277: Pickup editierbar
+        TextView tvPickupLabel = new TextView(this);
+        tvPickupLabel.setText("📍 Abholort:");
+        tvPickupLabel.setTextSize(14);
+        tvPickupLabel.setPadding(btnPad, btnPad, btnPad, 4);
+        final android.widget.EditText etPickup = new android.widget.EditText(this);
+        etPickup.setText(a.pickup != null ? a.pickup : "");
+        etPickup.setPadding(btnPad, btnPad, btnPad, btnPad);
+        android.widget.LinearLayout.LayoutParams lpP =
+            new android.widget.LinearLayout.LayoutParams(
+                android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
+        lpP.setMargins(0, 0, 0, btnPad / 2);
+        etPickup.setLayoutParams(lpP);
+        btnLayout.addView(tvPickupLabel);
+        btnLayout.addView(etPickup);
+
+        // v6.66.277: Zielort editierbar
+        TextView tvDestLabel = new TextView(this);
+        tvDestLabel.setText("🎯 Zielort:");
+        tvDestLabel.setTextSize(14);
+        tvDestLabel.setPadding(btnPad, 0, btnPad, 4);
+        final android.widget.EditText etDest = new android.widget.EditText(this);
+        etDest.setText(a.destination != null ? a.destination : "");
+        etDest.setPadding(btnPad, btnPad, btnPad, btnPad);
+        etDest.setLayoutParams(lpP);
+        btnLayout.addView(tvDestLabel);
+        btnLayout.addView(etDest);
+
+        // v6.66.277: Datum editierbar via DatePicker
+        TextView tvDateLabel = new TextView(this);
+        tvDateLabel.setText("📅 Datum:");
+        tvDateLabel.setTextSize(14);
+        tvDateLabel.setPadding(btnPad, btnPad, btnPad, 4);
+        final android.widget.Button btnDate = new android.widget.Button(this);
+        btnDate.setAllCaps(false);
+        btnDate.setText(a.date != null && !a.date.isEmpty() ? "📅 " + a.date : "📅 Datum wählen…");
+        btnDate.setPadding(btnPad, btnPad, btnPad, btnPad);
+        btnDate.setBackgroundColor(0xFFDDE9FB);
+        btnDate.setTextColor(0xFF1e40af);
+        btnDate.setLayoutParams(lpZeit);
+        final String[] _dateHolder = new String[]{ a.date };
+        btnDate.setOnClickListener(_v -> {
+            java.util.Calendar _c = java.util.Calendar.getInstance();
+            if (_dateHolder[0] != null && _dateHolder[0].matches("\\d{4}-\\d{2}-\\d{2}")) {
+                try {
+                    String[] _p = _dateHolder[0].split("-");
+                    _c.set(Integer.parseInt(_p[0]), Integer.parseInt(_p[1])-1, Integer.parseInt(_p[2]));
+                } catch (Throwable _ig) {}
+            }
+            new android.app.DatePickerDialog(AdminDashboardActivity.this, (dp, y, mo, d) -> {
+                _dateHolder[0] = String.format(java.util.Locale.US, "%04d-%02d-%02d", y, mo+1, d);
+                btnDate.setText("📅 " + _dateHolder[0]);
+            }, _c.get(java.util.Calendar.YEAR), _c.get(java.util.Calendar.MONTH), _c.get(java.util.Calendar.DAY_OF_MONTH)).show();
+        });
+        btnLayout.addView(tvDateLabel);
+        btnLayout.addView(btnDate);
+
         btnLayout.addView(tvZeitLabel);
         btnLayout.addView(btnZeit);
         if (_hatRueckfahrt) {
             btnLayout.addView(tvZeitReturnLabel);
             btnLayout.addView(btnZeitReturn);
         }
+
+        // v6.66.277: Personenzahl editierbar
+        TextView tvPaxLabel = new TextView(this);
+        tvPaxLabel.setText("👥 Personen:");
+        tvPaxLabel.setTextSize(14);
+        tvPaxLabel.setPadding(btnPad, btnPad, btnPad, 4);
+        final android.widget.EditText etPax = new android.widget.EditText(this);
+        etPax.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+        etPax.setText(a.passengers != null ? String.valueOf(a.passengers) : "1");
+        etPax.setPadding(btnPad, btnPad, btnPad, btnPad);
+        etPax.setLayoutParams(lpP);
+        btnLayout.addView(tvPaxLabel);
+        btnLayout.addView(etPax);
+
         btnLayout.addView(tvPreisLabel);
         btnLayout.addView(etPreis);
+
+        // v6.66.277: Notiz editierbar
+        TextView tvNoteLabel = new TextView(this);
+        tvNoteLabel.setText("💬 Notiz:");
+        tvNoteLabel.setTextSize(14);
+        tvNoteLabel.setPadding(btnPad, btnPad, btnPad, 4);
+        final android.widget.EditText etNotes = new android.widget.EditText(this);
+        etNotes.setText(a.notes != null ? a.notes : "");
+        etNotes.setMinLines(2);
+        etNotes.setGravity(android.view.Gravity.TOP | android.view.Gravity.START);
+        etNotes.setPadding(btnPad, btnPad, btnPad, btnPad);
+        etNotes.setLayoutParams(lpP);
+        btnLayout.addView(tvNoteLabel);
+        btnLayout.addView(etNotes);
+
+        // v6.66.277 Speichern-Button (Firebase-Update ohne Übernahme — triggert Re-Geocode)
+        android.widget.Button btnSave = new android.widget.Button(this);
+        btnSave.setText("💾 Änderungen speichern (Anfrage bleibt offen)");
+        btnSave.setBackgroundColor(0xFF2563EB);
+        btnSave.setTextColor(0xFFFFFFFF);
+        btnSave.setPadding(btnPad, btnPad, btnPad, btnPad);
+        android.widget.LinearLayout.LayoutParams lpSv =
+            new android.widget.LinearLayout.LayoutParams(
+                android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
+        lpSv.setMargins(0, btnPad, 0, btnPad / 2);
+        btnSave.setLayoutParams(lpSv);
+        btnLayout.addView(btnSave);
 
         // v6.66.276 (Patrick 10.10. 12:17 Bridge): Rückfrage-Button VOR Übernahme.
         //   Use-Case: Preis stimmt nicht, Pax unklar, Zeit unmöglich → Mail an Kunde
@@ -1935,6 +2034,20 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 }
             } catch (Throwable _e) { /* ungueltige Eingabe → alter Preis bleibt */ }
         };
+        // v6.66.277: Alle editierbaren Felder in a übernehmen
+        final Runnable _applyAllEdits = () -> {
+            String _pk = etPickup.getText().toString().trim();
+            if (!_pk.isEmpty()) a.pickup = _pk;
+            String _dst = etDest.getText().toString().trim();
+            if (!_dst.isEmpty()) a.destination = _dst;
+            if (_dateHolder[0] != null && _dateHolder[0].matches("\\d{4}-\\d{2}-\\d{2}")) a.date = _dateHolder[0];
+            String _pxS = etPax.getText().toString().trim();
+            if (!_pxS.isEmpty()) {
+                try { int _px = Integer.parseInt(_pxS); if (_px > 0 && _px <= 20) a.passengers = _px; } catch (Throwable _e) {}
+            }
+            String _nt = etNotes.getText().toString().trim();
+            a.notes = _nt;
+        };
         // v6.63.873: TimePickerDialog liefert immer sauberes "HH:MM" — kein Normalisieren nötig
         final String[] _returnTimeHolder = new String[1];
         final Runnable _applyZeitEdit = () -> {
@@ -1956,6 +2069,7 @@ public class AdminDashboardActivity extends AppCompatActivity {
         btnVorschau.setOnClickListener(_v -> {
             _applyZeitEdit.run();
             _applyPriceEdit.run();
+            _applyAllEdits.run();
             // v6.63.870: Rueckfahrt-Trigger — wenn Berlin-Shuttle mit dateReturn +
             //   Rueckfahrt-Uhrzeit gesetzt: nach dem regulaeren Uebernehmen einen
             //   zweiten Ride mit vertauschten Adressen und dateReturn anlegen.
@@ -1968,6 +2082,7 @@ public class AdminDashboardActivity extends AppCompatActivity {
         btnNurUebernehmen.setOnClickListener(_v -> {
             _applyZeitEdit.run();
             _applyPriceEdit.run();
+            _applyAllEdits.run();
             if (_hatRueckfahrt && _returnTimeHolder[0] != null) {
                 _pendingReturnRide.put(a.id, _returnTimeHolder[0]);
             }
@@ -1976,11 +2091,49 @@ public class AdminDashboardActivity extends AppCompatActivity {
         });
         // v6.66.276: Rückfrage-Button öffnet eigenen Dialog mit Templates + Freitext
         btnRueckfrage.setOnClickListener(_v -> {
-            _applyPriceEdit.run(); // Preis-Edit übernehmen falls Patrick ihn geändert hat (für Preis-Template)
+            _applyZeitEdit.run();
+            _applyPriceEdit.run();
+            _applyAllEdits.run(); // Edits in a übernehmen damit Template-Texte aktuelle Daten zeigen
             dlg.dismiss();
             showRueckfrageDialog(a);
         });
+        // v6.66.277: Speichern-Button → nur Firebase-Update, Anfrage bleibt offen
+        btnSave.setOnClickListener(_v -> {
+            _applyZeitEdit.run();
+            _applyPriceEdit.run();
+            _applyAllEdits.run();
+            saveAnfrageEdits(a);
+            dlg.dismiss();
+        });
         dlg.show();
+    }
+
+    // v6.66.277: Edits in /anfragen/{id} schreiben + Re-Geocode via Entfernen von Coords.
+    //   Cloud-Function onAnfrageUpdated müsste dann Re-Augment auslösen (destCoords+distance+price neu).
+    //   Falls Pickup/Dest geändert → bisherige Coords löschen damit Cloud sie neu geocoded.
+    private void saveAnfrageEdits(Anfrage a) {
+        try {
+            java.util.Map<String, Object> upd = new java.util.HashMap<>();
+            upd.put("pickup", a.pickup != null ? a.pickup : "");
+            upd.put("destination", a.destination != null ? a.destination : "");
+            upd.put("date", a.date != null ? a.date : "");
+            upd.put("time", a.time != null ? a.time : "");
+            upd.put("passengers", a.passengers != null ? a.passengers : 1);
+            upd.put("notes", a.notes != null ? a.notes : "");
+            upd.put("price", a.price != null ? a.price : "");
+            // Coords löschen → onAnfrageCreated/Updated re-geocoded via geocode()
+            upd.put("pickupCoords", null);
+            upd.put("destCoords", null);
+            upd.put("distance", null);
+            upd.put("duration", null);
+            upd.put("editedAt", System.currentTimeMillis());
+            upd.put("editedBy", "native_admin");
+            db.getReference("anfragen/" + a.id).updateChildren(upd)
+                .addOnSuccessListener(r -> Toast.makeText(this, "💾 Anfrage gespeichert — Preis + Route werden neu berechnet", Toast.LENGTH_LONG).show())
+                .addOnFailureListener(e -> Toast.makeText(this, "❌ Speichern fehlgeschlagen: " + e.getMessage(), Toast.LENGTH_LONG).show());
+        } catch (Throwable t) {
+            Toast.makeText(this, "❌ Fehler: " + t.getMessage(), Toast.LENGTH_LONG).show();
+        }
     }
 
     // v6.66.276 (Patrick 10.10.): Rückfrage-Dialog — vier Templates + Freitext.

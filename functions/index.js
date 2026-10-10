@@ -46366,7 +46366,11 @@ exports.scheduledDriverAlarmHealthCheck = onSchedule(
                 const hasPush = !!(vehFcm || userFcm);
                 const hasTelegram = !!(vehChat || userChat);
 
-                if (hasPush && hasTelegram) continue; // alles ok
+                // v6.66.264 (Patrick 10.10. 09:28 Bridge "telegram chat id ist nicht aktiv,
+                //   es laeuft alles ueber die native app"): Telegram-Chat-ID NICHT mehr als
+                //   Pflicht-Alarm-Kanal werten. Nur FCM-Push ist blocking.
+                //   Fahrer ohne Telegram ist OK solange FCM funktioniert.
+                if (hasPush) continue; // FCM reicht, Telegram optional
 
                 problems.push({
                     vid,
@@ -46374,7 +46378,7 @@ exports.scheduledDriverAlarmHealthCheck = onSchedule(
                     uid: uid || null,
                     hasPush,
                     hasTelegram,
-                    missing: [!hasPush && 'FCM-Push', !hasTelegram && 'Telegram-Alarm'].filter(Boolean).join(' + ')
+                    missing: 'FCM-Push (= Native-App-Alarm)'
                 });
             }
 

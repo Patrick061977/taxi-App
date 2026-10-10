@@ -97,9 +97,9 @@
             <script>
                 (function(){
                     var now = new Date();
-                    // v6.66.270 (Patrick 10.10. 19:53 Bridge): Oktoberfest-Fenster
-                    //   10.10. 20:00 bis 11.10. 06:00 — danach wieder normal
-                    var oktoStart = new Date(2026, 9, 10, 20, 0);
+                    // v6.66.271 (Patrick 10.10. 19:57 Bridge: 'alles noch da' — Start vorziehen):
+                    //   10.10. ab sofort (19:30 safety) bis 11.10. 06:00
+                    var oktoStart = new Date(2026, 9, 10, 19, 30);
                     var oktoEnd = new Date(2026, 9, 11, 6, 0);
                     if (now >= oktoStart && now <= oktoEnd) {
                         var okto = document.getElementById('oktoberfest-banner');

@@ -90,6 +90,31 @@
                 app:cornerRadius="18dp" />
         </LinearLayout>
 
+        <!-- 🆕 v6.66.264 (Patrick 10.10. 09:23 Bridge "mach beides"): System-Health-
+             Check-Card auch im Admin-Modus. Click öffnet Details-Dialog. -->
+        <LinearLayout
+            android:id="@+id/admin_system_check_card"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="#065F46"
+            android:padding="10dp"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:clickable="true"
+            android:focusable="true">
+
+            <TextView
+                android:id="@+id/admin_tv_system_check_title"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="🟢 ALARM-SYSTEM OK — tippe für Details"
+                android:textColor="#D1FAE5"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:gravity="center" />
+        </LinearLayout>
+
         <!-- 🆕 v6.62.932 (Patrick 25.05. 12:29 E): Wartepool-Alarm-Banner.
              Sichtbar wenn 1+ Fahrt im /rides mit status='wartepool'. Tap → Filter
              auf Wartepool / Scroll zur Wartepool-Sektion. -->

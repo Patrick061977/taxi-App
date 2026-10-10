@@ -5963,18 +5963,56 @@ public class DriverDashboardActivity extends AppCompatActivity {
         runOnUiThread(() -> {
             if (problems.isEmpty()) {
                 card.setBackgroundColor(0xFF065F46);  // grün
-                title.setText("🟢 ALARM-SYSTEM OK — Du kriegst alle Fahrten + Vollalarm");
+                title.setText("🟢 ALARM-SYSTEM OK — tippe für Details");
                 title.setTextColor(0xFFD1FAE5);
                 details.setVisibility(View.GONE);
             } else {
                 card.setBackgroundColor(0xFFDC2626);  // rot
-                title.setText("🚨 ALARM-PROBLEM — " + problems.size() + " Fehler, Fahrten koennten ausbleiben!");
+                title.setText("🚨 ALARM-PROBLEM — " + problems.size() + " Fehler, tippen für Fix");
                 title.setTextColor(0xFFFFFFFF);
                 details.setVisibility(View.VISIBLE);
                 details.setText(String.join("\n", problems));
                 details.setTextColor(0xFFFECACA);
             }
+            // 🆕 v6.66.264: Click-Handler fuer Details-Dialog mit Fix-Buttons
+            card.setOnClickListener(_v -> showDriverHealthDetailsDialog(problems));
         });
+    }
+
+    private void showDriverHealthDetailsDialog(java.util.List<String> problems) {
+        android.app.AlertDialog.Builder b = new android.app.AlertDialog.Builder(this);
+        StringBuilder sb = new StringBuilder();
+        if (problems.isEmpty()) {
+            b.setTitle("🟢 Alarm-System OK");
+            sb.append("Alle Push-Kanäle funktionieren:\n\n");
+            sb.append("✓ FCM-Token vorhanden\n");
+            sb.append("✓ Push-Berechtigung erteilt\n");
+            sb.append("✓ Akku-Optimierung aus\n");
+            sb.append("✓ Alarm-Channel IMPORTANCE_HIGH\n");
+            sb.append("✓ Firebase online\n\n");
+            sb.append("Du bekommst alle Fahrten mit Vollalarm.");
+        } else {
+            b.setTitle("🚨 " + problems.size() + " Alarm-Probleme");
+            sb.append("Diese Probleme können dazu führen dass Fahrten überhört werden:\n\n");
+            for (String p : problems) sb.append(p).append("\n\n");
+            sb.append("Tippe die Buttons unten um die Einstellungen zu öffnen.");
+        }
+        b.setMessage(sb.toString());
+        b.setPositiveButton("App-Einstellungen", (d,w) -> {
+            try {
+                android.content.Intent i = new android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+                i.setData(android.net.Uri.parse("package:" + getPackageName()));
+                startActivity(i);
+            } catch (Throwable _ignore) {}
+        });
+        b.setNeutralButton("Akku-Einstellungen", (d,w) -> {
+            try {
+                android.content.Intent i = new android.content.Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS);
+                startActivity(i);
+            } catch (Throwable _ignore) {}
+        });
+        b.setNegativeButton("Schließen", null);
+        b.show();
     }
 
     // 🆕 v6.66.124 (Patrick 20.09. 19:10 Bridge Konflikt-Vorschlag):

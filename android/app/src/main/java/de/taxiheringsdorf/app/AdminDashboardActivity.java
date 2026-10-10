@@ -168,6 +168,10 @@ public class AdminDashboardActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         setContentView(R.layout.activity_admin_dashboard);
+        // 🆕 v6.66.264 (Patrick 10.10. 09:23 Bridge "mach beides"): System-Health-Check
+        //   im Admin-Modus. Beim onCreate ersten Check laufen lassen + Click-Handler
+        //   fuer Details-Dialog setzen.
+        setupAdminSystemHealthCheck();
 
         // Admin-Mode Flag setzen — CallLogActivity nutzt das um EINSTEIGER zu verstecken
         getSharedPreferences("admin", MODE_PRIVATE).edit().putBoolean("isAdminMode", true).apply();
@@ -6465,5 +6469,115 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 }
             })
             .addOnFailureListener(_e -> Toast.makeText(this, "Poll-Fehler: " + _e.getMessage(), Toast.LENGTH_SHORT).show());
+    }
+
+    // 🆕 v6.66.264 (Patrick 10.10. 09:23 Bridge "mach beides"): System-Health-Check
+    //   im Admin-Modus + Click-Handler fuer Details-Dialog.
+    private void setupAdminSystemHealthCheck() {
+        try {
+            final android.widget.LinearLayout card = findViewById(R.id.admin_system_check_card);
+            final android.widget.TextView title = findViewById(R.id.admin_tv_system_check_title);
+            if (card == null || title == null) return;
+
+            final java.util.List<String> problems = new java.util.ArrayList<>();
+
+            // Check 1: FCM-Token in SharedPreferences
+            android.content.SharedPreferences fcmPrefs = getSharedPreferences("fcm", MODE_PRIVATE);
+            String fcmTok = fcmPrefs.getString("current_token", null);
+            if (fcmTok == null || fcmTok.isEmpty()) problems.add("❌ FCM-Token fehlt (App neu starten)");
+
+            // Check 2: Push-Berechtigung
+            try {
+                if (!androidx.core.app.NotificationManagerCompat.from(this).areNotificationsEnabled())
+                    problems.add("❌ Push-Berechtigung aus (Einstellungen → App → Benachrichtigungen)");
+            } catch (Throwable _ignore) {}
+
+            // Check 3: Battery-Optimization
+            try {
+                android.os.PowerManager pm = (android.os.PowerManager) getSystemService(POWER_SERVICE);
+                if (pm != null && !pm.isIgnoringBatteryOptimizations(getPackageName()))
+                    problems.add("⚠️ Akku-Optimierung AN (Einstellungen → Akku → App ausnehmen)");
+            } catch (Throwable _ignore) {}
+
+            // Check 4: Notification-Channel 'ride_alarm' IMPORTANCE_HIGH
+            try {
+                android.app.NotificationManager nm = (android.app.NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+                if (nm != null && android.os.Build.VERSION.SDK_INT >= 26) {
+                    android.app.NotificationChannel ch = nm.getNotificationChannel("ride_alarm");
+                    if (ch == null) problems.add("⚠️ Alarm-Channel fehlt (nach App-Neustart erstellt)");
+                    else if (ch.getImportance() < android.app.NotificationManager.IMPORTANCE_HIGH)
+                        problems.add("⚠️ Alarm-Lautstärke zu leise (Einstellungen → App → Benachrichtigungen → 'Fahrt-Alarm' auf 'Dringend')");
+                }
+            } catch (Throwable _ignore) {}
+
+            // Render Card (Firebase-Check async)
+            renderAdminHealthCard(card, title, problems);
+            try {
+                com.google.firebase.database.FirebaseDatabase.getInstance().getReference(".info/connected")
+                    .addListenerForSingleValueEvent(new com.google.firebase.database.ValueEventListener() {
+                        @Override public void onDataChange(com.google.firebase.database.DataSnapshot s) {
+                            Boolean conn = s.getValue(Boolean.class);
+                            if (conn == null || !conn) problems.add("🌐 Firebase offline (Internet checken)");
+                            renderAdminHealthCard(card, title, problems);
+                        }
+                        @Override public void onCancelled(com.google.firebase.database.DatabaseError e) {}
+                    });
+            } catch (Throwable _ignore) {}
+
+            // Click-Handler: zeigt Details-Dialog mit Fix-Buttons
+            card.setOnClickListener(_v -> showHealthCheckDetailsDialog(problems));
+        } catch (Throwable _t) {
+            Log.w(TAG, "setupAdminSystemHealthCheck error: " + _t.getMessage());
+        }
+    }
+
+    private void renderAdminHealthCard(android.widget.LinearLayout card, android.widget.TextView title, java.util.List<String> problems) {
+        runOnUiThread(() -> {
+            if (problems.isEmpty()) {
+                card.setBackgroundColor(0xFF065F46);
+                title.setText("🟢 ALARM-SYSTEM OK — tippe für Details");
+                title.setTextColor(0xFFD1FAE5);
+            } else {
+                card.setBackgroundColor(0xFFDC2626);
+                title.setText("🚨 ALARM-PROBLEM — " + problems.size() + " Fehler, tippen für Details+Fix");
+                title.setTextColor(0xFFFFFFFF);
+            }
+        });
+    }
+
+    private void showHealthCheckDetailsDialog(java.util.List<String> problems) {
+        android.app.AlertDialog.Builder b = new android.app.AlertDialog.Builder(this);
+        StringBuilder sb = new StringBuilder();
+        if (problems.isEmpty()) {
+            b.setTitle("🟢 Alarm-System OK");
+            sb.append("Alle Push-Kanäle funktionieren:\n\n");
+            sb.append("✓ FCM-Token vorhanden\n");
+            sb.append("✓ Push-Berechtigung erteilt\n");
+            sb.append("✓ Akku-Optimierung aus\n");
+            sb.append("✓ Alarm-Channel IMPORTANCE_HIGH\n");
+            sb.append("✓ Firebase online\n\n");
+            sb.append("Du bekommst Fahrten mit Vollalarm.");
+        } else {
+            b.setTitle("🚨 " + problems.size() + " Alarm-Probleme gefunden");
+            sb.append("Diese Probleme können dazu führen dass Fahrten überhört werden:\n\n");
+            for (String p : problems) sb.append(p).append("\n\n");
+            sb.append("Tippe die Buttons unten um die Einstellungen zu öffnen.");
+        }
+        b.setMessage(sb.toString());
+        b.setPositiveButton("App-Einstellungen", (d,w) -> {
+            try {
+                android.content.Intent i = new android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+                i.setData(android.net.Uri.parse("package:" + getPackageName()));
+                startActivity(i);
+            } catch (Throwable _ignore) {}
+        });
+        b.setNeutralButton("Akku-Einstellungen", (d,w) -> {
+            try {
+                android.content.Intent i = new android.content.Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS);
+                startActivity(i);
+            } catch (Throwable _ignore) {}
+        });
+        b.setNegativeButton("Schließen", null);
+        b.show();
     }
 }

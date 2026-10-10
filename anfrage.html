@@ -828,9 +828,36 @@ window.addEventListener('load', async function() {
         var _qpDate = _qp.get('date');
         var _qpTime = _qp.get('time');
         var _qpPax = _qp.get('pax');
+        // v6.66.262 (Patrick 10.10. 17:10 Bridge): toLat/toLon/fromLat/fromLon aus
+        //   Übersichts-Seiten (ausflugsziele.html, restaurants-usedom.html) direkt in
+        //   anfPickupCoords/anfDestCoords setzen — spart Autocomplete-Resolve-Klick.
+        var _qpToLat = parseFloat(_qp.get('toLat'));
+        var _qpToLon = parseFloat(_qp.get('toLon'));
+        var _qpFromLat = parseFloat(_qp.get('fromLat'));
+        var _qpFromLon = parseFloat(_qp.get('fromLon'));
         var _fromSeo = !_qp.get('pickup') && !_qp.get('dest') && (_qp.get('from') || _qp.get('to'));
-        if (_qpPickup) { var _pe = document.getElementById('anf-pickup'); if (_pe) { _pe.value = _qpPickup; anfSearch(_qpPickup, 'anf-pickup'); } }
-        if (_qpDest) { var _de = document.getElementById('anf-dest'); if (_de) { _de.value = _qpDest; anfSearch(_qpDest, 'anf-dest'); } }
+        if (_qpPickup) {
+            var _pe = document.getElementById('anf-pickup');
+            if (_pe) {
+                _pe.value = _qpPickup;
+                if (!isNaN(_qpFromLat) && !isNaN(_qpFromLon)) {
+                    anfPickupCoords = { lat: _qpFromLat, lon: _qpFromLon };
+                } else {
+                    anfSearch(_qpPickup, 'anf-pickup');
+                }
+            }
+        }
+        if (_qpDest) {
+            var _de = document.getElementById('anf-dest');
+            if (_de) {
+                _de.value = _qpDest;
+                if (!isNaN(_qpToLat) && !isNaN(_qpToLon)) {
+                    anfDestCoords = { lat: _qpToLat, lon: _qpToLon };
+                } else {
+                    anfSearch(_qpDest, 'anf-dest');
+                }
+            }
+        }
         if (_qpDate) { var _dd = document.getElementById('anf-date'); if (_dd) { _dd.value = _qpDate; if (typeof updateAnfDateLabel === 'function') updateAnfDateLabel(); } }
         if (_qpTime) { var _tt = document.getElementById('anf-time'); if (_tt) { _tt.value = _qpTime; if (typeof updateAnfTimeLabel === 'function') updateAnfTimeLabel(); } }
         if (_qpPax) { var _pn = parseInt(_qpPax); if (_pn >= 1 && _pn <= 9 && typeof setAnfPax === 'function') setAnfPax(_pn); }

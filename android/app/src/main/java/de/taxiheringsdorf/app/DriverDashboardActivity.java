@@ -5886,6 +5886,73 @@ public class DriverDashboardActivity extends AppCompatActivity {
         startDispoVorschlagListener();
         // 🆕 v6.66.263 (Patrick 10.10. 09:10 Bridge): System-Health-Check beim App-Start.
         performSystemHealthCheck();
+        // 🆕 v6.66.272 (Patrick 10.10. 10:38 Bridge "A bauen"): System-Status in Firebase
+        //   schreiben (Alarm-Volume, DND, Battery-Saver) damit Admin sieht ob Darek's
+        //   Handy wirklich laut genug ist.
+        writeSystemStatusToFirebase();
+    }
+
+    // 🆕 v6.66.272: System-Status pro Fahrzeug in Firebase schreiben
+    //   /vehicles/{vid}/systemStatus/{alarmVolume, mediaVolume, ringerMode, dnd, batterySaver}
+    //   Admin-Dashboard liest das in Live-Banner-Details.
+    private void writeSystemStatusToFirebase() {
+        try {
+            android.content.SharedPreferences prefs = getSharedPreferences("app", MODE_PRIVATE);
+            String vid = prefs.getString("vehicleId", null);
+            if (vid == null || vid.isEmpty()) return;
+
+            java.util.Map<String, Object> status = new java.util.HashMap<>();
+            try {
+                android.media.AudioManager am = (android.media.AudioManager) getSystemService(AUDIO_SERVICE);
+                if (am != null) {
+                    int alarmVol = am.getStreamVolume(android.media.AudioManager.STREAM_ALARM);
+                    int alarmMax = am.getStreamMaxVolume(android.media.AudioManager.STREAM_ALARM);
+                    int mediaVol = am.getStreamVolume(android.media.AudioManager.STREAM_MUSIC);
+                    int mediaMax = am.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC);
+                    int notifVol = am.getStreamVolume(android.media.AudioManager.STREAM_NOTIFICATION);
+                    int notifMax = am.getStreamMaxVolume(android.media.AudioManager.STREAM_NOTIFICATION);
+                    int ringerMode = am.getRingerMode();  // 0=silent, 1=vibrate, 2=normal
+                    status.put("alarmVolumePct", alarmMax > 0 ? Math.round((alarmVol * 100.0) / alarmMax) : 0);
+                    status.put("mediaVolumePct", mediaMax > 0 ? Math.round((mediaVol * 100.0) / mediaMax) : 0);
+                    status.put("notifVolumePct", notifMax > 0 ? Math.round((notifVol * 100.0) / notifMax) : 0);
+                    status.put("ringerMode", ringerMode == 0 ? "silent" : ringerMode == 1 ? "vibrate" : "normal");
+                }
+            } catch (Throwable _ignore) {}
+            try {
+                android.app.NotificationManager nm = (android.app.NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+                if (nm != null && android.os.Build.VERSION.SDK_INT >= 23) {
+                    int filter = nm.getCurrentInterruptionFilter();
+                    boolean dndOn = filter != android.app.NotificationManager.INTERRUPTION_FILTER_ALL
+                                 && filter != android.app.NotificationManager.INTERRUPTION_FILTER_UNKNOWN;
+                    status.put("dnd", dndOn);
+                }
+            } catch (Throwable _ignore) {}
+            try {
+                android.os.PowerManager pm = (android.os.PowerManager) getSystemService(POWER_SERVICE);
+                if (pm != null) {
+                    status.put("batterySaver", pm.isPowerSaveMode());
+                    status.put("batteryOptIgnored", pm.isIgnoringBatteryOptimizations(getPackageName()));
+                }
+            } catch (Throwable _ignore) {}
+            try {
+                boolean pushAllowed = androidx.core.app.NotificationManagerCompat.from(this).areNotificationsEnabled();
+                status.put("pushEnabled", pushAllowed);
+            } catch (Throwable _ignore) {}
+            status.put("updatedAt", System.currentTimeMillis());
+            status.put("appVersion", getAppVersion());
+
+            com.google.firebase.database.FirebaseDatabase.getInstance()
+                .getReference("vehicles").child(vid).child("systemStatus")
+                .setValue(status);
+            Log.d(TAG, "📱 v6.66.272 systemStatus written: " + status);
+        } catch (Throwable _t) {
+            Log.w(TAG, "writeSystemStatusToFirebase: " + _t.getMessage());
+        }
+    }
+
+    private String getAppVersion() {
+        try { return getPackageManager().getPackageInfo(getPackageName(), 0).versionName; }
+        catch (Throwable _t) { return "?"; }
     }
 
     // 🆕 v6.66.263 (Patrick 10.10. 09:10 Bridge Darek-Alarm-Sorge):

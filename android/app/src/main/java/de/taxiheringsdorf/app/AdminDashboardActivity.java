@@ -116,9 +116,15 @@ public class AdminDashboardActivity extends AppCompatActivity {
     // v6.66.236 (Patrick 04.10. 14:59 Bridge "Warum steht Lilly Diekmann nicht mehr
     //   drinne, obwohl ich die Fahrt angenommen habe"): 'arrived' + 'angekommen'
     //   fehlten in Active-Liste → Fahrten verschwanden sobald Fahrer am Pickup war.
+    // v6.66.272 (Patrick 10.10. 10:39 Bridge "Madel 07:00 completed soll weg"): completed
+    //   bleibt NICHT in ACTIVE_STATUSES. War schon korrekt, nur die Day-Header-Logik
+    //   zeigt completed-Fahrten weil sie pickupTimestamp heute haben.
     private static final List<String> ACTIVE_STATUSES = Arrays.asList(
         "warteschlange", "wartepool", "vorbestellt", "new", "sofort", "assigned",
         "accepted", "akzeptiert", "on_way", "unterwegs", "arrived", "angekommen", "picked_up");
+    // v6.66.272: Explizite Liste completed-Statuses — werden im rebuildAdapterList rausgefiltert
+    private static final List<String> COMPLETED_STATUSES = Arrays.asList(
+        "completed", "abgeschlossen", "cancelled", "storniert", "deleted", "rejected");
 
     // v6.62.353: Patrick (06.05. 11:50): "Abholort kann ich nicht bearbeiten, ist nur ein
     // Name kein Geopoint" — Edit-Dialog hat fuer pickup/destination nur EditText. Fix:
@@ -415,6 +421,10 @@ public class AdminDashboardActivity extends AppCompatActivity {
     //     3) Tag-Header + Fahrten chronologisch
     private void rebuildAdapterList() {
         List<Ride> list = new ArrayList<>(_currentRides);
+        // v6.66.272 (Patrick 10.10. 10:39 "wenn das completed ist kann das weg"): completed/
+        //   cancelled/storniert/deleted rausfiltern — nicht mehr in Dispo-Liste zeigen.
+        //   Historische Fahrten findet Patrick im Archiv-Tab.
+        list.removeIf(r -> r != null && r.status != null && COMPLETED_STATUSES.contains(r.status.toLowerCase()));
         list.sort(Comparator.comparingLong(r -> r.pickupTimestamp != null ? r.pickupTimestamp : Long.MAX_VALUE));
         // 🆕 v6.62.199: Patrick: 'Web-Anfragen direkt in der Native-App sehen'
         // Unzugewiesene Web-Bookings nach oben in eigene Sektion ziehen.
@@ -6607,27 +6617,87 @@ public class AdminDashboardActivity extends AppCompatActivity {
                                 }
                                 bannerText.setText("🚨 " + probCount + " Fahrer ohne Push-Alarm — tippen für Details");
                                 banner.setVisibility(android.view.View.VISIBLE);
-                                banner.setOnClickListener(_v -> {
-                                    android.app.AlertDialog.Builder b = new android.app.AlertDialog.Builder(AdminDashboardActivity.this);
-                                    b.setTitle("🚨 " + probCount + " Fahrer ohne Push-Alarm");
-                                    StringBuilder sb = new StringBuilder();
-                                    sb.append("Diese Fahrer bekommen KEINE Fahrten mehr via Push:\n\n");
-                                    for (String d : details) sb.append(d).append("\n");
-                                    sb.append("\n🔧 FIX:\n");
-                                    sb.append("Fahrer anrufen → App schließen (vom Multitasking entfernen)\n");
-                                    sb.append("→ App neu öffnen → Fahrzeug nochmal auswählen\n");
-                                    sb.append("→ FCM-Token wird in Firebase geschrieben\n");
-                                    sb.append("→ nach 10 Min grüne Entwarnung");
-                                    b.setMessage(sb.toString());
-                                    b.setPositiveButton("Verstanden", null);
-                                    b.show();
-                                });
+                                // v6.66.272: Vehicle-IDs sammeln fuer systemStatus-Lookup
+                                final java.util.List<String> vids = new java.util.ArrayList<>();
+                                for (com.google.firebase.database.DataSnapshot p : s.child("problems").getChildren()) {
+                                    String vid = p.child("vid").getValue(String.class);
+                                    if (vid != null) vids.add(vid);
+                                }
+                                banner.setOnClickListener(_v -> showDriverAlarmDetailsDialog(probCount, details, vids));
                             }
                         } catch (Throwable _t) { Log.w(TAG, "driverAlarmBanner: " + _t.getMessage()); }
                     }
                     @Override public void onCancelled(com.google.firebase.database.DatabaseError e) {}
                 });
         } catch (Throwable _t) { Log.w(TAG, "setupDriverAlarmBanner: " + _t.getMessage()); }
+    }
+
+    // 🆕 v6.66.272 (Patrick 10.10. 10:38 "Volume-Monitoring"): System-Status pro Fahrer
+    //   im Alarm-Dialog zeigen (Volume %, DND, Battery-Saver).
+    private void showDriverAlarmDetailsDialog(int probCount, java.util.List<String> details, java.util.List<String> vids) {
+        // Hole systemStatus aller betroffenen Vehicles parallel
+        final java.util.Map<String, java.util.Map<String, Object>> statusByVid = new java.util.HashMap<>();
+        final int[] remaining = { vids.size() };
+        Runnable render = () -> {
+            android.app.AlertDialog.Builder b = new android.app.AlertDialog.Builder(this);
+            b.setTitle("🚨 " + probCount + " Fahrer ohne Push-Alarm");
+            StringBuilder sb = new StringBuilder();
+            sb.append("Diese Fahrer bekommen KEINE Fahrten mehr via Push:\n\n");
+            for (int i = 0; i < details.size(); i++) {
+                sb.append(details.get(i)).append("\n");
+                if (i < vids.size()) {
+                    java.util.Map<String, Object> ss = statusByVid.get(vids.get(i));
+                    if (ss != null) {
+                        Object av = ss.get("alarmVolumePct");
+                        Object rm = ss.get("ringerMode");
+                        Object dnd = ss.get("dnd");
+                        Object bs = ss.get("batterySaver");
+                        sb.append("   📱 System-Status:\n");
+                        if (av != null) sb.append("     Alarm-Volume: ").append(av).append("%").append(((Number)av).intValue() < 50 ? " 🔇 ZU LEISE!" : " ✓").append("\n");
+                        if (rm != null) sb.append("     Ringer: ").append(rm).append("silent".equals(rm) ? " 🔇" : "").append("\n");
+                        if (dnd != null) sb.append("     DND (Nicht stören): ").append(((Boolean)dnd) ? "AN 🔇" : "aus ✓").append("\n");
+                        if (bs != null) sb.append("     Battery-Saver: ").append(((Boolean)bs) ? "AN ⚠️" : "aus ✓").append("\n");
+                    } else {
+                        sb.append("   📱 System-Status: nicht verfügbar (Fahrer noch nie App geöffnet nach v6.66.272)\n");
+                    }
+                }
+                sb.append("\n");
+            }
+            sb.append("🔧 FIX:\n");
+            sb.append("Fahrer anrufen → App schließen → App neu öffnen → Fahrzeug neu wählen\n");
+            sb.append("→ FCM-Token wird geschrieben\n");
+            sb.append("→ System-Status wird aktualisiert\n");
+            sb.append("→ nach 10 Min grüne Entwarnung");
+            b.setMessage(sb.toString());
+            b.setPositiveButton("Verstanden", null);
+            b.show();
+        };
+        if (vids.isEmpty()) { render.run(); return; }
+        for (final String vid : vids) {
+            com.google.firebase.database.FirebaseDatabase.getInstance()
+                .getReference("vehicles").child(vid).child("systemStatus")
+                .addListenerForSingleValueEvent(new com.google.firebase.database.ValueEventListener() {
+                    @Override public void onDataChange(com.google.firebase.database.DataSnapshot s) {
+                        try {
+                            if (s.exists()) {
+                                java.util.Map<String, Object> m = new java.util.HashMap<>();
+                                for (com.google.firebase.database.DataSnapshot c : s.getChildren()) m.put(c.getKey(), c.getValue());
+                                statusByVid.put(vid, m);
+                            }
+                        } catch (Throwable _ignore) {}
+                        synchronized (remaining) {
+                            remaining[0]--;
+                            if (remaining[0] <= 0) runOnUiThread(render);
+                        }
+                    }
+                    @Override public void onCancelled(com.google.firebase.database.DatabaseError e) {
+                        synchronized (remaining) {
+                            remaining[0]--;
+                            if (remaining[0] <= 0) runOnUiThread(render);
+                        }
+                    }
+                });
+        }
     }
 
     private void showHealthCheckDetailsDialog(java.util.List<String> problems) {

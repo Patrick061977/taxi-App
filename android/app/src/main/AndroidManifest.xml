@@ -126,11 +126,15 @@
             android:exported="false" />
 
         <!-- v6.51.0: AdminDashboardActivity — Admin-Modus ohne Fahrzeug für Patrick auf S9+ -->
+        <!-- v6.66.269 (Patrick 10.10. 09:50 Bridge "warum kommt immer die Tastatur, verdeckt zu
+             viel"): windowSoftInputMode=stateHidden|adjustNothing — Tastatur bleibt zu beim
+             Activity-Open, Suchfeld bekommt NICHT Auto-Focus. User muss aktiv tippen. -->
         <activity
             android:name=".AdminDashboardActivity"
             android:label="@string/title_activity_main"
             android:theme="@style/AppTheme.Driver"
             android:launchMode="singleTask"
+            android:windowSoftInputMode="stateHidden|adjustNothing"
             android:exported="false" />
 
         <!-- v6.62.922: ShiftEditorActivity — Schichtplan-Editor in Native-App (Patrick 25.05.) -->

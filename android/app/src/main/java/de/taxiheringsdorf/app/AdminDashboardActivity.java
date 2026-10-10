@@ -3944,7 +3944,21 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 // 🆕 v6.62.712: Sonderbehandlung fuer Wartepool + Sofort-warteschlange.
                 //   Patrick (14.05. 11:01): "Wartepool prominenter, Sofort-Buchung soll
                 //   erkennbar sein wer sieht das".
-                final boolean _isWartepool = "wartepool".equalsIgnoreCase(r.status);
+                // v6.66.265 (Patrick 10.10. 09:34 Bridge "frueher war Wartepool rot markiert,
+                //   jetzt nicht mehr"): _isWartepool erweitert analog zur rebuildAdapterList-
+                //   Logik (Zeile 442-461). Vorher nur status='wartepool' — aber vorbestOhneFahrer
+                //   (status='vorbestellt' + kein assignedVehicle) wurde zwar in wartepoolRides-
+                //   Set gepackt, bekam aber keine rote Card.
+                final boolean _rawIsWartepool = "wartepool".equalsIgnoreCase(r.status);
+                final boolean _hasWartepoolAt = r.wartepoolAt != null && r.wartepoolAt > 0;
+                final boolean _noVehicle = r.assignedVehicle == null || r.assignedVehicle.isEmpty();
+                final boolean _autoFailNoVeh = r.autoAssignAttempts != null && r.autoAssignAttempts > 0 && _noVehicle;
+                final boolean _sofortOhneFahrer = _noVehicle && r.status != null
+                    && ("new".equalsIgnoreCase(r.status) || "sofort".equalsIgnoreCase(r.status));
+                final boolean _vorbestOhneFahrer = _noVehicle && r.status != null
+                    && "vorbestellt".equalsIgnoreCase(r.status);
+                final boolean _isWartepool = _rawIsWartepool || _hasWartepoolAt
+                    || _autoFailNoVeh || _sofortOhneFahrer || _vorbestOhneFahrer;
                 final boolean _isSofortWarteschlange = "warteschlange".equalsIgnoreCase(r.status);
                 // 🆕 v6.62.950 Smart-Scheduler — Konflikt-Hint rendert als ⚠️-Prefix + Tap öffnet Time-Picker
                 final String conflictPrefix = r.conflictHint != null ? "⚠️ ENGPASS  " : "";

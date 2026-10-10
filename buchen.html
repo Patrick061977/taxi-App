@@ -4056,24 +4056,23 @@
                     : slotEndTs;
                 // Frühester möglicher Abholzeitpunkt (Fahrer braucht Leerfahrt-Zeit)
                 const fruehestAbhol = slotTs - leerfahrtVorher * 60000;
-                // 🔧 v6.39.5: Überlappung PRO FAHRZEUG zählen!
-                // Vorher: ALLE überlappenden Fahrten gezählt → 2 Fahrten auf 2 Fahrzeugen = 2 Overlaps = rot
-                // Jetzt: Pro Fahrzeug max 1 Overlap → 2 Fahrten auf 2 Fahrzeugen = 2 besetzte Fahrzeuge
-                // 🐛 v6.62.574: Patrick (10.05. 17:17): "warum kann ich 18:40-18:50 nicht
-                //   buchen?" Bug: r.end inkludierte schon (leerfahrtMin + bufferMin) und
-                //   die Vergleichsbasis fruehestAbhol subtrahierte leerfahrtVorher nochmal.
-                //   Effektiv wurde leerfahrt doppelt gerechnet (Slot brauchte > r.end +
-                //   leerfahrtVorher = > 18:42 + 13 = 18:55). Korrekt: r.end > slotTs —
-                //   r.end ist bereits "Fahrer ist am neuen Pickup-Ort", slotTs ist "geplante
-                //   Pickup-Zeit". Wenn r.end > slot → zu spaet → konflikt.
-                const overlappingVehicles = new Set();
+                // 🔧 v6.66.278 (Patrick 10.10. 13:08 Bridge + Agent-Review):
+                //   Fahrzeug-spezifische Konflikte statt Blocker-Zählen.
+                //   Bug vorher: unassigned Fahrten wurden als separates "Fahrzeug"
+                //   gezählt (unknown_<start>), Folge-Check zählte dieselbe unassigned
+                //   Fahrt nochmal (overlapping++) → Doppelzählung. Außerdem blockte
+                //   eine Fahrt auf FREMDEM Fahrzeug (z.B. Sylvia-Prius bei 15:20 Zussow)
+                //   immer alle, auch wenn Alternativ-Fahrzeug (Tesla) frei wäre.
+                //   Jetzt: pro Fahrzeug im Shift prüfen ob es im Slot direkt belegt
+                //   ist. Unassigned-Fahrten konsumieren je 1 freies Fahrzeug.
+                const assignedBlockedVids = new Set();
+                const unassignedBlockers = [];
                 rides.filter(r => r.start < kundenEndTs && r.end > slotTs).forEach(r => {
-                    if (r.vehicleId) overlappingVehicles.add(r.vehicleId);
-                    else overlappingVehicles.add('unknown_' + r.start); // Fallback
+                    if (r.vehicleId) assignedBlockedVids.add(r.vehicleId);
+                    else unassignedBlockers.push(r);
                 });
-                let overlapping = overlappingVehicles.size;
 
-                // ZUSÄTZLICH: Schafft der Fahrer es NACH der Kundenfahrt zum nächsten Termin?
+                // Folge-Check: schafft der Zussow-Fahrer die nächste Fahrt?
                 if (kundenDauer > 0 && destCoords) {
                     const naechsteFahrt = rides.filter(r => r.start >= slotTs)
                         .sort((a,b) => a.start - b.start)[0];
@@ -4083,19 +4082,27 @@
                             leerfahrtDanach = calcLeerfahrtMin(destCoords.lat, destCoords.lon, naechsteFahrt.pickupLat, naechsteFahrt.pickupLon) + bufferMin;
                         }
                         const kundenFertig = slotTs + (kundenDauer + leerfahrtDanach) * 60000;
-                        // 🔧 v6.38.97: Nur blockieren wenn nächste Fahrt INNERHALB 2h liegt
-                        // Sonst blockiert eine Fahrt um 19:45 alle Slots ab 16:00
                         const zeitBisNaechste = naechsteFahrt.start - slotTs;
                         if (kundenFertig > naechsteFahrt.start && zeitBisNaechste < 120 * 60000) {
-                            // 🔧 v6.39.5: Nur 1 Fahrzeug blockiert (das mit dem Folgetermin), nicht alle!
-                            if (naechsteFahrt.vehicleId) overlappingVehicles.add(naechsteFahrt.vehicleId);
-                            else overlapping++;
-                            overlapping = Math.max(overlapping, overlappingVehicles.size);
+                            // Folge-Fahrt zeitlich nicht schaffbar vom Zussow-Fahrer
+                            if (naechsteFahrt.vehicleId) {
+                                assignedBlockedVids.add(naechsteFahrt.vehicleId);
+                            } else if (!unassignedBlockers.some(r => r.start === naechsteFahrt.start)) {
+                                // Nur hinzufügen wenn naechsteFahrt NICHT bereits als
+                                // direkter Overlap gezählt wurde (vermeidet Doppelzählung)
+                                unassignedBlockers.push(naechsteFahrt);
+                            }
                         }
                     }
                 }
 
-                const freeVehicles = Math.max(0, vehiclesInShift - overlapping);
+                // Freie Fahrzeuge: im Shift & nicht in assignedBlockedVids
+                const _vInShiftList = Object.keys(OFFICIAL_VEHICLES).filter(vid => isVehicleInShift(vid, dateStr, slotTimeStr));
+                const _freeAssignable = _vInShiftList.filter(vid => !assignedBlockedVids.has(vid));
+                // Jede unassigned Fahrt braucht eins der freien Fahrzeuge
+                const freeVehicles = Math.max(0, _freeAssignable.length - unassignedBlockers.length);
+                const overlapping = vehiclesInShift - freeVehicles; // für Log/Diagnose
+                const overlappingVehicles = assignedBlockedVids;    // Backwards-Compat für Diagnose unten
 
                 // Status bestimmen
                 const leftPx = i * pxPerSlot;

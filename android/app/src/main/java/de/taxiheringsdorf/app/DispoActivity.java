@@ -338,7 +338,53 @@ public class DispoActivity extends AppCompatActivity {
             + hhmm.format(new Date()));
     }
 
+    // v6.66.273: Kompakte 1-Zeiler-Card fuer freie (ride=null) Fahrzeuge.
+    //   🟢 Mercedes Vito VG-LK 111 · Patrick · 08:00-18:00 · Home Base
+    //   Statt grosser Card mit 5 Zeilen.
+    private View buildCompactFreeCard(VehicleInfo v) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(dp(10), dp(6), dp(10), dp(6));
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        lp.bottomMargin = dp(3);
+        row.setLayoutParams(lp);
+        row.setBackgroundColor(Color.parseColor("#0B1A3B"));
+
+        TextView dot = new TextView(this);
+        dot.setText("🟢");
+        dot.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
+        dot.setPadding(0, 0, dp(6), 0);
+        row.addView(dot);
+
+        TextView line = new TextView(this);
+        String driver = v.driverName != null && !v.driverName.isEmpty() ? v.driverName.split(" ")[0] : "?";
+        String plate = v.plate != null ? v.plate : "";
+        String shift = getTodayShiftLabelForVehicle(v.id);
+        // Verkürze Shift-Label falls lang
+        if (shift != null && shift.length() > 15) shift = shift.substring(0, 15);
+        String homeShort = v.homeLocation != null ? shorten(v.homeLocation, 20) : "";
+        StringBuilder sb = new StringBuilder();
+        sb.append(v.name).append("  ").append(plate);
+        if (!"?".equals(driver)) sb.append("  · ").append(driver);
+        if (shift != null && !shift.isEmpty() && !shift.contains("kein")) sb.append("  · ").append(shift);
+        line.setText(sb.toString());
+        line.setTextColor(Color.parseColor("#D1FAE5"));
+        line.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+        LinearLayout.LayoutParams llp = new LinearLayout.LayoutParams(
+            0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        line.setLayoutParams(llp);
+        row.addView(line);
+
+        return row;
+    }
+
     private View buildVehicleCard(VehicleInfo v, RideInfo ride) {
+        // v6.66.273 (Patrick 10.10. 11:16 Bridge "AKTIV JETZT zu gross, Dispo Live zu gross"):
+        //   FREIE Fahrzeuge (ride=null) als KOMPAKTE 1-Zeile statt grosser Card. Nur
+        //   Fahrzeuge mit laufender Fahrt bekommen die volle Card. Spart ~70% Platz.
+        if (ride == null) return buildCompactFreeCard(v);
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.VERTICAL);
         card.setPadding(dp(12), dp(10), dp(12), dp(10));
@@ -346,7 +392,7 @@ public class DispoActivity extends AppCompatActivity {
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         lp.bottomMargin = dp(8);
         card.setLayoutParams(lp);
-        card.setBackgroundColor(ride != null ? Color.parseColor("#1E293B") : Color.parseColor("#0B1A3B"));
+        card.setBackgroundColor(Color.parseColor("#1E293B"));
 
         LinearLayout top = new LinearLayout(this);
         top.setOrientation(LinearLayout.HORIZONTAL);
@@ -368,7 +414,12 @@ public class DispoActivity extends AppCompatActivity {
         top.addView(badge);
 
         TextView vName = new TextView(this);
-        vName.setText("  " + v.name + (v.plate != null ? "  " + v.plate : ""));
+        // v6.66.273: Fahrername dazu wenn vorhanden
+        String _nameLine = "  " + v.name + (v.plate != null ? "  " + v.plate : "");
+        if (v.driverName != null && !v.driverName.isEmpty()) {
+            _nameLine += "  · " + v.driverName.split(" ")[0];  // nur Vorname
+        }
+        vName.setText(_nameLine);
         vName.setTextColor(Color.parseColor("#F1F5F9"));
         vName.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
         vName.setTypeface(null, Typeface.BOLD);
@@ -1265,6 +1316,8 @@ public class DispoActivity extends AppCompatActivity {
         Object hcLon = s.child("homeCoords/lon").getValue();
         if (hcLat instanceof Number) v.homeLat = ((Number) hcLat).doubleValue();
         if (hcLon instanceof Number) v.homeLon = ((Number) hcLon).doubleValue();
+        // v6.66.273: shift.driverName lesen fuer Dispo-Live
+        v.driverName = strOrNull(s.child("shift/driverName").getValue());
         return v;
     }
 
@@ -1379,6 +1432,9 @@ public class DispoActivity extends AppCompatActivity {
         String homeLocation;
         Double homeLat;
         Double homeLon;
+        // v6.66.273 (Patrick 10.10. 11:17 Bridge "wer ist mit dem Fahrzeug unterwegs"):
+        //   driverName aus shift.driverName
+        String driverName;
     }
 
     static class RideInfo {

@@ -172,6 +172,10 @@ public class AdminDashboardActivity extends AppCompatActivity {
         //   im Admin-Modus. Beim onCreate ersten Check laufen lassen + Click-Handler
         //   fuer Details-Dialog setzen.
         setupAdminSystemHealthCheck();
+        // 🆕 v6.66.271 (Patrick 10.10. 10:17 Bridge "Admin-Dashboard-Banner oben rot,
+        //   X Fahrer ohne Push, nicht in Telegram untergehen"): Live-Listener auf
+        //   serverseitige Alarm-Health. Banner wenn Fahrer OHNE FCM.
+        setupDriverAlarmBanner();
 
         // Admin-Mode Flag setzen — CallLogActivity nutzt das um EINSTEIGER zu verstecken
         getSharedPreferences("admin", MODE_PRIVATE).edit().putBoolean("isAdminMode", true).apply();
@@ -6572,6 +6576,58 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 }
             }
         });
+    }
+
+    // 🆕 v6.66.271: Server-Side Fahrer-Push-Alarm-Banner. Hoert auf /monitoring/
+    //   driverAlarmHealth. Zeigt roten Banner wenn Fahrer OHNE FCM gefunden.
+    private void setupDriverAlarmBanner() {
+        final android.widget.LinearLayout banner = findViewById(R.id.admin_driver_alarm_banner);
+        final android.widget.TextView bannerText = findViewById(R.id.admin_driver_alarm_banner_text);
+        if (banner == null || bannerText == null) return;
+        try {
+            com.google.firebase.database.FirebaseDatabase.getInstance()
+                .getReference("monitoring/driverAlarmHealth")
+                .addValueEventListener(new com.google.firebase.database.ValueEventListener() {
+                    @Override public void onDataChange(com.google.firebase.database.DataSnapshot s) {
+                        try {
+                            Object healthy = s.child("allHealthy").getValue();
+                            int probCount = s.child("problemsCount").getValue(Integer.class) != null
+                                ? s.child("problemsCount").getValue(Integer.class) : 0;
+                            if (healthy != null && Boolean.TRUE.equals(healthy)) {
+                                banner.setVisibility(android.view.View.GONE);
+                                return;
+                            }
+                            if (probCount > 0) {
+                                final java.util.List<String> details = new java.util.ArrayList<>();
+                                for (com.google.firebase.database.DataSnapshot p : s.child("problems").getChildren()) {
+                                    String name = p.child("driverName").getValue(String.class);
+                                    String vid = p.child("vid").getValue(String.class);
+                                    String missing = p.child("missing").getValue(String.class);
+                                    details.add("❌ " + (name != null ? name : "?") + " (" + (vid != null ? vid : "?") + ") — " + (missing != null ? missing : "?"));
+                                }
+                                bannerText.setText("🚨 " + probCount + " Fahrer ohne Push-Alarm — tippen für Details");
+                                banner.setVisibility(android.view.View.VISIBLE);
+                                banner.setOnClickListener(_v -> {
+                                    android.app.AlertDialog.Builder b = new android.app.AlertDialog.Builder(AdminDashboardActivity.this);
+                                    b.setTitle("🚨 " + probCount + " Fahrer ohne Push-Alarm");
+                                    StringBuilder sb = new StringBuilder();
+                                    sb.append("Diese Fahrer bekommen KEINE Fahrten mehr via Push:\n\n");
+                                    for (String d : details) sb.append(d).append("\n");
+                                    sb.append("\n🔧 FIX:\n");
+                                    sb.append("Fahrer anrufen → App schließen (vom Multitasking entfernen)\n");
+                                    sb.append("→ App neu öffnen → Fahrzeug nochmal auswählen\n");
+                                    sb.append("→ FCM-Token wird in Firebase geschrieben\n");
+                                    sb.append("→ nach 10 Min grüne Entwarnung");
+                                    b.setMessage(sb.toString());
+                                    b.setPositiveButton("Verstanden", null);
+                                    b.show();
+                                });
+                            }
+                        } catch (Throwable _t) { Log.w(TAG, "driverAlarmBanner: " + _t.getMessage()); }
+                    }
+                    @Override public void onCancelled(com.google.firebase.database.DatabaseError e) {}
+                });
+        } catch (Throwable _t) { Log.w(TAG, "setupDriverAlarmBanner: " + _t.getMessage()); }
     }
 
     private void showHealthCheckDetailsDialog(java.util.List<String> problems) {

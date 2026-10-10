@@ -90,6 +90,44 @@
                 app:cornerRadius="18dp" />
         </LinearLayout>
 
+        <!-- 🆕 v6.66.271 (Patrick 10.10. 10:17 Bridge "Telegram wird nicht genutzt, Alarm
+             direkt im App-Banner"): Server-Side Fahrer-Push-Alarm-Banner. Rot wenn
+             scheduledDriverAlarmHealthCheck Fahrer OHNE FCM gefunden hat (/monitoring/
+             driverAlarmHealth.allHealthy=false). Click öffnet Details-Dialog. -->
+        <LinearLayout
+            android:id="@+id/admin_driver_alarm_banner"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="#DC2626"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingStart="16dp"
+            android:paddingTop="12dp"
+            android:paddingEnd="12dp"
+            android:paddingBottom="12dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/admin_driver_alarm_banner_text"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="🚨 FAHRER-ALARM-DEFEKT — tippen für Details"
+                android:textColor="#FFFFFF"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="›"
+                android:textColor="#FFFFFF"
+                android:textSize="18sp"
+                android:paddingStart="8dp" />
+        </LinearLayout>
+
         <!-- 🆕 v6.66.264 (Patrick 10.10. 09:23 Bridge "mach beides"): System-Health-
              Check-Card auch im Admin-Modus. Click öffnet Details-Dialog. -->
         <LinearLayout

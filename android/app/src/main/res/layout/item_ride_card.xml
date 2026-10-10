@@ -12,16 +12,18 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginBottom="5dp"
+    android:layout_marginBottom="3dp"
     app:cardBackgroundColor="#1E293B"
     app:cardCornerRadius="10dp"
     app:cardElevation="2dp">
 
+    <!-- v6.66.281 (Patrick 10.10. 13:47 Bridge): Card ~15% kompakter damit 2 Fahrten
+         ohne Abschneiden auf Screen passen. padding 8->6, Button-Höhen 36/42 -> 32/38. -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="8dp">
+        android:padding="6dp">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -221,38 +223,40 @@
                 android:layout_height="wrap_content"
                 android:orientation="horizontal">
 
+                <!-- v6.66.281 (Patrick 10.10. 13:48 Bridge "SMS brauche ich nicht,
+                     dann rufe ich an"): btn_sms_track entfernt. btn_navigate + btn_call
+                     bekommen gleichmäßig je 50% Breite. Höhen 36 -> 32dp. -->
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btn_navigate"
                     android:layout_width="0dp"
-                    android:layout_height="36dp"
+                    android:layout_height="32dp"
                     android:layout_marginEnd="3dp"
                     android:layout_weight="1"
                     android:text="🧭"
-                    android:textSize="15sp"
+                    android:textSize="14sp"
                     app:backgroundTint="#3B82F6"
                     app:cornerRadius="8dp" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btn_call"
                     android:layout_width="0dp"
-                    android:layout_height="36dp"
+                    android:layout_height="32dp"
                     android:layout_marginStart="3dp"
-                    android:layout_marginEnd="3dp"
                     android:layout_weight="1"
                     android:text="📞"
-                    android:textSize="15sp"
+                    android:textSize="14sp"
                     app:backgroundTint="#10B981"
                     app:cornerRadius="8dp" />
 
+                <!-- v6.66.281: btn_sms_track behalten als gone (Code-Referenzen in
+                     DriverDashboardActivity würden sonst NPE werfen). Visibility reicht. -->
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btn_sms_track"
                     android:layout_width="0dp"
-                    android:layout_height="36dp"
-                    android:layout_marginStart="3dp"
-                    android:layout_weight="1"
+                    android:layout_height="0dp"
+                    android:layout_weight="0"
+                    android:visibility="gone"
                     android:text="💬"
-                    android:textSize="15sp"
-                    app:backgroundTint="#F59E0B"
                     app:cornerRadius="8dp" />
             </LinearLayout>
 
@@ -265,7 +269,7 @@
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btn_status_next"
                     android:layout_width="0dp"
-                    android:layout_height="42dp"
+                    android:layout_height="38dp"
                     android:layout_marginEnd="4dp"
                     android:layout_weight="4"
                     android:insetLeft="0dp"
@@ -285,7 +289,7 @@
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btn_cancel_ride"
                     android:layout_width="0dp"
-                    android:layout_height="42dp"
+                    android:layout_height="38dp"
                     android:layout_marginStart="4dp"
                     android:layout_weight="1"
                     android:insetLeft="0dp"

@@ -5923,37 +5923,38 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 }
             } catch (Throwable _ignore) {}
 
-            // Check 4: Notification-Channel 'ride_alarm' mit HIGH importance
+            // Check 4: Notification-Channel korrekt + AUTO-FIX
+            // v6.66.266: Falls fehlt → selbst erstellen via TaxiFCMService.ensureNotificationChannelStatic
             try {
+                TaxiFCMService.ensureNotificationChannelStatic(this);
                 android.app.NotificationManager nm = (android.app.NotificationManager) getSystemService(NOTIFICATION_SERVICE);
                 if (nm != null && android.os.Build.VERSION.SDK_INT >= 26) {
-                    android.app.NotificationChannel ch = nm.getNotificationChannel("ride_alarm");
+                    android.app.NotificationChannel ch = nm.getNotificationChannel(TaxiFCMService.CHANNEL_ID);
                     if (ch == null) {
-                        problems.add("⚠️ Alarm-Channel fehlt (nach App-Neustart erstellt)");
+                        problems.add("⚠️ Alarm-Channel konnte nicht erstellt werden");
                     } else if (ch.getImportance() < android.app.NotificationManager.IMPORTANCE_HIGH) {
                         problems.add("⚠️ Alarm-Lautstaerke zu leise (Einstellungen → App → Benachrichtigungen → 'Fahrt-Alarm' auf 'Dringend')");
                     }
                 }
             } catch (Throwable _ignore) {}
 
-            // Check 5: Firebase connected
-            try {
-                com.google.firebase.database.FirebaseDatabase.getInstance().getReference(".info/connected")
-                    .addListenerForSingleValueEvent(new com.google.firebase.database.ValueEventListener() {
-                        @Override public void onDataChange(com.google.firebase.database.DataSnapshot s) {
-                            Boolean conn = s.getValue(Boolean.class);
-                            if (conn == null || !conn) {
-                                problems.add("🌐 Firebase offline (Internet checken)");
+            // Check 5: Firebase connected — mit 2s Delay (sonst False Positive bei App-Start)
+            renderSystemCheck(card, title, details, problems);
+            card.postDelayed(() -> {
+                try {
+                    com.google.firebase.database.FirebaseDatabase.getInstance().getReference(".info/connected")
+                        .addListenerForSingleValueEvent(new com.google.firebase.database.ValueEventListener() {
+                            @Override public void onDataChange(com.google.firebase.database.DataSnapshot s) {
+                                Boolean conn = s.getValue(Boolean.class);
+                                if (conn == null || !conn) {
+                                    problems.add("🌐 Firebase offline (Internet checken)");
+                                }
+                                renderSystemCheck(card, title, details, problems);
                             }
-                            renderSystemCheck(card, title, details, problems);
-                        }
-                        @Override public void onCancelled(com.google.firebase.database.DatabaseError e) {
-                            renderSystemCheck(card, title, details, problems);
-                        }
-                    });
-            } catch (Throwable _ignore) {
-                renderSystemCheck(card, title, details, problems);
-            }
+                            @Override public void onCancelled(com.google.firebase.database.DatabaseError e) {}
+                        });
+                } catch (Throwable _ignore) {}
+            }, 2000);
         } catch (Throwable _t) {
             Log.w(TAG, "performSystemHealthCheck error: " + _t.getMessage());
         }

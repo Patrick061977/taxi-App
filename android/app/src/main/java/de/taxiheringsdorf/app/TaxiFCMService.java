@@ -703,9 +703,20 @@ public class TaxiFCMService extends FirebaseMessagingService {
     }
 
     private void ensureNotificationChannel() {
+        ensureNotificationChannelStatic(this);
+    }
+
+    // v6.66.266 (Patrick 10.10. 09:40 Bridge "Alarm-Channel fehlt - kann man das nicht
+    //   automatisch fixen"): Static-Variante die vom Health-Check (AdminDashboard +
+    //   DriverDashboard) aus aufrufbar ist. Erstellt den Channel wenn er nicht existiert.
+    public static void ensureNotificationChannelStatic(Context ctx) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return;
-        NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        NotificationManager nm = (NotificationManager) ctx.getSystemService(Context.NOTIFICATION_SERVICE);
         if (nm == null) return;
+        _doEnsureChannel(ctx, nm);
+    }
+
+    private static void _doEnsureChannel(Context ctx, NotificationManager nm) {
 
         // 🆕 v6.63.774: Legacy-Channel loeschen (falls noch da). Er hat auf Alt-Installationen
         //   mSound=notification_sound + mBypassDnd=false eingefroren, was der Grund fuer

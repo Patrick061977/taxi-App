@@ -6513,30 +6513,35 @@ public class AdminDashboardActivity extends AppCompatActivity {
                     problems.add("⚠️ Akku-Optimierung AN (Einstellungen → Akku → App ausnehmen)");
             } catch (Throwable _ignore) {}
 
-            // Check 4: Notification-Channel 'ride_alarm' IMPORTANCE_HIGH
+            // Check 4: Notification-Channel korrekt (richtige ID: taxi_heringsdorf_rides_v2)
+            // v6.66.266 (Patrick 10.10. 09:40 Bridge "kann man das nicht automatisch fixen"):
+            //   AUTO-FIX: Falls Channel fehlt oder falsche Config → neu erstellen.
             try {
+                TaxiFCMService.ensureNotificationChannelStatic(this);
                 android.app.NotificationManager nm = (android.app.NotificationManager) getSystemService(NOTIFICATION_SERVICE);
                 if (nm != null && android.os.Build.VERSION.SDK_INT >= 26) {
-                    android.app.NotificationChannel ch = nm.getNotificationChannel("ride_alarm");
-                    if (ch == null) problems.add("⚠️ Alarm-Channel fehlt (nach App-Neustart erstellt)");
+                    android.app.NotificationChannel ch = nm.getNotificationChannel(TaxiFCMService.CHANNEL_ID);
+                    if (ch == null) problems.add("⚠️ Alarm-Channel konnte nicht erstellt werden");
                     else if (ch.getImportance() < android.app.NotificationManager.IMPORTANCE_HIGH)
                         problems.add("⚠️ Alarm-Lautstärke zu leise (Einstellungen → App → Benachrichtigungen → 'Fahrt-Alarm' auf 'Dringend')");
                 }
             } catch (Throwable _ignore) {}
 
-            // Render Card (Firebase-Check async)
+            // Render Card (Firebase-Check async nach 2s Delay — sonst False Positive bei App-Start)
             renderAdminHealthCard(card, title, problems);
-            try {
-                com.google.firebase.database.FirebaseDatabase.getInstance().getReference(".info/connected")
-                    .addListenerForSingleValueEvent(new com.google.firebase.database.ValueEventListener() {
-                        @Override public void onDataChange(com.google.firebase.database.DataSnapshot s) {
-                            Boolean conn = s.getValue(Boolean.class);
-                            if (conn == null || !conn) problems.add("🌐 Firebase offline (Internet checken)");
-                            renderAdminHealthCard(card, title, problems);
-                        }
-                        @Override public void onCancelled(com.google.firebase.database.DatabaseError e) {}
-                    });
-            } catch (Throwable _ignore) {}
+            card.postDelayed(() -> {
+                try {
+                    com.google.firebase.database.FirebaseDatabase.getInstance().getReference(".info/connected")
+                        .addListenerForSingleValueEvent(new com.google.firebase.database.ValueEventListener() {
+                            @Override public void onDataChange(com.google.firebase.database.DataSnapshot s) {
+                                Boolean conn = s.getValue(Boolean.class);
+                                if (conn == null || !conn) problems.add("🌐 Firebase offline (Internet checken)");
+                                renderAdminHealthCard(card, title, problems);
+                            }
+                            @Override public void onCancelled(com.google.firebase.database.DatabaseError e) {}
+                        });
+                } catch (Throwable _ignore) {}
+            }, 2000);  // 2s Delay
 
             // Click-Handler: zeigt Details-Dialog mit Fix-Buttons
             card.setOnClickListener(_v -> showHealthCheckDetailsDialog(problems));

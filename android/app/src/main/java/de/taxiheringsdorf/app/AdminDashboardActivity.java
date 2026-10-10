@@ -6553,10 +6553,15 @@ public class AdminDashboardActivity extends AppCompatActivity {
     private void renderAdminHealthCard(android.widget.LinearLayout card, android.widget.TextView title, java.util.List<String> problems) {
         runOnUiThread(() -> {
             if (problems.isEmpty()) {
+                // v6.66.268 (Patrick 10.10. 09:49 Bridge "wenn OK nicht sehen, nimmt zu viel
+                //   Platz weg. Nach 1 Min verschwinden"): Grüne OK-Card nach 2s komplett
+                //   ausblenden statt daueranzeigen. Fahrer braucht's nur bei Problem.
                 card.setBackgroundColor(0xFF065F46);
-                title.setText("🟢 ALARM-SYSTEM OK — tippe für Details");
+                title.setText("🟢 Alarm-System OK");
                 title.setTextColor(0xFFD1FAE5);
+                card.postDelayed(() -> card.setVisibility(android.view.View.GONE), 2000);
             } else {
+                card.setVisibility(android.view.View.VISIBLE);
                 card.setBackgroundColor(0xFFDC2626);
                 title.setText("🚨 ALARM-PROBLEM — " + problems.size() + " Fehler, tippen für Details+Fix");
                 title.setTextColor(0xFFFFFFFF);

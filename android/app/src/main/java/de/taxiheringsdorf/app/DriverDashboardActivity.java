@@ -5963,17 +5963,23 @@ public class DriverDashboardActivity extends AppCompatActivity {
     private void renderSystemCheck(LinearLayout card, TextView title, TextView details, java.util.List<String> problems) {
         runOnUiThread(() -> {
             if (problems.isEmpty()) {
-                card.setBackgroundColor(0xFF065F46);  // grün
-                title.setText("🟢 ALARM-SYSTEM OK — tippe für Details");
+                // v6.66.268: Grüne OK-Card nach 2s ausblenden (nimmt sonst zu viel Platz weg)
+                card.setBackgroundColor(0xFF065F46);
+                title.setText("🟢 Alarm-System OK");
                 title.setTextColor(0xFFD1FAE5);
                 details.setVisibility(View.GONE);
+                card.postDelayed(() -> card.setVisibility(View.GONE), 2000);
             } else {
+                card.setVisibility(View.VISIBLE);
                 card.setBackgroundColor(0xFFDC2626);  // rot
                 title.setText("🚨 ALARM-PROBLEM — " + problems.size() + " Fehler, tippen für Fix");
                 title.setTextColor(0xFFFFFFFF);
                 details.setVisibility(View.VISIBLE);
                 details.setText(String.join("\n", problems));
                 details.setTextColor(0xFFFECACA);
+                for (String p : problems) {
+                    DriverLogger.warn(this, "health_check", p);
+                }
             }
             // 🆕 v6.66.264: Click-Handler fuer Details-Dialog mit Fix-Buttons
             card.setOnClickListener(_v -> showDriverHealthDetailsDialog(problems));

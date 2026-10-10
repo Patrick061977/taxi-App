@@ -1131,6 +1131,13 @@ async function calcAnfPrice() {
         // v6.63.058 (Patrick 31.05. 16:05): Minuten auf 5er aufrunden.
         var min = Math.max(5, Math.ceil(Math.ceil(data.routes[0].duration / 60) / 5) * 5);
         var _routeGeo = data.routes[0].geometry;
+        // 🆕 v6.66.274 (Patrick 10.10. Zussow-Vorfall): Browser-km/min snapshotten damit
+        //   Submit sie mitschicken kann. Vorher re-geocoded Cloud den Adress-Text, bekam
+        //   bei Multi-Treffern (Bahnhof Züssow → 5 Google-Place-IDs) andere Koord als
+        //   Browser → Preis stimmte nicht zur Firebase-distance. Fix: Koord+km+min
+        //   gehen jetzt direkt mit, Cloud rechnet nicht mehr neu.
+        window._anfLastKm = km;
+        window._anfLastMin = min;
         var anfTime = document.getElementById('anf-time').value || '';
         var anfDate = document.getElementById('anf-date').value || '';
         // 🆕 v6.41.43 / 🔧 v6.62.708: Konsistent mit buchen.html + bewegliche Feiertage
@@ -1405,7 +1412,12 @@ function saveAnfrageToFirebase(channel) {
             ...(anfStoppCoords ? { stoppLat: anfStoppCoords.lat, stoppLon: anfStoppCoords.lon } : {}),
             festpreisAdresse: document.getElementById('anf-festpreis-addr-input')?.value || '',
             createdAt: Date.now(),
-            ...(_pkgId ? { packageId: _pkgId, leg: 'hin' } : {})
+            ...(_pkgId ? { packageId: _pkgId, leg: 'hin' } : {}),
+            // 🆕 v6.66.274: Browser-Koords/km/min mitschicken — Cloud rechnet nicht neu
+            ...(anfPickupCoords ? { pickupCoords: { lat: anfPickupCoords.lat, lon: anfPickupCoords.lon } } : {}),
+            ...(anfDestCoords ? { destCoords: { lat: anfDestCoords.lat, lon: anfDestCoords.lon } } : {}),
+            ...(window._anfLastKm ? { distance: Number(window._anfLastKm).toFixed(1) } : {}),
+            ...(window._anfLastMin ? { duration: window._anfLastMin } : {})
         });
         fetch('https://taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.app/anfragen.json', {
             method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data)
@@ -1420,7 +1432,12 @@ function saveAnfrageToFirebase(channel) {
                 price: document.getElementById('anf-price').textContent || '',
                 festpreisAdresse: document.getElementById('anf-festpreis-addr-input')?.value || '',
                 createdAt: Date.now() + 1, // leicht spaeter damit DB-Order sauber ist
-                packageId: _pkgId, leg: 'rueck'
+                packageId: _pkgId, leg: 'rueck',
+                // 🆕 v6.66.274: Koords gespiegelt + km/min aus Hinfahrt
+                ...(anfDestCoords ? { pickupCoords: { lat: anfDestCoords.lat, lon: anfDestCoords.lon } } : {}),
+                ...(anfPickupCoords ? { destCoords: { lat: anfPickupCoords.lat, lon: anfPickupCoords.lon } } : {}),
+                ...(window._anfLastKm ? { distance: Number(window._anfLastKm).toFixed(1) } : {}),
+                ...(window._anfLastMin ? { duration: window._anfLastMin } : {})
             });
             fetch('https://taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.app/anfragen.json', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rueckData)

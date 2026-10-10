@@ -80,6 +80,14 @@
                     <span style="background:#f1f5f9;padding:2px 6px;border-radius:4px;">Bar</span>
                 </div>
             </div>
+            <!-- 🎪 v6.66.269 (Patrick 10.10. 19:35 Bridge: Oktoberfest Kaiserhof): Heute keine Online-Vorbestellung, nur anrufen -->
+            <div id="oktoberfest-banner" style="display:none;background:linear-gradient(135deg,#fecaca,#fca5a5);border:2px solid #dc2626;border-radius:12px;padding:14px 16px;margin-bottom:14px;font-size:14px;color:#7f1d1d;line-height:1.5;">
+                <div style="font-weight:900;margin-bottom:6px;font-size:15px;">🎪 Heute Oktoberfest — Online-Buchung geschlossen</div>
+                <div>Wir sind heute Abend stark ausgelastet durch das Oktoberfest im Kaiserhof. <b>Online-Vorbestellung heute nicht möglich.</b> Bitte rufen Sie uns direkt an — wir finden eine Lösung!</div>
+                <div style="margin-top:10px;">
+                    <a href="tel:+493837822022" style="background:#dc2626;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:800;font-size:15px;display:inline-block;">📞 038378 22022</a>
+                </div>
+            </div>
             <!-- 🚧 v6.66.151 (Patrick 01.10.2026): SEV UBB 05.-15.10. — Hinweis-Banner bei Anfrage. -->
             <div id="sev-ubb-banner" style="display:none;background:linear-gradient(135deg,#fef3c7,#fde68a);border:2px solid #f59e0b;border-radius:12px;padding:12px 14px;margin-bottom:14px;font-size:13px;color:#78350f;line-height:1.5;">
                 <div style="font-weight:800;margin-bottom:4px;">🚧 Schienenersatzverkehr UBB 05.–15.10.2026</div>
@@ -91,8 +99,21 @@
             <script>
                 (function(){
                     var now = new Date();
-                    var end = new Date(2026, 9, 15, 23, 59); // 15. Okt 2026, 23:59
-                    if (now <= end) { var el = document.getElementById('sev-ubb-banner'); if (el) el.style.display = 'block'; }
+                    // Oktoberfest-Banner: aktiv bis Samstag 11.10.2026 06:00 Uhr
+                    var oktoEnd = new Date(2026, 9, 11, 6, 0);
+                    if (now <= oktoEnd) {
+                        var okto = document.getElementById('oktoberfest-banner');
+                        if (okto) okto.style.display = 'block';
+                        // SEV-Banner heute ausblenden (Platz für Oktoberfest)
+                        // Nach Oktoberfest-Ende normalisiert sich
+                    } else {
+                        // SEV-UBB-Banner: aktiv bis 15. Okt 2026, 23:59
+                        var sevEnd = new Date(2026, 9, 15, 23, 59);
+                        if (now <= sevEnd) {
+                            var el = document.getElementById('sev-ubb-banner');
+                            if (el) el.style.display = 'block';
+                        }
+                    }
                 })();
             </script>
             <div style="margin-bottom:12px;">

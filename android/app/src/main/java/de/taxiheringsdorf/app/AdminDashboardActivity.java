@@ -1903,6 +1903,23 @@ public class AdminDashboardActivity extends AppCompatActivity {
         }
         btnLayout.addView(tvPreisLabel);
         btnLayout.addView(etPreis);
+
+        // v6.66.276 (Patrick 10.10. 12:17 Bridge): Rückfrage-Button VOR Übernahme.
+        //   Use-Case: Preis stimmt nicht, Pax unklar, Zeit unmöglich → Mail an Kunde
+        //   mit Rückfrage, Anfrage bleibt 'offen', erst nach Antwort übernehmen.
+        android.widget.Button btnRueckfrage = new android.widget.Button(this);
+        btnRueckfrage.setText("📧 Rückfrage per " + _kanalLabel + " senden");
+        btnRueckfrage.setBackgroundColor(0xFFF59E0B);
+        btnRueckfrage.setTextColor(0xFFFFFFFF);
+        btnRueckfrage.setPadding(btnPad, btnPad, btnPad, btnPad);
+        android.widget.LinearLayout.LayoutParams lpRf =
+            new android.widget.LinearLayout.LayoutParams(
+                android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
+        lpRf.setMargins(0, btnPad, 0, btnPad / 2);
+        btnRueckfrage.setLayoutParams(lpRf);
+        btnLayout.addView(btnRueckfrage);
+
         btnLayout.addView(btnVorschau);
         btnLayout.addView(btnNurUebernehmen);
         scroll.addView(btnLayout);
@@ -1957,7 +1974,153 @@ public class AdminDashboardActivity extends AppCompatActivity {
             dlg.dismiss();
             uebernehmeAnfrageOhneBestaetigung(a);
         });
+        // v6.66.276: Rückfrage-Button öffnet eigenen Dialog mit Templates + Freitext
+        btnRueckfrage.setOnClickListener(_v -> {
+            _applyPriceEdit.run(); // Preis-Edit übernehmen falls Patrick ihn geändert hat (für Preis-Template)
+            dlg.dismiss();
+            showRueckfrageDialog(a);
+        });
         dlg.show();
+    }
+
+    // v6.66.276 (Patrick 10.10.): Rückfrage-Dialog — vier Templates + Freitext.
+    //   Mail über sendInvoiceEmail Cloud Function (gleicher Pfad wie Bestätigung).
+    //   Anfrage bleibt 'offen', bekommt rueckfrageSentAt + rueckfrageText.
+    private void showRueckfrageDialog(Anfrage a) {
+        if (a.email == null || !a.email.contains("@")) {
+            Toast.makeText(this, "Keine Email-Adresse in der Anfrage — Rückfrage per Telefon machen", Toast.LENGTH_LONG).show();
+            return;
+        }
+        final String _name = a.name != null ? a.name : "Gast";
+        final String _pickup = a.pickup != null ? a.pickup : "?";
+        final String _dest = a.destination != null ? a.destination : "?";
+        final String _dateTime = (a.date != null ? a.date : "?") + (a.time != null ? " um " + a.time + " Uhr" : "");
+        final String _preis = a.price != null ? a.price : "?";
+
+        final String[] templates = {
+            "Preiskorrektur",
+            "Zeit-Rückfrage",
+            "Personenanzahl",
+            "Freitext"
+        };
+        final String[] bodies = {
+            // Preiskorrektur
+            "Sehr geehrte/r " + _name + ",\n\n" +
+                "vielen Dank für Ihre Buchungsanfrage (" + _pickup + " → " + _dest + ", " + _dateTime + ").\n\n" +
+                "Bei der automatischen Preisberechnung ist uns ein Fehler aufgefallen – der korrekte Fahrpreis beträgt " + _preis + " (statt wie angezeigt).\n\n" +
+                "Bitte lassen Sie uns kurz wissen ob Sie die Fahrt zu diesem Preis buchen möchten, oder ob wir die Anfrage stornieren sollen.\n\n" +
+                "Mit freundlichen Grüßen\nPatrick Wydra\nFunk Taxi Heringsdorf · 038378 22022",
+            // Zeit-Rückfrage
+            "Sehr geehrte/r " + _name + ",\n\n" +
+                "vielen Dank für Ihre Buchungsanfrage (" + _pickup + " → " + _dest + ", " + _dateTime + ").\n\n" +
+                "Für den gewünschten Zeitpunkt sind leider alle Fahrzeuge bereits verplant. Wir können die Fahrt gern 10–15 Minuten früher oder später übernehmen – welche Zeit passt für Sie am besten?\n\n" +
+                "Mit freundlichen Grüßen\nPatrick Wydra\nFunk Taxi Heringsdorf · 038378 22022",
+            // Personenanzahl
+            "Sehr geehrte/r " + _name + ",\n\n" +
+                "vielen Dank für Ihre Buchungsanfrage (" + _pickup + " → " + _dest + ", " + _dateTime + ").\n\n" +
+                "Könnten Sie uns kurz die exakte Personenzahl bestätigen? Ab 5 Personen setzen wir ein Großraumtaxi ein (+10 € Zuschlag), was wir vorab organisieren möchten.\n\n" +
+                "Mit freundlichen Grüßen\nPatrick Wydra\nFunk Taxi Heringsdorf · 038378 22022",
+            // Freitext
+            "Sehr geehrte/r " + _name + ",\n\n" +
+                "vielen Dank für Ihre Buchungsanfrage (" + _pickup + " → " + _dest + ", " + _dateTime + ").\n\n" +
+                "[hier bitte Ihre Rückfrage schreiben]\n\n" +
+                "Mit freundlichen Grüßen\nPatrick Wydra\nFunk Taxi Heringsdorf · 038378 22022"
+        };
+
+        int pad = (int) (getResources().getDisplayMetrics().density * 12);
+        android.widget.LinearLayout col = new android.widget.LinearLayout(this);
+        col.setOrientation(android.widget.LinearLayout.VERTICAL);
+        col.setPadding(pad, pad, pad, pad);
+
+        TextView tvHint = new TextView(this);
+        tvHint.setText("Template wählen → Text bearbeiten → Senden:");
+        tvHint.setTextSize(13);
+        tvHint.setPadding(0, 0, 0, pad / 2);
+        col.addView(tvHint);
+
+        final android.widget.EditText etBody = new android.widget.EditText(this);
+        etBody.setText(bodies[0]);
+        etBody.setMinLines(8);
+        etBody.setGravity(android.view.Gravity.TOP | android.view.Gravity.START);
+        etBody.setPadding(pad, pad, pad, pad);
+        etBody.setBackgroundColor(0xFFF8FAFC);
+
+        android.widget.Spinner spinner = new android.widget.Spinner(this);
+        android.widget.ArrayAdapter<String> _tplAdapter = new android.widget.ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, templates);
+        spinner.setAdapter(_tplAdapter);
+        spinner.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
+            @Override public void onItemSelected(android.widget.AdapterView<?> parent, android.view.View view, int position, long id) {
+                etBody.setText(bodies[position]);
+            }
+            @Override public void onNothingSelected(android.widget.AdapterView<?> parent) {}
+        });
+        col.addView(spinner);
+        col.addView(etBody);
+
+        android.widget.ScrollView scroll = new android.widget.ScrollView(this);
+        scroll.addView(col);
+
+        androidx.appcompat.app.AlertDialog dlg = new androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("📧 Rückfrage an " + _name)
+            .setView(scroll)
+            .setPositiveButton("📤 Senden", null) // Override später damit Dialog bei Validation-Fail offen bleibt
+            .setNegativeButton("Abbrechen", null)
+            .create();
+        dlg.setOnShowListener(d -> {
+            dlg.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener(_v -> {
+                String _body = etBody.getText().toString().trim();
+                if (_body.isEmpty() || _body.contains("[hier bitte Ihre Rückfrage schreiben]")) {
+                    Toast.makeText(this, "Bitte Text vervollständigen", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                dlg.dismiss();
+                sendRueckfrageMail(a, _body);
+            });
+        });
+        dlg.show();
+    }
+
+    private void sendRueckfrageMail(Anfrage a, String bodyText) {
+        Toast.makeText(this, "📨 Rückfrage wird versendet…", Toast.LENGTH_SHORT).show();
+        final String _email = a.email;
+        final String _name = a.name != null ? a.name : "Gast";
+        final String _anfrageId = a.id != null ? a.id : "";
+        final String _preview = bodyText.length() > 300 ? bodyText.substring(0, 300) + "…" : bodyText;
+        new Thread(() -> {
+            try {
+                org.json.JSONObject body = new org.json.JSONObject();
+                body.put("invoiceNumber", "RUECKF-" + _anfrageId.substring(Math.max(0, _anfrageId.length()-8)));
+                body.put("toEmail", _email);
+                body.put("toName", _name);
+                body.put("subject", "Rückfrage zu Ihrer Taxi-Anfrage");
+                body.put("attachPdf", false);
+                // bodyText als HTML (Zeilenumbrüche → <br>)
+                String _html = "<div style='font-family:Arial,sans-serif;font-size:14px;color:#222;max-width:640px;'>"
+                    + bodyText.replace("<", "&lt;").replace(">", "&gt;").replace("\n", "<br>")
+                    + "</div>";
+                body.put("htmlBody", _html);
+
+                java.net.URL url = new java.net.URL("https://europe-west1-taxi-heringsdorf.cloudfunctions.net/sendInvoiceEmail");
+                java.net.HttpURLConnection c = (java.net.HttpURLConnection) url.openConnection();
+                c.setRequestMethod("POST");
+                c.setRequestProperty("Content-Type", "application/json; charset=utf-8");
+                c.setDoOutput(true);
+                try (java.io.OutputStream os = c.getOutputStream()) { os.write(body.toString().getBytes("UTF-8")); }
+                int code = c.getResponseCode();
+                runOnUiThread(() -> {
+                    if (code >= 200 && code < 300) {
+                        db.getReference("anfragen/" + _anfrageId).child("rueckfrageSentAt").setValue(System.currentTimeMillis());
+                        db.getReference("anfragen/" + _anfrageId).child("rueckfrageText").setValue(_preview);
+                        db.getReference("anfragen/" + _anfrageId).child("rueckfrageSentBy").setValue("native_admin");
+                        Toast.makeText(this, "✅ Rückfrage gesendet an " + _email, Toast.LENGTH_LONG).show();
+                    } else {
+                        Toast.makeText(this, "❌ Mail-Versand fehlgeschlagen (HTTP " + code + ")", Toast.LENGTH_LONG).show();
+                    }
+                });
+            } catch (Throwable t) {
+                runOnUiThread(() -> Toast.makeText(this, "❌ Fehler: " + t.getMessage(), Toast.LENGTH_LONG).show());
+            }
+        }).start();
     }
 
     // v6.63.870: Helper — "9" → "09:00", "9:5" → "09:05", "12:30" bleibt

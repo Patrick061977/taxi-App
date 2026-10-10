@@ -819,11 +819,16 @@ window.addEventListener('load', async function() {
     // bekommt anfrage.html die Felder als URL-Parameter und füllt sie vor.
     try {
         var _qp = new URLSearchParams(location.search);
-        var _qpPickup = _qp.get('pickup');
-        var _qpDest = _qp.get('dest');
+        // v6.66.276 (Patrick 10.10. 17:04 Bridge: 'warum werden die ziele nicht automatisch eingefügt'):
+        //   SEO-Restaurant-Seiten (taxi-the-breeze-zu-ahlbeck.html etc) verlinken mit
+        //   ?from=The%20Breeze&to=Ahlbeck — anfrage.html las aber nur pickup/dest.
+        //   Alias from→pickup und to→dest akzeptieren damit Zieladressen pre-filled werden.
+        var _qpPickup = _qp.get('pickup') || _qp.get('from');
+        var _qpDest = _qp.get('dest') || _qp.get('to');
         var _qpDate = _qp.get('date');
         var _qpTime = _qp.get('time');
         var _qpPax = _qp.get('pax');
+        var _fromSeo = !_qp.get('pickup') && !_qp.get('dest') && (_qp.get('from') || _qp.get('to'));
         if (_qpPickup) { var _pe = document.getElementById('anf-pickup'); if (_pe) { _pe.value = _qpPickup; anfSearch(_qpPickup, 'anf-pickup'); } }
         if (_qpDest) { var _de = document.getElementById('anf-dest'); if (_de) { _de.value = _qpDest; anfSearch(_qpDest, 'anf-dest'); } }
         if (_qpDate) { var _dd = document.getElementById('anf-date'); if (_dd) { _dd.value = _qpDate; if (typeof updateAnfDateLabel === 'function') updateAnfDateLabel(); } }
@@ -833,7 +838,14 @@ window.addEventListener('load', async function() {
             // Hinweis-Banner oben einblenden damit Kunde sieht warum er hier gelandet ist
             var _hint = document.createElement('div');
             _hint.style.cssText = 'max-width:500px;margin:8px auto 0;padding:10px 12px;background:#fef3c7;border:1px solid #fde68a;color:#92400e;border-radius:8px;font-size:12px;text-align:center;';
-            _hint.innerHTML = '⚠️ Direkte Buchung war nicht möglich — Daten wurden übernommen, Anfrage absenden.';
+            if (_fromSeo) {
+                _hint.innerHTML = '✓ Adressen übernommen — bitte Datum/Uhrzeit ergänzen und absenden.';
+                _hint.style.background = '#d1fae5';
+                _hint.style.borderColor = '#86efac';
+                _hint.style.color = '#065f46';
+            } else {
+                _hint.innerHTML = '⚠️ Direkte Buchung war nicht möglich — Daten wurden übernommen, Anfrage absenden.';
+            }
             document.body.insertBefore(_hint, document.body.firstChild.nextSibling);
         }
     } catch(_qpErr) { console.warn('URL-Parameter-Parse-Fehler:', _qpErr); }

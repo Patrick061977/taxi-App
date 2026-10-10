@@ -1,0 +1,74 @@
+name: Monthly SEO-Landings Regen
+
+# v6.66.268 (Patrick 10.10. 17:46 Bridge: '1x im Monat überprüfen'):
+# Monatlich lässt dieser Cron den Self-Learning-Generator über die aktuellen
+# Fahrten laufen. Findet er neue Routen die >=2x in 730 Tagen gefahren wurden,
+# werden Landings angelegt. Danach läuft Hospital-Privacy-Filter + Sitemap-Regen.
+
+on:
+  schedule:
+    - cron: '0 3 1 * *'   # 1. jedes Monats, 03:00 UTC = 04:00/05:00 CET
+  workflow_dispatch:       # Manuell triggerbar
+
+jobs:
+  regen:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Firebase CLI
+        run: npm install -g firebase-tools
+
+      - name: Firebase Login via Service Account
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          if [ -z "$FIREBASE_SERVICE_ACCOUNT" ]; then
+            echo "::warning::FIREBASE_SERVICE_ACCOUNT secret fehlt — Script läuft im Dry-Run-Modus"
+            exit 0
+          fi
+          echo "$FIREBASE_SERVICE_ACCOUNT" > $HOME/sa.json
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$HOME/sa.json" >> $GITHUB_ENV
+
+      - name: Self-Learning-Generator (nur neue Routen)
+        run: |
+          node scripts/generate-from-rides-selflearn.js --only-new --min 2 --lookback 730 || true
+
+      - name: Hospital-Privacy-Filter
+        run: |
+          node scripts/fix-hospital-privacy.js || true
+
+      - name: Sitemap regenerieren
+        run: |
+          python3 scripts/regen-sitemap.py || true
+
+      - name: Commit if changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add taxi-*.html sitemap.xml || true
+          if git diff --cached --quiet; then
+            echo "Keine Änderungen — kein Commit."
+          else
+            NEW_COUNT=$(git diff --cached --numstat | wc -l)
+            git commit -m "chore(seo): monthly auto-regen — $NEW_COUNT Dateien aktualisiert
+
+Auto-generiert durch monthly-seo-regen.yml
+Quelle: /rides + /archiveRides (730d, >=2x gefahren)
+Hospital-Privacy-Filter angewendet."
+            git push
+          fi

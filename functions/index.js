@@ -933,13 +933,25 @@ async function sendFCMToVehicle(vehicleId, payload) {
             //   existierenden /pushAudit/{vehicleId}/{ts}-Trail.
             if (payload?.rideId) {
                 try {
-                    await db.ref(`rides/${payload.rideId}/pushHistory`).push({
+                    // v6.66.273 (Patrick 10.10. 10:56 Bridge "ein paar Informationen braeuchte
+                    //   ich schon, halbwahrheiten"): pushHistory bekommt mehr Context —
+                    //   customerName, pickupTime, pickup, driverLabel.
+                    const _entry = {
                         ts: _ts,
                         vehicleId,
                         type: _t,
                         severity: _severity,
                         success: true
-                    });
+                    };
+                    try {
+                        const _rideSnap = await db.ref(`rides/${payload.rideId}`).once('value');
+                        const _rd = _rideSnap.val() || {};
+                        if (_rd.customerName) _entry.customerName = _rd.customerName;
+                        if (_rd.pickupTime) _entry.pickupTime = _rd.pickupTime;
+                        if (_rd.pickup) _entry.pickup = String(_rd.pickup).slice(0, 80);
+                        if (_rd.guestName) _entry.guestName = _rd.guestName;
+                    } catch (_ctxErr) { /* non-critical */ }
+                    await db.ref(`rides/${payload.rideId}/pushHistory`).push(_entry);
                 } catch(_) { /* non-critical */ }
             }
         } catch (_auditErr) { /* non-critical */ }

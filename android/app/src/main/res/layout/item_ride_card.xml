@@ -223,30 +223,48 @@
                 android:layout_height="wrap_content"
                 android:orientation="horizontal">
 
-                <!-- v6.66.281 (Patrick 10.10. 13:48 Bridge "SMS brauche ich nicht,
-                     dann rufe ich an"): btn_sms_track entfernt. btn_navigate + btn_call
-                     bekommen gleichmäßig je 50% Breite. Höhen 36 -> 32dp. -->
+                <!-- v6.66.282 (Patrick 10.10. 13:50 Bridge "Geometrien anpassen, sieht
+                     scheisse aus"): Nav + Anruf-Button neu designed —
+                     - Höhe 32→40dp (ergonomischer, besser treffbar)
+                     - Icon + Text: "🧭 Nav" / "📞 Anruf" (vorher nur Icon)
+                     - Text 14→13sp, allCaps aus, Beschriftung bold
+                     - cornerRadius 8→12dp (sanfter rund)
+                     - padding innen 6dp — Icon rückt vom Rand weg -->
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btn_navigate"
                     android:layout_width="0dp"
-                    android:layout_height="32dp"
+                    android:layout_height="40dp"
                     android:layout_marginEnd="3dp"
                     android:layout_weight="1"
-                    android:text="🧭"
-                    android:textSize="14sp"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:paddingStart="6dp"
+                    android:paddingEnd="6dp"
+                    android:text="🧭 Nav"
+                    android:textAllCaps="false"
+                    android:textColor="#FFFFFF"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
                     app:backgroundTint="#3B82F6"
-                    app:cornerRadius="8dp" />
+                    app:cornerRadius="12dp" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btn_call"
                     android:layout_width="0dp"
-                    android:layout_height="32dp"
+                    android:layout_height="40dp"
                     android:layout_marginStart="3dp"
                     android:layout_weight="1"
-                    android:text="📞"
-                    android:textSize="14sp"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:paddingStart="6dp"
+                    android:paddingEnd="6dp"
+                    android:text="📞 Anruf"
+                    android:textAllCaps="false"
+                    android:textColor="#FFFFFF"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
                     app:backgroundTint="#10B981"
-                    app:cornerRadius="8dp" />
+                    app:cornerRadius="12dp" />
 
                 <!-- v6.66.281: btn_sms_track behalten als gone (Code-Referenzen in
                      DriverDashboardActivity würden sonst NPE werfen). Visibility reicht. -->
@@ -266,10 +284,13 @@
                 android:layout_marginTop="4dp"
                 android:orientation="horizontal">
 
+                <!-- v6.66.282: Hauptaktion + Cancel optisch konsistent zu Nav/Call —
+                     Höhe 44dp (gleich wie Material Mindest-Tap-Target), cornerRadius 12dp
+                     (gleich wie Nav/Call). Hauptaktion-Text 12sp bold. -->
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btn_status_next"
                     android:layout_width="0dp"
-                    android:layout_height="38dp"
+                    android:layout_height="44dp"
                     android:layout_marginEnd="4dp"
                     android:layout_weight="4"
                     android:insetLeft="0dp"
@@ -281,15 +302,15 @@
                     android:text="▶ Bin unterwegs"
                     android:textAllCaps="false"
                     android:textColor="#FFFFFF"
-                    android:textSize="11sp"
+                    android:textSize="12sp"
                     android:textStyle="bold"
                     app:backgroundTint="#10B981"
-                    app:cornerRadius="9dp" />
+                    app:cornerRadius="12dp" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btn_cancel_ride"
                     android:layout_width="0dp"
-                    android:layout_height="38dp"
+                    android:layout_height="44dp"
                     android:layout_marginStart="4dp"
                     android:layout_weight="1"
                     android:insetLeft="0dp"
@@ -301,9 +322,9 @@
                     android:text="✗"
                     android:textAllCaps="false"
                     android:textColor="#F8FAFC"
-                    android:textSize="16sp"
+                    android:textSize="18sp"
                     app:backgroundTint="#EF4444"
-                    app:cornerRadius="9dp" />
+                    app:cornerRadius="12dp" />
             </LinearLayout>
         </LinearLayout>
     </LinearLayout>

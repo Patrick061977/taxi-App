@@ -46387,22 +46387,42 @@ exports.scheduledDriverAlarmHealthCheck = onSchedule(
                 return;
             }
 
-            // Dedupe: pro vid+missing nur alle 6h erneut alarmieren
-            const SIX_HOURS = 6 * 3600 * 1000;
+            // v6.66.270 (Patrick 10.10. 10:05 Bridge Laue-Vorfall): Dedupe von 6h auf 1h —
+            //   Patrick hat Alert um 09:54 übersehen, 10:01 passierte Laue-Vorfall.
+            //   Mit 1h-Dedupe hätte 10:54 nochmal gewarnt bevor nächste Zuweisung.
+            const ONE_HOUR = 1 * 3600 * 1000;
             const toAlert = problems.filter(p => {
                 const key = `${p.vid}__${p.missing.replace(/\W/g, '_')}`;
                 const lastAlert = alertState[key] || 0;
-                return (now - lastAlert) > SIX_HOURS;
+                return (now - lastAlert) > ONE_HOUR;
             });
 
             if (toAlert.length) {
-                let msg = `🔔 <b>Fahrer-Alarm-Health-Check</b>\n\n`;
-                msg += `${toAlert.length} aktive Fahrer OHNE Push-Kanal:\n\n`;
+                // v6.66.270: 🚨🚨🚨 statt 🔔 damit Alert nicht untergeht
+                let msg = `🚨🚨🚨 <b>FAHRER-ALARM-PROBLEM</b> 🚨🚨🚨\n\n`;
+                msg += `${toAlert.length} aktive Fahrer bekommen KEINE Push-Alarme:\n\n`;
                 for (const p of toAlert) {
-                    msg += `• <b>${p.driverName}</b> (${p.vid})\n  fehlt: ${p.missing}\n`;
-                    msg += `  → bekommt KEINEN Alarm bei neuer Zuweisung\n\n`;
+                    msg += `❌ <b>${p.driverName}</b> auf ${p.vid}\n`;
+                    msg += `   fehlt: ${p.missing}\n`;
+                    msg += `   → bekommt KEINE Fahrten mehr!\n\n`;
                 }
-                msg += `<i>Fix: Fahrer App neu-öffnen (schreibt FCM-Token) oder telegramChatId manuell in /users/${toAlert[0].uid || '{uid}'}/telegramChatId eintragen.</i>`;
+                msg += `<b>SOFORT-FIX:</b>\n`;
+                msg += `Fahrer anrufen → App schließen + öffnen + Fahrzeug neu wählen → FCM-Token wird geschrieben.\n\n`;
+                msg += `<i>Dieser Alert wiederholt sich stündlich bis gelöst.</i>`;
+
+                // v6.66.270: Zusätzlich Bridge-Push an Patrick (nicht nur Telegram)
+                //   damit es im Claude-Bot als deutliche Warnung landet, nicht im
+                //   Hauptbot-Rauschen untergeht.
+                try {
+                    for (const p of toAlert) {
+                        await db.ref('claudeBridge/outbox').push({
+                            via: 'claude',
+                            targetChatId: 6229490043,
+                            message: `🚨 ALARM-DEFEKT: Fahrer ${p.driverName} auf ${p.vid} bekommt KEIN FCM-Push! Fahrten werden nicht ankommen. Fix: App neu + Fahrzeug neu wählen.`,
+                            ts: Date.now()
+                        });
+                    }
+                } catch (_bErr) { console.warn('Bridge-Push Alarm Fehler:', _bErr.message); }
 
                 if (typeof sendToAllAdmins === 'function') {
                     await sendToAllAdmins(msg);

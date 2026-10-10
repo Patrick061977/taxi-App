@@ -450,6 +450,14 @@ public class AdminDashboardActivity extends AppCompatActivity {
         long _fensterStart = _nowMs - 15L * 60 * 1000L;
         for (Ride r : list) {
             if (r.isUnclaimedWebBooking()) { webRequests.add(r); continue; }
+            // v6.66.280 (Patrick 10.10. 13:39 Bridge, Ronja-02:00-Vorfall):
+            //   Wartepool-Fahrten MÜSSEN immer im Banner oben erscheinen — unabhängig
+            //   vom 12h-Zeitfenster. Vorher: Ronja Sa→So 02:00 (13h voraus) fiel aus
+            //   dem Fenster → nicht im Wartepool-Banner → kein manueller Dispo-Hinweis.
+            //   Wartepool = Warnzustand, muss sofort sichtbar sein.
+            boolean isWartepool = r.status != null && "wartepool".equalsIgnoreCase(r.status);
+            boolean hasWartepoolAt = r.wartepoolAt != null && r.wartepoolAt > 0;
+            if (isWartepool || hasWartepoolAt) { wartepoolRides.add(r); continue; }
             boolean inWindow;
             if (r.pickupTimestamp == null || r.pickupTimestamp == 0L) {
                 inWindow = true;
@@ -457,8 +465,6 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 inWindow = r.pickupTimestamp >= _fensterStart && r.pickupTimestamp <= _fensterEnde;
             }
             if (!inWindow) { rest.add(r); continue; }
-            boolean isWartepool = r.status != null && "wartepool".equalsIgnoreCase(r.status);
-            boolean hasWartepoolAt = r.wartepoolAt != null && r.wartepoolAt > 0;
             boolean noVehicle = r.assignedVehicle == null || r.assignedVehicle.isEmpty();
             boolean autoAssignFailedNoVehicle = r.autoAssignAttempts != null
                     && r.autoAssignAttempts > 0
@@ -472,7 +478,8 @@ public class AdminDashboardActivity extends AppCompatActivity {
             boolean vorbestOhneFahrer = noVehicle
                     && r.status != null
                     && "vorbestellt".equalsIgnoreCase(r.status);
-            if (isWartepool || hasWartepoolAt || autoAssignFailedNoVehicle || sofortOhneFahrer || vorbestOhneFahrer) {
+            // v6.66.280: isWartepool/hasWartepoolAt wurden oben bereits abgefangen.
+            if (autoAssignFailedNoVehicle || sofortOhneFahrer || vorbestOhneFahrer) {
                 wartepoolRides.add(r);
             } else {
                 rest.add(r);

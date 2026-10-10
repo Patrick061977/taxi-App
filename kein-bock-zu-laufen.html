@@ -1665,6 +1665,7 @@ function showAnfrageSuccess() {
      dezenter Anrufen-Streifen. ?src=qr Param wandert weiter zu buchen.html. -->
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
 <script>
 (function() {
     if (typeof firebase === 'undefined') return;
@@ -1679,6 +1680,11 @@ function showAnfrageSuccess() {
             appId: "1:889033864088:web:3c78db4cfefb1c35e4e31c"
         });
     } catch(_e) { /* may already be inited */ }
+    // v6.66.279 (Patrick 10.10. 13:17 Bridge): Live-ETA-Banner lud auf keinbockzulaufen.de
+    //   nicht ('permission_denied at /rides'). Ursache: kein signInAnonymously-Call vor
+    //   dem /rides-Zugriff — Firebase-Rules verlangen auth. Fix: auth-SDK laden +
+    //   anonym einloggen bevor _refreshBanner läuft. Analog zu landing.html.
+    try { firebase.auth().signInAnonymously().catch(_e => console.warn('[Banner] signIn:', _e.message)); } catch(_) {}
     const _db = firebase.database();
     const _bannerEl = document.getElementById('live-eta-banner');
     if (!_bannerEl) return;

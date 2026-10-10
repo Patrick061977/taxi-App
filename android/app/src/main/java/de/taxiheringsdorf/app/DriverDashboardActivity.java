@@ -5884,6 +5884,97 @@ public class DriverDashboardActivity extends AppCompatActivity {
         refreshHomeCard();
         // 🆕 v6.66.124: Konflikt-Vorschlags-Listener (nur Admin)
         startDispoVorschlagListener();
+        // 🆕 v6.66.263 (Patrick 10.10. 09:10 Bridge): System-Health-Check beim App-Start.
+        performSystemHealthCheck();
+    }
+
+    // 🆕 v6.66.263 (Patrick 10.10. 09:10 Bridge Darek-Alarm-Sorge):
+    //   System-Health-Check. Prueft ob Fahrer alle Push/Alarm-Kanaele empfangskorrekt hat.
+    //   Zeigt gruene Card wenn alles OK, rote Card mit Fehler-Liste wenn Probleme.
+    private void performSystemHealthCheck() {
+        try {
+            final LinearLayout card = findViewById(R.id.system_check_card);
+            final TextView title = findViewById(R.id.tv_system_check_title);
+            final TextView details = findViewById(R.id.tv_system_check_details);
+            if (card == null || title == null) return;
+
+            java.util.List<String> problems = new java.util.ArrayList<>();
+
+            // Check 1: FCM-Token vorhanden in SharedPreferences
+            android.content.SharedPreferences fcmPrefs = getSharedPreferences("fcm", MODE_PRIVATE);
+            String fcmTok = fcmPrefs.getString("current_token", null);
+            if (fcmTok == null || fcmTok.isEmpty()) {
+                problems.add("❌ FCM-Token fehlt (App neu starten)");
+            }
+
+            // Check 2: Push-Berechtigung
+            try {
+                boolean notifsEnabled = androidx.core.app.NotificationManagerCompat.from(this).areNotificationsEnabled();
+                if (!notifsEnabled) {
+                    problems.add("❌ Push-Berechtigung aus (Einstellungen → App → Benachrichtigungen)");
+                }
+            } catch (Throwable _ignore) {}
+
+            // Check 3: Battery-Optimization aus (sonst wird FCM in Doze-Mode gedrosselt)
+            try {
+                android.os.PowerManager pm = (android.os.PowerManager) getSystemService(POWER_SERVICE);
+                if (pm != null && !pm.isIgnoringBatteryOptimizations(getPackageName())) {
+                    problems.add("⚠️ Akku-Optimierung AN (Einstellungen → Akku → App ausnehmen)");
+                }
+            } catch (Throwable _ignore) {}
+
+            // Check 4: Notification-Channel 'ride_alarm' mit HIGH importance
+            try {
+                android.app.NotificationManager nm = (android.app.NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+                if (nm != null && android.os.Build.VERSION.SDK_INT >= 26) {
+                    android.app.NotificationChannel ch = nm.getNotificationChannel("ride_alarm");
+                    if (ch == null) {
+                        problems.add("⚠️ Alarm-Channel fehlt (nach App-Neustart erstellt)");
+                    } else if (ch.getImportance() < android.app.NotificationManager.IMPORTANCE_HIGH) {
+                        problems.add("⚠️ Alarm-Lautstaerke zu leise (Einstellungen → App → Benachrichtigungen → 'Fahrt-Alarm' auf 'Dringend')");
+                    }
+                }
+            } catch (Throwable _ignore) {}
+
+            // Check 5: Firebase connected
+            try {
+                com.google.firebase.database.FirebaseDatabase.getInstance().getReference(".info/connected")
+                    .addListenerForSingleValueEvent(new com.google.firebase.database.ValueEventListener() {
+                        @Override public void onDataChange(com.google.firebase.database.DataSnapshot s) {
+                            Boolean conn = s.getValue(Boolean.class);
+                            if (conn == null || !conn) {
+                                problems.add("🌐 Firebase offline (Internet checken)");
+                            }
+                            renderSystemCheck(card, title, details, problems);
+                        }
+                        @Override public void onCancelled(com.google.firebase.database.DatabaseError e) {
+                            renderSystemCheck(card, title, details, problems);
+                        }
+                    });
+            } catch (Throwable _ignore) {
+                renderSystemCheck(card, title, details, problems);
+            }
+        } catch (Throwable _t) {
+            Log.w(TAG, "performSystemHealthCheck error: " + _t.getMessage());
+        }
+    }
+
+    private void renderSystemCheck(LinearLayout card, TextView title, TextView details, java.util.List<String> problems) {
+        runOnUiThread(() -> {
+            if (problems.isEmpty()) {
+                card.setBackgroundColor(0xFF065F46);  // grün
+                title.setText("🟢 ALARM-SYSTEM OK — Du kriegst alle Fahrten + Vollalarm");
+                title.setTextColor(0xFFD1FAE5);
+                details.setVisibility(View.GONE);
+            } else {
+                card.setBackgroundColor(0xFFDC2626);  // rot
+                title.setText("🚨 ALARM-PROBLEM — " + problems.size() + " Fehler, Fahrten koennten ausbleiben!");
+                title.setTextColor(0xFFFFFFFF);
+                details.setVisibility(View.VISIBLE);
+                details.setText(String.join("\n", problems));
+                details.setTextColor(0xFFFECACA);
+            }
+        });
     }
 
     // 🆕 v6.66.124 (Patrick 20.09. 19:10 Bridge Konflikt-Vorschlag):

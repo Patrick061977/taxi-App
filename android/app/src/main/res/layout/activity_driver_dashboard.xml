@@ -214,6 +214,42 @@
             android:layout_marginTop="4dp"
             android:layout_marginBottom="4dp"/>
 
+        <!-- 🆕 v6.66.263 (Patrick 10.10. 09:10 Bridge: "ob Darek mit seinem Handy sieht,
+             ob er Fahrten bekommt oder nicht oder ob er einen Vollalarm kriegt oder nicht.
+             Ich möchte das wissen beim Einschalten des Handys, ob alles gecheckt ist"):
+             System-Health-Check-Card. Prüft bei onResume alle Push/Alarm-Kanäle. -->
+        <LinearLayout
+            android:id="@+id/system_check_card"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="#065F46"
+            android:padding="10dp"
+            android:layout_marginStart="10dp"
+            android:layout_marginEnd="10dp"
+            android:layout_marginTop="4dp"
+            android:layout_marginBottom="4dp">
+
+            <TextView
+                android:id="@+id/tv_system_check_title"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="🟢 ALARM-SYSTEM OK — Du kriegst alle Fahrten + Vollalarm"
+                android:textColor="#D1FAE5"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:gravity="center" />
+
+            <TextView
+                android:id="@+id/tv_system_check_details"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:textColor="#A7F3D0"
+                android:textSize="10sp"
+                android:visibility="gone" />
+        </LinearLayout>
+
         <!-- 🆕 v6.66.61 (Patrick 09.09. SVG-Mockup msgId 47280 "Ja"):
              Home-Karte im Header — Fahrer sieht permanent wo sein Standort heute ist.
              Kaskade: Tages-Ausnahme -> Wochen-Standard(dow) -> Global-Fallback. -->
